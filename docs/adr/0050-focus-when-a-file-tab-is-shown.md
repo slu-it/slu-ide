@@ -29,7 +29,11 @@ that knew to listen to their scene did it at all.
     replaced by a new view after a rename to another type) takes the focus only if the editor area had it (or nobody
     did). Otherwise the next key would edit a file the user did not choose, e.g. a second Delete in the file tree.
   - A tab whose diff is shown focuses the diff. Other tabs (terminals, commit and working-tree diffs) keep their own
-    behaviour. `focusSelected()` gives the focus back to the selected tab, e.g. when the git log is collapsed.
+    behaviour, except those that opt in with `EditorTab.focusOnShow` (the games, Minesweeper and Word Guess): the
+    editor area focuses their content when they are opened or chosen, and when one is selected in place of another
+    tab under the same rule as for file tabs; the content hands the focus on to the board or grid once that is in a
+    scene (`FocusWhenShown`). `focusSelected()` gives the focus back to the selected tab, e.g. when the git log is
+    collapsed.
 - **`focus()` beside `focusText()`:** `FileView.focus()` follows the rule above and waits until the target is in a
   scene: a view is asked before it is shown, and a split pane adds its items to the scene only when it is skinned
   (`FocusWhenShown`: at once if the target has a scene, otherwise on the next pulse after it got one; a newer request

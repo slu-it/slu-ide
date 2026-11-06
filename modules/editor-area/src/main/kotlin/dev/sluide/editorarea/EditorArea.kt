@@ -150,6 +150,9 @@ class EditorArea(
             // A file tab shown in place of another (closed, replaced) takes the focus only if the area had it, e.g. not
             // after its file was deleted from the file tree (ADR 0050). Opening and choosing a tab always focus it.
             if (selected is OpenFile && focusHere) focus(selected)
+            if (selected != null && selected !is OpenFile && selected.focusOnShow && focusHere) {
+                selected.content.requestFocus()
+            }
         }
     }
 
@@ -367,10 +370,18 @@ class EditorArea(
         }
     }
 
-    /** Selects [tab], which the user chose (e.g. clicked its header), and focuses it if it shows a file. */
+    /**
+     * Selects [tab], which the user chose (e.g. clicked its header), and focuses it if it shows a file or asks for the
+     * focus ([EditorTab.focusOnShow]).
+     */
     private fun selectChosen(tab: EditorTab) {
         editorTabs.select(tab)
-        if (tab is OpenFile) focus(tab)
+        if (tab is OpenFile) focus(tab) else focusIfOnShow(tab)
+    }
+
+    /** Focuses the content of a tab that is no file and asks for it ([EditorTab.focusOnShow]). */
+    private fun focusIfOnShow(tab: EditorTab) {
+        if (tab.focusOnShow) tab.content.requestFocus()
     }
 
     private fun focus(openFile: OpenFile) {
@@ -378,11 +389,21 @@ class EditorArea(
         if (diffView != null) diffView.node.requestFocus() else openFile.editor.focus()
     }
 
-    /** Adds [tab] after the open tabs and selects it. Its [EditorTab.dispose] is called when it is closed. */
-    fun open(tab: EditorTab) = editorTabs.open(tab)
+    /**
+     * Adds [tab] after the open tabs and selects it. Its [EditorTab.dispose] is called when it is closed. A tab with
+     * [EditorTab.focusOnShow] gets the focus.
+     */
+    fun open(tab: EditorTab) {
+        editorTabs.open(tab)
+        // The selection may have focused it already (when the area had the focus); asking again changes nothing.
+        focusIfOnShow(tab)
+    }
 
-    /** Selects [tab], one of the open [tabs]. */
-    fun select(tab: EditorTab) = editorTabs.select(tab)
+    /** Selects [tab], one of the open [tabs]; a tab with [EditorTab.focusOnShow] gets the focus. */
+    fun select(tab: EditorTab) {
+        editorTabs.select(tab)
+        focusIfOnShow(tab)
+    }
 
     private fun watch(openFile: OpenFile) {
         val path = openFile.path

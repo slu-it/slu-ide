@@ -207,18 +207,30 @@ class WordGuessViewUiTest {
     }
 
     @Test
-    fun `a view added to a showing scene takes the focus, and a click on a tile focuses the grid`(robot: FxRobot) {
+    fun `focusing the content of a new view focuses its grid once the scroll pane has put it in the scene`(
+        robot: FxRobot,
+    ) {
         val other = TextField()
+        val root = VBox(other)
         robot.interact {
-            stage.scene.root = VBox(other)
+            stage.scene.root = root
             other.requestFocus()
         }
-        assertSame(other, fx { stage.scene.focusOwner })
+        val fresh = WordGuessView(model)
 
-        robot.interact { stage.scene.root = view.node as Parent }
-        assertSame(view.grid, fx { stage.scene.focusOwner })
+        // Added and focused in one turn, before the layout pulse: the grid is not in the scene yet.
+        robot.interact {
+            root.children += fresh.node
+            assertNull(fresh.grid.scene)
+            fresh.node.requestFocus()
+        }
 
-        robot.interact { other.requestFocus() }
+        assertSame(fresh.grid, fx { stage.scene.focusOwner })
+    }
+
+    @Test
+    fun `a mouse press on a tile focuses the grid`(robot: FxRobot) {
+        robot.interact { view.languageMenu.requestFocus() }
         val tile = fx { tiles(0)[0] }
         robot.interact {
             Event.fireEvent(

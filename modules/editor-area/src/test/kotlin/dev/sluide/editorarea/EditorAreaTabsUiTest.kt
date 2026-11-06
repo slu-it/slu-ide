@@ -407,6 +407,60 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         override val content = TextField()
     }
 
+    /** Like a game: its content is a text field and the area focuses it when the tab is opened or chosen. */
+    private class GameTab : EditorTab {
+        override val title = SimpleStringProperty("Game")
+        override val tooltip = "Game"
+        override val content = TextField()
+        override val focusOnShow = true
+    }
+
+    @Test
+    fun `opening or choosing a tab with focusOnShow focuses its content, one without the flag leaves the focus`(
+        robot: FxRobot,
+    ) {
+        val field = fieldAbove(robot)
+        robot.interact { field.requestFocus() }
+        val plain = FieldTab()
+        robot.interact { editor.open(plain) }
+        assertSame(field, focusOwner(), "no flag: the focus stays")
+
+        val game = GameTab()
+        robot.interact { editor.open(game) }
+        assertSame(game.content, focusOwner(), "opened")
+
+        robot.interact { field.requestFocus() }
+        robot.interact { click(tabLabel(robot, "Fields")) }
+        assertSame(field, focusOwner(), "choosing a tab without the flag")
+        robot.interact { click(tabLabel(robot, "Game")) }
+        assertSame(game.content, focusOwner(), "chosen by its header")
+
+        robot.interact { editor.select(plain) }
+        robot.interact { field.requestFocus() }
+        robot.interact { editor.select(game) }
+        assertSame(game.content, focusOwner(), "selected again, e.g. from a menu")
+    }
+
+    @Test
+    fun `a tab with focusOnShow selected in place of a closed one takes the focus only if the area had it`(
+        robot: FxRobot,
+    ) {
+        val field = fieldAbove(robot)
+        val game = GameTab()
+        val b = textFile("b.txt")
+        robot.interact { editor.open(game) }
+        open(robot, b)
+        robot.interact { field.requestFocus() }
+
+        robot.interact { editor.closeUnder(b, emptyList()) }
+        assertSame(field, focusOwner(), "focus outside: stays")
+
+        open(robot, b)
+        eventually(robot) { assertSame(shownArea(robot), focusOwner()) }
+        robot.interact { editor.closeUnder(b, emptyList()) }
+        assertSame(game.content, focusOwner(), "focus inside the area: follows")
+    }
+
     /** A tab that is no file but shows an activity, like a Read Aloud reading. */
     private class BusyTab : EditorTab {
         override val title = SimpleStringProperty("Busy tool")

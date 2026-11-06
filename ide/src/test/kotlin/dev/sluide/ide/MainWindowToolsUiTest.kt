@@ -279,12 +279,15 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     ) {
         assertEquals(listOf("Minesweeper", "Word Guess"), menu(robot, "Games").items.map { it.text })
         val (item, wordGuessItem) = menu(robot, "Games").items
+        robot.interact { robot.lookup(".tree-view").query<Node>().requestFocus() }
 
         robot.interact { item.fire() }
         robot.interact { item.fire() }
 
         assertEquals(listOf("Minesweeper"), tabTitles(robot))
         assertEquals("Play Minesweeper while you wait", checkNotNull(editorArea.selectedTab).tooltip)
+        // The game's board sits in a scroll pane that adds it to the scene a pulse later; the keys belong to it then.
+        eventually(robot) { assertTrue(focusIsInSelectedTab()) }
 
         robot.interact { editorArea.closeAll() }
         assertEquals(emptyList(), tabTitles(robot))
@@ -298,11 +301,17 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         assertEquals(listOf("Minesweeper", "Word Guess"), tabTitles(robot))
         assertEquals("Word Guess", checkNotNull(editorArea.selectedTab).title.value)
+        eventually(robot) { assertTrue(focusIsInSelectedTab()) }
 
         robot.interact { editorArea.closeAll() }
         robot.interact { wordGuesses.single().showTab() }
 
         assertEquals(listOf("Word Guess"), tabTitles(robot))
+    }
+
+    private fun focusIsInSelectedTab(): Boolean {
+        val content = checkNotNull(editorArea.selectedTab).content
+        return generateSequence(editorArea.scene?.focusOwner) { it.parent }.any { it === content }
     }
 
     @Test

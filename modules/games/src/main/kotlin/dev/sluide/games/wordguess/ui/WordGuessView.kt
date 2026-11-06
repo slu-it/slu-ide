@@ -1,5 +1,6 @@
 package dev.sluide.games.wordguess.ui
 
+import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.games.wordguess.KeyAction
 import dev.sluide.games.wordguess.Language
 import dev.sluide.games.wordguess.MIN_TILE
@@ -9,7 +10,6 @@ import dev.sluide.games.wordguess.WordGuessModel
 import dev.sluide.games.wordguess.keyAction
 import dev.sluide.games.wordguess.tileSize
 import dev.sluide.games.wordguess.typedLetter
-import javafx.application.Platform
 import javafx.geometry.Bounds
 import javafx.geometry.Insets
 import javafx.geometry.Pos
@@ -80,6 +80,9 @@ internal class WordGuessView(
             bottom = HBox(status).apply { styleClass += "wg-status-bar" }
         }
 
+    /** The grid has no scene yet when the content is focused before its first layout (it is in a scroll pane). */
+    private val focusGrid = FocusWhenShown()
+
     private val installed: () -> Unit = ::refresh
 
     init {
@@ -87,9 +90,7 @@ internal class WordGuessView(
         grid.setOnKeyTyped(::keyTyped)
         model.onChange = installed
         // The editor area focuses the tab's content; the keys belong to the grid.
-        node.focusedProperty().addListener { _, _, focused -> if (focused) grid.requestFocus() }
-        // The editor area puts only the selected tab's content in the scene, so a scene means the tab was shown.
-        node.sceneProperty().addListener { _, _, scene -> if (scene != null) focusGridWhenShowing() }
+        node.focusedProperty().addListener { _, _, focused -> if (focused) focusGrid.request(grid) }
         // Consumed, or the scroll pane around the grid takes the focus afterwards.
         grid.setOnMousePressed {
             grid.requestFocus()
@@ -118,10 +119,6 @@ internal class WordGuessView(
             alignment = Pos.CENTER_LEFT
         }
     }
-
-    /** Later, so that it wins over a closing menu; not while the window is not showing. */
-    private fun focusGridWhenShowing() =
-        Platform.runLater { if (node.scene?.window?.isShowing == true) grid.requestFocus() }
 
     private fun type(letter: Char) {
         model.type(letter)
@@ -182,6 +179,7 @@ internal class WordGuessView(
 
     /** The model stops notifying this view (unless a newer view has taken it over). */
     fun dispose() {
+        focusGrid.cancel()
         if (model.onChange === installed) model.onChange = {}
     }
 

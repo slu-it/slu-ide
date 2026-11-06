@@ -14,6 +14,7 @@ internal class WordGuessTab(
             override fun getValue() = "Word Guess"
         }
     override val tooltip: String = "Guess the five-letter word while you wait"
+    override val focusOnShow: Boolean = true
     override val content: Node get() = view.node
 
     override fun dispose() = view.dispose()

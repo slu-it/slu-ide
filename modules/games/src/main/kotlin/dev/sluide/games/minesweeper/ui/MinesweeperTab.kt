@@ -14,6 +14,7 @@ internal class MinesweeperTab(
             override fun getValue() = "Minesweeper"
         }
     override val tooltip: String = "Play Minesweeper while you wait"
+    override val focusOnShow: Boolean = true
     override val content: Node get() = view.node
 
     override fun dispose() = view.dispose()

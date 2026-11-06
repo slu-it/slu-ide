@@ -48,6 +48,13 @@ interface EditorTab {
      */
     val closableByShortcut: ObservableValue<Boolean> get() = CLOSABLE
 
+    /**
+     * Whether the editor area focuses [content] when the user opens or chooses this tab, as it does for file tabs
+     * (ADR 0050); [content] then hands the focus on to the node that takes the keys. Off by default: the other tabs
+     * keep their own behaviour.
+     */
+    val focusOnShow: Boolean get() = false
+
     /** What the tab is doing, shown as a marker on its header (a reading running, ...); none by default. */
     val activity: ObservableValue<ViewActivity> get() = NO_ACTIVITY
 

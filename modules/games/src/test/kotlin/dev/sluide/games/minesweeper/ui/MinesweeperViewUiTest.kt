@@ -30,6 +30,7 @@ import java.util.concurrent.Executor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -152,19 +153,25 @@ class MinesweeperViewUiTest {
     }
 
     @Test
-    fun `a view added to a showing scene takes the focus`(robot: FxRobot) {
+    fun `focusing the content of a new view focuses its board once the scroll pane has put it in the scene`(
+        robot: FxRobot,
+    ) {
         val other = TextField()
         val root = VBox(other)
         robot.interact {
             stage.scene.root = root
             other.requestFocus()
         }
-        assertSame(other, fx { stage.scene.focusOwner })
+        val fresh = MinesweeperView(model)
 
-        // The scene already has a focus owner, so only the view itself can take the focus.
-        robot.interact { root.children += view.node }
+        // Added and focused in one turn, before the layout pulse: the board is not in the scene yet.
+        robot.interact {
+            root.children += fresh.node
+            assertNull(fresh.board.scene)
+            fresh.node.requestFocus()
+        }
 
-        assertSame(view.board, fx { stage.scene.focusOwner })
+        assertSame(fresh.board, fx { stage.scene.focusOwner })
     }
 
     @Test

@@ -53,6 +53,9 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   test.
 - State lives in the window and outlives the tab; anything stored is opt-in per tool and never holds pasted secrets
   (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, Translate the last source, target and quality; neither the text; Word Guess the last language).
+- A game tab sets `EditorTab.focusOnShow`: the editor area focuses its content when it is opened or chosen (ADR 0050),
+  and the view passes the focus on to its board or grid with `FocusWhenShown`, as that is in a scene only after the
+  first layout.
 - A tab's content leaves the scene whenever another tab is selected (`EditorArea` shows only the selected content):
   a view that unsubscribes when its scene becomes `null` subscribes again and catches up when it is back
   (`ConnectionCardList`), or never unsubscribes on scene loss at all.

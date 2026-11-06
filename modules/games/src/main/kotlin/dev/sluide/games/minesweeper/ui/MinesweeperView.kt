@@ -1,5 +1,6 @@
 package dev.sluide.games.minesweeper.ui
 
+import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.games.minesweeper.BoardSize
 import dev.sluide.games.minesweeper.MinesweeperModel
 import dev.sluide.games.minesweeper.Preset
@@ -7,7 +8,6 @@ import dev.sluide.games.minesweeper.SizeChoice
 import dev.sluide.games.minesweeper.keyAction
 import javafx.animation.KeyFrame
 import javafx.animation.Timeline
-import javafx.application.Platform
 import javafx.beans.InvalidationListener
 import javafx.geometry.Pos
 import javafx.scene.Node
@@ -94,6 +94,9 @@ internal class MinesweeperView(
             bottom = HBox(status).apply { styleClass += "ms-status-bar" }
         }
 
+    /** The board has no scene yet when the content is focused before its first layout (it is in a scroll pane). */
+    private val focusBoard = FocusWhenShown()
+
     private val installed: () -> Unit = ::refresh
     private val hiddenListener = InvalidationListener { updateHidden() }
     private var observedScene: Scene? = null
@@ -105,19 +108,11 @@ internal class MinesweeperView(
         board.setOnKeyPressed(::keyPressed)
         model.onChange = installed
         // The editor area focuses the tab's content; the keys belong to the board.
-        node.focusedProperty().addListener { _, _, focused -> if (focused) board.requestFocus() }
-        node.sceneProperty().addListener { _, _, scene ->
-            observe(scene)
-            // The editor area puts only the selected tab's content in the scene, so a scene means the tab was shown.
-            if (scene != null) focusBoardWhenShowing()
-        }
+        node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
+        node.sceneProperty().addListener { _, _, scene -> observe(scene) }
         observe(node.scene)
         refresh()
     }
-
-    /** Later, so that it wins over a closing menu; not while the window is not showing. */
-    private fun focusBoardWhenShowing() =
-        Platform.runLater { if (node.scene?.window?.isShowing == true) board.requestFocus() }
 
     private fun toolbar(): Node {
         sizeMenu.apply {
@@ -238,6 +233,7 @@ internal class MinesweeperView(
     /** The model stops notifying this view (unless a newer view has taken it over) and the game pauses. */
     fun dispose() {
         disposed = true
+        focusBoard.cancel()
         ticker.stop()
         observedScene?.windowProperty()?.removeListener(hiddenListener)
         observedScene = null
