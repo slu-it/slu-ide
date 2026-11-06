@@ -182,6 +182,8 @@ DISPLAY=:99 xdotool key ctrl+o                      # drive the UI
   Files in the explorer open with a double-click (`xdotool mousemove X Y click --repeat 2 1`).
 - Without a window manager, dialogs get no keyboard focus and popups close at once; the script starts openbox. If a
   dialog still has no focus: `xdotool windowfocus <id>` (id from `xdotool search --name '<title>'`).
+- `xdotool key F2` (and other function keys) arrives with Alt held on this display's keymap (`xev` shows `Alt_L`,
+  state `0x8`), so a view that ignores keys with Alt never sees it. Check such keys with a UI test instead.
 - `setup-display.sh` only reports a display as running if it answers (`xdpyinfo`, with a timeout). One that does not
   (Xvfb gone with its `/tmp/.X99-lock` and `/tmp/.X11-unix/X99` left over, or hung) is stopped, cleaned up and started
   again, so rerunning the script is the fix whenever UI tests fail with "Unable to open DISPLAY".
