@@ -1,0 +1,106 @@
+/*
+ * The Doubles tab. Pane, toolbar, board and empty cells use Modena's looked-up colours and follow the theme. The tile
+ * colours are our own ramp from cool to warm (slate and teal, blues and violets, magenta through rose and orange-gold
+ * to gold, then dark tiles with gold text); the media block below has the dark variant of the same hues.
+ */
+.doubles {
+    -fx-background-color: -fx-background;
+}
+
+/* Like .wg-toolbar of Word Guess; keep in sync. */
+.dbl-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.dbl-toolbar .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.dbl-status-bar {
+    -fx-padding: 2 8 2 8;
+}
+
+.dbl-status {
+    -fx-opacity: 0.7;
+    -fx-min-height: 1.4em;
+}
+
+.dbl-scroll, .dbl-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.dbl-score-box {
+    -fx-alignment: center;
+    -fx-background-color: derive(-fx-background, -8%);
+    -fx-background-radius: 6;
+}
+
+.dbl-score-caption {
+    -fx-opacity: 0.7;
+    -fx-font-weight: bold;
+}
+
+.dbl-score-value {
+    -fx-font-weight: bold;
+}
+
+.dbl-board {
+    -fx-background-color: derive(-fx-background, -16%);
+}
+
+.dbl-cell {
+    -fx-background-color: derive(-fx-background, -8%);
+}
+
+.dbl-label {
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+
+.dbl-v2 { -fx-background-color: #cfd8dc; }
+.dbl-v4 { -fx-background-color: #b0c4cc; }
+.dbl-v8 { -fx-background-color: #6fa8a8; }
+.dbl-v16 { -fx-background-color: #3f8f8f; }
+.dbl-v32 { -fx-background-color: #4a90c8; }
+.dbl-v64 { -fx-background-color: #3b6fb6; }
+.dbl-v128 { -fx-background-color: #5b5fc7; }
+.dbl-v256 { -fx-background-color: #7e4fc0; }
+.dbl-v512 { -fx-background-color: #b23fa8; }
+.dbl-v1024 { -fx-background-color: #d6457f; }
+.dbl-v2048 { -fx-background-color: #e8a317; }
+.dbl-v4096 { -fx-background-color: #2a2a6e; }
+.dbl-v8192 { -fx-background-color: #1a1a3a; }
+.dbl-vbig { -fx-background-color: black; }
+
+/*
+ * Text classes of the label (single-class selectors, so that the dark rules override them). .dbl-label and
+ * .dbl-text-gold apply to both themes; .dbl-text-dark is dark text in light and light text in dark. It is on the
+ * tiles that are too light for white text in the light theme.
+ */
+.dbl-text-dark { -fx-text-fill: #263238; }
+.dbl-text-gold { -fx-text-fill: #ffc107; }
+
+@media (prefers-color-scheme: dark) {
+    .dbl-score-box { -fx-background-color: derive(-fx-background, 10%); }
+    .dbl-board { -fx-background-color: derive(-fx-background, 14%); }
+    .dbl-cell { -fx-background-color: derive(-fx-background, 6%); }
+
+    .dbl-v2 { -fx-background-color: #455a64; }
+    .dbl-v4 { -fx-background-color: #3f6470; }
+    .dbl-v8 { -fx-background-color: #3c7777; }
+    .dbl-v16 { -fx-background-color: #2f6a6a; }
+    .dbl-v32 { -fx-background-color: #356d9b; }
+    .dbl-v64 { -fx-background-color: #2c5488; }
+    .dbl-v128 { -fx-background-color: #4649a0; }
+    .dbl-v256 { -fx-background-color: #62419c; }
+    .dbl-v512 { -fx-background-color: #8c3384; }
+    .dbl-v1024 { -fx-background-color: #ad3866; }
+    .dbl-v2048 { -fx-background-color: #9a6d0f; }
+    .dbl-v4096 { -fx-background-color: #14143f; }
+    .dbl-v8192 { -fx-background-color: #0a0a1f; }
+    .dbl-vbig { -fx-background-color: black; }
+
+    .dbl-text-dark { -fx-text-fill: #eceff1; }
+}
