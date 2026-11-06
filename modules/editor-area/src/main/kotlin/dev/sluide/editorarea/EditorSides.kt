@@ -1,9 +1,12 @@
 package dev.sluide.editorarea
 
+import javafx.geometry.Insets
+import javafx.geometry.Pos
 import javafx.scene.control.SplitPane
 import javafx.scene.control.skin.SplitPaneSkin
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
+import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.scene.shape.Rectangle
 
@@ -65,11 +68,14 @@ internal class SidePane(
  * [focusTab] focuses the left side's selected tab when the right side disappears with the focus.
  */
 internal class EditorSides(
-    editorTabs: EditorTabs,
+    private val editorTabs: EditorTabs,
     private val left: SidePane,
     private val right: SidePane,
+    /** Moves a tab to a side at an index and focuses it, for a drop. */
+    private val moveTo: (EditorTab, Side, Int) -> Unit,
     focusTab: (EditorTab) -> Unit,
-) : StackPane() {
+) : StackPane(),
+    TabDropTargets {
     private val splitPane =
         SplitPane().apply {
             styleClass += SINGLE_SIDE
@@ -77,8 +83,27 @@ internal class EditorSides(
             items.add(left)
         }
 
+    /** Covers the right half of the area while a header is dragged over it and the right side can be opened. */
+    private val zone =
+        Region().apply {
+            styleClass += "tab-drop-zone"
+            isMouseTransparent = true
+            isVisible = false
+            maxWidthProperty().bind(this@EditorSides.widthProperty().divide(2))
+            setAlignment(this, Pos.TOP_RIGHT)
+        }
+
+    /** Where a dragged tab goes: [index] of [side]'s row, or the right side opened by the [zone]. */
+    private class Drop(
+        val side: Side,
+        val index: Int,
+        val zone: Boolean,
+    )
+
     init {
-        children.add(splitPane)
+        left.strip.drops = this
+        right.strip.drops = this
+        children.addAll(splitPane, zone)
         editorTabs.split.subscribe { split ->
             if (split) {
                 splitPane.styleClass -= SINGLE_SIDE
@@ -104,6 +129,68 @@ internal class EditorSides(
             if (owner != null && owner.scene != null && !owner.isInside(right)) return@subscribe
             editorTabs.selectedOf(Side.LEFT).get()?.let(focusTab)
         }
+    }
+
+    private fun target(
+        from: Side,
+        sceneX: Double,
+        sceneY: Double,
+    ): Drop? {
+        val split = editorTabs.split.get()
+        val other = if (from == Side.LEFT) right else left
+        if (split && other.strip.rowContains(sceneX, sceneY)) {
+            return Drop(other.side, other.strip.insertIndexAt(sceneX), zone = false)
+        }
+        if (!split && from == Side.LEFT && editorTabs.tabsOf(Side.LEFT).size >= 2 && inZone(sceneX, sceneY)) {
+            return Drop(Side.RIGHT, 0, zone = true)
+        }
+        return null
+    }
+
+    /** Whether the point is below the left strip, in the right half of the left pane. */
+    private fun inZone(
+        sceneX: Double,
+        sceneY: Double,
+    ): Boolean {
+        val pane = left.localToScene(left.layoutBounds)
+        val stripBottom = left.strip.localToScene(left.strip.layoutBounds).maxY
+        return sceneY > stripBottom && sceneY <= pane.maxY && sceneX >= pane.minX + pane.width / 2 &&
+            sceneX <= pane.maxX
+    }
+
+    override fun hover(
+        tab: EditorTab,
+        from: Side,
+        sceneX: Double,
+        sceneY: Double,
+    ): Boolean {
+        val drop = target(from, sceneX, sceneY)
+        for (pane in listOf(left, right)) {
+            pane.strip.showInsertMarker(drop?.takeIf { !it.zone && it.side == pane.side }?.index)
+        }
+        val showZone = drop?.zone == true
+        if (showZone && !zone.isVisible) setMargin(zone, Insets(left.strip.height, 0.0, 0.0, 0.0))
+        zone.isVisible = showZone
+        return drop != null
+    }
+
+    override fun drop(
+        tab: EditorTab,
+        from: Side,
+        sceneX: Double,
+        sceneY: Double,
+    ): Boolean {
+        val drop = target(from, sceneX, sceneY)
+        clear()
+        if (drop == null) return false
+        moveTo(tab, drop.side, drop.index)
+        return true
+    }
+
+    override fun clear() {
+        zone.isVisible = false
+        left.strip.showInsertMarker(null)
+        right.strip.showInsertMarker(null)
     }
 
     private companion object {

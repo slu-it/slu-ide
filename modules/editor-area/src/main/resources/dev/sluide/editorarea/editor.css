@@ -79,3 +79,22 @@
     -fx-background-color: transparent;
     -fx-background-insets: 0;
 }
+
+/* While a tab header is dragged: the gap in the other side's row where it would be inserted, and the zone that opens
+   the right side. Single-class colour rules, as dark rules must be (ADR 0009). */
+.tab-insert-marker { -fx-background-color: #0b6fc2; }
+
+.tab-drop-zone {
+    -fx-background-color: rgba(11, 111, 194, 0.18);
+    -fx-border-color: #0b6fc2;
+    -fx-border-width: 2;
+}
+
+@media (prefers-color-scheme: dark) {
+    .tab-insert-marker { -fx-background-color: #5aa9f0; }
+
+    .tab-drop-zone {
+        -fx-background-color: rgba(90, 169, 240, 0.22);
+        -fx-border-color: #5aa9f0;
+    }
+}

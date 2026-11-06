@@ -13,6 +13,7 @@ import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.TextField
 import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -329,6 +330,17 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         assertEquals(listOf("a.txt", "b.txt"), tabTitles(robot))
         assertEquals(a, editor.selectedPath)
 
+        // The threshold counts movement in y as well: 4 px up does not start a drag, 6 px does.
+        val label = tabLabel(robot, "a.txt")
+        val centre = label.localToScene(label.layoutBounds.centerX, label.layoutBounds.centerY)
+        dragTo(robot, label, centre.x, centre.y - 4.0, release = false)
+        assertTrue(robot.lookup(".editor-tab.dragging").queryAll<Node>().isEmpty())
+        releaseOn(robot, label, centre.x, centre.y - 4.0)
+        dragTo(robot, label, centre.x, centre.y - 6.0, release = false)
+        assertEquals(1, robot.lookup(".editor-tab.dragging").queryAll<Node>().size)
+        releaseOn(robot, label, centre.x, centre.y - 6.0)
+        assertEquals(listOf("a.txt", "b.txt"), tabTitles(robot))
+
         val close = tabLabel(robot, "a.txt").parent.lookup(".close-button")
         dragBy(robot, close, 300.0, release = false)
         // Released on the title: a release on the button itself would close the tab, as no exit event disarms it.
@@ -398,6 +410,27 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         releaseOn(robot, label, 80.0)
         assertEquals(tabs.drop(1), editor.tabs)
         assertTrue(robot.lookup(".editor-tab.dragging").queryAll<Node>().isEmpty())
+    }
+
+    @Test
+    fun `a tab closed while it is dragged shows no marker over the other side and its release moves nothing`(
+        robot: FxRobot,
+    ) {
+        val tabs = openTabs(robot, 3)
+        robot.interact { editor.editorTabs.moveTo(tabs[2], Side.RIGHT, 0) }
+        val label = tabLabel(robot, "file-number-0.txt")
+        val rightStrip = editor.stripOf(Side.RIGHT)
+        val over = rightStrip.localToScene(rightStrip.layoutBounds.centerX, rightStrip.layoutBounds.centerY)
+
+        dragBy(robot, label, 80.0, release = false)
+        robot.interact { editor.editorTabs.close(tabs.first()) }
+        robot.interact { fireMouse(label, MouseEvent.MOUSE_DRAGGED, sceneX = over.x, sceneY = over.y) }
+
+        assertTrue(robot.lookup(".tab-insert-marker").queryAll<Node>().none { it.isVisible })
+        assertTrue(robot.lookup(".editor-tab.dragging").queryAll<Node>().isEmpty())
+        releaseOn(robot, label, over.x, over.y)
+        assertEquals(listOf(tabs[1]), editor.editorTabs.tabsOf(Side.LEFT).toList())
+        assertEquals(listOf(tabs[2]), editor.editorTabs.tabsOf(Side.RIGHT).toList())
     }
 
     /** A tab whose content is a text field, to see where the focus goes. */

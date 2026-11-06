@@ -163,23 +163,53 @@ abstract class EditorAreaUiFixture {
     ) {
         val bounds = node.layoutBounds
         val start = node.localToScene(bounds.centerX, bounds.centerY)
-        val steps = (abs(dx) / 5).toInt().coerceAtLeast(1)
-        robot.interact {
-            fireMouse(node, MouseEvent.MOUSE_PRESSED, sceneX = start.x, sceneY = start.y)
-            for (step in 1..steps) {
-                fireMouse(node, MouseEvent.MOUSE_DRAGGED, sceneX = start.x + dx * step / steps, sceneY = start.y)
-            }
-        }
-        WaitForAsyncUtils.waitForFxEvents()
-        if (release) releaseOn(robot, node, start.x + dx)
+        dragTo(robot, node, start.x + dx, start.y, release)
     }
 
     internal fun releaseOn(
         robot: FxRobot,
         node: Node,
         sceneX: Double,
+        sceneY: Double = 1.0,
     ) {
-        robot.interact { fireMouse(node, MouseEvent.MOUSE_RELEASED, sceneX = sceneX, buttonDown = false) }
+        robot.interact {
+            fireMouse(
+                node,
+                MouseEvent.MOUSE_RELEASED,
+                sceneX = sceneX,
+                sceneY = sceneY,
+                buttonDown = false,
+            )
+        }
+    }
+
+    /**
+     * Presses the primary button on the middle of [node] and moves the mouse in small steps to the scene point
+     * ([sceneX], [sceneY]), then releases it there unless [release] is `false`; the events are fired at [node].
+     */
+    internal fun dragTo(
+        robot: FxRobot,
+        node: Node,
+        sceneX: Double,
+        sceneY: Double,
+        release: Boolean = true,
+    ) {
+        val bounds = node.layoutBounds
+        val start = node.localToScene(bounds.centerX, bounds.centerY)
+        val steps = (maxOf(abs(sceneX - start.x), abs(sceneY - start.y)) / 5).toInt().coerceAtLeast(1)
+        robot.interact {
+            fireMouse(node, MouseEvent.MOUSE_PRESSED, sceneX = start.x, sceneY = start.y)
+            for (step in 1..steps) {
+                val x = start.x + (sceneX - start.x) * step / steps
+                val y = start.y + (sceneY - start.y) * step / steps
+                fireMouse(node, MouseEvent.MOUSE_DRAGGED, sceneX = x, sceneY = y)
+            }
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        if (release) {
+            releaseOn(robot, node, sceneX, sceneY)
+            WaitForAsyncUtils.waitForFxEvents()
+        }
     }
 
     /** Sends a context menu request through the scene graph, like a right-click, without OS input. */

@@ -1,5 +1,7 @@
 package dev.sluide.editorarea
 
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -78,6 +80,28 @@ class TabOverflowTest {
         assertEquals(0, fiveTabs.dropIndex(3, -500.0))
         assertEquals(4, fiveTabs.dropIndex(1, 5000.0))
         assertEquals(0, TabOverflow(listOf(100.0), 250.0).dropIndex(0, 5000.0))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "0,-10,0",
+        "0,49,0",
+        "0,51,1",
+        "0,149,1",
+        "0,151,2",
+        "0,251,3",
+        "0,900,3",
+        "1,0,1",
+        "1,60,2",
+        "2,10,2",
+        "2,60,3",
+    )
+    fun `a tab dropped at x goes before the first header from first on whose centre is right of x`(
+        first: Int,
+        x: Double,
+        expected: Int,
+    ) {
+        assertEquals(expected, TabOverflow(List(3) { 100.0 }, 150.0).insertIndex(first, x))
     }
 
     @Test

@@ -360,6 +360,109 @@ class EditorAreaSplitUiTest : EditorAreaUiFixture() {
         eventually(robot) { assertTrue(focusIn(editorOf(b))) }
     }
 
+    private fun visibleCount(
+        robot: FxRobot,
+        selector: String,
+    ) = robot.lookup(selector).queryAll<Node>().count { fx { it.isVisible } }
+
+    /** The scene point at the fractions ([px], [py]) of [node]'s layout bounds. */
+    private fun scenePoint(
+        node: Node,
+        px: Double,
+        py: Double,
+    ) = fx { node.layoutBounds.let { node.localToScene(it.minX + it.width * px, it.minY + it.height * py) } }
+
+    /** A point in the right half of the left content, below the strip. */
+    private fun rightHalfPoint() = scenePoint(editor.stripOf(Side.LEFT).parent, 0.75, 0.6)
+
+    @Test
+    fun `dragging a header onto the right half shows the drop zone and releasing opens the split`(robot: FxRobot) {
+        open(robot, textFile("a.txt"), textFile("b.txt"))
+        val (a, b) = listOf("a.txt", "b.txt").map(::tabOf)
+        val target = rightHalfPoint()
+
+        dragTo(robot, tabLabel(robot, "a.txt"), target.x, target.y, release = false)
+
+        assertEquals(1, visibleCount(robot, ".tab-drop-zone"))
+        assertFalse(isSplit())
+
+        releaseOn(robot, tabLabel(robot, "a.txt"), target.x, target.y)
+
+        assertTrue(isSplit())
+        assertEquals(0, visibleCount(robot, ".tab-drop-zone"))
+        assertEquals(listOf(a), editor.editorTabs.tabsOf(Side.RIGHT).toList())
+        assertEquals(listOf(b), editor.editorTabs.tabsOf(Side.LEFT).toList())
+        assertEquals(Side.RIGHT, current())
+        assertSame(a, editor.selectedTab)
+        eventually(robot) { assertTrue(focusIn(editorOf(a))) }
+    }
+
+    @Test
+    fun `dropping a header between two tabs of the other row inserts it there and hides the marker`(robot: FxRobot) {
+        open(robot, textFile("a.txt"), textFile("b.txt"), textFile("c.txt"), textFile("d.txt"))
+        val (a, b, c, d) = listOf("a.txt", "b.txt", "c.txt", "d.txt").map(::tabOf)
+        moveVia(robot, c, "Move to Right Side")
+        moveVia(robot, d, "Move to Right Side")
+        val header = tabLabel(robot, "c.txt").parent
+        val gap = fx { header.localToScene(header.layoutBounds.maxX, header.layoutBounds.centerY) }
+
+        dragTo(robot, tabLabel(robot, "a.txt"), gap.x, gap.y, release = false)
+
+        assertEquals(1, visibleCount(robot, ".tab-insert-marker"))
+
+        releaseOn(robot, tabLabel(robot, "a.txt"), gap.x, gap.y)
+
+        assertEquals(listOf(c, a, d), editor.editorTabs.tabsOf(Side.RIGHT).toList())
+        assertEquals(listOf(b), editor.editorTabs.tabsOf(Side.LEFT).toList())
+        assertEquals(0, visibleCount(robot, ".tab-insert-marker"))
+        assertEquals(Side.RIGHT, current())
+    }
+
+    @Test
+    fun `dragging the last right tab onto the left row removes the split`(robot: FxRobot) {
+        val (a, b, c) = openThreeAndMoveLast(robot)
+        val left = scenePoint(editor.stripOf(Side.LEFT), 0.9, 0.5)
+
+        dragTo(robot, tabLabel(robot, "c.txt"), left.x, left.y)
+
+        assertFalse(isSplit())
+        assertEquals(listOf(a, b, c), editor.editorTabs.tabs.toList())
+        assertEquals(Side.LEFT, current())
+    }
+
+    @Test
+    fun `a single left tab dragged onto the right half shows no zone and nothing moves`(robot: FxRobot) {
+        open(robot, textFile("a.txt"))
+        val target = rightHalfPoint()
+
+        dragTo(robot, tabLabel(robot, "a.txt"), target.x, target.y, release = false)
+
+        assertEquals(0, visibleCount(robot, ".tab-drop-zone"))
+
+        releaseOn(robot, tabLabel(robot, "a.txt"), target.x, target.y)
+
+        assertFalse(isSplit())
+        assertEquals(listOf("a.txt"), tabTitles(robot))
+    }
+
+    @Test
+    fun `a drag that leaves the other row hides its marker`(robot: FxRobot) {
+        val (a, b, c) = openThreeAndMoveLast(robot)
+        val label = tabLabel(robot, "a.txt")
+        val right = scenePoint(editor.stripOf(Side.RIGHT), 0.9, 0.5)
+        val own = scenePoint(editor.stripOf(Side.LEFT), 0.9, 0.5)
+
+        dragTo(robot, label, right.x, right.y, release = false)
+        assertEquals(1, visibleCount(robot, ".tab-insert-marker"))
+
+        robot.interact { fireMouse(label, MouseEvent.MOUSE_DRAGGED, sceneX = own.x, sceneY = own.y) }
+
+        assertEquals(0, visibleCount(robot, ".tab-insert-marker"))
+        releaseOn(robot, label, own.x, own.y)
+        assertEquals(listOf(c), editor.editorTabs.tabsOf(Side.RIGHT).toList())
+        assertEquals(listOf(b, a), editor.editorTabs.tabsOf(Side.LEFT).toList(), "reordered in its own row")
+    }
+
     @Test
     fun `when the left side empties while the right has the focus, the former right tab is focused`(robot: FxRobot) {
         fieldAbove(robot)

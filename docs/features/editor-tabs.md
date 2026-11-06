@@ -55,13 +55,19 @@
   runs something (`ViewActivity.RUNNING`, style class `tab-activity-running`) and a red dot after it failed
   (`FAILED`, `tab-activity-failed`, lighter in the dark theme); nothing for `NONE`. The view decides how long a
   failure shows (e.g. until its tab is shown again); the tab only displays it.
-- Dragging a tab header (not its ×) with the left mouse button moves the tab once the mouse has moved 5 px: the
+- Dragging a tab header (not its ×) with the left mouse button moves the tab once the mouse has moved more than 5 px in x or y: the
   header follows the mouse inside the tab row, and the other tabs make room as soon as its right edge passes the
   centre of the tab to its right, or its left edge the centre of the tab to its left. Releasing the button drops it
   there; it stays selected. If the tabs do not fit, holding the mouse beyond the left or right end of the row scrolls
   it one tab every 300 ms, so tabs can be dragged to positions out of view. The tab list reports a move as a
   permutation (`EditorTabs.move`), so a moved file keeps its watch and font. This is a plain mouse drag within the tab
   row, not JavaFX drag and drop (`Dragboard`), which is meant for transfers between nodes or applications.
+  Over the other side's tab row (while split) the target row shows a thin insertion marker (`tab-insert-marker`) at the
+  gap where the tab would go; the source row does not reorder meanwhile, and releasing there moves the tab to that
+  side at that index (`TabStrip` hands over to `TabDropTargets`, implemented by `EditorSides`). Without a split, when
+  the left side has at least 2 tabs, dragging below the row over the right half of the area shows a drop zone
+  (`tab-drop-zone`); releasing there opens the right side with the tab. Elsewhere the drag reorders as above. The
+  target row does not scroll while a header hovers it; the insertion index uses its current scroll position.
 - Tabs close via their × button or a middle click. Shortcut+W (File → Close Tab, in the whole window, like Save)
   closes the selected tab the same way as × and asks the same questions. The one exception is a terminal running a
   single command (Docker sandbox, Docker shell and run), which it closes only once the command has exited; File →
@@ -136,6 +142,6 @@
   into view. The selected tab is always scrolled into view when it changes.
 - Structure: `EditorTabs` (model: open tabs and the selection), `OpenFile` (a file's tab), `TabOverflow` (which tabs fit, scroll positions,
   where a dragged tab belongs),
-  `TabStrip` (header row and layout), `EditorSides` (the split of the two `SidePane`s: a strip over its content), styles in `editor.css`.
-- Not yet implemented: other keyboard shortcuts for tabs (switching), dragging tabs into another window or out of the tab
-  row, cancelling a drag with Escape.
+  `TabStrip` (header row and layout), `TabDrag.kt` (`TabDropTargets`: what a dragged header can be dropped on), `EditorSides` (the split of the two `SidePane`s: a strip over its content), styles in `editor.css`.
+- Not yet implemented: other keyboard shortcuts for tabs (switching), dragging tabs into another window,
+  cancelling a drag with Escape.

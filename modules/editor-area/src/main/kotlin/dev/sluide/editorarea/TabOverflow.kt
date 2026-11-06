@@ -55,6 +55,22 @@ internal class TabOverflow(
     fun offset(first: Int): Double = widths.take(first).sum()
 
     /**
+     * The index at which a tab dropped at viewport x [x] is inserted into the row scrolled to [first]: before the first
+     * header, from [first] on, whose centre is right of [x], else at the end.
+     */
+    fun insertIndex(
+        first: Int,
+        x: Double,
+    ): Int {
+        var start = 0.0
+        for (index in first until widths.size) {
+            if (start + widths[index] / 2 > x) return index
+            start += widths[index]
+        }
+        return widths.size
+    }
+
+    /**
      * The index the tab at [dragged] belongs at while its header is dragged with its left edge at [left] (measured like
      * [offset]): it passes a neighbour on the right once its right edge is beyond that neighbour's centre, and one on
      * the left once its left edge is before that neighbour's centre. That is the number of other tabs whose centre,

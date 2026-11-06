@@ -33,6 +33,9 @@ private const val MUTED = "editor-tab-muted"
 /** How far the mouse has to move with the button down before a tab header is dragged. */
 private const val DRAG_THRESHOLD = 5.0
 
+/** The width of the insertion marker of [TabStrip.showInsertMarker]. */
+private const val MARKER_WIDTH = 2.0
+
 /** How often the row scrolls by one tab while a header is dragged beyond its edge. */
 private val AUTO_SCROLL_INTERVAL: Duration = Duration.millis(300.0)
 
@@ -57,6 +60,9 @@ internal class TabStrip(
     /** Moves a tab to a side at an index of that side's row, e.g. by the context menu; the area focuses it. */
     private val moveTo: (EditorTab, Side, Int) -> Unit = { tab, to, index -> editorTabs.moveTo(tab, to, index) },
 ) : Region() {
+    /** Where a dragged header can be dropped besides its own row: the other side's row or the right half of the area. */
+    internal var drops: TabDropTargets = NoDropTargets
+
     private val viewport = Pane().apply { styleClass += "tab-viewport" }
     private val viewportClip = Rectangle()
 
@@ -67,6 +73,15 @@ internal class TabStrip(
             styleClass += "overflow-menu"
             isFocusTraversable = false
             setOnShowing { items.setAll(hiddenTabs().map(::menuItem)) }
+        }
+
+    /** Shows where a header dragged from another strip would be inserted (the drop position), see [showInsertMarker]. */
+    private val insertMarker =
+        Region().apply {
+            styleClass += "tab-insert-marker"
+            isManaged = false
+            isMouseTransparent = true
+            isVisible = false
         }
 
     private var headers: List<TabHeader> = emptyList()
@@ -83,7 +98,7 @@ internal class TabStrip(
     init {
         styleClass += "tab-strip"
         viewport.clip = viewportClip
-        children.addAll(viewport, scrollLeftButton, scrollRightButton, overflowMenu)
+        children.addAll(viewport, scrollLeftButton, scrollRightButton, overflowMenu, insertMarker)
         editorTabs.tabsOf(side).subscribe(::rebuildHeaders)
         editorTabs.selectedOf(side).subscribe { _ ->
             updateHeaderStates()
@@ -120,6 +135,28 @@ internal class TabStrip(
 
     /** Tabs that are completely visible, in tab order. */
     fun visibleTabs(): List<EditorTab> = overflow.visible(first).mapNotNull { headers.getOrNull(it)?.tab }
+
+    /** Whether the scene point is over this strip. */
+    fun rowContains(
+        sceneX: Double,
+        sceneY: Double,
+    ): Boolean = sceneToLocal(sceneX, sceneY)?.let { layoutBounds.contains(it) } == true
+
+    /** The index of this row at which a header dropped at [sceneX] is inserted, at the row's current scroll position. */
+    fun insertIndexAt(sceneX: Double): Int = overflow.insertIndex(first, viewport.sceneToLocal(sceneX, 0.0).x)
+
+    /** Shows the insertion marker at the gap before the tab at [index], or hides it for `null`. */
+    fun showInsertMarker(index: Int?) {
+        insertMarker.isVisible = index != null
+        if (index == null) return
+        val x = (overflow.offset(index) - overflow.offset(first)).coerceIn(0.0, viewport.width)
+        insertMarker.resizeRelocate(
+            viewport.layoutX + x - MARKER_WIDTH / 2,
+            viewport.layoutY,
+            MARKER_WIDTH,
+            viewport.height,
+        )
+    }
 
     private fun rebuildHeaders() {
         val old = headers.associateBy { it.tab }
@@ -248,9 +285,19 @@ internal class TabStrip(
         drag.header.viewOrder = -1.0
     }
 
-    private fun dragTo(sceneX: Double) {
+    private fun dragTo(
+        sceneX: Double,
+        sceneY: Double,
+    ) {
         val drag = drag ?: return
         drag.pointer = viewport.sceneToLocal(sceneX, 0.0).x
+        if (drops.hover(drag.header.tab, side, sceneX, sceneY)) {
+            // Over another row or zone: this row keeps its order and stops scrolling; the header stays clamped.
+            autoScroll.stop()
+            autoScrollDirection = 0
+            requestLayout()
+            return
+        }
         followDrag()
         val direction =
             when {
@@ -278,6 +325,7 @@ internal class TabStrip(
     private fun endDrag() {
         val drag = drag ?: return
         this.drag = null
+        drops.clear()
         autoScroll.stop()
         autoScrollDirection = 0
         drag.header.styleClass -= "dragging"
@@ -316,6 +364,14 @@ internal class TabStrip(
     /** The tooltip of the header of [tab]. */
     fun tooltipOf(tab: EditorTab): Tooltip = headers.single { it.tab === tab }.tooltip
 
+    private class Press(
+        /** Where the primary button was pressed, in scene coordinates. */
+        val sceneX: Double,
+        val sceneY: Double,
+        /** The pressed point's x in the header. */
+        val grab: Double,
+    )
+
     /**
      * One tab: its title (with a tooltip) and a close button. Clicking it selects the tab, dragging it moves the tab,
      * right-clicking opens a menu with close actions.
@@ -334,8 +390,8 @@ internal class TabStrip(
          */
         private val subscriptions = mutableListOf<Subscription>()
 
-        /** Where the primary button was pressed, in scene and header x, while it may still start a drag. */
-        private var press: Pair<Double, Double>? = null
+        /** Where the primary button was pressed, while it may still start a drag. */
+        private var press: Press? = null
 
         init {
             styleClass += "editor-tab"
@@ -363,18 +419,26 @@ internal class TabStrip(
             setOnMousePressed { event ->
                 if (event.button == MouseButton.PRIMARY && !close.contains(event.target)) {
                     choose(tab)
-                    press = event.sceneX to event.x
+                    press = Press(event.sceneX, event.sceneY, event.x)
                 }
             }
             setOnMouseDragged { event ->
-                val (pressX, grab) = press ?: return@setOnMouseDragged
-                if (drag == null && abs(event.sceneX - pressX) > DRAG_THRESHOLD) startDrag(Drag(this, grab))
-                if (drag?.header === this) dragTo(event.sceneX)
+                val press = press ?: return@setOnMouseDragged
+                // A header that was closed meanwhile still gets the gesture, but must not start a drag.
+                if (this !in headers) return@setOnMouseDragged
+                val moved =
+                    abs(event.sceneX - press.sceneX) > DRAG_THRESHOLD ||
+                        abs(event.sceneY - press.sceneY) > DRAG_THRESHOLD
+                if (drag == null && moved) startDrag(Drag(this, press.grab))
+                if (drag?.header === this) dragTo(event.sceneX, event.sceneY)
             }
             setOnMouseReleased { event ->
                 if (event.button != MouseButton.PRIMARY) return@setOnMouseReleased
                 press = null
-                if (drag?.header === this) endDrag()
+                if (drag?.header === this) {
+                    endDrag()
+                    drops.drop(tab, side, event.sceneX, event.sceneY)
+                }
             }
             setOnMouseClicked { if (it.button == MouseButton.MIDDLE) close(listOf(tab)) { editorTabs.close(tab) } }
             setOnContextMenuRequested { event ->
@@ -385,6 +449,7 @@ internal class TabStrip(
 
         /** Stops following the tab, once the header is no longer shown. */
         fun dispose() {
+            press = null
             subscriptions.forEach { it.unsubscribe() }
             subscriptions.clear()
         }

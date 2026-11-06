@@ -145,7 +145,7 @@ class EditorArea(
         styleClass += "editor-area"
         stylesheets += checkNotNull(EditorArea::class.java.getResource("editor.css")).toExternalForm()
         center =
-            EditorSides(editorTabs, leftPane, rightPane) { tab ->
+            EditorSides(editorTabs, leftPane, rightPane, ::moveTab) { tab ->
                 // The focus left with the right pane and has nowhere else to go, so tabs without focusOnShow get it too.
                 if (tab is OpenFile) focus(tab) else tab.content.requestFocus()
             }
