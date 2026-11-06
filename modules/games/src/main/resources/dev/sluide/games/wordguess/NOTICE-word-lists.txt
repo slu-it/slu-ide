@@ -1,0 +1,111 @@
+Word lists of the Word Guess game (en-allowed.txt, en-answers.txt, de-allowed.txt, de-answers.txt).
+All four contain five-letter words, upper case, one per line, sorted, UTF-8, LF. In German, ss stands for the sharp s
+(ß is replaced by SS before upper-casing). All sources were fetched on 2026-11-06.
+
+=====================================================================================================================
+en-allowed.txt: ENABLE2K, plus every word of en-answers.txt
+=====================================================================================================================
+Source:  https://raw.githubusercontent.com/en-wl/wordlist/v1/other/enable2k.zip
+         (the ENABLE2K archive as kept in the en-wl/wordlist repository, branch v1)
+SHA-256: 44e2dd5c16c14336e8d4075a2f625af55a47cbb8b9f9ebcb7fcc3b5b1e1f0e5e  (enable2k.zip, 483122 bytes)
+         f1e9b50e535a31d0d8451f7b373bb7966637d225e256a7c485983a0c7545fcd3  (WORD.LST inside it)
+Steps:   1. Unzip, take WORD.LST (one lower-case word per line, CRLF).
+         2. Keep the lines that match ^[a-z]{5}$ (8,672 words) and upper-case them.
+         3. Add every word of en-answers.txt (all of them are in ENABLE), sort, remove duplicates (8,672 words).
+
+License (README.1ST of the archive, public domain):
+  "The ENABLE list has been placed in the Public Domain. This means it is free
+  and freely distributable. No fees, registrations, or "contributions" are
+  required for its use."
+  Author line of the README: M\Cooper, thegrendel@theriver.com, http://personal.riverusers.com/~thegrendel/
+
+=====================================================================================================================
+en-answers.txt: SCOWL / English Speller Database, size 35
+=====================================================================================================================
+Source:  https://github.com/en-wl/wordlist, branch v2, commit 1e5b7d3a72f47a71da5d28686c1dd4b397178485 (2026-06-24)
+         downloaded as https://codeload.github.com/en-wl/wordlist/tar.gz/1e5b7d3a72f47a71da5d28686c1dd4b397178485
+SHA-256: aaecc7a54af576057e30b22a19b78bad011f2181f7e368ff3b736fbecbdfd4d0  (the tar.gz, 2314429 bytes)
+         a83ce3874e4ac7636e7e27299241e819cf1207bdb8efbebf7940fd9f57533ae3  (the word list of step 2 below)
+Steps:   1. Unpack, run `make` (creates scowl.db; Python 3 and its sqlite3 module).
+         2. ./scowl word-list 35 A 1 --deaccent --wo-poses=abbr  (American spelling, variant level 1, no
+            abbreviations, accents removed; 43,731 lines).
+         3. Keep ^[a-z]{5}$ (3,452 words).
+         4. Drop plain plurals and third-person forms: a word ending in S, ES or IES whose stem (minus S, minus ES,
+            IES -> Y) is in the same list (2,303 words left).
+         5. Hand-trimmed after reading the whole list: Roman numerals, abbreviations, informal contractions
+            (gonna, wanna), crude, sexual, offensive and slur words, a few proper names (roman, china, maria),
+            irregular plurals (women, geese, wives, radii), obscure comparatives and past forms (apter, baled,
+            hided), and very obscure words (frond, udder, fetid), and the words of a second review: slave, prick,
+            moron, thong, plain comparatives (icier, saner, paler), obscure inflections (foxed, hewed, burro).
+            2,016 words were left.
+         6. Base forms only, like the German list: removed regular past forms and -ING forms whose stem is an English
+            word (ached, acted, added, aging, icing, owing, dying, lying and so on; the stem is looked up in ENABLE and
+            the size-35 list). Kept: irregular past forms that are words of their own (began, broke, wrote) and words
+            used mainly as adjectives or nouns (bored, tired, naked, mixed, fixed, jaded, armed, famed, vexed, muted,
+            speed, breed, greed, creed, thing, fling, shred, tweed). 1,868 words are left.
+License (scowl/Copyright of that commit, the text before the === line):
+
+  Copyright 2000-2026 by Kevin Atkinson
+
+  Permission to use, copy, modify, distribute, and sell any part of the English
+  Speller Database (ESDB, previously known as SCOWLv2), or word lists
+  created from it, is hereby granted without fee, provided that the above
+  copyright notice appears in all copies and that both the above copyright
+  notice and this notice appear in supporting documentation.  Kevin Atkinson
+  makes no representations about the suitability of this database for any
+  purpose.  It is provided "as is" without express or implied warranty.
+
+  ESDB is derived from many sources, most of which are in the Public Domain.
+  Data from the Corpus of Contemporary American English (COCA) was also used.
+
+  All data from COCA comes from 3-gram data that is not freely available;
+  however, the usage is within the rights given by the NDA that was signed when
+  purchasing the data.  More information on COCA is available at
+  https://www.english-corpora.org/coca/.
+
+  The primary source of words for ESDB comes from 12dicts and ENABLE2K.  Both
+  are in the Public Domain, but Alan Beale <biljir@pobox.com> deserves special
+  credit as he is the author of 12dicts and a major contributor to ENABLE2K.  In
+  addition, he gave me an incredible amount of feedback and created a number of
+  special lists in order to help improve the overall quality of ESDB.
+
+=====================================================================================================================
+de-allowed.txt: enz/german-wordlist
+=====================================================================================================================
+Source:  https://raw.githubusercontent.com/enz/german-wordlist/1071d87d9535b57b80ec076c699f2578a28ee9dc/words
+         (repository https://github.com/enz/german-wordlist, commit 1071d87d9535b57b80ec076c699f2578a28ee9dc,
+         2026-09-13)
+         The list is kept by enz for the word game Tanglet; its README names no upstream source of the words, only
+         reference works used for checking (Duden, German Wiktionary and Wikipedia, the Scrabble Deutschland rules).
+SHA-256: 20095928ca70974fb5d86e44f10181cee16e2831b0d4b1a4ddd12c261aebc5e9  (685,829 lines)
+Steps:   1. Replace ß by SS, then upper-case (so the result does not depend on the tool's ß rule).
+         2. Keep words that match ^[A-ZÄÖÜ]{5}$ (drops words with other letters, such as Café), remove duplicates
+            (9,536 words), sort.
+License: Creative Commons Zero v1.0 Universal (CC0 1.0), public domain dedication, see the COPYING file of the
+         repository and https://creativecommons.org/publicdomain/zero/1.0/
+
+=====================================================================================================================
+de-answers.txt: Leipzig Corpora Collection, German news 2023, 1 million sentences
+=====================================================================================================================
+Source:  https://downloads.wortschatz-leipzig.de/corpora/deu_news_2023_1M.tar.gz (built 2024-01-11), file
+         deu_news_2023_1M/deu_news_2023_1M-words.txt (id TAB word TAB frequency)
+SHA-256: 392065f34be70e3612d6ef6b3edc6687b026524e57e00eef47f0528456deb1ba  (the tar.gz, 229132821 bytes)
+Steps:   1. Apply the ß -> SS replacement and upper-casing of de-allowed.txt to every corpus word; add the
+            frequencies of words that become equal.
+         2. Keep the words that are in de-allowed.txt (5,024) and order them by frequency; take the first 4,500.
+         3. Hand-picked from that list (rest dropped): nouns in the nominative singular, verbs in the infinitive,
+            adjectives and adverbs uninflected, and a few function words and loanwords established in German
+            (COVER, SUITE, HOBBY, COACH, SNACK and so on). Dropped: inflected forms, plurals, names, abbreviations,
+            English words not established in German, variant spellings, offensive and crude words, drug slang and
+            obscure, technical or regional words. The news corpus yields few base forms of five letters, so the
+            list is smaller than the English one; 1,348 words are left.
+Use:     Only the word frequencies of this corpus were used, to rank candidate words. de-answers.txt contains
+         no corpus text and no frequency data, only words that are also in de-allowed.txt (CC0).
+Terms:   The Leipzig Corpora Collection asks users to cite
+         D. Goldhahn, T. Eckart & U. Quasthoff: Building Large Monolingual Dictionaries at the Leipzig
+         Corpora Collection: From 100 to 200 Languages. In: Proceedings of the 8th International Language
+         Resources and Evaluation Conference (LREC 2012).
+         Corpus: Leipzig Corpora Collection, Deutsch news 2023, 1M, https://wortschatz.uni-leipzig.de
+         Its download page (https://wortschatz.uni-leipzig.de/en/download) states the licence of the corpora; that
+         page could not be reached on 2026-11-06, so the licence (believed to be CC BY 4.0) is not verified and
+         must be checked before release.
