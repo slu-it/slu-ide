@@ -21,6 +21,7 @@ import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.fileviewers.SoftWrap
+import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
 import dev.sluide.games.WordGuess
 import dev.sluide.git.GitFileComparison
@@ -132,6 +133,7 @@ class MainWindow(
     private val databases: Databases,
     private val minesweeper: Minesweeper,
     private val wordGuess: WordGuess,
+    private val doubles: Doubles,
     diagnostics: Diagnostics,
     private val softWrap: SoftWrap,
 ) {
@@ -270,6 +272,7 @@ class MainWindow(
             databases,
             minesweeper,
             wordGuess,
+            doubles,
             openWebPage = { openWebPage(it) },
             showError = { s, m -> showError(s, m) },
         )

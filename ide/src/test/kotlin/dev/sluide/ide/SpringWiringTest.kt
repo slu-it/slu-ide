@@ -34,8 +34,10 @@ import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
 import dev.sluide.games.WordGuess
+import dev.sluide.games.doubles.DoublesPreferences
 import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.games.wordguess.WordGuessPreferences
 import dev.sluide.git.GitBranches
@@ -213,6 +215,7 @@ class SpringWiringTest {
                         SpeechPreferences::class.java,
                         MinesweeperPreferences::class.java,
                         WordGuessPreferences::class.java,
+                        DoublesPreferences::class.java,
                         ModelStore::class.java,
                         ModelInstaller::class.java,
                         SpeechSettingsPage::class.java,
@@ -243,6 +246,7 @@ class SpringWiringTest {
                 context.getBean(SpeechPreferences::class.java)
                 context.getBean(MinesweeperPreferences::class.java)
                 context.getBean(WordGuessPreferences::class.java)
+                context.getBean(DoublesPreferences::class.java)
                 context.getBean(SpeechEngines::class.java)
                 // The translation beans are cheap: the engine loads a model on first use, Lingua on the first detection.
                 context.getBean(OpusMtEngine::class.java)
@@ -276,6 +280,7 @@ class SpringWiringTest {
                         Databases::class.java,
                         Minesweeper::class.java,
                         WordGuess::class.java,
+                        Doubles::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {
