@@ -106,6 +106,8 @@ Terms:   The Leipzig Corpora Collection asks users to cite
          Corpora Collection: From 100 to 200 Languages. In: Proceedings of the 8th International Language
          Resources and Evaluation Conference (LREC 2012).
          Corpus: Leipzig Corpora Collection, Deutsch news 2023, 1M, https://wortschatz.uni-leipzig.de
-         Its download page (https://wortschatz.uni-leipzig.de/en/download) states the licence of the corpora; that
-         page could not be reached on 2026-11-06, so the licence (believed to be CC BY 4.0) is not verified and
-         must be checked before release.
+License: Creative Commons Attribution (CC BY), https://creativecommons.org/licenses/by/4.0/
+         The Terms of Usage (https://wortschatz.uni-leipzig.de/en/usage, checked 2026-11-06) state: "The text
+         corpora offered for download are made available under the Creative Commons licence CC BY." (no version
+         given). The CC BY-NC terms on the same page cover the project's other data and applications (queries on
+         the website), not the downloadable corpora used here.

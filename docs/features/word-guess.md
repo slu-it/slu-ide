@@ -59,8 +59,7 @@ Four lists in the module's resources: allowed guesses and answers per language.
 | German, answers | 1,348 | picked from the allowed list by frequency (Leipzig Corpora Collection) |
 
 The answers are common base forms, trimmed by hand; offensive words are left out. Sources, steps, hashes and license
-texts: `modules/games/src/main/resources/dev/sluide/games/wordguess/NOTICE-word-lists.txt`. The Leipzig license is not
-yet verified (see the ADR).
+texts: `modules/games/src/main/resources/dev/sluide/games/wordguess/NOTICE-word-lists.txt`.
 
 ## Stored
 User-wide in `~/.sluide/shared.json`, field `wordGuess` ([ADR 0101](../adr/0101-shared-data-file.md)): the last

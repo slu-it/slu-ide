@@ -26,9 +26,10 @@ lists in two languages whose licenses allow shipping them.
   from ENABLE2K (public domain, 8,672 words); English answers from SCOWL size 35 (MIT-like license that requires the
   notice, 1,868 words); German allowed words from enz/german-wordlist (CC0, 9,536 words); German answers (1,348
   words) picked from the allowed list by word frequency of the Leipzig Corpora Collection (used only to rank, no
-  corpus text is shipped). The Leipzig license is believed to be CC BY 4.0 but could not be verified online: it must
-  be checked before release. The answer lists are hand-trimmed to base forms (no plurals, no regular past forms),
-  without offensive words.
+  corpus text is shipped). The downloadable Leipzig corpora are CC BY per its Terms of Usage (checked 2026-11-06);
+  the CC BY-NC terms there cover the website's other data and applications, not the downloads, so commercial use of
+  Thoreau is not restricted; the NOTICE gives the attribution. The answer lists are hand-trimmed to base forms (no
+  plurals, no regular past forms), without offensive words.
 - **Package layout** (amends ADR 0131): the window beans `Minesweeper` and `WordGuess` are in the module's root
   package `dev.sluide.games` (its API, as the modularization rule says); everything else of a game is in the package
   of that game (`minesweeper`, `wordguess`).
