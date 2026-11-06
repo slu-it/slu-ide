@@ -8,6 +8,9 @@ import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.collections.ListChangeListener
 import javafx.scene.Group
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -424,5 +427,345 @@ class EditorTabsTest {
 
         assertEquals(listOf("a.txt", "● a.txt", "a.txt"), titles)
         assertFalse(file.isDirty)
+    }
+
+    /**
+     * Opens tabs named [left] and [right] and moves the [right] ones to the right side. Each side then has its last tab
+     * selected, and the right side is current.
+     */
+    private fun sides(
+        left: List<String>,
+        right: List<String>,
+    ): Map<String, DisposableTab> {
+        val opened = (left + right).associateWith { DisposableTab(it).also(tabs::open) }
+        right.forEach { tabs.moveTo(opened.getValue(it), Side.RIGHT) }
+        return opened
+    }
+
+    private fun names(side: Side) = tabs.tabsOf(side).map { it.title.value }
+
+    private fun selectedName(side: Side) =
+        tabs
+            .selectedOf(side)
+            .get()
+            ?.title
+            ?.value
+
+    /** Records the changes of [EditorTabs.tabs] [action] makes: "permutation", "removed n" or "added n". */
+    private fun listChanges(action: () -> Unit): List<String> {
+        val changes = mutableListOf<String>()
+        val listener =
+            ListChangeListener<EditorTab> { change ->
+                while (change.next()) {
+                    changes +=
+                        when {
+                            change.wasPermutated() -> "permutation"
+                            change.wasRemoved() -> "removed ${change.removedSize}"
+                            else -> "added ${change.addedSize}"
+                        }
+                }
+            }
+        tabs.tabs.addListener(listener)
+        action()
+        tabs.tabs.removeListener(listener)
+        return changes
+    }
+
+    @Test
+    fun `new tabs open on the left side, a selected one makes it current, one in the background changes nothing`() {
+        sides(listOf("a"), listOf("r"))
+        assertEquals(Side.RIGHT, tabs.current.get())
+
+        val back = DisposableTab("back").also { tabs.open(it, select = false) }
+        assertEquals(listOf("a", "back"), names(Side.LEFT))
+        assertEquals(listOf("a", "back", "r"), names(), "the left side's tabs come first")
+        assertEquals(Side.RIGHT, tabs.current.get())
+        assertEquals(
+            "r",
+            tabs.selected
+                .get()
+                ?.title
+                ?.value,
+        )
+        assertEquals("a", selectedName(Side.LEFT))
+
+        val front = DisposableTab("front").also(tabs::open)
+        assertEquals(listOf("a", "back", "front", "r"), names())
+        assertEquals(Side.LEFT, tabs.current.get())
+        assertSame(front, tabs.selected.get())
+        assertEquals("r", selectedName(Side.RIGHT), "the right side keeps its selection")
+        assertSame(back, tabs.tabsOf(Side.LEFT)[1])
+    }
+
+    @Test
+    fun `selecting a tab makes its side current, the right side only while it has tabs`() {
+        val opened = sides(listOf("a", "b"), listOf("c", "d"))
+
+        tabs.select(opened.getValue("a"))
+        assertEquals(Side.LEFT, tabs.current.get())
+        assertEquals(
+            "a",
+            tabs.selected
+                .get()
+                ?.title
+                ?.value,
+        )
+        assertEquals("d", selectedName(Side.RIGHT))
+
+        tabs.select(opened.getValue("c"))
+        assertEquals(Side.RIGHT, tabs.current.get())
+        assertEquals(
+            "c",
+            tabs.selected
+                .get()
+                ?.title
+                ?.value,
+        )
+        assertEquals("a", selectedName(Side.LEFT))
+
+        tabs.makeCurrent(Side.LEFT)
+        assertEquals(
+            "a",
+            tabs.selected
+                .get()
+                ?.title
+                ?.value,
+        )
+        tabs.makeCurrent(Side.RIGHT)
+        assertEquals(
+            "c",
+            tabs.selected
+                .get()
+                ?.title
+                ?.value,
+        )
+
+        tabs.closeAll(Side.RIGHT)
+        tabs.makeCurrent(Side.RIGHT)
+        assertEquals(Side.LEFT, tabs.current.get(), "no right side to make current")
+    }
+
+    @ParameterizedTest(name = "moving {0} with {1} selected leaves {2} selected on the left")
+    @CsvSource("b, b, c", "c, c, b", "a, b, b")
+    fun `moving a tab to the other side is a permutation that selects it there`(
+        moved: String,
+        selectedBefore: String,
+        selectedAfter: String,
+    ) {
+        val opened = sides(listOf("a", "b", "c"), listOf("r"))
+        tabs.select(opened.getValue(selectedBefore))
+        val tab = opened.getValue(moved)
+
+        val changes = listChanges { tabs.moveTo(tab, Side.RIGHT) }
+
+        assertEquals(listOf("permutation"), changes, "not a close and an open")
+        assertEquals(listOf("r", moved), names(Side.RIGHT))
+        assertEquals(names(Side.LEFT) + names(Side.RIGHT), names())
+        assertSame(tab, tabs.selected.get())
+        assertEquals(Side.RIGHT, tabs.current.get())
+        assertEquals(selectedAfter, selectedName(Side.LEFT))
+        assertEquals(0, tab.disposed)
+    }
+
+    @Test
+    fun `a tab moves to the other side at a position, never to its own side`() {
+        val opened = sides(listOf("a", "b"), listOf("x", "y"))
+
+        tabs.moveTo(opened.getValue("a"), Side.RIGHT, 1)
+        assertEquals(listOf("x", "a", "y"), names(Side.RIGHT))
+        tabs.moveTo(opened.getValue("y"), Side.LEFT, 0)
+        assertEquals(listOf("y", "b", "x", "a"), names())
+        assertEquals(Side.LEFT, tabs.current.get())
+
+        assertFailsWith<IllegalArgumentException> { tabs.moveTo(opened.getValue("b"), Side.LEFT) }
+        assertFailsWith<IllegalArgumentException> { tabs.moveTo(opened.getValue("b"), Side.RIGHT, 3) }
+        assertFailsWith<IllegalArgumentException> { tabs.moveTo(DisposableTab("other"), Side.RIGHT) }
+    }
+
+    @Test
+    fun `the only tab stays on the left side when it is moved to the right`() {
+        val only = DisposableTab("only").also(tabs::open)
+        val notified = mutableListOf<String>()
+        tabs.tabsOf(Side.LEFT).addListener(ListChangeListener { notified += "left" })
+        tabs.split.addListener { _ -> notified += "split" }
+
+        val changes = listChanges { tabs.moveTo(only, Side.RIGHT) }
+
+        assertEquals(emptyList(), changes)
+        assertEquals(emptyList<String>(), notified, "not opened and collapsed again")
+        assertEquals(Side.LEFT, tabs.sideOf(only))
+        assertSame(only, tabs.selected.get())
+    }
+
+    @Test
+    fun `a listener that makes a side current while a move is published does not undo the move's current side`() {
+        // The right side is current with r selected; b, selected on the left, moves there and a takes its place.
+        val b = sides(listOf("a", "b"), listOf("r")).getValue("b")
+        // As a side's pane does when its selection changes and it takes the focus.
+        tabs.selectedOf(Side.LEFT).addListener { _ -> tabs.makeCurrent(Side.LEFT) }
+        val values = mutableListOf<String?>()
+        tabs.selected.addListener { _, _, tab -> values += tab?.title?.value }
+
+        tabs.moveTo(b, Side.RIGHT)
+
+        assertEquals(Side.RIGHT, tabs.current.get())
+        assertSame(b, tabs.selected.get())
+        assertEquals(listOf<String?>("b"), values)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["close", "moveTo", "closeAll"])
+    fun `the right side ends with its last tab, the left side becomes current`(how: String) {
+        val opened = sides(listOf("a", "b"), listOf("r"))
+        val r = opened.getValue("r")
+
+        when (how) {
+            "close" -> tabs.close(r)
+            "moveTo" -> tabs.moveTo(r, Side.LEFT)
+            else -> tabs.closeAll(Side.RIGHT)
+        }
+
+        assertFalse(tabs.split.get())
+        assertEquals(Side.LEFT, tabs.current.get())
+        assertNull(tabs.selectedOf(Side.RIGHT).get())
+        val expected = if (how == "moveTo") "r" else "b"
+        assertEquals(
+            expected,
+            tabs.selected
+                .get()
+                ?.title
+                ?.value,
+        )
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["close", "moveTo", "closeAll"])
+    fun `when the left side loses its last tab, the right side's tabs become the left side's`(how: String) {
+        val opened = sides(listOf("a"), listOf("c", "d", "e"))
+        tabs.select(opened.getValue("d"))
+        tabs.makeCurrent(Side.LEFT)
+        val a = opened.getValue("a")
+
+        val changes =
+            listChanges {
+                when (how) {
+                    "close" -> tabs.close(a)
+                    "moveTo" -> tabs.moveTo(a, Side.RIGHT, 0)
+                    else -> tabs.closeAll(Side.LEFT)
+                }
+            }
+
+        val right = if (how == "moveTo") listOf("a", "c", "d", "e") else listOf("c", "d", "e")
+        assertEquals(right, names(Side.LEFT), "in the same order")
+        assertEquals(right, names(), "the tab list itself does not change by the collapse")
+        assertEquals(if (how == "moveTo") emptyList() else listOf("removed 1"), changes)
+        assertEquals(emptyList(), names(Side.RIGHT))
+        assertFalse(tabs.split.get())
+        assertEquals(Side.LEFT, tabs.current.get())
+        assertEquals(
+            if (how == "moveTo") "a" else "d",
+            tabs.selected
+                .get()
+                ?.title
+                ?.value,
+        )
+    }
+
+    @ParameterizedTest(name = "{0} of d")
+    @CsvSource(
+        "closeOthers, d, d, RIGHT",
+        "closeLeftOf, d e, d, RIGHT",
+        "closeRightOf, c d, c, RIGHT",
+        "closeAll, '', , LEFT",
+    )
+    fun `the close actions of a tab act on its side only`(
+        action: String,
+        rightAfter: String,
+        selectedRight: String?,
+        current: String,
+    ) {
+        val opened = sides(listOf("a", "b"), listOf("c", "d", "e"))
+        tabs.select(opened.getValue("c"))
+        tabs.select(opened.getValue("a"))
+        val d = opened.getValue("d")
+
+        when (action) {
+            "closeOthers" -> tabs.closeOthers(d)
+            "closeLeftOf" -> tabs.closeLeftOf(d)
+            "closeRightOf" -> tabs.closeRightOf(d)
+            else -> tabs.closeAll(Side.RIGHT)
+        }
+
+        assertEquals(rightAfter.split(" ").filter { it.isNotEmpty() }, names(Side.RIGHT))
+        assertEquals(listOf("a", "b"), names(Side.LEFT))
+        assertEquals("a", selectedName(Side.LEFT))
+        assertEquals(selectedRight, selectedName(Side.RIGHT))
+        assertEquals(Side.valueOf(current), tabs.current.get())
+    }
+
+    @Test
+    fun `a tab moves within the right side as a permutation, keeping the selections`() {
+        val opened = sides(listOf("a"), listOf("c", "d", "e"))
+
+        val changes = listChanges { tabs.move(opened.getValue("c"), 2) }
+
+        assertEquals(listOf("permutation"), changes)
+        assertEquals(listOf("d", "e", "c"), names(Side.RIGHT))
+        assertEquals(listOf("a", "d", "e", "c"), names())
+        assertEquals("e", selectedName(Side.RIGHT))
+        assertFailsWith<IllegalArgumentException> { tabs.move(opened.getValue("c"), 3) }
+    }
+
+    @Test
+    fun `a tab on the right side is replaced in its place there`() {
+        val opened = sides(listOf("a"), listOf("c", "d"))
+        val replacement = DisposableTab("d2")
+
+        tabs.replace(opened.getValue("d"), replacement)
+
+        assertEquals(listOf("c", "d2"), names(Side.RIGHT))
+        assertEquals(listOf("a", "c", "d2"), names())
+        assertSame(replacement, tabs.selectedOf(Side.RIGHT).get())
+        assertSame(replacement, tabs.selected.get())
+        assertEquals(1, opened.getValue("d").disposed)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["moveTo", "closeLastRight", "closeOnlyLeft", "closeOthers", "closeAllLeft"])
+    fun `the selected tab changes once per operation, to its final value`(operation: String) {
+        val opened = sides(listOf("a", "b"), listOf("c", "d"))
+        tabs.select(opened.getValue("a"))
+        val values = mutableListOf<String?>()
+        tabs.selected.addListener { _, _, tab -> values += tab?.title?.value }
+
+        val expected: String =
+            when (operation) {
+                "moveTo" -> {
+                    "b".also { tabs.moveTo(opened.getValue("b"), Side.RIGHT) }
+                }
+
+                "closeLastRight" -> {
+                    tabs.closeLeftOf(opened.getValue("d"))
+                    tabs.select(opened.getValue("d"))
+                    values.clear()
+                    "a".also { tabs.close(opened.getValue("d")) }
+                }
+
+                "closeOnlyLeft" -> {
+                    tabs.close(opened.getValue("b"))
+                    values.clear()
+                    "d".also { tabs.close(opened.getValue("a")) }
+                }
+
+                "closeOthers" -> {
+                    "c".also { tabs.closeOthers(opened.getValue("c")) }
+                }
+
+                else -> {
+                    "d".also { tabs.closeAll(Side.LEFT) }
+                }
+            }
+
+        assertEquals(listOf<String?>(expected), values)
     }
 }
