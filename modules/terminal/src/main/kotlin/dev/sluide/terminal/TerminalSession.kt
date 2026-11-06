@@ -33,8 +33,10 @@ internal const val TERMINAL_TYPE = "xterm-256color"
 
 /**
  * A shell running in a pseudo terminal, started in [folder], whose output is interpreted by the JediTerm emulator into
- * [buffer]. The emulator reads on a background thread and reports changes to [display] from there. Throws
- * [java.io.IOException] if the shell cannot be started (e.g. [command] does not exist).
+ * [buffer]. The emulator reads on a background thread and reports changes to [display] from there. Text a program
+ * puts on the clipboard with OSC 52 goes to [onCopy] on that thread too, when the output is read and before the
+ * emulator sees it ([Osc52Filter]). Throws [java.io.IOException] if the shell cannot be started (e.g. [command] does
+ * not exist).
  */
 internal class TerminalSession(
     folder: Path,
@@ -42,6 +44,7 @@ internal class TerminalSession(
     size: TermSize,
     command: List<String>,
     environment: Map<String, String>,
+    onCopy: (String) -> Unit = {},
 ) : AutoCloseable {
     // Started first: if it fails (IOException), the display has not been called yet, so no repaint of a view without
     // a session is scheduled.
@@ -60,7 +63,7 @@ internal class TerminalSession(
     val terminal = JediTerminal(display, buffer, styleState)
 
     private val executors = ExecutorServices()
-    private val connector = PtyConnector(process, command)
+    private val connector = PtyConnector(process, command, Osc52Filter(onCopy))
     private val starter =
         TerminalStarter(
             terminal,
@@ -164,8 +167,16 @@ internal class TerminalSession(
     private class PtyConnector(
         private val process: PtyProcess,
         command: List<String>,
+        private val osc52: Osc52Filter,
     ) : ProcessTtyConnector(process, Charsets.UTF_8, command) {
         override fun getName() = "Local"
+
+        // JediTerm's data stream reads into its buffer of at least 1024 characters.
+        override fun read(
+            buf: CharArray,
+            offset: Int,
+            length: Int,
+        ): Int = osc52.read(buf, offset, length) { chars, from, count -> super.read(chars, from, count) }
 
         override fun resize(termSize: TermSize) {
             if (process.isAlive) process.winSize = WinSize(termSize.columns, termSize.rows)

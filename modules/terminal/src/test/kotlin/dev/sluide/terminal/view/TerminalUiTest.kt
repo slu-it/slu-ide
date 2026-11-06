@@ -226,6 +226,20 @@ class TerminalUiTest {
         robot.interact { assertEquals("copy-42", Clipboard.getSystemClipboard().string) }
     }
 
+    @Test
+    fun `text a program copies with OSC 52 lands on the clipboard`(robot: FxRobot) {
+        val tab = open(robot)
+        robot.interact { Clipboard.getSystemClipboard().clear() }
+
+        type(robot, tab.view, "printf '\\033]52;c;%s\\a' b3NjLTUy")
+
+        eventually {
+            var copied: String? = null
+            robot.interact { copied = Clipboard.getSystemClipboard().string }
+            assertEquals("osc-52", copied)
+        }
+    }
+
     /** Runs `cat -v` after switching bracketed paste [on] or off, so the pasted bytes show up as text. */
     private fun catWithBracketedPaste(
         robot: FxRobot,

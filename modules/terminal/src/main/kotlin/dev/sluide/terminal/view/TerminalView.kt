@@ -18,7 +18,6 @@ import javafx.scene.canvas.Canvas
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.MenuItem
 import javafx.scene.input.Clipboard
-import javafx.scene.input.ClipboardContent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
@@ -373,7 +372,7 @@ internal class TerminalView(
                     buffer.unlock()
                 }
             }
-        if (text.isNotEmpty()) Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(text) })
+        if (text.isNotEmpty()) copyToClipboard(text)
     }
 
     private fun paste() {

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,9 +38,12 @@ class TerminalSessionTest {
         if (::session.isInitialized) session.close()
     }
 
-    private fun start(size: TermSize = TermSize(80, 24)) {
+    private fun start(
+        size: TermSize = TermSize(80, 24),
+        onCopy: (String) -> Unit = {},
+    ) {
         assumeTrue(Files.isExecutable(Path.of("/bin/sh")), "no /bin/sh")
-        session = TerminalSession(dir, NoDisplay, size, listOf("/bin/sh"), System.getenv())
+        session = TerminalSession(dir, NoDisplay, size, listOf("/bin/sh"), System.getenv(), onCopy)
         // Input sent before the prompt is echoed first and its output then shares a line with the prompt.
         await("a prompt") { screenLines().any { it.isNotBlank() } }
     }
@@ -105,6 +109,19 @@ class TerminalSessionTest {
         val row = screenLines().indexOf("ab-42")
         assertEquals(null, session.buffer.getStyleAt(0, row)?.foreground)
         assertEquals(TerminalColor.index(1), session.buffer.getStyleAt(1, row)?.foreground, "b is red")
+    }
+
+    @Test
+    fun `text a program copies with OSC 52 goes to onCopy, also inside synchronized output`() {
+        val copied = CopyOnWriteArrayList<String>()
+        start(onCopy = copied::add)
+
+        // JediTerm replays a synchronized-output block (2026, as Claude Code draws) through an emulator of its own.
+        run("printf 'a\\033[?2026hb\\033]52;c;%s\\ac\\033[?2026ld-%s\\n' aGVsbG8= \$((40 + 2))")
+
+        awaitLine("abcd-42")
+        await("a copy") { copied.isNotEmpty() }
+        assertEquals(listOf("hello"), copied)
     }
 
     @Test

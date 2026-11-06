@@ -8,6 +8,7 @@ import dev.sluide.terminal.view.EmbeddedTerminalView
 import dev.sluide.terminal.view.ScrollSpeeds
 import dev.sluide.terminal.view.TerminalTab
 import dev.sluide.terminal.view.TerminalView
+import dev.sluide.terminal.view.copyToClipboard
 import javafx.util.Subscription
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
@@ -132,7 +133,9 @@ class Terminals(
         val view =
             try {
                 TerminalView(
-                    { display, size -> TerminalSession(folder, display, size, command, environment) },
+                    { display, size ->
+                        TerminalSession(folder, display, size, command, environment, onCopy = ::copyToClipboard)
+                    },
                     font = terminalFont.get(),
                     scrollSpeeds = scrollSpeeds(),
                     focusWhenShown = focusWhenShown,
