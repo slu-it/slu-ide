@@ -1,0 +1,9 @@
+/*
+ * User-agent styles of WrappingToolbar (ADR 0135): a separator that the layout put at a row's start or end takes no
+ * space and gets the pseudo-class row-edge; it is not shown. Opacity rather than visibility, so the callers' bindings
+ * of visible and managed stay theirs.
+ */
+
+.separator:row-edge {
+    -fx-opacity: 0;
+}
