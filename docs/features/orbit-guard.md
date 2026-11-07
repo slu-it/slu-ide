@@ -46,9 +46,11 @@ menus.
 
 ## Pause
 - **What pauses**: P and the Pause button (while counting down or playing), and **the board losing the keyboard
-  focus** while counting down or playing: another tab or the other split side selected, a tool or toolbar button
-  clicked, a dialog (also the abandon question; Cancel leaves the game paused), another application activated, the
-  window minimised, the tab closed. Opening the Difficulty menu pauses too. Held keys are released.
+  focus** while counting down or playing: a menu opened (menu bar, the Difficulty menu or a context menu), another
+  tab or tool clicked, a dialog (also the abandon question; Cancel leaves the game paused), another application
+  activated, the window minimised, the tab closed. Tooltips do not pause, and neither do clicks on the toolbar buttons
+  (Pause pauses by its own action, New Game asks or resets). When the menus close the game stays paused. Held keys
+  are released.
 - **What resumes**: with the board focused, a move or fire key or P, or the **Resume** button (the Pause button's label
   while paused; it also focuses the board). Regaining the focus does **not** resume. The key that resumes is eaten (no
   shot, no step). F2 and a click do not resume. In READY and after the game is over, P does nothing.
@@ -74,7 +76,7 @@ over, so a held Space does not restart by accident.
 - The status line shows "← → move · Space fire · P pause · F2 new game" and " · Best: 12,340" when the level has a best.
 
 ## Scaling
-The field keeps its 4:3 ratio, is centred in the tab and scaled to fill it, at least 1 device pixel per field pixel; the
+The field keeps its 4:3 ratio, is centred in the tab and scaled to fill it, at least scale 1 (one view pixel per field pixel; below 320 × 240 the field is cropped); the
 edges of each logical pixel are snapped to device pixels, so it stays sharp at fractional scales. The toolbar wraps when
 the tab is narrow.
 

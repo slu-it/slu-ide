@@ -40,10 +40,12 @@ player's attention is elsewhere.
 - **States**: READY (a new game stands still), COUNTDOWN (3, 2, 1 at 0.5 s each over the frozen field), PLAYING, PAUSED
   and OVER. The first move or fire key in READY starts the countdown.
 - **Pause**: by P, by the Pause button (labelled Resume while paused), and **automatically whenever the board loses the
-  keyboard focus** while counting down or playing, whatever the cause: another tab or the other split side selected, a
-  tool or menu clicked, a dialog (also the abandon question), another application activated, the window minimised, the
-  tab closed. The Difficulty menu pauses when it opens, as its popup does not take the board's focus. Held keys are
-  released when the focus is lost, because their releases go elsewhere.
+  keyboard focus** while counting down or playing (pause reason FOCUS), whatever the cause: a menu opened (menu bar,
+  the Difficulty menu or a context menu; a popup does not take the board's focus, so `RealtimeLoop` counts any open
+  menu of the window as losing it; tooltips do not), another tab or tool clicked, a dialog (also the abandon
+  question), another application activated, the window minimised, the tab closed. Toolbar button clicks are no cause:
+  Pause pauses by its own action and New Game asks or resets. When the menus close the game stays paused. Held keys
+  are released when the focus is lost, because their releases go elsewhere.
 - **Resume** only by a move or fire key or P while the board has the focus (the key is eaten: no shot, no step), or by
   the Resume button, which focuses the board; then the 3-2-1 countdown runs again. Regaining the focus never resumes. A
   click on the Paused overlay only focuses the board. The overlay's hint says "Press P, ← → or Space to resume" with
@@ -51,7 +53,7 @@ player's attention is elsewhere.
 - **Shared real-time part**: the state machine and the timing are the FX-free `RealtimeSession` in
   `dev.sluide.games.common` (`onFocusLost` lets the game release held input); `RealtimeLoop` (focus and scene
   listeners, an `AnimationTimer`) and the pure `FieldLayout` (scale, offset and pixel snapping of a fixed-size field)
-  are in `common.ui`. The next real-time game, Block Breaker (ADR 0140, planned), uses them; keys and held input stay
+  are in `common.ui`. The next real-time game, a planned Block Breaker, uses them; keys and held input stay
   per game.
 - **Timing**: fixed steps of 1/60 s, at most 5 per frame (the leftover time is dropped, so a stall does not make a
   burst); no timer runs while the game is not counting down or playing, and paused time never becomes steps.

@@ -352,7 +352,7 @@ File does not react to it while a terminal has the focus.
 | Keys | Action |
 |---|---|
 | Left, Right arrow, A, D | Move the ship while held; in READY or when paused also start or resume (the key is eaten) |
-| Space, Up arrow, W | Fire (held repeats); in READY or when paused also start or resume |
+| Space, Up arrow, W | Fire (held repeats); in READY or when paused also start or resume (the key is eaten) |
 | P | Pause or resume |
 | F2 | New game (asks first when a game with a score is under way) |
 
