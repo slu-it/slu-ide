@@ -356,6 +356,18 @@ File does not react to it while a terminal has the focus.
 | P | Pause or resume |
 | F2 | New game (asks first when a game with a score is under way) |
 
+## Block Breaker
+[block-breaker.md](block-breaker.md). No menu key; the keys work while the board has the focus (a click on it gives it), and not with Shortcut, Ctrl, Meta or Alt.
+
+| Keys | Action |
+|---|---|
+| Left, Right arrow, A, D | Move the paddle while held; in READY or when paused also start or resume (the key is eaten) |
+| Space, Up arrow, W | Launch the ball; in READY or when paused also start or resume (the key is eaten) |
+| P | Pause or resume |
+| F2 | New game (asks first when a game with a score is under way) |
+| Mouse move over the field | Move the paddle towards the pointer (keys win until the mouse moves again) |
+| Click on the field | Launch; in READY start; when paused resume if the board has the focus (else it only focuses; the click that activates an inactive window resumes only if the game had the focus when the window was left) |
+
 ## Settings
 [settings.md](settings.md)
 

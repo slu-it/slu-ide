@@ -1,7 +1,7 @@
 # Idea: Games, what is left for later
 
 **Status:** idea, collected 2026-11-05 while building Minesweeper ([ADR 0131](../adr/0131-games-menu-minesweeper.md)), Word Guess
-([ADR 0132](../adr/0132-word-guess.md)), Doubles ([ADR 0136](../adr/0136-doubles.md)), Sudoku, Solitaire and Orbit Guard;
+([ADR 0132](../adr/0132-word-guess.md)), Doubles ([ADR 0136](../adr/0136-doubles.md)), Sudoku, Solitaire, Orbit Guard and Block Breaker;
 nothing decided or built. Each needs a decision of its own before it is built.
 
 - **Statistics per size**: games played, won, win rate and streaks next to the best times. Needs a stored record per
@@ -29,8 +29,11 @@ nothing decided or built. Each needs a decision of its own before it is built.
   **mouse control**, **statistics** (games played, best wave), **resuming after a restart**, the **focus-loss pause for
   the turn-based games** (today only the real-time game pauses when its board loses the focus), **power-ups** (double
   shot, shield repair) and **other formations or diving enemies**.
+- **Block Breaker** ([ADR 0140](../adr/0140-block-breaker.md), [feature](../features/block-breaker.md)): **sound
+  effects**, more power-ups (**laser**, **sticky paddle**, **shrink**), a **level editor**, **more levels** than the ten
+  that loop, **statistics** (games played, best level) and **resuming after a restart**.
 - **Further games** in the `games` module, one package each, as items of the Games menu (Minesweeper, Word Guess,
-  Doubles, Sudoku, Solitaire and Orbit Guard exist; for example Pyramid or Mahjong solitaire).
+  Doubles, Sudoku, Solitaire, Orbit Guard and Block Breaker exist; for example Pyramid or Mahjong solitaire).
 - **The WebView variant**: a self-contained HTML, CSS and JS page in a WebView, portable to any web server and freer
   to style. Rejected for Minesweeper (it needs an exception to "Kotlin only", its logic is testable only through
   WebView UI tests); it could be reconsidered for a game that is mostly animation.

@@ -1,6 +1,6 @@
 # Orbit Guard
 
-**Modules:** `modules/games` (window bean `OrbitGuard` in `dev.sluide.games`; package `dev.sluide.games.orbitguard`: the pure engine in `OrbitGuardGame`, `Fleet`, `Shield`, the FX-free `OrbitGuardModel`, `KeyAction`, `OrbitGuardPreferences`, UI in `ui`; the shared `RealtimeSession` is in `dev.sluide.games.common`, `RealtimeLoop`, `FieldLayout` and `PauseOverlay` in `dev.sluide.games.common.ui`); menu in `ide` (`ToolsMenu`, `WindowTools`);
+**Modules:** `modules/games` (window bean `OrbitGuard` in `dev.sluide.games`; package `dev.sluide.games.orbitguard`: the pure engine in `OrbitGuardGame`, `Fleet`, `Shield`, the FX-free `OrbitGuardModel`, `KeyAction`, `OrbitGuardPreferences`, UI in `ui`; the shared `RealtimeSession` and `DifficultyPreferences` (behind `OrbitGuardPreferences` and Block Breaker's preferences) are in `dev.sluide.games.common`, `RealtimeLoop`, `FieldLayout` and `PauseOverlay` in `dev.sluide.games.common.ui`); menu in `ide` (`ToolsMenu`, `WindowTools`);
 decisions in [ADR 0139](../adr/0139-orbit-guard.md)
 
 A fixed shooter for the minutes of a build: you move a ship along the bottom and shoot the fleet that marches down.
