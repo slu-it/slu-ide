@@ -1,8 +1,8 @@
 package dev.sluide.games.common
 
 /**
- * Elapsed play time; ticks only while started, not stopped, not [hidden] and not [manuallyPaused]. FX thread.
- * [nowMillis] is a monotonic clock. [start] after [stop] has no effect until [reset].
+ * Elapsed play time; ticks only while started, not stopped, not [hidden], not [manuallyPaused] and not [held]. FX
+ * thread. [nowMillis] is a monotonic clock. [start] after [stop] has no effect until [reset].
  */
 class GameClock(
     private val nowMillis: () -> Long = { System.nanoTime() / 1_000_000 },
@@ -29,7 +29,14 @@ class GameClock(
             sync()
         }
 
-    val isTicking: Boolean get() = isStarted && !isStopped && !hidden && !manuallyPaused
+    /** Held by the game while it waits for something else (a new deal being searched), not a pause the user sees. */
+    var held = false
+        set(value) {
+            field = value
+            sync()
+        }
+
+    val isTicking: Boolean get() = isStarted && !isStopped && !hidden && !manuallyPaused && !held
 
     val elapsedMillis: Long get() = accumulated + (since?.let { nowMillis() - it } ?: 0L)
 
@@ -44,13 +51,14 @@ class GameClock(
         sync()
     }
 
-    /** Back to 0, not started, manual pause cleared. */
+    /** Back to 0, not started, manual pause and hold cleared. */
     fun reset() {
         accumulated = 0
         since = null
         isStarted = false
         isStopped = false
         manuallyPaused = false
+        held = false
     }
 
     private fun sync() {

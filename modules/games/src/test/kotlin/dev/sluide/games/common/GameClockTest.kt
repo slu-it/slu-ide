@@ -51,6 +51,26 @@ class GameClockTest {
     }
 
     @Test
+    fun `a hold stops the time until released and is cleared by reset`() {
+        clock.start()
+        advance(100)
+        clock.held = true
+        advance(1000)
+        assertFalse(clock.isTicking)
+        assertEquals(100, clock.elapsedMillis)
+        clock.held = false
+        advance(50)
+        assertEquals(150, clock.elapsedMillis)
+
+        clock.held = true
+        clock.reset()
+        clock.start()
+        advance(100)
+        assertFalse(clock.held)
+        assertEquals(100, clock.elapsedMillis)
+    }
+
+    @Test
     fun `stop freezes the time`() {
         clock.start()
         advance(300)
