@@ -15,6 +15,28 @@ data class TextPosition(
         }
         return start + minOf(column, lineEnd(text, start) - start)
     }
+
+    companion object {
+        /**
+         * The position of [offset] (clamped to the text) in [text], the inverse of [offsetIn]: the line is the number
+         * of `\n` before it, the column counts UTF-16 units from the line's start (a surrogate pair counts as 2).
+         */
+        fun of(
+            text: CharSequence,
+            offset: Int,
+        ): TextPosition {
+            val at = offset.coerceIn(0, text.length)
+            var line = 0
+            var lineStart = 0
+            for (i in 0 until at) {
+                if (text[i] == '\n') {
+                    line++
+                    lineStart = i + 1
+                }
+            }
+            return TextPosition(line, at - lineStart)
+        }
+    }
 }
 
 private val goToInput = Regex("""(\d+)(?:\s*:\s*(\d+))?""")
