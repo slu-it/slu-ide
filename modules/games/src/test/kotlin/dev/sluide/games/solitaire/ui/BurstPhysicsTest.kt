@@ -25,7 +25,7 @@ class BurstPhysicsTest {
         val p = BurstPhysics.step(still.copy(vx = 200.0), 0.5, 1000.0)
 
         assertEquals(200.0, p.vx)
-        assertEquals(200.0, p.x - still.x)
+        assertEquals(100.0, p.x - still.x)
     }
 
     @Test
