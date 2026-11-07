@@ -51,7 +51,7 @@ class RequestSlot {
         session: LanguageServerSession,
         call: (LanguageServer) -> CompletableFuture<T>,
         onResult: (T) -> Unit,
-        onError: (Throwable) -> Unit = {},
+        onError: (Throwable) -> Unit = session.logRequestError,
     ): PendingRequest {
         cancel()
         val request = session.request(call, onResult, onError)

@@ -104,7 +104,7 @@ class LanguageServerSession internal constructor(
     fun <T> request(
         call: (LanguageServer) -> CompletableFuture<T>,
         onResult: (T) -> Unit,
-        onError: (Throwable) -> Unit = { error -> logRequestError(error) },
+        onError: (Throwable) -> Unit = logRequestError,
     ): PendingRequest {
         val pending = PendingRequest()
         lifecycle.ensureStarted(evenIfRefused = false)
@@ -205,7 +205,10 @@ class LanguageServerSession internal constructor(
 
     private fun notRunning() = LanguageServerNotRunningException("${spec.name} language server is not running")
 
-    private fun logRequestError(error: Throwable) = log.log(System.Logger.Level.INFO, "lsp ${spec.id} request: $error")
+    /** The default of [request]'s onError: the failure at INFO. */
+    internal val logRequestError: (Throwable) -> Unit = { error ->
+        log.log(System.Logger.Level.INFO, "lsp ${spec.id} request: $error")
+    }
 
     private fun deliver(
         pending: PendingRequest,
