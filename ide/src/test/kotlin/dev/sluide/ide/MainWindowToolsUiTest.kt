@@ -278,10 +278,12 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot: FxRobot,
     ) {
         assertEquals(
-            listOf("Minesweeper", "Word Guess", "Doubles", "Sudoku", "Solitaire"),
+            listOf("Minesweeper", "Word Guess", "Doubles", "Sudoku", "Solitaire", "Orbit Guard"),
             menu(robot, "Games").items.map { it.text },
         )
-        val (item, wordGuessItem, doublesItem, sudokuItem, solitaireItem) = menu(robot, "Games").items
+        val gameItems = menu(robot, "Games").items
+        val (item, wordGuessItem, doublesItem, sudokuItem, solitaireItem) = gameItems
+        val orbitGuardItem = gameItems[5]
         robot.interact { robot.lookup(".tree-view").query<Node>().requestFocus() }
 
         robot.interact { item.fire() }
@@ -343,6 +345,17 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot.interact { solitaireGames.single().showTab() }
 
         assertEquals(listOf("Solitaire"), tabTitles(robot))
+
+        robot.interact { orbitGuardItem.fire() }
+        robot.interact { orbitGuardItem.fire() }
+
+        assertEquals(listOf("Solitaire", "Orbit Guard"), tabTitles(robot))
+        assertEquals("Orbit Guard", checkNotNull(editorArea.selectedTab).title.value)
+
+        robot.interact { editorArea.closeAll() }
+        robot.interact { orbitGuardGames.single().showTab() }
+
+        assertEquals(listOf("Orbit Guard"), tabTitles(robot))
     }
 
     private fun focusIsInSelectedTab(): Boolean {

@@ -31,11 +31,13 @@ import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
+import dev.sluide.games.OrbitGuard
 import dev.sluide.games.Solitaire
 import dev.sluide.games.Sudoku
 import dev.sluide.games.WordGuess
 import dev.sluide.games.doubles.DoublesPreferences
 import dev.sluide.games.minesweeper.MinesweeperPreferences
+import dev.sluide.games.orbitguard.OrbitGuardPreferences
 import dev.sluide.games.solitaire.SolitairePreferences
 import dev.sluide.games.sudoku.SudokuPreferences
 import dev.sluide.games.wordguess.WordGuessPreferences
@@ -287,6 +289,9 @@ abstract class MainWindowUiFixture {
     /** The Solitaire games of the windows created by [mainWindow]. */
     internal val solitaireGames = mutableListOf<Solitaire>()
 
+    /** The Orbit Guard games of the windows created by [mainWindow]. */
+    internal val orbitGuardGames = mutableListOf<OrbitGuard>()
+
     /**
      * The Docker settings of the windows: an executable that does not exist, so that a Docker tab shows its note and
      * never reaches an engine of the machine.
@@ -411,6 +416,7 @@ abstract class MainWindowUiFixture {
             Doubles(DoublesPreferences(projectData)).also(doublesGames::add),
             Sudoku(SudokuPreferences(projectData)).also(sudokuGames::add),
             Solitaire(SolitairePreferences(projectData)).also(solitaireGames::add),
+            OrbitGuard(OrbitGuardPreferences(projectData)).also(orbitGuardGames::add),
             // Only its folder and capturing flag are read; the tests replace the capture.
             Diagnostics(),
             softWrap,
