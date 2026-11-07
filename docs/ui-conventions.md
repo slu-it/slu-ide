@@ -63,7 +63,8 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
 - A game tab sets `EditorTab.focusOnShow`: the editor area focuses its content when it is opened or chosen (ADR 0050),
   and the view passes the focus on to its board or grid with `FocusWhenShown`, as that is in a scene only after the
   first layout.
-- A real-time game (Orbit Guard) uses `RealtimeSession` and `RealtimeLoop` from `games/common`: the game pauses when its board loses the keyboard focus, resumes only by a key or the Resume button with a 3-2-1 countdown, and no timer runs while it is not animating (ADR 0139).
+- A real-time game (Orbit Guard) uses `RealtimeSession` and `RealtimeLoop` from `games/common`: the game pauses when its board loses the keyboard focus, resumes only by a key or the Resume button with a 3-2-1 countdown, and no timer runs while it is not animating (ADR 0139). Menus (menu bar, toolbar `MenuButton`s, context menus) open as
+  popups that never take the board's focus; `RealtimeLoop` counts any open menu of the board's window as a focus loss.
 - A tab's content leaves the scene whenever another tab is selected or it moves to the other side of the editor area
   (`EditorArea` shows only the selected content): a view that unsubscribes when its scene becomes
   `null` subscribes again and catches up when it is back (`ConnectionCardList`), or never unsubscribes on scene loss at all.

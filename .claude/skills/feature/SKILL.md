@@ -34,7 +34,9 @@ Questions stand on their own (name the thing asked about). Go through what appli
 - key bindings: check `docs/features/keyboard-shortcuts.md` for free keys first;
 - persistence: nothing, per window, per project (`~/.sluide/projects`), shared (`~/.sluide/shared.json`), settings;
 - platforms: macOS behavior (the user's platform), Linux;
-- naming in the UI, and what is explicitly out of scope.
+- naming in the UI, and what is explicitly out of scope. A game named after a specific title (2048, Space Invaders)
+  gets its own name and look; briefs give no dimensions or shapes taken from the original (Orbit Guard's first
+  sprites used the classic sprite widths and were rejected in review as look-alikes).
 Stop when the answers leave no design question. A follow-up round is fine; asking what the code already answers is not.
 
 ## 5. Plan file
