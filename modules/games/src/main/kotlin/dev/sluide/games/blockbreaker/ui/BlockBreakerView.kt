@@ -87,7 +87,7 @@ internal class BlockBreakerView(
 
     private val installedChange: () -> Unit = ::refresh
 
-    // The hint of the overlay depends on whether the window is active; only the view that owns the model forwards it.
+    // Whether a click activating the window would resume (the overlay hint); only the owning view tells the model.
     private val windowSubscription: Subscription =
         board
             .sceneProperty()
