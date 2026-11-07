@@ -328,11 +328,11 @@ File does not react to it while a terminal has the focus.
 | Shift+U, Shortcut+Shift+Z | Redo |
 
 ## Solitaire
-No menu key; the keys work while the table has the focus (a click on it gives it), and not with Ctrl, Meta or Alt (with Shortcut only Z and Shift+Z count). Feature page: [solitaire.md](solitaire.md). W A S do nothing (D is the stock key).
+[solitaire.md](solitaire.md). No menu key; the keys work while the table has the focus (a click on it gives it), and not with Ctrl, Meta or Alt (with Shortcut only Z and Shift+Z count). W A S do nothing (D is the stock key).
 
 | Keys | Action |
 |---|---|
-| Arrow keys | Move the cursor; Up and Down in a column select a longer or shorter run |
+| Arrow keys | Move the cursor; Left and Right stay in their row; Up in a column selects deeper cards, past the run it goes to the top-row pile above; Down from the top row goes to the column below |
 | Space | Pick up the cursor's cards, or drop the picked ones on the cursor's pile (on the stock: draw) |
 | Enter | Drop the picked cards, else play the cursor's cards the obvious way (on the stock: draw) |
 | Esc | Put the picked cards back |

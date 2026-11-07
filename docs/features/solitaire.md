@@ -55,7 +55,7 @@ a new deal (after the guard question, see below) and is remembered.
   generator seeded from the number, so a number always shows the same deal. The same number gives different deals in
   different modes.
 - **Only deals that can be won** are offered. A solver that sees the whole deal proves it; deals that cannot be won or
-  are not decided within a quarter of a second are skipped. New Game takes a random number and goes upward from it to
+  are not proven within the budget of their mode (a quarter of a second, up to a second for Spider) are skipped. New Game takes a random number and goes upward from it to
   the first deal that is proven. The solver, its budget and how many deals it skips per mode (about a quarter of Spider
   4 Suits): [ADR 0138](../adr/0138-solitaire.md).
 - Generation runs off the FX thread. When a game starts, the next deal of the same mode is made in advance, so New Game
@@ -71,7 +71,7 @@ a new deal (after the guard question, see below) and is remembered.
   found, the status reads "No winnable deal found near #N" and the game stays.
 
 ## Playing
-- **Drag** a card, or a run that can move, to another pile. A legal drop target is outlined while you drag over it.
+- **Drag** a card, or a run that can move, to another pile. While you drag, every legal drop target is outlined.
   Dropped anywhere else, the cards slide back.
 - **Click** on a card plays it the best way: onto a foundation if it can go there, else onto a column that has cards
   (the leftmost one that takes it), else onto an empty column, and a single card into a free cell. A click on a run
@@ -81,7 +81,7 @@ a new deal (after the guard question, see below) and is remembered.
 - **Stock:** a click draws (Klondike), recycles the waste when the stock is empty, or deals a row (Spider). Quick
   clicks on the stock each count. Spider with an empty column says "Fill every empty column before dealing a row".
 - **Keyboard cursor:** only the four arrow keys move it (D is the stock key, so W A S D is not a cursor block here).
-  Left and Right go from pile to pile; Up and Down inside a column choose how deep a run the cursor covers. The cursor
+  Left and Right stay within their row (the top row or the columns). Up in a column selects deeper cards; past the run it goes to the top-row pile above (or the nearest to its left). Down from the top row goes to the column below, and in a column it selects fewer cards. The cursor
   is outlined in yellow. Space picks up the cursor's cards (outlined in blue) and, with cards picked up, drops them on
   the cursor's pile; Enter drops them too, and without a pick-up plays the cursor's cards as a click does. On the stock
   Space and Enter draw. Esc puts the picked cards back. F sends the cursor's top card to a foundation. A drop the rules
@@ -90,7 +90,7 @@ a new deal (after the guard question, see below) and is remembered.
   rest can go to the foundations (Klondike), or every FreeCell column descending. Then the cards go to the foundations
   one after another, about every 0.09 s. Spider has no auto-finish; full runs leave by themselves.
 - The game is won when every card is on a foundation: the clock stops, the table takes no more input, the win burst
-  plays and the score is recorded as a high score if it is one.
+  plays and the score is recorded as a high score if it is one. The "Won with …" status shows at once, while the burst plays.
 
 ## Score
 Classic points per mode, shown in the toolbar next to the moves and the time:
@@ -119,8 +119,9 @@ Classic points per mode, shown in the toolbar next to the moves and the time:
 - **Undo and Redo** (U, Shift+U): unlimited, each counts as a move. A new move clears the redo steps. Undoing a move
   that turned a card up turns it face down again, and the cards slide back. Both are off while dealing, paused,
   auto-finishing and once the game is won.
-- **Restart** (toolbar) goes back to the first position of the current deal and forgets the undo history; the clock
-  keeps running, and the undo and hint penalties stay. It asks first when a move was made: title "Restart", header
+- **Restart** (toolbar) is off until a move was made. It goes back to the first position of the current deal, replays the
+  deal cascade, resets the move count and forgets the undo history; the clock keeps running, and the undo and hint
+  penalties stay. It always asks first: title "Restart", header
   "Start this deal over?", text "Every move is undone; the clock keeps running.", buttons "Restart" and Cancel.
 - **Hint** (H or the lightbulb): the solver looks, off the FX thread, for the next move of a winning line from the
   current position, within 2 seconds; the status reads "Thinking…". The cards to move and the target pile are outlined
@@ -139,7 +140,7 @@ Classic points per mode, shown in the toolbar next to the moves and the time:
 The timer in the toolbar shows m:ss (h:mm:ss from an hour). It starts when the deal appears, not while it is looked
 for. It pauses by itself while the tab is hidden or the window is iconified. P or the Pause button pauses by hand (the
 button then shows Resume) and covers the table with the "Paused" overlay, which hides the cards; clicking the overlay
-resumes. While paused or won, input and the buttons that change the game are off.
+resumes. While paused or won, input and the buttons that change the game are off; New Game, Deal Number… and the menus stay on.
 
 ## Layout and look
 - The toolbar (a wrapping toolbar), in this order: Game, Draw or Suits, New Game ("New Game (F2)"), Restart ("Restart
@@ -152,12 +153,12 @@ resumes. While paused or won, input and the buttons that change the game are off
 - **Cards are drawn by Thoreau** in JavaFX, no existing card set is copied. A to 10 have the classic pip layouts, with
   rank and a small suit sign in two corners, the lower one turned. Jack, Queen and King have our own emblems: a framed
   panel with the large rank letter and a crown, diadem or shield in the suit colour. The back is a geometric pattern in
-  the accent colour. Faces stay white in both themes, a little softer in the dark one. Each face is drawn once per
+  a fixed blue, darker in the dark theme. Faces stay white in both themes, a little softer in the dark one. Each face is drawn once per
   card size into an image and cached, so 104 cards move smoothly.
 - **Scaling:** the card width follows the tab width between 48 and 160 pixels; below the minimum the tab scrolls.
   Columns that grow too long squeeze the overlap of their cards to fit the height, down to half, before the tab
   scrolls.
-- **Outlines:** the keyboard cursor is yellow, picked-up cards blue, a hint amber with a glow, and a legal drop target
+- **Outlines:** the keyboard cursor is yellow, picked-up cards blue, a hint amber with a glow, and every legal drop target
   while dragging light green.
 
 ## Animations
@@ -165,8 +166,7 @@ resumes. While paused or won, input and the buttons that change the game are off
   Auto-finish moves slide in 80 ms, one every 90 ms.
 - A new game deals in a quick cascade of about one second; the table takes no input meanwhile. A click or a key skips it.
 - **Win burst:** the cards fly out of the foundations one after another in arcs with gravity and bounce, and fade
-  out, about 3 to 4 seconds in all. Any click or key skips it. Then the status shows "Won with 4,210 points in 6:12",
-  with " — new high score!" for a record. The effect is our own, not a copy of another game's.
+  out, about 3 to 4 seconds in all. Any click or key skips it. The status shows "Won with 4,210 points in 6:12" (with " — new high score!" for a record) from the moment of the win. The effect is our own, not a copy of another game's.
 
 ## Keys
 | Input | Action |

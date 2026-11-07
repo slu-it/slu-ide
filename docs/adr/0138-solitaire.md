@@ -56,7 +56,7 @@ that stays valid. The rules of these games are not protected; card faces of exis
   double-click acts as one click and sends a card to a foundation when it can, with no separate double-click rule.
 - **Hints show, they do not play**: the solver highlights the next move of a winning line. A hint costs −20 points only
   when it shows a move; "No winning line from here — undo N moves" (found by re-solving earlier positions) and "No
-  hint found" are free. Undo and redo each count as a move, an undo costs −1.
+  hint found" are free.
 - **Nothing moves by itself** until the game is decided; then auto-finish plays the rest. Spider has none beyond
   completed runs leaving by themselves.
 
