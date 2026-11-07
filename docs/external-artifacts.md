@@ -111,6 +111,8 @@ skill part 2. Special cases:
   platform's natives (ADR 0124, ADR 0126). Check the swap when the native folder layout changes.
 - JavaFX 27 and the `org.openjfx.javafxplugin` 0.1.0: ADR 0003; never declare `org.openjfx:*` directly.
 - pty4j 0.14.0 with the JNA it resolves (5.19.1) and jediterm 3.76: terminal (ADR 0007); keep one JNA copy.
+- lsp4j 1.0.0: language servers (ADR 0142); its Gson (range `[2.9.1,3.0)`) comes from the Spring Boot BOM
+  (2.13.2). Check the range when either side moves.
 - Lingua 1.2.2: `ide/build.gradle.kts` drops the quadri- and fivegram models from the fat jar (ADR 0126).
 - Ikonli 12.4.0, RichTextFX 0.11.7, RSyntaxTextArea 4.0.1, commonmark 0.30.0, jsoup, ec4j, Kotlin, Spring Boot,
   Spotless/ktlint, TestFX: plain version bumps.
