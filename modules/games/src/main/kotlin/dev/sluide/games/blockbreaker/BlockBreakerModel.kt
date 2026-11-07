@@ -39,6 +39,7 @@ internal class BlockBreakerModel(
     private var right = false
     private var launchRequested = false
     private var pointerX: Double? = null
+    private var windowActive = true
 
     init {
         session.onChange = {
@@ -57,7 +58,8 @@ internal class BlockBreakerModel(
 
     val game: BlockBreakerGame get() = current ?: create()
 
-    val pauseHint: String get() = session.pauseHint
+    /** The overlay text of PAUSED: a click resumes at once in an inactive window, whatever has the focus there. */
+    val pauseHint: String get() = if (windowActive) session.pauseHint else "Click the game to resume"
 
     /** 3, 2, 1 while counting down, else 0. */
     val countdown: Int get() = session.countdown
@@ -134,6 +136,13 @@ internal class BlockBreakerModel(
             KeyAction.LAUNCH -> launchKeyDown = false
             KeyAction.NEW_GAME -> Unit
         }
+    }
+
+    /** The window of the board became [active] or inactive; the view forwards it. Updates the hint while PAUSED. */
+    fun windowFocusChanged(active: Boolean) {
+        if (active == windowActive) return
+        windowActive = active
+        if (state == SessionState.PAUSED) onChange()
     }
 
     /** The mouse is at [x] in logical field pixels (the view converts), in every state. */

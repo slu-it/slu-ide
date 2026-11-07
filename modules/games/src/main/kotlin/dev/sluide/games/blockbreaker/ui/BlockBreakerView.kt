@@ -27,6 +27,7 @@ import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.StackPane
+import javafx.util.Subscription
 import org.kordamp.ikonli.javafx.FontIcon
 import java.util.Locale
 
@@ -86,6 +87,16 @@ internal class BlockBreakerView(
 
     private val installedChange: () -> Unit = ::refresh
 
+    // The hint of the overlay depends on whether the window is active; only the view that owns the model forwards it.
+    private val windowSubscription: Subscription =
+        board
+            .sceneProperty()
+            .flatMap { it.windowProperty() }
+            .flatMap<Boolean> { it.focusedProperty() }
+            .subscribe { active ->
+                if (model.onChange === installedChange) model.windowFocusChanged(active ?: true)
+            }
+
     init {
         canvas.widthProperty().bind(board.widthProperty())
         canvas.heightProperty().bind(board.heightProperty())
@@ -98,6 +109,8 @@ internal class BlockBreakerView(
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
         model.onChange = installedChange
+        // The subscription above ran before the view owned the model.
+        model.windowFocusChanged(board.scene?.window?.isFocused ?: true)
         refresh()
     }
 
@@ -191,6 +204,7 @@ internal class BlockBreakerView(
     /** The model stops notifying this view (unless a newer view has taken it over). */
     fun dispose() {
         focusBoard.cancel()
+        windowSubscription.unsubscribe()
         if (model.onChange === installedChange) {
             // A closing tab pauses whatever order the editor area removes and disposes it in; a view that has
             // been taken over leaves the game to the new one.

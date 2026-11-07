@@ -534,6 +534,45 @@ internal class BlockBreakerModelTest {
         assertEquals("Press ← →, Space or click to start", model.readyText)
     }
 
+    @ParameterizedTest
+    @CsvSource(
+        "true|true|Press P, ← →, Space or click to resume",
+        "false|true|Click the game to focus it",
+        "true|false|Click the game to resume",
+        "false|false|Click the game to resume",
+        delimiter = '|',
+    )
+    fun `the hint tells whether the board has the focus and whether the window is active`(
+        boardFocused: Boolean,
+        windowActive: Boolean,
+        hint: String,
+    ) {
+        val model = model(focused = boardFocused)
+
+        model.windowFocusChanged(windowActive)
+
+        assertEquals(hint, model.pauseHint)
+    }
+
+    @Test
+    fun `a change of the window focus notifies only while paused and only when it changed`() {
+        val model = model()
+        model.windowFocusChanged(false)
+        assertEquals(0, changes)
+
+        model.windowFocusChanged(true)
+        model.session.startOrResume()
+        model.session.focusChanged(false)
+        assertEquals(SessionState.PAUSED, model.state)
+        changes = 0
+
+        model.windowFocusChanged(true)
+        assertEquals(0, changes)
+
+        model.windowFocusChanged(false)
+        assertEquals(1, changes)
+    }
+
     @Test
     fun `only a running game with a score needs a confirmation to abandon`() {
         setup = ::hitsBrick
