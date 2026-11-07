@@ -19,7 +19,7 @@ that stays valid. The rules of these games are not protected; card faces of exis
   legal moves, applies them (with flips and points) and tells won and decided (auto-finish) tables. No UI, no shared
   state.
 - **Only winnable deals**: every deal offered is proven winnable by a solver that knows the whole deal (face-down
-  cards and stock included). Solver and measurements: to be filled by the solver package.
+  cards and stock included). Solver and measurements: see "The solver" below.
 - **Deal numbers** 1..1,000,000 per mode. A deal is a Fisher–Yates shuffle of the ordered deck (by suit, then rank)
   driven by an own SplitMix64 generator, seeded from the number and a constant per mode, so a number shows the same
   deal on every JDK and Kotlin version; the modes get different deals for the same number. Fixed test vectors guard
@@ -57,3 +57,45 @@ Considered:
   breaks every number players have noted, and the test vectors fail.
 - Proving every deal winnable costs a solver run per new game; the solver package decides how and measures it.
 - The rules are tested without a toolkit; the UI only renders a `Table` and sends `Move`s.
+
+## The solver
+Package `dev.sluide.games.solitaire.solver`, pure Kotlin. `Solver.solve(table, budget, cancelled)` returns `Solved`
+(real `Move`s, replayed through the rules before they are returned), `Unsolvable` or `Unknown`; it holds no state, so
+calls may run in parallel. The per-variant part is a `VariantSolver`; Klondike is implemented, FreeCell and Spider
+answer `Unknown` until their package plugs in.
+- **Klondike**: a "thoughtful" depth-first search on its own compact state (bytes per column, the stock and waste as
+  one cycle in draw order), a transposition table of 64-bit position hashes (columns summed, so a permutation of
+  columns hashes alike), a copy of the state per node. The stock is a macro move ("draw or recycle until card X is on
+  top, then play X to a foundation or a column", unlimited recycling), expanded into `Draw`/`Recycle`/`Transfer`.
+  Safe foundation moves are played without branching: Aces and 2s, and a card of rank r when both foundations of the
+  other colour are at r-1 or more and the other suit of its colour is at r-2 or more (the last condition because a
+  card taken back from a foundation may still need it as a base). Moves are tried by a score: foundation and uncovering moves first.
+- **Two passes**. The first prunes heuristically (a run is moved partway only when the card below it can then go up;
+  no card is taken back from a foundation; with Draw 3 the waste top is played automatically, which shifts the groups
+  of three) and finds nearly every solution fast. Only when it is exhausted without a line, the second pass runs
+  without these heuristics (only sound pruning: interchangeable empty columns, no King column to an empty column,
+  safe foundation moves, foundation-to-column moves offered); only its exhaustion gives `Unsolvable` (up to a 64-bit hash collision). Budget, cancel and a
+  cap of two million positions end a search as `Unknown`.
+- **Measured** (JDK 25, one slow-ish sandbox core, warm JVM, 3 × 200 consecutive numbers from 1, 250,000 and 600,000;
+  the cold first solve took 31 ms):
+
+  | Mode | Budget | Solved | Unsolvable | Unknown | Median / p90 time of a Solved deal |
+  |---|---|---|---|---|---|
+  | Draw 1 | 0.25 s | 78.5% | 1.0% | 20.5% | < 1 ms / 32 ms |
+  | Draw 1 | 1 s | 82.0% | 2.8% | 15.2% | < 1 ms / 75 ms |
+  | Draw 1 | 3 s | 84.8% | 3.5% | 11.7% | < 1 ms / 121 ms |
+  | Draw 3 | 0.25 s | 77.8% | 8.0% | 14.2% | < 1 ms / 17 ms |
+  | Draw 3 | 1 s | 80.3% | 9.2% | 10.5% | < 1 ms / 31 ms |
+  | Draw 3 | 3 s | 80.8% | 9.8% | 9.3% | < 1 ms / 35 ms |
+
+  Time until `firstWinnable` returns from 100 random numbers (median / p90 / max): Draw 1 at 0.25 s per deal
+  1 / 250 / 512 ms, at 1 s 5 / 1000 / 3501 ms; Draw 3 at 0.25 s 2 / 257 / 750 ms, at 1 s 1 / 1000 / 2009 ms. Most
+  winnable deals are decided in a few milliseconds; the rest are the hard tail, which a larger budget only slowly
+  shrinks.
+- **Memory**: the table of seen positions holds 64-bit hashes in an open-addressing array that is at most half
+  full, so about 32 MB at the cap of two million positions per pass (more briefly while it doubles); a prefetch and a
+  hint running at the same time double that.
+- **Default per deal: 250 ms**: New Game then comes back in a few milliseconds at the median and within about half
+  a second at the worst of the sample, and a prefetch hides that. The cost is that about 4% of the deals a 1 s budget
+  would prove winnable are skipped; the set of offered numbers is "what the solver proves in 250 ms", and still
+  every offered deal is proven. Those numbers can change with the solver (see Consequences).
