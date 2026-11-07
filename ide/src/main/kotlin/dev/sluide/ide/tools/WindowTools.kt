@@ -11,6 +11,7 @@ import dev.sluide.dockersandbox.SandboxNotAllowedException
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
+import dev.sluide.games.Solitaire
 import dev.sluide.games.Sudoku
 import dev.sluide.games.WordGuess
 import dev.sluide.ide.ProjectService
@@ -33,7 +34,7 @@ import java.nio.file.Path
  * The tools of one window: the Terminal and Docker Sandbox menus with the terminal tabs they open in the
  * [editorArea], the Tools menu with the Coloring, Codecs, Converting, Read Aloud and Translate tabs (ADR 0110,
  * ADR 0112, ADR 0115, ADR 0124, ADR 0126), the Services menu with the Docker and Databases tabs (ADR 0118,
- * ADR 0121) and the Games menu with the Minesweeper, Word Guess, Doubles and Sudoku tabs (ADR 0131, 0132, 0136, 0137).
+ * ADR 0121) and the Games menu with the Minesweeper, Word Guess, Doubles, Sudoku and Solitaire tabs (ADR 0131, 0132, 0136, 0137, 0138).
  * [showError] shows why a tool cannot be started.
  * Used on the JavaFX thread.
  */
@@ -54,6 +55,7 @@ internal class WindowTools(
     wordGuess: WordGuess,
     doubles: Doubles,
     sudoku: Sudoku,
+    solitaire: Solitaire,
     /** Opens a web page in the system browser. */
     openWebPage: (URI) -> Unit,
     private val showError: (Stage, String) -> Unit,
@@ -120,13 +122,16 @@ internal class WindowTools(
     /** The Sudoku tool of the Games menu; it has no key binding. */
     internal val sudokuTool = WindowTool("Sudoku", sudoku::createTab)
 
+    /** The Solitaire tool of the Games menu; it has no key binding. */
+    internal val solitaireTool = WindowTool("Solitaire", solitaire::createTab)
+
     /** The Games menu logic; tests choose tools through it. */
     internal val gamesMenu =
         ToolsMenu(
             { editorArea.tabs },
             editorArea::open,
             editorArea::select,
-            listOf(minesweeperTool, wordGuessTool, doublesTool, sudokuTool),
+            listOf(minesweeperTool, wordGuessTool, doublesTool, sudokuTool, solitaireTool),
             "Games",
         )
 
@@ -148,6 +153,7 @@ internal class WindowTools(
         wordGuess.showTab = { gamesMenu.open(wordGuessTool) }
         doubles.showTab = { gamesMenu.open(doublesTool) }
         sudoku.showTab = { gamesMenu.open(sudokuTool) }
+        solitaire.showTab = { gamesMenu.open(solitaireTool) }
     }
 
     /** The Tools menu: Coloring, Codecs, Converting, Read Aloud, Translate. */
@@ -156,7 +162,7 @@ internal class WindowTools(
     /** The Services menu: Docker, Databases. */
     fun servicesMenu(): Menu = servicesMenu.menu()
 
-    /** The Games menu: Minesweeper, Word Guess, Doubles and Sudoku. */
+    /** The Games menu: Minesweeper, Word Guess, Doubles, Sudoku and Solitaire. */
     fun gamesMenu(): Menu = gamesMenu.menu()
 
     /** The Terminal menu: New Terminal. */

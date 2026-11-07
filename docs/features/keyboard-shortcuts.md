@@ -327,6 +327,25 @@ File does not react to it while a terminal has the focus.
 | U, Shortcut+Z | Undo |
 | Shift+U, Shortcut+Shift+Z | Redo |
 
+## Solitaire
+No menu key; the keys work while the table has the focus (a click on it gives it), and not with Ctrl, Meta or Alt (with Shortcut only Z and Shift+Z count). The feature page comes with the Solitaire documentation.
+
+| Keys | Action |
+|---|---|
+| Arrow keys | Move the cursor; Up and Down in a column select a longer or shorter run |
+| Space | Pick up the cursor's cards, or drop the picked ones on the cursor's pile (on the stock: draw) |
+| Enter | Drop the picked cards, else play the cursor's cards the obvious way (on the stock: draw) |
+| Esc | Put the picked cards back |
+| D | Draw from the stock (Klondike) or deal a row (Spider), wherever the cursor is |
+| F | The cursor's top card to a foundation |
+| F2 | New game (asks first when a game is under way) |
+| U, Shortcut+Z | Undo |
+| Shift+U, Shortcut+Shift+Z | Redo |
+| H | Hint |
+| P | Pause or resume |
+| Mouse drag of a card or a run | Move it; released elsewhere it slides back |
+| Click on a card | Play it the obvious way (a foundation first); a click on the stock draws or deals; a double-click counts as one click |
+
 ## Settings
 [settings.md](settings.md)
 

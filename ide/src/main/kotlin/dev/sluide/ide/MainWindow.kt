@@ -23,6 +23,7 @@ import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
+import dev.sluide.games.Solitaire
 import dev.sluide.games.Sudoku
 import dev.sluide.games.WordGuess
 import dev.sluide.git.GitFileComparison
@@ -136,6 +137,7 @@ class MainWindow(
     private val wordGuess: WordGuess,
     private val doubles: Doubles,
     private val sudoku: Sudoku,
+    private val solitaire: Solitaire,
     diagnostics: Diagnostics,
     private val softWrap: SoftWrap,
 ) {
@@ -276,6 +278,7 @@ class MainWindow(
             wordGuess,
             doubles,
             sudoku,
+            solitaire,
             openWebPage = { openWebPage(it) },
             showError = { s, m -> showError(s, m) },
         )
