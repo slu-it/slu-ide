@@ -22,13 +22,14 @@ belong to the Python ADR (0144). What the spikes showed about servers in general
 ## Decision
 - **Module:** `modules/language-servers`, package `dev.sluide.languageservers`, a foundation library without Spring
   beans and without controls: JavaFX base for the observable states, `Platform.runLater` (graphics) as the default
-  dispatch to the FX thread. Nothing in it is specific to a language. It depends on
-  `background-tasks` (`NamedThreads`, and `BackgroundTasks` in the installer interface) and on lsp4j (Eclipse, latest
-  release 1.0.0, with Gson, whose version the Spring Boot BOM manages inside lsp4j's range) as `api`: consumers use
-  lsp4j's protocol types. Root package: the API; `connection` (lsp4j, lifecycle, client capabilities) and `process`
-  (OS processes, the JVM hook) hold the rest ([ADR 0055](0055-sub-packages-within-modules.md)). Its test fixtures
-  (`java-test-fixtures`) publish `FakeLanguageServers` and `FakeServer`: `LanguageServers` over lsp4j fake servers on
-  in-memory pipes, so the modules that use language servers test their logic without a process.
+  dispatch to the FX thread. Nothing in it is specific to a language. It depends on `background-tasks`
+  (`NamedThreads`, and `BackgroundTasks` in the installer interface), on `file-watcher` (the project watch, below) and
+  on lsp4j (Eclipse, latest release 1.0.0, with Gson, whose version the Spring Boot BOM manages inside lsp4j's range)
+  as `api`: consumers use lsp4j's protocol types. Root package: the API; `connection` (lsp4j, lifecycle, client
+  capabilities), `files` (the project watch, file watcher globs) and `process` (OS processes, the JVM hook) hold the
+  rest ([ADR 0055](0055-sub-packages-within-modules.md)). Its test fixtures (`java-test-fixtures`) publish
+  `FakeLanguageServers` and `FakeServer`: `LanguageServers` over lsp4j fake servers on in-memory pipes, so the modules
+  that use language servers test their logic without a process.
 - **Extension point `LanguageServerSpec`**, implemented by a language module: id and name, `matches(file)`,
   `languageId(file)`, `command()` (executable, arguments, environment changes, working folder; `null` = not available),
   `initializationOptions(root)`, `configuration(item)` (the answer per `workspace/configuration` item),
@@ -94,10 +95,62 @@ belong to the Python ADR (0144). What the spikes showed about servers in general
   called; notifications made before that or for a server replaced since are dropped. So a document change is either
   in the state the `onConnected` re-sync sends (it happened before, on the FX thread) or sent as a notification
   afterwards, never both: a `didChange` applied twice would corrupt the server's copy.
-- **What P4 adds:** document sync (`didOpen`, incremental `didChange`, `didSave`, `didClose` with versions) and
-  workspace file events (`didChangeWatchedFiles`), over the hooks this package leaves: `notify`, `onConnected` (where
-  it opens the open files again with `notify`) and `ServerFeatures.fileWatchers()` with `onFeaturesChanged`. Requests
-  made right after a start may reach the server before that re-sync.
+
+### Document sync and file events
+- **Documents:** `LanguageServerSession.documents` (`DocumentSync`, FX thread only) opens a file with
+  `open(file, languageId, text)`: `didOpen` with version 1, and the server starts if it is stopped. Opens are counted
+  per file: a second open returns another `SyncedDocument` handle to the same document (with its text), and `didClose`
+  goes out when the last handle closes. One editor per file feeds the changes ([ADR 0134](0134-split-editor-area.md));
+  other handles read positions and save. A handle does nothing once closed, so late editor events are harmless.
+- **Changes:** a document keeps its own copy of the text, because the editor's text already shows a whole batch
+  (Replace All, `applyEdits`) when it reports the batch's changes one by one, each in the text the one before left
+  ([ADR 0141](0141-editor-api-for-language-features.md)). `changed(DocumentChange(start, removed, inserted),
+  currentText)` computes the LSP range on the copy before applying it (lines from `\n`, which the editor normalizes to;
+  characters in UTF-16 code units, the editor's offsets), applies it, bumps the version and sends one `didChange` per
+  change (no coalescing): the range and the inserted text if the server syncs incrementally, the whole text if fully,
+  nothing if it wants no changes. The sync kind is a dynamic registration of `textDocument/didChange` (its `syncKind`)
+  if there is one, else the static `textDocumentSync` (`ServerFeatures.textDocumentSyncKind()`). The client still
+  declares no dynamic registration for synchronization; reading one costs nothing.
+- **A change that does not fit the copy** (its `removed` text is not at `start`: a bug) is logged once per document at
+  WARNING, and the server gets `currentText()`, the editor's text, as a whole change with a new version. The changes of
+  the same batch that follow are in that text already: while the editor's text equals the copy, they are skipped.
+- **Saves and moves:** `saved()` sends `didSave` if the server wants it (a registration of `textDocument/didSave`, else
+  the static `save` option; the old bare sync kind counts as without text, as VS Code reads it), with the text when it
+  asks for `includeText`. `moved(to)` (a rename that keeps the editor) sends `didClose` for the old URI and `didOpen`
+  for the new one with the current text and the language id given at open; the caller checks that the target is still
+  in the project and served by the spec. A document still open at the target (a missed close: moves never replace,
+  [ADR 0073](0073-explorer-multi-selection-and-moving.md)) is logged at WARNING and closed, and its handles do
+  nothing any more, rather than the move failing on the FX thread. `positionOf(offset)` and `offsetOf(position)`
+  convert on the copy (clamped) for the requests and results of the features.
+- **Every new server gets the open documents again:** the session's `onConnected` sends `didOpen` for every open
+  document with its current text and a new version. With the rule that a notification reaches only the server
+  announced when it was made, a document opened or changed while a server starts is dropped there and arrives once,
+  in that reopen, never twice. Requests made right after a start may reach the server before the reopen.
+- **File events:** `LanguageServers.filesChanged(List<FileChange(path, kind)>)` (FX thread) sends
+  `workspace/didChangeWatchedFiles` to every session whose server registered file watchers that want a change: a plain
+  glob matches the absolute path, a relative pattern the path below its base URI (a URI or a workspace folder); `*`,
+  `?`, `**`, `{a,b}`, `[a-z]` and `[!a-z]`; the watcher's kind bits (create, change, delete; all if left out) must
+  include the change's kind. A server that does not run has no watchers, so this starts none. Callers feed what they
+  know first (the explorer's moves and deletes, saves).
+- **Project watch:** while any server of the window starts, runs or restarts, `LanguageServers` watches the project
+  folder with the window's `FileWatcher`, one `watch` per folder ([ADR 0006](0006-file-watching.md) watches no
+  trees), and feeds what it finds to `filesChanged`. It skips hidden folders (`.git`, `.venv`, `.gradle`, `.idea`),
+  `node_modules`, `__pycache__` and `venv` anywhere, `build`, `target` and `dist` directly in the project folder (a
+  Python package may be called `build`), and links to folders (no loops; only the project folder itself may be opened
+  through a link). It watches at most 2,000 folders, 300 on macOS (below): past that it logs once and adds none. All
+  of this is `ProjectWatchOptions`, a constructor parameter. Folders that appear are watched, with what they hold
+  reported as created. `FileWatcher` reports paths without event kinds, so the folder that reported a path is listed
+  again and compared with its last listing (existence, size, modification time) into created, changed and deleted; a
+  deleted folder reports its known files as deleted. A folder that reports itself (deleted, or events lost) is
+  watched again before its old watch is closed: `FileWatcher` keeps a live watch and renews one that ended with a
+  deleted folder, and nothing on disk tells which (Linux reuses inode numbers, so `rm -rf gen && mkdir gen` may give
+  the same file key). Each folder has its own listener, so a folder's report of itself is told apart from its
+  parent's report of it as an entry. The listing runs on one thread (`sluide-lsp-files`); what one pass finds is one
+  batch.
+- **What ty registers (0.0.99, linux-aarch64, 2026-11-07):** `textDocumentSync` with `openClose`, `change`
+  Incremental and `save` without text; dynamically one `workspace/didChangeWatchedFiles` registration with three
+  relative patterns `**` without kinds (all): the project folder and the interpreter's two `dist-packages` folders
+  (outside the project; the project watch does not cover them). So ty hears about every file below the project.
 
 ## Consequences
 - A language is a spec plus, if Thoreau installs its server, an installer; the process, the protocol and the
@@ -106,6 +159,17 @@ belong to the Python ADR (0144). What the spikes showed about servers in general
 - A server that never answers `initialize` holds its session's outbound thread for 30 s; requests sent meanwhile wait.
 - Server-initiated edits (`workspace/applyEdit`), dialogs (`window/showMessageRequest`, answered as dismissed) and
   `window/showDocument` are not supported yet.
+- Every change copies part of the document's text and sends one `didChange`; a long Replace All sends many. Ranges
+  are found by scanning the copy from its start, fine for source files, slow for huge ones.
+- Changes in excluded or hidden folders, in folders past the cap and outside the project (ty's `dist-packages`
+  watchers) reach no server; a restart (also after `pip install`) makes the server read them. On macOS the JDK polls
+  (ADR 0006), so changes arrive up to about 2 s late. Watchers whose base is the project folder's real path where
+  the project was opened through a link (macOS `/var` and `/private/var`) match nothing: the watch reports paths below
+  the folder as opened, the form the servers got as root URI.
+- On macOS the JDK's polling watch service lists every registered folder again about every 2 s: 300 folders are
+  about 150 listings a second per window while a server runs (2,000 would be about 1,000), hence the lower cap there.
+  On Linux each folder is one inotify watch; when `fs.inotify.max_user_watches` is used up, `FileWatcher` logs the
+  failed registration only at DEBUG and that folder stays unwatched.
 - In a JVM without a UTF-8 file-name encoding (no locale, as the sandbox's Gradle), paths with other characters
   cannot exist; the URI tests of those skip there and pass with `LC_ALL=C.UTF-8`.
 - Listed in [../index.md](../index.md).

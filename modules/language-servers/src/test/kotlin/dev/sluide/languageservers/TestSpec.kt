@@ -9,8 +9,8 @@ internal class TestSpec(
     override val trustCheckId: String? = null,
     private val config: (ConfigurationItem) -> Any? = { null },
     private val initOptions: Any? = null,
+    override val id: String = "test",
 ) : LanguageServerSpec {
-    override val id = "test"
     override val name = "Test"
 
     override fun initializationOptions(root: Path) = initOptions

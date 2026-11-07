@@ -23,6 +23,9 @@ dependencies {
     // Deliberate module API dependency: ServerInstaller.install takes the window's BackgroundTasks; process start,
     // trust waits, stderr readers and shutdown run on logged NamedThreads (ADR 0060, ADR 0061).
     api(project(":modules:background-tasks"))
+    // Foundation to foundation: the project watch that feeds workspace/didChangeWatchedFiles watches the project's
+    // folders one by one with the window's FileWatcher, which the LanguageServers constructor takes (ADR 0142).
+    api(project(":modules:file-watcher"))
 
     // The fixtures resolve lsp4j's Gson like the main code, from the Spring Boot BOM.
     testFixturesImplementation(platform(libs.spring.boot.dependencies))
