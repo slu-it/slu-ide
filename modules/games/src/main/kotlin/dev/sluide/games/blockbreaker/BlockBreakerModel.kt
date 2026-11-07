@@ -58,7 +58,7 @@ internal class BlockBreakerModel(
 
     val game: BlockBreakerGame get() = current ?: create()
 
-    /** The overlay text of PAUSED: a click resumes at once in an inactive window, whatever has the focus there. */
+    /** The overlay text of PAUSED: a click resumes at once in an inactive window whose focus owner is the board. */
     val pauseHint: String get() = if (windowActive) session.pauseHint else "Click the game to resume"
 
     /** 3, 2, 1 while counting down, else 0. */
@@ -138,7 +138,10 @@ internal class BlockBreakerModel(
         }
     }
 
-    /** The window of the board became [active] or inactive; the view forwards it. Updates the hint while PAUSED. */
+    /**
+     * The window of the board became [active] or inactive; the view forwards it, counting an inactive window whose
+     * focus owner is not the board as active (activating it does not focus the board). Updates the hint while PAUSED.
+     */
     fun windowFocusChanged(active: Boolean) {
         if (active == windowActive) return
         windowActive = active

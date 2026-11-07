@@ -94,7 +94,7 @@ internal class BlockBreakerView(
             .flatMap { it.windowProperty() }
             .flatMap<Boolean> { it.focusedProperty() }
             .subscribe { active ->
-                if (model.onChange === installedChange) model.windowFocusChanged(active ?: true)
+                if (model.onChange === installedChange) model.windowFocusChanged(windowCountsAsActive(active))
             }
 
     init {
@@ -110,9 +110,16 @@ internal class BlockBreakerView(
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
         model.onChange = installedChange
         // The subscription above ran before the view owned the model.
-        model.windowFocusChanged(board.scene?.window?.isFocused ?: true)
+        model.windowFocusChanged(windowCountsAsActive(board.scene?.window?.isFocused))
         refresh()
     }
+
+    /**
+     * An inactive window gives the focus back to its focus owner when it is activated, so the activating click
+     * resumes only when that owner is the board; otherwise the window counts as active (the click only focuses).
+     */
+    private fun windowCountsAsActive(windowFocused: Boolean?): Boolean =
+        (windowFocused ?: true) || board.scene?.focusOwner !== board
 
     private fun toolbar(): Node {
         newGameButton.apply {
