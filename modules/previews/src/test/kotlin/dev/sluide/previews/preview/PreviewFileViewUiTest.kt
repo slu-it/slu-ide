@@ -562,7 +562,7 @@ class PreviewFileViewUiTest {
     }
 
     @Test
-    fun `showLine switches Preview to Split, goes to the line and focuses the source`(robot: FxRobot) {
+    fun `showLine and showPosition switch Preview to Split, go to the line and focus the source`(robot: FxRobot) {
         val (_, view) = show(robot, longDocument)
         robot.interact { view.mode.set(PreviewMode.PREVIEW) }
 
@@ -571,6 +571,19 @@ class PreviewFileViewUiTest {
         assertEquals(PreviewMode.SPLIT, view.mode.get())
         assertEquals(40, WaitForAsyncUtils.asyncFx<Int> { view.sourceArea.currentParagraph }.get())
         assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
+
+        robot.interact {
+            view.mode.set(PreviewMode.PREVIEW)
+            view.showPosition(50, 4)
+        }
+
+        assertEquals(PreviewMode.SPLIT, view.mode.get())
+        assertEquals(
+            50 to 4,
+            WaitForAsyncUtils
+                .asyncFx<Pair<Int, Int>> { view.sourceArea.currentParagraph to view.sourceArea.caretColumn }
+                .get(),
+        )
     }
 
     /** A zooming preview whose page cannot be loaded, so that its view is stopped. */

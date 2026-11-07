@@ -196,6 +196,8 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         assertTrue(79 in code.firstVisibleParToAllParIndex()..code.lastVisibleParToAllParIndex(), "scrolled to it")
         robot.interact { assertTrue(host.openFile(text, 500)) }
         assertEquals(99, code.currentParagraph, "beyond the end: the last line")
+        robot.interact { assertTrue(host.openFile(text, 41, 3)) }
+        assertEquals(41 to 3, code.currentParagraph to code.caretColumn, "at a line and column")
 
         val markdown = textFile("notes.md", (1..200).joinToString("\n\n") { "Paragraph $it" })
         robot.interact { host.openFile(markdown) }

@@ -204,9 +204,15 @@ internal class GradleFileView(
     }
 
     /** Shows the source beside the tasks if only the tasks are shown, then goes to [line]. */
-    override fun showLine(line: Int) {
+    override fun showLine(line: Int) = showPosition(line, 0)
+
+    /** Shows the source beside the tasks if only the tasks are shown, then goes to [column] of [line]. */
+    override fun showPosition(
+        line: Int,
+        column: Int,
+    ) {
         if (split.mode.get() == SplitMode.OTHER) split.mode.set(SplitMode.SPLIT)
-        editor.showLine(line)
+        editor.showPosition(line, column)
     }
 
     override fun focusText() {

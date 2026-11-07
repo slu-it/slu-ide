@@ -335,13 +335,19 @@ internal class PreviewFileView(
         if (stopped && source.savedText != renderedText) resume() else render()
     }
 
+    /** Goes to the start of [line] of the source, as [showPosition] does. */
+    override fun showLine(line: Int) = showPosition(line, 0)
+
     /**
-     * Goes to [line] of the source, showing it beside the preview if the preview shows alone. The source takes the
-     * focus, also once it is in the scene again, in place of a request still pending for the preview.
+     * Goes to [column] of [line] of the source, showing it beside the preview if the preview shows alone. The source
+     * takes the focus, also once it is in the scene again, in place of a request still pending for the preview.
      */
-    override fun showLine(line: Int) {
+    override fun showPosition(
+        line: Int,
+        column: Int,
+    ) {
         if (mode.get() == PreviewMode.PREVIEW) mode.set(PreviewMode.SPLIT)
-        source.showLine(line)
+        source.showPosition(line, column)
         pendingFocus.request(source.node) { if (!disposed) source.focusText() }
     }
 
