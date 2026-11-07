@@ -152,7 +152,11 @@ internal class OrbitGuardModel(
     private fun step() {
         val before = game.score
         val events = game.step(Input(left, right, fire))
-        if (game.score != before && preferences.recordScore(difficulty, game.score)) newBest = true
+        if (game.score != before && preferences.recordScore(difficulty, game.score)) {
+            newBest = true
+            // The status line shows the best.
+            onChange()
+        }
         if (game.isOver || GameEvent.GameOver in events) {
             releaseKeys()
             session.gameOver()

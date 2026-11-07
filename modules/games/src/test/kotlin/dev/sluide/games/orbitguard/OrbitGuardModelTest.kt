@@ -342,6 +342,22 @@ internal class OrbitGuardModelTest {
     }
 
     @Test
+    fun `a new best notifies the view so that the status line follows, a score below the best does not`() {
+        preferences.recordScore(Difficulty.NORMAL, 50)
+        val model = model()
+        model.toPlaying()
+
+        changes = 0
+        killScout(model.game)
+        model.steps(1)
+        assertEquals(0, changes)
+
+        killScout(model.game)
+        model.steps(1)
+        assertEquals(1, changes)
+    }
+
+    @Test
     fun `a best raised elsewhere meanwhile makes the score no new best`() {
         val model = model()
         model.toPlaying()
