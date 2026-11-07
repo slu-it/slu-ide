@@ -346,6 +346,16 @@ File does not react to it while a terminal has the focus.
 | Mouse drag of a card or a run | Move it; released elsewhere it slides back |
 | Click on a card | Play it the obvious way (a foundation first); a click on the stock draws or deals; a double-click counts as one click |
 
+## Orbit Guard
+[orbit-guard.md](orbit-guard.md). No menu key; the keys work while the board has the focus (a click on it gives it), and not with Shortcut, Ctrl, Meta or Alt.
+
+| Keys | Action |
+|---|---|
+| Left, Right arrow, A, D | Move the ship while held; in READY or when paused also start or resume (the key is eaten) |
+| Space, Up arrow, W | Fire (held repeats); in READY or when paused also start or resume |
+| P | Pause or resume |
+| F2 | New game (asks first when a game with a score is under way) |
+
 ## Settings
 [settings.md](settings.md)
 

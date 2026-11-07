@@ -1,7 +1,7 @@
 # Idea: Games, what is left for later
 
 **Status:** idea, collected 2026-11-05 while building Minesweeper ([ADR 0131](../adr/0131-games-menu-minesweeper.md)), Word Guess
-([ADR 0132](../adr/0132-word-guess.md)), Doubles ([ADR 0136](../adr/0136-doubles.md)), Sudoku and Solitaire;
+([ADR 0132](../adr/0132-word-guess.md)), Doubles ([ADR 0136](../adr/0136-doubles.md)), Sudoku, Solitaire and Orbit Guard;
 nothing decided or built. Each needs a decision of its own before it is built.
 
 - **Statistics per size**: games played, won, win rate and streaks next to the best times. Needs a stored record per
@@ -25,8 +25,12 @@ nothing decided or built. Each needs a decision of its own before it is built.
   **resuming after a restart**, an option for **safe automatic moves to the foundations**, **card-back themes**, a
   **draw key that works with W A S D** (D is the stock key today, so only the arrows move the cursor) and **proving
   more Spider 4-suit deals** (about a quarter are skipped today).
+- **Orbit Guard** ([ADR 0139](../adr/0139-orbit-guard.md), [feature](../features/orbit-guard.md)): **sound effects**,
+  **mouse control**, **statistics** (games played, best wave), **resuming after a restart**, the **focus-loss pause for
+  the turn-based games** (today only the real-time game pauses when its board loses the focus), **power-ups** (double
+  shot, shield repair) and **other formations or diving enemies**.
 - **Further games** in the `games` module, one package each, as items of the Games menu (Minesweeper, Word Guess,
-  Doubles, Sudoku and Solitaire exist; for example Pyramid or Mahjong solitaire).
+  Doubles, Sudoku, Solitaire and Orbit Guard exist; for example Pyramid or Mahjong solitaire).
 - **The WebView variant**: a self-contained HTML, CSS and JS page in a WebView, portable to any web server and freer
   to style. Rejected for Minesweeper (it needs an exception to "Kotlin only", its logic is testable only through
   WebView UI tests); it could be reconsidered for a game that is mostly animation.
