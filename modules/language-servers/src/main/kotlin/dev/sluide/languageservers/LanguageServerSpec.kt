@@ -27,11 +27,16 @@ interface LanguageServerSpec {
     /** How to start the server, or `null` if it is not available (not installed); called off the FX thread. */
     fun command(): ServerCommand?
 
-    /** The `initializationOptions` of the `initialize` request for the project folder [root]. */
+    /**
+     * The `initializationOptions` of the `initialize` request for the project folder [root], a JSON value as for
+     * [configuration]; another type is left out (logged).
+     */
     fun initializationOptions(root: Path): Any? = null
 
     /**
-     * The answer to one item of a `workspace/configuration` request, serialized as JSON. `null` answers JSON `null`,
+     * The answer to one item of a `workspace/configuration` request as a JSON value: a `Map` with string keys, a
+     * `List` (any collection), a `String`, `Number` or `Boolean`, `null`, or a Gson `JsonElement`, nested as needed.
+     * Another type (a Jackson node, a data class) or an exception answers `null` (logged). `null` answers JSON `null`,
      * which some servers reject (Pyrefly): answer an empty map for "nothing configured" there.
      */
     fun configuration(item: ConfigurationItem): Any? = null

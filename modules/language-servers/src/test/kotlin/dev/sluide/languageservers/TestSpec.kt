@@ -8,9 +8,12 @@ internal class TestSpec(
     override val runsProjectCode: Boolean = false,
     override val trustCheckId: String? = null,
     private val config: (ConfigurationItem) -> Any? = { null },
+    private val initOptions: Any? = null,
 ) : LanguageServerSpec {
     override val id = "test"
     override val name = "Test"
+
+    override fun initializationOptions(root: Path) = initOptions
 
     override fun matches(file: Path) = file.fileName.toString().endsWith(".py")
 

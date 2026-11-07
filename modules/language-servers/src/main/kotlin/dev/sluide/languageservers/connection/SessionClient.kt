@@ -57,7 +57,19 @@ internal class SessionClient(
     private val events: ClientEvents,
 ) : LanguageClient {
     override fun configuration(params: ConfigurationParams): CompletableFuture<List<Any?>> =
-        CompletableFuture.completedFuture(params.items.map { item -> events.configuration(item) })
+        CompletableFuture.completedFuture(params.items.map(::configuration))
+
+    /** The spec's answer to [item] as JSON; one it cannot give or that is no JSON value answers `null`. */
+    private fun configuration(item: ConfigurationItem): Any? =
+        try {
+            jsonTree(events.configuration(item))
+        } catch (e: RuntimeException) {
+            log.log(
+                System.Logger.Level.WARNING,
+                "lsp $name: no configuration for section ${item.section}: ${e.message}",
+            )
+            null
+        }
 
     override fun registerCapability(params: RegistrationParams): CompletableFuture<Void?> {
         log.log(System.Logger.Level.INFO, "lsp $name registers ${params.registrations.joinToString { it.method }}")

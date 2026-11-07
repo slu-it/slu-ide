@@ -282,9 +282,18 @@ internal class ServerLifecycle(
             @Suppress("DEPRECATION")
             rootUri = LspUris.of(root)
             workspaceFolders = listOf(workspaceFolder(root))
-            initializationOptions = spec.initializationOptions(root)
+            initializationOptions = initializationOptions(root)
             capabilities = clientCapabilities().also(spec::adjustCapabilities)
             trace = "off"
+        }
+
+    /** The spec's initialization options as JSON; options that are no JSON value are left out. */
+    private fun initializationOptions(root: Path): Any? =
+        try {
+            jsonTree(spec.initializationOptions(root)).takeUnless { it.isJsonNull }
+        } catch (e: IllegalArgumentException) {
+            log.log(System.Logger.Level.WARNING, "lsp ${spec.id}: initialization options left out: ${e.message}")
+            null
         }
 
     /** The process of start [gen] ended or failed: restart after a pause, or fail after the last restart. */

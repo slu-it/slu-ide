@@ -105,34 +105,36 @@ class LanguageServerSessionTest {
     }
 
     @Test
-    fun `answers workspace configuration item by item from the spec`() {
-        val spec =
-            TestSpec(config = { item ->
-                if (item.section ==
-                    "ty"
-                ) {
-                    mapOf("diagnosticMode" to "workspace")
-                } else {
-                    emptyMap<String, Any>()
-                }
-            })
-        val server = running(session(spec))
+    fun `answers workspace configuration item by item from the spec, null for what is no JSON value`() {
+        val answers =
+            mapOf(
+                "ty" to mapOf("diagnosticMode" to "workspace", "paths" to listOf("src", 1, true, null)),
+                "empty" to emptyMap<String, Any>(),
+                "jackson-like" to StringBuilder("not JSON"),
+            )
+        val server = running(session(TestSpec(config = { item -> answers.getValue(item.section) })))
 
         val answer =
             server.client
                 .configuration(
-                    ConfigurationParams(
-                        listOf(
-                            ConfigurationItem().apply { section = "ty" },
-                            ConfigurationItem().apply {
-                                section =
-                                    "other"
-                            },
-                        ),
-                    ),
+                    ConfigurationParams(answers.keys.map(::section)),
                 ).get(5, TimeUnit.SECONDS)
 
-        assertEquals(listOf("""{"diagnosticMode":"workspace"}""", "{}"), answer.map { it.toString() })
+        assertEquals(
+            listOf("""{"diagnosticMode":"workspace","paths":["src",1,true,null]}""", "{}", "null"),
+            answer.map { it?.toString() ?: "null" },
+        )
+    }
+
+    @Test
+    fun `sends the spec's initialization options as JSON and leaves out what is no JSON value`() {
+        val server = running(session(TestSpec(initOptions = mapOf("untrustedWorkspace" to false))))
+        assertEquals("""{"untrustedWorkspace":false}""", server.initializationOptions())
+        servers!!.close()
+
+        val other = running(session(TestSpec(initOptions = Any())))
+
+        assertEquals(null, other.initializationOptions())
     }
 
     @Test
@@ -272,6 +274,10 @@ class LanguageServerSessionTest {
         assertEquals(LanguageServerNotRunningException::class, errors.single()::class)
         assertEquals("Test language server stopped", errors.single().message)
     }
+
+    private fun section(name: String) = ConfigurationItem().apply { section = name }
+
+    private fun FakeServer.initializationOptions() = initializeParams!!.initializationOptions?.toString()
 
     private fun diagnostics(
         uri: String,
