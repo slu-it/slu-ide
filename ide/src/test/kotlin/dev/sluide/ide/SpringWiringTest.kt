@@ -84,6 +84,9 @@ import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.LegacyTrustDecisions
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.TrustedProjects
+import dev.sluide.python.TySpec
+import dev.sluide.python.TyUpdates
+import dev.sluide.python.settings.PythonSettingsPage
 import dev.sluide.scratches.ScratchFiles
 import dev.sluide.secrets.Secrets
 import dev.sluide.secrets.settings.SecretsSettingsPage
@@ -238,6 +241,9 @@ class SpringWiringTest {
                         dev.sluide.localmodels.ModelInstaller::class.java,
                         TranslationPreferences::class.java,
                         TranslationSettingsPage::class.java,
+                        TySpec::class.java,
+                        TyUpdates::class.java,
+                        PythonSettingsPage::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")

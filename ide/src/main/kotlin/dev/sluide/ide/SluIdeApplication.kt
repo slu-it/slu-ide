@@ -3,6 +3,7 @@ package dev.sluide.ide
 import dev.sluide.diagnostics.Diagnostics
 import dev.sluide.ide.logging.FxWatchdog
 import dev.sluide.ide.logging.logUncaught
+import dev.sluide.python.settings.PythonSettingsPage
 import dev.sluide.settings.ThemedWindows
 import javafx.application.Application
 import javafx.application.Platform
@@ -42,7 +43,9 @@ class SluIdeApplication : Application() {
     }
 
     override fun start(primaryStage: Stage) {
-        context.getBean(SystemBrowser::class.java).hostServices = hostServices
+        val browser = context.getBean(SystemBrowser::class.java)
+        browser.hostServices = hostServices
+        context.getBean(PythonSettingsPage::class.java).openWebPage = browser::open
         val folders = startupFolders(parameters.unnamed)
         // The project picker replaces quitting when the last window is closed (ADR 0034).
         Platform.setImplicitExit(false)

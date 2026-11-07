@@ -72,6 +72,9 @@ dependencies {
     // by component scan (ADR 0124).
     implementation(project(":modules:speech"))
     implementation(project(":modules:translation"))
+    // Python through the language server ty: TySpec, TyInstaller, TyUpdates and Settings → Languages → Python are
+    // found by component scan; the page opens release notes in the system browser (ADR 0144).
+    implementation(project(":modules:python"))
     // Saved secrets: values encrypted with one key in the OS secret store; Secrets is a singleton (ADR 0122).
     implementation(project(":modules:secrets"))
     // The explorer's Run item has a Material Design play icon, like the HTTP client's Run (ADR 0012).
