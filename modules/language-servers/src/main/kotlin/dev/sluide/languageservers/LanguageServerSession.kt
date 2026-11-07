@@ -84,6 +84,9 @@ class LanguageServerSession internal constructor(
     /** Whether the window closed this session; nothing arrives any more. */
     val isClosed: Boolean get() = lifecycle.isClosed
 
+    /** The documents open on the server: `didOpen`, `didChange`, `didSave`, `didClose`, reopened on every new server. */
+    val documents: DocumentSync = DocumentSync(this)
+
     /**
      * Starts the server unless it runs, starts or failed (only [restart] starts a failed one); also when it was
      * [ServerState.Unavailable] or [ServerState.Untrusted] before, for a server installed or trusted since.

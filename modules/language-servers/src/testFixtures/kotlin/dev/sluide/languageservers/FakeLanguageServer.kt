@@ -53,6 +53,12 @@ open class FakeServer :
     /** Methods received, in order; `didOpen` with the document's text. */
     val calls = CopyOnWriteArrayList<String>()
 
+    /** The parameters of the document notifications received (`didOpen`, `didChange`, `didSave`, `didClose`), in order. */
+    val documentNotifications = CopyOnWriteArrayList<Any>()
+
+    /** The parameters of the `workspace/didChangeWatchedFiles` notifications received, in order. */
+    val watchedFileChanges = CopyOnWriteArrayList<DidChangeWatchedFilesParams>()
+
     @Volatile
     var initializeParams: InitializeParams? = null
 
@@ -119,18 +125,22 @@ open class FakeServer :
     }
 
     override fun didOpen(params: DidOpenTextDocumentParams) {
+        documentNotifications += params
         calls += "didOpen ${params.textDocument.text}"
     }
 
     override fun didChange(params: DidChangeTextDocumentParams) {
+        documentNotifications += params
         calls += "didChange"
     }
 
     override fun didClose(params: DidCloseTextDocumentParams) {
+        documentNotifications += params
         calls += "didClose"
     }
 
     override fun didSave(params: DidSaveTextDocumentParams) {
+        documentNotifications += params
         calls += "didSave"
     }
 
@@ -139,6 +149,7 @@ open class FakeServer :
     }
 
     override fun didChangeWatchedFiles(params: DidChangeWatchedFilesParams) {
+        watchedFileChanges += params
         calls += "didChangeWatchedFiles"
     }
 }

@@ -5,7 +5,11 @@ import dev.sluide.languageservers.connection.protocolGson
 import org.eclipse.lsp4j.DidChangeWatchedFilesRegistrationOptions
 import org.eclipse.lsp4j.FileSystemWatcher
 import org.eclipse.lsp4j.Registration
+import org.eclipse.lsp4j.SaveOptions
 import org.eclipse.lsp4j.ServerCapabilities
+import org.eclipse.lsp4j.TextDocumentChangeRegistrationOptions
+import org.eclipse.lsp4j.TextDocumentSaveRegistrationOptions
+import org.eclipse.lsp4j.TextDocumentSyncKind
 import org.eclipse.lsp4j.Unregistration
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import java.util.concurrent.ConcurrentHashMap
@@ -38,17 +42,53 @@ class ServerFeatures internal constructor() {
     /** The file watchers registered for `workspace/didChangeWatchedFiles`: what the server wants to hear about. */
     fun fileWatchers(): List<FileSystemWatcher> =
         registrations(DID_CHANGE_WATCHED_FILES).flatMap { registration ->
-            val options = registration.registerOptions as? JsonElement ?: return@flatMap emptyList()
-            try {
-                protocolGson
-                    .fromJson(options, DidChangeWatchedFilesRegistrationOptions::class.java)
-                    ?.watchers
-                    .orEmpty()
-            } catch (e: RuntimeException) {
-                log.log(System.Logger.Level.WARNING, "Unreadable file watchers of registration ${registration.id}: $e")
-                emptyList()
-            }
+            registration.options(DidChangeWatchedFilesRegistrationOptions::class.java)?.watchers.orEmpty()
         }
+
+    /**
+     * How the server wants document changes (`didChange`): a dynamic registration of `textDocument/didChange` wins
+     * over the static `textDocumentSync` of the `initialize` answer; nothing declared is [TextDocumentSyncKind.None].
+     */
+    fun textDocumentSyncKind(): TextDocumentSyncKind {
+        registrations(DID_CHANGE).lastOrNull()?.let { registration ->
+            return registration.options(TextDocumentChangeRegistrationOptions::class.java)?.syncKind
+                ?: TextDocumentSyncKind.None
+        }
+        val sync = capabilities?.textDocumentSync ?: return TextDocumentSyncKind.None
+        val kind = if (sync.isLeft) sync.left else sync.right?.change
+        return kind ?: TextDocumentSyncKind.None
+    }
+
+    /**
+     * Whether and how the server wants `didSave`: `null` if not at all, else with or without the text. A dynamic
+     * registration of `textDocument/didSave` wins over the static `textDocumentSync`, whose old form (a bare sync kind
+     * other than `None`) counts as `didSave` without the text, as VS Code reads it.
+     */
+    fun saveOptions(): SaveOptions? {
+        registrations(DID_SAVE).lastOrNull()?.let { registration ->
+            val options = registration.options(TextDocumentSaveRegistrationOptions::class.java)
+            return SaveOptions(options?.includeText ?: false)
+        }
+        val sync = capabilities?.textDocumentSync ?: return null
+        if (sync.isLeft) {
+            return SaveOptions(
+                false,
+            ).takeIf { sync.left != null && sync.left != TextDocumentSyncKind.None }
+        }
+        val save = sync.right?.save ?: return null
+        return if (save.isLeft) SaveOptions(false).takeIf { save.left == true } else save.right ?: SaveOptions(false)
+    }
+
+    /** The options of this registration read as [type]; `null` without options or if unreadable (logged). */
+    private fun <T> Registration.options(type: Class<T>): T? {
+        val options = registerOptions as? JsonElement ?: return null
+        return try {
+            protocolGson.fromJson(options, type)
+        } catch (e: RuntimeException) {
+            log.log(System.Logger.Level.WARNING, "Unreadable options of registration $id ($method): $e")
+            null
+        }
+    }
 
     internal fun initialized(capabilities: ServerCapabilities?) {
         declared = capabilities
@@ -161,6 +201,8 @@ class ServerFeatures internal constructor() {
 
     internal companion object {
         const val DID_CHANGE_WATCHED_FILES = "workspace/didChangeWatchedFiles"
+        const val DID_CHANGE = "textDocument/didChange"
+        const val DID_SAVE = "textDocument/didSave"
 
         /** While no server runs: supports nothing. */
         val NONE = ServerFeatures()
