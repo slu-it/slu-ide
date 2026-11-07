@@ -17,9 +17,9 @@ Facts were checked against the repository on 2026-11-07; items marked "unverifie
 | Workflow parser bundle | @actions/workflow-parser 0.3.61, esbuild 0.28.2 | built, vendored | `modules/previews/src/main/js/workflow-parser/package.json` + `package-lock.json` | lockfile `integrity`; bundle sha256 in vendor README |
 | Simple Icons path data (postgresql, mariadb) | 14.0.0 | vendored | comment of `modules/databases/src/main/kotlin/dev/sluide/databases/ui/cards/DbIcons.kt` | sha256 of both SVGs in that comment |
 | Word Guess word lists | ENABLE2K, SCOWL commit `1e5b7d3`, german-wordlist commit `1071d87`, Leipzig news 2023 | bundled text | `modules/games/src/main/resources/dev/sluide/games/wordguess/NOTICE-word-lists.txt` | sha256 per source in that file |
-| Gradle wrapper | 9.8.1 | build tool | `gradle/wrapper/gradle-wrapper.properties` | `distributionSha256Sum` |
+| Gradle wrapper | 9.8.1 | build tool | `gradle/wrapper/gradle-wrapper.properties`, vendored `gradle/wrapper/gradle-wrapper.jar` | `distributionSha256Sum`; jar: `gradle-<v>-wrapper.jar.sha256` |
 | espeak-ng | user's installation | external, never bundled | ADR 0124; `modules/speech/src/main/kotlin/dev/sluide/speech/kokoro/EspeakLocator.kt` | none |
-| ty (Python language server) | 0.0.99 | planned (round in progress), download on click | `modules/python/src/main/resources/.../ty-release.properties` (not yet in the repo) | `.sha256` files and GitHub asset `digest` |
+| ty (Python language server) | 0.0.99 | planned (round in progress), download on click | `modules/python/src/main/resources/.../ty-release.properties` (not yet in the repo) | `.sha256` files, zip on Windows; and GitHub asset `digest` |
 | CI tools | see CI section | CI | `.github/workflows/*.yml` | none |
 
 ## Kokoro text-to-speech (Read Aloud)
@@ -58,7 +58,8 @@ record.
   sha256 `856267e8...` in the README. `npm ci` checks each tarball against `package-lock.json`.
   Procedure: `modules/previews/src/main/js/workflow-parser/README.md`, "Updating versions".
 - Update: skill part 1, "Preview libraries".
-- Tests: `MermaidPreviewTest`, `MermaidPreviewUiTest`, `MarkdownMathTest`, `WorkflowPreviewTest`,
+- Tests: `MermaidPreviewTest`, `MermaidPreviewUiTest` (Mermaid); `PreviewFileViewUiTest`, `ExportRendererUiTest` (KaTeX,
+  fonts; `MarkdownMathTest` is unit-only); `WorkflowPreviewTest`,
   `WebViewWorkflowParserUiTest`, `WorkflowPreviewUiTest`.
 
 ## Simple Icons (database logos)
@@ -67,7 +68,7 @@ record.
   comment of `DbIcons.kt`. The path data lives in `postgresql.path` and `mariadb.path` in
   `modules/databases/src/main/resources/dev/sluide/databases/ui/cards/`.
 - Update: replace the tag in the URL, download, hash, update the `.path` files and the comment. Skill part 1.
-- Tests: no test named after `DbIcons` exists; whether another test covers the logos is unverified.
+- Tests: `ConnectionCardListUiTest` (cards call `DbIcons.logo`, which fails on missing path data).
 
 ## Word Guess word lists
 - Four files (`en-allowed`, `en-answers`, `de-allowed`, `de-answers`), documented source by source with URL, commit,
@@ -79,7 +80,8 @@ record.
 - Tests: `WordListTest`.
 
 ## Gradle wrapper
-- 9.8.1, `distributionSha256Sum` in `gradle/wrapper/gradle-wrapper.properties`, URL `services.gradle.org`.
+- 9.8.1, `distributionSha256Sum` in `gradle/wrapper/gradle-wrapper.properties`, URL `services.gradle.org`. The
+  vendored `gradle/wrapper/gradle-wrapper.jar` matches `https://services.gradle.org/distributions/gradle-9.8.1-wrapper.jar.sha256`.
 - Update: `./gradlew wrapper --gradle-version <v> --gradle-distribution-sha256-sum <sha256>` with the sha256 from
   `https://services.gradle.org/distributions/gradle-<v>-bin.zip.sha256`. Skill part 1, "Gradle wrapper".
 
@@ -89,7 +91,7 @@ tests `EspeakLocatorTest`, `EspeakTest`). Phoneme flags were verified with espea
 new major version is worth a check of `docs/adr/0124-read-aloud-speech.md` ("Phonemes").
 
 ## ty (planned)
-Round in progress, not in the repo yet: GitHub releases of `astral-sh/ty`, version 0.0.99, per-platform tar.gz with
+Round in progress, not in the repo yet: GitHub releases of `astral-sh/ty`, version 0.0.99, per-platform tar.gz (zip on Windows) with
 `.sha256` files and the GitHub API asset `digest`. The pin will be `ty-release.properties` in `modules/python`.
 Update: Settings, Check for Updates at runtime, or bump the pin with the skill (part 1, "ty"). Update this section
 when the module lands.
@@ -101,8 +103,9 @@ Versions are major tags, not hashes: `actions/checkout@v6`, `actions/setup-java@
 three files together.
 
 ## Gradle libraries
-Versions in `gradle/libs.versions.toml`, resolved from Maven Central or the plugin portal; no hash pins (no
-dependency verification file checked here: unverified). Entries without a version follow the Spring Boot BOM. Update:
+Versions in `gradle/libs.versions.toml`, resolved from Maven Central or the plugin portal; no hash pins
+(`gradle/verification-metadata.xml` does not exist). JediTerm is the exception to the host: it comes only from
+`https://packages.jetbrains.team/maven/p/ij/intellij-dependencies` (`settings.gradle.kts`, ADR 0007), not Maven Central. Entries without a version follow the Spring Boot BOM. Update:
 skill part 2. Special cases:
 - ONNX Runtime 1.31.1: the jar holds the natives of all platforms; `ide/build.gradle.kts` swaps in a jar with the build
   platform's natives (ADR 0124, ADR 0126). Check the swap when the native folder layout changes.

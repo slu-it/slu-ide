@@ -11,7 +11,7 @@ every bump. One commit per artifact (a library family counts as one). Never push
 Sandbox network: a host may be blocked (HTTP 403 with an explanation). Read the body and follow the "Network access"
 section of the project CLAUDE.md; hosts used here: `api.github.com`, `github.com`, `objects.githubusercontent.com`,
 `registry.npmjs.org`, `huggingface.co`, `services.gradle.org`, `repo1.maven.org`, `plugins.gradle.org`,
-`raw.githubusercontent.com`.
+`packages.jetbrains.team` (JediTerm), `raw.githubusercontent.com`.
 
 Download into a fresh scratchpad directory per artifact, always `curl -L` (a 169-byte "zip" is a redirect page), and
 compute `sha256sum` yourself; never copy a hash from a page without comparing it to the file you downloaded.
@@ -26,32 +26,38 @@ Per bump: find latest, download and verify, change the pin, run tests, update th
   the latest commit
   (`https://api.github.com/repos/thewh1teagle/kokoro-onnx/commits?path=src/kokoro_onnx/config.json&per_page=1`), compare
   its `vocab` map with `kokoro-vocab.json`, update the file and `NOTICE-kokoro-onnx.txt`. Tests:
-  `.claude/scripts/verify.sh :modules:speech`. Real-app check: Read Aloud after clicking the download (`run-app.sh`,
+  `.claude/scripts/verify.sh :modules:speech SpeechSettingsPageUiTest` (a `:module` target runs unit tests only; name UI
+  test classes). Real-app check: Read Aloud after clicking the download (`run-app.sh`,
   `docs/testing.md`, "link `~/.sluide/models/kokoro-v1.0`").
 - **Opus-MT**: run `modules/translation/scripts/generate-opus-mt-catalog.sh` (Hugging Face API, needs curl, jq,
   sha256sum), read the diff (new, removed or re-pinned pairs; a changed commit means changed files), spot-check one
-  ONNX file against its catalog sha256. Tests: `verify.sh OpusMtCatalogTest :modules:translation`. Real-app check:
+  ONNX file against its catalog sha256. Tests: `verify.sh :modules:translation TranslationSettingsPageUiTest`. Real-app check:
   Translate with a downloaded pair.
 - **KaTeX and Mermaid** (vendored): `curl -s https://registry.npmjs.org/<pkg>/latest` gives `version` and
   `dist.integrity`; download `dist.tarball`, compare its sha512 (`openssl dgst -sha512 -binary f.tgz | base64`) with
-  `dist.integrity`, copy exactly the files listed in `vendor/README.md`, update the README table. Tests:
-  `verify.sh MermaidPreviewTest MarkdownMathTest MermaidPreviewUiTest :modules:previews`. Real-app check: a Markdown
+  `dist.integrity`, copy exactly the files listed in `vendor/README.md`, copy the tarball's `LICENSE` into
+  `vendor/katex` or `vendor/mermaid`, confirm it is still permissive (MIT, ISC, Apache-2.0, BSD), update the README table
+  including the licence column. Tests: `verify.sh :modules:previews MermaidPreviewUiTest PreviewFileViewUiTest
+  ExportRendererUiTest` (the last two typeset with KaTeX). Real-app check: a Markdown
   file with a formula and a Mermaid diagram in the preview.
 - **Workflow parser bundle**: follow `modules/previews/src/main/js/workflow-parser/README.md`, "Updating versions"
   (`npm view`, exact versions, `./build.sh`, `node check.mjs --compare`, licence check, vendor README versions and
-  bundle sha256). `npm ci` verifies the lockfile hashes. Tests: `verify.sh :modules:previews` (includes
-  `WebViewWorkflowParserUiTest`). Real-app check: a workflow file in the preview.
+  bundle sha256). `npm ci` verifies the lockfile hashes. Tests: `verify.sh WebViewWorkflowParserUiTest
+  WorkflowPreviewUiTest WorkflowPreviewTest`. Real-app check: a workflow file in the preview.
 - **Simple Icons**: latest tag via `https://api.github.com/repos/simple-icons/simple-icons/releases/latest`; download
   `icons/postgresql.svg` and `icons/mariadb.svg` from the raw URL in `DbIcons.kt` with the new tag, hash both, update
-  `postgresql.path`, `mariadb.path` and the comment. Real-app check: the Databases tab logos.
+  `postgresql.path`, `mariadb.path` and the comment. Tests: `verify.sh :modules:databases ConnectionCardListUiTest`. Real-app check: the Databases tab logos.
 - **Word lists**: skip unless asked; they are hand-curated (see the NOTICE file for the steps and sources).
 - **Gradle wrapper**: latest via `https://services.gradle.org/versions/current` (`version`); sha256 from
   `https://services.gradle.org/distributions/gradle-<v>-bin.zip.sha256`, confirmed against a downloaded zip. Then
-  `./gradlew wrapper --gradle-version <v> --gradle-distribution-sha256-sum <sha>` and check that
-  `gradle-wrapper.properties` keeps `distributionSha256Sum`. The main session runs the full build.
+  `./gradlew wrapper --gradle-version <v> --gradle-distribution-sha256-sum <sha>`, run the same task a second time
+  (the first run still uses the old wrapper jar and scripts; the second refreshes them), check that
+  `gradle-wrapper.properties` keeps `distributionSha256Sum`, and verify `gradle/wrapper/gradle-wrapper.jar` against
+  `https://services.gradle.org/distributions/gradle-<v>-wrapper.jar.sha256`. The main session runs the full build.
 - **ty** (once the python module has `ty-release.properties`): latest via
-  `https://api.github.com/repos/astral-sh/ty/releases/latest`; per platform download the tar.gz, compare its sha256 with
-  the published `.sha256` file and the API asset `digest`, update the properties file. Tests: `verify.sh :modules:python`.
+  `https://api.github.com/repos/astral-sh/ty/releases/latest`; per platform download the asset (tar.gz, zip on Windows), `stat` its size, compare its sha256 with
+  the published `.sha256` file and the API asset `digest`, and update the properties file (version, per-platform asset
+  name, bytes, sha256). Tests: `verify.sh :modules:python`.
   Real-app check: open a Python file after the download.
 - **CI actions**: check the latest major of each action in `.github/workflows/*.yml` (GitHub `releases/latest` of the
   action's repo); edit all workflow files together. Cannot be tested here; say so in the report.
@@ -63,6 +69,10 @@ Per bump: find latest, download and verify, change the pin, run tests, update th
    `https://repo1.maven.org/maven2/<group with / for .>/<artifact>/maven-metadata.xml` (`<release>`; skip alpha, beta,
    RC and milestones unless already on one), plugins via
    `https://plugins.gradle.org/m2/<plugin id with / for .>/<id>.gradle.plugin/maven-metadata.xml`.
+   Also the `[plugins]` entries with an inline version (spotless, `org.openjfx.javafxplugin`). Skip `java = "25"`
+   (the toolchain is a separate decision). Exception: JediTerm (`org.jetbrains.jediterm`) is not on Maven Central, only
+   in `https://packages.jetbrains.team/maven/p/ij/intellij-dependencies` (`settings.gradle.kts`, ADR 0007); read that
+   repository's `maven-metadata.xml` instead.
 2. Entries without a version follow the Spring Boot BOM (Jackson, snakeyaml, JDBC drivers, JUnit): bump Spring Boot,
    not them.
 3. Read the release notes of every bump with a major or minor change; look for removed APIs and changed defaults.
