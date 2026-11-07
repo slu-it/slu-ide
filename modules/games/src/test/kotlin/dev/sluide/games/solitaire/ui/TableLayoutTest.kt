@@ -100,6 +100,14 @@ class TableLayoutTest {
     }
 
     @Test
+    fun `a Spider foundation shows the King of its run`() {
+        val foundation = PileId(PileKind.FOUNDATION, 3)
+        val table = emptyTable(Mode.SPIDER_1, mapOf(foundation to pileOf(13)))
+
+        assertEquals(listOf(0), layout(table, 1000.0, 700.0).cards.filter { it.pile == foundation }.map { it.index })
+    }
+
+    @Test
     fun `overlaps are 12 and 28 percent of the card height when there is room`() {
         val table = emptyTable(Mode.KLONDIKE_DRAW_1, mapOf(tableau(0) to pileOf(5, up = 3)))
         val result = layout(table, 1000.0, 900.0)

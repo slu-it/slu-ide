@@ -104,6 +104,16 @@ private fun nominalExtent(
 }
 
 /**
+ * The index of the card a top-row pile shows: its top card, but a Spider foundation shows the King of its run (the
+ * bottom card).
+ */
+internal fun shownIndex(
+    table: Table,
+    id: PileId,
+): Int =
+    if (table.mode.variant == Variant.SPIDER && id.kind == PileKind.FOUNDATION) 0 else table.pile(id).cards.size - 1
+
+/**
  * The layout of [table] in [width] x [height]: columns across the width (card width 48..160 px), the top row, and the
  * tableau below it with overlaps that squeeze when a column would pass [height].
  */
@@ -149,7 +159,7 @@ internal fun layout(
             if (size > spread) cards += placed(size - spread - 1, rect)
             for (k in 0 until spread) cards += placed(size - spread + k, rect.copy(x = rect.x + k * FAN * w))
         } else {
-            cards += placed(size - 1, rect)
+            cards += placed(shownIndex(table, id), rect)
         }
     }
 
