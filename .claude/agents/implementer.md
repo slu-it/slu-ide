@@ -19,6 +19,8 @@ update and docs to read.
    the test level"). Before adding a test, grep for an existing one of the same behavior and extend it. A new
    `@Tag("ui")` test needs a reason a unit test cannot cover it; say it in the report. When logic moves out of a view,
    keep one UI test of the wiring. For wiring, races and negative checks, break the code once and see the test fail.
+   A test of a guard or filter needs an input where only that guard decides the outcome: Solitaire reviews found
+   seven tests that still passed with the guard removed, because the input was refused or ended the same way anyway.
    Verify narrowly with one call: `.claude/scripts/verify.sh --display <N> --changed <the test classes the brief names
    and the ones you wrote>`, N being the display your brief gives you (shell state does not survive between calls, and
    without `--display` you land on `:99`, the main session's gate display). It formats, compiles all main and test
