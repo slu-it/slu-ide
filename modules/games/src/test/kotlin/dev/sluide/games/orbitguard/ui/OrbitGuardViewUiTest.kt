@@ -11,16 +11,21 @@ import dev.sluide.projectdata.ProjectDataStore
 import javafx.event.Event
 import javafx.event.EventHandler
 import javafx.scene.Scene
+import javafx.scene.control.ContextMenu
+import javafx.scene.control.MenuItem
 import javafx.scene.control.RadioMenuItem
 import javafx.scene.control.TextField
+import javafx.scene.control.Tooltip
 import javafx.scene.image.WritableImage
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.layout.Pane
 import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -76,6 +81,12 @@ class OrbitGuardViewUiTest {
         // The primary stage is shared by the UI test classes; a size set by an earlier test would outlive the scene.
         stage.sizeToScene()
         stage.show()
+    }
+
+    // No test leaves a listener on the static window list.
+    @AfterEach
+    fun disposeView() {
+        fx { view.dispose() }
     }
 
     private fun <T> fx(block: () -> T): T = WaitForAsyncUtils.asyncFx(block).get()
@@ -214,14 +225,67 @@ class OrbitGuardViewUiTest {
     }
 
     @Test
-    fun `opening the difficulty menu while counting down pauses by hand`(robot: FxRobot) {
+    fun `opening the difficulty menu while counting down pauses like a lost focus`(robot: FxRobot) {
         startCountdown(robot)
 
         robot.interact { view.difficultyMenu.show() }
 
         assertEquals(SessionState.PAUSED, state())
-        assertEquals(PauseReason.MANUAL, fx { model.pauseReason })
+        assertEquals(PauseReason.FOCUS, fx { model.pauseReason })
         robot.interact { view.difficultyMenu.hide() }
+    }
+
+    private fun showMenu(robot: FxRobot): ContextMenu {
+        val menu = ContextMenu(MenuItem("Item"))
+        robot.interact { menu.show(stage, 100.0, 100.0) }
+        return menu
+    }
+
+    @Test
+    fun `a context menu of the window pauses and releases held keys, and P resumes after it closed`(robot: FxRobot) {
+        startCountdown(robot)
+        press(robot, KeyCode.RIGHT)
+        val start = fx { model.game.shipX }
+
+        val menu = showMenu(robot)
+        assertEquals(SessionState.PAUSED, state())
+        robot.interact { menu.hide() }
+
+        assertEquals(SessionState.PAUSED, state())
+        assertTrue(fx { model.pauseHint.startsWith("Press P") })
+        press(robot, KeyCode.P)
+        release(robot, KeyCode.P)
+        assertEquals(SessionState.COUNTDOWN, state())
+        assertTrue(waitUntil { model.state == SessionState.PLAYING })
+        // A held RIGHT would cancel LEFT; it was released when the menu opened.
+        press(robot, KeyCode.LEFT)
+        assertTrue(waitUntil { model.game.shipX < start })
+        release(robot, KeyCode.LEFT)
+    }
+
+    @Test
+    fun `after a menu closed and play resumed, moving the focus away pauses again`(robot: FxRobot) {
+        startCountdown(robot)
+        val menu = showMenu(robot)
+        robot.interact { menu.hide() }
+        press(robot, KeyCode.P)
+        release(robot, KeyCode.P)
+        assertEquals(SessionState.COUNTDOWN, state())
+
+        robot.interact { other.requestFocus() }
+
+        assertEquals(SessionState.PAUSED, state())
+    }
+
+    @Test
+    fun `a tooltip showing does not pause`(robot: FxRobot) {
+        startCountdown(robot)
+        val tip = Tooltip("Hint")
+
+        robot.interact { tip.show(stage, 100.0, 100.0) }
+
+        assertEquals(SessionState.COUNTDOWN, state())
+        robot.interact { tip.hide() }
     }
 
     @Test
@@ -253,10 +317,37 @@ class OrbitGuardViewUiTest {
             parent.children.add(0, view.node)
         }
         assertEquals(SessionState.COUNTDOWN, state())
-        // ... and neither does the focus listener.
+        // ... and neither does the focus listener ...
         robot.interact { other.requestFocus() }
         assertEquals(SessionState.COUNTDOWN, state())
+        // ... nor a menu showing (the window list listener is gone). The second view's own loop would sync on
+        // every window change with its board that is not in a scene, so it is detached for this check.
+        robot.interact { second.loop.dispose() }
+        val menu = showMenu(robot)
+        assertEquals(SessionState.COUNTDOWN, state())
+        robot.interact { menu.hide() }
         robot.interact { second.dispose() }
+    }
+
+    @Test
+    fun `a context menu of another window does not pause`(robot: FxRobot) {
+        val otherStage = fx { Stage().apply { scene = Scene(Pane(), 100.0, 100.0) } }
+        val menu = ContextMenu(MenuItem("Item"))
+        try {
+            robot.interact { otherStage.show() }
+            robot.interact { stage.requestFocus() }
+            assertTrue(waitUntil { stage.isFocused })
+            startCountdown(robot)
+
+            robot.interact { menu.show(otherStage, 50.0, 50.0) }
+
+            assertEquals(SessionState.COUNTDOWN, state())
+        } finally {
+            robot.interact {
+                menu.hide()
+                otherStage.close()
+            }
+        }
     }
 
     @Test

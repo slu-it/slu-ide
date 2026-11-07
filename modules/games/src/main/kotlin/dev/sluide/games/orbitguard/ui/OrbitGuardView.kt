@@ -103,8 +103,6 @@ internal class OrbitGuardView(
         difficultyMenu.apply {
             isFocusTraversable = false
             items.setAll(difficultyItems.values)
-            // The popup does not take the board's focus, so the fleet would keep attacking behind the menu.
-            setOnShowing { if (model.session.needsAnimation) model.togglePause() }
         }
         pauseButton.apply {
             isFocusTraversable = false
