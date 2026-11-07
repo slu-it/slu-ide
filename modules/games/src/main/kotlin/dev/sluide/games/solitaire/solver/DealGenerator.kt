@@ -16,19 +16,19 @@ internal data class Deal(
     val solution: List<Move>,
 )
 
-/** Finds numbered deals the [solver] proves winnable within [perDeal] each. */
+/** Finds numbered deals the [solver] proves winnable within [perDeal] (per mode) each. */
 internal class DealGenerator(
     private val solver: Solver = Solver(),
-    private val perDeal: Duration = DEFAULT_PER_DEAL,
+    private val perDeal: (Mode) -> Duration = Companion::defaultPerDeal,
 ) {
-    /** The deal of [number] if the solver proves it winnable within [perDeal], else null. */
+    /** The deal of [number] if the solver proves it winnable within the budget of its mode, else null. */
     fun dealIfWinnable(
         mode: Mode,
         number: Int,
         cancelled: () -> Boolean = { false },
     ): Deal? {
         val table = Rules.of(mode).deal(Deals.deck(mode, number))
-        val result = solver.solve(table, perDeal, cancelled)
+        val result = solver.solve(table, perDeal(mode), cancelled)
         return (result as? SolveResult.Solved)?.let { Deal(mode, number, table, it.moves) }
     }
 
@@ -53,6 +53,14 @@ internal class DealGenerator(
     }
 
     companion object {
-        val DEFAULT_PER_DEAL: Duration = 250.milliseconds
+        /** The budget of one deal of [mode]: measured per game, see the solver section of ADR 0138. */
+        fun defaultPerDeal(mode: Mode): Duration =
+            when (mode) {
+                Mode.KLONDIKE_DRAW_1, Mode.KLONDIKE_DRAW_3 -> 250.milliseconds
+                Mode.FREECELL -> 250.milliseconds
+                Mode.SPIDER_1 -> 500.milliseconds
+                Mode.SPIDER_2 -> 1000.milliseconds
+                Mode.SPIDER_4 -> 1000.milliseconds
+            }
     }
 }

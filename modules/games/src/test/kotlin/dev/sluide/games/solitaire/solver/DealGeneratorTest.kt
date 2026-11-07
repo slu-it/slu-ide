@@ -11,6 +11,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class DealGeneratorTest {
@@ -19,6 +20,7 @@ class DealGeneratorTest {
         private val answers: List<SolveResult>,
     ) : Solver() {
         val asked = mutableListOf<Table>()
+        val budgets = mutableListOf<Duration>()
 
         override fun solve(
             table: Table,
@@ -26,6 +28,7 @@ class DealGeneratorTest {
             cancelled: () -> Boolean,
         ): SolveResult {
             asked += table
+            budgets += budget
             return answers[minOf(asked.size - 1, answers.lastIndex)]
         }
     }
@@ -93,6 +96,27 @@ class DealGeneratorTest {
     }
 
     @Test
+    fun `every mode is solved within its own budget`() {
+        val fake = FakeSolver(listOf(SolveResult.Unknown))
+        val generator = DealGenerator(fake, perDeal = { it.ordinal.seconds })
+
+        Mode.entries.forEach { generator.dealIfWinnable(it, 1) }
+
+        assertEquals(Mode.entries.map { it.ordinal.seconds }, fake.budgets)
+    }
+
+    @Test
+    fun `the default budgets are 250 ms for Klondike and FreeCell and grow with the suits of Spider`() {
+        val budgets = Mode.entries.associateWith(DealGenerator::defaultPerDeal)
+
+        assertEquals(250.milliseconds, budgets.getValue(Mode.KLONDIKE_DRAW_1))
+        assertEquals(250.milliseconds, budgets.getValue(Mode.KLONDIKE_DRAW_3))
+        assertEquals(250.milliseconds, budgets.getValue(Mode.FREECELL))
+        assertTrue(budgets.getValue(Mode.SPIDER_1) <= budgets.getValue(Mode.SPIDER_2))
+        assertTrue(budgets.getValue(Mode.SPIDER_2) <= budgets.getValue(Mode.SPIDER_4))
+    }
+
+    @Test
     fun `a typed number is a deal only when proven`() {
         val generator = DealGenerator(FakeSolver(listOf(SolveResult.Unsolvable, SolveResult.Unknown, solved)))
 
@@ -103,7 +127,7 @@ class DealGeneratorTest {
 
     @Test
     fun `the real solver gives the same winnable deal for the same start`() {
-        val generator = DealGenerator(perDeal = 10.seconds)
+        val generator = DealGenerator(perDeal = { 10.seconds })
 
         val first = generator.firstWinnable(mode, 1)
         val again = generator.firstWinnable(mode, 1)
