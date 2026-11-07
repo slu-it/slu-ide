@@ -34,6 +34,7 @@ internal class TableView(
     private val highlights = mutableListOf<Region>()
     private var laidOut = 0.0 to 0.0
     private var cursor: Pair<PileId, Int>? = null
+    private var picked: Pair<PileId, Int>? = null
     private var hint: Triple<PileId, Int, PileId>? = null
     private val hintTimer =
         PauseTransition(hintDuration).apply {
@@ -77,6 +78,15 @@ internal class TableView(
         depth: Int,
     ) {
         cursor = pile?.let { it to depth }
+        refreshHighlights()
+    }
+
+    /** Outlines the top [count] cards of [pile] as picked up by the keyboard; null removes it. */
+    fun showPicked(
+        pile: PileId?,
+        count: Int,
+    ) {
+        picked = pile?.let { it to count }
         refreshHighlights()
     }
 
@@ -146,6 +156,7 @@ internal class TableView(
         children.removeAll(highlights)
         highlights.clear()
         cursor?.let { (pile, depth) -> areaOf(pile, depth)?.let { highlights += addOverlay(it, "sol-cursor") } }
+        picked?.let { (pile, count) -> areaOf(pile, count)?.let { highlights += addOverlay(it, "sol-picked") } }
         hint?.let { (from, count, to) ->
             areaOf(from, count)?.let { highlights += addOverlay(it, "sol-hint") }
             areaOf(to, 1)?.let { highlights += addOverlay(it, "sol-hint") }

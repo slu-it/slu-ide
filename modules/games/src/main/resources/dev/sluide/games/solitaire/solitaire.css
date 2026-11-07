@@ -20,6 +20,10 @@
     -fx-icon-color: -fx-text-base-color;
 }
 
+.sol-scroll, .sol-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
 .sol-status-bar {
     -fx-padding: 2 8 2 8;
     -fx-background-color: derive(-fx-background, 4%);
@@ -44,6 +48,14 @@
 .sol-cursor {
     -fx-border-insets: -3;
     -fx-border-color: #fff59d;
+    -fx-border-width: 2;
+    -fx-border-radius: 6;
+}
+
+/* The cards picked up by the keyboard; outside the card like the cursor. */
+.sol-picked {
+    -fx-border-insets: -3;
+    -fx-border-color: #81d4fa;
     -fx-border-width: 2;
     -fx-border-radius: 6;
 }
@@ -75,6 +87,7 @@
     .solitaire { -fx-background-color: #1d3f2b; }
     .sol-slot { -fx-border-color: #3f6b50; }
     .sol-cursor { -fx-border-color: #fff176; }
+    .sol-picked { -fx-border-color: #4fc3f7; }
     .sol-hint {
         -fx-border-color: #ffa000;
         -fx-effect: dropshadow(gaussian, #ffa000, 12, 0.5, 0, 0);

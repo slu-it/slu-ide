@@ -33,5 +33,6 @@ internal object StatusText {
     ): String =
         "Won with ${points(score)} points in ${formatTime(elapsedMillis)}" + if (newHigh) " — new high score!" else ""
 
-    private fun points(value: Int): String = String.format(Locale.US, "%,d", value)
+    /** [value] with thousands separators: "4,210". */
+    fun points(value: Int): String = String.format(Locale.US, "%,d", value)
 }
