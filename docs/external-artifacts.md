@@ -19,7 +19,7 @@ Facts were checked against the repository on 2026-11-07; items marked "unverifie
 | Word Guess word lists | ENABLE2K, SCOWL commit `1e5b7d3`, german-wordlist commit `1071d87`, Leipzig news 2023 | bundled text | `modules/games/src/main/resources/dev/sluide/games/wordguess/NOTICE-word-lists.txt` | sha256 per source in that file |
 | Gradle wrapper | 9.8.1 | build tool | `gradle/wrapper/gradle-wrapper.properties`, vendored `gradle/wrapper/gradle-wrapper.jar` | `distributionSha256Sum`; jar: `gradle-<v>-wrapper.jar.sha256` |
 | espeak-ng | user's installation | external, never bundled | ADR 0124; `modules/speech/src/main/kotlin/dev/sluide/speech/kokoro/EspeakLocator.kt` | none |
-| ty (Python language server) | 0.0.99 | planned (round in progress), download on click | `modules/python/src/main/resources/.../ty-release.properties` (not yet in the repo) | `.sha256` files, zip on Windows; and GitHub asset `digest` |
+| ty (Python language server) | 0.0.99 | download on click (Settings → Languages → Python) | `modules/python/src/main/resources/dev/sluide/python/ty-release.properties` | bytes + sha256 per platform asset, same file (checked against the `.sha256` files and the GitHub API `digest`); updates: GitHub's `digest` and `size` at runtime |
 | CI tools | see CI section | CI | `.github/workflows/*.yml` | none |
 
 ## Kokoro text-to-speech (Read Aloud)
@@ -90,11 +90,26 @@ Not bundled and not pinned: GPL, so it runs as a separate process the user insta
 tests `EspeakLocatorTest`, `EspeakTest`). Phoneme flags were verified with espeak-ng 1.52. Nothing to update, but a
 new major version is worth a check of `docs/adr/0124-read-aloud-speech.md` ("Phonemes").
 
-## ty (planned)
-Round in progress, not in the repo yet: GitHub releases of `astral-sh/ty`, version 0.0.99, per-platform tar.gz (zip on Windows) with
-`.sha256` files and the GitHub API asset `digest`. The pin will be `ty-release.properties` in `modules/python`.
-Update: Settings, Check for Updates at runtime, or bump the pin with the skill (part 1, "ty"). Update this section
-when the module lands.
+## ty (Python language server)
+- Source: GitHub releases of `astral-sh/ty`,
+  `https://github.com/astral-sh/ty/releases/download/<version>/<asset>` (redirects to
+  `release-assets.githubusercontent.com`). Version 0.0.99, pinned on 2026-11-07.
+- Platforms and assets (the static musl builds on Linux): linux-x64 `ty-x86_64-unknown-linux-musl.tar.gz`
+  (14,839,660 bytes), linux-aarch64 `ty-aarch64-unknown-linux-musl.tar.gz` (13,659,057 bytes), mac-aarch64
+  `ty-aarch64-apple-darwin.tar.gz` (13,342,913 bytes). No pin for macOS on Intel or Windows: the page says "No ty
+  build for this platform" and a custom path still works.
+- Integrity: `ty-release.properties` holds `version` and per platform `<platform>.asset`, `.bytes`, `.sha256`; each
+  sha256 was compared with the asset's `.sha256` file, the GitHub API's asset `digest` and a downloaded copy. The
+  installer (`ToolInstaller`, ADR 0143) checks size and sha256, then runs a smoke test (`ty version`, an LSP
+  `initialize`) before it switches. An update the user installs from Settings uses the `size` and `digest` of the
+  GitHub API's `releases/latest` answer instead (ADR 0144).
+- Installed under `~/.sluide/tools/ty/<version>/`, the previous version kept for rollback.
+- Licence: MIT (GitHub repository licence of `astral-sh/ty`).
+- Update: at runtime Settings → Languages → Python → Check for Updates (installs for this user only); the pin with the
+  skill (part 1, "ty").
+- Tests: `TyPinTest` (reads the pin), `TyInstallerTest`, `TyUpdatesTest` (recorded GitHub answers),
+  `TySmokeTestTest` (its real-ty case runs when ty is installed or `SLUIDE_TEST_TY` names one). Feature:
+  `docs/features/python.md`; decision: ADR 0144.
 
 ## CI
 Versions are major tags, not hashes: `actions/checkout@v6`, `actions/setup-java@v6` (Temurin, Java 25),

@@ -52,6 +52,11 @@
   left. Nothing to apply. Lives in the `translation` module (`TranslationSettingsPage` with
   `TranslationSettingsPageModel`, package `dev.sluide.translation.settings`; [translate.md](translate.md),
   [ADR 0126](../adr/0126-translate-tool.md)).
+- Languages → Python: ty, the language server of Python: its status, Install/Cancel, Check for Updates with Update and
+  the release notes, Roll Back, Delete… (after a question, Cancel is the default), and the ty executable, Thoreau's
+  download or a custom path (`python.ty.path`, applied on OK or Apply). Lives in the `python` module (`PythonSettings`,
+  `PythonSettingsPage` with `PythonSettingsPageModel`, package `dev.sluide.python.settings`; [python.md](python.md),
+  [ADR 0144](../adr/0144-python-via-ty.md)).
 - Secrets: the secret store, saved passphrases with Remove and Forget All Saved Secrets. Lives in the `secrets` module
   (`SecretsSettingsPage` with `SecretsSettingsPageModel`; [secrets.md](secrets.md)).
 - Structure: `FontSpec`, `FontStyle`, `FontArea` (values), `SettingsStore` (properties file), `FontSettings` (Spring

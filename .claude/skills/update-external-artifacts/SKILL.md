@@ -54,11 +54,15 @@ Per bump: find latest, download and verify, change the pin, run tests, update th
   (the first run still uses the old wrapper jar and scripts; the second refreshes them), check that
   `gradle-wrapper.properties` keeps `distributionSha256Sum`, and verify `gradle/wrapper/gradle-wrapper.jar` against
   `https://services.gradle.org/distributions/gradle-<v>-wrapper.jar.sha256`. The main session runs the full build.
-- **ty** (once the python module has `ty-release.properties`): latest via
-  `https://api.github.com/repos/astral-sh/ty/releases/latest`; per platform download the asset (tar.gz, zip on Windows), `stat` its size, compare its sha256 with
-  the published `.sha256` file and the API asset `digest`, and update the properties file (version, per-platform asset
-  name, bytes, sha256). Tests: `verify.sh :modules:python`.
-  Real-app check: open a Python file after the download.
+- **ty**: latest via `https://api.github.com/repos/astral-sh/ty/releases/latest` (`tag_name`; skip a
+  `prerelease`). The pin is `modules/python/src/main/resources/dev/sluide/python/ty-release.properties`: `version`
+  and per Thoreau platform (`linux-x64`, `linux-aarch64`, `mac-aarch64`) `<platform>.asset`, `.bytes`, `.sha256`.
+  For each of the three assets: download it into a fresh folder (`curl -L`), compare its `sha256sum` with the
+  asset's `.sha256` file and the API asset's `digest`, take `.bytes` from the API `size` (and `stat`), and check
+  that the archive still holds `ty-<target>/ty` (`tar -tzf`). Update the properties and the ty section of
+  `docs/external-artifacts.md` (version, sizes). Tests: `verify.sh :modules:python` (`TyPinTest`; run
+  `TySmokeTestTest` with `SLUIDE_TEST_TY=<unpacked ty>` for the real smoke test).
+  Real-app check: Settings → Languages → Python → Install, then open a Python file.
 - **CI actions**: check the latest major of each action in `.github/workflows/*.yml` (GitHub `releases/latest` of the
   action's repo); edit all workflow files together. Cannot be tested here; say so in the report.
 - **espeak-ng** is user-installed; nothing to bump.

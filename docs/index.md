@@ -165,6 +165,7 @@ updated when the summary or keywords no longer fit.
 | [0141](adr/0141-editor-api-for-language-features.md) | Editor extensions get text deltas, edits, positions, key bindings, following overlays; files open at line and column | `ExtensibleCodeEditor`, `onTextChange`, `applyEdits`, `addKeyBinding`, following overlay, `showPosition`, `TextPosition.of`, language server | amends 0108, 0077; see 0128, 0022, 0054 |
 | [0142](adr/0142-language-server-foundation.md) | General LSP client: one lazily started server per window and spec, restarts, shutdown, trust gate, document sync, workspace file events from a project watch | language server, LSP, lsp4j, `language-servers`, `LanguageServerSpec`, `LanguageServerSession`, `DocumentSync`, didChangeWatchedFiles | see 0006, 0053, 0060 |
 | [0143](adr/0143-tool-installs.md) | local-models installs versioned command-line tools from release archives, with rollback and a smoke test | tool install, `ToolInstaller`, `ToolRelease`, `TarReader`, tar.gz, path traversal, exec bit, rollback | amends 0125; see 0043, 0060, 0061, 0115 |
+| [0144](adr/0144-python-via-ty.md) | Python code intelligence through ty: spike against basedpyright and Pyrefly, pinned version downloaded on click, updates and rollback only on click, no trust check | Python, ty, `TySpec`, `TyInstaller`, `TyUpdates`, pin, update check, rollback | see 0142, 0143, 0053, 0043, 0008, 0067, 0003 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -194,6 +195,7 @@ updated when the summary or keywords no longer fit.
 | [text-editing.md](features/text-editing.md) | Editing, saving and editor keys for code and text | save, Save All, changes on disk, line endings, indentation, find/replace, go to line, encoding, Windows-1252 |
 | [soft-wrap.md](features/soft-wrap.md) | Soft wrap: long lines wrap at the visible edge in every file editor, by one user-wide switch | soft wrap, wrap, long lines, Shortcut+Alt+Z, Soft Wrap button, context menu, `SoftWrap`, shared.json |
 | [file-viewers.md](features/file-viewers.md) | The `FileViewer` extension point, code viewers and supported languages | `FileViewer`, `FileView`, `CodeFileViewer`, languages, syntax highlighting, `SourceSplit`, `RunnableFileViewer`, `closeWarning`, `CodeEditors.text`, `TextEditor`, `NamedFileViewer`, `weakFileNamePatterns`, `ExtensibleCodeEditor`, overlay, lock, toolbar items |
+| [python.md](features/python.md) | Python through the language server ty: Settings → Languages → Python with install, update check, rollback, delete and a custom path | Python, ty, Settings → Languages → Python, Install, Check for Updates, Roll Back, custom path, `python.ty.path` |
 | [file-comparison.md](features/file-comparison.md) | Two files from the explorer side by side in a read-only tab | Compare Files, compare two files, `GitFileComparison`, `FileComparisonTab`, Swap Sides, `--no-index`, diff, `Shortcut+Shift+D` |
 | [env-files.md](features/env-files.md) | `.env` files with masked values | `.env`, masking, Show values, placeholder files |
 
