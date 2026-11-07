@@ -1,6 +1,6 @@
 package dev.sluide.games.solitaire
 
-/** A suit of the French deck; [red] for diamonds and hearts. */
+/** A suit of the French deck; [red] for diamonds and hearts. The declaration order fixes the deals (ADR 0138). */
 enum class Suit(
     val red: Boolean,
 ) {
