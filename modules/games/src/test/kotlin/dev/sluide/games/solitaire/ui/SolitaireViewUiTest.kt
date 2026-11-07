@@ -415,7 +415,7 @@ class SolitaireViewUiTest {
     }
 
     @Test
-    fun `the game menu can be used while a deal is made and the stale deal is dropped`(robot: FxRobot) {
+    fun `the game menu can be used while a deal is made and the switch wins`(robot: FxRobot) {
         lateinit var slow: SolitaireView
         lateinit var slowModel: SolitaireModel
         robot.interact {
