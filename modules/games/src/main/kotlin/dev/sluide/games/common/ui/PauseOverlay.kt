@@ -33,7 +33,15 @@ internal class PauseOverlay(
         paused: Boolean,
         manual: Boolean,
     ) {
+        show(paused, if (manual) "Press P or click to resume" else "Resumes when the tab is shown again")
+    }
+
+    /** Shows or hides the cover with [hint] as its text. */
+    fun show(
+        paused: Boolean,
+        hint: String,
+    ) {
         node.isVisible = paused
-        hint.text = if (manual) "Press P or click to resume" else "Resumes when the tab is shown again"
+        this.hint.text = hint
     }
 }
