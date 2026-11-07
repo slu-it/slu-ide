@@ -23,6 +23,9 @@ internal interface ServerProcess {
     /** Waits at most [millis] for the end; whether it ended. */
     fun waitFor(millis: Long): Boolean
 
+    /** The processes the server started that run now. */
+    fun descendants(): List<ProcessHandle>
+
     /** Kills the server and every process it started, at once. */
     fun destroyTree()
 }

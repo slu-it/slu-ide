@@ -64,22 +64,27 @@ class OsServerStarterTest {
     }
 
     @Test
-    fun `a server process is listed while it runs and ends when its window closes`() {
+    fun `a server process is listed while it runs and ends with its child when its window closes`() {
         val (_, process) = running()
+        val child = process.descendants().toList().single()
 
         servers!!.close()
 
         awaitTrue("server process ended") { !process.isAlive }
         awaitTrue("server process no longer listed") { process !in LiveServerProcesses.all() }
+        // The server exits on `exit` by itself and leaves its child behind, which the close kills.
+        awaitTrue("child process ended") { !child.isAlive }
     }
 
     @Test
     fun `the JVM shutdown hook's work kills a server still running`() {
         val (spec, process) = running()
+        val child = process.descendants().toList().single()
 
         LiveServerProcesses.destroyAll()
 
         awaitTrue("server process killed") { !process.isAlive }
+        awaitTrue("child process killed") { !child.isAlive }
         assertFalse(process in LiveServerProcesses.all())
         awaitTrue("crash noticed") { servers!!.state(spec).value is ServerState.Restarting }
         assertEquals(ServerState.Restarting(1), servers!!.state(spec).value)

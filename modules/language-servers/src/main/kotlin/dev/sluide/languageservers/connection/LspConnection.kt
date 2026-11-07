@@ -67,22 +67,28 @@ internal class LspConnection(
 
     /**
      * Fails the requests still waiting, then ends the server politely: `shutdown`, at most [shutdownMillis] for its
-     * answer, then `exit`, and kills it with its descendants if it has not ended [exitMillis] later. Blocks; never on
-     * the FX thread.
+     * answer, then `exit` (also without an answer), and kills it if it has not ended [exitMillis] later. The processes
+     * it had started when this began are killed in any case: once the server has ended they are no longer its
+     * descendants. Blocks; never on the FX thread.
      */
     fun shutdown(
         shutdownMillis: Long,
         exitMillis: Long,
     ) {
-        // On a thread of its own: a write can block while the server reads nothing, and only killing it ends that.
         abandon(stoppedMessage)
+        val descendants = process.descendants()
+        // On a thread of its own: a write can block while the server reads nothing, and only killing it ends that.
         val polite =
             NamedThreads.virtual("sluide-lsp-${process.name}-shutdown") {
                 try {
                     server.shutdown().get(shutdownMillis, TimeUnit.MILLISECONDS)
-                    server.exit()
                 } catch (e: Exception) {
                     log.log(System.Logger.Level.INFO, "lsp ${process.name} shutdown not answered: $e")
+                }
+                try {
+                    server.exit()
+                } catch (e: RuntimeException) {
+                    log.log(System.Logger.Level.INFO, "lsp ${process.name} exit not sent: $e")
                 }
             }
         polite.join(shutdownMillis + exitMillis)
@@ -90,6 +96,7 @@ internal class LspConnection(
             log.log(System.Logger.Level.INFO, "lsp ${process.name} did not exit after shutdown, killed")
             process.destroyTree()
         }
+        descendants.filter { it.isAlive }.forEach { it.destroyForcibly() }
         polite.interrupt()
         reader.shutdownNow()
     }

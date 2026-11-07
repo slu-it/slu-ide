@@ -179,19 +179,20 @@ class LanguageServersTest {
     }
 
     @Test
-    fun `closing kills a server that does not answer shutdown in time`() {
+    fun `closing still sends exit to a server that does not answer shutdown, and kills it if it stays`() {
         val spec = TestSpec()
         val servers = servers(spec)
         servers.session(spec).ensureStarted()
         servers.awaitState(spec, ServerState.Running)
         val process = starter.last
         process.server.answerShutdown = false
+        process.server.honourExit = false
 
         servers.close()
 
         assertTrue(process.awaitEndHandled())
         assertTrue(process.destroyed)
-        assertEquals(listOf("shutdown"), process.server.calls.drop(2))
+        assertEquals(listOf("shutdown", "exit"), process.server.calls.drop(2))
         assertEquals(ServerState.Stopped, servers.state(spec).value)
         assertEquals(emptyList(), scheduler.due)
     }

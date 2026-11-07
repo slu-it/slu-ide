@@ -68,6 +68,10 @@ open class FakeServer :
     @Volatile
     var answerShutdown = true
 
+    /** `false`: the process does not end on `exit`. */
+    @Volatile
+    var honourExit = true
+
     /** The futures of the `textDocument/definition` requests received, for the test to complete. */
     val definitions = CopyOnWriteArrayList<CompletableFuture<Either<List<Location>, List<LocationLink>>>>()
 
@@ -102,7 +106,7 @@ open class FakeServer :
 
     override fun exit() {
         calls += "exit"
-        onExit()
+        if (honourExit) onExit()
     }
 
     override fun getTextDocumentService(): TextDocumentService = this
@@ -192,6 +196,8 @@ internal class FakeProcess(
     }
 
     override fun waitFor(millis: Long): Boolean = ended.await(millis, TimeUnit.MILLISECONDS)
+
+    override fun descendants(): List<ProcessHandle> = emptyList()
 
     override fun destroyTree() {
         destroyed = true

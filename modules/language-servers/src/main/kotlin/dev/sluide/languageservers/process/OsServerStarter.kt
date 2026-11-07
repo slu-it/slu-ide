@@ -84,6 +84,8 @@ private class OsServerProcess(
 
     override fun waitFor(millis: Long): Boolean = process.waitFor(millis, TimeUnit.MILLISECONDS)
 
+    override fun descendants(): List<ProcessHandle> = process.toHandle().descendants().toList()
+
     override fun destroyTree() {
         destroyTree(process.toHandle())
         LiveServerProcesses.remove(process.toHandle())
