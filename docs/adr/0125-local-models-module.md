@@ -1,6 +1,6 @@
 # 0125. Local models: a foundation module for model downloads and sessions
 
-- Status: accepted; amends [0124](0124-read-aloud-speech.md); see [0047](0047-module-dependencies-and-shared-modules.md), [0043](0043-git-log-fetch.md), [0060](0060-logging-conventions.md), [0061](0061-background-tasks.md)
+- Status: accepted; amends [0124](0124-read-aloud-speech.md); amended by [0143](0143-tool-installs.md) (tool installs); see [0047](0047-module-dependencies-and-shared-modules.md), [0043](0043-git-log-fetch.md), [0060](0060-logging-conventions.md), [0061](0061-background-tasks.md)
 - Date: 2026-11-05
 
 ## Context
