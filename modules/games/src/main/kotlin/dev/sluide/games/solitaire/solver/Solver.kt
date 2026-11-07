@@ -21,8 +21,8 @@ internal sealed interface SolveResult {
 }
 
 /**
- * The per-variant part of the solver: searches one table within a [SearchBudget]. Klondike is [KlondikeSearch];
- * FreeCell and Spider plug in here later.
+ * The per-variant part of the solver: searches one table within a [SearchBudget]. Klondike is [KlondikeSearch],
+ * FreeCell [FreeCellSearch]; Spider plugs in later.
  */
 internal fun interface VariantSolver {
     fun solve(
@@ -56,7 +56,8 @@ internal open class Solver(
     private fun variantSolver(mode: Mode): VariantSolver? =
         when (mode.variant) {
             Variant.KLONDIKE -> KlondikeSearch(mode)
-            Variant.FREECELL, Variant.SPIDER -> null
+            Variant.FREECELL -> FreeCellSearch()
+            Variant.SPIDER -> null
         }
 }
 

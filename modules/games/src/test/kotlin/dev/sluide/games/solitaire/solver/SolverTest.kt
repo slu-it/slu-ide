@@ -1,6 +1,7 @@
 package dev.sluide.games.solitaire.solver
 
 import dev.sluide.games.solitaire.Deals
+import dev.sluide.games.solitaire.FreeCellRules
 import dev.sluide.games.solitaire.KlondikeRules
 import dev.sluide.games.solitaire.Mode
 import dev.sluide.games.solitaire.Move
@@ -13,6 +14,8 @@ import dev.sluide.games.solitaire.cards
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.EnumSource
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -128,23 +131,25 @@ class SolverTest {
         replayedToWin(table, result.moves)
     }
 
-    @Test
-    fun `a spent budget gives Unknown at once`() {
+    @ParameterizedTest
+    @EnumSource(Mode::class, names = ["KLONDIKE_DRAW_1", "KLONDIKE_DRAW_3", "FREECELL"])
+    fun `a spent budget gives Unknown at once`(mode: Mode) {
         var now = 0L
         val ticking =
             Solver {
                 now += 1_000_000_000L
                 now
             }
-        val table = Rules.of(Mode.KLONDIKE_DRAW_1).deal(Deals.deck(Mode.KLONDIKE_DRAW_1, 3))
+        val table = Rules.of(mode).deal(Deals.deck(mode, 3))
 
         assertEquals(SolveResult.Unknown, ticking.solve(table, 1.seconds))
         assertEquals(2_000_000_000L, now, "the clock was read only to set and to check the deadline")
     }
 
-    @Test
-    fun `a cancel gives Unknown at once`() {
-        val table = Rules.of(Mode.KLONDIKE_DRAW_3).deal(Deals.deck(Mode.KLONDIKE_DRAW_3, 3))
+    @ParameterizedTest
+    @EnumSource(Mode::class, names = ["KLONDIKE_DRAW_1", "KLONDIKE_DRAW_3", "FREECELL"])
+    fun `a cancel gives Unknown at once`(mode: Mode) {
+        val table = Rules.of(mode).deal(Deals.deck(mode, 3))
         var polls = 0
 
         val result =
@@ -166,8 +171,8 @@ class SolverTest {
     }
 
     @ParameterizedTest
-    @EnumSource(Mode::class, names = ["FREECELL", "SPIDER_1", "SPIDER_2", "SPIDER_4"])
-    fun `the other games are not solved yet`(mode: Mode) {
+    @EnumSource(Mode::class, names = ["FREECELL"])
+    fun `a table without cards is no position`(mode: Mode) {
         assertEquals(SolveResult.Unknown, solver.solve(Table(mode, emptyMap()), 1.seconds))
     }
 
@@ -179,6 +184,9 @@ class SolverTest {
         "KLONDIKE_DRAW_3, 1",
         "KLONDIKE_DRAW_3, 7",
         "KLONDIKE_DRAW_3, 3",
+        "FREECELL, 1",
+        "FREECELL, 2",
+        "FREECELL, 3",
     )
     fun `real deals are solved by a line the rules replay to a win`(
         mode: Mode,
@@ -203,6 +211,79 @@ class SolverTest {
         val rest = assertIs<SolveResult.Solved>(solver.solve(middle, 20.seconds))
 
         replayedToWin(middle, rest.moves)
+    }
+
+    /** FreeCell with clubs, diamonds and hearts complete, spades up to [spades]; [columns] from the left, [cells] too. */
+    private fun freeCellTable(
+        spades: String,
+        vararg columns: List<String>,
+        cells: List<String> = emptyList(),
+    ): Table {
+        val suitCards = allSuits.split(' ').chunked(13)
+        val foundationPiles =
+            suitCards.map { Pile.allFaceUp(cards(it.joinToString(" "))) } + Pile.allFaceUp(cards(spades))
+        val map = HashMap<PileId, Pile>()
+        FreeCellRules.FOUNDATIONS.forEachIndexed { i, id -> map[id] = foundationPiles[i] }
+        FreeCellRules.COLUMNS.forEachIndexed { i, id ->
+            map[id] = columns.getOrNull(i)?.let { Pile.allFaceUp(cards(it.joinToString(" "))) } ?: Pile.EMPTY
+        }
+        FreeCellRules.CELLS.forEachIndexed { i, id ->
+            map[id] = cells.getOrNull(i)?.let { Pile.allFaceUp(cards(it)) } ?: Pile.EMPTY
+        }
+        return Table(Mode.FREECELL, map)
+    }
+
+    @Test
+    fun `an almost won FreeCell table is solved with the one move that is left`() {
+        val table = freeCellTable("AS 2S 3S 4S 5S 6S 7S 8S 9S 10S JS QS", listOf("KS"))
+
+        val result = solver.solve(table, 5.seconds)
+
+        val move = Move.Transfer(FreeCellRules.COLUMNS[0], FreeCellRules.FOUNDATIONS[3])
+        assertEquals(SolveResult.Solved(listOf(move)), result)
+    }
+
+    @Test
+    fun `a FreeCell King has to make room for the card under it`() {
+        val table = freeCellTable("AS 2S 3S 4S 5S 6S 7S 8S 9S 10S JS", listOf("QS", "KS"))
+
+        val result = solver.solve(table, 5.seconds)
+
+        val solved = assertIs<SolveResult.Solved>(result)
+        assertEquals(3, solved.moves.size)
+        replayedToWin(table, solved.moves)
+    }
+
+    @Test
+    fun `a full FreeCell table with no move left is unsolvable`() {
+        val kings = cards("KC KD KH KS")
+        val tops = cards("QC QS JC JS 10C 10S 9C 9S")
+        val buried = Deals.orderedDeck(Mode.FREECELL) - kings.toSet() - tops.toSet()
+        val piles =
+            FreeCellRules.COLUMNS.mapIndexed { i, id ->
+                id to Pile.allFaceUp(buried.filterIndexed { k, _ -> k % 8 == i } + tops[i])
+            } + FreeCellRules.CELLS.mapIndexed { i, id -> id to Pile.allFaceUp(listOf(kings[i])) } +
+                FreeCellRules.FOUNDATIONS.map { it to Pile.EMPTY }
+        val table = Table(Mode.FREECELL, piles.toMap())
+
+        assertEquals(SolveResult.Unsolvable, solver.solve(table, 5.seconds))
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode::class, names = ["FREECELL"])
+    fun `solving the same deals on several threads gives what one thread gives`(mode: Mode) {
+        val tables = (1..4).map { Rules.of(mode).deal(Deals.deck(mode, it)) }
+        val alone = tables.map { solver.solve(it, 20.seconds) }
+        val pool = Executors.newFixedThreadPool(3)
+        try {
+            val jobs = (1..3).flatMap { tables.map { table -> Callable { solver.solve(table, 60.seconds) } } }
+
+            val results = pool.invokeAll(jobs).map { it.get() }
+
+            assertEquals(jobs.indices.map { alone[it % tables.size] }, results)
+        } finally {
+            pool.shutdownNow()
+        }
     }
 
     private companion object {
