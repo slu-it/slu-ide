@@ -21,10 +21,14 @@ class ModelDownloadException(
     cause: Throwable? = null,
 ) : IOException(message, cause)
 
-/** Where the model files of one key stand. */
+/** Where the model files of one key, or a tool of [ToolInstaller], stand. */
 sealed interface InstallState {
     data object NotInstalled : InstallState
 
+    /**
+     * [progress] 0..1 over the download; negative (as `ProgressIndicator.INDETERMINATE_PROGRESS`) while a tool is
+     * unpacked and checked.
+     */
     data class Downloading(
         val progress: Double,
     ) : InstallState
