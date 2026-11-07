@@ -73,9 +73,9 @@ answer `Unknown` until their package plugs in.
 - **Two passes**. The first prunes heuristically (a run is moved partway only when the card below it can then go up;
   no card is taken back from a foundation; with Draw 3 the waste top is played automatically, which shifts the groups
   of three) and finds nearly every solution fast. Only when it is exhausted without a line, the second pass runs
-  without these heuristics (only sound pruning: interchangeable empty columns, no King column to an empty column,
-  safe foundation moves, foundation-to-column moves offered); only its exhaustion gives `Unsolvable` (up to a 64-bit hash collision). Budget, cancel and a
-  cap of two million positions end a search as `Unknown`.
+  without these heuristics (it offers foundation-to-column moves and prunes only soundly: interchangeable empty
+  columns, no King column to an empty column, safe foundation moves); only its exhaustion gives `Unsolvable` (up to a
+  64-bit hash collision). Budget, cancel and a cap of two million positions end a search as `Unknown`.
 - **Measured** (JDK 25, one slow-ish sandbox core, warm JVM, 3 × 200 consecutive numbers from 1, 250,000 and 600,000;
   the cold first solve took 31 ms):
 

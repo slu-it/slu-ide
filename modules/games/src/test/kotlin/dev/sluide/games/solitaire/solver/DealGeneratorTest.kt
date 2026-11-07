@@ -59,6 +59,9 @@ class DealGeneratorTest {
     @Test
     fun `a start outside the numbers is refused`() {
         assertFailsWith<IllegalArgumentException> { DealGenerator(FakeSolver(listOf(solved))).firstWinnable(mode, 0) }
+        assertFailsWith<IllegalArgumentException> {
+            DealGenerator(FakeSolver(listOf(solved))).firstWinnable(mode, Deals.MAX_NUMBER + 1)
+        }
     }
 
     @Test
