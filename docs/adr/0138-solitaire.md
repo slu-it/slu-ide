@@ -131,10 +131,10 @@ calls may run in parallel. The per-variant part is a `VariantSolver`: `KlondikeS
   beam** (`SpiderBeam`) searches the moves between two deals best-first for a limited number of positions, takes the
   best positions that can deal (by the priority: face-down cards, breaks between cards that do not continue a run of
   one suit, empty columns, runs done), deals them and repeats; if it loses, it restarts wider (2k nodes x 3, 8k x
-  10, 30k x 30, 100k x 100 per stage, a stage also ends at its position cap). A best-first search without heuristic cuts (`SpiderSpace`, sound pruning only:
-  first empty column, no whole-column move to an empty one) runs after the first beam (20,000 positions) and last
-  (250,000), and only its exhaustion gives `Unsolvable` (up to a 64-bit hash collision, as in the other searches); for a real deal it never finishes, `Unknown` is the normal
-  answer. Tried and dropped: plain best-first on the whole game (75% of one-suit deals at best, it floods the
+  10, 30k x 30, 100k x 100 per stage, a stage also ends at its position cap). A best-first search without heuristic
+  cuts (`SpiderSpace`, sound pruning only: first empty column, no whole-column move to an empty one) runs after the
+  first beam (20,000 positions) and last (250,000), and only its exhaustion gives `Unsolvable` (up to a 64-bit hash
+  collision, as in the other searches); for a real deal it never finishes, `Unknown` is the normal answer. Tried and dropped: plain best-first on the whole game (75% of one-suit deals at best, it floods the
   plateau after the deals), and heuristic cuts ("only moves that build a same-suit run, uncover a card or empty a
   column") in one best-first pass (worse: 40%). For four suits the weight of a break is what matters: with breaks
   weighing about as much as a face-down card, 4-suit deals went from 0% to 85% of a sample in 3 s.
