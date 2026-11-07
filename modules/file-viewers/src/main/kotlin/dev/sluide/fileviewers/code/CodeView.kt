@@ -19,7 +19,6 @@ import javafx.beans.binding.Bindings
 import javafx.beans.property.ReadOnlyStringProperty
 import javafx.beans.property.ReadOnlyStringWrapper
 import javafx.beans.property.SimpleBooleanProperty
-import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableValue
@@ -31,7 +30,6 @@ import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
-import org.fxmisc.richtext.model.StyleSpans
 import org.fxmisc.richtext.util.UndoUtils
 import org.fxmisc.wellbehaved.event.Nodes
 import java.nio.file.Files
@@ -147,12 +145,15 @@ internal class CodeView(
     /** Moves the caret to a line the user enters. */
     val goToLine = GoToLine(area)
 
+    /** The styles of the text: tokens, masks, find matches and the extensions' overlay layers. */
+    private val styles = CodeViewStyles(area, highlighter, findBar, additions.layers)
+
     /**
      * The ranges of a text that are styled `masked` over the token styles, below the find bar's matches, e.g. the
      * values of `.env` files ([dev.sluide.fileviewers.env.EnvFileView]); applied with every highlighting, and by
      * [restyleMasks].
      */
-    var maskedRanges: ((text: String) -> List<IntRange>)? = null
+    var maskedRanges: ((text: String) -> List<IntRange>)? by styles::maskedRanges
 
     private val savedTextWrapper = ReadOnlyStringWrapper()
 
@@ -200,37 +201,8 @@ internal class CodeView(
             },
         ).apply { styleClass += "encoding-banner" }
 
-    /** The tool that writes the file, if it is a generated one like `uv.lock` ([GeneratedFiles]). */
-    private val generated = SimpleObjectProperty<GeneratedFile?>()
-
-    /** Shown while the file is a generated one, until dismissed; the file stays editable. */
-    private val generatedBanner =
-        banner(
-            Bindings.createStringBinding({ generated.get()?.message(fileName.get()).orEmpty() }, generated, fileName),
-            Button("Dismiss").apply {
-                setOnAction {
-                    dismissGenerated()
-                    area.requestFocus()
-                }
-            },
-        ).apply { styleClass += "generated-banner" }
-
-    /** Hides the [generatedBanner] for this view, until the file is [moved] to a name another tool generates. */
-    private fun dismissGenerated() {
-        banners.children -= generatedBanner
-    }
-
-    /**
-     * Shows the [generatedBanner] if the file is a generated one, below the find bar and above the other banners.
-     * Nothing changes while the file stays one of the same tool (a moved folder, another case), even if dismissed.
-     */
-    private fun showGenerated() {
-        val now = GeneratedFiles.of(file)
-        if (now == generated.get()) return
-        generated.set(now)
-        banners.children -= generatedBanner
-        if (now != null) banners.children.add(if (findBar.isOpen) 1 else 0, generatedBanner)
-    }
+    /** Shown while the file is a generated one like `uv.lock`, until dismissed; the file stays editable. */
+    private val generatedBanner = GeneratedFileBanner(banners, fileName, { findBar.isOpen }, area::requestFocus)
 
     /** Runs a banner's [action]; the focus goes back to the text, rather than wherever the vanished button sends it. */
     private fun answered(action: () -> Unit) {
@@ -262,7 +234,7 @@ internal class CodeView(
         showReadOnly(!content.valid)
         encoding.read(content.encoding)
         showEncoding()
-        showGenerated()
+        generatedBanner.show(file)
         undoManager.forgetHistory()
         undoManager.mark()
         indentStyle = IndentStyle.forFile(file, savedText, defaultIndent)
@@ -276,9 +248,7 @@ internal class CodeView(
         area.requestFollowCaret()
         val pause = if (savedText.length > LARGE_TEXT) highlightPause.multipliedBy(4) else highlightPause
         highlighting =
-            BackgroundHighlighting(area, highlighter, pause, dispatch) { text, spans ->
-                additions.layers.applyTo(findBar.overlay(withMasks(text, spans)))
-            }
+            BackgroundHighlighting(area, highlighter, pause, dispatch, styles::restyle)
         changeMarkers = ChangeMarkerFollower(area, gutter, undoManager, savedTextProperty) { conflictShown }
     }
 
@@ -309,7 +279,7 @@ internal class CodeView(
     val readOnly: Boolean get() = invalidBanner in banners.children
 
     /** Whether the banner saying that the file is generated (e.g. `uv.lock`) is shown. */
-    val generatedShown: Boolean get() = generatedBanner in banners.children
+    val generatedShown: Boolean get() = generatedBanner.shown
 
     /**
      * Writes the text to the file in its encoding; does nothing while the view is [readOnly]. Fails, leaving the file
@@ -419,7 +389,7 @@ internal class CodeView(
         val scrollY = pane.estimatedScrollY
         undoManager.preventMerge()
         area.replaceText(replacement.start, replacement.end, replacement.replacement)
-        highlight(text)
+        styles.highlight(text)
         area.moveTo(caret)
         // Moving the caret makes the area follow it during the next layout; lay out now, then scroll back.
         pane.layout()
@@ -479,7 +449,7 @@ internal class CodeView(
         file = to
         fileName.set(to.fileName.toString())
         indentStyle = IndentStyle.forFile(to, savedText, defaultIndent)
-        showGenerated()
+        generatedBanner.show(file)
         extensible.moved(to)
         return true
     }
@@ -504,35 +474,12 @@ internal class CodeView(
 
     private fun show(text: String) {
         area.replaceText(text)
-        highlight(text)
-    }
-
-    private fun highlight(text: String) {
-        if (text.isNotEmpty() && highlighter != null) {
-            val spans = findBar.overlay(withMasks(text, codeStyleSpans(text, highlighter)))
-            area.setStyleSpans(0, additions.layers.applyTo(spans))
-        }
+        styles.highlight(text)
     }
 
     /** Styles the [maskedRanges] of the text anew, e.g. when what they reveal changed; restyles only what differs. */
-    fun restyleMasks() {
-        if (area.length == 0) return
-        val styled = area.getStyleSpans(0, area.length)
-        val unmasked = styled.mapStyles { style -> if (MASKED in style) style - MASKED else style }
-        val wanted = withMasks(area.text, unmasked)
-        val range = changedSpanRange(styled, wanted) ?: return
-        area.setStyleSpans(range.first, wanted.subView(range.first, range.last + 1))
-    }
-
-    /** [spans], the styles of [text], with `masked` added on the [maskedRanges]. */
-    private fun withMasks(
-        text: String,
-        spans: StyleSpans<Collection<String>>,
-    ): StyleSpans<Collection<String>> = overlayRanges(spans, maskedRanges?.invoke(text).orEmpty()) { listOf(MASKED) }
+    fun restyleMasks() = styles.restyleMasks()
 }
-
-/** The style class of [CodeView.maskedRanges] (`syntax.css`). */
-private const val MASKED = "masked"
 
 /** Texts above this length (about 1 MiB) are highlighted after a longer pause in typing. */
 private const val LARGE_TEXT = 1 shl 20
