@@ -45,7 +45,20 @@ that stays valid. The rules of these games are not protected; card faces of exis
   a same-suit run moves onto a card one higher of any suit or onto an empty column; dealing a row needs a stock and
   no empty column. A K..A run of one suit leaves for the next empty foundation by itself (checked after every move,
   flipping the card it uncovers); Spider is never decided, there is no auto-finish.
-- **Own drawn cards**: the card faces and backs are drawn for Thoreau; no card set is copied.
+- **Own drawn cards and win effect**: the card faces (pip layouts for A to 10, own emblems for J, Q and K) and backs
+  are drawn for Thoreau and cached as images per card size; no card set is copied. The win burst (cards flying out of
+  the foundations in arcs with gravity, then fading) is our own physics, not a copy of another game's win effect.
+- **Keyboard**: only the arrow keys move the cursor; D clicks the stock (draw, recycle, deal a row), so W A S do
+  nothing (D would otherwise be both "right" and "draw"). Space picks up and drops, Enter drops or plays the best
+  move, Esc cancels, F sends to a foundation.
+- **Click and double-click**: a click on a card makes its best move, foundation first; a click on a foundation card does
+  nothing (cards leave a foundation only by dragging); the second click of a double-click is ignored, so a
+  double-click acts as one click and sends a card to a foundation when it can, with no separate double-click rule.
+- **Hints show, they do not play**: the solver highlights the next move of a winning line. A hint costs −20 points only
+  when it shows a move; "No winning line from here — undo N moves" (found by re-solving earlier positions) and "No
+  hint found" are free. Undo and redo each count as a move, an undo costs −1.
+- **Nothing moves by itself** until the game is decided; then auto-finish plays the rest. Spider has none beyond
+  completed runs leaving by themselves.
 
 Considered:
 - Random deals: many Klondike deals cannot be won, and a lost game that never had a chance frustrates.

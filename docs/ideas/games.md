@@ -1,7 +1,7 @@
 # Idea: Games, what is left for later
 
 **Status:** idea, collected 2026-11-05 while building Minesweeper ([ADR 0131](../adr/0131-games-menu-minesweeper.md)), Word Guess
-([ADR 0132](../adr/0132-word-guess.md)), Doubles ([ADR 0136](../adr/0136-doubles.md)) and Sudoku;
+([ADR 0132](../adr/0132-word-guess.md)), Doubles ([ADR 0136](../adr/0136-doubles.md)), Sudoku and Solitaire;
 nothing decided or built. Each needs a decision of its own before it is built.
 
 - **Statistics per size**: games played, won, win rate and streaks next to the best times. Needs a stored record per
@@ -20,8 +20,13 @@ nothing decided or built. Each needs a decision of its own before it is built.
 - **Sudoku** ([ADR 0137](../adr/0137-sudoku.md)): **resuming after a restart**, **statistics per level**, a **hint that
   explains the step** ("Hidden single: 4 in box 5"), **digit-first input on the pad** (pick a digit, then click
   cells), a **3-mistake mode** and **variants** (Killer, diagonal).
+- **Solitaire** ([ADR 0138](../adr/0138-solitaire.md), [feature](../features/solitaire.md)): **statistics** (played,
+  won, streaks), **more variants** (Pyramid, TriPeaks, Golf, Yukon), **FreeCell with fewer cells**, **Vegas scoring**,
+  **resuming after a restart**, an option for **safe automatic moves to the foundations**, **card-back themes**, a
+  **draw key that works with W A S D** (D is the stock key today, so only the arrows move the cursor) and **proving
+  more Spider 4-suit deals** (about a quarter are skipped today).
 - **Further games** in the `games` module, one package each, as items of the Games menu (Minesweeper, Word Guess,
-  Doubles and Sudoku exist; for example Solitaire).
+  Doubles, Sudoku and Solitaire exist; for example Pyramid or Mahjong solitaire).
 - **The WebView variant**: a self-contained HTML, CSS and JS page in a WebView, portable to any web server and freer
   to style. Rejected for Minesweeper (it needs an exception to "Kotlin only", its logic is testable only through
   WebView UI tests); it could be reconsidered for a game that is mostly animation.
