@@ -1,6 +1,6 @@
 # 0077. Boxes of the workflow graph open their source
 
-- Status: accepted
+- Status: accepted; amended by [0141](0141-editor-api-for-language-features.md)
 - Date: 2026-10-23
 
 ## Context

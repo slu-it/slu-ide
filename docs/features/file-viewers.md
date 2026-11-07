@@ -198,7 +198,10 @@ the Bicep graph and `BicepParamFileViewer`.
   which whoever shows the view sets; the editor area does ([editor-tabs.md](editor-tabs.md)). Views that open nothing
   ignore it. The previews use it for links; HTML previews also take the files they may use from its `projectFolder`.
   `openFile(file, line)` (0-based) opens a file at a line: views with a caret implement `FileView.showLine` (code views
-  as Go to Line does, previews in their source); the workflow graph's boxes use it.
+  as Go to Line does, previews in their source); the workflow graph's boxes use it. `openFile(file, line, column)`
+  goes to a column too (UTF-16 units, [ADR 0141](../adr/0141-editor-api-for-language-features.md)) through
+  `FileView.showPosition` (by default `showLine`): code views, previews, the `.gitignore` view and the Gradle, shell
+  script, Dockerfile and Compose views put the caret there.
   `windowService(type)` gives the service the window registered under exactly `type` (`WindowServices`), e.g. the
   HTTP client's session, or `null` ([ADR 0026](../adr/0026-http-client-window-session.md),
   [ADR 0070](../adr/0070-window-services.md)). `save(file)` saves the open file's editor text as File → Save does
@@ -251,9 +254,9 @@ the Bicep graph and `BicepParamFileViewer`.
       Unlike a file shown read-only for its encoding, a lock shows no banner.
     - `overlay(layer, ranges)` shows `StyledRange`s as a named layer over highlighting, masks and find matches,
       replacing that layer's previous ranges (an empty list clears it); layers stay through background highlighting
-      and find updates, and any change of the text (an edit, a reload) clears them all. Ranges are clamped to the
-      text and overlapping ones add both classes; the class names must differ from the highlighter's and the find
-      bar's.
+      and find updates, and any change of the text (an edit, a reload) clears them, unless they follow edits (below).
+      Ranges are clamped to the text and overlapping ones add both classes; the class names must differ from the
+      highlighter's and the find bar's.
     - `reveal(start, end)` scrolls a range into view without moving the caret or the selection and without focusing
       (as `TextEditor.reveal`), `addEventFilter(type, filter)` adds an event filter on the text area until
       unsubscribed.
@@ -262,6 +265,32 @@ the Bicep graph and `BicepParamFileViewer`.
       as with `toolbarItems`, the embedding view shows it in its own `activity`, combined with what it does itself.
     - `addStylesheet(url)` adds a stylesheet to the editor's text area (e.g. for the classes of an overlay) until its
       handle is closed.
+    - For language features ([ADR 0141](../adr/0141-editor-api-for-language-features.md)), all on the FX thread:
+      - `host`, the `FileViewHost` the editor was extended with (known while extending).
+      - `onTextChange` gets every change as a `TextChange(start, removed, inserted)` (UTF-16 offsets), in order and
+        synchronously, from every source (typing, editing keys, undo/redo, reload and `replaceText` with only the
+        differing range, find and replace, `applyEdits`); applied in order to a copy they rebuild the text. Changes
+        made together (Replace All, `applyEdits`, undoing them) arrive after all are applied, so inside the callback
+        `text`, `caretOffset`, `positionOf` and `offsetOf` already reflect the whole batch: a consumer computes ranges
+        on its own copy of the text, applying the deltas in order. Changes that change nothing are left out; changing
+        the text from inside the callback re-enters it (use `Platform.runLater`).
+      - `caretOffsetProperty`, `moveCaret(offset)` (clamped, scrolled into view, without taking the focus),
+        `offsetAt(mouseEvent)` (the character under the mouse; `null` over the gutter or past a line's end),
+        `screenBounds(start, end = start)` (a range or a caret, `null` while not shown or scrolled away),
+        `positionOf(offset)` and `offsetOf(TextPosition)` (0-based line, UTF-16 column; `TextPosition.of` in
+        `text-editing` is the inverse of `offsetIn`).
+      - `addKeyBinding(keys, action)`: an event filter on the text area, so it comes before the editor's keys and
+        RichTextFX's while the area has the focus; the press, and the key typed it makes (Alt+J, Option chords), are
+        consumed only when `action` returns `true`; an action that throws is logged and counts as not handled
+        (`CONTROL_DOWN` for a literal Ctrl, `SHORTCUT_DOWN` for Ctrl/Cmd).
+      - `applyEdits(edits)`: `OffsetEdit(start, end, text)`s in the current text, any order, not overlapping, applied
+        as one undo step, their line breaks turned into `\n`; caret and selection move with the text, the caret kept in
+        view. `false` and nothing changed while locked or read-only.
+      - `dirty`, `onSaved(listener)` after each successful save, and `setTextCursor(cursor)` (`null` for the text
+        cursor).
+      - `overlay(layer, ranges, followEdits = true)`: a layer that follows edits; ranges entirely before an edit stay,
+        those entirely after it move with the text, those overlapping or touching it are dropped for the owner to set
+        again. Background highlighting keeps the moved ranges.
   - Viewers that show files as text implement `SourceFileViewer` (`sourceHighlighter`) to get change markers and
     highlighted diffs. Viewers for extensions implement `ExtensionFileViewer` (`fileExtensions`, lower case, no dot)
     and viewers for exact names `NamedFileViewer` (`fileNames`), so that `FileViewers` also picks them by the name
