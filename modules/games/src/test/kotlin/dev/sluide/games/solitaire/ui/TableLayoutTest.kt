@@ -55,17 +55,14 @@ class TableLayoutTest {
     @ParameterizedTest
     @EnumSource(Mode::class, names = ["KLONDIKE_DRAW_1", "FREECELL", "SPIDER_1"])
     fun `the top row piles sit over the columns of their variant`(mode: Mode) {
+        val foundationCount = if (mode.variant == Variant.SPIDER) 8 else 4
+
         fun foundations(first: Int) =
-            (
-                0 until
-                    if (mode.variant ==
-                        Variant.SPIDER
-                    ) {
-                        8
-                    } else {
-                        4
-                    }
-            ).associate { PileId(PileKind.FOUNDATION, it) to first + it }
+            (0 until foundationCount).associate {
+                PileId(PileKind.FOUNDATION, it) to
+                    first + it
+            }
+
         val expected: Map<PileId, Int> =
             when (mode.variant) {
                 Variant.KLONDIKE -> mapOf(PileId(PileKind.STOCK) to 0, PileId(PileKind.WASTE) to 1) + foundations(3)

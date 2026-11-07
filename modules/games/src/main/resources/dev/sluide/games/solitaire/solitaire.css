@@ -40,8 +40,9 @@
     -fx-background-radius: 6;
 }
 
-/* The keyboard highlight. */
+/* The keyboard highlight; outside the card so it shows on a white face. */
 .sol-cursor {
+    -fx-border-insets: -3;
     -fx-border-color: #fff59d;
     -fx-border-width: 2;
     -fx-border-radius: 6;
