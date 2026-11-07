@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.code
 
+import javafx.event.EventTarget
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Cursor
@@ -154,3 +155,9 @@ internal class Gutter(
         private val LINE_NUMBER_PADDING = Insets(0.0, 5.0, 0.0, 5.0)
     }
 }
+
+/** Whether [target], e.g. of a mouse event, is in a row of this area's [Gutter]. */
+internal fun CodeArea.inGutter(target: EventTarget?): Boolean =
+    generateSequence(target as? Node) { it.parent }
+        .takeWhile { it !== this }
+        .any { Gutter.GUTTER_STYLE in it.styleClass }

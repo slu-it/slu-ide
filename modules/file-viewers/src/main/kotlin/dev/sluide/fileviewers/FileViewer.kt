@@ -134,6 +134,16 @@ interface FileView {
     fun showLine(line: Int) {}
 
     /**
+     * Moves the caret to [column] (UTF-16 units) of [line] (both 0-based, kept within the text), scrolls it into view
+     * and focuses the text, as [showLine] does for a line's start. By default [showLine], for views that only know
+     * lines.
+     */
+    fun showPosition(
+        line: Int,
+        column: Int,
+    ) = showLine(line)
+
+    /**
      * Lets the view open other files and web pages, e.g. when a link in it is clicked. Set by whoever shows the view;
      * views that never open anything ignore it.
      */
@@ -204,6 +214,17 @@ interface FileViewHost {
         file: Path,
         line: Int,
     ): Boolean = openFile(file)
+
+    /**
+     * Shows [file] like [openFile(file)][openFile], with the caret at [column] (UTF-16 units) of its [line] (both
+     * 0-based) if its view has one ([FileView.showPosition]), e.g. to go to a declaration. By default
+     * [openFile(file, line)][openFile].
+     */
+    fun openFile(
+        file: Path,
+        line: Int,
+        column: Int,
+    ): Boolean = openFile(file, line)
 
     /** Shows [uri] outside the IDE, e.g. a web page in the system browser. */
     fun openWebPage(uri: URI)

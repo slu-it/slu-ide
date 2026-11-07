@@ -1,13 +1,23 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.textediting.TextPosition
+import javafx.beans.property.ReadOnlyBooleanWrapper
+import javafx.beans.property.ReadOnlyIntegerProperty
+import javafx.beans.property.ReadOnlyIntegerWrapper
+import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableValue
 import javafx.event.Event
 import javafx.event.EventHandler
 import javafx.event.EventType
+import javafx.geometry.Bounds
+import javafx.scene.Cursor
 import javafx.scene.Node
 import javafx.scene.control.IndexRange
 import javafx.scene.control.MenuItem
+import javafx.scene.input.KeyCombination
+import javafx.scene.input.MouseEvent
 import javafx.util.Subscription
+import java.net.URI
 import java.nio.file.Path
 
 /**
@@ -136,6 +146,132 @@ interface ExtensibleCodeEditor : GutterColumns {
      * one is, else FAILED if any is, else NONE.
      */
     fun addActivity(activity: ObservableValue<ViewActivity>): Subscription = Subscription.EMPTY
+
+    // Language features (ADR 0141): what a language-server client needs of the editor.
+
+    /**
+     * The host the editor was extended with (extensions attach only with one), e.g. to open another file at a
+     * position ([FileViewHost.openFile]), read or edit other tabs' texts or look up a window service. Before the
+     * editor is extended, and by default, a host that opens nothing.
+     */
+    val host: FileViewHost get() = NoHost
+
+    /**
+     * Calls [listener] with every change of the text, once per change, in order, synchronously on the FX thread, from
+     * any source: typing, undo and redo, a reload or `replaceText` (only the differing range), find and replace,
+     * [applyEdits] (one call per edit that changes something; edits that change nothing are left out) and the editing
+     * keys. The offsets of a change are those of the text left by the change before it, so applying the changes in
+     * order to a copy of the text keeps it equal to [text].
+     *
+     * Changes made together (Replace All, [applyEdits], undoing them) are told after all of them are applied: inside
+     * the callback, [text], [caretOffset], [positionOf] and [offsetOf] already reflect the whole batch, not the change
+     * at hand. A consumer that needs positions per change (a language server's ranges) keeps its own copy of the text
+     * and computes them there, applying the deltas in order. Changing the text from inside the callback re-enters the
+     * telling; do it later (`Platform.runLater`). Closing the handle stops it; a listener that throws is logged, the
+     * others still get the change.
+     */
+    fun onTextChange(listener: (TextChange) -> Unit): AutoCloseable = AutoCloseable {}
+
+    /** [caretOffset] as it changes. */
+    val caretOffsetProperty: ReadOnlyIntegerProperty get() = ReadOnlyIntegerWrapper(caretOffset).readOnlyProperty
+
+    /**
+     * Moves the caret to [offset] (clamped to the text), dropping the selection, and scrolls it into view; the focus
+     * stays where it is (unlike [FileView.showPosition], which focuses the text).
+     */
+    fun moveCaret(offset: Int) {}
+
+    /**
+     * The offset of the character under the mouse of [event] (a mouse event on the text area, e.g. from
+     * [addEventFilter]); `null` over the gutter, past the end of a line's text or below the last line.
+     */
+    fun offsetAt(event: MouseEvent): Int? = null
+
+    /**
+     * The screen bounds of the characters [start, end) (clamped to the text), or of a caret at [start] when [end] is
+     * [start], e.g. to place a popup; `null` while the editor is not shown or the range is scrolled out of view.
+     */
+    fun screenBounds(
+        start: Int,
+        end: Int = start,
+    ): Bounds? = null
+
+    /** The line and column (0-based, UTF-16 units) of [offset] (clamped to the text) in [text]. */
+    fun positionOf(offset: Int): TextPosition = TextPosition.of(text, offset)
+
+    /** The offset of [position] in [text], with line and column clamped to the text (as [TextPosition.offsetIn]). */
+    fun offsetOf(position: TextPosition): Int = position.offsetIn(text)
+
+    /**
+     * Gives key presses matching [keys] to [action] before the editor's own key bindings and RichTextFX's, while the
+     * text area has the focus. [action] returns whether it handled the key: then the press is consumed, otherwise the
+     * editor handles it as usual (e.g. a completion popup takes Enter only while it shows). Bindings are event filters
+     * of the text area, asked in the order added together with those of [addEventFilter]; a binding skips a press that
+     * an earlier one consumed. A handled press also consumes the key typed that follows it, so that Alt+J or an Option
+     * chord on macOS types nothing. An [action] that throws is logged and counts as not handled. Use
+     * `KeyCombination.SHORTCUT_DOWN` for Ctrl/Cmd, `CONTROL_DOWN` for a literal Ctrl (Ctrl+Space). Closing the handle
+     * removes the binding.
+     */
+    fun addKeyBinding(
+        keys: KeyCombination,
+        action: () -> Boolean,
+    ): AutoCloseable = AutoCloseable {}
+
+    /**
+     * Applies [edits] (offsets in the current [text], not overlapping, in any order; inserts at the same offset appear
+     * in the order given) as one undo step, each edit a change for [onTextChange]; `\r\n` and `\r` in their texts become
+     * `\n`, as the editor holds the text. Caret and selection move with the text (an edit ending at or before them
+     * shifts them, one containing them puts them after its new text), and the caret is kept in view. Returns
+     * `false` and changes nothing while the editor cannot be edited (read-only for its encoding, [lock]ed); `true`
+     * otherwise, also for no edits. Throws [IllegalArgumentException] for edits outside the text or overlapping.
+     */
+    fun applyEdits(edits: List<OffsetEdit>): Boolean = false
+
+    /** Whether the editor has unsaved changes. */
+    val dirty: ObservableBooleanValue get() = ReadOnlyBooleanWrapper(false).readOnlyProperty
+
+    /** Calls [listener] after each successful save of the editor's file; closing the handle stops it. */
+    fun onSaved(listener: () -> Unit): AutoCloseable = AutoCloseable {}
+
+    /** Shows [cursor] over the text, e.g. a hand while Shortcut is held over a link; `null` for the text cursor. */
+    fun setTextCursor(cursor: Cursor?) {}
+
+    /**
+     * Overlays [ranges] as [layer] like [overlay], but with [followEdits] the layer follows edits instead of being
+     * cleared: ranges entirely before an edited range stay, ranges entirely after it move with the text, and ranges
+     * that overlap or touch it are dropped (the owner sets them again). A reload counts as an edit of the range that
+     * differs. Without [followEdits], as [overlay].
+     */
+    fun overlay(
+        layer: String,
+        ranges: List<StyledRange>,
+        followEdits: Boolean,
+    ) = overlay(layer, ranges)
+}
+
+/**
+ * A change of an editor's text ([ExtensibleCodeEditor.onTextChange]): from [start] (a UTF-16 offset), [removed] was
+ * replaced by [inserted]. The text before [start] is unchanged, so the removed range ended at `start + removed.length`
+ * in the text before the change.
+ */
+data class TextChange(
+    val start: Int,
+    val removed: String,
+    val inserted: String,
+)
+
+/** Replaces [start, end) of an editor's text by [text] ([ExtensibleCodeEditor.applyEdits]); UTF-16 offsets. */
+data class OffsetEdit(
+    val start: Int,
+    val end: Int,
+    val text: String,
+)
+
+/** The [ExtensibleCodeEditor.host] of fakes: opens nothing. */
+private object NoHost : FileViewHost {
+    override fun openFile(file: Path): Boolean = false
+
+    override fun openWebPage(uri: URI) {}
 }
 
 /**

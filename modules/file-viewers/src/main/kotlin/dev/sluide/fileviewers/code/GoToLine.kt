@@ -29,8 +29,11 @@ internal class GoToLine(
         moveTo(position.offsetIn(area.text))
     }
 
-    /** Goes to the start of [line] (0-based, kept within the text) without asking. */
-    fun goTo(line: Int) = moveTo(area.getAbsolutePosition(line.coerceIn(0, area.paragraphs.size - 1), 0))
+    /** Goes to [column] of [line] (0-based, both kept within the text; the line's start by default) without asking. */
+    fun goTo(
+        line: Int,
+        column: Int = 0,
+    ) = moveTo(area.offsetOf(line, column))
 
     private fun moveTo(offset: Int) {
         area.moveTo(offset)
@@ -47,4 +50,15 @@ internal class GoToLine(
                 contentText = "Line[:Column]:"
             }.showAndWait()
             .orElse(null)
+}
+
+/**
+ * The offset of [column] in [line] (0-based): the line kept within the text, the column within the line, UTF-16 units.
+ */
+internal fun CodeArea.offsetOf(
+    line: Int,
+    column: Int,
+): Int {
+    val paragraph = line.coerceIn(0, paragraphs.size - 1)
+    return getAbsolutePosition(paragraph, column.coerceIn(0, getParagraphLength(paragraph)))
 }

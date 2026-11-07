@@ -2,8 +2,6 @@ package dev.sluide.fileviewers.code
 
 import dev.sluide.fileviewers.EditorMenuTarget
 import javafx.event.EventHandler
-import javafx.event.EventTarget
-import javafx.scene.Node
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
@@ -113,7 +111,7 @@ internal class EditorContextMenu(
      */
     private fun secondaryPressed(event: MouseEvent) {
         if (event.button != MouseButton.SECONDARY && !event.isPopupTrigger) return
-        if (inGutter(event.target)) return
+        if (area.inGutter(event.target)) return
         if (event.button == MouseButton.PRIMARY) {
             area.requestFocus()
             event.consume()
@@ -124,12 +122,6 @@ internal class EditorContextMenu(
         if (character.isPresent && character.asInt >= selection.start && character.asInt < selection.end) return
         area.moveTo(hit.insertionIndex)
     }
-
-    /** Whether [target] is in a row of the area's [Gutter]. */
-    private fun inGutter(target: EventTarget?): Boolean =
-        generateSequence(target as? Node) { it.parent }
-            .takeWhile { it !== area }
-            .any { Gutter.GUTTER_STYLE in it.styleClass }
 
     /** Shows the menu at the caret when the platform requests it by keyboard, rather than where the scene puts it. */
     private fun requestedByKeyboard(event: ContextMenuEvent) {

@@ -69,7 +69,8 @@ import java.time.Duration
  * typing pauses before the text is highlighted and the matches are found again; tests shorten them.
  *
  * Extensions (ADR 0108, [extensible]) add [toolbarItems], banners below the view's own, locks that make the text
- * read-only, overlay layers over all other styles and activities shown as the view's [activity]. A view with
+ * read-only, overlay layers over all other styles and activities shown as the view's [activity], and get what language
+ * features need (ADR 0141): text changes, edits, positions, key bindings and saves. A view with
  * [ownToolbar] (one of its own, not embedded) always shows a row at the very top: the Soft Wrap toggle ([softWrap],
  * ADR 0130), then the toolbar items. An embedding view places [softWrapButton] in its own toolbar.
  */
@@ -105,7 +106,7 @@ internal class CodeView(
 
     /** What features of the window see of the view and add to it (ADR 0108), from the first [host] that has them. */
     val extensible = ExtensibleCodeView(this, area, initialFile, additions, highlighter == null)
-    private val extensions = CodeViewExtensions(extensible)
+    private val extensions = CodeViewExtensions(extensible, extensible::attached)
     private val contextMenu = EditorContextMenu(area, extensible::contextMenuItems, listOf(softWrap.menuItem))
 
     /**
@@ -299,6 +300,7 @@ internal class CodeView(
         undoManager.preventMerge()
         hideConflict()
         banners.children -= deletedBanner
+        extensible.saved()
     }
 
     /**
@@ -468,6 +470,11 @@ internal class CodeView(
     override fun focusText() = area.requestFocus()
 
     override fun showLine(line: Int) = goToLine.goTo(line)
+
+    override fun showPosition(
+        line: Int,
+        column: Int,
+    ) = goToLine.goTo(line, column)
 
     /** Focuses the text, keeping caret and scroll position; the text of a view in a split pane once it is shown. */
     override fun focus() = pendingFocus.request(area) { if (!disposed) area.requestFocus() }

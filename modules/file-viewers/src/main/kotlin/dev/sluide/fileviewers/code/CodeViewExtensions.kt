@@ -9,10 +9,11 @@ private val log = System.getLogger(CodeViewExtensions::class.java.name)
 /**
  * The [CodeEditorExtensions] of a code view, seen by them as [editor] (ADR 0108): [attach] extends it with those of the
  * first host that has the window service, later hosts change nothing; [dispose] closes what the extensions returned.
- * FX thread.
+ * [attaching] gets that host before the extensions are called (the editor's [ExtensibleCodeEditor.host]). FX thread.
  */
 internal class CodeViewExtensions(
     private val editor: ExtensibleCodeEditor,
+    private val attaching: (FileViewHost) -> Unit = {},
 ) {
     private var attached = false
     private var disposed = false
@@ -20,9 +21,10 @@ internal class CodeViewExtensions(
 
     /** Extends the view with the extensions of [host]'s window, unless it was extended before or has no such host. */
     fun attach(host: FileViewHost?) {
-        if (attached || disposed) return
-        val extensions = host?.windowService(CodeEditorExtensions::class.java) ?: return
+        if (attached || disposed || host == null) return
+        val extensions = host.windowService(CodeEditorExtensions::class.java) ?: return
         attached = true
+        attaching(host)
         for (extension in extensions.extensions) {
             try {
                 extension.extend(editor)?.let(handles::add)

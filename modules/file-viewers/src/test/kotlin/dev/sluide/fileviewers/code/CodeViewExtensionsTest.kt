@@ -22,10 +22,13 @@ import kotlin.test.assertEquals
 /** When a code view is extended by the [CodeEditorExtensions] of its host (ADR 0108), and when the handles close. */
 class CodeViewExtensionsTest {
     private val editor = FakeEditor()
-    private val extensions = CodeViewExtensions(editor)
 
     /** What the extensions did, in order. */
     private val events = mutableListOf<String>()
+
+    /** The hosts the view was extended with, which become the editor's `host`. */
+    private val attached = mutableListOf<FileViewHost>()
+    private val extensions = CodeViewExtensions(editor) { host -> attached += host }
 
     /** Window extensions that record extending as [name] and closing its handle. */
     private fun recording(name: String) =
@@ -51,10 +54,12 @@ class CodeViewExtensionsTest {
 
     @Test
     fun `the first host with the service extends the view, later hosts change nothing`() {
-        extensions.attach(host(recording("first")))
+        val first = host(recording("first"))
+        extensions.attach(first)
         extensions.attach(host(recording("second")))
 
         assertEquals(listOf("first extends a.py"), events)
+        assertEquals(listOf<FileViewHost>(first), attached, "the editor's host")
     }
 
     @Test
@@ -62,10 +67,13 @@ class CodeViewExtensionsTest {
         extensions.attach(null)
         extensions.attach(host(null))
         assertEquals(emptyList(), events)
+        assertEquals(emptyList<FileViewHost>(), attached)
 
-        extensions.attach(host(recording("window")))
+        val window = host(recording("window"))
+        extensions.attach(window)
 
         assertEquals(listOf("window extends a.py"), events)
+        assertEquals(listOf<FileViewHost>(window), attached)
     }
 
     @Test
@@ -108,6 +116,7 @@ class CodeViewExtensionsTest {
         extensions.attach(host(recording("window")))
 
         assertEquals(emptyList(), events)
+        assertEquals(emptyList<FileViewHost>(), attached)
     }
 
     /** The records logged by [CodeViewExtensions] while [action] runs, as level and message. */

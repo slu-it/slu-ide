@@ -78,6 +78,11 @@ internal class GitignoreFileView(
 
     override fun showLine(line: Int) = source.showLine(line)
 
+    override fun showPosition(
+        line: Int,
+        column: Int,
+    ) = source.showPosition(line, column)
+
     override fun focusText() = source.focusText()
 
     override fun focus() = source.focus()

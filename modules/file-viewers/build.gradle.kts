@@ -15,8 +15,9 @@ dependencies {
     implementation(project(":modules:background-tasks"))
     implementation(libs.spring.context)
     // Deliberate module dependency: code views read, edit and save text with its encoding (UTF-8, else Windows-1252),
-    // line endings and changes on disk (text-editing).
-    implementation(project(":modules:text-editing"))
+    // line endings and changes on disk (text-editing). An api dependency: ExtensibleCodeEditor's positions are
+    // text-editing's TextPosition (ADR 0141).
+    api(project(":modules:text-editing"))
     // Deliberate module dependency: the soft wrap switch of the editors is kept in the shared data file; SoftWrap takes
     // the ProjectDataStore (ADR 0101, ADR 0130).
     implementation(project(":modules:project-data"))
