@@ -6,6 +6,7 @@ import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.TabVisibility
 import dev.sluide.games.solitaire.KeyAction
 import dev.sluide.games.solitaire.Mode
+import dev.sluide.games.solitaire.PileKind
 import dev.sluide.games.solitaire.SolitaireModel
 import dev.sluide.games.solitaire.StatusText
 import dev.sluide.games.solitaire.Table
@@ -18,10 +19,12 @@ import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.control.ScrollPane
+import javafx.scene.image.ImageView
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
+import javafx.scene.layout.Pane
 import javafx.scene.layout.StackPane
 import javafx.util.Duration
 
@@ -31,6 +34,7 @@ import javafx.util.Duration
  */
 internal class SolitaireView(
     private val model: SolitaireModel,
+    animationSpeed: Double = 1.0,
 ) {
     /** Asks a question with a [verb] button and Cancel (the default); true for the verb. Tests replace it. */
     internal var confirm: (title: String, header: String, verb: String, content: String) -> Boolean =
@@ -45,6 +49,17 @@ internal class SolitaireView(
     }
 
     internal val table = TableView(model)
+
+    /** Plays the slides, flips and the deal; [animationSpeed] scales its durations (0: none, as in tests). */
+    internal val animator = Animator(table, animationSpeed) { syncInput() }
+    internal val burstPane = Pane()
+    private var hiddenFoundations = emptyList<Node>()
+    private val burst =
+        WinBurst(burstPane) {
+            hiddenFoundations.forEach { it.isVisible = true }
+            hiddenFoundations = emptyList()
+        }
+    private val burstEnabled = animationSpeed > 0.0
     private val toolbar =
         SolitaireToolbar(
             ToolbarActions(
@@ -106,6 +121,7 @@ internal class SolitaireView(
                         isFocusTraversable = false
                     },
                     dealing,
+                    burstPane,
                     pauseOverlay.node.apply {
                         // The table alone sets the size: the overlay's hint is wider than a small table.
                         minWidth = 0.0
@@ -131,8 +147,15 @@ internal class SolitaireView(
         // A click gives the table the keyboard; consumed, or the scroll pane around it takes the focus afterwards.
         // The table's own handler (TableDrag) is on the same node and still runs.
         table.addEventHandler(MouseEvent.MOUSE_PRESSED) {
+            skipAnimations()
             table.requestFocus()
             it.consume()
+        }
+        // a redraw (resize, theme) replaces the nodes: the burst, which hides foundation nodes, ends with it
+        val completeAnimations = table.beforeRebuild
+        table.beforeRebuild = {
+            completeAnimations()
+            burst.stop()
         }
         model.onChange = installed
         model.onEvent = ::onEvent
@@ -145,14 +168,71 @@ internal class SolitaireView(
     /** Where the table's animations hook in: every [TableEvent] of the model arrives here, after its change. */
     private fun onEvent(event: TableEvent) {
         if (disposed) return
+        if (event !is TableEvent.Won && event !is TableEvent.Hint) burst.stop()
         when (event) {
             is TableEvent.Hint -> {
                 val target = hintTarget(event.move, model.mode)
                 table.showHint(target.from, target.count, target.to)
             }
 
-            else -> {}
+            is TableEvent.Moved -> {
+                animator.step(event.step, reverse = false, auto = event.auto)
+            }
+
+            is TableEvent.Redone -> {
+                animator.step(event.step, reverse = false)
+            }
+
+            is TableEvent.Undone -> {
+                animator.step(event.step, reverse = true)
+            }
+
+            is TableEvent.Dealt, TableEvent.Restarted -> {
+                animator.deal()
+            }
+
+            is TableEvent.Won -> {
+                startBurst()
+            }
         }
+        syncInput()
+    }
+
+    private fun startBurst() {
+        if (!burstEnabled) return
+        val images = table.cardImages()
+        val layout = table.layoutNow()
+        val cards =
+            burstCards(table.shown, layout).map { burstCard ->
+                burstCard to
+                    ImageView(images.face(burstCard.card)).apply {
+                        fitWidth = layout.cardWidth
+                        fitHeight = layout.cardHeight
+                        isManaged = false
+                    }
+            }
+        burst.start(cards, table, layout.cardHeight)
+        // the foundations' cards fly: show the empty slots meanwhile, once the last slide of auto-finish has landed
+        animator.afterSlides {
+            if (!burst.isRunning) return@afterSlides
+            val shown = table.shown
+            hiddenFoundations =
+                shown.ids(PileKind.FOUNDATION).mapNotNull { table.nodeAt(it, shownIndex(shown, it)) }.onEach {
+                    it.isVisible = false
+                }
+        }
+    }
+
+    /** A click or key ends the deal cascade and the win burst; true when it did, and the input is then used up. */
+    private fun skipAnimations(): Boolean {
+        val skipped = animator.cascading || burst.isRunning
+        if (animator.cascading) animator.finish()
+        burst.stop()
+        return skipped
+    }
+
+    private fun syncInput() {
+        table.inputEnabled = model.inputEnabled && !animator.cascading
     }
 
     private fun act(action: () -> Unit) {
@@ -202,6 +282,10 @@ internal class SolitaireView(
     }
 
     private fun keyPressed(event: KeyEvent) {
+        if (skipAnimations()) {
+            event.consume()
+            return
+        }
         val other =
             event.isAltDown ||
                 (event.isControlDown && !event.isShortcutDown) ||
@@ -223,7 +307,7 @@ internal class SolitaireView(
             shown = current
             table.show(current)
         }
-        table.inputEnabled = model.inputEnabled
+        syncInput()
         val cursor = model.cursor
         table.showCursor(cursor.pile, cursor.depth)
         table.showPicked(cursor.picked?.pile, cursor.picked?.count ?: 0)
@@ -282,6 +366,8 @@ internal class SolitaireView(
     /** The model stops notifying this view (unless a newer view has taken it over) and the game pauses. */
     fun dispose() {
         disposed = true
+        animator.finish()
+        burst.stop()
         focusTable.cancel()
         ticker.stop()
         visibility.dispose()

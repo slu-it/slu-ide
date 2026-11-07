@@ -123,7 +123,16 @@ internal class TableDrag(
         view.children.removeAll { "sol-drop-ok" in it.styleClass }
         val pile = checkNotNull(p.pile)
         val move = if (view.inputEnabled) dropMove(p, pile, event) else null
-        if (move != null && host.play(move)) return
+        if (move != null) {
+            view.dropOffset = (event.x - p.x) to (event.y - p.y)
+            val played =
+                try {
+                    host.play(move)
+                } finally {
+                    view.dropOffset = null
+                }
+            if (played) return
+        }
         slideBack(nodes)
     }
 

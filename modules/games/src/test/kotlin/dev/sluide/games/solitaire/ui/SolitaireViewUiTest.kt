@@ -99,7 +99,7 @@ class SolitaireViewUiTest {
         )
 
     private fun viewOf(model: SolitaireModel) =
-        SolitaireView(model).also {
+        SolitaireView(model, animationSpeed = 0.0).also {
             it.confirm = { title, header, verb, content ->
                 asked += listOf(title, header, verb, content)
                 answer

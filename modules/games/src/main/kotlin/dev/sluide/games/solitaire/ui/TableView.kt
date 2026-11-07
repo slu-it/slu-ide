@@ -26,6 +26,15 @@ internal class TableView(
     /** No mouse input while false. */
     var inputEnabled: Boolean = true
 
+    /** Called before the nodes are rebuilt (by [show], a resize or a theme change): the animator completes first. */
+    internal var beforeRebuild: () -> Unit = {}
+
+    /**
+     * How far the dropped group was dragged from its place when the drop was played; the animator slides from there
+     * instead of from the place.
+     */
+    internal var dropOffset: Pair<Double, Double>? = null
+
     internal var shown: Table = host.table
         private set
     private var current: Layout = layout(shown, 0.0, 0.0)
@@ -164,7 +173,17 @@ internal class TableView(
         drag.raise()
     }
 
+    /** The node of the [index]-th card of [pile], null when it is not drawn. */
+    internal fun nodeAt(
+        pile: PileId,
+        index: Int,
+    ): ImageView? = nodes[pile to index]
+
+    /** The card images of the current size, for the animator's turned-over cards. */
+    internal fun cardImages(): CardImages = imagesFor(current.cardWidth)
+
     private fun redraw() {
+        beforeRebuild()
         drag.cancel()
         laidOut = width to height
         current = layout(shown, width, height)
