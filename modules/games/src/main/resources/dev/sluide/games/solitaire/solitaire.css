@@ -1,0 +1,86 @@
+/*
+ * The Solitaire tab. .solitaire is the tab root and carries the felt; the toolbar and the status bar sit above it with
+ * their own background and keep the theme colours. The table (felt green), the outlines of the empty places, the keyboard cursor, the hint and drop highlights and the
+ * "Dealing..." text are our own colours, drawn on the felt, with a dark counterpart in the media block below. In that
+ * block the rules are single-class selectors, and they come after the ones they override, in the same order.
+ * The cards themselves are painted by CardPainter, not styled here.
+ */
+.solitaire {
+    -fx-background-color: #2e6b45;
+}
+
+/* Like .sdk-toolbar of Sudoku; keep in sync. The toolbar is not on felt and keeps the theme colours. */
+.sol-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.sol-toolbar .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.sol-status-bar {
+    -fx-padding: 2 8 2 8;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: derive(-fx-background, -12%) transparent transparent transparent;
+}
+
+.sol-status {
+    -fx-opacity: 0.7;
+    -fx-min-height: 1.4em;
+}
+
+/* An empty pile place. */
+.sol-slot {
+    -fx-background-color: transparent;
+    -fx-border-color: #5f9a76;
+    -fx-border-width: 2;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+
+/* The keyboard highlight. */
+.sol-cursor {
+    -fx-border-color: #fff59d;
+    -fx-border-width: 2;
+    -fx-border-radius: 6;
+}
+
+/* The hint highlight. */
+.sol-hint {
+    -fx-border-color: #ffb300;
+    -fx-border-width: 2;
+    -fx-border-radius: 6;
+    -fx-effect: dropshadow(gaussian, #ffb300, 12, 0.5, 0, 0);
+}
+
+/* A drop target while dragging. */
+.sol-drop-ok {
+    -fx-border-color: #e8f5e9;
+    -fx-border-width: 2;
+    -fx-border-radius: 6;
+    -fx-effect: dropshadow(gaussian, #e8f5e9, 8, 0.3, 0, 0);
+}
+
+/* On felt in both themes, so the text is light in both. */
+.sol-dealing {
+    -fx-font-size: 1.4em;
+    -fx-text-fill: #f1f8f2;
+    -fx-opacity: 0.8;
+}
+
+@media (prefers-color-scheme: dark) {
+    .solitaire { -fx-background-color: #1d3f2b; }
+    .sol-slot { -fx-border-color: #3f6b50; }
+    .sol-cursor { -fx-border-color: #fff176; }
+    .sol-hint {
+        -fx-border-color: #ffa000;
+        -fx-effect: dropshadow(gaussian, #ffa000, 12, 0.5, 0, 0);
+    }
+    .sol-drop-ok {
+        -fx-border-color: #c8e6c9;
+        -fx-effect: dropshadow(gaussian, #c8e6c9, 8, 0.3, 0, 0);
+    }
+    .sol-dealing { -fx-text-fill: #e0eee4; }
+}
