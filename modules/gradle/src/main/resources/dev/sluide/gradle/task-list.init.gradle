@@ -2,26 +2,59 @@
 // sluide.taskList. Run as: gradle --init-script task-list.init.gradle -Dsluide.taskList=<file> :sluideTaskList
 // (the root path, so it also works from a subproject's folder).
 // Needs Gradle 6 or newer.
+//
+// Every project lists its own tasks in its own task, sluideTaskListPart, and the root's sluideTaskList writes them all.
+// Listing creates the tasks, and a task may resolve a configuration when it is created; Gradle 9 allows that only on
+// a thread holding the project's lock. With parallel execution (org.gradle.parallel=true in the user's
+// gradle.properties) a task holds the lock of its own project only.
+def parts = new java.util.concurrent.ConcurrentHashMap()
+def ownNames = ["sluideTaskList", "sluideTaskListPart"]
+
+// The task reads the build model at execution time, which the configuration cache cannot store; the load also passes
+// -Dorg.gradle.configuration-cache=false. Older Gradle versions have no such method. The lookup runs inside the lazy
+// configuration, where a missing method cannot be caught from outside.
+def notForConfigurationCache = { t ->
+    if (t.metaClass.respondsTo(t, "notCompatibleWithConfigurationCache", String)) {
+        t.notCompatibleWithConfigurationCache("Thoreau reads the build model")
+    }
+}
+
+allprojects { p ->
+    def partTask = p.tasks.register("sluideTaskListPart") {
+        group = null
+        description = "Lists the tasks of this project for sluideTaskList (Thoreau)."
+        doLast {
+            def buildFile = p.buildFile
+            parts[p.path] = [
+                path     : p.path,
+                name     : p.name,
+                folder   : p.projectDir.absolutePath,
+                buildFile: (buildFile != null && buildFile.isFile()) ? buildFile.absolutePath : null,
+                tasks    : p.tasks.collect { t ->
+                    [name: t.name, path: t.path, group: t.group, description: t.description]
+                }.findAll { !(it.name in ownNames) }.sort { it.name },
+            ]
+        }
+    }
+    partTask.configure(notForConfigurationCache)
+}
+
 rootProject {
     def listTask = tasks.register("sluideTaskList") {
         group = null
         description = "Writes the tasks of all projects as JSON (Thoreau)."
+        dependsOn(rootProject.allprojects.collect { "${it.path == ":" ? "" : it.path}:sluideTaskListPart" })
         doLast {
             def target = System.getProperty("sluide.taskList")
             if (target == null) {
                 throw new GradleException("The system property sluide.taskList names no output file")
             }
             def projects = rootProject.allprojects.sort { it.path }.collect { p ->
-                def buildFile = p.buildFile
-                [
-                    path     : p.path,
-                    name     : p.name,
-                    folder   : p.projectDir.absolutePath,
-                    buildFile: (buildFile != null && buildFile.isFile()) ? buildFile.absolutePath : null,
-                    tasks    : p.tasks.collect { t ->
-                        [name: t.name, path: t.path, group: t.group, description: t.description]
-                    }.findAll { it.name != "sluideTaskList" }.sort { it.name },
-                ]
+                def part = parts[p.path]
+                if (part == null) {
+                    throw new GradleException("The tasks of ${p.path} were not listed")
+                }
+                part
             }
             def json = groovy.json.JsonOutput.toJson([
                 version   : 1,
@@ -33,12 +66,5 @@ rootProject {
             file.setText(json, "UTF-8")
         }
     }
-    // The task reads the whole build model at execution time, which the configuration cache cannot store; the load
-    // also passes -Dorg.gradle.configuration-cache=false. Older Gradle versions have no such method.
-    // The lookup runs inside the lazy configuration, where a missing method cannot be caught from outside.
-    listTask.configure { t ->
-        if (t.metaClass.respondsTo(t, "notCompatibleWithConfigurationCache", String)) {
-            t.notCompatibleWithConfigurationCache("Thoreau reads the build model")
-        }
-    }
+    listTask.configure(notForConfigurationCache)
 }

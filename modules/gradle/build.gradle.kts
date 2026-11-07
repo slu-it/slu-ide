@@ -27,6 +27,8 @@ dependencies {
     implementation(libs.jackson.databind)
     implementation(libs.spring.context)
 
+    // Runs the init script on a fixture build with the Gradle that runs this build (InitScriptTest).
+    testImplementation(gradleTestKit())
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }

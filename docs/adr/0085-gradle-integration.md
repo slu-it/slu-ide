@@ -34,13 +34,18 @@ run on every configuration), so it falls under [ADR 0053](0053-project-trust.md)
   below a build root belong to it and add nothing.
 
 **Reading the tasks**
-- A bundled **init script** (`task-list.init.gradle`, Groovy) registers `sluideTaskList` on the root project. It walks
-  `allprojects` and their tasks and writes JSON (`version`, `rootFolder`, projects with path, name, folder, build
-  file, and tasks with name, path, group, description) to the file named by `-Dsluide.taskList=<file>`. The load asks
-  for `:sluideTaskList`, the root path, because it runs in the build file's folder and a bare name would look in a
-  subproject there. It runs with `-Dorg.gradle.configuration-cache=false`; the task is also marked not compatible with
-  the configuration cache where Gradle has that API. It also runs with `--no-configure-on-demand`, since a root path
-  would otherwise configure only the root project and list no tasks registered by the others.
+- A bundled **init script** (`task-list.init.gradle`, Groovy) registers `sluideTaskListPart` in every project, which
+  lists that project's own tasks, and `sluideTaskList` on the root project, which depends on all parts. Listing creates
+  the tasks, and a build may resolve a configuration while a task is created; Gradle 9 allows that only under the
+  project's lock. With parallel execution (`org.gradle.parallel=true` in the build's `gradle.properties`) a task holds
+  the lock of its own project only, so a root task walking the other projects' tasks failed ("attempted without an
+  exclusive lock"). `sluideTaskList` writes JSON (`version`, `rootFolder`, projects with path,
+  name, folder, build file, and tasks with name, path, group, description) to the file named by
+  `-Dsluide.taskList=<file>`. The load asks for `:sluideTaskList`, the root path, because it runs in the build file's
+  folder and a bare name would look in a subproject there. It runs with `-Dorg.gradle.configuration-cache=false`; the
+  tasks are also marked not compatible with the configuration cache where Gradle has that API. It also runs with
+  `--no-configure-on-demand`, since a root path would otherwise configure only the root project and list no tasks
+  registered by the others.
 - It runs through the same command as a task run (wrapper or `gradle` in the login shell, interactive since
   [ADR 0087](0087-commands-in-an-interactive-login-shell.md)), so PATH and `JAVA_HOME` of the user apply. Gradle 6
   or newer is needed.
