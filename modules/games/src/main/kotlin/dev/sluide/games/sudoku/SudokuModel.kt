@@ -1,6 +1,7 @@
 package dev.sluide.games.sudoku
 
 import dev.sluide.games.common.GameClock
+import dev.sluide.games.common.formatTime
 import java.util.concurrent.Executor
 
 /** A short effect the view plays after a step. */

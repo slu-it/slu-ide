@@ -1,6 +1,7 @@
 package dev.sluide.games.sudoku.ui
 
 import dev.sluide.fileviewers.FocusWhenShown
+import dev.sluide.games.common.formatTime
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.TabVisibility
 import dev.sluide.games.sudoku.BoardLayout
@@ -12,7 +13,6 @@ import dev.sluide.games.sudoku.PAD_GAP_FACTOR
 import dev.sluide.games.sudoku.SudokuModel
 import dev.sluide.games.sudoku.SudokuSize
 import dev.sluide.games.sudoku.boardLayout
-import dev.sluide.games.sudoku.formatTime
 import dev.sluide.games.sudoku.keyAction
 import javafx.animation.KeyFrame
 import javafx.animation.Timeline

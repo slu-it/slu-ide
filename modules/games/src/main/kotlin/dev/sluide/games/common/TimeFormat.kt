@@ -1,4 +1,4 @@
-package dev.sluide.games.sudoku
+package dev.sluide.games.common
 
 import java.util.Locale
 
