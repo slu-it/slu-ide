@@ -1,6 +1,7 @@
 package dev.sluide.languageservers
 
 import dev.sluide.languageservers.connection.ServerTiming
+import org.eclipse.lsp4j.DidChangeWatchedFilesParams
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -11,6 +12,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -22,7 +24,7 @@ class LanguageServersTest {
     @TempDir
     lateinit var folder: Path
 
-    private val starter = FakeStarter()
+    private var starter = FakeStarter()
     private val scheduler = FakeScheduler()
     private val clock = AtomicLong()
     private var servers: LanguageServers? = null
@@ -169,10 +171,11 @@ class LanguageServersTest {
 
         servers.close()
 
-        assertTrue(process.waitFor(5_000))
+        assertTrue(process.awaitEndHandled())
         assertEquals(listOf("shutdown", "exit"), process.server.calls.drop(2))
         assertFalse(process.destroyed)
         assertEquals(ServerState.Stopped, servers.state(spec).value)
+        assertEquals(emptyList(), scheduler.due)
     }
 
     @Test
@@ -186,8 +189,67 @@ class LanguageServersTest {
 
         servers.close()
 
-        assertTrue(process.waitFor(5_000))
+        assertTrue(process.awaitEndHandled())
         assertTrue(process.destroyed)
         assertEquals(listOf("shutdown"), process.server.calls.drop(2))
+        assertEquals(ServerState.Stopped, servers.state(spec).value)
+        assertEquals(emptyList(), scheduler.due)
+    }
+
+    @Test
+    fun `a request or notification does not start a server that was unavailable, ensureStarted does`() {
+        val spec = TestSpec(command = null)
+        val servers = servers(spec)
+        val session = servers.session(spec)
+        session.ensureStarted()
+        servers.awaitState(spec, ServerState.Unavailable)
+        spec.command = ServerCommand(Path.of("installed"))
+        val errors = CopyOnWriteArrayList<Throwable>()
+
+        session.notify { it.workspaceService.didChangeWatchedFiles(DidChangeWatchedFilesParams(emptyList())) }
+        session.request({ it.shutdown() }, {}, { errors.add(it) })
+
+        awaitTrue("request refused") { errors.isNotEmpty() }
+        assertIs<LanguageServerNotRunningException>(errors.single())
+        assertEquals(ServerState.Unavailable, servers.state(spec).value)
+        assertEquals(0, starter.processes.size)
+        session.ensureStarted()
+        servers.awaitState(spec, ServerState.Running)
+    }
+
+    @Test
+    fun `ensureStarted asks the trust again for a server it refused before`() {
+        var allowed = false
+        val spec = TestSpec(runsProjectCode = true, trustCheckId = "test-check")
+        val servers = servers(spec, TrustGate { _, _ -> allowed })
+        servers.session(spec).ensureStarted()
+        servers.awaitState(spec, ServerState.Untrusted)
+
+        allowed = true
+        servers.session(spec).ensureStarted()
+
+        servers.awaitState(spec, ServerState.Running)
+    }
+
+    @Test
+    fun `a project folder that cannot be read fails the start instead of leaving it starting`() {
+        val spec = TestSpec()
+        val servers = servers(spec, projectFolder = { throw IllegalStateException("no folder today") })
+
+        servers.session(spec).ensureStarted()
+
+        servers.awaitState(spec, ServerState.Failed("Test language server could not start: no folder today"))
+    }
+
+    @Test
+    fun `a starter that fails unexpectedly fails the start`() {
+        starter = FakeStarter(beforeStart = { throw IllegalArgumentException("bad working folder") })
+        val spec = TestSpec()
+        val servers = servers(spec)
+
+        servers.session(spec).ensureStarted()
+
+        servers.awaitState(spec, ServerState.Failed("Test language server could not start: bad working folder"))
+        assertEquals(emptyList(), scheduler.due)
     }
 }

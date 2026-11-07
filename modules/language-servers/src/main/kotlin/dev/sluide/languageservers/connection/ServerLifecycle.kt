@@ -73,22 +73,22 @@ internal class ServerLifecycle(
      * [ServerState.Untrusted] if [evenIfRefused] (installed or trusted since).
      */
     fun ensureStarted(evenIfRefused: Boolean) {
-        val gen =
-            synchronized(lock) {
-                val startable =
-                    state == ServerState.Stopped ||
-                        (evenIfRefused && (state == ServerState.Unavailable || state == ServerState.Untrusted))
-                if (closed || !startable) return
-                generation++
-                setState(ServerState.Starting)
-                generation
-            }
-        submit { start(gen) }
+        synchronized(lock) {
+            val startable =
+                state == ServerState.Stopped ||
+                    (evenIfRefused && (state == ServerState.Unavailable || state == ServerState.Untrusted))
+            if (closed || !startable) return
+            generation++
+            setState(ServerState.Starting)
+            // Queued under the lock: whoever sees Starting and sends something next queues it behind the start.
+            val gen = generation
+            submit { start(gen) }
+        }
     }
 
     /** Stops the server politely and starts a new one, with a fresh count of restarts. */
     fun restart() {
-        val (old, gen) =
+        val old =
             synchronized(lock) {
                 if (closed) return
                 generation++
@@ -96,10 +96,11 @@ internal class ServerLifecycle(
                 cancelRetry()
                 val old = detach()
                 setState(ServerState.Starting)
-                old to generation
+                val gen = generation
+                submit { start(gen) }
+                old
             }
         if (old != null) NamedThreads.virtual("sluide-lsp-${spec.id}-restart") { shutdown(old) }
-        submit { start(gen) }
     }
 
     /** Runs [action] on the outbound thread with the running server, or `null` if none runs then. */
@@ -125,20 +126,32 @@ internal class ServerLifecycle(
     }
 
     private fun start(gen: Int) {
+        try {
+            startSteps(gen)
+        } catch (_: InterruptedException) {
+            // Closed while waiting (trust, start): close ends what was started.
+        } catch (e: RuntimeException) {
+            log.log(System.Logger.Level.ERROR, "lsp ${spec.id}: starting the server failed", e)
+            val old =
+                synchronized(lock) {
+                    if (!isCurrentLocked(gen)) return
+                    generation++
+                    setState(ServerState.Failed("${spec.name} language server could not start: ${e.message ?: e}"))
+                    detach()
+                }
+            old?.kill()
+        }
+    }
+
+    /** One start; an unexpected exception (folder, trust, spec, starter) fails the server in [start]. */
+    private fun startSteps(gen: Int) {
         if (!isCurrent(gen)) return
         val root = projectFolder()
         if (root == null) {
             settle(gen, ServerState.Stopped)
             return
         }
-        val command =
-            try {
-                spec.command()
-            } catch (e: RuntimeException) {
-                log.log(System.Logger.Level.ERROR, "lsp ${spec.id}: resolving the server command failed", e)
-                settle(gen, ServerState.Failed("${spec.name} language server: ${e.message ?: e.toString()}"))
-                return
-            }
+        val command = spec.command()
         if (command == null) {
             log.log(System.Logger.Level.INFO, "lsp ${spec.id}: no server available")
             settle(gen, ServerState.Unavailable)
@@ -281,8 +294,8 @@ internal class ServerLifecycle(
         synchronized(lock) {
             if (!isCurrentLocked(gen)) return
             retry = null
+            submit { start(gen) }
         }
-        submit { start(gen) }
     }
 
     private fun shutdown(old: LspConnection) =
