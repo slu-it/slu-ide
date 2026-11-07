@@ -3,7 +3,6 @@ package dev.sluide.languageservers
 import dev.sluide.languageservers.connection.Scheduler
 import dev.sluide.languageservers.process.ServerProcess
 import dev.sluide.languageservers.process.ServerStarter
-import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.DefinitionParams
 import org.eclipse.lsp4j.DidChangeConfigurationParams
 import org.eclipse.lsp4j.DidChangeTextDocumentParams
@@ -38,8 +37,11 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.time.Duration
 
-/** A language server in the test JVM that records what it receives and lets the test answer or call back. */
-internal class FakeServer :
+/**
+ * A language server in the test JVM that records what it receives and lets the test answer or call back. Open: a
+ * test overrides the `textDocument/…` methods it needs (hover, completion, references…).
+ */
+open class FakeServer :
     LanguageServer,
     LanguageClientAware,
     TextDocumentService,
@@ -48,14 +50,19 @@ internal class FakeServer :
     @Volatile
     lateinit var client: LanguageClient
 
-    /** Methods received, in order; notifications of documents with their URI. */
+    /** Methods received, in order; `didOpen` with the document's text. */
     val calls = CopyOnWriteArrayList<String>()
 
     @Volatile
     var initializeParams: InitializeParams? = null
 
+    /** What `initialize` answers. */
     @Volatile
     var capabilities = ServerCapabilities()
+
+    /** `false`: `initialize` is never answered. */
+    @Volatile
+    var answerInitialize = true
 
     /** `false`: `shutdown` is never answered. */
     @Volatile
@@ -64,6 +71,7 @@ internal class FakeServer :
     /** The futures of the `textDocument/definition` requests received, for the test to complete. */
     val definitions = CopyOnWriteArrayList<CompletableFuture<Either<List<Location>, List<LocationLink>>>>()
 
+    /** Set by the process: `exit` ends it. */
     @Volatile
     var onExit: () -> Unit = {}
 
@@ -74,7 +82,13 @@ internal class FakeServer :
     override fun initialize(params: InitializeParams): CompletableFuture<InitializeResult> {
         calls += "initialize"
         initializeParams = params
-        return CompletableFuture.completedFuture(InitializeResult(capabilities))
+        return if (answerInitialize) {
+            CompletableFuture.completedFuture(
+                InitializeResult(capabilities),
+            )
+        } else {
+            CompletableFuture()
+        }
     }
 
     override fun initialized(params: InitializedParams) {
@@ -138,8 +152,14 @@ internal class FakeProcess(
     @Volatile
     private var exitCode = 0
 
+    /** Whether the client killed it. */
     @Volatile
     var destroyed = false
+        private set
+
+    /** The thread that waits for the end (the session's exit watcher): joined, it has handled the end. */
+    @Volatile
+    var waiter: Thread? = null
         private set
 
     override val input: InputStream = toClient.input
@@ -163,7 +183,10 @@ internal class FakeProcess(
     /** The server dies: its streams close, its exit code is 1. */
     fun crash() = end(1)
 
+    val isEnded: Boolean get() = ended.count == 0L
+
     override fun waitFor(): Int {
+        waiter = Thread.currentThread()
         ended.await()
         return exitCode
     }
@@ -175,22 +198,42 @@ internal class FakeProcess(
         end(137)
     }
 
+    /** Waits until the exit watcher has handled the end; `false` if it did not within five seconds. */
+    fun awaitEndHandled(): Boolean {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (waiter == null || !isEnded) {
+            if (System.nanoTime() > deadline) return false
+            Thread.sleep(5)
+        }
+        waiter?.join(5_000)
+        return waiter?.isAlive == false
+    }
+
     private fun end(code: Int) {
-        if (ended.count == 0L) return
-        exitCode = code
+        synchronized(this) {
+            if (isEnded) return
+            exitCode = code
+            ended.countDown()
+        }
         toServer.close()
         toClient.close()
-        ended.countDown()
         serverReader.shutdownNow()
     }
 }
 
-/** Starts a [FakeProcess] with a new [FakeServer] per start. */
+/**
+ * Starts a [FakeProcess] with the server [newServer] makes for start number `index` (from 0); [beforeStart] runs on
+ * the starting thread first, to hold a start.
+ */
 internal class FakeStarter(
-    private val configure: (FakeServer) -> Unit = {},
+    private val newServer: (index: Int) -> FakeServer = { FakeServer() },
+    private val beforeStart: (index: Int) -> Unit = {},
 ) : ServerStarter {
     val processes = CopyOnWriteArrayList<FakeProcess>()
     val roots = CopyOnWriteArrayList<Path>()
+    private val starts =
+        java.util.concurrent.atomic
+            .AtomicInteger()
 
     val last: FakeProcess get() = processes.last()
 
@@ -199,8 +242,10 @@ internal class FakeStarter(
         command: ServerCommand,
         root: Path,
     ): ServerProcess {
+        val index = starts.getAndIncrement()
+        beforeStart(index)
         roots.add(root)
-        return FakeProcess(name, FakeServer().also(configure)).also { processes += it }
+        return FakeProcess(name, newServer(index)).also { processes += it }
     }
 }
 
@@ -223,24 +268,6 @@ internal class FakeScheduler : Scheduler {
         task.run()
         return delay
     }
-}
-
-internal class TestSpec(
-    @Volatile var command: ServerCommand? = ServerCommand(Path.of("fake-server")),
-    override val runsProjectCode: Boolean = false,
-    override val trustCheckId: String? = null,
-    private val config: (ConfigurationItem) -> Any? = { null },
-) : LanguageServerSpec {
-    override val id = "test"
-    override val name = "Test"
-
-    override fun matches(file: Path) = file.fileName.toString().endsWith(".py")
-
-    override fun languageId(file: Path) = "python"
-
-    override fun command() = command
-
-    override fun configuration(item: ConfigurationItem) = config(item)
 }
 
 /** Polls [condition] until it holds, failing after five seconds. */
