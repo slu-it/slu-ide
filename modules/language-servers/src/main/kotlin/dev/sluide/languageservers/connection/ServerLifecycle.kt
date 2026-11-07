@@ -278,7 +278,8 @@ internal class ServerLifecycle(
     private fun initializeParams(root: Path) =
         InitializeParams().apply {
             processId = ProcessHandle.current().pid().toInt()
-            clientInfo = ClientInfo("Thoreau")
+            // The version in the manifest of this module's jar, if it names one.
+            clientInfo = ClientInfo("Thoreau", ServerLifecycle::class.java.`package`?.implementationVersion)
             @Suppress("DEPRECATION")
             rootUri = LspUris.of(root)
             workspaceFolders = listOf(workspaceFolder(root))

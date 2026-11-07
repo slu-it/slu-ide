@@ -1,6 +1,7 @@
 package dev.sluide.languageservers
 
 import dev.sluide.languageservers.connection.ServerTiming
+import org.eclipse.lsp4j.CompletionItemKind
 import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.ConfigurationParams
 import org.eclipse.lsp4j.DefinitionParams
@@ -15,6 +16,7 @@ import org.eclipse.lsp4j.PublishDiagnosticsParams
 import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.Registration
 import org.eclipse.lsp4j.RegistrationParams
+import org.eclipse.lsp4j.SymbolKind
 import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.Unregistration
 import org.eclipse.lsp4j.UnregistrationParams
@@ -102,6 +104,12 @@ class LanguageServerSessionTest {
         assertTrue("parameter" in text.semanticTokens.tokenTypes)
         assertTrue("defaultLibrary" in text.semanticTokens.tokenModifiers)
         assertEquals(listOf("edit"), text.codeAction.resolveSupport.properties)
+        assertEquals(CompletionItemKind.entries, text.completion.completionItemKind.valueSet)
+        assertEquals(SymbolKind.entries, text.documentSymbol.symbolKind.valueSet)
+        assertEquals(SymbolKind.entries, capabilities.workspace.symbol.symbolKind.valueSet)
+        assertTrue(text.implementation.linkSupport)
+        assertTrue(capabilities.workspace.didChangeConfiguration.dynamicRegistration)
+        assertEquals("Thoreau", params.clientInfo.name)
     }
 
     @Test

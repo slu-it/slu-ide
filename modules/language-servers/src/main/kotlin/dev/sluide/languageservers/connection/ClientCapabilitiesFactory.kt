@@ -8,6 +8,8 @@ import org.eclipse.lsp4j.CodeActionLiteralSupportCapabilities
 import org.eclipse.lsp4j.CodeActionResolveSupportCapabilities
 import org.eclipse.lsp4j.CompletionCapabilities
 import org.eclipse.lsp4j.CompletionItemCapabilities
+import org.eclipse.lsp4j.CompletionItemKind
+import org.eclipse.lsp4j.CompletionItemKindCapabilities
 import org.eclipse.lsp4j.CompletionItemResolveSupportCapabilities
 import org.eclipse.lsp4j.DeclarationCapabilities
 import org.eclipse.lsp4j.DefinitionCapabilities
@@ -15,11 +17,13 @@ import org.eclipse.lsp4j.DiagnosticCapabilities
 import org.eclipse.lsp4j.DiagnosticTag
 import org.eclipse.lsp4j.DiagnosticWorkspaceCapabilities
 import org.eclipse.lsp4j.DiagnosticsTagSupport
+import org.eclipse.lsp4j.DidChangeConfigurationCapabilities
 import org.eclipse.lsp4j.DidChangeWatchedFilesCapabilities
 import org.eclipse.lsp4j.DocumentHighlightCapabilities
 import org.eclipse.lsp4j.DocumentSymbolCapabilities
 import org.eclipse.lsp4j.GeneralClientCapabilities
 import org.eclipse.lsp4j.HoverCapabilities
+import org.eclipse.lsp4j.ImplementationCapabilities
 import org.eclipse.lsp4j.InlayHintWorkspaceCapabilities
 import org.eclipse.lsp4j.MarkupKind
 import org.eclipse.lsp4j.ParameterInformationCapabilities
@@ -32,6 +36,8 @@ import org.eclipse.lsp4j.SemanticTokensWorkspaceCapabilities
 import org.eclipse.lsp4j.SignatureHelpCapabilities
 import org.eclipse.lsp4j.SignatureInformationCapabilities
 import org.eclipse.lsp4j.SymbolCapabilities
+import org.eclipse.lsp4j.SymbolKind
+import org.eclipse.lsp4j.SymbolKindCapabilities
 import org.eclipse.lsp4j.SynchronizationCapabilities
 import org.eclipse.lsp4j.TextDocumentClientCapabilities
 import org.eclipse.lsp4j.TypeDefinitionCapabilities
@@ -104,7 +110,8 @@ private fun workspaceCapabilities() =
         applyEdit = false
         workspaceEdit = WorkspaceEditCapabilities().apply { documentChanges = true }
         didChangeWatchedFiles = DidChangeWatchedFilesCapabilities(true).apply { relativePatternSupport = true }
-        symbol = SymbolCapabilities(false)
+        symbol = SymbolCapabilities(SymbolKindCapabilities(SymbolKind.entries), false)
+        didChangeConfiguration = DidChangeConfigurationCapabilities(true)
         diagnostics = DiagnosticWorkspaceCapabilities(true)
         semanticTokens = SemanticTokensWorkspaceCapabilities(true)
         inlayHint = InlayHintWorkspaceCapabilities(true)
@@ -116,6 +123,7 @@ private fun textDocumentCapabilities() =
         definition = DefinitionCapabilities(false, true)
         declaration = DeclarationCapabilities(false, true)
         typeDefinition = TypeDefinitionCapabilities(false, true)
+        implementation = ImplementationCapabilities(false, true)
         references = ReferencesCapabilities(false)
         documentHighlight = DocumentHighlightCapabilities(false)
         hover = HoverCapabilities(DOC_FORMATS, false)
@@ -136,7 +144,10 @@ private fun textDocumentCapabilities() =
         diagnostic = DiagnosticCapabilities(true, false)
         codeAction = codeActionCapabilities()
         rename = RenameCapabilities(true, false)
-        documentSymbol = DocumentSymbolCapabilities().apply { hierarchicalDocumentSymbolSupport = true }
+        documentSymbol =
+            DocumentSymbolCapabilities(SymbolKindCapabilities(SymbolKind.entries)).apply {
+                hierarchicalDocumentSymbolSupport = true
+            }
         semanticTokens = semanticTokensCapabilities()
     }
 
@@ -149,7 +160,10 @@ private fun completionCapabilities() =
             resolveSupport =
                 CompletionItemResolveSupportCapabilities(listOf("documentation", "detail", "additionalTextEdits"))
         },
-    ).apply { contextSupport = true }
+    ).apply {
+        contextSupport = true
+        completionItemKind = CompletionItemKindCapabilities(CompletionItemKind.entries)
+    }
 
 private fun codeActionCapabilities() =
     CodeActionCapabilities(

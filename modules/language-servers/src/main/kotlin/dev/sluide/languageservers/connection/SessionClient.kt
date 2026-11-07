@@ -25,11 +25,23 @@ import org.eclipse.lsp4j.jsonrpc.json.MessageJsonHandler
 import org.eclipse.lsp4j.services.LanguageClient
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicInteger
 
 private val log = System.getLogger("dev.sluide.languageservers.connection.SessionClient")
 
 /** Longest server message logged. */
 private const val MESSAGE_CHARS = 500
+
+/** `window/logMessage` lines logged per connection; a chatty server must not fill the log. */
+internal const val LOG_MESSAGES = 1_000
+
+/** The level of a server's `window/logMessage`: its own log and info lines are debug output to Thoreau. */
+internal fun logMessageLevel(type: MessageType?): System.Logger.Level =
+    when (type) {
+        MessageType.Error -> System.Logger.Level.WARNING
+        MessageType.Warning -> System.Logger.Level.INFO
+        else -> System.Logger.Level.DEBUG
+    }
 
 /** Gson configured as lsp4j's wire format: reads registration options into protocol types. */
 internal val protocolGson: Gson = MessageJsonHandler(emptyMap()).gson
@@ -56,6 +68,8 @@ internal class SessionClient(
     private val features: ServerFeatures,
     private val events: ClientEvents,
 ) : LanguageClient {
+    private val logMessages = AtomicInteger()
+
     override fun configuration(params: ConfigurationParams): CompletableFuture<List<Any?>> =
         CompletableFuture.completedFuture(params.items.map(::configuration))
 
@@ -129,8 +143,14 @@ internal class SessionClient(
             ApplyWorkspaceEditResponse(false).apply { failureReason = "Thoreau does not apply server edits yet" },
         )
 
-    override fun logMessage(message: MessageParams) =
-        log.log(System.Logger.Level.INFO, "lsp $name log: ${message.message.orEmpty().take(MESSAGE_CHARS)}")
+    override fun logMessage(message: MessageParams) {
+        val count = logMessages.incrementAndGet()
+        if (count <= LOG_MESSAGES) {
+            log.log(logMessageLevel(message.type), "lsp $name log: ${message.message.orEmpty().take(MESSAGE_CHARS)}")
+        } else if (count == LOG_MESSAGES + 1) {
+            log.log(System.Logger.Level.INFO, "lsp $name log: further messages not logged")
+        }
+    }
 
     override fun logTrace(params: LogTraceParams) = Unit
 
