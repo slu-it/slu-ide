@@ -136,16 +136,21 @@ if (onnxNativeFolder != null) {
                 exclude("**/*.dSYM/**")
             }
         }
+    // Resolves nothing until the jar is built: creating the task (e.g. to list it) stays cheap.
     tasks.bootJar {
-        val original = onnxJars.files
-        val onNativeClasspath =
+        val jars = onnxJars
+        val runtimeJars =
             configurations.runtimeClasspath
                 .get()
-                .files
-                .any { it in original }
-        check(onNativeClasspath) { "onnxruntime is not on the runtime classpath as ${original.map { it.name }}" }
+                .incoming.files
+        doFirst {
+            val original = jars.files
+            check(runtimeJars.files.any { it in original }) {
+                "onnxruntime is not on the runtime classpath as ${original.map { it.name }}"
+            }
+        }
         val bootClasspath = classpath ?: files()
-        setClasspath(files(bootClasspath.filter { file -> file !in original }, onnxRuntimeForPlatform))
+        setClasspath(files(bootClasspath.filter { file -> file !in jars.files }, onnxRuntimeForPlatform))
     }
 }
 
@@ -175,16 +180,21 @@ val linguaSmallModels =
         }
     }
 
+// Lazy like the ONNX Runtime swap above.
 tasks.bootJar {
-    val original = linguaJars.files
-    val onClasspath =
+    val jars = linguaJars
+    val runtimeJars =
         configurations.runtimeClasspath
             .get()
-            .files
-            .any { it in original }
-    check(onClasspath) { "lingua is not on the runtime classpath as ${original.map { it.name }}" }
+            .incoming.files
+    doFirst {
+        val original = jars.files
+        check(runtimeJars.files.any { it in original }) {
+            "lingua is not on the runtime classpath as ${original.map { it.name }}"
+        }
+    }
     val bootClasspath = classpath ?: files()
-    setClasspath(files(bootClasspath.filter { file -> file !in original }, linguaSmallModels))
+    setClasspath(files(bootClasspath.filter { file -> file !in jars.files }, linguaSmallModels))
 }
 
 // Native app with its own Java runtime (docs/adr/0011-native-app-packaging.md): `jpackageImage` builds Thoreau.app on
