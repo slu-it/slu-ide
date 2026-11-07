@@ -36,7 +36,8 @@ internal sealed interface KeyAction {
 }
 
 /**
- * The action of [code]. Only the arrow keys move the cursor (D draws, so W A S D is no cursor block here). [shortcut] is the platform Shortcut key: with it only Z (undo) and Shift+Z (redo) count.
+ * The action of [code]. Only the arrow keys move the cursor (D clicks the stock, so W A S D is no cursor block here).
+ * [shortcut] is the platform Shortcut key: with it only Z (undo) and Shift+Z (redo) count.
  * [otherModifier] (Alt, or Ctrl/Meta that is not the Shortcut key) gives null.
  */
 internal fun keyAction(
