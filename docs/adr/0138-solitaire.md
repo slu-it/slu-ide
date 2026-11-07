@@ -36,6 +36,15 @@ that stays valid. The rules of these games are not protected; card faces of exis
   - Spider: start at 500, −1 per move, +100 per completed run;
   - FreeCell: +10 per card to a foundation, −1 per move, the same time bonus;
   - every game: undo −1, hint −20.
+- **FreeCell rules**: 8 columns (the deal goes row by row, 7 cards on columns 0..3, 6 on the others), 4 cells, 4
+  foundations; a run of n cards moves if n ≤ (free cells + 1) × 2^(empty columns), the target column not counted. A
+  table is decided (auto-finish) when every column descends strictly from bottom to top: the lowest card left is then
+  always playable to a foundation. Cell to cell is refused; `legalMoves` lists a column card only for the first
+  empty cell.
+- **Spider rules**: 10 columns, 54 cards dealt (only each column's top card face up), 50 in the stock; any top part of
+  a same-suit run moves onto a card one higher of any suit or onto an empty column; dealing a row needs a stock and
+  no empty column. A K..A run of one suit leaves for the next empty foundation by itself (checked after every move,
+  flipping the card it uncovers); Spider is never decided, there is no auto-finish.
 - **Own drawn cards**: the card faces and backs are drawn for Thoreau; no card set is copied.
 
 Considered:

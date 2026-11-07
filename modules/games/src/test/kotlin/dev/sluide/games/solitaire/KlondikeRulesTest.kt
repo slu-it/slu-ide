@@ -87,13 +87,15 @@ class KlondikeRulesTest {
 
     @ParameterizedTest
     @EnumSource(Mode::class)
-    fun `Rules of gives Klondike rules for the Klondike modes only, for now`(mode: Mode) {
-        if (mode.variant == Variant.KLONDIKE) {
-            assertEquals(mode, assertIs<KlondikeRules>(Rules.of(mode)).mode)
-        } else {
-            assertThrows<NotImplementedError> { Rules.of(mode) }
-            assertThrows<IllegalArgumentException> { KlondikeRules(mode) }
+    fun `Rules of gives the rules of the mode, Klondike rules refuse the other variants`(mode: Mode) {
+        val rules = Rules.of(mode)
+        assertEquals(mode, rules.mode)
+        when (mode.variant) {
+            Variant.KLONDIKE -> assertIs<KlondikeRules>(rules)
+            Variant.FREECELL -> assertIs<FreeCellRules>(rules)
+            Variant.SPIDER -> assertIs<SpiderRules>(rules)
         }
+        if (mode.variant != Variant.KLONDIKE) assertThrows<IllegalArgumentException> { KlondikeRules(mode) }
     }
 
     @ParameterizedTest

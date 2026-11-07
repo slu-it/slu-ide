@@ -10,7 +10,10 @@ internal interface Rules {
     /** The opening table from [deck] (as [Deals.deck] gives it). */
     fun deal(deck: List<Card>): Table
 
-    /** Every legal move, no duplicates; [Move.Transfer]s of every legal count. */
+    /**
+     * Every legal move, no duplicates; [Move.Transfer]s of every legal count (FreeCell lists a column card only into
+     * the first empty cell; see FreeCellRules).
+     */
     fun legalMoves(table: Table): List<Move>
 
     /** Whether [move] is legal on [table]; false for a table of another mode. */
@@ -43,7 +46,8 @@ internal interface Rules {
         fun of(mode: Mode): Rules =
             when (mode.variant) {
                 Variant.KLONDIKE -> KlondikeRules(mode)
-                Variant.FREECELL, Variant.SPIDER -> throw NotImplementedError("$mode rules come in a later package")
+                Variant.FREECELL -> FreeCellRules()
+                Variant.SPIDER -> SpiderRules(mode)
             }
     }
 }
