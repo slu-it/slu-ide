@@ -176,7 +176,7 @@ internal class Animator(
 
     /**
      * Puts the sliding [nodes] above every card (top-row nodes come before the tableau in the child list) but below
-     * the outlines, in index order; completing puts them back at their former child index.
+     * the outlines, in index order; completing puts each back right after the sibling that preceded it.
      */
     private fun lift(nodes: List<ImageView>) {
         if (nodes.isEmpty()) return
