@@ -15,6 +15,7 @@ import org.eclipse.lsp4j.services.LanguageClient
 import org.eclipse.lsp4j.services.LanguageServer
 import java.io.IOException
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
@@ -115,7 +116,7 @@ internal class ServerLifecycle(
     /** Runs [action] on the outbound thread with the running server, or `null` if none runs then. */
     fun onServer(action: (RunningServer?) -> Unit) {
         submit {
-            val current = synchronized(lock) { running?.let { RunningServer(it.server, runningEpoch) } }
+            val current = synchronized(lock) { running?.let { RunningServer(it, runningEpoch) } }
             action(current)
         }
     }
@@ -179,7 +180,15 @@ internal class ServerLifecycle(
                 return
             }
         val features = ServerFeatures()
-        val conn = LspConnection(process, newClient(root, features, name) { isCurrent(gen) }, features)
+        val conn =
+            LspConnection(
+                process,
+                newClient(root, features, name) {
+                    isCurrent(gen)
+                },
+                features,
+                "${spec.name} language server stopped",
+            )
         synchronized(lock) {
             if (!isCurrentLocked(gen)) {
                 conn.kill()
@@ -355,6 +364,11 @@ internal class ServerLifecycle(
 
 /** The server that runs when something queued is sent, with the number of its connection. */
 internal class RunningServer(
-    val server: LanguageServer,
+    private val connection: LspConnection,
     val epoch: Int,
-)
+) {
+    val server: LanguageServer get() = connection.server
+
+    /** Keeps a request sent to this server, so that it fails when the server stops. */
+    fun track(future: CompletableFuture<*>) = connection.track(future)
+}

@@ -22,6 +22,8 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
@@ -31,7 +33,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 class LanguageServerSessionTest {
     @TempDir
@@ -226,22 +227,23 @@ class LanguageServerSessionTest {
     }
 
     @Test
-    fun `a result that arrives after the session closed is dropped`() {
-        // Shutdown is never answered, so the connection lives on for its timeout while the late result arrives.
-        val session = session(timing = ServerTiming(shutdown = 3.seconds, exit = 200.milliseconds))
+    fun `nothing arrives after the session closed, not even the failure of a waiting request`() {
+        val session = session()
         val server = running(session)
-        server.answerShutdown = false
-        val results = CopyOnWriteArrayList<Any>()
-        session.request({ it.textDocumentService.definition(definitionParams()) }, { results.add(it) })
+        val outcomes = CopyOnWriteArrayList<Any>()
+        session.request(
+            { it.textDocumentService.definition(definitionParams()) },
+            { outcomes.add(it) },
+            { outcomes.add(it) },
+        )
         awaitTrue("request at the server") { server.definitions.size == 1 }
+        val before = dispatched.get()
 
         servers!!.close()
-        awaitTrue("shutdown sent") { "shutdown" in server.calls }
-        val before = dispatched.get()
-        server.definitions[0].complete(Either.forLeft(emptyList()))
 
-        awaitTrue("late result handed to the FX thread") { dispatched.get() > before }
-        assertEquals(emptyList(), results)
+        // The state Stopped and the waiting request's failure are handed to the FX thread, and dropped there.
+        awaitTrue("both handed to the FX thread") { dispatched.get() >= before + 2 }
+        assertEquals(emptyList(), outcomes)
     }
 
     @Test
@@ -253,6 +255,22 @@ class LanguageServerSessionTest {
 
         awaitTrue("error") { errors.isNotEmpty() }
         assertIs<LanguageServerNotRunningException>(errors.single())
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `a request still waiting when its server crashes or restarts gets not running`(crash: Boolean) {
+        val session = session()
+        val server = running(session)
+        val errors = CopyOnWriteArrayList<Throwable>()
+        session.request({ it.textDocumentService.definition(definitionParams()) }, {}, { errors += it })
+        awaitTrue("request at the server") { server.definitions.size == 1 }
+
+        if (crash) starter.last.crash() else session.restart()
+
+        awaitTrue("error") { errors.isNotEmpty() }
+        assertEquals(LanguageServerNotRunningException::class, errors.single()::class)
+        assertEquals("Test language server stopped", errors.single().message)
     }
 
     private fun diagnostics(

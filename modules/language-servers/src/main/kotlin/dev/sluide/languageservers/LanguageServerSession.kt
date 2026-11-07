@@ -98,8 +98,8 @@ class LanguageServerSession internal constructor(
      * server starts wait for it. [call] must return the proxy's future itself: only that one sends `$/cancelRequest`
      * when cancelled, a derived future (`thenApply`) does not. [onResult] gets the result on the FX thread unless the
      * request was cancelled or the session closed first; [onError] gets the server's error
-     * ([org.eclipse.lsp4j.jsonrpc.ResponseErrorException]) or a [LanguageServerNotRunningException]. A cancelled request
-     * calls neither.
+     * ([org.eclipse.lsp4j.jsonrpc.ResponseErrorException]) or a [LanguageServerNotRunningException], also when the
+     * server stops (crash, restart) before it answered. A cancelled request calls neither.
      */
     fun <T> request(
         call: (LanguageServer) -> CompletableFuture<T>,
@@ -122,6 +122,7 @@ class LanguageServerSession internal constructor(
                     return@onServer
                 }
             if (!pending.sent(future)) return@onServer
+            running.track(future)
             future.whenComplete { result, error ->
                 val cause = if (error is CompletionException) error.cause ?: error else error
                 when {
