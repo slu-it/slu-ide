@@ -13,6 +13,13 @@ interface ServerInstaller {
 
     /** Stops a running install; it ends [ServerAvailability.Missing] or as it was. */
     fun cancel()
+
+    /**
+     * Calls [listener] on the FX thread whenever the command [LanguageServerSpec.command] returns changes (an install,
+     * update, rollback or delete, a changed custom path), so that running servers can be restarted with it; closing
+     * the result removes the listener. The default never calls it.
+     */
+    fun onCommandChanged(listener: () -> Unit): AutoCloseable = AutoCloseable {}
 }
 
 /** Whether an installer's server can run. */
