@@ -1,6 +1,9 @@
 package dev.sluide.games.blockbreaker
 
-/** The player's controls for one step; the model nulls [pointerX] while a key is pressed. */
+/**
+ * The player's controls for one step. The model nulls [pointerX] on a LEFT or RIGHT press until the next mouse move,
+ * and the engine ignores the pointer while a key is held.
+ */
 internal data class Input(
     val left: Boolean = false,
     val right: Boolean = false,
