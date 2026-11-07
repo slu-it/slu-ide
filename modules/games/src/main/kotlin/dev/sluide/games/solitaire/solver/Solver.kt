@@ -2,6 +2,7 @@ package dev.sluide.games.solitaire.solver
 
 import dev.sluide.games.solitaire.Mode
 import dev.sluide.games.solitaire.Move
+import dev.sluide.games.solitaire.SpiderRules
 import dev.sluide.games.solitaire.Table
 import dev.sluide.games.solitaire.Variant
 import kotlin.time.Duration
@@ -22,7 +23,7 @@ internal sealed interface SolveResult {
 
 /**
  * The per-variant part of the solver: searches one table within a [SearchBudget]. Klondike is [KlondikeSearch],
- * FreeCell [FreeCellSearch]; Spider plugs in later.
+ * FreeCell [FreeCellSearch] and Spider [SpiderSearch].
  */
 internal fun interface VariantSolver {
     fun solve(
@@ -57,7 +58,7 @@ internal open class Solver(
         when (mode.variant) {
             Variant.KLONDIKE -> KlondikeSearch(mode)
             Variant.FREECELL -> FreeCellSearch()
-            Variant.SPIDER -> null
+            Variant.SPIDER -> SpiderSearch(SpiderRules(mode))
         }
 }
 

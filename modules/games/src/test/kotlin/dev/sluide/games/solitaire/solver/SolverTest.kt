@@ -8,7 +8,9 @@ import dev.sluide.games.solitaire.Move
 import dev.sluide.games.solitaire.Pile
 import dev.sluide.games.solitaire.PileId
 import dev.sluide.games.solitaire.Rules
+import dev.sluide.games.solitaire.SpiderRules
 import dev.sluide.games.solitaire.Table
+import dev.sluide.games.solitaire.Variant
 import dev.sluide.games.solitaire.card
 import dev.sluide.games.solitaire.cards
 import org.junit.jupiter.params.ParameterizedTest
@@ -19,6 +21,7 @@ import java.util.concurrent.Executors
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 class SolverTest {
@@ -132,7 +135,7 @@ class SolverTest {
     }
 
     @ParameterizedTest
-    @EnumSource(Mode::class, names = ["KLONDIKE_DRAW_1", "KLONDIKE_DRAW_3", "FREECELL"])
+    @EnumSource(Mode::class)
     fun `a spent budget gives Unknown at once`(mode: Mode) {
         var now = 0L
         val ticking =
@@ -147,7 +150,7 @@ class SolverTest {
     }
 
     @ParameterizedTest
-    @EnumSource(Mode::class, names = ["KLONDIKE_DRAW_1", "KLONDIKE_DRAW_3", "FREECELL"])
+    @EnumSource(Mode::class)
     fun `a cancel gives Unknown at once`(mode: Mode) {
         val table = Rules.of(mode).deal(Deals.deck(mode, 3))
         var polls = 0
@@ -171,7 +174,7 @@ class SolverTest {
     }
 
     @ParameterizedTest
-    @EnumSource(Mode::class, names = ["FREECELL"])
+    @EnumSource(Mode::class, names = ["FREECELL", "SPIDER_1", "SPIDER_2", "SPIDER_4"])
     fun `a table without cards is no position`(mode: Mode) {
         assertEquals(SolveResult.Unknown, solver.solve(Table(mode, emptyMap()), 1.seconds))
     }
@@ -187,6 +190,12 @@ class SolverTest {
         "FREECELL, 1",
         "FREECELL, 2",
         "FREECELL, 3",
+        "SPIDER_1, 1",
+        "SPIDER_1, 2",
+        "SPIDER_2, 1",
+        "SPIDER_2, 2",
+        "SPIDER_4, 1",
+        "SPIDER_4, 2",
     )
     fun `real deals are solved by a line the rules replay to a win`(
         mode: Mode,
@@ -200,13 +209,34 @@ class SolverTest {
         replayedToWin(table, result.moves)
     }
 
-    @Test
-    fun `a position in the middle of a game is solved from there`() {
-        val mode = Mode.KLONDIKE_DRAW_3
+    /**
+     * Positions from real play: the first moves of a deal's solution. Spider plays on past the first DealRow, so the
+     * stock is part dealt and face-down cards lie under face-up runs.
+     */
+    @ParameterizedTest
+    @CsvSource(
+        "KLONDIKE_DRAW_1, 1",
+        "KLONDIKE_DRAW_3, 1",
+        "FREECELL, 1",
+        "SPIDER_1, 1",
+        "SPIDER_2, 1",
+        "SPIDER_4, 2",
+    )
+    fun `a position in the middle of a game is solved from there`(
+        mode: Mode,
+        number: Int,
+    ) {
         val rules = Rules.of(mode)
-        val start = rules.deal(Deals.deck(mode, DEAL_MID_GAME))
+        val start = rules.deal(Deals.deck(mode, number))
         val first = assertIs<SolveResult.Solved>(solver.solve(start, 20.seconds))
-        val middle = first.moves.take(first.moves.size / 2).fold(start) { t, m -> rules.apply(t, m).table }
+        val played =
+            if (mode.variant == Variant.SPIDER) first.moves.indexOf(Move.DealRow) + 1 else first.moves.size / 2
+        val middle = first.moves.take(played).fold(start) { t, m -> rules.apply(t, m).table }
+        assertTrue(played > 0 && middle != start)
+        if (mode.variant == Variant.SPIDER) {
+            assertTrue(middle.pile(SpiderRules.STOCK).cards.size < start.pile(SpiderRules.STOCK).cards.size)
+            assertTrue(SpiderRules.COLUMNS.any { middle.pile(it).faceDown > 0 && middle.pile(it).faceUp > 1 })
+        }
 
         val rest = assertIs<SolveResult.Solved>(solver.solve(middle, 20.seconds))
 
@@ -254,6 +284,30 @@ class SolverTest {
         replayedToWin(table, solved.moves)
     }
 
+    /**
+     * Found by search: with the four cells full, a card that fits its foundation but is not safe (a card of the other
+     * colour still needs it as a base) must stay down. A search that played every fitting card up at once would
+     * run out of room here and prove the position lost, so the safety rule of [FreeCellSpace] is checked by the win.
+     */
+    @Test
+    fun `a FreeCell card that is still needed as a base is not played up at once`() {
+        val foundations = listOf(7, 11, 9, 6)
+        val columns =
+            listOf("9S JH", "KC", "KS", "QH 10C", "QD 8C 10S", "8S", "7S 9C 10H", "QS JS")
+        val piles = HashMap<PileId, Pile>()
+        FreeCellRules.FOUNDATIONS.forEachIndexed { i, id ->
+            piles[id] = Pile.allFaceUp(cards(RANK_CODES.take(foundations[i]).joinToString(" ") { it + "CDHS"[i] }))
+        }
+        FreeCellRules.COLUMNS.forEachIndexed { i, id -> piles[id] = Pile.allFaceUp(cards(columns[i])) }
+        cards("KD JC KH QC").forEachIndexed { i, card -> piles[FreeCellRules.CELLS[i]] = Pile.allFaceUp(listOf(card)) }
+        val table = Table(Mode.FREECELL, piles)
+
+        val result = solver.solve(table, 20.seconds)
+
+        val solved = assertIs<SolveResult.Solved>(result)
+        replayedToWin(table, solved.moves)
+    }
+
     @Test
     fun `a full FreeCell table with no move left is unsolvable`() {
         val kings = cards("KC KD KH KS")
@@ -269,8 +323,49 @@ class SolverTest {
         assertEquals(SolveResult.Unsolvable, solver.solve(table, 5.seconds))
     }
 
+    /** Seven runs complete; the last one is a King-to-3 run in one column with the 2 and the Ace on their own. */
+    private fun spiderTable(mode: Mode): Table {
+        val run = cards("KS QS JS 10S 9S 8S 7S 6S 5S 4S 3S")
+        val map = HashMap<PileId, Pile>()
+        SpiderRules.FOUNDATIONS.forEachIndexed { i, id ->
+            map[id] = if (i < 7) Pile.allFaceUp(run + cards("2S AS")) else Pile.EMPTY
+        }
+        SpiderRules.COLUMNS.forEachIndexed { i, id ->
+            map[id] =
+                when (i) {
+                    0 -> Pile.allFaceUp(run)
+                    1 -> Pile.allFaceUp(cards("2S"))
+                    2 -> Pile.allFaceUp(cards("AS"))
+                    else -> Pile.EMPTY
+                }
+        }
+        map[SpiderRules.STOCK] = Pile.EMPTY
+        return Table(mode, map)
+    }
+
     @ParameterizedTest
-    @EnumSource(Mode::class, names = ["FREECELL"])
+    @EnumSource(Mode::class, names = ["SPIDER_1", "SPIDER_2", "SPIDER_4"])
+    fun `an almost won Spider table is solved with the two moves it takes`(mode: Mode) {
+        val table = spiderTable(mode)
+
+        val result = solver.solve(table, 5.seconds)
+
+        val solved = assertIs<SolveResult.Solved>(result)
+        assertEquals(2, solved.moves.size)
+        replayedToWin(table, solved.moves)
+    }
+
+    @Test
+    fun `a Spider table with no move left is unsolvable`() {
+        // Not a real deck: ten Kings can neither move nor be dealt on, which is all the search needs to see.
+        val king = Pile.allFaceUp(cards("KS"))
+        val piles = SpiderRules.COLUMNS.associateWith { king } + (SpiderRules.STOCK to Pile.EMPTY)
+
+        assertEquals(SolveResult.Unsolvable, solver.solve(Table(Mode.SPIDER_4, piles), 5.seconds))
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode::class, names = ["FREECELL", "SPIDER_1", "SPIDER_2"])
     fun `solving the same deals on several threads gives what one thread gives`(mode: Mode) {
         val tables = (1..4).map { Rules.of(mode).deal(Deals.deck(mode, it)) }
         val alone = tables.map { solver.solve(it, 20.seconds) }
@@ -288,6 +383,5 @@ class SolverTest {
 
     private companion object {
         val RANK_CODES = listOf("A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K")
-        const val DEAL_MID_GAME = 1
     }
 }

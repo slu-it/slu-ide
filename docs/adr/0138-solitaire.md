@@ -61,8 +61,8 @@ Considered:
 ## The solver
 Package `dev.sluide.games.solitaire.solver`, pure Kotlin. `Solver.solve(table, budget, cancelled)` returns `Solved`
 (real `Move`s, replayed through the rules before they are returned), `Unsolvable` or `Unknown`; it holds no state, so
-calls may run in parallel. The per-variant part is a `VariantSolver`; Klondike is implemented, FreeCell and Spider
-answer `Unknown` until their package plugs in.
+calls may run in parallel. The per-variant part is a `VariantSolver`: `KlondikeSearch`, `FreeCellSearch`,
+`SpiderSearch`.
 - **Klondike**: a "thoughtful" depth-first search on its own compact state (bytes per column, the stock and waste as
   one cycle in draw order), a transposition table of 64-bit position hashes (columns summed, so a permutation of
   columns hashes alike), a copy of the state per node. The stock is a macro move ("draw or recycle until card X is on
@@ -94,8 +94,63 @@ answer `Unknown` until their package plugs in.
   shrinks.
 - **Memory**: the table of seen positions holds 64-bit hashes in an open-addressing array that is at most half
   full, so about 32 MB at the cap of two million positions per pass (more briefly while it doubles); a prefetch and a
-  hint running at the same time double that.
-- **Default per deal: 250 ms**: New Game then comes back in a few milliseconds at the median and within about half
-  a second at the worst of the sample, and a prefetch hides that. The cost is that about 4% of the deals a 1 s budget
-  would prove winnable are skipped; the set of offered numbers is "what the solver proves in 250 ms", and still
-  every offered deal is proven. Those numbers can change with the solver (see Consequences).
+  hint running at the same time double that. FreeCell and Spider hold more per position (the queued state, the
+  node, its moves), so their caps are lower and one search keeps under about 64 MB of heap at any budget: a queued
+  position is stored as packed bytes (about 70 bytes FreeCell, 130 Spider; unpacked when it is expanded), about 170 to
+  200 bytes per position seen in all. Caps: FreeCell 250,000 positions; Spider 250,000 positions per stage of the
+  beam (its table is new for every stage, because a deal cannot be undone, and a full table ends the stage, it does
+  not fail the run), 20,000 for the sound search after the first beam and 250,000 for the last one. Checked with a
+  small heap: Spider 4 suits with a 20 s budget runs without an out-of-memory error at -Xmx48m, FreeCell hard deals at
+  -Xmx56m (the JVM and the tools included). The caps cost FreeCell about 0.5% of its deals (99.8% to 99.3% solved)
+  against 400,000; the Spider beam gained from the per-stage table.
+- **FreeCell**: a best-first search (`BestFirst`, shared with Spider) over `FreeCellState` (a byte array per column,
+  cells as a set, foundation heights by suit) with the same 64-bit hash table; columns and cells are interchangeable
+  in the hash. It prunes soundly only, so an emptied queue is `Unsolvable` (a full 52-card table with no move left is
+  the test); the cap of 250,000 positions, budget and cancel give `Unknown`. The proof holds only up
+  to a 64-bit hash collision (about n^2/2^65 for n positions). Pruning: safe foundation moves at once (a
+  card goes up when both foundations of the other colour hold its rank minus 1 or more: nothing can still be put on
+  it, and FreeCell never takes a card back from a foundation, so keeping it down helps nothing), a card goes to one
+  cell not to every free cell, only the first empty column is a target and a whole column never moves to an empty
+  one. A supermove is one move with its count within the rules' capacity. Priority: cards not up, cards lying on a
+  lower card of their column, burial of each suit's next card, cells used, empty columns in favour, plus the depth.
+- **Spider** (thoughtful: it sees the face-down cards): moves are runs of one suit, partial runs included, and
+  `DealRow` (only without an empty column, as in the rules); completed runs leave by themselves. Two parts. A **staged
+  beam** (`SpiderBeam`) searches the moves between two deals best-first for a limited number of positions, takes the
+  best positions that can deal (by the priority: face-down cards, breaks between cards that do not continue a run of
+  one suit, empty columns, runs done), deals them and repeats; if it loses, it restarts wider (2k nodes x 3, 8k x
+  10, 30k x 30, 100k x 100 per stage, a stage also ends at its position cap). A best-first search without heuristic cuts (`SpiderSpace`, sound pruning only:
+  first empty column, no whole-column move to an empty one) runs after the first beam (20,000 positions) and last
+  (250,000), and only its exhaustion gives `Unsolvable` (up to a 64-bit hash collision, as in the other searches); for a real deal it never finishes, `Unknown` is the normal
+  answer. Tried and dropped: plain best-first on the whole game (75% of one-suit deals at best, it floods the
+  plateau after the deals), and heuristic cuts ("only moves that build a same-suit run, uncover a card or empty a
+  column") in one best-first pass (worse: 40%). For four suits the weight of a break is what matters: with breaks
+  weighing about as much as a face-down card, 4-suit deals went from 0% to 85% of a sample in 3 s.
+- **Measured, FreeCell and Spider** (same setup, 3 x 200 numbers from 1, 250,000 and 600,000):
+
+  | Mode | Budget | Solved | Unsolvable | Unknown | Median / p90 time of a Solved deal |
+  |---|---|---|---|---|---|
+  | FreeCell | 0.25 s | 99.3% | 0% | 0.7% | 5 ms / 28 ms |
+  | FreeCell | 1 s | 99.3% | 0% | 0.7% | 4 ms / 28 ms |
+  | FreeCell | 3 s | 99.3% | 0% | 0.7% | 5 ms / 28 ms |
+  | Spider 1 suit | 0.25 s | 99.8% | 0% | 0.2% | 31 ms / 44 ms |
+  | Spider 1 suit | 1 s | 100% | 0% | 0% | 32 ms / 46 ms |
+  | Spider 1 suit | 3 s | 100% | 0% | 0% | 32 ms / 45 ms |
+  | Spider 2 suits | 0.25 s | 93.2% | 0% | 6.8% | 38 ms / 152 ms |
+  | Spider 2 suits | 1 s | 97.8% | 0% | 2.2% | 40 ms / 183 ms |
+  | Spider 2 suits | 3 s | 99.3% | 0% | 0.7% | 43 ms / 207 ms |
+  | Spider 4 suits | 0.25 s | 51.7% | 0% | 48.3% | 66 ms / 224 ms |
+  | Spider 4 suits | 1 s | 76.3% | 0% | 23.7% | 186 ms / 751 ms |
+  | Spider 4 suits | 3 s | 86.5% | 0% | 13.5% | 206 ms / 1277 ms |
+
+  The Unknown rest is partly unwinnable deals (FreeCell: a few per thousand) and partly the search missing a line
+  or reaching a cap; the solver cannot tell which. Time until `firstWinnable` returns from 100 numbers with the
+  default budget of the mode (median / p90 / max): FreeCell 5 / 31 / 145 ms, Spider 1 suit 33 / 46 / 281 ms, Spider 2
+  suits 39 / 211 / 1040 ms, Spider 4 suits (1 s) 244 / 1267 / 3033 ms. The first solve in a cold JVM is inside the
+  maximum of the first sample (145 ms for FreeCell).
+- **Default per deal** (`DealGenerator.defaultPerDeal`): 250 ms for Klondike and FreeCell, 500 ms for Spider 1 suit,
+  1 s for Spider 2 and 4 suits. Skipped by the budget, about: FreeCell 0.7%, Spider 1 suit 0%, 2 suits 2%, 4 suits
+  24% (a New Game then scans a few numbers more; the median is still about 0.25 s). For Klondike, New Game comes back
+  in a few milliseconds at the median and within about half a second at the worst of the sample, and a prefetch hides
+  that; the cost is that about 4% of the deals a 1 s budget would prove winnable are skipped. The set of offered
+  numbers is "what the solver proves in its budget", and still every offered deal is proven. Those numbers can
+  change with the solver (see Consequences).
