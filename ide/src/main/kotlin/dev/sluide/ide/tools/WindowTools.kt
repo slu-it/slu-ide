@@ -9,6 +9,7 @@ import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.dockersandbox.SandboxAction
 import dev.sluide.dockersandbox.SandboxNotAllowedException
 import dev.sluide.editorarea.EditorArea
+import dev.sluide.games.BlockBreaker
 import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
 import dev.sluide.games.OrbitGuard
@@ -35,7 +36,7 @@ import java.nio.file.Path
  * The tools of one window: the Terminal and Docker Sandbox menus with the terminal tabs they open in the
  * [editorArea], the Tools menu with the Coloring, Codecs, Converting, Read Aloud and Translate tabs (ADR 0110,
  * ADR 0112, ADR 0115, ADR 0124, ADR 0126), the Services menu with the Docker and Databases tabs (ADR 0118,
- * ADR 0121) and the Games menu with the Minesweeper, Word Guess, Doubles, Sudoku, Solitaire and Orbit Guard tabs (ADR 0131, 0132, 0136, 0137, 0138, 0139).
+ * ADR 0121) and the Games menu with the Minesweeper, Word Guess, Doubles, Sudoku, Solitaire, Orbit Guard and Block Breaker tabs (ADR 0131, 0132, 0136, 0137, 0138, 0139, 0140).
  * [showError] shows why a tool cannot be started.
  * Used on the JavaFX thread.
  */
@@ -58,6 +59,7 @@ internal class WindowTools(
     sudoku: Sudoku,
     solitaire: Solitaire,
     orbitGuard: OrbitGuard,
+    blockBreaker: BlockBreaker,
     /** Opens a web page in the system browser. */
     openWebPage: (URI) -> Unit,
     private val showError: (Stage, String) -> Unit,
@@ -130,13 +132,24 @@ internal class WindowTools(
     /** The Orbit Guard tool of the Games menu; it has no key binding. */
     internal val orbitGuardTool = WindowTool("Orbit Guard", orbitGuard::createTab)
 
+    /** The Block Breaker tool of the Games menu; it has no key binding. */
+    internal val blockBreakerTool = WindowTool("Block Breaker", blockBreaker::createTab)
+
     /** The Games menu logic; tests choose tools through it. */
     internal val gamesMenu =
         ToolsMenu(
             { editorArea.tabs },
             editorArea::open,
             editorArea::select,
-            listOf(minesweeperTool, wordGuessTool, doublesTool, sudokuTool, solitaireTool, orbitGuardTool),
+            listOf(
+                minesweeperTool,
+                wordGuessTool,
+                doublesTool,
+                sudokuTool,
+                solitaireTool,
+                orbitGuardTool,
+                blockBreakerTool,
+            ),
             "Games",
         )
 
@@ -160,6 +173,7 @@ internal class WindowTools(
         sudoku.showTab = { gamesMenu.open(sudokuTool) }
         solitaire.showTab = { gamesMenu.open(solitaireTool) }
         orbitGuard.showTab = { gamesMenu.open(orbitGuardTool) }
+        blockBreaker.showTab = { gamesMenu.open(blockBreakerTool) }
     }
 
     /** The Tools menu: Coloring, Codecs, Converting, Read Aloud, Translate. */
@@ -168,7 +182,7 @@ internal class WindowTools(
     /** The Services menu: Docker, Databases. */
     fun servicesMenu(): Menu = servicesMenu.menu()
 
-    /** The Games menu: Minesweeper, Word Guess, Doubles, Sudoku, Solitaire and Orbit Guard. */
+    /** The Games menu: Minesweeper, Word Guess, Doubles, Sudoku, Solitaire, Orbit Guard and Block Breaker. */
     fun gamesMenu(): Menu = gamesMenu.menu()
 
     /** The Terminal menu: New Terminal. */

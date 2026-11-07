@@ -21,6 +21,7 @@ import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.fileviewers.SoftWrap
+import dev.sluide.games.BlockBreaker
 import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
 import dev.sluide.games.OrbitGuard
@@ -140,6 +141,7 @@ class MainWindow(
     private val sudoku: Sudoku,
     private val solitaire: Solitaire,
     private val orbitGuard: OrbitGuard,
+    private val blockBreaker: BlockBreaker,
     diagnostics: Diagnostics,
     private val softWrap: SoftWrap,
 ) {
@@ -282,6 +284,7 @@ class MainWindow(
             sudoku,
             solitaire,
             orbitGuard,
+            blockBreaker,
             openWebPage = { openWebPage(it) },
             showError = { s, m -> showError(s, m) },
         )
