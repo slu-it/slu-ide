@@ -47,10 +47,15 @@ internal class ServerLifecycle(
     private val nanoTime: () -> Long,
     /** Hands each new state on; called under the lock, in order. */
     private val publish: (ServerState) -> Unit,
-    /** The client of a new connection. */
-    private val newClient: (root: Path, features: ServerFeatures, name: String) -> LanguageClient,
-    /** After `initialized`, on the outbound thread, before anything queued meanwhile is sent. */
-    private val connected: (LanguageServer) -> Unit,
+    /** The client of a new connection; `current` says whether that connection is still the session's. */
+    private val newClient: (
+        root: Path,
+        features: ServerFeatures,
+        name: String,
+        current: () -> Boolean,
+    ) -> LanguageClient,
+    /** After `initialized`, on the outbound thread: the connection number `epoch` runs. */
+    private val connected: (epoch: Int) -> Unit,
 ) {
     private val outbound = NamedThreads.single("sluide-lsp-${spec.id}")
     private val lock = Any()
@@ -60,6 +65,10 @@ internal class ServerLifecycle(
     private var runningSince: Long? = null
     private var connection: LspConnection? = null
     private var running: LspConnection? = null
+
+    /** Number of the running connection: counts the connections that reached Running. */
+    private var runningEpoch = 0
+    private var connects = 0
     private var retry: AutoCloseable? = null
     private var closed = false
 
@@ -104,8 +113,11 @@ internal class ServerLifecycle(
     }
 
     /** Runs [action] on the outbound thread with the running server, or `null` if none runs then. */
-    fun onServer(action: (LanguageServer?) -> Unit) {
-        submit { action(synchronized(lock) { running }?.server) }
+    fun onServer(action: (RunningServer?) -> Unit) {
+        submit {
+            val current = synchronized(lock) { running?.let { RunningServer(it.server, runningEpoch) } }
+            action(current)
+        }
     }
 
     /** Ends the server (`shutdown`, `exit`, kill after the timeouts) off the calling thread; once. */
@@ -167,7 +179,7 @@ internal class ServerLifecycle(
                 return
             }
         val features = ServerFeatures()
-        val conn = LspConnection(process, newClient(root, features, name), features)
+        val conn = LspConnection(process, newClient(root, features, name) { isCurrent(gen) }, features)
         synchronized(lock) {
             if (!isCurrentLocked(gen)) {
                 conn.kill()
@@ -189,15 +201,18 @@ internal class ServerLifecycle(
             crashed(gen, "${spec.name} language server: ${e.message ?: e.toString()}")
             return
         }
-        synchronized(lock) {
-            if (!isCurrentLocked(gen)) return
-            running = conn
-            runningSince = nanoTime()
-            setState(ServerState.Running)
-        }
+        val epoch =
+            synchronized(lock) {
+                if (!isCurrentLocked(gen)) return
+                running = conn
+                runningEpoch = ++connects
+                runningSince = nanoTime()
+                setState(ServerState.Running)
+                runningEpoch
+            }
         val server = result.serverInfo?.let { " (${it.name} ${it.version.orEmpty()})" }.orEmpty()
         log.log(System.Logger.Level.INFO, "lsp $name initialized in ${(nanoTime() - started) / 1_000_000} ms$server")
-        connected(conn.server)
+        connected(epoch)
     }
 
     /** Waits for the trust checks; `false`, settled [ServerState.Untrusted] or failed, if the server may not run. */
@@ -337,3 +352,9 @@ internal class ServerLifecycle(
 
     private fun isCurrentLocked(gen: Int) = gen == generation && !closed
 }
+
+/** The server that runs when something queued is sent, with the number of its connection. */
+internal class RunningServer(
+    val server: LanguageServer,
+    val epoch: Int,
+)

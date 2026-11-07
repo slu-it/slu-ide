@@ -20,6 +20,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 private val log = System.getLogger(LanguageServerSession::class.java.name)
 
+private typealias DiagnosticsListener = (PublishDiagnosticsParams) -> Unit
+
 /** A request found no running server: not started, starting failed, restarting or closed. */
 class LanguageServerNotRunningException(
     message: String,
@@ -44,35 +46,14 @@ class LanguageServerSession internal constructor(
     nanoTime: () -> Long,
 ) {
     private val stateWrapper = ReadOnlyObjectWrapper<ServerState>(ServerState.Stopped)
-    private val diagnosticsListeners =
-        ConcurrentHashMap<
-            String,
-            CopyOnWriteArrayList<
-                (
-                    PublishDiagnosticsParams,
-                ) -> Unit,
-            >,
-        >()
+    private val diagnosticsListeners = ConcurrentHashMap<String, CopyOnWriteArrayList<DiagnosticsListener>>()
     private val refreshListeners = ConcurrentHashMap<RefreshKind, CopyOnWriteArrayList<() -> Unit>>()
     private val featureListeners = CopyOnWriteArrayList<() -> Unit>()
-    private val connectedListeners = CopyOnWriteArrayList<(LanguageServer) -> Unit>()
+    private val connectedListeners = CopyOnWriteArrayList<() -> Unit>()
 
-    private val events =
-        object : ClientEvents {
-            override fun configuration(item: ConfigurationItem): Any? = spec.configuration(item)
-
-            override fun diagnostics(params: PublishDiagnosticsParams) {
-                val listeners = diagnosticsListeners[LspUris.normalize(params.uri)] ?: return
-                fx { listeners.forEach { it(params) } }
-            }
-
-            override fun refresh(kind: RefreshKind) {
-                val listeners = refreshListeners[kind] ?: return
-                fx { listeners.forEach { it() } }
-            }
-
-            override fun featuresChanged() = fx { featureListeners.forEach { it() } }
-        }
+    /** The connection the FX thread last heard of ([onConnected]); notifications are sent to it only. */
+    @Volatile
+    private var connectedEpoch: Int? = null
 
     private val lifecycle =
         ServerLifecycle(
@@ -84,10 +65,13 @@ class LanguageServerSession internal constructor(
             timing = timing,
             nanoTime = nanoTime,
             publish = { state -> dispatch(Runnable { stateWrapper.set(state) }) },
-            newClient = { root, features, name -> SessionClient(name, root, features, events) },
-            connected = { server ->
-                connectedListeners.forEach { it(server) }
-                fx { featureListeners.forEach { it() } }
+            newClient = { root, features, name, current -> SessionClient(name, root, features, events(current)) },
+            connected = { epoch ->
+                fx {
+                    connectedEpoch = epoch
+                    connectedListeners.callEach("connected") { it() }
+                    featureListeners.callEach("features") { it() }
+                }
             },
         )
 
@@ -110,29 +94,29 @@ class LanguageServerSession internal constructor(
     fun restart() = lifecycle.restart()
 
     /**
-     * Sends the request [call] makes with the server proxy, after everything sent before. [onResult] gets the result
-     * on the FX thread unless the request was cancelled or the session closed first; [onError] gets the server's error
+     * Sends the request [call] makes with the server proxy, after everything sent before; requests made while the
+     * server starts wait for it. [call] must return the proxy's future itself: only that one sends `$/cancelRequest`
+     * when cancelled, a derived future (`thenApply`) does not. [onResult] gets the result on the FX thread unless the
+     * request was cancelled or the session closed first; [onError] gets the server's error
      * ([org.eclipse.lsp4j.jsonrpc.ResponseErrorException]) or a [LanguageServerNotRunningException]. A cancelled request
      * calls neither.
      */
     fun <T> request(
         call: (LanguageServer) -> CompletableFuture<T>,
         onResult: (T) -> Unit,
-        onError: (Throwable) -> Unit = { error -> log.log(System.Logger.Level.INFO, "lsp ${spec.id} request: $error") },
+        onError: (Throwable) -> Unit = { error -> logRequestError(error) },
     ): PendingRequest {
         val pending = PendingRequest()
         lifecycle.ensureStarted(evenIfRefused = false)
-        lifecycle.onServer { server ->
+        lifecycle.onServer { running ->
             if (pending.isCancelled) return@onServer
-            if (server == null) {
-                deliver(
-                    pending,
-                ) { onError(LanguageServerNotRunningException("${spec.name} language server is not running")) }
+            if (running == null) {
+                deliver(pending) { onError(notRunning()) }
                 return@onServer
             }
             val future =
                 try {
-                    call(server)
+                    call(running.server)
                 } catch (e: RuntimeException) {
                     deliver(pending) { onError(e) }
                     return@onServer
@@ -151,16 +135,20 @@ class LanguageServerSession internal constructor(
     }
 
     /**
-     * Sends notifications through [action] on the outbound thread, in order with requests (for `didOpen`,
-     * `didChange`, `didSave`, `didClose`, `didChangeWatchedFiles`); dropped while no server runs: [onConnected]
-     * re-sends the state a new server needs.
+     * Sends notifications through [action] on the outbound thread, in order with requests (`didOpen`, `didChange`,
+     * `didSave`, `didClose`, `didChangeWatchedFiles`), to the server whose connection [onConnected] last announced.
+     * Dropped if no server was announced yet or another one runs when it is sent: [onConnected] re-sends the state a
+     * new server needs, so nothing reaches a server twice. Call it on the FX thread: the ordering against the
+     * [onConnected] re-sync relies on it.
      */
     fun notify(action: (LanguageServer) -> Unit) {
+        val epoch = connectedEpoch
         lifecycle.ensureStarted(evenIfRefused = false)
-        lifecycle.onServer { server ->
-            if (server == null) return@onServer
+        if (epoch == null) return
+        lifecycle.onServer { running ->
+            if (running == null || running.epoch != epoch) return@onServer
             try {
-                action(server)
+                action(running.server)
             } catch (e: RuntimeException) {
                 log.log(System.Logger.Level.INFO, "lsp ${spec.id} notification failed: $e")
             }
@@ -168,29 +156,55 @@ class LanguageServerSession internal constructor(
     }
 
     /**
-     * Calls [listener] on the outbound thread each time a server is initialized (also after restarts), before
-     * anything queued meanwhile is sent: where document sync opens the open files again.
+     * Calls [listener] on the FX thread each time a server was initialized (also after restarts): where document sync
+     * opens the open files again with [notify]. Notifications made before this call are dropped, those made from here
+     * on reach the new server.
      */
-    fun onConnected(listener: (LanguageServer) -> Unit): AutoCloseable = connectedListeners.subscribe(listener)
+    fun onConnected(listener: () -> Unit): AutoCloseable = connectedListeners.subscribe(listener)
 
     /** Calls [listener] on the FX thread with every `publishDiagnostics` for [file]. */
     fun onDiagnostics(
         file: Path,
         listener: (PublishDiagnosticsParams) -> Unit,
-    ): AutoCloseable =
-        diagnosticsListeners.computeIfAbsent(LspUris.of(file)) { CopyOnWriteArrayList() }.subscribe(listener)
+    ): AutoCloseable = diagnosticsListeners.subscribe(LspUris.of(file), listener)
 
     /** Calls [listener] on the FX thread when the server asks to pull [kind] again. */
     fun onRefresh(
         kind: RefreshKind,
         listener: () -> Unit,
-    ): AutoCloseable = refreshListeners.computeIfAbsent(kind) { CopyOnWriteArrayList() }.subscribe(listener)
+    ): AutoCloseable = refreshListeners.subscribe(kind, listener)
 
     /** Calls [listener] on the FX thread when [features] changed: a server initialized, a (un)registration. */
     fun onFeaturesChanged(listener: () -> Unit): AutoCloseable = featureListeners.subscribe(listener)
 
     /** Ends the server with its window; nothing is delivered afterwards. */
     internal fun close() = lifecycle.close()
+
+    /** What the client of one connection hands on; dropped once that connection is no longer the session's. */
+    private fun events(current: () -> Boolean) =
+        object : ClientEvents {
+            override fun configuration(item: ConfigurationItem): Any? = spec.configuration(item)
+
+            override fun diagnostics(params: PublishDiagnosticsParams) {
+                if (!current()) return
+                val listeners = diagnosticsListeners[LspUris.normalize(params.uri)] ?: return
+                fx { listeners.callEach("diagnostics") { it(params) } }
+            }
+
+            override fun refresh(kind: RefreshKind) {
+                if (!current()) return
+                val listeners = refreshListeners[kind] ?: return
+                fx { listeners.callEach("refresh") { it() } }
+            }
+
+            override fun featuresChanged() {
+                if (current()) fx { featureListeners.callEach("features") { it() } }
+            }
+        }
+
+    private fun notRunning() = LanguageServerNotRunningException("${spec.name} language server is not running")
+
+    private fun logRequestError(error: Throwable) = log.log(System.Logger.Level.INFO, "lsp ${spec.id} request: $error")
 
     private fun deliver(
         pending: PendingRequest,
@@ -199,9 +213,35 @@ class LanguageServerSession internal constructor(
 
     /** Runs [action] on the FX thread unless the session closed by then. */
     private fun fx(action: () -> Unit) = dispatch(Runnable { if (!isClosed) action() })
+
+    /** Calls every listener; one that throws is logged and the others still run. */
+    private fun <T> List<T>.callEach(
+        what: String,
+        call: (T) -> Unit,
+    ) = forEach { listener ->
+        try {
+            call(listener)
+        } catch (e: RuntimeException) {
+            log.log(System.Logger.Level.ERROR, "lsp ${spec.id}: a $what listener failed", e)
+        }
+    }
 }
 
 private fun <T> MutableList<T>.subscribe(listener: T): AutoCloseable {
     add(listener)
     return AutoCloseable { remove(listener) }
+}
+
+/** Adds [listener] under [key]; closing removes it, and the key with its last listener. */
+private fun <K : Any, T> ConcurrentHashMap<K, CopyOnWriteArrayList<T>>.subscribe(
+    key: K,
+    listener: T,
+): AutoCloseable {
+    compute(key) { _, listeners -> (listeners ?: CopyOnWriteArrayList()).also { it.add(listener) } }
+    return AutoCloseable {
+        computeIfPresent(key) { _, listeners ->
+            listeners.remove(listener)
+            listeners.ifEmpty { null }
+        }
+    }
 }

@@ -7,7 +7,6 @@ import org.eclipse.lsp4j.DefinitionParams
 import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DiagnosticRegistrationOptions
 import org.eclipse.lsp4j.DidChangeWatchedFilesRegistrationOptions
-import org.eclipse.lsp4j.DidOpenTextDocumentParams
 import org.eclipse.lsp4j.FileSystemWatcher
 import org.eclipse.lsp4j.Location
 import org.eclipse.lsp4j.MarkupKind
@@ -17,7 +16,6 @@ import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.Registration
 import org.eclipse.lsp4j.RegistrationParams
 import org.eclipse.lsp4j.TextDocumentIdentifier
-import org.eclipse.lsp4j.TextDocumentItem
 import org.eclipse.lsp4j.Unregistration
 import org.eclipse.lsp4j.UnregistrationParams
 import org.eclipse.lsp4j.jsonrpc.messages.Either
@@ -257,22 +255,6 @@ class LanguageServerSessionTest {
         assertIs<LanguageServerNotRunningException>(errors.single())
     }
 
-    @Test
-    fun `notifications go out in order after what a new server is sent on connect`() {
-        val session = session()
-        session.onConnected { server -> server.textDocumentService.didOpen(openParams("reopened on connect")) }
-
-        session.notify { it.textDocumentService.didOpen(openParams("queued while starting")) }
-        awaitTrue("running") { session.state.value == ServerState.Running }
-        val server = starter.last.server
-        awaitTrue("both notifications") { server.calls.size == 4 }
-
-        assertEquals(
-            listOf("initialize", "initialized", "didOpen reopened on connect", "didOpen queued while starting"),
-            server.calls,
-        )
-    }
-
     private fun diagnostics(
         uri: String,
         message: String,
@@ -280,9 +262,6 @@ class LanguageServerSessionTest {
 
     private fun definitionParams() =
         DefinitionParams(TextDocumentIdentifier(LspUris.of(folder.resolve("a.py"))), Position(0, 0))
-
-    private fun openParams(text: String) =
-        DidOpenTextDocumentParams(TextDocumentItem(LspUris.of(folder.resolve("a.py")), "python", 1, text))
 
     private fun range() = Range(Position(0, 0), Position(0, 1))
 }
