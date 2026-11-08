@@ -1,0 +1,30 @@
+/*
+ * The occurrences of the name at the caret (OccurrencesFeature, layer ci-occurrence): subtle backgrounds under the
+ * token colours, a warmer one where the name is written.
+ */
+
+.ci-occurrence-read {
+    -rtfx-background-color: #dde6f5;
+}
+
+.ci-occurrence-write {
+    -rtfx-background-color: #f5dfe0;
+}
+
+.ci-occurrence-text {
+    -rtfx-background-color: #e6e6e6;
+}
+
+@media (prefers-color-scheme: dark) {
+    .ci-occurrence-read {
+        -rtfx-background-color: #36404f;
+    }
+
+    .ci-occurrence-write {
+        -rtfx-background-color: #533a3d;
+    }
+
+    .ci-occurrence-text {
+        -rtfx-background-color: #3d3f42;
+    }
+}

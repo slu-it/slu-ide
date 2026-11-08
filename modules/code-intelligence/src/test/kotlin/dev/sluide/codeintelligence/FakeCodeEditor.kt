@@ -39,6 +39,14 @@ internal class FakeCodeEditor(
     override val lineCount get() = currentText.split('\n').size
     override val shownLines: IntRange = IntRange.EMPTY
 
+    /** The caret's offset; [moveCaret] sets it. */
+    var caret = 0
+    override val caretOffset: Int get() = caret
+
+    override fun moveCaret(offset: Int) {
+        caret = offset.coerceIn(0, currentText.length)
+    }
+
     override fun lineText(line: Int) = currentText.split('\n')[line]
 
     override fun onShownLinesChanged(action: () -> Unit) = Subscription {}

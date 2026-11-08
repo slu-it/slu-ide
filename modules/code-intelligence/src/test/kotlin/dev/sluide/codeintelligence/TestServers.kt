@@ -89,10 +89,11 @@ internal class FxServers(
     folder: Path,
     vararg specs: LanguageServerSpec,
     trustGate: TrustGate = TrustGate { _, _ -> true },
+    newServer: () -> FakeServer = ::syncingServer,
 ) : AutoCloseable {
     private val fx = Executors.newSingleThreadExecutor { Thread(it, "test-fx").apply { isDaemon = true } }
 
-    val fake = FakeLanguageServers(specs.toList(), folder, trustGate, fx::execute) { syncingServer() }
+    val fake = FakeLanguageServers(specs.toList(), folder, trustGate, fx::execute) { newServer() }
     val servers get() = fake.servers
 
     fun <T> onFx(action: () -> T): T = fx.submit(action).get(5, TimeUnit.SECONDS)

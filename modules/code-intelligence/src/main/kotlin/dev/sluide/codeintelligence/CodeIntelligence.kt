@@ -1,13 +1,22 @@
 package dev.sluide.codeintelligence
 
 import dev.sluide.codeintelligence.binding.BindingFeature
+import dev.sluide.codeintelligence.binding.DocumentBinding
 import dev.sluide.codeintelligence.binding.EditorAttachment
+import dev.sluide.codeintelligence.navigation.BindingNavigation
+import dev.sluide.codeintelligence.navigation.DEFINITION
+import dev.sluide.codeintelligence.navigation.Navigation
+import dev.sluide.codeintelligence.navigation.NavigationFeature
+import dev.sluide.codeintelligence.navigation.OccurrencesFeature
+import dev.sluide.codeintelligence.navigation.REFERENCES
+import dev.sluide.codeintelligence.navigation.navigationBlocker
 import dev.sluide.codeintelligence.server.RestartServerItem
 import dev.sluide.codeintelligence.server.ServerBannerFeature
 import dev.sluide.codeintelligence.server.hasStarted
 import dev.sluide.codeintelligence.ui.HoverFeature
 import dev.sluide.fileviewers.CodeEditorExtension
 import dev.sluide.fileviewers.ExtensibleCodeEditor
+import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.languageservers.LanguageServerSpec
 import dev.sluide.languageservers.LanguageServers
 import dev.sluide.languageservers.ServerAvailability
@@ -25,7 +34,7 @@ class CodeIntelligence internal constructor(
     private val languageServers: LanguageServers,
     /** The window's Not Now answers of the install banner, by spec id; until the app restarts. */
     internal val notNow: ObservableSet<String>,
-    featuresOf: (ObservableSet<String>) -> List<BindingFeature>,
+    featuresOf: CodeIntelligence.(ObservableSet<String>) -> List<BindingFeature>,
 ) : CodeEditorExtension,
     AutoCloseable {
     /**
@@ -33,10 +42,19 @@ class CodeIntelligence internal constructor(
      * @param prompts the user's Don't Ask Again answers of the install banner.
      */
     constructor(languageServers: LanguageServers, prompts: InstallPrompts) :
-        this(languageServers, FXCollections.observableSet(), { notNow -> builtInFeatures(notNow, prompts) })
+        this(languageServers, FXCollections.observableSet(), { notNow -> builtInFeatures(notNow, prompts, navigation) })
+
+    private val attachments = LinkedHashSet<EditorAttachment>()
+
+    /** The host of the editor extended last, to open files when no bound editor is left (ADR 0146). */
+    private var lastHost: FileViewHost? = null
+
+    /** Back and Forward of the window: the places navigation jumps left (ADR 0146). */
+    val history = NavigationHistory()
+
+    internal val navigation = Navigation(history, { attachments.mapNotNull { it.binding } }, { lastHost })
 
     private val features = featuresOf(notNow)
-    private val attachments = LinkedHashSet<EditorAttachment>()
     private val subscriptions = mutableListOf<AutoCloseable>()
     private var closed = false
 
@@ -55,10 +73,44 @@ class CodeIntelligence internal constructor(
     /** Binds [editor] while a server serves its file; nothing once the window closed this ([close]). */
     override fun extend(editor: ExtensibleCodeEditor): AutoCloseable? {
         if (closed) return null
+        lastHost = editor.host
         lateinit var attachment: EditorAttachment
         attachment = EditorAttachment(editor, languageServers, features) { attachments -= attachment }
         attachments += attachment
         return attachment
+    }
+
+    /** The bound editor that has the focus, `null` if the focus is elsewhere. */
+    val focusedBinding: DocumentBinding? get() = navigation.focused()
+
+    /** Why Go to Definition cannot act now ("server starting"…), `null` if it can; for the Navigate menu. */
+    fun definitionBlocker(): String? = blocker(DEFINITION)
+
+    /** Why Find Usages cannot act now, `null` if it can; for the Navigate menu. */
+    fun usagesBlocker(): String? = blocker(REFERENCES)
+
+    /** Go to Definition at the caret of the focused bound editor; `false` without one. */
+    fun goToDefinition(): Boolean = atCaret { actions, offset -> actions.goToDefinition(offset) }
+
+    /** Find Usages at the caret of the focused bound editor; `false` without one. */
+    fun findUsages(): Boolean = atCaret { actions, offset -> actions.findUsages(offset) }
+
+    /** Goes back to where the last navigation jump started ([history]); `false` if there is no such place. */
+    fun back(): Boolean = navigation.back()
+
+    /** Goes forward again after [back]; `false` if there is nothing ahead. */
+    fun forward(): Boolean = navigation.forward()
+
+    private fun blocker(method: String): String? {
+        val binding = focusedBinding ?: return "no code editor focused"
+        return navigationBlocker(binding, method)
+    }
+
+    private fun atCaret(action: (BindingNavigation, Int) -> Unit): Boolean {
+        val binding = focusedBinding ?: return false
+        val actions = navigation.actionsOf(binding) ?: return false
+        action(actions, binding.editor.caretOffset)
+        return true
     }
 
     /** The editors extended and not disposed yet; for tests. */
@@ -84,15 +136,19 @@ class CodeIntelligence internal constructor(
 }
 
 /**
- * The features of every binding, in order: the server banner, then one line per feature (P6b navigation, P7
- * completion, P8 diagnostics add theirs here). Hover providers are asked in the order their features attach.
+ * The features of every binding, in order: the server banner, navigation, then one line per feature (P7 completion,
+ * P8 diagnostics add theirs before the hover), the restart item last. Hover providers are asked and context menu items
+ * shown in the order their features attach.
  */
 internal fun builtInFeatures(
     notNow: ObservableSet<String>,
     prompts: InstallPrompts,
+    navigation: Navigation,
 ): List<BindingFeature> =
     listOf(
         ServerBannerFeature(notNow, prompts),
-        RestartServerItem,
+        NavigationFeature(navigation),
+        OccurrencesFeature(),
         HoverFeature(),
+        RestartServerItem,
     )

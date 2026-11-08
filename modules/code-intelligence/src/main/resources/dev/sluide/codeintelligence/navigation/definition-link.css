@@ -1,0 +1,12 @@
+/* The name under the mouse while Shortcut is held, a link to its definition (DefinitionLink, layer ci-link). */
+
+.ci-link {
+    -rtfx-underline-color: #2f6fd6;
+    -rtfx-underline-width: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+    .ci-link {
+        -rtfx-underline-color: #6fa8ff;
+    }
+}

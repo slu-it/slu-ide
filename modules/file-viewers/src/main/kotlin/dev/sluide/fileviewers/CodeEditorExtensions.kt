@@ -238,8 +238,9 @@ interface ExtensibleCodeEditor : GutterColumns {
 
     /**
      * The text area while it is in a scene, `null` otherwise: the owner of popups at the caret or the mouse (completion,
-     * hover), whose window, focus and scene they follow (ADR 0145). Only for that: not to add children, styles or
-     * handlers, which go through the other members.
+     * hover), whose window, focus and scene they follow (ADR 0145); also the node whose focus navigation checks (the
+     * scene's focus owner, the window's focus) and gives back after a jump (`requestFocus()`, ADR 0146). Only for
+     * that: not to add children, styles or handlers, which go through the other members.
      */
     val popupOwner: Node? get() = null
 
