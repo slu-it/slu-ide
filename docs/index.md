@@ -261,7 +261,8 @@ Explored but not decided or built; options and trade-offs, no commitment.
 
 | Idea | Summary | Keywords |
 |---|---|---|
-| [code-navigation.md](ideas/code-navigation.md) | Go to Definition, Kotlin first; resolver options compared | Go to Definition, tree-sitter, name index, ctags, LSP, kotlin-lsp |
+| [code-navigation.md](ideas/code-navigation.md) | Go to Definition options compared; LSP taken for Python, Kotlin open | Go to Definition, tree-sitter, name index, ctags, LSP, kotlin-lsp |
+| [language-servers-later.md](ideas/language-servers-later.md) | Language server follow-ups left out: inlay hints, Problems tab, Ruff, more languages | inlay hints, Problems tab, Ruff, sigstore, kotlin-lsp, `LanguageServerSpec`, site-packages |
 | [windows-support.md](ideas/windows-support.md) | What Windows support would take, in three scopes | Windows, CI runners, packaging, paths, file locking |
 | [headless-ui-tests.md](ideas/headless-ui-tests.md) | Spike of UI tests on JavaFX's headless platform; not adopted | headless, JavaFX 27, Xvfb, parallel forks |
 | [scratch-generators.md](ideas/scratch-generators.md) | Scratch generators left out of the first version: test data, keys, UUID v3/v5 | test data, IBAN, Lorem Ipsum, key pairs, certificate, BouncyCastle, UUID v5, insert at caret |

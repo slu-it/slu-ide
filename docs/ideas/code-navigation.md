@@ -2,6 +2,12 @@
 
 **Status:** idea, explored 2026-10-21; nothing decided or built. First language in mind: Kotlin.
 
+**Update 2026-11-08:** option 3 (a language server) was taken: the client is built
+([ADR 0142](../adr/0142-language-server-foundation.md)) and Go to Definition, usages and Back/Forward work
+([ADR 0144](../adr/0144-python-via-ty.md), [0145](../adr/0145-code-intelligence-module.md),
+[0146](../adr/0146-navigation.md)), for Python through ty. Kotlin remains open; see
+[language-servers-later.md](language-servers-later.md). The text below is the exploration as it was.
+
 Knowing whether a piece of code is a function declaration, a call, a variable declaration or a use of it, and
 navigating with Cmd+click (Ctrl+click on Linux) from a use to its declaration, e.g. from a function call to the
 function.
