@@ -78,6 +78,11 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   when an item cannot act, disable it with the reason in the label ("(larger than 1 MiB)").
 - Opening something at a place: `FileViewHost.openFile(file, line)` / `FileView.showLine(line)` (ADR 0077).
   Generated text the user may keep opens as a scratch file (ADR 0066, 0114).
+- Caret popups and hover: lists at the caret in a code editor (completion, choosers, usages) use `CaretPopup`, and
+  information about a place in the text goes into the hover popup as a `HoverProvider` section (module
+  `code-intelligence`, ADR 0145): below the anchor, above when there is no room; the focus stays in the editor, the
+  popup's keys are editor key bindings taken only while it shows; it hides on Escape, a click outside, scrolling, focus
+  loss and window moves. Its stylesheet goes onto the popup's content, as popups do not inherit the editor's.
 
 ## Running commands
 - Through `command-runs`: `RunPane` (Arguments field with history, status line with Stop and Rerun, embedded

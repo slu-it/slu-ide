@@ -8,7 +8,8 @@ Python code intelligence comes from the language server [ty](https://github.com/
 the language-server client of [ADR 0142](../adr/0142-language-server-foundation.md) for files ending in `.py`, `.pyi`
 and `.pyw` inside the project folder. ty finds the project's virtual environment itself (`.venv` in the project
 folder, `VIRTUAL_ENV`, Conda, else `python3` on the PATH) and runs no program of the project, so it needs no trust
-question. Thoreau downloads it only on a click; the editor features are described with the code-intelligence module.
+question. Thoreau downloads it only on a click; the editor features are described in
+[code-intelligence.md](code-intelligence.md).
 
 ## Settings → Languages → Python
 - **Status line:** "Installed: ty 0.0.99", "Installed: ty 0.1.0 (this Thoreau was tested with 0.0.99)",

@@ -59,6 +59,22 @@ no find, replace or go to line, and Tab indents instead of moving the focus.
 | Shortcut+X / C / V / A | Cut / copy / paste / select all (RichTextFX; also shown in the context menu) |
 | Menu key, Shift+F10 | Context menu at the caret |
 
+## Code intelligence
+In code editors of files a language server serves, e.g. Python ([code-intelligence.md](code-intelligence.md)). The
+keys of a popup are taken only while it shows, before the editor's own; otherwise they do what the table above says.
+
+| Keys | Action |
+|---|---|
+| F1 | Show the hover popup at the caret (only while a feature has something to show there) |
+| Escape (hover popup shown) | Hide the hover popup |
+| Mouse resting on a character for 0.5 s | Show the hover popup there |
+| Up / Down (caret popup shown) | Previous / next item, wrapping around |
+| Page Up / Page Down (caret popup shown) | One page up / down |
+| Home / End (caret popup shown) | First / last item |
+| Enter, and Tab where the feature allows it (caret popup shown) | Take the selected item |
+| Escape (caret popup shown) | Close the popup |
+| Double-click on an item (caret popup) | Take it |
+
 ## Side-by-side diff
 [git-diff.md](git-diff.md)
 
