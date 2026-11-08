@@ -2,9 +2,13 @@
 
 **Module:** `modules/code-intelligence` (package `dev.sluide.codeintelligence`: `CodeIntelligence`, `InstallPrompts`;
 the binding in `binding`, the banners and the restart item in `server`, the popups in `ui`, navigation in
-`navigation`, rename in `rename`, file structure and go to symbol in `symbols`); wired per window by
+`navigation`, completion and signature help in `completion` and `signature`, diagnostics, quick fixes and semantic
+colours in `diagnostics`, `quickfix` and `semantic`, edits of other files in `edits`, rename in `rename`, file
+structure and go to symbol in `symbols`); wired per window by
 `ide/.../codeintelligence/CodeIntelligenceWiring`, the Navigate menu by `ide/.../codeintelligence/NavigateMenu`;
-decisions in [ADR 0145](../adr/0145-code-intelligence-module.md), [ADR 0146](../adr/0146-navigation.md) and
+decisions in [ADR 0145](../adr/0145-code-intelligence-module.md), [ADR 0146](../adr/0146-navigation.md),
+[ADR 0147](../adr/0147-completion-signature-help-and-docs.md),
+[ADR 0148](../adr/0148-diagnostics-quick-fixes-semantic-highlighting.md) and
 [ADR 0149](../adr/0149-rename-file-structure-go-to-symbol.md)
 
 Code editors of files a language server serves get code intelligence from it: for now Python (`.py`, `.pyi`, `.pyw`)
@@ -38,25 +42,6 @@ One at a time, above the text of a Python editor:
 
 Once ty is installed (from the banner, Settings, an update or a custom path), the servers of open Python editors start;
 a server that ran restarts with the new ty.
-
-## Context menu
-**Restart Python Language Server**, the last item after the editor's own and the features' items (Go to Definition,
-Find Usages, Rename…, Show Quick Fixes), stops the window's Python server and starts it again.
-Disabled with the reason when there is nothing to restart: "(not started)", "(not installed)", "(project not trusted)".
-
-## Hover
-Resting the mouse on a character of a Python editor for half a second, or **F1** at the caret, shows a popup below it
-(above when there is no room) with what the features know about that place, stacked; nothing shows while none of them
-knows anything. Moving to another character, typing, scrolling, a click and **Escape** hide it; the mouse may move onto
-the popup. Which sections it shows (the server's hover with type and docs, the diagnostics there) comes with those
-features.
-
-## Popups at the caret
-Lists that open at the caret (completion, choosers, usages) share one popup: the focus stays in the editor, **Up** and
-**Down** choose (wrapping around), **Page Up**/**Page Down** and **Home**/**End** jump, **Enter** (and **Tab** where the
-feature allows it) takes the item, **Escape** closes; a click selects, a double-click takes. It shows "Searching…" or
-"No results" while it has no items, and hides on a click outside, when the editor scrolls or loses the focus, and when
-the window moves or is minimized.
 
 ## Navigation
 - **Go to definition:** **Shortcut+B** at the caret, **Navigate → Go to Definition**, **Go to Definition** in the
@@ -98,8 +83,6 @@ Decision in [ADR 0147](../adr/0147-completion-signature-help-and-docs.md).
   with the current one in bold, "2 of 3" for overloads, and the docs below. It follows as you type in the call and
   closes when the caret leaves it (the server knows no call there any more), on **Escape** and on focus loss. With
   the completion open too, the first Escape closes the signature, the next the completion.
-- **Hover** (and F1) shows the server's type and docs for the name under the mouse, as formatted text: code blocks in
-  monospace, bold, italics, lists; links show as plain text.
 
 ## Diagnostics, quick fixes and semantic highlighting
 Decision in [ADR 0148](../adr/0148-diagnostics-quick-fixes-semantic-highlighting.md).
@@ -109,8 +92,6 @@ Decision in [ADR 0148](../adr/0148-diagnostics-quick-fixes-semantic-highlighting
   next answer. Each line with an error, warning or information has an icon in a narrow gutter column (the worst one;
   hovering it lists the messages). When the server stops (a crash, Restart), its diagnostics and semantic colours go
   until the new server answers.
-- **Hover:** the diagnostics at the place come first in the hover popup, each with its message, its source and code
-  (e.g. "ty · unresolved-reference") and its documentation link as text.
 - **Quick fixes:** **Alt+Enter**, or **Show Quick Fixes** in the context menu, lists the server's fixes for the caret
   or the selection at the caret (ty: add an import, ignore the rule for this line); preferred ones first, ones that
   cannot be applied now greyed with the reason. **Enter** applies the selected one as one undo step. A fix taken after
@@ -141,13 +122,12 @@ Decision in [ADR 0149](../adr/0149-rename-file-structure-go-to-symbol.md).
 - A rename only in this file is applied at once: one **Shortcut+Z** undoes it. The caret stays in the renamed name.
 - A rename that changes other files asks first: **"Rename “old” to “new”?"** with "N changes in M files" and the files
   with their number of changes, marking open files with unsaved changes and closed files that are written to disk
-  (no undo takes those back). **Rename** applies it (open files are changed
-  in their editors and left unsaved, closed ones are written, see the edits in other files above), **Cancel** changes
+  (no undo takes those back). **Rename** applies it (open files are changed in their editors and left unsaved, closed
+  ones are written, see "Edits in other files" above), **Cancel** changes
   nothing. When a file would refuse the rename (open without code intelligence with unsaved changes, or closed and
   outside the project), the dialog says so and offers Cancel only.
 - If the text of this or another open Python file changed while the server answered or the dialog showed, nothing
-  changes ("The text changed. Rename again."). A rename that
-  could not be applied, or only to some files, says so in a message naming the files.
+  changes ("The text changed. Rename again."). A rename that could not be applied, or only to some files, says so in a message naming the files.
 
 ## File structure and symbols
 Decision in [ADR 0149](../adr/0149-rename-file-structure-go-to-symbol.md). Both open a search popup: a field with the
@@ -164,5 +144,34 @@ focus back. While it shows, the window's shortcuts (Shortcut+S, Shortcut+W…) d
   class or module and its file. It works from anywhere in a window with a running Python server, also with the focus
   in the explorer; without one it says "Go to Symbol is not available (no language server running)".
 
+## Hover
+Resting the mouse on a character of a Python editor for half a second, or **F1** at the caret, shows a popup below it
+(above when there is no room) with what the features know about that place, stacked; nothing shows while none of them
+knows anything. The sections, top to bottom:
+- **Diagnostics** at the place, each with its message, its source and code (e.g. "ty · unresolved-reference") and its
+  documentation link as text.
+- **The server's hover:** type and docs of the name as formatted text: code blocks in monospace, bold, italics, lists;
+  links show as plain text.
+
+Moving to another character, typing, scrolling, a click and **Escape** hide it; the mouse may move onto the popup.
+
+## Popups at the caret
+Lists that open at the caret (completion, choosers, usages, quick fixes) share one popup: the focus stays in the editor, **Up** and
+**Down** choose (wrapping around), **Page Up**/**Page Down** and **Home**/**End** jump, **Enter** (and **Tab** where the
+feature allows it) takes the item, **Escape** closes; a click selects, a double-click takes. It shows "Searching…" or
+"No results" while it has no items, and hides on a click outside, when the editor scrolls or loses the focus, and when
+the window moves or is minimized.
+
+## Context menu
+The editor's own items come first, then the features' in this order: **Go to Definition**, **Find Usages**,
+**Rename…**, **Show Quick Fixes**, and last **Restart Python Language Server**, which stops the window's Python server
+and starts it again. An item that cannot act now says why in its label or is disabled with the reason: "(server
+starting)", "(server not running)", "(not supported)"; Restart: "(not started)", "(not installed)", "(project not
+trusted)".
+
 ## Keys
-See [keyboard-shortcuts.md](keyboard-shortcuts.md), "Code intelligence".
+All keys are listed in [keyboard-shortcuts.md](keyboard-shortcuts.md), "Code intelligence": **F1** and Shortcut+hover
+(hover, go to definition link), **Shortcut+click** and **Shortcut+B** (go to definition), **Alt+F7** (find usages),
+**Shortcut+Alt+Left**/**Right** (Back, Forward), **Ctrl+Space** (completion), **Shortcut+P** (signature help),
+**Alt+Enter** (quick fixes), **Shift+F6** (rename), **Shortcut+F12** (file structure), **Shortcut+Alt+Shift+O** (go to
+symbol), and the keys of the popups and fields (Up, Down, Page Up, Page Down, Home, End, Enter, Tab, Escape).
