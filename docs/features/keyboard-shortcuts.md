@@ -70,36 +70,34 @@ keys of a popup are taken only while it shows, before the editor's own; otherwis
 
 | Keys | Action |
 |---|---|
-| Shortcut+B | Go to the definition of the name at the caret (Navigate → Go to Definition shows it; the editor's binding takes the key first, so it acts once) |
+| F1 | Show the hover popup at the caret (only while a feature has something to show there) |
+| Mouse resting on a character for 0.5 s | Show the hover popup there |
 | Shortcut+click on a name (Cmd+click on macOS) | Go to its definition; the caret stays (Ctrl+click on macOS stays the context menu) |
 | Holding Shortcut with the mouse over a name | Underline it with the hand cursor, a link to its definition |
+| Shortcut+B | Go to the definition of the name at the caret (Navigate → Go to Definition shows it; the editor's binding takes the key first, so it acts once) |
 | Alt+F7 (Option+F7 on macOS) | Find usages of the name at the caret (Navigate → Find Usages shows it) |
-| Enter, double-click (definition chooser, usages list) | Jump to the place; Tab does not take it |
-| Any key no binding takes (a note such as "No declaration found" shown) | Hide the note; the key still acts |
-| F1 | Show the hover popup at the caret (only while a feature has something to show there) |
+| Ctrl+Space (Ctrl on macOS too) | Completion at the caret (also opens by itself after a typed `.` or while typing a name) |
+| Shortcut+P | Signature help at the caret (also opens by itself after a typed `(` or `,` in a call) |
 | Alt+Enter (Option+Enter on macOS) | Show the quick fixes at the caret or selection (also Show Quick Fixes in the context menu) |
+| Shift+F6 | Rename the name at the caret: a field at the name takes the focus (also Rename… in the context menu) |
+| Shortcut+F12 | File structure of the file in the search popup (Navigate → File Structure shows it; the editor's binding takes the key first) |
+| Shortcut+Alt+Shift+O | Go to Symbol… (Menus table above; search popup over the project's symbols) |
 | Escape (hover popup shown) | Hide the hover popup |
-| Mouse resting on a character for 0.5 s | Show the hover popup there |
+| Escape (signature help shown) | Close the signature help (first, when the completion shows too) |
 | Up / Down (caret popup shown) | Previous / next item, wrapping around |
 | Page Up / Page Down (caret popup shown) | One page up / down |
 | Home / End (caret popup shown) | First / last item |
-| Enter, and Tab where the feature allows it (caret popup shown) | Take the selected item |
-| Escape (caret popup shown) | Close the popup |
+| Enter, and Tab where the feature allows it (caret popup shown) | Take the selected item; for the completion Enter inserts the name and Tab replaces the whole word with it |
 | Double-click on an item (caret popup) | Take it |
-| Ctrl+Space (Ctrl on macOS too) | Completion at the caret (also opens by itself after a typed `.` or while typing a name) |
-| Enter / Tab (completion shown) | Insert the selected item / replace the whole word with it |
-| Up / Down, Page Up / Page Down, Home / End (completion shown) | Choose the item, as in every caret popup |
-| Escape (completion shown) | Close the completion |
-| Shift+F6 | Rename the name at the caret: a field at the name takes the focus (also Rename… in the context menu) |
+| Escape (caret popup shown, also the completion) | Close the popup |
+| Enter, double-click (definition chooser, usages list) | Jump to the place; Tab does not take it |
+| Any key no binding takes (a note such as "No declaration found" shown) | Hide the note; the key still acts |
 | Enter / Escape (rename field) | Rename (a name the language does not allow is refused below the field) / cancel; the editor gets the focus back. While the field or a search popup shows, the window's shortcuts (Shortcut+S, Shortcut+W…) do not act |
-| Shortcut+F12 | File structure of the file in the search popup (Navigate → File Structure shows it; the editor's binding takes the key first) |
-| Typing (search popup) | Filter the file structure / search the project's symbols (Go to Symbol, Shortcut+Alt+Shift+O in the Menus table) |
+| Typing (search popup) | Filter the file structure / search the project's symbols |
 | Up / Down, Page Up / Page Down (search popup) | Previous / next item (wrapping), one page up / down; the field keeps the focus |
 | Enter, double-click (search popup) | Jump to the item |
 | Escape (search popup) | Close it; the focus goes back to where it was |
 | Any key (search popup note shown) | Hide the note; Escape goes no further, other keys still act |
-| Shortcut+P | Signature help at the caret (also opens by itself after a typed `(` or `,` in a call) |
-| Escape (signature help shown) | Close the signature help (first, when the completion shows too) |
 
 ## Side-by-side diff
 [git-diff.md](git-diff.md)
