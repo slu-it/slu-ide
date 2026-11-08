@@ -293,6 +293,8 @@ internal class SearchPopup<T>(
     private inner class ItemCell : ListCell<T>() {
         init {
             styleClass += "caret-popup-cell"
+            // No width of its own, as in CaretPopup: a long row ends in "…" instead of scrolling sideways.
+            prefWidth = 0.0
         }
 
         override fun updateItem(

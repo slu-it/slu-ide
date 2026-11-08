@@ -261,9 +261,9 @@ internal fun popupRow(shown: PopupCell): HBox {
         shown.secondary?.let {
             Label(it).apply {
                 styleClass += "caret-popup-secondary"
-                // Gives way first when the row is too narrow; the label stays whole.
+                // Gives way first when the row is too narrow (ends in "…"); the label keeps its width, so a label wider
+                // than the list is cut off at the edge.
                 minWidth = 0.0
-                HBox.setMargin(this, Insets(0.0, 0.0, 0.0, SECONDARY_GAP))
             }
         }
     return HBox(
@@ -283,9 +283,6 @@ internal fun popupRow(shown: PopupCell): HBox {
         if (shown.indent > 0) padding = Insets(0.0, 0.0, 0.0, shown.indent * INDENT_WIDTH)
     }
 }
-
-/** The space between a row's label and its secondary text. */
-private const val SECONDARY_GAP = 12.0
 
 /** The indentation of one nesting level in a popup row ([PopupCell.indent]). */
 private const val INDENT_WIDTH = 16.0

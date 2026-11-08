@@ -4,9 +4,11 @@ import dev.sluide.codeintelligence.EditorUiFixture
 import dev.sluide.fileviewers.ExtensibleCodeEditor
 import dev.sluide.fileviewers.OffsetEdit
 import dev.sluide.textediting.TextPosition
+import javafx.geometry.Orientation
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.ListView
+import javafx.scene.control.ScrollBar
 import javafx.scene.input.KeyCode
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
@@ -160,6 +162,28 @@ internal class CaretPopupUiTest : EditorUiFixture() {
         showPopup(robot)
         assertFalse(fx { button.isFocusTraversable }, "a button in the detail pane")
         assertFalse(fx { list().isFocusTraversable }, "the list")
+    }
+
+    @Test
+    fun `a row wider than the list ends its secondary text in an ellipsis instead of scrolling sideways`(
+        robot: FxRobot,
+    ) {
+        editor = open(robot, dir.resolve("a.py"), "import os\nos.\n", emptyList())
+        val long = "rich/" + "very_long_folder_name/".repeat(12) + "file.py · data[\"k\"].greet()"
+        popup = fx { CaretPopup(editor, { PopupCell(it, secondary = long) }, { chosen += it }) }
+        robot.interact {
+            popup.setItems(listOf("probe_thoreau.py:40"))
+            assertTrue(popup.show(13))
+        }
+        val list = list()
+        val bars = fx { list.lookupAll(".scroll-bar").filterIsInstance<ScrollBar>() }
+        assertTrue(
+            fx { bars.none { it.orientation == Orientation.HORIZONTAL && it.isVisible } },
+            "no sideways scroll bar",
+        )
+        val secondary = fx { list.lookup(".caret-popup-secondary") as Label }
+        assertTrue(fx { secondary.width < secondary.prefWidth(-1.0) }, "the secondary text gave way")
+        assertTrue(fx { (list.lookup(".caret-popup-label") as Label).width > 0.0 }, "the label shows")
     }
 
     @Test

@@ -59,6 +59,8 @@
 
 .caret-popup-secondary {
     -fx-opacity: 0.7;
+    /* Apart from the label also when the row is too narrow for the spacer between them. */
+    -fx-padding: 0 0 0 12;
 }
 
 .caret-popup-placeholder {
