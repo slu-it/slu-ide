@@ -123,6 +123,24 @@ internal class CompletionUiTest : EditorUiFixture() {
     }
 
     @Test
+    fun `Escape before the first answer ends it, so the answer opens nothing and the focus stays in the editor`(
+        robot: FxRobot,
+    ) {
+        setUp(robot, "import os\nos")
+        typeText(robot, ".")
+        awaitTrue("asked") { server.completions.size == 1 }
+        assertEquals(emptyList(), popups("caret-popup"), "nothing shows before the answer")
+
+        press(robot, KeyCode.ESCAPE)
+        server.completions[0].answer(Either.forLeft(listOf(CompletionItem("path"))))
+        // Negative check: the dropped answer gives no signal to wait for.
+        Thread.sleep(300)
+        robot.interact {}
+        assertEquals(emptyList(), popups("caret-popup"), "the answer after Escape opens nothing")
+        assertTrue(fx { area().isFocused })
+    }
+
+    @Test
     fun `Ctrl+Space opens it searching, and Escape closes it with the focus in the editor`(robot: FxRobot) {
         setUp(robot, "import os\nos.pa")
         pressControl(robot, KeyCode.SPACE)

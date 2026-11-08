@@ -16,6 +16,7 @@ import kotlin.io.path.createFile
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -103,6 +104,7 @@ class TyInstallerTest {
         fakes.runQueued()
 
         assertEquals(1, commandsWhenReady.size)
+        assertNotNull(commandsWhenReady.single())
         assertEquals(installer.command(), commandsWhenReady.single())
     }
 

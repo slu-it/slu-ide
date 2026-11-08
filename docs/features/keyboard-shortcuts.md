@@ -90,6 +90,7 @@ keys of a popup are taken only while it shows, before the editor's own; otherwis
 | Enter, and Tab where the feature allows it (caret popup shown) | Take the selected item; for the completion Enter inserts the name and Tab replaces the whole word with it |
 | Double-click on an item (caret popup) | Take it |
 | Escape (caret popup shown, also the completion) | Close the popup |
+| Escape (completion waiting for its first answer, no list shown yet) | End it, so the answer opens no list; Escape still acts in the editor |
 | Enter, double-click (definition chooser, usages list) | Jump to the place; Tab does not take it |
 | Any key no binding takes (a note such as "No declaration found" shown) | Hide the note; the key still acts |
 | Enter / Escape (rename field) | Rename (a name the language does not allow is refused below the field) / cancel; the editor gets the focus back. While the field or a search popup shows, the window's shortcuts (Shortcut+S, Shortcut+W…) do not act |

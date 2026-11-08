@@ -82,7 +82,8 @@ Decision in [ADR 0147](../adr/0147-completion-signature-help-and-docs.md).
 - **Signature help** shows above the line when you type `(` or `,` in a call, and on **Shortcut+P**: the parameters
   with the current one in bold, "2 of 3" for overloads, and the docs below. It follows as you type in the call and
   closes when the caret leaves it (the server knows no call there any more), on **Escape** and on focus loss. With
-  the completion open too, the first Escape closes the signature, the next the completion.
+  the completion list shown too, the first Escape closes the signature, the next the completion; a completion still
+  waiting for its first answer ends with the first Escape, so the answer opens no list.
 
 ## Diagnostics, quick fixes and semantic highlighting
 Decision in [ADR 0148](../adr/0148-diagnostics-quick-fixes-semantic-highlighting.md).
