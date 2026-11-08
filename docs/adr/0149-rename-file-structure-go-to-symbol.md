@@ -46,7 +46,7 @@ files changes files the user does not see, possibly closed ones on disk.
     changed since the request (the versions of the window's bound documents are noted when it is sent,
     `DocumentBinding.bindings`; a file bound since counts as changed) are dropped with "The text changed. Rename
     again." The same check runs again when the preview has looked at the files and after the user confirmed it
-    (typing in another tab while the dialog showed). `null` or no
+    (a reload from disk while the modal dialog showed). `null` or no
     files say "Nothing to rename". The edits are counted per file (`renameChanges`, through `planOf`, so the
     applier's refusals of resource operations and repeated files apply here too). An edit of the editor's file only
     is applied at once: one `applyEdits` call, one undo step. An edit of other files too shows a **preview** first: a

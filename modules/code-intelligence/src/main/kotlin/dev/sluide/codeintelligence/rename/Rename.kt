@@ -162,7 +162,7 @@ internal class Rename(
             if (!unchanged(target, files)) return@of view.note(target.at, CHANGED)
             val preview = renamePreview(target.old, target.name, files, found, binding.editor.host.projectFolder)
             if (!view.confirm(preview) || preview.refusal != null || gone()) return@of
-            // Typing in another tab while the preview showed moves the text under the server's versionless edits.
+            // The preview is modal, but a reload from disk can still move the text under the versionless edits.
             if (unchanged(target, files)) apply(target, edit, files) else view.note(target.at, CHANGED)
         }
     }
