@@ -28,6 +28,16 @@ class PopupPlacementTest {
     }
 
     @Test
+    fun `a popup preferring above goes above its anchor, below only when it fits there but not above`() {
+        val anchor = BoundingBox(100.0, 300.0, 8.0, 16.0)
+        assertEquals(100.0, popupPosition(anchor, 300.0, 200.0, screen, preferAbove = true).y)
+        val high = BoundingBox(100.0, 50.0, 8.0, 16.0)
+        assertEquals(66.0, popupPosition(high, 300.0, 200.0, screen, preferAbove = true).y)
+        // Fits on neither side: the side with more room.
+        assertEquals(500.0 - 900.0, popupPosition(BoundingBox(100.0, 500.0, 8.0, 16.0), 300.0, 900.0, screen, true).y)
+    }
+
+    @Test
     fun `the hover popup stays while the mouse is on its anchor, the gap to it, or the popup`() {
         val anchor = BoundingBox(100.0, 300.0, 8.0, 16.0)
         val popup = BoundingBox(100.0, 316.0, 300.0, 200.0)

@@ -7,17 +7,25 @@ import javafx.geometry.Rectangle2D
 /**
  * Where a popup of [width] × [height] goes for text at [anchor] (screen coordinates) on [screen] (its visual bounds):
  * below the anchor, starting at its left edge; above it when it does not fit below but fits above; if it fits on
- * neither side, on the side with more room. Moved left to stay on the screen, but never past its left edge.
+ * neither side, on the side with more room. With [preferAbove] (signature help, which leaves the lines below to the
+ * completion) the other way round: above, and below only when it fits there but not above. Moved left to stay on the
+ * screen, but never past its left edge.
  */
 internal fun popupPosition(
     anchor: Bounds,
     width: Double,
     height: Double,
     screen: Rectangle2D,
+    preferAbove: Boolean = false,
 ): Point2D {
     val roomBelow = screen.maxY - anchor.maxY
     val roomAbove = anchor.minY - screen.minY
-    val above = height > roomBelow && (height <= roomAbove || roomAbove > roomBelow)
+    val above =
+        if (preferAbove) {
+            height <= roomAbove || (height > roomBelow && roomAbove >= roomBelow)
+        } else {
+            height > roomBelow && (height <= roomAbove || roomAbove > roomBelow)
+        }
     val y = if (above) anchor.minY - height else anchor.maxY
     val x = anchor.minX.coerceAtMost(screen.maxX - width).coerceAtLeast(screen.minX)
     return Point2D(x, y)

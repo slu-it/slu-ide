@@ -24,7 +24,7 @@ dependencies {
     // file (field `codeIntelligence`); InstallPrompts takes the ProjectDataStore (ADR 0101, ADR 0145).
     api(project(":modules:project-data"))
     implementation(libs.spring.context)
-    // Hover and completion docs arrive as Markdown: commonmark parses it into blocks the popups show as
+    // Hover, completion and signature docs arrive as Markdown: commonmark parses it into blocks the popups show as
     // JavaFX text (ADR 0147).
     implementation(libs.commonmark)
     // The completion popup shows an icon per item kind (ADR 0012, ADR 0147).

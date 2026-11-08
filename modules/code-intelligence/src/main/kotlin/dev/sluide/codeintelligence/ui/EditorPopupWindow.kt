@@ -28,6 +28,8 @@ internal val POPUP_CSS: String =
  */
 internal class EditorPopupWindow(
     private val editor: ExtensibleCodeEditor,
+    /** Above the anchor unless it fits only below ([popupPosition]); below it by default. */
+    private val preferAbove: Boolean = false,
     private val hidden: () -> Unit,
 ) : AutoCloseable {
     private var popupWindow: Popup? = null
@@ -117,7 +119,7 @@ internal class EditorPopupWindow(
         val screen =
             Screen.getScreensForRectangle(bounds.minX, bounds.minY, bounds.width, bounds.height).firstOrNull()
                 ?: Screen.getPrimary()
-        val position = popupPosition(bounds, popup.width, popup.height, screen.visualBounds)
+        val position = popupPosition(bounds, popup.width, popup.height, screen.visualBounds, preferAbove)
         popup.x = position.x
         popup.y = position.y
     }

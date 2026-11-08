@@ -1,6 +1,6 @@
 /*
- * The popups of the code intelligence (CaretPopup, HoverPopup), added to their content: popups do not inherit
- * the editor's stylesheets. Modena's looked-up colours, so it follows the theme (theme.css re-tints popups
+ * The popups of the code intelligence (CaretPopup, HoverPopup, the signature popup), added to their content: popups do
+ * not inherit the editor's stylesheets. Modena's looked-up colours, so it follows the theme (theme.css re-tints popups
  * too), except the colours of the completion kind icons, which have dark counterparts below.
  */
 
@@ -70,7 +70,7 @@
     -fx-spacing: 6;
 }
 
-/* Documentation from the language server (MarkupView): hover, completion details. */
+/* Documentation from the language server (MarkupView): hover, completion details, signature help. */
 .markup {
     -fx-spacing: 6;
 }
@@ -166,3 +166,14 @@
     -fx-icon-color: -fx-selection-bar-text;
 }
 
+/* Signature help above the caret line (SignaturePopup). */
+.signature-popup {
+    -fx-background-color: -fx-control-inner-background;
+    -fx-border-color: -fx-box-border;
+    -fx-padding: 4 8 4 8;
+    -fx-spacing: 4;
+}
+
+.signature-count {
+    -fx-opacity: 0.7;
+}
