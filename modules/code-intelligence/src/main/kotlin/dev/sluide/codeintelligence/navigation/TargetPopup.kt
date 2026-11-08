@@ -45,6 +45,8 @@ internal class TargetPopup(
             cell = { targetCell(it, editor.host.projectFolder) },
             onChoose = { onChoose(it) },
             acceptTab = false,
+            // Room for a path and the line's text beside `file.py:LINE`.
+            listWidth = 600.0,
         ).apply {
             onHidden = {
                 stopWatchingKeys()

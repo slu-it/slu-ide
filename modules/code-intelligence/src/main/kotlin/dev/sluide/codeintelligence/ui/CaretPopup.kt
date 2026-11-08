@@ -40,6 +40,7 @@ internal data class PopupCell(
  * @param onTab gets the item taken with Tab instead of [onChoose] (completion replaces the whole word then).
  * @param detail what shows beside the list for the selected item (completion docs), `null` for nothing.
  * @param visibleRows the list's height in rows, also a page for PageUp/PageDown.
+ * @param listWidth the list's width; rows wider than it end their secondary text with "…" (no sideways scrolling).
  * @param choosable whether an item can be taken; Enter or a double-click on one that cannot does nothing (a disabled
  *   quick fix).
  */
@@ -52,6 +53,7 @@ internal class CaretPopup<T>(
     private val visibleRows: Int = 10,
     private val onTab: ((T) -> Unit)? = null,
     private val choosable: (T) -> Boolean = { true },
+    private val listWidth: Double = LIST_WIDTH,
 ) : AutoCloseable {
     /** The items and the selection. */
     val model = PopupListModel<T>()
@@ -170,7 +172,7 @@ internal class CaretPopup<T>(
                 placeholder = placeholderNode
                 setCellFactory { ItemCell() }
                 fixedCellSize = ROW_HEIGHT
-                prefWidth = LIST_WIDTH
+                prefWidth = listWidth
                 selectionModel.selectedIndexProperty().subscribe { _, index ->
                     if (!syncing && index.toInt() >= 0) {
                         model.select(index.toInt())
@@ -232,6 +234,9 @@ internal class CaretPopup<T>(
     private inner class ItemCell : ListCell<T>() {
         init {
             styleClass += "caret-popup-cell"
+            // No width of its own: the cell takes the list's width, so a long row ends in "…" instead of a sideways
+            // scroll bar that also hides the last row.
+            prefWidth = 0.0
         }
 
         override fun updateItem(
@@ -252,13 +257,24 @@ internal class CaretPopup<T>(
 
 /** The row of a popup list ([CaretPopup], [SearchPopup]) for [shown]: icon, label, the secondary text at the right. */
 internal fun popupRow(shown: PopupCell): HBox {
-    val secondary = shown.secondary?.let { Label(it).apply { styleClass += "caret-popup-secondary" } }
+    val secondary =
+        shown.secondary?.let {
+            Label(it).apply {
+                styleClass += "caret-popup-secondary"
+                // Gives way first when the row is too narrow; the label stays whole.
+                minWidth = 0.0
+                HBox.setMargin(this, Insets(0.0, 0.0, 0.0, SECONDARY_GAP))
+            }
+        }
     return HBox(
         StackPane().apply {
             styleClass += "caret-popup-icon"
             shown.icon?.let { children += it }
         },
-        Label(shown.label).apply { styleClass += "caret-popup-label" },
+        Label(shown.label).apply {
+            styleClass += "caret-popup-label"
+            minWidth = Region.USE_PREF_SIZE
+        },
         Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
         *listOfNotNull(secondary).toTypedArray(),
     ).apply {
@@ -267,6 +283,9 @@ internal fun popupRow(shown: PopupCell): HBox {
         if (shown.indent > 0) padding = Insets(0.0, 0.0, 0.0, shown.indent * INDENT_WIDTH)
     }
 }
+
+/** The space between a row's label and its secondary text. */
+private const val SECONDARY_GAP = 12.0
 
 /** The indentation of one nesting level in a popup row ([PopupCell.indent]). */
 private const val INDENT_WIDTH = 16.0
