@@ -6,8 +6,6 @@ import javafx.geometry.BoundingBox
 import javafx.geometry.Bounds
 import javafx.scene.Node
 import javafx.scene.Parent
-import javafx.scene.input.KeyEvent
-import javafx.scene.input.MouseEvent
 import javafx.scene.input.ScrollEvent
 import javafx.stage.Popup
 import javafx.stage.Screen
@@ -20,28 +18,18 @@ internal val POPUP_CSS: String =
     checkNotNull(EditorPopupWindow::class.java.getResource("code-intelligence-popups.css")).toExternalForm()
 
 /**
- * A popup window over an editor's text, the common part of [CaretPopup] and [HoverPopup]: placed at an anchor range
- * ([popupPosition]), and hidden when the editor loses the focus or leaves the scene, when its window moves, is
- * minimized or loses the focus, when the editor scrolls (a wheel turn, or another first line shown)
- * and on a click outside; it follows its anchor when a shown line is edited. The focus stays in the editor. FX thread.
- *
- * The editor API gives no node, so the popup's owner is the text area learned from the events the editor's filters
- * see ([ExtensibleCodeEditor.addEventFilter] filters on the text area): the press of the key or the mouse that opened
- * it, or any event before. Without one yet, the focused window owns it.
+ * A popup window over an editor's text, the common part of [CaretPopup] and [HoverPopup], owned by the editor's text
+ * area ([ExtensibleCodeEditor.popupOwner]): placed at an anchor range ([popupPosition]), and hidden when the area loses
+ * the focus or leaves the scene, when its window moves, is minimized or loses the focus, when the editor scrolls (a
+ * wheel turn, or another first line shown, [shownLinesReaction]) and on a click outside; it follows its anchor when a
+ * shown line is edited. Escape is left to the popups' own key bindings, so that it closes the popup and nothing else
+ * (an open find bar stays). The focus stays in the editor: nothing in the popup takes it ([noFocusTraversal] on the
+ * content each time it is shown or laid out), so Enter and Space never reach a button or link inside. FX thread.
  */
 internal class EditorPopupWindow(
     private val editor: ExtensibleCodeEditor,
     private val hidden: () -> Unit,
 ) : AutoCloseable {
-    /** The editor's text area, once an event showed it. */
-    private var area: Node? = null
-
-    private val tracking =
-        listOf(
-            editor.addEventFilter(MouseEvent.ANY) { area = it.source as? Node ?: area },
-            editor.addEventFilter(KeyEvent.ANY) { area = it.source as? Node ?: area },
-        )
-
     private var popupWindow: Popup? = null
     private var watches: List<Subscription> = emptyList()
     private var anchorBounds: Bounds? = null
@@ -63,7 +51,7 @@ internal class EditorPopupWindow(
 
     /**
      * Shows [content] for the text [start, end) (a caret at [start] when equal), or places it again there if it shows;
-     * `false` if the range is not on screen or there is no window to own the popup.
+     * `false` if the range is not on screen or the editor is not in a shown window.
      */
     fun show(
         content: Parent,
@@ -71,18 +59,20 @@ internal class EditorPopupWindow(
         end: Int = start,
     ): Boolean {
         val bounds = editor.screenBounds(start, end) ?: return false
+        val area = editor.popupOwner ?: return false
+        val owner = area.scene?.window?.takeIf { it.isShowing } ?: return false
         val popup = popupWindow ?: create()
         if (popup.content.singleOrNull() !== content) {
             if (POPUP_CSS !in content.stylesheets) content.stylesheets += POPUP_CSS
             popup.content.setAll(content)
         }
+        noFocusTraversal(content)
         anchorStart = start
         anchorEnd = end
         if (!popup.isShowing) {
-            val owner = ownerWindow() ?: return false
             popup.show(owner, bounds.minX, bounds.maxY)
             firstShownLine = editor.shownLines.firstOrNull()
-            watches = watch(owner)
+            watches = watch(owner, area)
         }
         place(bounds)
         return true
@@ -92,6 +82,7 @@ internal class EditorPopupWindow(
     fun relayout() {
         val popup = popupWindow ?: return
         if (!popup.isShowing) return
+        popup.content.forEach(::noFocusTraversal)
         popup.sizeToScene()
         editor.screenBounds(anchorStart, anchorEnd)?.let(::place)
     }
@@ -101,11 +92,8 @@ internal class EditorPopupWindow(
         popupWindow?.hide()
     }
 
-    /** Hides the popup and stops following the editor's events. */
-    override fun close() {
-        hide()
-        tracking.forEach { it.unsubscribe() }
-    }
+    /** Hides the popup for good. */
+    override fun close() = hide()
 
     private fun create(): Popup =
         Popup()
@@ -113,6 +101,8 @@ internal class EditorPopupWindow(
                 isAutoHide = true
                 // A click into the editor hides the popup and still moves the caret there.
                 consumeAutoHidingEvents = false
+                // Hidden on Escape by JavaFX, the key would go on to the editor and close its find bar too.
+                isHideOnEscape = false
                 isAutoFix = false
                 setOnHidden {
                     watches.forEach { it.unsubscribe() }
@@ -132,43 +122,50 @@ internal class EditorPopupWindow(
         popup.y = position.y
     }
 
-    private fun ownerWindow(): Window? =
-        area?.scene?.window?.takeIf { it.isShowing } ?: Window.getWindows().firstOrNull { it.isFocused && it !is Popup }
-
-    private fun watch(owner: Window): List<Subscription> {
+    private fun watch(
+        owner: Window,
+        area: Node,
+    ): List<Subscription> {
         // Change subscriptions only: a window that is not focused when the popup opens (no window manager) keeps it.
         val watches =
             mutableListOf(
                 owner.xProperty().subscribe { _, _ -> hide() },
                 owner.yProperty().subscribe { _, _ -> hide() },
                 owner.focusedProperty().subscribe { _, focused -> if (!focused) hide() },
+                area.focusedProperty().subscribe { _, focused -> if (!focused) hide() },
+                area.sceneProperty().subscribe { _, scene -> if (scene == null) hide() },
                 editor.addEventFilter(ScrollEvent.SCROLL) { hide() },
                 editor.onShownLinesChanged(::shownLinesChanged),
             )
         (owner as? Stage)?.let { stage ->
             watches += stage.iconifiedProperty().subscribe { _, iconified -> if (iconified) hide() }
         }
-        area?.let { node ->
-            watches += node.focusedProperty().subscribe { _, focused -> if (!focused) hide() }
-            watches += node.sceneProperty().subscribe { _, scene -> if (scene == null) hide() }
-        }
         return watches
     }
 
-    /**
-     * The shown lines changed: scrolled (another first line) hides the popup; an edit of a shown line (typing while
-     * a completion popup filters) or a resize places it again at its anchor, once the text is laid out again, and
-     * hides it if the anchor is no longer on screen then.
-     */
+    /** The shown lines changed: hidden if the editor scrolled, else placed again at the anchor once laid out. */
     private fun shownLinesChanged() {
-        if (editor.shownLines.firstOrNull() != firstShownLine) {
-            hide()
-            return
-        }
-        Platform.runLater {
-            if (!isShowing) return@runLater
-            val bounds = editor.screenBounds(anchorStart, anchorEnd)
-            if (bounds == null) hide() else place(bounds)
+        when (shownLinesReaction(firstShownLine, editor.shownLines.firstOrNull())) {
+            ShownLinesReaction.HIDE -> {
+                hide()
+            }
+
+            ShownLinesReaction.PLACE_AGAIN -> {
+                Platform.runLater {
+                    if (!isShowing) return@runLater
+                    val bounds = editor.screenBounds(anchorStart, anchorEnd)
+                    if (bounds == null) hide() else place(bounds)
+                }
+            }
         }
     }
+}
+
+/**
+ * Makes [node] and everything in it not focus traversable, so that nothing in a popup takes the focus from the editor
+ * (a click on a button or link, the popup scene's first focus).
+ */
+internal fun noFocusTraversal(node: Node) {
+    node.isFocusTraversable = false
+    if (node is Parent) node.childrenUnmodifiable.forEach(::noFocusTraversal)
 }

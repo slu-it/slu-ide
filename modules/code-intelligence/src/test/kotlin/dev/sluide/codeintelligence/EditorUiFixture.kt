@@ -91,14 +91,19 @@ internal abstract class EditorUiFixture {
     /** The text area of the view. */
     protected fun area(): Node = fx { checkNotNull(view?.node?.lookup(".styled-text-area")) }
 
-    /** Presses [code] on the text area, as a key press reaches it (filters first). */
+    /** Presses [code] (with Shortcut if [shortcut]) on the text area, as a key press reaches it (filters first). */
     protected fun press(
         robot: FxRobot,
         code: KeyCode,
+        shortcut: Boolean = false,
     ) {
         val area = area()
+        val mac = "mac" in System.getProperty("os.name").lowercase()
         robot.interact {
-            Event.fireEvent(area, KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false))
+            Event.fireEvent(
+                area,
+                KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, shortcut && !mac, false, shortcut && mac),
+            )
         }
     }
 

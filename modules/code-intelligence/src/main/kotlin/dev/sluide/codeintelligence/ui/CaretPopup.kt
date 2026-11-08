@@ -210,6 +210,7 @@ internal class CaretPopup<T>(
         if (node == null) {
             pane.children.clear()
         } else if (pane.children.singleOrNull() !== node) {
+            noFocusTraversal(node)
             pane.children.setAll(node)
         }
         pane.isVisible = node != null

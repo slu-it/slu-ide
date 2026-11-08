@@ -38,3 +38,23 @@ internal fun keepsHover(
     if (anchor == null) return false
     return x >= anchor.minX - slack && x <= anchor.maxX + slack && y >= anchor.minY - slack && y <= anchor.maxY + slack
 }
+
+/** What a popup does when the editor's shown lines change. */
+internal enum class ShownLinesReaction {
+    /** The editor scrolled: the popup goes. */
+    HIDE,
+
+    /** A shown line was edited or the editor resized: the popup goes to its anchor again (or goes if that is gone). */
+    PLACE_AGAIN,
+}
+
+/**
+ * Whether the shown lines of an editor whose popup opened while [firstWhenShown] was the first shown line, now
+ * starting at [firstNow], scrolled ([ShownLinesReaction.HIDE]: another first line, or none shown) or were edited or
+ * resized ([ShownLinesReaction.PLACE_AGAIN]: the same first line).
+ */
+internal fun shownLinesReaction(
+    firstWhenShown: Int?,
+    firstNow: Int?,
+): ShownLinesReaction =
+    if (firstNow == null || firstNow != firstWhenShown) ShownLinesReaction.HIDE else ShownLinesReaction.PLACE_AGAIN

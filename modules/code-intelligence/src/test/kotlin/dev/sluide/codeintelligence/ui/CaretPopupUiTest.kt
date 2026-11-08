@@ -3,6 +3,8 @@ package dev.sluide.codeintelligence.ui
 import dev.sluide.codeintelligence.EditorUiFixture
 import dev.sluide.fileviewers.ExtensibleCodeEditor
 import dev.sluide.fileviewers.OffsetEdit
+import dev.sluide.textediting.TextPosition
+import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.ListView
 import javafx.scene.input.KeyCode
@@ -45,11 +47,57 @@ internal class CaretPopupUiTest : EditorUiFixture() {
         closeView()
     }
 
-    private fun setUp(robot: FxRobot) {
-        editor = open(robot, dir.resolve("a.py"), "import os\nos.\n", emptyList())
+    private fun setUp(
+        robot: FxRobot,
+        text: String = "import os\nos.\n",
+    ) {
+        editor = open(robot, dir.resolve("a.py"), text, emptyList())
         popup = fx { CaretPopup(editor, { PopupCell(it, secondary = "fn") }, { chosen += it }) }
-        // The key press that opens a popup in the app shows the popup its editor's window.
-        press(robot, KeyCode.SHIFT)
+    }
+
+    private fun showPopup(robot: FxRobot) {
+        robot.interact {
+            popup.setItems(listOf("path", "sep", "getcwd"))
+            assertTrue(popup.show(13))
+        }
+    }
+
+    private fun findBarOpen() = fx { view?.node?.lookup(".find-bar") != null }
+
+    @Test
+    fun `the popup hides when the window moves, the editor scrolls or the text area loses the focus`(robot: FxRobot) {
+        setUp(robot, "import os\nos.\n" + (1..300).joinToString("\n") { "x$it = $it" })
+        showPopup(robot)
+        robot.interact { stage.x += 10 }
+        assertFalse(fx { popup.isShowing }, "the window moved")
+
+        showPopup(robot)
+        robot.interact { editor.reveal(editor.offsetOf(TextPosition(250, 0)), editor.offsetOf(TextPosition(250, 0))) }
+        assertFalse(fx { popup.isShowing }, "scrolled")
+        robot.interact { editor.reveal(0, 0) }
+
+        val area = area()
+        robot.interact { area.requestFocus() }
+        assertTrue(fx { area.isFocused }, "the test needs the focus in the area")
+        showPopup(robot)
+        // Shortcut+F moves the focus to the find field.
+        press(robot, KeyCode.F, shortcut = true)
+        assertTrue(findBarOpen())
+        assertFalse(fx { popup.isShowing }, "the area lost the focus")
+    }
+
+    @Test
+    fun `Escape closes the popup and leaves an open find bar open`(robot: FxRobot) {
+        setUp(robot)
+        press(robot, KeyCode.F, shortcut = true)
+        assertTrue(findBarOpen())
+        showPopup(robot)
+
+        press(robot, KeyCode.ESCAPE)
+        assertFalse(fx { popup.isShowing })
+        assertTrue(findBarOpen(), "the popup took Escape")
+        press(robot, KeyCode.ESCAPE)
+        assertFalse(findBarOpen(), "the next Escape is the editor's")
     }
 
     private fun list() =
@@ -88,6 +136,16 @@ internal class CaretPopupUiTest : EditorUiFixture() {
 
         press(robot, KeyCode.ENTER)
         assertTrue(fx { editor.text }.length > 14, "hidden, the popup gave Enter back to the editor")
+    }
+
+    @Test
+    fun `nothing in the popup takes the focus, so Enter and Space stay the editor's`(robot: FxRobot) {
+        editor = open(robot, dir.resolve("a.py"), "import os\nos.\n", emptyList())
+        val button = fx { Button("Docs") }
+        popup = fx { CaretPopup(editor, { PopupCell(it) }, { chosen += it }, detail = { button }) }
+        showPopup(robot)
+        assertFalse(fx { button.isFocusTraversable }, "a button in the detail pane")
+        assertFalse(fx { list().isFocusTraversable }, "the list")
     }
 
     @Test

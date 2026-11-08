@@ -51,17 +51,9 @@ internal class HoverPopup(
         offset: Int,
         sections: List<Node>,
     ): Boolean {
-        this.sections.children.setAll(
-            sections.flatMapIndexed { index, section ->
-                if (index ==
-                    0
-                ) {
-                    listOf(section)
-                } else {
-                    listOf(Separator(), section)
-                }
-            },
-        )
+        val separated =
+            sections.flatMapIndexed { index, section -> listOfNotNull(Separator().takeIf { index > 0 }, section) }
+        this.sections.children.setAll(separated)
         val end = if (insideLine(offset)) offset + 1 else offset
         val shown = window.show(content, offset, end)
         if (shown) window.relayout()
