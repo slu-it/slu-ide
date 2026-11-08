@@ -139,6 +139,20 @@ internal class CaretPopupUiTest : EditorUiFixture() {
     }
 
     @Test
+    fun `Enter on an item that cannot be taken keeps the popup and the text`(robot: FxRobot) {
+        setUp(robot)
+        robot.interact { popup.close() }
+        popup = fx { CaretPopup(editor, { PopupCell(it) }, { chosen += it }, choosable = { it != "sep" }) }
+        showPopup(robot)
+        press(robot, KeyCode.DOWN)
+
+        press(robot, KeyCode.ENTER)
+        assertEquals(emptyList(), chosen)
+        assertTrue(fx { popup.isShowing })
+        assertEquals("import os\nos.\n", fx { editor.text }, "the popup kept Enter")
+    }
+
+    @Test
     fun `nothing in the popup takes the focus, so Enter and Space stay the editor's`(robot: FxRobot) {
         editor = open(robot, dir.resolve("a.py"), "import os\nos.\n", emptyList())
         val button = fx { Button("Docs") }

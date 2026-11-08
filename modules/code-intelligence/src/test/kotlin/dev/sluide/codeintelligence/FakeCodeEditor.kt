@@ -24,7 +24,7 @@ import java.nio.file.Path
  * An [ExtensibleCodeEditor] without a view (copied from speech's, not shared): its text changes through [edit] and
  * [batch], which tell the change listeners as the real editor does; it records banners, key bindings and filters.
  */
-internal class FakeCodeEditor(
+internal open class FakeCodeEditor(
     file: Path,
     initialText: String,
     override val host: FileViewHost = NoServicesHost,

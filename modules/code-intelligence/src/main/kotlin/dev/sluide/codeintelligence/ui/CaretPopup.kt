@@ -37,6 +37,8 @@ internal data class PopupCell(
  * @param onTab gets the item taken with Tab instead of [onChoose] (completion replaces the whole word then).
  * @param detail what shows beside the list for the selected item (completion docs), `null` for nothing.
  * @param visibleRows the list's height in rows, also a page for PageUp/PageDown.
+ * @param choosable whether an item can be taken; Enter or a double-click on one that cannot does nothing (a disabled
+ *   quick fix).
  */
 internal class CaretPopup<T>(
     private val editor: ExtensibleCodeEditor,
@@ -46,6 +48,7 @@ internal class CaretPopup<T>(
     private val detail: ((T) -> Node?)? = null,
     private val visibleRows: Int = 10,
     private val onTab: ((T) -> Unit)? = null,
+    private val choosable: (T) -> Boolean = { true },
 ) : AutoCloseable {
     /** The items and the selection. */
     val model = PopupListModel<T>()
@@ -142,9 +145,13 @@ internal class CaretPopup<T>(
         )
     }
 
-    /** Takes the selected item: hides, then tells [chosen]; `false` without one. */
+    /**
+     * Takes the selected item: hides, then tells [chosen]; `false` without one, `true` and nothing else for one that
+     * is not [choosable].
+     */
     private fun choose(chosen: (T) -> Unit = onChoose): Boolean {
         val item = model.selected ?: return false
+        if (!choosable(item)) return true
         hide()
         chosen(item)
         return true

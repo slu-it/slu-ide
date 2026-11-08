@@ -4,6 +4,7 @@ import dev.sluide.codeintelligence.binding.BindingFeature
 import dev.sluide.codeintelligence.binding.DocumentBinding
 import dev.sluide.codeintelligence.binding.EditorAttachment
 import dev.sluide.codeintelligence.completion.CompletionFeature
+import dev.sluide.codeintelligence.diagnostics.DiagnosticsFeature
 import dev.sluide.codeintelligence.navigation.BindingNavigation
 import dev.sluide.codeintelligence.navigation.DEFINITION
 import dev.sluide.codeintelligence.navigation.Navigation
@@ -174,6 +175,7 @@ internal fun builtInFeatures(
         ServerBannerFeature(notNow, prompts),
         NavigationFeature(navigation),
         OccurrencesFeature(),
+        DiagnosticsFeature(),
         CompletionFeature(),
         SignatureFeature(),
         ServerHoverFeature(),

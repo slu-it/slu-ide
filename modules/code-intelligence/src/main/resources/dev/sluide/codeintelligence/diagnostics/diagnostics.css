@@ -1,0 +1,98 @@
+/*
+ * The diagnostics of the code intelligence (ADR 0148), added to bound editors (underlines, gutter icons) and to the
+ * hover sections (popups do not inherit the editor's stylesheets). Single classes only, as syntax.css explains: JavaFX
+ * applies descendant selectors inside @media blocks whatever the colour scheme. The underlines use RichTextFX's
+ * properties, as .text-error in syntax.css does; information comes before warning before error, so that the worse one
+ * wins where ranges overlap.
+ */
+
+.diagnostic-information {
+    -rtfx-underline-color: #1e88e5;
+    -rtfx-underline-width: 1;
+    -rtfx-underline-dash-array: 2 2;
+}
+
+.diagnostic-warning {
+    -rtfx-underline-color: #d9a400;
+    -rtfx-underline-width: 1.5;
+    -rtfx-underline-wave-radius: 2;
+}
+
+.diagnostic-error {
+    -rtfx-underline-color: #e53935;
+    -rtfx-underline-width: 1.5;
+    -rtfx-underline-wave-radius: 2;
+}
+
+/* Unused or unreachable code: faded, whatever its colour. */
+.diagnostic-unnecessary {
+    -fx-opacity: 0.5;
+}
+
+.diagnostic-deprecated {
+    -fx-strikethrough: true;
+}
+
+/* The severity icons of the gutter and the hover: an 8 px circle, a triangle for warnings. */
+.diagnostic-icon {
+    -fx-min-width: 8;
+    -fx-pref-width: 8;
+    -fx-max-width: 8;
+    -fx-min-height: 8;
+    -fx-pref-height: 8;
+    -fx-max-height: 8;
+    -fx-shape: "M 4 0 A 4 4 0 1 1 3.99 0 Z";
+}
+
+.diagnostic-information-icon {
+    -fx-background-color: #1e88e5;
+}
+
+.diagnostic-warning-icon {
+    -fx-background-color: #d9a400;
+    -fx-shape: "M 4 0 L 8 8 L 0 8 Z";
+}
+
+.diagnostic-error-icon {
+    -fx-background-color: #e53935;
+}
+
+.diagnostic-hover {
+    -fx-spacing: 6;
+}
+
+/* Centres the icon on the message's first line. */
+.diagnostic-hover > .diagnostic-icon {
+    -fx-translate-y: 5;
+}
+
+.diagnostic-hover-detail {
+    -fx-opacity: 0.7;
+    -fx-font-size: 0.9em;
+}
+
+@media (prefers-color-scheme: dark) {
+    .diagnostic-information {
+        -rtfx-underline-color: #589df6;
+    }
+
+    .diagnostic-warning {
+        -rtfx-underline-color: #e0b84c;
+    }
+
+    .diagnostic-error {
+        -rtfx-underline-color: #f75464;
+    }
+
+    .diagnostic-information-icon {
+        -fx-background-color: #589df6;
+    }
+
+    .diagnostic-warning-icon {
+        -fx-background-color: #e0b84c;
+    }
+
+    .diagnostic-error-icon {
+        -fx-background-color: #f75464;
+    }
+}
