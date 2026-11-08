@@ -34,7 +34,7 @@ class CodeEditorExtensions {
     }
 
     /** The extensions in the order they were added. */
-    internal val extensions: List<CodeEditorExtension> get() = added.toList()
+    val extensions: List<CodeEditorExtension> get() = added.toList()
 }
 
 /** A feature that extends code editors ([CodeEditorExtensions]); it restricts itself to the file types it wants. */
@@ -235,6 +235,13 @@ interface ExtensibleCodeEditor : GutterColumns {
 
     /** Shows [cursor] over the text, e.g. a hand while Shortcut is held over a link; `null` for the text cursor. */
     fun setTextCursor(cursor: Cursor?) {}
+
+    /**
+     * The text area while it is in a scene, `null` otherwise: the owner of popups at the caret or the mouse (completion,
+     * hover), whose window, focus and scene they follow (ADR 0145). Only for that: not to add children, styles or
+     * handlers, which go through the other members.
+     */
+    val popupOwner: Node? get() = null
 
     /**
      * Overlays [ranges] as [layer] like [overlay], but with [followEdits] the layer follows edits instead of being

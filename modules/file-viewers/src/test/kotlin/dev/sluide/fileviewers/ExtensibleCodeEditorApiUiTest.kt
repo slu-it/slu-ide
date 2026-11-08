@@ -339,7 +339,9 @@ class ExtensibleCodeEditorApiUiTest {
     }
 
     @Test
-    fun `offsetAt finds the character under the mouse and screenBounds where a range is shown`(robot: FxRobot) {
+    fun `offsetAt finds the character under the mouse, screenBounds where a range is shown, popupOwner the area`(
+        robot: FxRobot,
+    ) {
         val (view, editor) = plain(robot, "hello world\nab\n" + (1..200).joinToString("\n") { "line $it" })
         val area = view.area
 
@@ -365,8 +367,10 @@ class ExtensibleCodeEditorApiUiTest {
         assertNotNull(caret, "a caret at the start of ab")
         val far = area.getAbsolutePosition(150, 0)
         assertNull(WaitForAsyncUtils.asyncFx<Bounds?> { editor.screenBounds(far, far + 4) }.get(), "scrolled away")
+        assertSame(area, WaitForAsyncUtils.asyncFx<Any?> { editor.popupOwner }.get(), "popups belong to the area")
         robot.interact { container.children.clear() }
         assertNull(WaitForAsyncUtils.asyncFx<Bounds?> { editor.screenBounds(6, 7) }.get(), "not shown")
+        assertNull(WaitForAsyncUtils.asyncFx<Any?> { editor.popupOwner }.get(), "no owner out of the scene")
     }
 
     @Test

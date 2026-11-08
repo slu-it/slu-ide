@@ -84,6 +84,8 @@ internal class ExtensibleCodeView(
 
     override val file: ObservableValue<Path> = fileWrapper.readOnlyProperty
 
+    override val popupOwner: Node? get() = area.takeIf { it.scene != null }
+
     /** The view shows [to] now. */
     fun moved(to: Path) = fileWrapper.set(to)
 

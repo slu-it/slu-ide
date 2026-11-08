@@ -1,6 +1,6 @@
 # 0141. Editor API for language features
 
-- Status: accepted; amends [0108](0108-code-editor-extensions-and-context-menu.md), [0077](0077-graph-nodes-open-their-source.md); see [0128](0128-read-aloud-in-editors.md), [0022](0022-editor-key-bindings.md), [0020](0020-editing-and-saving-files.md), [0054](0054-keep-source-files-small.md), [0084](0084-testability-logic-out-of-controls.md)
+- Status: accepted; amended by [0145](0145-code-intelligence-module.md) (`popupOwner`); amends [0108](0108-code-editor-extensions-and-context-menu.md), [0077](0077-graph-nodes-open-their-source.md); see [0128](0128-read-aloud-in-editors.md), [0022](0022-editor-key-bindings.md), [0020](0020-editing-and-saving-files.md), [0054](0054-keep-source-files-small.md), [0084](0084-testability-logic-out-of-controls.md)
 - Date: 2026-11-07
 
 ## Context
@@ -58,6 +58,9 @@ interface default, so fakes compile. RichTextFX and wellbehavedfx types stay out
 - **`dirty`** (the view's) and **`onSaved(listener)`**, after each successful `save()`.
 - **`setTextCursor(Cursor?)`**: the area's cursor property is bound once an extension sets one, since the area's own
   stylesheet (`-fx-cursor: text`) would otherwise reset a value set in code; `null` is the text cursor.
+- **`popupOwner`** (added by [ADR 0145](0145-code-intelligence-module.md)): the text area while it is in a scene, else
+  `null`, as the owner of popups at the caret or the mouse, which follow its window, focus and scene. The one node of
+  the API, and only for that.
 - **Following overlay layers:** `overlay(layer, ranges, followEdits)`. With `followEdits`, a change keeps the ranges
   entirely before the changed range, moves those entirely after it by the change in length, and drops those that
   overlap or touch it: the owner sets them again with fresh results. Layers without the flag are cleared by any change,
