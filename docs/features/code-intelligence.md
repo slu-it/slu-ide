@@ -2,9 +2,10 @@
 
 **Module:** `modules/code-intelligence` (package `dev.sluide.codeintelligence`: `CodeIntelligence`, `InstallPrompts`;
 the binding in `binding`, the banners and the restart item in `server`, the popups in `ui`, navigation in
-`navigation`); wired per window by `ide/.../codeintelligence/CodeIntelligenceWiring`, the Navigate menu by
-`ide/.../codeintelligence/NavigateMenu`; decisions in [ADR 0145](../adr/0145-code-intelligence-module.md) and
-[ADR 0146](../adr/0146-navigation.md)
+`navigation`, rename in `rename`, file structure and go to symbol in `symbols`); wired per window by
+`ide/.../codeintelligence/CodeIntelligenceWiring`, the Navigate menu by `ide/.../codeintelligence/NavigateMenu`;
+decisions in [ADR 0145](../adr/0145-code-intelligence-module.md), [ADR 0146](../adr/0146-navigation.md) and
+[ADR 0149](../adr/0149-rename-file-structure-go-to-symbol.md)
 
 Code editors of files a language server serves get code intelligence from it: for now Python (`.py`, `.pyi`, `.pyw`)
 through ty ([python.md](python.md)). Only files inside the window's project folder are served; a window without a
@@ -40,7 +41,7 @@ a server that ran restarts with the new ty.
 
 ## Context menu
 **Restart Python Language Server**, the last item after the editor's own and the features' items (Go to Definition,
-Find Usages; see Navigation), stops the window's Python server and starts it again.
+Find Usages, Rename…, Show Quick Fixes), stops the window's Python server and starts it again.
 Disabled with the reason when there is nothing to restart: "(not started)", "(not installed)", "(project not trusted)".
 
 ## Hover
@@ -115,7 +116,7 @@ Decision in [ADR 0148](../adr/0148-diagnostics-quick-fixes-semantic-highlighting
   cannot be applied now greyed with the reason. **Enter** applies the selected one as one undo step. A fix taken after
   the text changed is refused ("Ask for the quick fixes again"). The menu item is disabled "(server not running)" while
   the server does not run.
-- **Edits in other files** (from a fix, and from rename later): an open editor gets them unsaved, as one undo step; a
+- **Edits in other files** (from a fix or a rename): an open editor gets them unsaved, as one undo step; a
   closed file in the project is changed on disk in one step, keeping its line breaks, its permissions and a BOM.
   Nothing changes when one of the files cannot be edited: it changed since the server made the edit or while the
   files were read, it is open with unsaved changes the server never saw (save it first), it is outside the project,
@@ -125,6 +126,43 @@ Decision in [ADR 0148](../adr/0148-diagnostics-quick-fixes-semantic-highlighting
 - **Semantic highlighting:** parameters, `self` and `cls`, and builtin constants (`__name__`, `NotImplemented`) get
   subtle colours of their own over the usual highlighting, in the dark and the light theme; they follow about 0.5 s
   after typing. It cannot be turned off yet.
+
+## Rename
+Decision in [ADR 0149](../adr/0149-rename-file-structure-go-to-symbol.md).
+- **Shift+F6** at the caret, or **Rename…** in the context menu (at the right-click), opens a small field below the
+  name with the name selected; it has the focus, so typing replaces the name there, not in the text. **Enter**
+  renames everywhere the server finds the name; **Escape**, a click elsewhere or switching windows cancels. The
+  editor gets the focus back either way. An empty or unchanged name does nothing. A name Python does not allow
+  (`foo bar`, `1abc`, a keyword such as `class`) shows "Not a valid name: …" below the field, which stays open. While
+  the field shows, the window's shortcuts (Shortcut+S, Shortcut+W…) do not act.
+- Where the server says nothing can be renamed (a keyword, a builtin), "Cannot rename this" shows at the caret. The
+  menu item says why it is disabled ("(server starting)", "(not supported)"), and Shift+F6 shows the same at the
+  caret.
+- A rename only in this file is applied at once: one **Shortcut+Z** undoes it. The caret stays in the renamed name.
+- A rename that changes other files asks first: **"Rename “old” to “new”?"** with "N changes in M files" and the files
+  with their number of changes, marking open files with unsaved changes and closed files that are written to disk
+  (no undo takes those back). **Rename** applies it (open files are changed
+  in their editors and left unsaved, closed ones are written, see the edits in other files above), **Cancel** changes
+  nothing. When a file would refuse the rename (open without code intelligence with unsaved changes, or closed and
+  outside the project), the dialog says so and offers Cancel only.
+- If the text of this or another open Python file changed while the server answered or the dialog showed, nothing
+  changes ("The text changed. Rename again."). A rename that
+  could not be applied, or only to some files, says so in a message naming the files.
+
+## File structure and symbols
+Decision in [ADR 0149](../adr/0149-rename-file-structure-go-to-symbol.md). Both open a search popup: a field with the
+focus over a list. Typing filters or searches, **Up**/**Down** (wrapping) and **Page Up**/**Page Down** choose,
+**Enter** or a double-click jumps there, **Escape**, a click elsewhere or switching windows closes it and gives the
+focus back. While it shows, the window's shortcuts (Shortcut+S, Shortcut+W…) do not act. Jumps are remembered for
+**Navigate → Back**.
+- **File structure:** **Shortcut+F12** in a Python editor, or **Navigate → File Structure**, lists the file's classes,
+  functions and variables at the top of the editor, nested ones indented, the one the caret is in selected. Typing
+  filters by name as completion does (names starting with the text first, then parts, then letters in order).
+- **Go to symbol:** **Shortcut+Alt+Shift+O** (Cmd+Option+Shift+O on macOS), or **Navigate → Go to Symbol…**, searches the
+  symbols of the whole project at the top of the window: type a name, and 0.2 s later the list shows the server's
+  matches (at most 200), exact names first, then names starting with it; each row shows the kind icon, the name, its
+  class or module and its file. It works from anywhere in a window with a running Python server, also with the focus
+  in the explorer; without one it says "Go to Symbol is not available (no language server running)".
 
 ## Keys
 See [keyboard-shortcuts.md](keyboard-shortcuts.md), "Code intelligence".

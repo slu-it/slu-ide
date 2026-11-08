@@ -84,7 +84,11 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   information about a place in the text goes into the hover popup as a `HoverProvider` section (module
   `code-intelligence`, ADR 0145): below the anchor, above when there is no room; the focus stays in the editor, the
   popup's keys are editor key bindings taken only while it shows; it hides on Escape, a click outside, scrolling, focus
-  loss and window moves. Its stylesheet goes onto the popup's content, as popups do not inherit the editor's.
+  loss and window moves. Its stylesheet goes onto the popup's content, as popups do not inherit the editor's. A popup
+  the user types into (a query, a new name) is a `SearchPopup` (field over a list, at the top centre of the editor or
+  window) or a field in a plain `Popup` like the rename field: it takes the focus, its field handles the keys, and it
+  gives the focus back when it hides (ADR 0149). Never a `CaretPopup` or `EditorPopupWindow` for that: they strip focus
+  traversal.
 
 ## Running commands
 - Through `command-runs`: `RunPane` (Arguments field with history, status line with Stop and Rerun, embedded

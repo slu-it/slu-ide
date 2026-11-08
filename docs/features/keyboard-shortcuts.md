@@ -30,6 +30,8 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Shortcut+Alt+Left (Cmd+Option+Left on macOS) | Navigate → Back (to where the last go to definition or usage jump started, [code-intelligence.md](code-intelligence.md); not while a terminal has the focus on Linux and Windows) |
 | Shortcut+Alt+Right (Cmd+Option+Right on macOS) | Navigate → Forward (not while a terminal has the focus on Linux and Windows) |
 | Shortcut+B / Alt+F7 | Navigate → Go to Definition / Find Usages, at the caret of the focused editor with code intelligence (the editor's own bindings, see [Code intelligence](#code-intelligence)) |
+| Shortcut+F12 (Cmd+F12 on macOS, which may need Fn when the F keys control the Mac) | Navigate → File Structure of the focused editor with code intelligence (the editor's own binding, see [Code intelligence](#code-intelligence)) |
+| Shortcut+Alt+Shift+O (Cmd+Option+Shift+O on macOS) | Navigate → Go to Symbol… (searches the project's symbols in the search popup, window-wide; [code-intelligence.md](code-intelligence.md); not while a terminal has the focus on Linux and Windows) |
 | Shortcut+K | Git → Commit… |
 | Shortcut+Shift+K | Git → Push… |
 | Shortcut+Shift+T | Terminal → New Terminal |
@@ -88,6 +90,14 @@ keys of a popup are taken only while it shows, before the editor's own; otherwis
 | Enter / Tab (completion shown) | Insert the selected item / replace the whole word with it |
 | Up / Down, Page Up / Page Down, Home / End (completion shown) | Choose the item, as in every caret popup |
 | Escape (completion shown) | Close the completion |
+| Shift+F6 | Rename the name at the caret: a field at the name takes the focus (also Rename… in the context menu) |
+| Enter / Escape (rename field) | Rename (a name the language does not allow is refused below the field) / cancel; the editor gets the focus back. While the field or a search popup shows, the window's shortcuts (Shortcut+S, Shortcut+W…) do not act |
+| Shortcut+F12 | File structure of the file in the search popup (Navigate → File Structure shows it; the editor's binding takes the key first) |
+| Typing (search popup) | Filter the file structure / search the project's symbols (Go to Symbol, Shortcut+Alt+Shift+O in the Menus table) |
+| Up / Down, Page Up / Page Down (search popup) | Previous / next item (wrapping), one page up / down; the field keeps the focus |
+| Enter, double-click (search popup) | Jump to the item |
+| Escape (search popup) | Close it; the focus goes back to where it was |
+| Any key (search popup note shown) | Hide the note; Escape goes no further, other keys still act |
 | Shortcut+P | Signature help at the caret (also opens by itself after a typed `(` or `,` in a call) |
 | Escape (signature help shown) | Close the signature help (first, when the completion shows too) |
 

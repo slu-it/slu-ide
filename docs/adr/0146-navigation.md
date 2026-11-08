@@ -1,6 +1,6 @@
 # 0146. Navigation: go to definition, usages, occurrences, Back and Forward, the Navigate menu
 
-- Status: accepted; amends [0145](0145-code-intelligence-module.md) (`popupOwner` also for focus checks); see [0141](0141-editor-api-for-language-features.md),
+- Status: accepted; amended by [0149](0149-rename-file-structure-go-to-symbol.md) (the Navigate menu's last two items); amends [0145](0145-code-intelligence-module.md) (`popupOwner` also for focus checks); see [0141](0141-editor-api-for-language-features.md),
   [0142](0142-language-server-foundation.md), [0144](0144-python-via-ty.md), [0108](0108-code-editor-extensions-and-context-menu.md),
   [0084](0084-testability-logic-out-of-controls.md)
 - Date: 2026-11-08
