@@ -20,3 +20,10 @@ val FORWARD_KEYS = KeyCodeCombination(KeyCode.RIGHT, KeyCombination.SHORTCUT_DOW
 
 /** Rename the name at the caret: Shift+F6, a key binding of bound editors. */
 val RENAME_KEYS = KeyCodeCombination(KeyCode.F6, KeyCombination.SHIFT_DOWN)
+
+/** File Structure: Shortcut+F12, a key binding of bound editors, also the Navigate menu's accelerator. */
+val FILE_STRUCTURE_KEYS = KeyCodeCombination(KeyCode.F12, KeyCombination.SHORTCUT_DOWN)
+
+/** Go to Symbol: Shortcut+Alt+Shift+O, the Navigate menu's accelerator only (it acts window-wide). */
+val GO_TO_SYMBOL_KEYS =
+    KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN, KeyCombination.SHIFT_DOWN)

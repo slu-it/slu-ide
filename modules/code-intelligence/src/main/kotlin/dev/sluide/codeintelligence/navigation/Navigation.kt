@@ -52,6 +52,20 @@ internal class Navigation(
     /** The actions of [binding], if its navigation is attached. */
     fun actionsOf(binding: DocumentBinding): BindingNavigation? = actions[binding]
 
+    private val structures = LinkedHashMap<DocumentBinding, () -> Unit>()
+
+    /** Makes [show] the file structure of [binding] (ADR 0149) until the handle is closed. */
+    fun registerStructure(
+        binding: DocumentBinding,
+        show: () -> Unit,
+    ): AutoCloseable {
+        structures[binding] = show
+        return AutoCloseable { structures.remove(binding, show) }
+    }
+
+    /** What shows the file structure of [binding], if attached. */
+    fun structureOf(binding: DocumentBinding): (() -> Unit)? = structures[binding]
+
     /** Jumps from the caret of [from] to [to], recorded in the history. */
     fun jump(
         from: DocumentBinding,
@@ -59,6 +73,17 @@ internal class Navigation(
     ) {
         history.record(caretPosition(from), to)
         go(to, from)
+    }
+
+    /**
+     * Jumps to [to] from the caret of [from] (recorded in the history), or, without a bound editor to start from, opens
+     * it through the host without a place to come back to (go to symbol from the explorer).
+     */
+    fun open(
+        from: DocumentBinding?,
+        to: SourcePosition,
+    ) {
+        if (from != null && !from.isClosed) jump(from, to) else go(to, null)
     }
 
     /** Goes back to the place before the last jump; `false` if there is none. */

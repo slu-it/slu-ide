@@ -18,7 +18,14 @@ import dev.sluide.codeintelligence.server.RestartServerItem
 import dev.sluide.codeintelligence.server.ServerBannerFeature
 import dev.sluide.codeintelligence.server.hasStarted
 import dev.sluide.codeintelligence.signature.SignatureFeature
+import dev.sluide.codeintelligence.symbols.DOCUMENT_SYMBOL
+import dev.sluide.codeintelligence.symbols.FileStructureFeature
+import dev.sluide.codeintelligence.symbols.GoToSymbol
+import dev.sluide.codeintelligence.symbols.WorkspaceSymbolRow
+import dev.sluide.codeintelligence.symbols.workspaceSymbolCell
 import dev.sluide.codeintelligence.ui.HoverFeature
+import dev.sluide.codeintelligence.ui.SearchAnchor
+import dev.sluide.codeintelligence.ui.SearchPopup
 import dev.sluide.codeintelligence.ui.ServerHoverFeature
 import dev.sluide.fileviewers.CodeEditorExtension
 import dev.sluide.fileviewers.ExtensibleCodeEditor
@@ -28,6 +35,7 @@ import dev.sluide.languageservers.LanguageServers
 import dev.sluide.languageservers.ServerAvailability
 import javafx.collections.FXCollections
 import javafx.collections.ObservableSet
+import javafx.stage.Window
 import java.io.IOException
 import java.nio.file.Path
 
@@ -104,6 +112,53 @@ class CodeIntelligence internal constructor(
     /** Find Usages at the caret of the focused bound editor; `false` without one. */
     fun findUsages(): Boolean = atCaret { actions, offset -> actions.findUsages(offset) }
 
+    /** Why File Structure cannot act now, `null` if it can; for the Navigate menu. */
+    fun fileStructureBlocker(): String? = blocker(DOCUMENT_SYMBOL)
+
+    /** The file structure of the focused bound editor (ADR 0149); `false` without one. */
+    fun fileStructure(): Boolean {
+        val binding = focusedBinding ?: return false
+        val show = navigation.structureOf(binding) ?: return false
+        show()
+        return true
+    }
+
+    /** The window Go to Symbol shows in, set by [goToSymbol]. */
+    private var symbolWindow: Window? = null
+
+    private val symbolsMade =
+        lazy {
+            val popup =
+                SearchPopup<WorkspaceSymbolRow>(
+                    { symbolAnchor() },
+                    { workspaceSymbolCell(it, lastHost?.projectFolder) },
+                )
+            GoToSymbol(navigation, { attachments.mapNotNull { it.binding } }, popup)
+        }
+
+    /** Go to Symbol of the window (ADR 0149), made on first use. */
+    internal val symbols: GoToSymbol by symbolsMade
+
+    /** Why Go to Symbol cannot search now ("no language server running"), `null` if it can; for the Navigate menu. */
+    fun goToSymbolBlocker(): String? = symbols.blocker()
+
+    /**
+     * Go to Symbol in [window]: the search popup at the top centre of its content, or a note there saying why it
+     * cannot search; `false` then.
+     */
+    fun goToSymbol(window: Window): Boolean {
+        symbolWindow = window
+        return symbols.open()
+    }
+
+    /** The search popup's place for Go to Symbol: the top centre of the window's content; its focus owner gets it back. */
+    private fun symbolAnchor(): SearchAnchor? {
+        val scene = symbolWindow?.scene ?: return null
+        val root = scene.root ?: return null
+        val bounds = root.localToScreen(root.boundsInLocal) ?: return null
+        return SearchAnchor(scene.window, bounds, scene.focusOwner)
+    }
+
     /** Goes back to where the last navigation jump started ([history]); `false` if there is no such place. */
     fun back(): Boolean = navigation.back()
 
@@ -143,6 +198,7 @@ class CodeIntelligence internal constructor(
     /** Stops following the installers and unbinds every editor. */
     override fun close() {
         closed = true
+        if (symbolsMade.isInitialized()) symbols.close()
         subscriptions.forEach { it.close() }
         subscriptions.clear()
         attachments.toList().forEach { it.close() }
@@ -168,9 +224,9 @@ private fun realPath(file: Path): Path? =
     }
 
 /**
- * The features of every binding, in order: the server banner, navigation, rename, diagnostics and quick fixes,
- * semantic tokens, completion, signature help, the server's hover, the hover popup, the restart item last. Hover
- * providers are asked and context menu items shown in the order their features attach.
+ * The features of every binding, in order: the server banner, navigation, rename, file structure, diagnostics and
+ * quick fixes, semantic tokens, completion, signature help, the server's hover, the hover popup, the restart item last.
+ * Hover providers are asked and context menu items shown in the order their features attach.
  */
 internal fun builtInFeatures(
     notNow: ObservableSet<String>,
@@ -182,6 +238,7 @@ internal fun builtInFeatures(
         NavigationFeature(navigation),
         OccurrencesFeature(),
         RenameFeature(),
+        FileStructureFeature(navigation),
         DiagnosticsFeature(),
         SemanticTokensFeature(),
         CompletionFeature(),
