@@ -46,6 +46,8 @@ class DocumentBinding internal constructor(
     val spec: LanguageServerSpec,
     /** The window's language servers, e.g. for [LanguageServers.filesChanged]. */
     val languageServers: LanguageServers,
+    /** The binding of the window's editor of a file, `null` if none is bound: where a workspace edit of it goes. */
+    internal val bindingOf: (Path) -> DocumentBinding? = { null },
 ) : AutoCloseable {
     /** The server connection of [spec] in this window. */
     val session: LanguageServerSession = languageServers.session(spec)

@@ -25,6 +25,8 @@ import dev.sluide.languageservers.LanguageServers
 import dev.sluide.languageservers.ServerAvailability
 import javafx.collections.FXCollections
 import javafx.collections.ObservableSet
+import java.io.IOException
+import java.nio.file.Path
 
 /**
  * The editor's code intelligence of one window (ADR 0145), a [CodeEditorExtension]: binds every code editor whose file
@@ -78,7 +80,7 @@ class CodeIntelligence internal constructor(
         if (closed) return null
         lastHost = editor.host
         lateinit var attachment: EditorAttachment
-        attachment = EditorAttachment(editor, languageServers, features) { attachments -= attachment }
+        attachment = EditorAttachment(editor, languageServers, features, ::bindingFor) { attachments -= attachment }
         attachments += attachment
         return attachment
     }
@@ -116,6 +118,18 @@ class CodeIntelligence internal constructor(
         return true
     }
 
+    /**
+     * The binding of the editor of [file] in this window, if one is bound (workspace edits apply to it): by path, else
+     * by real path (a server may name a file through a link, e.g. `/private/var` for `/var` on macOS).
+     */
+    internal fun bindingFor(file: Path): DocumentBinding? {
+        val wanted = file.toAbsolutePath().normalize()
+        val bindings = attachments.mapNotNull { it.binding }
+        bindings.firstOrNull { it.file.toAbsolutePath().normalize() == wanted }?.let { return it }
+        val real = realPath(wanted) ?: return null
+        return bindings.firstOrNull { realPath(it.file) == real }
+    }
+
     /** The editors extended and not disposed yet; for tests. */
     internal val attached: Set<EditorAttachment> get() = attachments
 
@@ -137,6 +151,14 @@ class CodeIntelligence internal constructor(
         if (attachments.any { it.binding?.spec == spec }) languageServers.session(spec).ensureStarted()
     }
 }
+
+/** The real path of [file], `null` if it does not exist or cannot be resolved. */
+private fun realPath(file: Path): Path? =
+    try {
+        file.toRealPath()
+    } catch (_: IOException) {
+        null
+    }
 
 /**
  * The features of every binding, in order: the server banner, navigation, then one line per feature (P7 completion,
