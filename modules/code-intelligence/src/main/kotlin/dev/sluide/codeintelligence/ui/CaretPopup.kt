@@ -1,6 +1,7 @@
 package dev.sluide.codeintelligence.ui
 
 import dev.sluide.fileviewers.ExtensibleCodeEditor
+import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Label
@@ -21,6 +22,8 @@ internal data class PopupCell(
     val secondary: String? = null,
     /** A new node for each call: a node shows in one cell only. */
     val icon: Node? = null,
+    /** The nesting level, shown as indentation (the search popup's file structure). */
+    val indent: Int = 0,
 )
 
 /**
@@ -237,26 +240,7 @@ internal class CaretPopup<T>(
         ) {
             super.updateItem(item, empty)
             text = null
-            graphic =
-                if (empty || item == null) {
-                    null
-                } else {
-                    val shown = cell(item)
-                    val secondary =
-                        shown.secondary?.let { Label(it).apply { styleClass += "caret-popup-secondary" } }
-                    HBox(
-                        StackPane().apply {
-                            styleClass += "caret-popup-icon"
-                            shown.icon?.let { children += it }
-                        },
-                        Label(shown.label).apply { styleClass += "caret-popup-label" },
-                        Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-                        *listOfNotNull(secondary).toTypedArray(),
-                    ).apply {
-                        alignment = Pos.CENTER_LEFT
-                        styleClass += "caret-popup-row"
-                    }
-                }
+            graphic = if (empty || item == null) null else popupRow(cell(item))
         }
     }
 
@@ -266,6 +250,27 @@ internal class CaretPopup<T>(
     }
 }
 
+/** The row of a popup list ([CaretPopup], [SearchPopup]) for [shown]: icon, label, the secondary text at the right. */
+internal fun popupRow(shown: PopupCell): HBox {
+    val secondary = shown.secondary?.let { Label(it).apply { styleClass += "caret-popup-secondary" } }
+    return HBox(
+        StackPane().apply {
+            styleClass += "caret-popup-icon"
+            shown.icon?.let { children += it }
+        },
+        Label(shown.label).apply { styleClass += "caret-popup-label" },
+        Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
+        *listOfNotNull(secondary).toTypedArray(),
+    ).apply {
+        alignment = Pos.CENTER_LEFT
+        styleClass += "caret-popup-row"
+        if (shown.indent > 0) padding = Insets(0.0, 0.0, 0.0, shown.indent * INDENT_WIDTH)
+    }
+}
+
+/** The indentation of one nesting level in a popup row ([PopupCell.indent]). */
+private const val INDENT_WIDTH = 16.0
+
 /** Whether [event] hit a cell with an item, not the empty space of a list. */
-private fun onFilledCell(event: MouseEvent): Boolean =
+internal fun onFilledCell(event: MouseEvent): Boolean =
     generateSequence(event.target as? Node) { it.parent }.any { it is ListCell<*> && !it.isEmpty }

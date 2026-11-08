@@ -32,6 +32,23 @@ internal fun popupPosition(
 }
 
 /**
+ * Where a search popup of [width] goes for [area] (the screen bounds of an editor or a window's content) on [screen]:
+ * centred at the area's top, [inset] below its top edge, moved to stay on the screen horizontally, never past its left
+ * edge.
+ */
+internal fun searchPopupPosition(
+    area: Bounds,
+    width: Double,
+    screen: Rectangle2D,
+    inset: Double = 8.0,
+): Point2D {
+    val centred = area.minX + (area.width - width) / 2
+    val x = centred.coerceAtMost(screen.maxX - width).coerceAtLeast(screen.minX)
+    val y = (area.minY + inset).coerceAtLeast(screen.minY)
+    return Point2D(x, y)
+}
+
+/**
  * Whether the screen point ([x], [y]) keeps a hover popup shown: on its [anchor] (with a margin of [slack] on every
  * side, for the gap the mouse crosses towards the popup) or on the [popup] itself.
  */

@@ -15,6 +15,16 @@ class PopupPlacementTest {
     private val screen = Rectangle2D(0.0, 0.0, 1000.0, 800.0)
 
     @Test
+    fun `a search popup goes centred at the top of its area, staying on the screen`() {
+        val editor = BoundingBox(200.0, 100.0, 600.0, 500.0)
+        assertEquals(Point2D(240.0, 108.0), searchPopupPosition(editor, 520.0, screen))
+        val atRightEdge = BoundingBox(700.0, 100.0, 600.0, 500.0)
+        assertEquals(480.0, searchPopupPosition(atRightEdge, 520.0, screen).x)
+        val narrowScreen = Rectangle2D(0.0, 0.0, 400.0, 800.0)
+        assertEquals(0.0, searchPopupPosition(editor, 520.0, narrowScreen).x, "never past the left edge")
+    }
+
+    @Test
     fun `a popup goes below its anchor, above when only there it fits, and stays on the screen`() {
         val anchor = BoundingBox(100.0, 300.0, 8.0, 16.0)
         assertEquals(Point2D(100.0, 316.0), popupPosition(anchor, 300.0, 200.0, screen))

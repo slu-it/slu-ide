@@ -1,12 +1,24 @@
 /*
- * The popups of the code intelligence (CaretPopup, HoverPopup, the signature popup), added to their content: popups do
- * not inherit the editor's stylesheets. Modena's looked-up colours, so it follows the theme (theme.css re-tints popups
- * too), except the colours of the completion kind icons, which have dark counterparts below.
+ * The popups of the code intelligence (CaretPopup, HoverPopup, the signature popup, SearchPopup, the rename field),
+ * added to their content: popups do not inherit the editor's stylesheets. Modena's looked-up colours, so it follows the
+ * theme (theme.css re-tints popups too), except the colours of the completion kind icons, which have dark counterparts
+ * below.
  */
 
-.caret-popup, .hover-popup {
+.caret-popup, .hover-popup, .search-popup, .rename-popup {
     -fx-background-color: -fx-control-inner-background;
     -fx-border-color: -fx-box-border;
+}
+
+/* The search popup (file structure, go to symbol): its query field over the list, which draws no border of its own. */
+.search-popup {
+    -fx-padding: 4;
+    -fx-spacing: 4;
+}
+
+/* The rename field at the name. */
+.rename-popup {
+    -fx-padding: 4;
 }
 
 /* The list draws no border of its own inside the popup's. */
@@ -129,7 +141,7 @@
  * Completion kind icons (CompletionKinds.kt): one looked-up colour per group, set on the popup and overridden for the
  * dark theme; items of other kinds keep the text colour.
  */
-.caret-popup {
+.caret-popup, .search-popup {
     -ci-kind-callable: #7b3fa0;
     -ci-kind-type: #a75a00;
     -ci-kind-value: #1f6fb2;
@@ -137,7 +149,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-    .caret-popup {
+    .caret-popup, .search-popup {
         -ci-kind-callable: #c792ea;
         -ci-kind-type: #e5a55a;
         -ci-kind-value: #6cb6ff;
