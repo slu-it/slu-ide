@@ -349,7 +349,7 @@ class MainWindow(
                                 showSettings = { showSettings(stage) },
                             ),
                             viewMenu(explorerBar.canSelectOpened),
-                            navigateMenu(codeIntelligence.intelligence),
+                            navigateMenu(codeIntelligence.intelligence, stage),
                             gitLog.gitMenu(),
                             tools.terminalMenu(stage),
                             tools.dockerSandboxMenu(stage),
