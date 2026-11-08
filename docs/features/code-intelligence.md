@@ -77,5 +77,28 @@ the window moves or is minimized.
   starting)"), the context menu items say it in their label, and the Navigate menu shows them disabled, as it does
   when no Python editor has the focus.
 
+## Completion and documentation
+Decision in [ADR 0147](../adr/0147-completion-signature-help-and-docs.md).
+- **Completion** opens by itself after a typed `.` (and the other characters the server names; ty also `"` and `'`)
+  and, 0.1 s after the last key, while typing a name (from its first letter, not in numbers); **Ctrl+Space** (Ctrl on
+  macOS too) opens it at the caret, showing "Searching…" until the server answers. Undo, redo, paste and a selection
+  never open it. While it shows, typing narrows the list at once, best matches first: names starting with what you
+  typed, then those whose parts start with it (`gcw` finds `get_cwd`), then those containing its letters in order; at
+  most 200. The server is asked again as you type, so the list fills in.
+- Each row shows an icon for the kind (function, class, variable, module…; ty's attributes count as attributes), the
+  name and, at the right, its type or signature, shortened. Beside the list: the selected item's signature and
+  documentation.
+- **Enter** inserts the selected name, **Tab** replaces the whole word under the caret with it. An import the server
+  adds with it (ty's auto-import) comes in the same step: one **Shortcut+Z** undoes both. If you typed on after the
+  list was asked for, the import is still added when it lies above the place you typed (it usually does).
+- It closes on **Escape**, when the caret leaves the word (a space, another `.`), when nothing matches the server's
+  latest answer, and when the editor loses the focus.
+- **Signature help** shows above the line when you type `(` or `,` in a call, and on **Shortcut+P**: the parameters
+  with the current one in bold, "2 of 3" for overloads, and the docs below. It follows as you type in the call and
+  closes when the caret leaves it (the server knows no call there any more), on **Escape** and on focus loss. With
+  the completion open too, the first Escape closes the signature, the next the completion.
+- **Hover** (and F1) shows the server's type and docs for the name under the mouse, as formatted text: code blocks in
+  monospace, bold, italics, lists; links show as plain text.
+
 ## Keys
 See [keyboard-shortcuts.md](keyboard-shortcuts.md), "Code intelligence".

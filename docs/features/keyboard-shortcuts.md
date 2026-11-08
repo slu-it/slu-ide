@@ -83,6 +83,12 @@ keys of a popup are taken only while it shows, before the editor's own; otherwis
 | Enter, and Tab where the feature allows it (caret popup shown) | Take the selected item |
 | Escape (caret popup shown) | Close the popup |
 | Double-click on an item (caret popup) | Take it |
+| Ctrl+Space (Ctrl on macOS too) | Completion at the caret (also opens by itself after a typed `.` or while typing a name) |
+| Enter / Tab (completion shown) | Insert the selected item / replace the whole word with it |
+| Up / Down, Page Up / Page Down, Home / End (completion shown) | Choose the item, as in every caret popup |
+| Escape (completion shown) | Close the completion |
+| Shortcut+P | Signature help at the caret (also opens by itself after a typed `(` or `,` in a call) |
+| Escape (signature help shown) | Close the signature help (first, when the completion shows too) |
 
 ## Side-by-side diff
 [git-diff.md](git-diff.md)
