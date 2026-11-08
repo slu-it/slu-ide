@@ -55,7 +55,14 @@ internal class ServerBanner(
             (banner.lookup("#code-intelligence-progress") as? ProgressBar)?.progress = notice.progress
             (banner.children.first() as? Label)?.text = noticeText(notice)
         } else {
-            banner.children.setAll(listOf(Label(noticeText(notice)).apply { isWrapText = true }) + controls(notice))
+            banner.children.setAll(
+                listOf(
+                    Label(noticeText(notice)).apply {
+                        isWrapText = true
+                        minWidth = 0.0
+                    },
+                ) + controls(notice),
+            )
         }
         if (handle == null) handle = editor.addBanner(banner)
     }
@@ -101,6 +108,8 @@ internal class ServerBanner(
     ) = Button(label).apply {
         id = "code-intelligence-$name"
         isFocusTraversable = false
+        // Never squeezed to "Canc…" in a narrow view; the message wraps instead (as the editor's own banners).
+        minWidth = Region.USE_PREF_SIZE
         setOnAction { action() }
     }
 }
