@@ -8,6 +8,9 @@ interface ServerInstaller {
     /** Whether the server can run; changes on the FX thread. */
     val availability: ObservableValue<ServerAvailability>
 
+    /** The name users know the installed server by, for the install banner: `ty`; `null` says "its language server". */
+    val toolName: String? get() = null
+
     /** Starts installing, shown as a cancellable row in [tasks] if given; does nothing while installing. */
     fun install(tasks: BackgroundTasks?)
 

@@ -82,6 +82,8 @@ class TyInstaller internal constructor(
      */
     override val availability: ObservableValue<ServerAvailability> get() = availabilityBinding
 
+    override val toolName = "ty"
+
     init {
         tools.current.subscribe { tool -> installedExecutable = tool?.executable }
         lastExecutable = configuredExecutable()
