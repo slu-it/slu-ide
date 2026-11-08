@@ -55,7 +55,7 @@ class ProcessDockerCliTest {
                   "images "*) case "${'$'}*" in *dangling*) cat "${'$'}STUB/dangling.jsonl" ;; *) cat "${'$'}STUB/images.jsonl" ;; esac ;;
                   "volume ls") case "${'$'}*" in *dangling*) echo sluidefx-data ;; *) cat "${'$'}STUB/volumes.jsonl" ;; esac ;;
                   "stop "*) echo "Error response from daemon: No such container: ${'$'}2" >&2; exit 1 ;;
-                  "pull slow"*) echo "Pulling"; echo ${'$'}${'$'} > "${'$'}STUB/pid"; exec sleep 30 ;;
+                  "pull slow"*) echo ${'$'}${'$'} > "${'$'}STUB/pid"; echo "Pulling"; exec sleep 30 ;;
                   "run "*) case "${'$'}*" in *fail*) echo "boom" >&2; exit 1 ;; *noid*) echo "Unable to find image" >&2 ;; *) echo "Unable to find image" >&2; echo "  id-from-stub  " ;; esac ;;
                   "pull "*) echo "5.2: Pulling from library/bash"; echo "Digest: sha256:abc" >&2; echo "Status: Downloaded newer image" ;;
                   "events "*)
