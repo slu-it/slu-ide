@@ -212,8 +212,12 @@ class CompletionModelTest {
         asked(1).single().answer(Either.forLeft(listOf(path, sep)))
         awaitTrue("shown") { lastShown() == listOf("path", "sep") }
 
+        // Each resolve reaches the server before the next selection cancels it: a request cancelled before it is
+        // sent never arrives, so the count would depend on the outbound thread's timing.
         bound.fx.onFx { model.detailOf(path) }
+        awaitTrue("path asked") { bound.server.resolved.size == 1 }
         bound.fx.onFx { model.detailOf(sep) }
+        awaitTrue("sep asked") { bound.server.resolved.size == 2 }
         bound.fx.onFx { model.detailOf(path) }
         awaitTrue("path asked again") { bound.server.resolved.size == 3 }
         assertEquals(listOf("path", "sep", "path"), bound.server.resolved.map { it.params.label })
