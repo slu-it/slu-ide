@@ -1,13 +1,33 @@
 /*
  * The popups of the code intelligence (CaretPopup, HoverPopup, the signature popup, SearchPopup, the rename field),
  * added to their content: popups do not inherit the editor's stylesheets. Modena's looked-up colours, so it follows the
- * theme (theme.css re-tints popups too), except the colours of the completion kind icons, which have dark counterparts
- * below.
+ * theme (theme.css re-tints popups too), except the popups' dark fill and edge and the colours of the completion kind
+ * icons, which have their own rules below.
  */
 
 .caret-popup, .hover-popup, .search-popup, .rename-popup {
     -fx-background-color: -fx-control-inner-background;
     -fx-border-color: -fx-box-border;
+}
+
+/*
+ * Dark: the editor's fill (#2b2b2b) and Modena's border, darker than that, made the popups vanish into the text below.
+ * They get a fill a little brighter than the editor, which their lists and scroll panes take up through the looked-up
+ * colours (alt keeps the list rows' stripe), and a light edge. Single classes only (ADR 0009).
+ */
+@media (prefers-color-scheme: dark) {
+    .caret-popup, .hover-popup, .search-popup, .rename-popup, .signature-popup {
+        -fx-control-inner-background: #35383a;
+        -fx-control-inner-background-alt: #3a3d40;
+        -fx-box-border: #6b6f73;
+    }
+
+    /* The fields keep theme.css's input look, a fill a little brighter than the popup's and an edge lighter than that
+       (keep in sync with theme.css .text-input, one step up). */
+    .search-popup-field, .rename-field {
+        -fx-control-inner-background: #3f4245;
+        -fx-text-box-border: #6b6f73;
+    }
 }
 
 /* The search popup (file structure, go to symbol): its query field over the list, which draws no border of its own. */
