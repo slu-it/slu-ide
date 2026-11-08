@@ -56,9 +56,14 @@ class CodeIntelligence internal constructor(
     /**
      * @param languageServers the window's servers.
      * @param prompts the user's Don't Ask Again answers of the install banner.
+     * @param libraryReadOnly whether workspace edits refuse closed library files (ADR 0150); any thread.
      */
-    constructor(languageServers: LanguageServers, prompts: InstallPrompts) :
-        this(languageServers, FXCollections.observableSet(), { notNow -> builtInFeatures(notNow, prompts, navigation) })
+    constructor(languageServers: LanguageServers, prompts: InstallPrompts, libraryReadOnly: () -> Boolean) :
+        this(
+            languageServers,
+            FXCollections.observableSet(),
+            { notNow -> builtInFeatures(notNow, prompts, navigation, libraryReadOnly) },
+        )
 
     private val attachments = LinkedHashSet<EditorAttachment>()
 
@@ -232,14 +237,15 @@ internal fun builtInFeatures(
     notNow: ObservableSet<String>,
     prompts: InstallPrompts,
     navigation: Navigation,
+    libraryReadOnly: () -> Boolean,
 ): List<BindingFeature> =
     listOf(
         ServerBannerFeature(notNow, prompts),
         NavigationFeature(navigation),
         OccurrencesFeature(),
-        RenameFeature(),
+        RenameFeature(libraryReadOnly),
         FileStructureFeature(navigation),
-        DiagnosticsFeature(),
+        DiagnosticsFeature(libraryReadOnly),
         SemanticTokensFeature(),
         CompletionFeature(),
         SignatureFeature(),

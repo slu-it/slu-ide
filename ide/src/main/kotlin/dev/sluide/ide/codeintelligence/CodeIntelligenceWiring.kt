@@ -10,6 +10,7 @@ import dev.sluide.ide.WINDOW_SCOPE
 import dev.sluide.languageservers.LanguageServerSpec
 import dev.sluide.languageservers.LanguageServers
 import dev.sluide.languageservers.TrustGate
+import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.projecttrust.ProjectTrust
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -28,6 +29,7 @@ class CodeIntelligenceWiring(
     projectTrust: ProjectTrust,
     fileWatcher: FileWatcher,
     prompts: InstallPrompts,
+    libraryCode: LibraryCodeSettings,
 ) : AutoCloseable {
     /** The window's servers; servers trust-gate on the window's project trust (ADR 0053). */
     val languageServers =
@@ -39,7 +41,7 @@ class CodeIntelligenceWiring(
         )
 
     /** The code intelligence of the window's editors, also behind the Navigate menu (ADR 0146). */
-    val intelligence = CodeIntelligence(languageServers, prompts)
+    val intelligence = CodeIntelligence(languageServers, prompts, libraryCode::currentReadOnly)
 
     /** The extension that binds the window's code editors to the servers. */
     val editorExtension: CodeEditorExtension get() = intelligence

@@ -83,7 +83,7 @@ internal class RenameUiTest : EditorUiFixture() {
             )
         }
         intelligence =
-            fx { CodeIntelligence(servers.servers, FXCollections.observableSet()) { listOf(RenameFeature()) } }
+            fx { CodeIntelligence(servers.servers, FXCollections.observableSet()) { listOf(RenameFeature({ false })) } }
         val editor = open(robot, file, text, listOf(intelligence))
         robot.interact {
             area().requestFocus()

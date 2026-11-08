@@ -84,7 +84,7 @@ internal class DiagnosticsUiTest : EditorUiFixture() {
         intelligence =
             fx {
                 CodeIntelligence(servers.servers, FXCollections.observableSet()) {
-                    listOf(DiagnosticsFeature(), doc, HoverFeature(restDelay = 50.milliseconds))
+                    listOf(DiagnosticsFeature({ false }), doc, HoverFeature(restDelay = 50.milliseconds))
                 }
             }
         val editor = open(robot, file, "p = Path()\n", listOf(intelligence))

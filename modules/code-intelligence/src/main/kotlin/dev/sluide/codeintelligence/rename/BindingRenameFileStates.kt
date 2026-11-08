@@ -3,6 +3,7 @@ package dev.sluide.codeintelligence.rename
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.codeintelligence.binding.DocumentBinding
 import dev.sluide.codeintelligence.edits.readDiskText
+import dev.sluide.librarycode.LibraryCode
 import javafx.application.Platform
 import java.io.IOException
 import java.nio.file.Files
@@ -13,12 +14,13 @@ private val log = System.getLogger(BindingRenameFileStates::class.java.name)
 /**
  * How the files of a rename stand in [binding]'s window: bound editors by their unsaved state, read on the FX thread;
  * other open editors compared with the disk and closed files found missing, inside or outside the project on [io], as
- * the workspace edit will find them (ADR 0148). [done][RenameFileStates.of] runs on [fx].
+ * the workspace edit will find them (ADR 0148, library code ADR 0150). [done][RenameFileStates.of] runs on [fx].
  */
 internal class BindingRenameFileStates(
     private val binding: DocumentBinding,
     private val io: (Runnable) -> Unit = { NamedThreads.virtual("sluide-rename-preview", it) },
     private val fx: (Runnable) -> Unit = Platform::runLater,
+    private val libraryReadOnly: () -> Boolean = { false },
 ) : RenameFileStates {
     override fun of(
         files: List<Path>,
@@ -57,8 +59,7 @@ internal class BindingRenameFileStates(
                     found[file] =
                         when {
                             !Files.isRegularFile(file) -> RenameFileState.MISSING
-                            isInside(file, projectFolder) -> RenameFileState.CLOSED
-                            else -> RenameFileState.OUTSIDE
+                            else -> stateOfClosed(file, projectFolder)
                         }
                 }
             } catch (e: RuntimeException) {
@@ -68,19 +69,35 @@ internal class BindingRenameFileStates(
         }
     }
 
+    /** CLOSED, LIBRARY or OUTSIDE for the existing [file], by real paths as the workspace edit finds it. */
+    private fun stateOfClosed(
+        file: Path,
+        projectFolder: Path?,
+    ): RenameFileState {
+        val project = realFolder(projectFolder)
+        val real = realPath(file)
+        return when {
+            project == null || real == null || !real.startsWith(project) -> RenameFileState.OUTSIDE
+            libraryReadOnly() && LibraryCode.locate(real, project) != null -> RenameFileState.LIBRARY
+            else -> RenameFileState.CLOSED
+        }
+    }
+
     private companion object {
         val BOM = Char(0xFEFF).toString()
     }
 }
 
-/** Whether the existing [file] lies inside [projectFolder] by real paths, as a workspace edit checks closed files. */
-private fun isInside(
-    file: Path,
-    projectFolder: Path?,
-): Boolean =
+private fun realFolder(folder: Path?): Path? =
     try {
-        val project = projectFolder?.takeIf { Files.isDirectory(it) }?.toRealPath()
-        project != null && file.toRealPath().startsWith(project)
+        folder?.takeIf { Files.isDirectory(it) }?.toRealPath()
     } catch (_: IOException) {
-        false
+        null
+    }
+
+private fun realPath(file: Path): Path? =
+    try {
+        file.toRealPath()
+    } catch (_: IOException) {
+        null
     }

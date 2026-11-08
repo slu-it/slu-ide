@@ -45,7 +45,16 @@ class WorkspaceEditsTest {
     /** The file work and what it hands back to the FX thread, in order, run by the test with [runIo]. */
     private val ioTasks = ArrayDeque<Runnable>()
 
-    private val edits by lazy { WorkspaceEdits(target, io = { ioTasks.addLast(it) }, fx = { ioTasks.addLast(it) }) }
+    private var libraryReadOnly = true
+
+    private val edits by lazy {
+        WorkspaceEdits(
+            target,
+            io = { ioTasks.addLast(it) },
+            fx = { ioTasks.addLast(it) },
+            libraryReadOnly = { libraryReadOnly },
+        )
+    }
 
     private fun runIo() {
         while (ioTasks.isNotEmpty()) ioTasks.removeFirst().run()
@@ -214,6 +223,51 @@ class WorkspaceEditsTest {
         outside.writeText("o\n")
         assertEquals(listOf("other.py: outside the project."), apply(changesOf(outside to insert(0, "x")))?.failures)
         assertEquals("o\n", outside.readText())
+    }
+
+    @Test
+    fun `a closed library file in the project is refused while library code is read-only, written otherwise`() {
+        val venv = dir.resolve(".venv")
+        Files.createDirectories(venv)
+        venv.resolve("pyvenv.cfg").writeText("home = /usr/bin\n")
+        val library = venv.resolve("lib.py")
+        library.writeText("l\n")
+        val ordinary = dir.resolve("ordinary.py")
+        ordinary.writeText("o\n")
+
+        assertEquals(
+            listOf("lib.py: library code (virtual environment .venv)."),
+            apply(changesOf(library to insert(0, "x"), ordinary to insert(0, "x")))?.failures,
+        )
+        assertEquals("l\n", library.readText())
+        assertEquals("o\n", ordinary.readText(), "refused before anything is written")
+
+        assertEquals(emptyList(), apply(changesOf(ordinary to insert(0, "x")))?.failures)
+        assertEquals("xo\n", ordinary.readText())
+
+        libraryReadOnly = false
+        assertEquals(emptyList(), apply(changesOf(library to insert(0, "x")))?.failures)
+        assertEquals("xl\n", library.readText())
+    }
+
+    @Test
+    fun `a link to a library folder in the project is library code too`() {
+        val inner = dir.resolve(".venv")
+        Files.createDirectories(inner.resolve("lib"))
+        inner.resolve("pyvenv.cfg").writeText("home = /usr/bin\n")
+        val library = inner.resolve("lib/pkg.py")
+        library.writeText("l\n")
+        try {
+            Files.createSymbolicLink(dir.resolve("alias"), inner.resolve("lib"))
+        } catch (_: UnsupportedOperationException) {
+            assumeFalse(true, "no symbolic links")
+        }
+
+        assertEquals(
+            listOf("pkg.py: library code (virtual environment .venv)."),
+            apply(changesOf(dir.resolve("alias/pkg.py") to insert(0, "x")))?.failures,
+        )
+        assertEquals("l\n", library.readText())
     }
 
     private fun changesOf(vararg edits: Pair<Path, TextEdit>) =

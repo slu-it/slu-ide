@@ -16,9 +16,14 @@ import javafx.scene.control.MenuItem
  * reason while the server cannot rename. The flow is [Rename].
  */
 internal class RenameFeature(
+    libraryReadOnly: () -> Boolean,
     private val view: (ExtensibleCodeEditor) -> RenameView = ::RenamePopupView,
-    private val edits: (WorkspaceEditTarget) -> WorkspaceEdits = { WorkspaceEdits(it) },
-    private val states: (DocumentBinding) -> RenameFileStates = { BindingRenameFileStates(it) },
+    private val edits: (
+        WorkspaceEditTarget,
+    ) -> WorkspaceEdits = { WorkspaceEdits(it, libraryReadOnly = libraryReadOnly) },
+    private val states: (
+        DocumentBinding,
+    ) -> RenameFileStates = { BindingRenameFileStates(it, libraryReadOnly = libraryReadOnly) },
 ) : BindingFeature {
     override fun attach(binding: DocumentBinding): AutoCloseable {
         val editor = binding.editor

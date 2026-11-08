@@ -98,12 +98,19 @@ class BindingRenameFileStatesTest {
         val closed = folder.resolve("c.py").also { it.writeText("run\n") }
         val outside = elsewhere.resolve("lib.py").also { it.writeText("run\n") }
         val missing = folder.resolve("gone.py")
-        val files = listOf(clean, dirty, saved, unsaved, closed, outside, missing)
+        val venv = folder.resolve(".venv").also { Files.createDirectories(it) }
+        venv.resolve("pyvenv.cfg").writeText("home = /usr/bin\n")
+        val library = venv.resolve("lib.py").also { it.writeText("run\n") }
+        val files = listOf(clean, dirty, saved, unsaved, closed, outside, missing, library)
 
         val found = CompletableFuture<Map<Path, RenameFileState>>()
         fx.onFx {
-            BindingRenameFileStates(checkNotNull(bindings[clean]), io = Runnable::run, fx = Runnable::run)
-                .of(files) { found.complete(it) }
+            BindingRenameFileStates(
+                checkNotNull(bindings[clean]),
+                io = Runnable::run,
+                fx = Runnable::run,
+                libraryReadOnly = { true },
+            ).of(files) { found.complete(it) }
         }
         assertEquals(
             mapOf(
@@ -114,6 +121,7 @@ class BindingRenameFileStatesTest {
                 closed to RenameFileState.CLOSED,
                 outside to RenameFileState.OUTSIDE,
                 missing to RenameFileState.MISSING,
+                library to RenameFileState.LIBRARY,
             ),
             found.get(5, TimeUnit.SECONDS),
         )

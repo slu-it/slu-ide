@@ -1,5 +1,6 @@
 package dev.sluide.codeintelligence.edits
 
+import dev.sluide.librarycode.LibraryCode
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
@@ -34,17 +35,26 @@ internal class ClosedFileText(
 
 /**
  * Reads [file] for a workspace edit, off the FX thread; throws [EditRefusedException] for a file that is missing,
- * outside [projectFolder] (by real paths; `null` is no project), read-only, larger than [MAX_CLOSED_FILE_BYTES], not
+ * outside [projectFolder] (by real paths; `null` is no project), library code while [libraryReadOnly] (ADR 0150),
+ * read-only, larger than [MAX_CLOSED_FILE_BYTES], not
  * UTF-8 or unreadable.
  */
 internal fun readClosedFile(
     file: Path,
     projectFolder: Path?,
+    libraryReadOnly: Boolean = false,
 ): ClosedFileText {
     try {
         if (!Files.isRegularFile(file)) throw EditRefusedException("does not exist")
         val project = projectFolder?.takeIf { Files.isDirectory(it) }?.toRealPath()
-        if (project == null || !file.toRealPath().startsWith(project)) throw EditRefusedException("outside the project")
+        val real = file.toRealPath()
+        if (project == null || !real.startsWith(project)) throw EditRefusedException("outside the project")
+        if (libraryReadOnly) {
+            // Real paths, as the write goes through them: a link into a library is library code.
+            LibraryCode.locate(real, project)?.let {
+                throw EditRefusedException("library code (${it.description})")
+            }
+        }
         if (!Files.isWritable(file)) throw EditRefusedException("read-only")
         if (Files.size(file) > MAX_CLOSED_FILE_BYTES) throw EditRefusedException("larger than 10 MiB")
         val bytes = Files.readAllBytes(file)

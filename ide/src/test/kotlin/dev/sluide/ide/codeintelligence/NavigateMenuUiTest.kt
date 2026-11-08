@@ -174,7 +174,7 @@ internal class NavigateMenuUiTest {
         servers = FakeLanguageServers(listOf(spec), dir, dispatch = Platform::runLater) { Server() }
         servers.awaitRunning(spec)
         val prompts = InstallPrompts(ProjectDataStore(dir.resolve("p"), dir.resolve("shared.json"), emptyList()))
-        intelligence = fx { CodeIntelligence(servers.servers, prompts) }
+        intelligence = fx { CodeIntelligence(servers.servers, prompts) { false } }
         file.writeText(text)
         var editor: ExtensibleCodeEditor? = null
         val services =

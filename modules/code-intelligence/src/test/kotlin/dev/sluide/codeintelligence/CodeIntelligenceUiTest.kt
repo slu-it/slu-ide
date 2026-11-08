@@ -53,7 +53,7 @@ internal class CodeIntelligenceUiTest : EditorUiFixture() {
         val fake = FakeLanguageServers(listOf(spec), dir, dispatch = Platform::runLater) { syncingServer() }
         servers = fake
         val prompts = InstallPrompts(ProjectDataStore(dir.resolve("p"), dir.resolve("shared.json"), emptyList()))
-        return fx { CodeIntelligence(fake.servers, prompts) }.also { intelligence = it }
+        return fx { CodeIntelligence(fake.servers, prompts) { false } }.also { intelligence = it }
     }
 
     @Test

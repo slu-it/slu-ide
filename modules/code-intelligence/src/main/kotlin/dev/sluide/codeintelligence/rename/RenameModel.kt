@@ -117,6 +117,9 @@ internal enum class RenameFileState(
     /** Closed and outside the project: not written. */
     OUTSIDE("outside the project", "is outside the project"),
 
+    /** Closed library code while library code is read-only (ADR 0150): not written. */
+    LIBRARY("library code", "is library code"),
+
     /** Not open and not a file on disk (deleted since the server read it): nothing to write. */
     MISSING("does not exist", "does not exist"),
 }

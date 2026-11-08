@@ -24,9 +24,12 @@ internal val DIAGNOSTICS_CSS: String =
  * @param workspaceEdits how a binding's workspace edits are applied.
  */
 internal class DiagnosticsFeature(
+    libraryReadOnly: () -> Boolean,
     private val pullDelay: Duration = 300.milliseconds,
     private val schedule: (Duration, () -> Unit) -> AutoCloseable = ::fxDelay,
-    private val workspaceEdits: (DocumentBinding) -> WorkspaceEdits = { WorkspaceEdits(BindingEditTarget(it)) },
+    private val workspaceEdits: (
+        DocumentBinding,
+    ) -> WorkspaceEdits = { WorkspaceEdits(BindingEditTarget(it), libraryReadOnly = libraryReadOnly) },
 ) : BindingFeature {
     private val gutters = WeakHashMap<ExtensibleCodeEditor, DiagnosticsGutter>()
 

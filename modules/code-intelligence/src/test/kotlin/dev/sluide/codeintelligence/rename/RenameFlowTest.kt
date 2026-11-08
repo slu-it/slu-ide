@@ -88,6 +88,7 @@ class RenameFlowTest {
         server = fx.fake.awaitRunning(spec) as SymbolServer
         val feature =
             RenameFeature(
+                libraryReadOnly = { false },
                 view = { view },
                 edits = { target ->
                     WorkspaceEdits(target, io = { Thread(it).start() }, fx = { fx.onFx { it.run() } })

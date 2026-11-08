@@ -68,6 +68,7 @@ import dev.sluide.ide.speech.NoSpeechEngine
 import dev.sluide.ide.translation.NoLanguageDetector
 import dev.sluide.ide.translation.NoTranslationEngine
 import dev.sluide.ide.translation.noModelInstaller
+import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.PlaybackCoordinator
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.ProjectPicker
@@ -432,8 +433,14 @@ abstract class MainWindowUiFixture {
             // Only its folder and capturing flag are read; the tests replace the capture.
             Diagnostics(),
             softWrap,
-            CodeIntelligenceWiring(emptyList(), projectService, projectTrust, watcher, InstallPrompts(projectData))
-                .also(codeIntelligences::add),
+            CodeIntelligenceWiring(
+                emptyList(),
+                projectService,
+                projectTrust,
+                watcher,
+                InstallPrompts(projectData),
+                LibraryCodeSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
+            ).also(codeIntelligences::add),
         )
     }
 

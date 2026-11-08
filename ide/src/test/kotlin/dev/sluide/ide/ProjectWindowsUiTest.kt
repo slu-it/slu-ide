@@ -65,6 +65,7 @@ import dev.sluide.ide.speech.NoSpeechEngine
 import dev.sluide.ide.translation.NoLanguageDetector
 import dev.sluide.ide.translation.NoTranslationEngine
 import dev.sluide.ide.translation.noModelInstaller
+import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.PlaybackCoordinator
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.ProjectPicker
@@ -269,6 +270,7 @@ class ProjectWindowsUiTest {
                     OrbitGuard::class.java,
                     BlockBreaker::class.java,
                     CodeIntelligenceWiring::class.java,
+                    LibraryCodeSettings::class.java,
                 )
                 refresh()
             }

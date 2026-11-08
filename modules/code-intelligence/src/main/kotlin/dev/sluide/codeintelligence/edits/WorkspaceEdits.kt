@@ -120,13 +120,14 @@ internal interface WorkspaceEditTarget {
  * failed check refuses the whole edit. Then per file: a bound editor gets the edits as one undo step, another open
  * editor its new text (unsaved; only if it equals the file on disk, which the server read), a closed file in the
  * project is read (UTF-8, writable, at most 10 MiB), edited in its own line breaks and written atomically off the FX
- * thread, and the servers hear it changed. An open editor that changed while the files were read refuses the edit.
- * FX thread; [io] runs the file work.
+ * thread (not library code while [libraryReadOnly] is true, ADR 0150), and the servers hear it changed. An open
+ * editor that changed while the files were read refuses the edit. FX thread; [io] runs the file work. [libraryReadOnly] is read on the io thread, once per closed file (any thread).
  */
 internal class WorkspaceEdits(
     private val target: WorkspaceEditTarget,
     private val io: (Runnable) -> Unit = { NamedThreads.virtual("sluide-workspace-edit", it) },
     private val fx: (Runnable) -> Unit = Platform::runLater,
+    private val libraryReadOnly: () -> Boolean = { false },
 ) {
     /** Applies [edit] and tells [done] the result on the FX thread (at once when only bound editors change). */
     fun apply(
@@ -300,7 +301,7 @@ internal class WorkspaceEdits(
             return if (unsaved) ClosedEdit(failure = "$name has unsaved changes the server does not know.") else null
         }
         return try {
-            val original = readClosedFile(file, projectFolder)
+            val original = readClosedFile(file, projectFolder, libraryReadOnly())
             when (val checked = checkEdits(original.text, snapshot.fileEdits.edits, lineEndingOf(original.text))) {
                 is CheckedEdits.Invalid -> {
                     ClosedEdit(failure = "$name: ${checked.reason}.")
