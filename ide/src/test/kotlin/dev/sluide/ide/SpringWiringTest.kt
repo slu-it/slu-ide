@@ -73,6 +73,7 @@ import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
+import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.MediaFileViewer
 import dev.sluide.media.MediaPreferences
 import dev.sluide.media.PlaybackCoordinator
@@ -248,6 +249,7 @@ class SpringWiringTest {
                         PythonSettingsPage::class.java,
                         InstallPrompts::class.java,
                         CodeIntelligenceWiring::class.java,
+                        LibraryCodeSettings::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -261,6 +263,8 @@ class SpringWiringTest {
                 // Two constructors as well; creating it reads nothing (shared.json is read on first use).
                 context.getBean(MediaPreferences::class.java)
                 context.getBean(SoftWrap::class.java)
+                // Takes the SettingsStore; reads settings.properties on first use only.
+                context.getBean(LibraryCodeSettings::class.java)
                 // The cheap speech beans; KokoroEngine and the speech settings page are left out (they read the
                 // user's settings and the model), covered by the real-app check.
                 context.getBean(ModelStore::class.java)

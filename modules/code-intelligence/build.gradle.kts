@@ -23,6 +23,8 @@ dependencies {
     // Deliberate module API dependency: Don't Ask Again of the install banner is kept per language in the shared data
     // file (field `codeIntelligence`); InstallPrompts takes the ProjectDataStore (ADR 0101, ADR 0145).
     api(project(":modules:project-data"))
+    // Deliberate module dependency: library code opens read-only (ADR 0150).
+    implementation(project(":modules:library-code"))
     implementation(libs.spring.context)
     // Hover, completion and signature docs arrive as Markdown: commonmark parses it into blocks the popups show as
     // JavaFX text (ADR 0147).

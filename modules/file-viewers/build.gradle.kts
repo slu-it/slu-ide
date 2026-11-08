@@ -21,6 +21,8 @@ dependencies {
     // Deliberate module dependency: the soft wrap switch of the editors is kept in the shared data file; SoftWrap takes
     // the ProjectDataStore (ADR 0101, ADR 0130).
     implementation(project(":modules:project-data"))
+    // Deliberate module dependency: library code opens read-only (ADR 0150).
+    implementation(project(":modules:library-code"))
     // Code views: RichTextFX renders, RSyntaxTextArea only provides its lexers (ADR 0005).
     implementation(libs.richtextfx)
     implementation(libs.rsyntaxtextarea)

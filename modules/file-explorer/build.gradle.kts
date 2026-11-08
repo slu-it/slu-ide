@@ -23,6 +23,8 @@ dependencies {
     // Deliberate module API dependency: the file-type icons and their colours are shared with the git log (ADR 0012,
     // 0047), and ExplorerRoot.folderIcons takes FileIcon.
     api(project(":modules:file-icons"))
+    // Deliberate module dependency: library code opens read-only (ADR 0150).
+    implementation(project(":modules:library-code"))
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

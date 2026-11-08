@@ -83,6 +83,8 @@ dependencies {
     implementation(project(":modules:code-intelligence"))
     // Saved secrets: values encrypted with one key in the OS secret store; Secrets is a singleton (ADR 0122).
     implementation(project(":modules:secrets"))
+    // Library code opens read-only: LibraryCodeSettings is a singleton found by component scan (ADR 0150).
+    implementation(project(":modules:library-code"))
     // The explorer's Run item has a Material Design play icon, like the HTTP client's Run (ADR 0012).
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)
