@@ -46,9 +46,10 @@ built. Each needs a decision of its own.
   library's weight and the exact signer identity are not explored yet.
 
 ## Navigation
-- **Opening targets outside the project** (site-packages, ty's copies of the standard library) read-only. They open
-  today as files without code intelligence ([ADR 0146](../adr/0146-navigation.md)); editing a library by accident is
-  possible.
+- **Code intelligence in library files outside the project** (the standard library, a global site-packages, ty's
+  typeshed stubs). They open read-only ([ADR 0150](../adr/0150-library-code-read-only.md)) but without code
+  intelligence ([ADR 0146](../adr/0146-navigation.md)), so hover and further Go to Definition stop there. Serving
+  them needs the project's server to accept documents outside its workspace folder.
 - **Back and Forward following file moves and renames.** Places are file, line and column and do not follow edits or
   renames (ADR 0146); following them needs the change stream of closed tabs too.
 

@@ -9,7 +9,8 @@ the language-server client of [ADR 0142](../adr/0142-language-server-foundation.
 and `.pyw` inside the project folder. ty finds the project's virtual environment itself (`.venv` in the project
 folder, `VIRTUAL_ENV`, Conda, else `python3` on the PATH) and runs no program of the project, so it needs no trust
 question. Thoreau downloads it only on a click; the editor features are described in
-[code-intelligence.md](code-intelligence.md).
+[code-intelligence.md](code-intelligence.md). Files of virtual environments, site-packages, the standard library and
+ty's typeshed stubs open read-only ([library-code.md](library-code.md)).
 
 ## Settings → Languages → Python
 - **Status line:** "Installed: ty 0.0.99", "Installed: ty 0.1.0 (this Thoreau was tested with 0.0.99)",
