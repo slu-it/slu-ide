@@ -51,6 +51,13 @@
 
 .tab-activity-failed { -fx-fill: #d32f2f; }
 
+/* The lock of a read-only library code view (FileView.readOnlyMarked), a FontIcon, muted. */
+.tab-lock {
+    -fx-icon-color: -fx-text-base-color;
+    -fx-icon-size: 11px;
+    -fx-opacity: 0.6;
+}
+
 @media (prefers-color-scheme: dark) {
     .tab-activity-failed { -fx-fill: #ef6461; }
 }

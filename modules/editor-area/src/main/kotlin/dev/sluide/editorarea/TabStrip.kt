@@ -414,6 +414,10 @@ internal class TabStrip(
                 subscriptions += tab.pathProperty.subscribe { _ -> tooltip.text = tab.tooltip }
             }
             subscriptions += tab.activity.subscribe(::showActivity)
+            if (tab is OpenFile) {
+                subscriptions +=
+                    bindTabLock(this, title, tab.editor.readOnlyMarked, this@TabStrip::requestLayout)
+            }
             // Pressing the close button must not select the tab first. Consuming the press on the button instead
             // would keep the button from arming, so it would never fire.
             setOnMousePressed { event ->

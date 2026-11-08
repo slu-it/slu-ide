@@ -55,6 +55,10 @@
   runs something (`ViewActivity.RUNNING`, style class `tab-activity-running`) and a red dot after it failed
   (`FAILED`, `tab-activity-failed`, lighter in the dark theme); nothing for `NONE`. The view decides how long a
   failure shows (e.g. until its tab is shown again); the tab only displays it.
+- A file tab whose view is read-only locked as library code (`FileView.readOnlyMarked`, see
+  [library-code.md](library-code.md)) shows a small muted lock icon (style class `tab-lock`, tooltip "Library code,
+  read-only") right before its title, so after the activity marker when both show. It goes away when the flag turns
+  false; tabs that are no files never show it.
 - Dragging a tab header (not its ×) with the left mouse button moves the tab once the mouse has moved more than 5 px in x or y: the
   header follows the mouse inside the tab row, and the other tabs make room as soon as its right edge passes the
   centre of the tab to its right, or its left edge the centre of the tab to its left. Releasing the button drops it

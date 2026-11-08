@@ -355,6 +355,7 @@ abstract class EditorAreaUiFixture {
         override val node = Label(name)
         override var closeWarning: String? = null
         override val activity = SimpleObjectProperty(ViewActivity.NONE)
+        override val readOnlyMarked = SimpleBooleanProperty(false)
 
         override fun reload() {}
     }

@@ -18,6 +18,8 @@ dependencies {
     // Deliberate module API dependency: file views use the editor font from the settings (ADR 0008).
     api(project(":modules:settings"))
     implementation(libs.spring.context)
+    implementation(libs.ikonli.javafx)
+    implementation(libs.ikonli.materialdesign2)
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

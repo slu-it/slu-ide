@@ -35,7 +35,8 @@ install." with **Edit Anyway**.
 - A tab with unsaved changes is never locked when the setting is turned on again: it stays unlocked like Edit Anyway,
   so that Save keeps working.
 - While locked, the tab shows a lock icon before its name (tooltip "Library code, read-only"), bound to
-  `FileView.readOnlyMarked` ([editor-tabs.md](editor-tabs.md)).
+  `FileView.readOnlyMarked` (`TabLockMarker.kt`, style class `tab-lock`, muted by opacity, so it follows both themes;
+  it goes as soon as the flag turns false; [editor-tabs.md](editor-tabs.md)).
 
 ## Explorer and closed files
 

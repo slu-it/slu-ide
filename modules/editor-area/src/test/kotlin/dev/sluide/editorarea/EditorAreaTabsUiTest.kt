@@ -563,6 +563,39 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
     }
 
     @Test
+    fun `a file tab shows a lock with its tooltip before the title while its view is marked read-only`(robot: FxRobot) {
+        val viewer = BusyViewer()
+        val area = areaWith(robot, viewer)
+        robot.interact { area.open(textFile("lib.busy")) }
+        val view = viewer.views.single()
+        val header = tabLabel(robot, "lib.busy").parent
+
+        fun locks() = header.childrenUnmodifiable.filter { TAB_LOCK_STYLE_CLASS in it.styleClass }
+        assertEquals(0, locks().size)
+
+        robot.interact { view.readOnlyMarked.set(true) }
+        assertEquals(1, locks().size)
+        assertEquals(0, header.childrenUnmodifiable.indexOf(locks().single()))
+        assertSame(header.childrenUnmodifiable[1], tabLabel(robot, "lib.busy"))
+        val tooltip = locks().single().properties["javafx.scene.control.Tooltip"] as javafx.scene.control.Tooltip
+        assertEquals(TAB_LOCK_TEXT, tooltip.text)
+
+        robot.interact { view.activity.set(ViewActivity.RUNNING) }
+        assertEquals(1, locks().size, "the lock stays beside the activity marker")
+        assertEquals(1, header.childrenUnmodifiable.indexOf(locks().single()), "the lock follows the activity marker")
+        assertSame(header.childrenUnmodifiable[2], tabLabel(robot, "lib.busy"))
+
+        robot.interact { view.readOnlyMarked.set(false) }
+        assertEquals(0, locks().size)
+
+        robot.interact { view.readOnlyMarked.set(true) }
+        robot.interact { area.closeAll() }
+        robot.interact { view.readOnlyMarked.set(false) }
+        robot.interact { view.readOnlyMarked.set(true) }
+        assertEquals(0, locks().size, "a closed tab's header no longer follows its view")
+    }
+
+    @Test
     fun `a tab that is no file shows its activity as a marker too`(robot: FxRobot) {
         val busy = BusyTab()
         robot.interact { editor.open(busy) }
