@@ -1,0 +1,71 @@
+/*
+ * The popups of the code intelligence (CaretPopup, HoverPopup), added to their content: popups do not inherit the
+ * editor's stylesheets. Only Modena's looked-up colours, so it follows the theme (theme.css re-tints popups too) and
+ * needs no dark rules.
+ */
+
+.caret-popup, .hover-popup {
+    -fx-background-color: -fx-control-inner-background;
+    -fx-border-color: -fx-box-border;
+}
+
+/* The list draws no border of its own inside the popup's. */
+.caret-popup-list {
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+    -fx-border-width: 0;
+}
+
+.caret-popup-cell {
+    -fx-padding: 0 8 0 4;
+}
+
+/* The focus stays in the editor, so the list never has it: its selection is shown as if it had. */
+.caret-popup-list .caret-popup-cell:filled:selected {
+    -fx-background: -fx-selection-bar;
+    -fx-background-color: -fx-selection-bar;
+}
+
+.caret-popup-row {
+    -fx-spacing: 6;
+}
+
+.caret-popup-icon {
+    -fx-min-width: 16;
+    -fx-pref-width: 16;
+}
+
+.caret-popup-icon .ikonli-font-icon {
+    -fx-icon-size: 14;
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.caret-popup-secondary {
+    -fx-opacity: 0.7;
+}
+
+.caret-popup-placeholder {
+    -fx-padding: 4 8 4 8;
+    -fx-opacity: 0.7;
+}
+
+.caret-popup-detail {
+    -fx-pref-width: 360;
+    -fx-max-height: 300;
+    -fx-padding: 6 8 6 8;
+    -fx-border-color: transparent transparent transparent -fx-box-border;
+}
+
+.hover-popup {
+    -fx-max-width: 640;
+    -fx-max-height: 400;
+}
+
+.hover-popup > .viewport {
+    -fx-background-color: -fx-control-inner-background;
+}
+
+.hover-sections {
+    -fx-padding: 6 8 6 8;
+    -fx-spacing: 6;
+}
