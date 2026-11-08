@@ -110,7 +110,8 @@ class ExplorerBarUiTest : FileExplorerViewUiFixture() {
         val unwatched = FileWatcher(Platform::runLater, 50.milliseconds).apply { close() }
         lateinit var manual: FileExplorerView
         robot.interact {
-            manual = FileExplorerView(unwatched, fontSettings, ExplorerClipboard(), explorerSettings)
+            manual =
+                FileExplorerView(unwatched, fontSettings, ExplorerClipboard(), explorerSettings, libraryCodeSettings)
             val manualBar = ExplorerBar(manual, opened, {}, "Alt+F1", collapse = {})
             view.scene.root = VBox(manualBar, manual)
             manual.open(project)

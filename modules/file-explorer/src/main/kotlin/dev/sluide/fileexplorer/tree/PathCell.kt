@@ -37,10 +37,18 @@ internal class PathCell(
     private val dropTarget: ObservableValue<TreeItem<Path>?>,
     cutChanges: Observable,
     private val isCut: (Path) -> Boolean,
+    /** [dev.sluide.librarycode.LibraryCodeSettings.readOnly]: the library folder icons are shown while it is true. */
+    private val libraryReadOnly: ObservableValue<Boolean>,
 ) : TreeCell<Path>() {
     private val pathTooltip = Tooltip()
     private val icon = FontIcon().apply { iconSizeProperty().bind(fileIconSize) }
     private val iconUpdater = InvalidationListener { updateIcon() }
+    private val libraryUpdater =
+        InvalidationListener {
+            updateIcon()
+            updateTooltip()
+        }
+    private val libraryTooltip = Tooltip()
 
     // The name is a label in the graphic, so the markers can follow it; it looks like the cell's own text unless
     // a marker colours it.
@@ -81,6 +89,7 @@ internal class PathCell(
         // The text stays set (accessibility, lookups by name) but only the graphic is shown.
         contentDisplay = ContentDisplay.GRAPHIC_ONLY
         markerChanges.addListener(WeakInvalidationListener(markerUpdater))
+        libraryReadOnly.addListener(WeakInvalidationListener(libraryUpdater))
         dropTarget.addListener(WeakInvalidationListener(dropTargetUpdater))
         cutChanges.addListener(WeakInvalidationListener(cutUpdater))
         selectedProperty().addListener { _ -> updateNameColour() }
@@ -89,10 +98,12 @@ internal class PathCell(
             (old as? FileTreeItem)?.let {
                 it.expandedProperty().removeListener(iconUpdater)
                 it.readable.removeListener(iconUpdater)
+                it.libraryKindProperty.removeListener(libraryUpdater)
             }
             (new as? FileTreeItem)?.let {
                 it.expandedProperty().addListener(iconUpdater)
                 it.readable.addListener(iconUpdater)
+                it.libraryKindProperty.addListener(libraryUpdater)
             }
         }
         addEventHandler(ContextMenuEvent.CONTEXT_MENU_REQUESTED) {
@@ -114,13 +125,29 @@ internal class PathCell(
         val entry = treeItem as? FileTreeItem
         text = if (empty || item == null) null else entry?.displayName ?: (item.fileName ?: item).toString()
         name.text = text
-        // Labelled and compacted rows show more or other than the name: the tooltip has the full path.
-        val withPath = entry != null && (entry.label != null || entry.isCompacted)
-        tooltip = if (withPath && !empty && item != null) pathTooltip.also { it.text = item.toString() } else null
+        updateTooltip()
         updateIcon()
         updateMarkers()
         updateDropTarget()
         updateCut()
+    }
+
+    private fun updateTooltip() {
+        val entry = treeItem as? FileTreeItem
+        val item: Path? = item
+        if (isEmpty || item == null || entry == null) {
+            tooltip = null
+            return
+        }
+        val library = libraryTooltip(entry.libraryKind, libraryReadOnly.value, entry.parent !is FileTreeItem)
+        // Labelled and compacted rows show more or other than the name: the tooltip has the full path.
+        val path = if (entry.label != null || entry.isCompacted) item.toString() else null
+        tooltip =
+            when {
+                library != null -> libraryTooltip.also { it.text = listOfNotNull(path, library).joinToString("\n") }
+                path != null -> pathTooltip.also { it.text = path }
+                else -> null
+            }
     }
 
     private fun updateDropTarget() {
@@ -151,7 +178,7 @@ internal class PathCell(
             graphic = null
             return
         }
-        val fileIcon = treeItem.fileIcon(canOpenFile)
+        val fileIcon = treeItem.fileIcon(libraryReadOnly.value, canOpenFile)
         icon.show(fileIcon)
         graphic = content
     }

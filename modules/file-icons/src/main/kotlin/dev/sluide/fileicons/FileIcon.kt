@@ -45,6 +45,10 @@ enum class FileIcon(
     SCRATCH_FOLDER(MaterialDesignF.FOLDER, "file-icon-scratch-folder"),
     SCRATCH_FOLDER_OPEN(MaterialDesignF.FOLDER_OPEN, "file-icon-scratch-folder"),
 
+    /** A library root folder in the explorer (ADR 0150): a lock on the folder, coloured like the folders but muted. */
+    LIBRARY_FOLDER(MaterialDesignF.FOLDER_LOCK, "file-icon-library-folder"),
+    LIBRARY_FOLDER_OPEN(MaterialDesignF.FOLDER_LOCK_OPEN, "file-icon-library-folder"),
+
     /** Readable file of no known type. */
     TEXT(MaterialDesignF.FILE_DOCUMENT_OUTLINE, "file-icon-text", setOf("txt", "text", "log")),
 

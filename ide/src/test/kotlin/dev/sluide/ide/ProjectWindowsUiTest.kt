@@ -175,6 +175,7 @@ class ProjectWindowsUiTest {
                 registerBean(FileWatcher::class.java, Supplier { FileWatcher(Platform::runLater, 50.milliseconds) })
                 register(ExplorerClipboard::class.java)
                 register(ExplorerSettings::class.java)
+                register(LibraryCodeSettings::class.java)
                 registerBean(GitCli::class.java, Supplier { GitCli(dir.resolve("no-git").toString(), System.getenv()) })
                 registerBean(
                     TrustedProjects::class.java,

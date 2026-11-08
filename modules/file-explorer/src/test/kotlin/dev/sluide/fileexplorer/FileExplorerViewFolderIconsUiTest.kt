@@ -15,9 +15,11 @@ import org.testfx.framework.junit5.Start
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
+import kotlin.io.path.deleteExisting
 import kotlin.io.path.name
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 /** The icons of the folders of an [ExplorerRoot] with [FolderIcons]. Needs a display, see the `uiTest` task. */
 @Tag("ui")
@@ -100,6 +102,57 @@ class FileExplorerViewFolderIconsUiTest : FileExplorerViewUiFixture() {
 
         robot.interact { item("pdir").isExpanded = false }
         assertIcon(robot, "pdir", FileIcon.FOLDER)
+    }
+
+    @Test
+    fun `a library folder shows the lock icon and its tooltip until the setting is turned off`(robot: FxRobot) {
+        project.resolve(".venv/lib").createDirectories()
+        project.resolve(".venv/pyvenv.cfg").createFile()
+        project.resolve("pyvenv.cfg").createFile() // the project itself is a venv: no lock on a top-level node
+        robot.interact { view.open(project) }
+        assertIcon(robot, ".venv", FileIcon.LIBRARY_FOLDER)
+        val cell = robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).first { it.text == ".venv" }
+        assertEquals("Library code (virtual environment): opens read-only", cell.tooltip.text)
+        assertIcon(robot, project.name, FileIcon.FOLDER_OPEN)
+
+        expand(robot, ".venv")
+        assertIcon(robot, ".venv", FileIcon.LIBRARY_FOLDER_OPEN)
+        assertIcon(robot, "lib", FileIcon.FOLDER)
+
+        robot.interact { libraryCodeSettings.readOnly.set(false) }
+        assertIcon(robot, ".venv", FileIcon.FOLDER_OPEN)
+        assertNull(cell.tooltip)
+    }
+
+    @Test
+    fun `a compacted pypackages row shows the lock icon`(robot: FxRobot) {
+        project.resolve("__pypackages__/3.12/lib").createDirectories()
+        project.resolve("__pypackages__/3.12/lib/a.py").createFile()
+        robot.interact {
+            explorerSettings.compactFolders.set(true)
+            view.open(project)
+        }
+        assertIcon(robot, "lib", FileIcon.LIBRARY_FOLDER)
+    }
+
+    @Test
+    fun `a folder gets and loses the lock icon when its pyvenv cfg appears or goes`(robot: FxRobot) {
+        project.resolve("env/lib").createDirectories()
+        project.resolve("later/lib").createDirectories()
+        robot.interact { view.open(project) }
+        expand(robot, "env")
+        assertIcon(robot, "env", FileIcon.FOLDER_OPEN)
+
+        // The loaded folder is watched: its own refresh looks again.
+        val cfg = project.resolve("env/pyvenv.cfg").createFile()
+        eventually(robot) { assertIcon(robot, "env", FileIcon.LIBRARY_FOLDER_OPEN) }
+        cfg.deleteExisting()
+        eventually(robot) { assertIcon(robot, "env", FileIcon.FOLDER_OPEN) }
+
+        // A folder never opened is not watched: the refresh of its parent looks again.
+        project.resolve("later/pyvenv.cfg").createFile()
+        robot.interact { view.refreshAll() }
+        assertIcon(robot, "later", FileIcon.LIBRARY_FOLDER)
     }
 
     @Test

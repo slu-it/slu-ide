@@ -331,7 +331,14 @@ abstract class MainWindowUiFixture {
                 TerminalScrollSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
                 shellEnvironment,
             )
-        fileExplorer = FileExplorerView(watcher, fontSettings, ExplorerClipboard(), explorerSettings)
+        fileExplorer =
+            FileExplorerView(
+                watcher,
+                fontSettings,
+                ExplorerClipboard(),
+                explorerSettings,
+                LibraryCodeSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
+            )
         editorArea = editorArea()
         mainWindow = mainWindow(projectService, fileExplorer, editorArea, CompletableFuture.completedFuture(true))
         mainWindow.show(stage)
@@ -458,7 +465,13 @@ abstract class MainWindowUiFixture {
             val projectService = ProjectService()
             mainWindow(
                 projectService,
-                FileExplorerView(watcher, fontSettings, ExplorerClipboard(), explorerSettings),
+                FileExplorerView(
+                    watcher,
+                    fontSettings,
+                    ExplorerClipboard(),
+                    explorerSettings,
+                    LibraryCodeSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
+                ),
                 editorArea(),
                 sbxInstalled,
             ).show(stage)

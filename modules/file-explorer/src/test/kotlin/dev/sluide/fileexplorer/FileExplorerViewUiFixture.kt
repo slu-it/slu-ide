@@ -1,6 +1,7 @@
 package dev.sluide.fileexplorer
 
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsStore
 import javafx.application.Platform
@@ -42,6 +43,9 @@ abstract class FileExplorerViewUiFixture {
      * folder; the tests of compacting turn it on.
      */
     protected lateinit var explorerSettings: ExplorerSettings
+
+    /** The library code settings of [view]: read-only on, the default. */
+    protected lateinit var libraryCodeSettings: LibraryCodeSettings
     protected val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
 
     /** Creates [view] (set up by [configure] before it is shown) and shows it, or what [wrap] makes of it, in [stage]. */
@@ -53,7 +57,8 @@ abstract class FileExplorerViewUiFixture {
         val store = SettingsStore(settingsDir.resolve("settings.properties"))
         fontSettings = FontSettings(store, FontSettings.systemDefaults())
         explorerSettings = ExplorerSettings(store).apply { compactFolders.set(false) }
-        view = FileExplorerView(watcher, fontSettings, ExplorerClipboard(), explorerSettings)
+        libraryCodeSettings = LibraryCodeSettings(store)
+        view = FileExplorerView(watcher, fontSettings, ExplorerClipboard(), explorerSettings, libraryCodeSettings)
         configure(view)
         stage.scene = Scene(wrap(view), 400.0, 600.0)
         stage.show()

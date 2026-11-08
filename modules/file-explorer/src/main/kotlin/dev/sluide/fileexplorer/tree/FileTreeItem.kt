@@ -1,6 +1,7 @@
 package dev.sluide.fileexplorer.tree
 
 import dev.sluide.fileexplorer.FolderIcons
+import dev.sluide.librarycode.LibraryKind
 import javafx.beans.property.SimpleObjectProperty
 import javafx.collections.ObservableList
 import javafx.scene.control.TreeItem
@@ -27,9 +28,33 @@ internal class FileTreeItem(
     private val compact: () -> Boolean = { false },
     /** Called after [refresh] added rows to this folder, e.g. to watch their middle folders; inherited. */
     private val onChildrenAdded: (FileTreeItem) -> Unit = {},
+    /** Tells whether a folder is a library root (one file lookup); asked once for each folder below a top-level one; inherited. */
+    private val libraryRoots: (Path) -> LibraryKind? = { null },
+    /** Whether [libraryKind] is looked up: false for top-level folders, the project and extra roots (ADR 0150). */
+    private val detectLibrary: Boolean = false,
     private val onChildrenLoaded: (FileTreeItem) -> Unit = {},
 ) : TreeItem<Path>(path) {
     private val directory: Boolean = Files.isDirectory(path)
+
+    /**
+     * The kind of library root this row is, `null` for files, top-level folders and others; the cells listen to it. Found
+     * when the item is created and when [refresh] of this folder or its parent runs, over the whole [chain] (a
+     * compacted `__pypackages__/3.12` row is a library root).
+     */
+    val libraryKindProperty = SimpleObjectProperty<LibraryKind?>(readLibraryKind())
+
+    val libraryKind: LibraryKind? get() = libraryKindProperty.value
+
+    private fun readLibraryKind(): LibraryKind? {
+        if (!directory || !detectLibrary) return null
+        return chain.firstNotNullOfOrNull { libraryRoots(it) }
+    }
+
+    /** Looks the library kind up again, e.g. after a `pyvenv.cfg` was created or deleted. */
+    private fun recheckLibrary() {
+        libraryKindProperty.value = readLibraryKind()
+    }
+
     private var childrenLoaded = false
 
     init {
@@ -86,6 +111,7 @@ internal class FileTreeItem(
      */
     fun refresh() {
         if (!childrenLoaded) return
+        recheckLibrary()
         val children = super.getChildren()
         val current = children.filterIsInstance<FileTreeItem>().associateBy { it.sourcePath }
         val compacting = compact()
@@ -105,7 +131,7 @@ internal class FileTreeItem(
                     }
 
                     else -> {
-                        existing
+                        existing.also(FileTreeItem::recheckLibrary)
                     }
                 }
             }
@@ -192,5 +218,7 @@ internal class FileTreeItem(
             compact = compact,
             onChildrenAdded = onChildrenAdded,
             onChildrenLoaded = onChildrenLoaded,
+            libraryRoots = libraryRoots,
+            detectLibrary = true,
         )
 }

@@ -11,6 +11,15 @@
   icons, and the project tree is unaffected. The window uses it to colour the scratches (teal, `folder-edit` root).
   An extra root's folder must exist when `open` runs. Extra roots show their label instead of the folder name, with the full path as tooltip, and are
   loaded and watched once expanded.
+- Library folders ([ADR 0150](../adr/0150-library-code-read-only.md)): below a top-level node, a folder holding a
+  `pyvenv.cfg` or named `__pypackages__` shows Material `folder-lock` (`folder-lock-open` while expanded, muted amber)
+  and the tooltip "Library code (virtual environment): opens read-only" (or "(`__pypackages__`)"); the folders in it keep
+  normal icons. Only while "Open library code read-only" is on (a change updates the rows at once), and never on the
+  project or an extra root: a venv opened as a project opens editable. On a compacted row any folder of the chain
+  counts (`__pypackages__/3.12`). The check (one file lookup per folder) runs when the folder's children are listed
+  and again when the folder or its parent refreshes (`FileTreeItem.libraryKind`), not when a row is painted, so an
+  expanded folder updates live; a folder that was never expanded and later gains or loses its `pyvenv.cfg` updates
+  only on F5 or Refresh.
 - `reveal(path, focus = false)` expands the top-level node holding `path` (the innermost one if they nest) and the
   folders down to it, loading them, then selects and scrolls to it; it takes the focus only if `focus`. It returns
   `false`, changing nothing, if no top-level node holds the path or it does not exist.

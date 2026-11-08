@@ -16,7 +16,9 @@ import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.ide.github.WindowWorkflowSources
 import dev.sluide.languageservers.LanguageServers
+import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.settings.FontArea
+import dev.sluide.settings.SettingsStore
 import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.control.MenuItem
@@ -304,7 +306,14 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
     @Test
     fun `a window opened with its folder starts the explorer as wide as its names need`(robot: FxRobot) {
         project.resolve("README.md").createFile()
-        val explorer = FileExplorerView(watcher, fontSettings, ExplorerClipboard(), explorerSettings)
+        val explorer =
+            FileExplorerView(
+                watcher,
+                fontSettings,
+                ExplorerClipboard(),
+                explorerSettings,
+                LibraryCodeSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
+            )
         robot.interact {
             val stage = Stage().also { otherStages += it }
             val projectService = ProjectService().apply { open(project) }

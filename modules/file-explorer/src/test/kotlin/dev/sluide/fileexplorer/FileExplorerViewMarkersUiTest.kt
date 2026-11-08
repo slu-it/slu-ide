@@ -248,7 +248,8 @@ class FileExplorerViewMarkersUiTest : FileExplorerViewUiFixture() {
         file.writeBytes(byteArrayOf(0, 1, 2))
         lateinit var manual: FileExplorerView
         robot.interact {
-            manual = FileExplorerView(unwatched, fontSettings, ExplorerClipboard(), explorerSettings)
+            manual =
+                FileExplorerView(unwatched, fontSettings, ExplorerClipboard(), explorerSettings, libraryCodeSettings)
             manual.canOpenFile = { 0.toByte() !in Files.readAllBytes(it) }
             view.scene.root = manual
             manual.open(project)

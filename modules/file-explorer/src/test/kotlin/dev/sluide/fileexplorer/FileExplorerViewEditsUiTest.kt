@@ -53,7 +53,7 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
         val unwatched = FileWatcher(Platform::runLater, 50.milliseconds).apply { close() }
         robot.interact {
             val replaced = view
-            view = FileExplorerView(unwatched, fontSettings, ExplorerClipboard(), explorerSettings)
+            view = FileExplorerView(unwatched, fontSettings, ExplorerClipboard(), explorerSettings, libraryCodeSettings)
             replaced.scene.root = view
         }
     }

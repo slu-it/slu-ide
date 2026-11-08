@@ -28,6 +28,8 @@ import dev.sluide.fileexplorer.tree.findForReveal
 import dev.sluide.fileexplorer.tree.startWidth
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.librarycode.LibraryCode
+import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
@@ -70,6 +72,8 @@ class FileExplorerView(
     private val clipboard: ExplorerClipboard,
     /** The explorer's settings: the application's singleton, shared by the explorers of all windows. */
     private val settings: ExplorerSettings,
+    /** The library code settings (ADR 0150): library folders show a lock icon while it opens them read-only. */
+    private val libraryCode: LibraryCodeSettings,
 ) : TreeView<Path>() {
     /** Called with a file the user wants to open (double-click or Enter). Never called for folders. */
     var onOpenFile: (Path) -> Unit = {}
@@ -294,7 +298,9 @@ class FileExplorerView(
                 { path -> requestOpen(path) },
                 dragAndDrop.dropTarget,
                 cutChanges,
-            ) { path -> clipboard.isCut(path) }
+                { path -> clipboard.isCut(path) },
+                libraryCode.readOnly,
+            )
         }
         clipboard.cutChanges.addListener(WeakInvalidationListener(cutUpdater))
         focusedProperty().addListener { _, _, focused -> if (focused) clipboard.checkCut() }
@@ -411,6 +417,7 @@ class FileExplorerView(
         compact = compactFolders::get,
         onChildrenAdded = watches::watchChildMiddles,
         onChildrenLoaded = watches::watch,
+        libraryRoots = { LibraryCode.libraryRootKind(it) },
     )
 
     /** The top-level folders, the project first. */

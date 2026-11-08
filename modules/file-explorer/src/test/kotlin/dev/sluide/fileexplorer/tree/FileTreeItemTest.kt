@@ -166,13 +166,17 @@ class FileTreeItemTest {
         val sub = top.children.first() as FileTreeItem
         val file = top.children.last() as FileTreeItem
 
-        assertEquals(FileIcon.SCRATCHES, top.fileIcon { true })
+        assertEquals(FileIcon.SCRATCHES, top.fileIcon(libraryReadOnly = true) { true })
         top.isExpanded = true
-        assertEquals(FileIcon.SCRATCHES, top.fileIcon { true })
-        assertEquals(FileIcon.SCRATCH_FOLDER, sub.fileIcon { true })
+        assertEquals(FileIcon.SCRATCHES, top.fileIcon(libraryReadOnly = true) { true })
+        assertEquals(FileIcon.SCRATCH_FOLDER, sub.fileIcon(libraryReadOnly = true) { true })
         sub.isExpanded = true
-        assertEquals(FileIcon.SCRATCH_FOLDER_OPEN, sub.fileIcon { true })
-        assertEquals(FileIcon.KOTLIN, file.fileIcon { true }, "files keep the icon of their type")
+        assertEquals(FileIcon.SCRATCH_FOLDER_OPEN, sub.fileIcon(libraryReadOnly = true) { true })
+        assertEquals(
+            FileIcon.KOTLIN,
+            file.fileIcon(libraryReadOnly = true) { true },
+            "files keep the icon of their type",
+        )
     }
 
     @Test
@@ -184,13 +188,13 @@ class FileTreeItemTest {
         val extra = topLevel(FileTreeItem(other, label = "Extra", folderIcons = icons), hidden)
         val pdir = project.children.first() as FileTreeItem
 
-        assertEquals(FileIcon.FOLDER, project.fileIcon { true })
+        assertEquals(FileIcon.FOLDER, project.fileIcon(libraryReadOnly = true) { true })
         project.isExpanded = true
-        assertEquals(FileIcon.FOLDER_OPEN, project.fileIcon { true })
-        assertEquals(FileIcon.FOLDER, pdir.fileIcon { true })
+        assertEquals(FileIcon.FOLDER_OPEN, project.fileIcon(libraryReadOnly = true) { true })
+        assertEquals(FileIcon.FOLDER, pdir.fileIcon(libraryReadOnly = true) { true })
         pdir.isExpanded = true
-        assertEquals(FileIcon.FOLDER_OPEN, pdir.fileIcon { true })
-        assertEquals(FileIcon.SCRATCHES, extra.fileIcon { true })
+        assertEquals(FileIcon.FOLDER_OPEN, pdir.fileIcon(libraryReadOnly = true) { true })
+        assertEquals(FileIcon.SCRATCHES, extra.fileIcon(libraryReadOnly = true) { true })
     }
 
     @Test
@@ -198,8 +202,8 @@ class FileTreeItemTest {
         val item = FileTreeItem(root.resolve("data").createFile())
         var asked = 0
 
-        assertEquals(FileIcon.BINARY, item.fileIcon { asked++ < 0 })
-        assertEquals(FileIcon.BINARY, item.fileIcon { asked++ < 0 })
+        assertEquals(FileIcon.BINARY, item.fileIcon(libraryReadOnly = true) { asked++ < 0 })
+        assertEquals(FileIcon.BINARY, item.fileIcon(libraryReadOnly = true) { asked++ < 0 })
 
         assertEquals(1, asked)
     }
