@@ -11,7 +11,10 @@ update and docs to read.
 1. Read the docs the brief names; only when it names none, start at `docs/index.md` and open what touches your task.
 2. Put code in the module that owns the capability. A new capability gets a new `modules/<name>` module: register it in
    `settings.gradle.kts`, apply `kotlin-jvm` (plus `javafx` if it uses JavaFX).
-3. Smallest change that fulfils the task, matching the surrounding code.
+3. Smallest change that fulfils the task, matching the surrounding code. Before working around a library you think
+   is missing, grep `gradle/libs.versions.toml` and the other modules' `build.gradle.kts`: a tab lock icon was once
+   hand-drawn as a CSS shape "because the project has no ikonli", though every icon is an ikonli `FontIcon`
+   (`docs/ui-conventions.md`, Icons).
 4. Keep logic in plain Kotlin classes, outside JavaFX controls, so it is unit-testable without a toolkit (ADR 0084):
    decisions in `internal` pure functions or plain classes, an FX-free host (interface or class of functions) for
    what they need from the view, delays and debounces as constructor parameters with the real default.
