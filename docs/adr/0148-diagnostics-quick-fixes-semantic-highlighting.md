@@ -69,8 +69,9 @@ files that are not open. Answers arrive while the user types, so each must be ma
   - a file open in another editor of the window (`FileViewHost.currentText`): `host.editText`, unsaved, only if its
     text equals the file on disk (compared off the FX thread, line breaks and BOM aside): unsaved text the server never
     saw refuses ("has unsaved changes the server does not know");
-  - a closed file: only inside the window's project folder (by real paths; "outside the project" otherwise; P9's
-    preview may later list such files and ask), read off the FX thread (writable, UTF-8 strictly, a BOM kept, at most
+  - a closed file (library code too is refused while it is read-only, by real paths,
+    [ADR 0150](0150-library-code-read-only.md)): only inside the window's project folder (by real paths; "outside
+    the project" otherwise; P9's preview may later list such files and ask), read off the FX thread (writable, UTF-8 strictly, a BOM kept, at most
     10 MiB, else refused), edited with positions over `\r\n`, `\r` and `\n` and the new texts' line breaks in the
     file's own (its first one), and written atomically off the FX thread through its real path (temp file beside it,
     `ATOMIC_MOVE`, permissions kept, after `writeAtomically` of [ADR 0115](0115-converting-tool.md)); a file whose
