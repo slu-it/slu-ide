@@ -27,6 +27,9 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Alt+1 (Cmd+1 on macOS) | View → Explorer (expand or collapse the explorer column; not while a terminal has the focus on Linux and Windows) |
 | Alt+9 (Cmd+9 on macOS) | View → Git Log (expand or collapse) |
 | Alt+6 (Cmd+6 on macOS) | View → TODOs (expand or collapse the TODO panel; not while a terminal has the focus on Linux and Windows) |
+| Shortcut+Alt+Left (Cmd+Option+Left on macOS) | Navigate → Back (to where the last go to definition or usage jump started, [code-intelligence.md](code-intelligence.md); not while a terminal has the focus on Linux and Windows) |
+| Shortcut+Alt+Right (Cmd+Option+Right on macOS) | Navigate → Forward (not while a terminal has the focus on Linux and Windows) |
+| Shortcut+B / Alt+F7 | Navigate → Go to Definition / Find Usages, at the caret of the focused editor with code intelligence (the editor's own bindings, see [Code intelligence](#code-intelligence)) |
 | Shortcut+K | Git → Commit… |
 | Shortcut+Shift+K | Git → Push… |
 | Shortcut+Shift+T | Terminal → New Terminal |
@@ -65,6 +68,12 @@ keys of a popup are taken only while it shows, before the editor's own; otherwis
 
 | Keys | Action |
 |---|---|
+| Shortcut+B | Go to the definition of the name at the caret (Navigate → Go to Definition shows it; the editor's binding takes the key first, so it acts once) |
+| Shortcut+click on a name (Cmd+click on macOS) | Go to its definition; the caret stays (Ctrl+click on macOS stays the context menu) |
+| Holding Shortcut with the mouse over a name | Underline it with the hand cursor, a link to its definition |
+| Alt+F7 (Option+F7 on macOS) | Find usages of the name at the caret (Navigate → Find Usages shows it) |
+| Enter, double-click (definition chooser, usages list) | Jump to the place; Tab does not take it |
+| Any key no binding takes (a note such as "No declaration found" shown) | Hide the note; the key still acts |
 | F1 | Show the hover popup at the caret (only while a feature has something to show there) |
 | Escape (hover popup shown) | Hide the hover popup |
 | Mouse resting on a character for 0.5 s | Show the hover popup there |

@@ -70,6 +70,8 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   `null` subscribes again and catches up when it is back (`ConnectionCardList`), or never unsubscribes on scene loss at all.
 
 ## Context menus and entry points
+- Menu bar, in this order: File, View, Navigate (Back, Forward | Go to Definition, Find Usages; ADR 0146), Git,
+  Terminal, Docker Sandbox, Tools, Services, Games, Help (the tool and service menus: see Tool and service tabs).
 - Explorer: `FileAction(label, icon, appliesTo, perform)` items appear only for a single file they apply to, after
   Open, and are never shown disabled (Run, ADR 0089). Folder actions use `FolderAction` (ADR 0056). Convert to ▸ is
   its own submenu hook (ADR 0115), shown the same way: only for a file it applies to.
