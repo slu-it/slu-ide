@@ -166,6 +166,10 @@ class ServerFeatures internal constructor() {
                 caps.workspaceSymbolProvider.on()
             }
 
+            "workspaceSymbol/resolve" -> {
+                caps.workspaceSymbolProvider?.right?.resolveProvider == true
+            }
+
             "textDocument/semanticTokens/full" -> {
                 caps.semanticTokensProvider?.full.on()
             }
