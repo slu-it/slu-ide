@@ -1,6 +1,6 @@
 # 0142. Language servers: a general LSP client in the foundation module `language-servers`
 
-- Status: accepted; amended by [0145](0145-code-intelligence-module.md) (`ServerInstaller.toolName`)
+- Status: accepted; amended by [0145](0145-code-intelligence-module.md) (`ServerInstaller.toolName`, `ServerAvailability.Failed.canRetry`)
 - Date: 2026-11-07
 
 ## Context

@@ -27,8 +27,9 @@ One at a time, above the text of a Python editor:
   hides it in every window for good (stored as `codeIntelligence.installDeclined` in `~/.sluide/shared.json`); Settings
   still installs.
 - **While it installs:** a progress bar and **Cancel**.
-- **"ty could not be installed: …"** with **Retry** and **Not Now** after a failed install (also a custom ty path that is
-  not executable).
+- **"ty could not be installed: …"** with **Retry** and **Not Now** after a failed download.
+- **"… is not an executable file. Change it in Settings → Languages → Python."** with **Not Now** only when the custom
+  ty path does not work, and likewise "No ty build for this platform. Change it in …": installing again cannot help.
 - **"The Python language server stopped: …"** with **Restart** when ty crashed after three restarts or could not start.
 - **"The Python language server waits for this project to be trusted."** for a server that runs project code and
   waits for the trust question (ty does not).

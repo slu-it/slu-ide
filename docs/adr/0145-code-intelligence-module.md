@@ -1,6 +1,8 @@
 # 0145. Code intelligence in the editors: module `code-intelligence`, bindings, banners and popups
 
-- Status: accepted; amends [0142](0142-language-server-foundation.md) (`ServerInstaller.toolName`); see
+- Status: accepted; amends [0142](0142-language-server-foundation.md) (`ServerInstaller.toolName`,
+  `ServerAvailability.Failed.canRetry`), [0141](0141-editor-api-for-language-features.md) (`popupOwner`),
+  [0108](0108-code-editor-extensions-and-context-menu.md) (`CodeEditorExtensions.extensions` public); see
   [0141](0141-editor-api-for-language-features.md), [0144](0144-python-via-ty.md),
   [0108](0108-code-editor-extensions-and-context-menu.md), [0070](0070-window-services.md),
   [0101](0101-shared-data-file.md), [0084](0084-testability-logic-out-of-controls.md),
@@ -45,7 +47,9 @@ attachment point must let each add its feature without editing the others' code.
 - **Banners** (`ServerBannerModel`, `noticeFor`, `ServerBanner`), one per editor at a time, styled as the code view's
   banners (`editor-banner`). While the installer is not ready its notice wins: Missing ("Code intelligence for Python
   needs ty (14 MB download)." with Install, Not Now, Don't Ask Again), Installing (progress bar, Cancel), Failed ("ty
-  could not be installed: …" with Retry, Not Now). Then the server's state: `Failed` ("The Python language server
+  could not be installed: …" with Retry, Not Now; or, when `ServerAvailability.Failed.canRetry` is false because only a
+  setting can help, such as an unusable custom path or no build for the platform, the message and "Change it in
+  Settings → Languages → Python." with Not Now only). Then the server's state: `Failed` ("The Python language server
   stopped: …" with Restart), `Untrusted` ("… waits for this project to be trusted.", no button). Nothing for a server
   without a command and without an installer. Install passes the window's `BackgroundTasks` (window service). Not Now
   is a set of spec ids of the window, gone with a restart; Don't Ask Again is `InstallPrompts`: an observable set read
@@ -70,9 +74,12 @@ attachment point must let each add its feature without editing the others' code.
   window moves, is minimized or loses the focus; an edit of a shown line places them again at their anchor
   (`EditorPopupWindow`). Their stylesheet is added to the popup's content, as popups do not inherit the editor's; it
   uses only looked-up colours.
-- **Popup owner:** the editor API has no node, so `EditorPopupWindow` takes the text area from the events its filters
-  see (`addEventFilter` filters are on the text area): the key or mouse press that opens a popup has passed it. Without
-  one yet, the focused window owns the popup.
+- **Popup owner:** `ExtensibleCodeEditor.popupOwner` (added to the API of ADR 0141, default `null`) is the text area
+  while it is in a scene; `EditorPopupWindow` shows popups in its window and follows its focus and scene. A popup does
+  not hide on Escape by itself (`hideOnEscape` off): JavaFX would hide it and pass the key on to the editor, closing an
+  open find bar as well; the popups' Escape bindings take the key instead. Nothing in a popup is focus traversable, so
+  a button or link in a hover or detail section never takes the focus, Enter or Space.
+- **Window close:** after `close()`, `CodeIntelligence.extend` extends no editor any more.
 - **`ide` wiring:** `CodeIntelligenceWiring` (`ide/.../codeintelligence`, a window bean) creates the window's
   `LanguageServers` (every `LanguageServerSpec` bean, the project folder of `ProjectService`, the trust gate
   `ProjectTrust.awaitAllows`, the `FileWatcher`), registers it as a window service
@@ -88,13 +95,13 @@ Rejected:
 - **One feature switch in the extension:** every package would edit the same `when`; a list of `BindingFeature`s costs
   one line each.
 - **Restarts in `ide`:** the rule "only servers that were started" is logic and belongs where it can be unit-tested.
-- **An extra editor API member for the popup owner:** the events of the text area give it within the existing API;
-  should a popup need to open before any event reached the editor, `ExtensibleCodeEditor` can get one.
+- **The popup owner from the text area's events** (the source of the events the editor's filters see): needs an event
+  before the first popup, and a node the API does not name; `popupOwner` names it.
 
 ## Consequences
 - Python files get document sync, the banners and the restart item as soon as ty is installed; navigation,
   completion, hover content and diagnostics are features that attach to the binding (ADRs 0146–0148).
 - Every code editor gets the extension's file listener and one context menu provider, also those of other languages.
-- A popup opened before any key or mouse event reached its editor belongs to the focused window.
+- The API names one node, the text area, for popups only; extensions still add everything else through its members.
 - Hover and caret popups do not follow the editor font; they use the UI font.
 - Listed in [../index.md](../index.md).
