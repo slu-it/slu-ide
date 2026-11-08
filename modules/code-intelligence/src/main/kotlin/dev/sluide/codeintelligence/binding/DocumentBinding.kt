@@ -65,14 +65,15 @@ class DocumentBinding internal constructor(
 
     init {
         val file = editor.file.value
+        // First, so the open below finds the server starting and asks for no second start: also a server that
+        // was missing or untrusted before (installed or trusted since).
+        session.ensureStarted()
         document = session.documents.open(file, spec.languageId(file), editor.text)
         handles +=
             editor.onTextChange { change ->
                 document.changed(DocumentChange(change.start, change.removed, change.inserted)) { editor.text }
             }
         handles += editor.onSaved { document.saved() }
-        // Also a server that was missing or untrusted before: installed or trusted since.
-        session.ensureStarted()
     }
 
     /** The file the binding is for; follows moves within the language. */
