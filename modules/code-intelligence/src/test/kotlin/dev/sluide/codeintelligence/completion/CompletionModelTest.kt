@@ -57,6 +57,8 @@ class CompletionModelTest {
         override fun refreshDetail() {
             refreshes++
         }
+
+        override val isShowing: Boolean get() = showing
     }
 
     @AfterEach
@@ -110,6 +112,22 @@ class CompletionModelTest {
         awaitTrue("latest shown") { lastShown() == listOf("pa_new", "path") }
         bound.fx.idle()
         assertFalse(bound.fx.onFx { view.shown.flatten() }.contains("paxos"), "the cancelled answer never shows")
+    }
+
+    @Test
+    fun `Escape before the first answer ends the completion, so neither the debounce nor the answer opens it`() {
+        setUp("import os\nos")
+        type(".")
+        val pending = asked(1).single()
+        bound.fx.onFx { model.escape() }
+        pending.answer(list("path"))
+        bound.fx.idle()
+        assertEquals(emptyList(), bound.fx.onFx { view.shown.toList() }, "the answer after Escape shows nothing")
+
+        type("p")
+        bound.fx.onFx { model.escape() }
+        assertEquals(emptyList(), bound.timers.due, "Escape cancelled the debounce")
+        assertEquals(1, bound.server.completions.size)
     }
 
     @Test

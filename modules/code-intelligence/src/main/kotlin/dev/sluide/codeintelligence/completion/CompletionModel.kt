@@ -35,6 +35,9 @@ internal interface CompletionView {
 
     /** An item's documentation arrived (resolved): show the selected item's detail again. */
     fun refreshDetail()
+
+    /** Whether the popup shows (it takes Escape itself then). */
+    val isShowing: Boolean
 }
 
 /**
@@ -142,6 +145,14 @@ internal class CompletionModel(
         }
         request(CompletionTriggerKind.Invoked, null)
         return true
+    }
+
+    /**
+     * Escape while the completion waits for its first answer and shows nothing yet: it ends, so that no answer opens
+     * the popup after Escape. The key stays the editor's (nothing showed); a shown popup takes Escape itself.
+     */
+    fun escape() {
+        if (isOpen && !view.isShowing) close()
     }
 
     /** The popup hid (Escape, focus loss, a click outside, after a choice): the completion ends. */

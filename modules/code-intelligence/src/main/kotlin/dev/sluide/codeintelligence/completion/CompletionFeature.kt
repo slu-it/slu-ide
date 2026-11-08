@@ -44,6 +44,10 @@ internal class CompletionFeature(
                 editor.onTextChange(model::textChanged),
                 AutoCloseable { caret.unsubscribe() },
                 editor.addKeyBinding(KeyCodeCombination(KeyCode.SPACE, KeyCombination.CONTROL_DOWN)) { model.invoke() },
+                editor.addKeyBinding(KeyCodeCombination(KeyCode.ESCAPE)) {
+                    model.escape()
+                    false
+                },
             )
         return AutoCloseable { handles.asReversed().forEach { it.close() } }
     }
@@ -90,6 +94,8 @@ private class CompletionPopupView(
     override fun refreshDetail() {
         if (created) popup.setItems(popup.model.items)
     }
+
+    override val isShowing: Boolean get() = created && popup.isShowing
 
     override fun close() {
         if (created) popup.close()
