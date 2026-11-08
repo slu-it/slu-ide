@@ -29,6 +29,32 @@ class CodeViewAdditionsTest {
         assertEquals(2, changes, "told when the last is closed")
     }
 
+    @Test
+    fun `read-only locks count as locks, refuse saving and mark until all are closed`() {
+        var changes = 0
+        val locks = EditLocks { changes++ }
+
+        val plain = locks.lock()
+        val first = locks.readOnlyLock()
+        val second = locks.readOnlyLock()
+        assertTrue(locks.readOnlyHeld)
+        assertTrue(locks.readOnlyMarked.value)
+        assertEquals(1, changes, "the plain lock came first")
+
+        first.close()
+        first.close()
+        assertTrue(locks.readOnlyMarked.value, "the second is still open")
+        second.close()
+        assertFalse(locks.readOnlyHeld)
+        assertFalse(locks.readOnlyMarked.value)
+        assertTrue(locks.held, "the plain lock is still held")
+        plain.close()
+        assertEquals(2, changes)
+
+        locks.readOnlyLock().close()
+        assertEquals(4, changes, "a read-only lock tells the change like any lock")
+    }
+
     @ParameterizedTest
     @CsvSource(
         "'', NONE",

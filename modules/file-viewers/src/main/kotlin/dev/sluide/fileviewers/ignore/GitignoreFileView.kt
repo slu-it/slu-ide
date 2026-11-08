@@ -55,6 +55,8 @@ internal class GitignoreFileView(
 
     override val dirty get() = source.dirty
 
+    override val readOnlyMarked get() = source.readOnlyMarked
+
     override val text: String get() = source.text
 
     override val canReplaceText: Boolean get() = source.canReplaceText

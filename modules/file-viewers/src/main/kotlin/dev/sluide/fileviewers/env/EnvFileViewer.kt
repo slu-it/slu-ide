@@ -128,6 +128,8 @@ internal class EnvFileView(
 
     override val dirty get() = source.dirty
 
+    override val readOnlyMarked get() = source.readOnlyMarked
+
     override var host: FileViewHost?
         get() = source.host
         set(value) {

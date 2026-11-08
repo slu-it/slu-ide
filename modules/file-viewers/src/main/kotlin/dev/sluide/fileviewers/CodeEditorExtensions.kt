@@ -110,6 +110,12 @@ interface ExtensibleCodeEditor : GutterColumns {
     fun lock(): AutoCloseable = AutoCloseable {}
 
     /**
+     * Like [lock], and Save does nothing, and the view's [FileView.readOnlyMarked] is true, until every returned handle
+     * is closed (library code, ADR 0150).
+     */
+    fun readOnlyLock(): AutoCloseable = lock()
+
+    /**
      * Overlays [ranges] as the layer [layer] over highlighting, masks and find matches, replacing that layer's previous
      * ranges; an empty list clears it. Layers stay through background highlighting and find updates and are all
      * cleared by any change of the text (an edit or a reload). Ranges are clamped to the text; overlapping ones add

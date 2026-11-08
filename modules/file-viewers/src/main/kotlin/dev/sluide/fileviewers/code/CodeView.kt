@@ -270,6 +270,8 @@ internal class CodeView(
 
     override val activity: ObservableValue<ViewActivity> get() = additions.activities.activity
 
+    override val readOnlyMarked: ObservableBooleanValue get() = additions.locks.readOnlyMarked
+
     override val dirty: ObservableBooleanValue =
         Bindings.not(undoManager.atMarkedPositionProperty()).or(keptMine).or(encoding.converting)
 
@@ -286,11 +288,12 @@ internal class CodeView(
     val generatedShown: Boolean get() = generatedBanner.shown
 
     /**
-     * Writes the text to the file in its encoding; does nothing while the view is [readOnly]. Fails, leaving the file
+     * Writes the text to the file in its encoding; does nothing while the view is [readOnly] or locked read-only by an
+     * extension ([ExtensibleCodeEditor.readOnlyLock]). Fails, leaving the file
      * as it is, if the encoding cannot store a character of the text.
      */
     override fun save() {
-        if (readOnly) return
+        if (readOnly || additions.locks.readOnlyHeld) return
         val text = area.text
         val bytes = encoding.encode(lineEnding.restore(text))
         // In place, so the file keeps its permissions and symbolic links stay links.

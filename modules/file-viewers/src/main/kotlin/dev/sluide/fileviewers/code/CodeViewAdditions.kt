@@ -4,7 +4,9 @@ import dev.sluide.fileviewers.StyledRange
 import dev.sluide.fileviewers.TextChange
 import dev.sluide.fileviewers.ViewActivity
 import dev.sluide.fileviewers.WrappingToolbar
+import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.property.ReadOnlyObjectWrapper
+import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableValue
 import javafx.collections.FXCollections
 import javafx.collections.ListChangeListener
@@ -97,14 +99,25 @@ internal class ToolbarItems(
     }
 }
 
-/** Counts the locks taken on a view's text; calls [changed] when the first is taken and when the last is closed. */
+/**
+ * Counts the locks taken on a view's text; calls [changed] when the first is taken and when the last is closed. The
+ * read-only ones ([readOnlyLock]) are counted among them and also refuse Save and mark the view ([readOnlyMarked]).
+ */
 internal class EditLocks(
     private val changed: () -> Unit,
 ) {
     private var count = 0
+    private var readOnlyCount = 0
+    private val marked = ReadOnlyBooleanWrapper(false)
 
     /** Whether a lock is held, so the text must not change but by a reload. */
     val held: Boolean get() = count > 0
+
+    /** Whether a read-only lock is held, so that Save does nothing. */
+    val readOnlyHeld: Boolean get() = readOnlyCount > 0
+
+    /** [readOnlyHeld] as it changes. */
+    val readOnlyMarked: ObservableBooleanValue = marked.readOnlyProperty
 
     /** Takes a lock; closing it a second time does nothing. */
     fun lock(): AutoCloseable {
@@ -114,6 +127,20 @@ internal class EditLocks(
             if (open) {
                 open = false
                 if (--count == 0) changed()
+            }
+        }
+    }
+
+    /** Takes a lock that also refuses Save and sets [readOnlyMarked]; closing it a second time does nothing. */
+    fun readOnlyLock(): AutoCloseable {
+        val lock = lock()
+        if (readOnlyCount++ == 0) marked.set(true)
+        var open = true
+        return AutoCloseable {
+            if (open) {
+                open = false
+                if (--readOnlyCount == 0) marked.set(false)
+                lock.close()
             }
         }
     }

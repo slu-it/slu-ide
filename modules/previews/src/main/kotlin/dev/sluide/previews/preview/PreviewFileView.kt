@@ -244,6 +244,8 @@ internal class PreviewFileView(
     /** The source's activity: what the window's code editor extensions add to it. */
     override val activity get() = source.activity
 
+    override val readOnlyMarked get() = source.readOnlyMarked
+
     /** The buttons of the preview's [actions][Preview.actions], shown while the preview shows. */
     val actionButtons get() = toolbar.actionButtons
 

@@ -144,6 +144,8 @@ internal class ExtensibleCodeView(
 
     override fun lock(): AutoCloseable = additions.locks.lock()
 
+    override fun readOnlyLock(): AutoCloseable = additions.locks.readOnlyLock()
+
     override fun overlay(
         layer: String,
         ranges: List<StyledRange>,

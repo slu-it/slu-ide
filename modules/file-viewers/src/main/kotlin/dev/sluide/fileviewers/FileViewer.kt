@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableValue
@@ -160,6 +161,9 @@ interface FileView {
      * What the view is doing, shown as a marker on its tab; [ViewActivity.NONE] by default. Changes on the FX thread.
      */
     val activity: ObservableValue<ViewActivity> get() = NO_ACTIVITY
+
+    /** Whether the view shows its file read-only as library code (or similar), for a lock icon in its tab; FX thread. */
+    val readOnlyMarked: ObservableBooleanValue get() = NOT_MARKED
 }
 
 /** What a view shows on its tab besides its name. */
@@ -167,6 +171,9 @@ enum class ViewActivity { NONE, RUNNING, FAILED }
 
 /** The [FileView.activity] of views that never do anything worth a marker. */
 private val NO_ACTIVITY: ObservableValue<ViewActivity> = ReadOnlyObjectWrapper(ViewActivity.NONE).readOnlyProperty
+
+/** The [FileView.readOnlyMarked] of views that never show their file read-only. */
+private val NOT_MARKED: ObservableBooleanValue = ReadOnlyBooleanWrapper(false).readOnlyProperty
 
 /** A [FileView] in which the file can be edited and saved. */
 interface EditableFileView : FileView {
