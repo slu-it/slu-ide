@@ -107,6 +107,46 @@ internal abstract class EditorUiFixture {
         }
     }
 
+    /** Presses Ctrl (a literal Ctrl, also on macOS) and [code] on the text area. */
+    protected fun pressControl(
+        robot: FxRobot,
+        code: KeyCode,
+    ) {
+        val area = area()
+        robot.interact {
+            Event.fireEvent(area, KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, true, false, false))
+        }
+    }
+
+    /** Types [text] into the text area as keys do: each character a key press, then the key typed that inserts it. */
+    protected fun typeText(
+        robot: FxRobot,
+        text: String,
+    ) {
+        val area = area()
+        for (character in text) {
+            robot.interact {
+                Event.fireEvent(
+                    area,
+                    KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.UNDEFINED, false, false, false, false),
+                )
+                Event.fireEvent(
+                    area,
+                    KeyEvent(
+                        KeyEvent.KEY_TYPED,
+                        character.toString(),
+                        "",
+                        KeyCode.UNDEFINED,
+                        false,
+                        false,
+                        false,
+                        false,
+                    ),
+                )
+            }
+        }
+    }
+
     /** The mouse moves onto the screen point ([screenX], [screenY]) over the text area. */
     protected fun mouseMove(
         robot: FxRobot,

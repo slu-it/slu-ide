@@ -3,6 +3,7 @@ package dev.sluide.codeintelligence
 import dev.sluide.codeintelligence.binding.BindingFeature
 import dev.sluide.codeintelligence.binding.DocumentBinding
 import dev.sluide.codeintelligence.binding.EditorAttachment
+import dev.sluide.codeintelligence.completion.CompletionFeature
 import dev.sluide.codeintelligence.navigation.BindingNavigation
 import dev.sluide.codeintelligence.navigation.DEFINITION
 import dev.sluide.codeintelligence.navigation.Navigation
@@ -150,6 +151,7 @@ internal fun builtInFeatures(
         ServerBannerFeature(notNow, prompts),
         NavigationFeature(navigation),
         OccurrencesFeature(),
+        CompletionFeature(),
         ServerHoverFeature(),
         HoverFeature(),
         RestartServerItem,

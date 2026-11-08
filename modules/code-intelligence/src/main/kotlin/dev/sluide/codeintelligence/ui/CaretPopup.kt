@@ -34,6 +34,7 @@ internal data class PopupCell(
  *
  * @param cell how an item shows.
  * @param onChoose gets the item taken, after the popup hid.
+ * @param onTab gets the item taken with Tab instead of [onChoose] (completion replaces the whole word then).
  * @param detail what shows beside the list for the selected item (completion docs), `null` for nothing.
  * @param visibleRows the list's height in rows, also a page for PageUp/PageDown.
  */
@@ -44,6 +45,7 @@ internal class CaretPopup<T>(
     private val acceptTab: Boolean = true,
     private val detail: ((T) -> Node?)? = null,
     private val visibleRows: Int = 10,
+    private val onTab: ((T) -> Unit)? = null,
 ) : AutoCloseable {
     /** The items and the selection. */
     val model = PopupListModel<T>()
@@ -131,8 +133,8 @@ internal class CaretPopup<T>(
             bind(KeyCode.PAGE_DOWN, moving { model.page(1, visibleRows) }),
             bind(KeyCode.HOME, moving { model.first() }),
             bind(KeyCode.END, moving { model.last() }),
-            bind(KeyCode.ENTER, ::choose),
-            if (acceptTab) bind(KeyCode.TAB, ::choose) else null,
+            bind(KeyCode.ENTER) { choose() },
+            if (acceptTab) bind(KeyCode.TAB) { choose(onTab ?: onChoose) } else null,
             bind(KeyCode.ESCAPE) {
                 hide()
                 true
@@ -140,11 +142,11 @@ internal class CaretPopup<T>(
         )
     }
 
-    /** Takes the selected item: hides, then tells [onChoose]; `false` without one. */
-    private fun choose(): Boolean {
+    /** Takes the selected item: hides, then tells [chosen]; `false` without one. */
+    private fun choose(chosen: (T) -> Unit = onChoose): Boolean {
         val item = model.selected ?: return false
         hide()
-        onChoose(item)
+        chosen(item)
         return true
     }
 
