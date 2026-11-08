@@ -19,6 +19,9 @@ The technical name is still `sluide` (repository, packages, artifacts, `~/.sluid
   Jupyter notebooks, Mermaid diagrams, Bicep resource graphs, cookie jars and PEM certificates; images on their own
   page. Lines changed against `HEAD` in git are marked
   beside the line numbers, and View → Show Changes (Ctrl/Cmd+Shift+D) shows the side-by-side diff.
+- **Python code intelligence** (through the language server ty, downloaded on a click): completion, signature help,
+  go to definition, find usages, rename, diagnostics, quick fixes, file structure and go to symbol, see
+  [`docs/features/code-intelligence.md`](docs/features/code-intelligence.md).
 - **HTTP client:** `.http` files as in IntelliJ: run the request at the caret (Ctrl/Cmd+Enter or the run icon beside
   it) with environments from `http-client.env.json` and a private file for secrets, variables, OAuth2 tokens and
   client certificates; the response opens below the editor.
