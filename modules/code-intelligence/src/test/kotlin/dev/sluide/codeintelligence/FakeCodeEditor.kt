@@ -3,13 +3,17 @@ package dev.sluide.codeintelligence
 import dev.sluide.fileviewers.EditorMenuTarget
 import dev.sluide.fileviewers.ExtensibleCodeEditor
 import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.fileviewers.OffsetEdit
 import dev.sluide.fileviewers.TextChange
+import javafx.beans.property.ReadOnlyIntegerProperty
+import javafx.beans.property.ReadOnlyIntegerWrapper
 import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.value.ObservableValue
 import javafx.event.Event
 import javafx.event.EventHandler
 import javafx.event.EventType
 import javafx.scene.Node
+import javafx.scene.control.IndexRange
 import javafx.scene.control.MenuItem
 import javafx.scene.input.KeyCombination
 import javafx.util.Subscription
@@ -39,15 +43,51 @@ internal class FakeCodeEditor(
     override val lineCount get() = currentText.split('\n').size
     override val shownLines: IntRange = IntRange.EMPTY
 
-    /** The caret's offset; [moveCaret] sets it. */
-    var caret = 0
+    override fun lineText(line: Int) = currentText.split('\n')[line]
+
+    private val caretWrapper = ReadOnlyIntegerWrapper(0)
+
+    /** The caret's offset; [moveCaret] sets it too. */
+    var caret: Int
+        get() = caretWrapper.get()
+        set(value) = caretWrapper.set(value)
     override val caretOffset: Int get() = caret
+    override val caretOffsetProperty: ReadOnlyIntegerProperty get() = caretWrapper.readOnlyProperty
+
+    /** The selection [selection] reports; empty by default. */
+    var selected = IndexRange(0, 0)
+    override val selection: IndexRange get() = selected
+
+    /** The edits of each [applyEdits] call: one undo step each. */
+    val appliedEdits = mutableListOf<List<OffsetEdit>>()
 
     override fun moveCaret(offset: Int) {
         caret = offset.coerceIn(0, currentText.length)
     }
 
-    override fun lineText(line: Int) = currentText.split('\n')[line]
+    /** Types [typed] at the caret as a key would: the caret moves behind it before the listeners hear the change. */
+    fun typeAtCaret(typed: String) {
+        val at = caretOffset
+        batch(listOf(Triple(at, at, typed)), caretAfter = at + typed.length)
+    }
+
+    /**
+     * Applies [edits] as one batch, from the last, as the real editor does: the caret moves with the text (after an
+     * edit ending at or before it, behind the new text of one containing it).
+     */
+    override fun applyEdits(edits: List<OffsetEdit>): Boolean {
+        appliedEdits += edits
+        var newCaret = caretOffset
+        for (edit in edits) {
+            if (edit.end <= caretOffset) {
+                newCaret += edit.text.length - (edit.end - edit.start)
+            } else if (edit.start < caretOffset) {
+                newCaret += edit.start + edit.text.length - caretOffset
+            }
+        }
+        batch(edits.sortedByDescending { it.start }.map { Triple(it.start, it.end, it.text) }, caretAfter = newCaret)
+        return true
+    }
 
     override fun onShownLinesChanged(action: () -> Unit) = Subscription {}
 
@@ -109,13 +149,17 @@ internal class FakeCodeEditor(
      * Applies [edits] (each in the text the one before left) and only then tells each change, as the real editor tells
      * a multi-change: inside the listener the text already shows the whole batch.
      */
-    fun batch(edits: List<Triple<Int, Int, String>>) {
+    fun batch(
+        edits: List<Triple<Int, Int, String>>,
+        caretAfter: Int? = null,
+    ) {
         val changes =
             edits.map { (start, end, inserted) ->
                 val removed = currentText.substring(start, end)
                 currentText = currentText.substring(0, start) + inserted + currentText.substring(end)
                 TextChange(start, removed, inserted)
             }
+        caretAfter?.let { caret = it }
         changes.forEach { change -> changeListeners.toList().forEach { it(change) } }
     }
 

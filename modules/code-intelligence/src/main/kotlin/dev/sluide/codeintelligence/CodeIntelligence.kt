@@ -14,6 +14,7 @@ import dev.sluide.codeintelligence.server.RestartServerItem
 import dev.sluide.codeintelligence.server.ServerBannerFeature
 import dev.sluide.codeintelligence.server.hasStarted
 import dev.sluide.codeintelligence.ui.HoverFeature
+import dev.sluide.codeintelligence.ui.ServerHoverFeature
 import dev.sluide.fileviewers.CodeEditorExtension
 import dev.sluide.fileviewers.ExtensibleCodeEditor
 import dev.sluide.fileviewers.FileViewHost
@@ -149,6 +150,7 @@ internal fun builtInFeatures(
         ServerBannerFeature(notNow, prompts),
         NavigationFeature(navigation),
         OccurrencesFeature(),
+        ServerHoverFeature(),
         HoverFeature(),
         RestartServerItem,
     )

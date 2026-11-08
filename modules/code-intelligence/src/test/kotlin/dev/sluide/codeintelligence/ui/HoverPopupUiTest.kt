@@ -2,6 +2,7 @@ package dev.sluide.codeintelligence.ui
 
 import dev.sluide.codeintelligence.CodeIntelligence
 import dev.sluide.codeintelligence.EditorUiFixture
+import dev.sluide.codeintelligence.FeatureServer
 import dev.sluide.codeintelligence.PySpec
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.codeintelligence.binding.BindingFeature
@@ -12,7 +13,12 @@ import javafx.application.Platform
 import javafx.collections.FXCollections
 import javafx.scene.control.Label
 import javafx.scene.input.KeyCode
+import javafx.scene.text.Text
+import javafx.scene.text.TextFlow
 import javafx.stage.Stage
+import org.eclipse.lsp4j.Hover
+import org.eclipse.lsp4j.MarkupContent
+import org.eclipse.lsp4j.MarkupKind
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -28,7 +34,8 @@ import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * The hover popup of a bound code view: the mouse resting on a character shows the providers' sections there after
- * the delay, typing hides it, F1 shows it at the caret. When it asks and hides is `HoverModelTest`'s. Needs a display:
+ * the delay, typing hides it, F1 shows it at the caret, the server's Markdown shows as text. When it asks and hides is
+ * `HoverModelTest`'s, the blocks of the Markdown `MarkupDocumentTest`'s. Needs a display:
  * the mouse hit on the text, the key routing and the popup window exist only in a shown scene.
  */
 @Tag("ui")
@@ -87,6 +94,30 @@ internal class HoverPopupUiTest : EditorUiFixture() {
 
         robot.interact { editor.applyEdits(listOf(OffsetEdit(0, 0, "x"))) }
         assertEquals(emptyList(), popups("hover-popup"))
+    }
+
+    @Test
+    fun `the server's hover renders its Markdown as a section`(robot: FxRobot) {
+        val spec = PySpec()
+        servers = FakeLanguageServers(listOf(spec), dir, dispatch = Platform::runLater) { FeatureServer() }
+        val server = servers.awaitRunning(spec) as FeatureServer
+        intelligence =
+            fx {
+                CodeIntelligence(servers.servers, FXCollections.observableSet()) {
+                    listOf(ServerHoverFeature(), HoverFeature())
+                }
+            }
+        val editor = open(robot, dir.resolve("a.py"), "import os\n", listOf(intelligence))
+        robot.interact { editor.moveCaret(7) }
+        press(robot, KeyCode.F1)
+        awaitTrue("asked") { server.hovers.size == 1 }
+        server.hovers[0].answer(Hover(MarkupContent(MarkupKind.MARKDOWN, "```python\nos\n```\nThe **os**&nbsp;module")))
+        awaitTrue("shown") { popups("hover-popup").size == 1 }
+
+        val content = popups("hover-popup").single().content.single()
+        val code = fx { content.lookup(".markup-code-block") as TextFlow }
+        assertEquals("os", fx { (code.children.single() as Text).text })
+        assertEquals("os", fx { (content.lookup(".markup-strong") as Text).text })
     }
 
     @Test

@@ -24,6 +24,8 @@ dependencies {
     // file (field `codeIntelligence`); InstallPrompts takes the ProjectDataStore (ADR 0101, ADR 0145).
     api(project(":modules:project-data"))
     implementation(libs.spring.context)
+    // Hover docs arrive as Markdown: commonmark parses it into blocks the popups show as JavaFX text (ADR 0147).
+    implementation(libs.commonmark)
 
     // Logic tests drive bindings, banners and restarts over in-process fake language servers.
     testImplementation(testFixtures(project(":modules:language-servers")))

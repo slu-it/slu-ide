@@ -69,3 +69,59 @@
     -fx-padding: 6 8 6 8;
     -fx-spacing: 6;
 }
+
+/* Documentation from the language server (MarkupView), e.g. in the hover popup. */
+.markup {
+    -fx-spacing: 6;
+}
+
+.markup-text {
+    -fx-fill: -fx-text-inner-color;
+}
+
+.markup-strong {
+    -fx-font-weight: bold;
+}
+
+.markup-emphasis {
+    -fx-font-style: italic;
+}
+
+.markup-code {
+    -fx-font-family: monospace;
+}
+
+.markup-code-block {
+    -fx-background-color: -fx-background;
+    -fx-background-radius: 3;
+    -fx-padding: 4 6 4 6;
+}
+
+.markup-list, .markup-list-item {
+    -fx-spacing: 3;
+}
+
+.markup-marker {
+    -fx-padding: 0 6 0 2;
+}
+
+.markup-quote {
+    -fx-spacing: 6;
+    -fx-padding: 0 0 0 8;
+    -fx-border-color: transparent transparent transparent -fx-box-border;
+    -fx-border-width: 0 0 0 2;
+}
+
+.markup-rule {
+    -fx-min-height: 1;
+    -fx-pref-height: 1;
+    -fx-max-height: 1;
+    -fx-background-color: -fx-box-border;
+}
+
+.markup-scroll, .markup-scroll > .viewport {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
