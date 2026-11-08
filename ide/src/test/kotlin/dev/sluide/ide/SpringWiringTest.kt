@@ -2,6 +2,7 @@ package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.codecs.Codecs
+import dev.sluide.codeintelligence.InstallPrompts
 import dev.sluide.coloring.Coloring
 import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
@@ -71,6 +72,7 @@ import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.httpclient.send.SavedPassphrases
+import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
 import dev.sluide.media.MediaFileViewer
 import dev.sluide.media.MediaPreferences
 import dev.sluide.media.PlaybackCoordinator
@@ -244,6 +246,8 @@ class SpringWiringTest {
                         TySpec::class.java,
                         TyUpdates::class.java,
                         PythonSettingsPage::class.java,
+                        InstallPrompts::class.java,
+                        CodeIntelligenceWiring::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -304,6 +308,7 @@ class SpringWiringTest {
                         Solitaire::class.java,
                         OrbitGuard::class.java,
                         BlockBreaker::class.java,
+                        CodeIntelligenceWiring::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {

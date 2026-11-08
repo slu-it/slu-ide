@@ -2,6 +2,7 @@ package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.codecs.Codecs
+import dev.sluide.codeintelligence.InstallPrompts
 import dev.sluide.coloring.Coloring
 import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
@@ -62,6 +63,7 @@ import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.send.SavedPassphrases
+import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
 import dev.sluide.ide.speech.NoSpeechEngine
 import dev.sluide.ide.translation.NoLanguageDetector
 import dev.sluide.ide.translation.NoTranslationEngine
@@ -231,7 +233,11 @@ abstract class MainWindowUiFixture {
         readAlouds.forEach(ReadAloud::close)
         translates.forEach(Translate::close)
         dockerSessions.forEach(DockerSession::close)
+        codeIntelligences.forEach(CodeIntelligenceWiring::close)
     }
+
+    /** The code intelligence of the windows a test created, without language specs; closed after it. */
+    internal val codeIntelligences = mutableListOf<CodeIntelligenceWiring>()
 
     /** The git log views of the windows a test created, the main window's first; closed after it. */
     internal val gitLogViews = mutableListOf<GitLogView>()
@@ -426,6 +432,8 @@ abstract class MainWindowUiFixture {
             // Only its folder and capturing flag are read; the tests replace the capture.
             Diagnostics(),
             softWrap,
+            CodeIntelligenceWiring(emptyList(), projectService, projectTrust, watcher, InstallPrompts(projectData))
+                .also(codeIntelligences::add),
         )
     }
 

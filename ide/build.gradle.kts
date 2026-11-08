@@ -75,6 +75,12 @@ dependencies {
     // Python through the language server ty: TySpec, TyInstaller, TyUpdates and Settings → Languages → Python are
     // found by component scan; the page opens release notes in the system browser (ADR 0144).
     implementation(project(":modules:python"))
+    // Every window has its LanguageServers (specs from Spring, its folder, trust and the FileWatcher), registered as a
+    // window service and closed with the window (ADR 0142).
+    implementation(project(":modules:language-servers"))
+    // The editors' code intelligence: CodeIntelligence is a code editor extension, InstallPrompts a singleton found by
+    // component scan (ADR 0145).
+    implementation(project(":modules:code-intelligence"))
     // Saved secrets: values encrypted with one key in the OS secret store; Secrets is a singleton (ADR 0122).
     implementation(project(":modules:secrets"))
     // The explorer's Run item has a Material Design play icon, like the HTTP client's Run (ADR 0012).

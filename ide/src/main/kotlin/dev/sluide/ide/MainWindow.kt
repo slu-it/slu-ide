@@ -38,6 +38,7 @@ import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpClientSetup
+import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
 import dev.sluide.ide.compare.WindowFileComparison
 import dev.sluide.ide.conversions.WindowConversions
 import dev.sluide.ide.explorer.WindowExplorer
@@ -144,6 +145,7 @@ class MainWindow(
     private val blockBreaker: BlockBreaker,
     diagnostics: Diagnostics,
     private val softWrap: SoftWrap,
+    private val codeIntelligence: CodeIntelligenceWiring,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -438,7 +440,9 @@ class MainWindow(
         editorArea.windowServices.register(Docker::class.java, docker)
         // Code editors show the colors of style, markup and script files as swatches and open them in Coloring (ADR 0108,
         // ADR 0109), open a selection in Codecs (ADR 0112) and a selection or a whole file in Converting (ADR 0115);
-        // they wrap long lines by one switch for all editors of all windows (ADR 0130).
+        // they wrap long lines by one switch for all editors of all windows (ADR 0130); Python files get code
+        // intelligence from the window's language servers (ADR 0145).
+        codeIntelligence.register(editorArea.windowServices)
         editorArea.windowServices.register(
             CodeEditorExtensions::class.java,
             CodeEditorExtensions().apply {
@@ -447,6 +451,7 @@ class MainWindow(
                 add(converting.editorExtension)
                 add(readAloud.editorExtension)
                 add(translate.editorExtension)
+                add(codeIntelligence.editorExtension)
             },
         )
         editorArea.windowServices.register(SoftWrap::class.java, softWrap)

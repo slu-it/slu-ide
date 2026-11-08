@@ -2,6 +2,7 @@ package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.codecs.Codecs
+import dev.sluide.codeintelligence.InstallPrompts
 import dev.sluide.coloring.Coloring
 import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
@@ -59,6 +60,7 @@ import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.send.SavedPassphrases
+import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
 import dev.sluide.ide.speech.NoSpeechEngine
 import dev.sluide.ide.translation.NoLanguageDetector
 import dev.sluide.ide.translation.NoTranslationEngine
@@ -212,6 +214,8 @@ class ProjectWindowsUiTest {
                 registerBean(SpeechEngines::class.java, Supplier { SpeechEngines(listOf(NoSpeechEngine)) })
                 registerBean(SpeechPreferences::class.java, Supplier { SpeechPreferences(projectData) })
                 registerBean(SoftWrap::class.java, Supplier { SoftWrap(projectData) })
+                // No language specs: no window starts a language server.
+                registerBean(InstallPrompts::class.java, Supplier { InstallPrompts(projectData) })
                 registerBean(
                     ModelInstaller::class.java,
                     Supplier { ModelInstaller(ModelStore(dir.resolve("models"))) },
@@ -264,6 +268,7 @@ class ProjectWindowsUiTest {
                     Solitaire::class.java,
                     OrbitGuard::class.java,
                     BlockBreaker::class.java,
+                    CodeIntelligenceWiring::class.java,
                 )
                 refresh()
             }
