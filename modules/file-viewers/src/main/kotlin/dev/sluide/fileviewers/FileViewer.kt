@@ -127,16 +127,15 @@ interface FileView {
     fun moved(to: Path): Boolean = false
 
     /**
-     * Moves the caret to the start of [line] (0-based, kept within the text), scrolls it into view and focuses the text,
-     * as Go to Line does; shows the text first if the view hides it. Does nothing in views without a caret, as by
-     * default.
+     * Moves the caret to the start of [line] (0-based, kept within the text) and focuses the text, as Go to Line
+     * does; the line becomes the first shown one unless it is fully in view. Shows the text first if the view hides
+     * it. Does nothing in views without a caret, as by default.
      */
     fun showLine(line: Int) {}
 
     /**
-     * Moves the caret to [column] (UTF-16 units) of [line] (both 0-based, kept within the text), scrolls it into view
-     * and focuses the text, as [showLine] does for a line's start. By default [showLine], for views that only know
-     * lines.
+     * Moves the caret to [column] (UTF-16 units) of [line] (both 0-based, kept within the text), focuses the text and
+     * shows its line as [showLine] does for a line's start. By default [showLine], for views that only know lines.
      */
     fun showPosition(
         line: Int,

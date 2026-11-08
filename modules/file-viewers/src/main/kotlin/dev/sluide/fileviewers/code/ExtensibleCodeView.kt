@@ -46,6 +46,7 @@ internal class ExtensibleCodeView(
     private val area: CodeArea,
     initialFile: Path,
     private val additions: CodeViewAdditions,
+    private val jumpScroll: JumpScroll,
     override val plainText: Boolean,
 ) : ExtensibleCodeEditor,
     GutterColumns by view {
@@ -184,6 +185,8 @@ internal class ExtensibleCodeView(
         area.moveTo(offset.coerceIn(0, area.length))
         area.requestFollowCaret()
     }
+
+    override fun jumpTo(offset: Int) = jumpScroll.jump(offset)
 
     override fun offsetAt(event: MouseEvent): Int? {
         if (area.inGutter(event.target)) return null

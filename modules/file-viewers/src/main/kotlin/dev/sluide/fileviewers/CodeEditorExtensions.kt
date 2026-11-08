@@ -182,6 +182,13 @@ interface ExtensibleCodeEditor : GutterColumns {
     fun moveCaret(offset: Int) {}
 
     /**
+     * Jumps to [offset] (clamped to the text) like [moveCaret], and if its line is not fully shown scrolls so that the
+     * line is the first shown one; a line in view does not scroll vertically. Also right after the view is created,
+     * once it is laid out. By default [moveCaret].
+     */
+    fun jumpTo(offset: Int) = moveCaret(offset)
+
+    /**
      * The offset of the character under the mouse of [event] (a mouse event on the text area, e.g. from
      * [addEventFilter]); `null` over the gutter, past the end of a line's text or below the last line.
      */

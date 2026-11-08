@@ -11,11 +11,13 @@ import org.fxmisc.wellbehaved.event.InputMap
 
 /**
  * Go to a line of a code view's [area]: Shortcut+G ([keys]) [asks][ask] for `line[:column]` (1-based), offering the
- * caret's position, and moves the caret there, scrolling it into view. Lines and columns beyond the text go to its
- * last line and the line's end; other input does nothing.
+ * caret's position, and moves the caret there; the line becomes the first shown one unless it is fully in view
+ * ([JumpScroll], which the view shares with its extensions' jumps). Lines and columns beyond the text go to its last
+ * line and the line's end; other input does nothing.
  */
 internal class GoToLine(
     private val area: CodeArea,
+    private val jumpScroll: JumpScroll,
 ) {
     /** Asks for the position to go to, given the caret's; `null` if cancelled. Tests replace it, since it blocks. */
     var ask: (current: String) -> String? = ::showDialog
@@ -36,8 +38,7 @@ internal class GoToLine(
     ) = moveTo(area.offsetOf(line, column))
 
     private fun moveTo(offset: Int) {
-        area.moveTo(offset)
-        area.requestFollowCaret()
+        jumpScroll.jump(offset)
         area.requestFocus()
     }
 

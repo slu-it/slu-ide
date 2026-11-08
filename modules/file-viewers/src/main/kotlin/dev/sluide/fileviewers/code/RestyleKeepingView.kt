@@ -17,7 +17,7 @@ internal fun CodeArea.restyleKeepingView(
     from: Int,
     spans: StyleSpans<Collection<String>>,
 ) {
-    val flow = if (scene == null) null else childrenUnmodifiable.firstNotNullOfOrNull { it as? VirtualFlow<*, *> }
+    val flow = if (scene == null) null else virtualFlow()
     if (flow == null) {
         setStyleSpans(from, spans)
         return
@@ -34,3 +34,7 @@ internal fun CodeArea.restyleKeepingView(
     flow.showAtOffset(first, offset)
     layout()
 }
+
+/** The [VirtualFlow] that lays out the paragraphs of this area; `null` before its skin exists. */
+internal fun CodeArea.virtualFlow(): VirtualFlow<*, *>? =
+    childrenUnmodifiable.firstNotNullOfOrNull { it as? VirtualFlow<*, *> }

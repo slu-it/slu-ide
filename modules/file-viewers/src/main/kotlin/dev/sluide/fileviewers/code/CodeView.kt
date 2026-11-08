@@ -104,8 +104,11 @@ internal class CodeView(
     /** Toolbar items, banners, locks, overlay layers and activities of the extensions. */
     private val additions = CodeViewAdditions(area, ownToolbar, listOf(softWrap.button), ::showEditable)
 
+    /** The scroll of every jump in the view: Go to Line, opening at a line, the extensions' jumps. */
+    private val jumpScroll = JumpScroll(area)
+
     /** What features of the window see of the view and add to it (ADR 0108), from the first [host] that has them. */
-    val extensible = ExtensibleCodeView(this, area, initialFile, additions, highlighter == null)
+    val extensible = ExtensibleCodeView(this, area, initialFile, additions, jumpScroll, highlighter == null)
     private val extensions = CodeViewExtensions(extensible, extensible::attached)
     private val contextMenu = EditorContextMenu(area, extensible::contextMenuItems, listOf(softWrap.menuItem))
 
@@ -144,7 +147,7 @@ internal class CodeView(
     val findBar = FindBar(area, banners, followPause)
 
     /** Moves the caret to a line the user enters. */
-    val goToLine = GoToLine(area)
+    val goToLine = GoToLine(area, jumpScroll)
 
     /** The styles of the text: tokens, masks, find matches and the extensions' overlay layers. */
     private val styles = CodeViewStyles(area, highlighter, findBar, additions.layers)
@@ -458,6 +461,7 @@ internal class CodeView(
 
     override fun dispose() {
         disposed = true
+        jumpScroll.cancel()
         pendingFocus.cancel()
         highlighting.dispose()
         findBar.dispose()

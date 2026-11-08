@@ -108,7 +108,7 @@ internal class Navigation(
         from: DocumentBinding?,
     ) {
         if (from != null && !from.isClosed && sameFile(from.file, target.file) && isFocused(from)) {
-            from.editor.moveCaret(from.offsetOf(Position(target.line, target.column)))
+            from.editor.jumpTo(from.offsetOf(Position(target.line, target.column)))
             from.editor.popupOwner?.requestFocus()
             return
         }

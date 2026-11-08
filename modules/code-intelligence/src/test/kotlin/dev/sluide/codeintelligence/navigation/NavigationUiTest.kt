@@ -67,6 +67,7 @@ internal class NavigationUiTest : EditorUiFixture() {
     private fun setUp(
         robot: FxRobot,
         supported: Set<String> = setOf(DEFINITION, REFERENCES, DOCUMENT_HIGHLIGHT),
+        text: String = this.text,
     ): ExtensibleCodeEditor {
         val spec = PySpec()
         servers = FakeLanguageServers(listOf(spec), dir, dispatch = Platform::runLater) { NavigationServer(supported) }
@@ -162,6 +163,16 @@ internal class NavigationUiTest : EditorUiFixture() {
         assertEquals(Position(3, 2), server.definitionRequests.single().position, "asked for the name only")
         // The press on the name did not move the caret: the way back is where it was before that click.
         assertEquals(listOf(SourcePosition(file, 0, 0)), fx { intelligence.history.places.first })
+    }
+
+    @Test
+    fun `a jump to a definition below the view shows its line at the top`(robot: FxRobot) {
+        val editor = setUp(robot, text = text + "\n".repeat(80) + "def other():\n    pass\n" + "\n".repeat(40))
+        server.definitionAnswer = { listOf(location(file, 85, 4, 5)) }
+        assertEquals(0, fx { editor.shownLines.first })
+        robot.interact { editor.moveCaret(23) }
+        press(robot, KeyCode.B, shortcut = true)
+        awaitTrue("the definition's line is the first shown one") { fx { editor.shownLines.first } == 85 }
     }
 
     @Test
