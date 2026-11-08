@@ -48,6 +48,8 @@ a server that ran restarts with the new ty.
   context menu (at the right-click), or **Shortcut+click** on a name. Holding **Shortcut** over a name underlines it
   and shows the hand cursor, while the server runs. One declaration is jumped to: in the same file the caret moves
   there, another file opens at it, also outside the project (site-packages, ty's own copies of the standard library).
+  The declaration's line is shown at the top of the editor unless it is already fully in view (also in a tab just
+  opened, once it is laid out, and for Back and Forward); near the end of the file the scroll stops short.
   Several (overloads, `posixpath.py` and `ntpath.py`) are offered in a list at the name: `file.py:LINE`, the path
   (relative to the project, absolute outside it) and the line's text; **Enter** or a double-click jumps. None says
   "No declaration found" at the name until the next key or click. On macOS Ctrl+click still opens the context menu.

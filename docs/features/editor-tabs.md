@@ -95,7 +95,8 @@
   side is drawn muted. Close Others, Close Tabs to the Left/Right and Close All act on the clicked tab's side. A moved
   tab is not closed: it keeps its view, caret, undo history and file watch.
 - Every file view gets the editor area as its `FileViewHost` (`ViewHost`): `openFile` opens a file like the explorer
-  does, `openFile(file, line)` then lets its view go to the line (`FileView.showLine`, as Go to Line moves the caret),
+  does, `openFile(file, line)` then lets its view go to the line (`FileView.showLine`, as Go to Line moves the caret and
+  shows the line at the top unless it is in view),
   `openWebPage` calls `EditorArea.openWebPage`, which the main window sets to the system browser
   (`HostServices.showDocument`, through the `SystemBrowser` bean), and `projectFolder` is the window's project folder
   (`EditorArea.projectFolder`, set by the main window), whose files HTML previews may use. `windowService(type)`

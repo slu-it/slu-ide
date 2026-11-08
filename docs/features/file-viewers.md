@@ -198,8 +198,11 @@ the Bicep graph and `BicepParamFileViewer`.
   which whoever shows the view sets; the editor area does ([editor-tabs.md](editor-tabs.md)). Views that open nothing
   ignore it. The previews use it for links; HTML previews also take the files they may use from its `projectFolder`.
   `openFile(file, line)` (0-based) opens a file at a line: views with a caret implement `FileView.showLine` (code views
-  as Go to Line does, previews in their source); the workflow graph's boxes use it. `openFile(file, line, column)`
-  goes to a column too (UTF-16 units, [ADR 0141](../adr/0141-editor-api-for-language-features.md)) through
+  as Go to Line does, previews in their source); the workflow graph's boxes use it. Code views show the line at the
+  top unless it is fully in view (`JumpScroll`, also for Go to Line, Shortcut+G): a line cut at an edge counts as not
+  shown ("line" is the paragraph: with soft wrap, one whose lower rows are cut is not shown), a view not yet laid
+  out (a tab just opened) scrolls once it is, near the end of the text the scroll stops short.
+  `openFile(file, line, column)` goes to a column too (UTF-16 units, [ADR 0141](../adr/0141-editor-api-for-language-features.md)) through
   `FileView.showPosition` (by default `showLine`): code views, previews, the `.gitignore` view and the Gradle, shell
   script, Dockerfile and Compose views put the caret there.
   `windowService(type)` gives the service the window registered under exactly `type` (`WindowServices`), e.g. the
