@@ -91,6 +91,8 @@ dependencies {
     testImplementation(libs.testfx.junit5)
     // File views are RichTextFX code areas; the tests read their text.
     testImplementation(libs.richtextfx)
+    // The Navigate menu's test binds a Python editor to an in-process fake language server.
+    testImplementation(testFixtures(project(":modules:language-servers")))
 }
 
 // The fat jar contains the JavaFX natives of the build platform only (see docs/adr/0003), so every

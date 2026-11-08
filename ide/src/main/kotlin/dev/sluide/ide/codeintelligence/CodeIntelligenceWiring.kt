@@ -38,17 +38,18 @@ class CodeIntelligenceWiring(
             fileWatcher = fileWatcher,
         )
 
-    private val codeIntelligence = CodeIntelligence(languageServers, prompts)
+    /** The code intelligence of the window's editors, also behind the Navigate menu (ADR 0146). */
+    val intelligence = CodeIntelligence(languageServers, prompts)
 
     /** The extension that binds the window's code editors to the servers. */
-    val editorExtension: CodeEditorExtension get() = codeIntelligence
+    val editorExtension: CodeEditorExtension get() = intelligence
 
     /** Registers the servers as a window service, for the views of other modules (ADR 0070). */
     fun register(services: WindowServices) = services.register(LanguageServers::class.java, languageServers)
 
     /** Unbinds the editors and ends the servers. */
     override fun close() {
-        codeIntelligence.close()
+        intelligence.close()
         languageServers.close()
     }
 }

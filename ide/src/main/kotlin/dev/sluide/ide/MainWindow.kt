@@ -39,6 +39,7 @@ import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpClientSetup
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
+import dev.sluide.ide.codeintelligence.navigateMenu
 import dev.sluide.ide.compare.WindowFileComparison
 import dev.sluide.ide.conversions.WindowConversions
 import dev.sluide.ide.explorer.WindowExplorer
@@ -348,6 +349,7 @@ class MainWindow(
                                 showSettings = { showSettings(stage) },
                             ),
                             viewMenu(explorerBar.canSelectOpened),
+                            navigateMenu(codeIntelligence.intelligence),
                             gitLog.gitMenu(),
                             tools.terminalMenu(stage),
                             tools.dockerSandboxMenu(stage),

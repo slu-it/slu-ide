@@ -441,7 +441,7 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "Initial commit")
         val menus = robot.lookup(".menu-bar").queryAs(MenuBar::class.java).menus
         val git = menus.indexOfFirst { it.text == "Git" }
-        assertEquals(listOf("View", "Git", "Terminal"), menus.subList(git - 1, git + 2).map { it.text })
+        assertEquals(listOf("View", "Navigate", "Git", "Terminal"), menus.subList(git - 2, git + 2).map { it.text })
         val commitItem = menu(robot, "Git").items.single { it.text == "Commit…" }
         val accelerator = commitItem.accelerator as KeyCodeCombination
         assertEquals(KeyCode.K, accelerator.code)
