@@ -12,6 +12,7 @@ import dev.sluide.codeintelligence.navigation.NavigationFeature
 import dev.sluide.codeintelligence.navigation.OccurrencesFeature
 import dev.sluide.codeintelligence.navigation.REFERENCES
 import dev.sluide.codeintelligence.navigation.navigationBlocker
+import dev.sluide.codeintelligence.rename.RenameFeature
 import dev.sluide.codeintelligence.semantic.SemanticTokensFeature
 import dev.sluide.codeintelligence.server.RestartServerItem
 import dev.sluide.codeintelligence.server.ServerBannerFeature
@@ -82,7 +83,8 @@ class CodeIntelligence internal constructor(
         if (closed) return null
         lastHost = editor.host
         lateinit var attachment: EditorAttachment
-        attachment = EditorAttachment(editor, languageServers, features, ::bindingFor) { attachments -= attachment }
+        attachment =
+            EditorAttachment(editor, languageServers, features, ::bindingFor, ::bindings) { attachments -= attachment }
         attachments += attachment
         return attachment
     }
@@ -132,6 +134,9 @@ class CodeIntelligence internal constructor(
         return bindings.firstOrNull { realPath(it.file) == real }
     }
 
+    /** The bound editors of the window. */
+    private fun bindings(): List<DocumentBinding> = attachments.mapNotNull { it.binding }
+
     /** The editors extended and not disposed yet; for tests. */
     internal val attached: Set<EditorAttachment> get() = attachments
 
@@ -163,9 +168,9 @@ private fun realPath(file: Path): Path? =
     }
 
 /**
- * The features of every binding, in order: the server banner, navigation, then one line per feature (P7 completion,
- * P8 diagnostics add theirs before the hover), the restart item last. Hover providers are asked and context menu items
- * shown in the order their features attach.
+ * The features of every binding, in order: the server banner, navigation, rename, diagnostics and quick fixes,
+ * semantic tokens, completion, signature help, the server's hover, the hover popup, the restart item last. Hover
+ * providers are asked and context menu items shown in the order their features attach.
  */
 internal fun builtInFeatures(
     notNow: ObservableSet<String>,
@@ -176,6 +181,7 @@ internal fun builtInFeatures(
         ServerBannerFeature(notNow, prompts),
         NavigationFeature(navigation),
         OccurrencesFeature(),
+        RenameFeature(),
         DiagnosticsFeature(),
         SemanticTokensFeature(),
         CompletionFeature(),

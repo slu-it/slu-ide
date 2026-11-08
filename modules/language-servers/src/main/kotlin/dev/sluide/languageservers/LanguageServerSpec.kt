@@ -55,6 +55,12 @@ interface LanguageServerSpec {
 
     /** Installs the server for the user, or `null` if Thoreau cannot (the user installs it). */
     val installer: ServerInstaller? get() = null
+
+    /**
+     * Whether [name] may name a symbol in this language, for rename (ADR 0149): servers answer invalid names too. By
+     * default any non-empty name without whitespace or control characters.
+     */
+    fun isIdentifier(name: String): Boolean = name.isNotEmpty() && name.none { it.isWhitespace() || it.isISOControl() }
 }
 
 /**

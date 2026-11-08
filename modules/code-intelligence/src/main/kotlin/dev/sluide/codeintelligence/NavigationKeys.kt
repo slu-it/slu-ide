@@ -4,7 +4,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 
-// The keys of navigation (ADR 0146), for the editors' bindings and the Navigate menu.
+// The keys of navigation and rename (ADR 0146, ADR 0149), for the editors' bindings and the Navigate menu.
 
 /** Go to Definition at the caret: Shortcut+B, a key binding of bound editors. */
 val GO_TO_DEFINITION_KEYS = KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN)
@@ -17,3 +17,6 @@ val BACK_KEYS = KeyCodeCombination(KeyCode.LEFT, KeyCombination.SHORTCUT_DOWN, K
 
 /** Forward: Shortcut+Alt+Right, the Navigate menu's accelerator only. */
 val FORWARD_KEYS = KeyCodeCombination(KeyCode.RIGHT, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN)
+
+/** Rename the name at the caret: Shift+F6, a key binding of bound editors. */
+val RENAME_KEYS = KeyCodeCombination(KeyCode.F6, KeyCombination.SHIFT_DOWN)

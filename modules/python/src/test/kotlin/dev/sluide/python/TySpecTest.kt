@@ -67,4 +67,31 @@ class TySpecTest {
         assertEquals(listOf("server"), spec.command()?.arguments)
         assertEquals(emptyMap(), spec.command()?.environment)
     }
+
+    @ParameterizedTest
+    @CsvSource(
+        "start, true",
+        "_private, true",
+        "__init__, true",
+        "größe, true",
+        "名前, true",
+        "x1, true",
+        "match, true",
+        "case, true",
+        "type, true",
+        "_, true",
+        "'foo bar', false",
+        "1abc, false",
+        "class, false",
+        "None, false",
+        "async, false",
+        "a-b, false",
+        "'', false",
+    )
+    fun `rename takes Python identifiers that are no hard keyword`(
+        name: String,
+        expected: Boolean,
+    ) {
+        assertEquals(expected, spec.isIdentifier(name))
+    }
 }

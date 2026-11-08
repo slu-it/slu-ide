@@ -16,6 +16,8 @@ internal class EditorAttachment(
     private val features: List<BindingFeature>,
     /** The window's bound editor of a file, for the bindings' [DocumentBinding.bindingOf]. */
     private val bindingOf: (Path) -> DocumentBinding?,
+    /** The window's bound editors, for the bindings' [DocumentBinding.bindings]. */
+    private val bindings: () -> List<DocumentBinding>,
     private val closed: () -> Unit,
 ) : AutoCloseable {
     /** The binding while the editor's file is served. */
@@ -44,7 +46,7 @@ internal class EditorAttachment(
         current?.close()
         binding = null
         if (spec != null) {
-            binding = DocumentBinding(editor, spec, languageServers, bindingOf).also { it.attach(features) }
+            binding = DocumentBinding(editor, spec, languageServers, bindingOf, bindings).also { it.attach(features) }
         }
     }
 

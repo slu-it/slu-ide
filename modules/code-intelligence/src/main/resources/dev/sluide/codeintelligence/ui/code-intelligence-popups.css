@@ -16,9 +16,14 @@
     -fx-spacing: 4;
 }
 
-/* The rename field at the name. */
+/* The rename field at the name, and below it what is wrong with the name typed. */
 .rename-popup {
     -fx-padding: 4;
+}
+
+.rename-problem {
+    -fx-text-fill: -fx-text-base-color;
+    -fx-opacity: 0.8;
 }
 
 /* The list draws no border of its own inside the popup's. */
