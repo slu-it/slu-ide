@@ -40,8 +40,13 @@ sealed interface ServerAvailability {
         val progress: Double,
     ) : ServerAvailability
 
-    /** The last install failed with [message]. */
+    /**
+     * The server cannot run, with [message]: the last install failed, or what the user configured cannot work.
+     * [canRetry]: whether installing again may help; `false` when only a setting can fix it (a custom executable that
+     * does not work, no build for this platform).
+     */
     data class Failed(
         val message: String,
+        val canRetry: Boolean = true,
     ) : ServerAvailability
 }

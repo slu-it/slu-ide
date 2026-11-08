@@ -26,11 +26,12 @@ internal sealed interface ServerNotice {
         val progress: Double,
     ) : ServerNotice
 
-    /** The last install failed; Retry, Not Now. */
+    /** The last install failed (Retry, Not Now), or a setting keeps the server from running ([canRetry] false: Not Now). */
     data class InstallFailed(
         val language: String,
         val tool: String?,
         val message: String,
+        val canRetry: Boolean = true,
     ) : ServerNotice
 
     /** The server crashed too often or could not start; Restart. */
@@ -61,10 +62,21 @@ internal fun noticeFor(
     if (availability != null && availability != ServerAvailability.Ready) {
         if (putOff) return null
         return when (availability) {
-            is ServerAvailability.Missing -> ServerNotice.Missing(language, tool, availability.downloadBytes)
-            is ServerAvailability.Installing -> ServerNotice.Installing(tool, availability.progress)
-            is ServerAvailability.Failed -> ServerNotice.InstallFailed(language, tool, availability.message)
-            ServerAvailability.Ready -> null
+            is ServerAvailability.Missing -> {
+                ServerNotice.Missing(language, tool, availability.downloadBytes)
+            }
+
+            is ServerAvailability.Installing -> {
+                ServerNotice.Installing(tool, availability.progress)
+            }
+
+            is ServerAvailability.Failed -> {
+                ServerNotice.InstallFailed(language, tool, availability.message, availability.canRetry)
+            }
+
+            ServerAvailability.Ready -> {
+                null
+            }
         }
     }
     return when (state) {
@@ -88,8 +100,13 @@ internal fun noticeText(notice: ServerNotice): String =
         }
 
         is ServerNotice.InstallFailed -> {
-            val what = notice.tool ?: "The ${notice.language} language server"
-            "$what could not be installed: ${notice.message}"
+            if (notice.canRetry) {
+                val what = notice.tool ?: "The ${notice.language} language server"
+                "$what could not be installed: ${notice.message}"
+            } else {
+                val sentence = if (notice.message.endsWith('.')) notice.message else "${notice.message}."
+                "$sentence Change it in Settings → Languages → ${notice.language}."
+            }
         }
 
         is ServerNotice.Stopped -> {

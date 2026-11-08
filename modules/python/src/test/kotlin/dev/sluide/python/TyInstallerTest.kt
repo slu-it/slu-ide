@@ -203,7 +203,10 @@ class TyInstallerTest {
         fakes.settings.apply(plain.toString())
 
         assertNull(installer.command())
-        assertEquals(ServerAvailability.Failed("$plain is not an executable file"), installer.availability.value)
+        assertEquals(
+            ServerAvailability.Failed("$plain is not an executable file", canRetry = false),
+            installer.availability.value,
+        )
     }
 
     @Test
@@ -219,7 +222,10 @@ class TyInstallerTest {
         installer.recheckCustomPath()
 
         assertEquals(
-            listOf(ServerAvailability.Ready, ServerAvailability.Failed("$custom is not an executable file")),
+            listOf(
+                ServerAvailability.Ready,
+                ServerAvailability.Failed("$custom is not an executable file", canRetry = false),
+            ),
             availabilities,
         )
     }
@@ -233,7 +239,7 @@ class TyInstallerTest {
         assertEquals(false, fakes.hasQueuedWork)
         assertEquals(false, installer.platformSupported)
         assertNull(installer.pinnedDownloadBytes)
-        assertEquals(ServerAvailability.Failed(NO_TY_BUILD), installer.availability.value)
+        assertEquals(ServerAvailability.Failed(NO_TY_BUILD, canRetry = false), installer.availability.value)
     }
 
     @Test
@@ -277,7 +283,7 @@ class TyInstallerTest {
                     InstallState.Installed,
                     tool,
                     1L,
-                    ServerAvailability.Failed("/a/ty is not an executable file"),
+                    ServerAvailability.Failed("/a/ty is not an executable file", canRetry = false),
                 ),
                 Arguments.of("installed", "", null, InstallState.Installed, tool, 1L, ServerAvailability.Ready),
                 Arguments.of("updating", "", null, InstallState.Downloading(0.3), tool, 1L, ServerAvailability.Ready),
@@ -309,7 +315,7 @@ class TyInstallerTest {
                     InstallState.NotInstalled,
                     null,
                     null,
-                    ServerAvailability.Failed(NO_TY_BUILD),
+                    ServerAvailability.Failed(NO_TY_BUILD, canRetry = false),
                 ),
             )
     }

@@ -79,7 +79,10 @@ internal class ServerBanner(
                 }
 
                 is ServerNotice.InstallFailed -> {
-                    listOf(button("Retry", "retry", model::install), button("Not Now", "not-now", model::notNow))
+                    listOfNotNull(
+                        if (notice.canRetry) button("Retry", "retry", model::install) else null,
+                        button("Not Now", "not-now", model::notNow),
+                    )
                 }
 
                 is ServerNotice.Stopped -> {

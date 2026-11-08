@@ -201,7 +201,8 @@ class TyInstaller internal constructor(
         /**
          * Whether ty can run: a set [customPath] decides alone (Failed with its [customProblem]); else an installed
          * version is Ready (also while an update downloads or after one failed), then the download's [state], then
-         * Missing with the size of the pinned download, or Failed without a build for this platform.
+         * Missing with the size of the pinned download, or Failed without a build for this platform. Only a failed
+         * download can be retried; the custom path and the missing build are fixed in Settings.
          */
         fun availabilityOf(
             customPath: String,
@@ -212,7 +213,7 @@ class TyInstaller internal constructor(
         ): ServerAvailability =
             when {
                 customPath.isNotEmpty() -> {
-                    customProblem?.let { ServerAvailability.Failed(it) }
+                    customProblem?.let { ServerAvailability.Failed(it, canRetry = false) }
                         ?: ServerAvailability.Ready
                 }
 
@@ -233,7 +234,7 @@ class TyInstaller internal constructor(
                 }
 
                 else -> {
-                    ServerAvailability.Failed(NO_TY_BUILD)
+                    ServerAvailability.Failed(NO_TY_BUILD, canRetry = false)
                 }
             }
     }

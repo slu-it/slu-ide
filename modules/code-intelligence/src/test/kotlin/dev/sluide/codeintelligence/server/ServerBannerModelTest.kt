@@ -68,6 +68,10 @@ class ServerBannerModelTest {
             noticeText(ServerNotice.InstallFailed("Python", "ty", "checksum mismatch")),
         )
         assertEquals(
+            "/a/ty is not an executable file. Change it in Settings → Languages → Python.",
+            noticeText(ServerNotice.InstallFailed("Python", "ty", "/a/ty is not an executable file", canRetry = false)),
+        )
+        assertEquals(
             "The Python language server stopped: exit 1",
             noticeText(ServerNotice.Stopped("Python", "exit 1")),
         )
@@ -166,6 +170,12 @@ class ServerBannerModelTest {
                     ServerState.Unavailable,
                     false,
                     ServerNotice.InstallFailed("Python", "ty", "offline"),
+                ),
+                Arguments.of(
+                    ServerAvailability.Failed("/a/ty is not an executable file", canRetry = false),
+                    ServerState.Unavailable,
+                    false,
+                    ServerNotice.InstallFailed("Python", "ty", "/a/ty is not an executable file", canRetry = false),
                 ),
                 Arguments.of(
                     ServerAvailability.Ready,
