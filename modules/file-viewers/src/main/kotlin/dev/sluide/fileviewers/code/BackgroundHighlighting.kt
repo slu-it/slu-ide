@@ -53,7 +53,7 @@ internal class BackgroundHighlighting(
                     if (disposed || revision != highlighted) return@Runnable
                     val styles = restyle(text, spans)
                     val range = changedSpanRange(area.getStyleSpans(0, area.length), styles) ?: return@Runnable
-                    area.setStyleSpans(range.first, styles.subView(range.first, range.last + 1))
+                    area.restyleKeepingView(range.first, styles.subView(range.first, range.last + 1))
                 },
             )
         }

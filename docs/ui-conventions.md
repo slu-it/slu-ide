@@ -90,6 +90,9 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   window) or a field in a plain `Popup` like the rename field: it takes the focus, its field handles the keys, and it
   gives the focus back when it hides (ADR 0149). Never a `CaretPopup` or `EditorPopupWindow` for that: they strip focus
   traversal.
+- Restyling a live code area: every `setStyleSpans` of an editable code view goes through `CodeArea.restyleKeepingView`
+  (file-viewers `code`); a plain call drops the cells of the shown lines and the view jumps to the top or the caret line
+  to the top (RichTextFX/Flowless).
 
 ## Running commands
 - Through `command-runs`: `RunPane` (Arguments field with history, status line with Stop and Rerun, embedded

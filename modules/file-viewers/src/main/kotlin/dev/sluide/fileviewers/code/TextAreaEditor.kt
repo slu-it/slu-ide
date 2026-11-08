@@ -120,7 +120,7 @@ internal class TextAreaEditor(
             field = value
             highlighting.dispose()
             highlighting = backgroundHighlighting(value)
-            if (area.length > 0) area.setStyleSpans(0, withMarks(plainSpans(area.length)))
+            if (area.length > 0) area.restyleKeepingView(0, withMarks(plainSpans(area.length)))
             highlight(area.text)
         }
 
@@ -171,7 +171,7 @@ internal class TextAreaEditor(
         val styled = area.getStyleSpans(0, area.length)
         val wanted = withMarks(styled.mapStyles { style -> style.filterNot { it == ERROR || it in overlayClasses() } })
         val range = changedSpanRange(styled, wanted) ?: return
-        area.setStyleSpans(range.first, wanted.subView(range.first, range.last + 1))
+        area.restyleKeepingView(range.first, wanted.subView(range.first, range.last + 1))
     }
 
     /** Whether the user can change the text. */
@@ -191,7 +191,7 @@ internal class TextAreaEditor(
         val styled = area.getStyleSpans(0, area.length)
         val bare = styled.mapStyles { style -> style.filterNot { it in classes } }
         val range = changedSpanRange(styled, bare) ?: return
-        area.setStyleSpans(range.first, bare.subView(range.first, range.last + 1))
+        area.restyleKeepingView(range.first, bare.subView(range.first, range.last + 1))
     }
 
     /**
@@ -216,7 +216,7 @@ internal class TextAreaEditor(
         val bare = styled.mapStyles { style -> style.filterNot { it in classes } }
         val changed = withStyledRanges(bare, wanted, from)
         val range = changedSpanRange(styled, changed) ?: return
-        area.setStyleSpans(from + range.first, changed.subView(range.first, range.last + 1))
+        area.restyleKeepingView(from + range.first, changed.subView(range.first, range.last + 1))
     }
 
     /**
@@ -243,7 +243,7 @@ internal class TextAreaEditor(
 
     private fun highlight(text: String) {
         val highlighter = highlighter ?: return
-        if (text.isNotEmpty()) area.setStyleSpans(0, withMarks(codeStyleSpans(text, highlighter)))
+        if (text.isNotEmpty()) area.restyleKeepingView(0, withMarks(codeStyleSpans(text, highlighter)))
     }
 
     /** [spans] of the whole text with the error style on the marked character and the overlay on its ranges. */

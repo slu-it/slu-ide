@@ -374,7 +374,7 @@ internal class FindBar(
         val styled = area.getStyleSpans(0, area.length)
         val wanted = withMatches(styled.mapStyles { style -> style.filterNot { it in MATCH_CLASSES } })
         val range = changedSpanRange(styled, wanted) ?: return
-        area.setStyleSpans(range.first, wanted.subView(range.first, range.last + 1))
+        area.restyleKeepingView(range.first, wanted.subView(range.first, range.last + 1))
     }
 
     /** Gives the match at [index] the style of a match, or of the current one, over its token styles. */
@@ -382,7 +382,8 @@ internal class FindBar(
         val match = matches[index]
         val classes = if (index == current) CURRENT_MATCH else MATCH
         val styled = area.getStyleSpans(match.first, match.last + 1)
-        area.setStyleSpans(match.first, styled.mapStyles { style -> style.filterNot { it in MATCH_CLASSES } + classes })
+        val restyled = styled.mapStyles { style -> style.filterNot { it in MATCH_CLASSES } + classes }
+        area.restyleKeepingView(match.first, restyled)
     }
 
     /** [spans] with the match styles added. */

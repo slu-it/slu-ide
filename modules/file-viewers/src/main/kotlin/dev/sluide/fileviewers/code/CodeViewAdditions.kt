@@ -235,6 +235,6 @@ internal class OverlayLayers(
         val styled = area.getStyleSpans(from, to)
         val changed = withStyledRanges(styled, ranges, from, stripped)
         val range = changedSpanRange(styled, changed) ?: return
-        area.setStyleSpans(from + range.first, changed.subView(range.first, range.last + 1))
+        area.restyleKeepingView(from + range.first, changed.subView(range.first, range.last + 1))
     }
 }

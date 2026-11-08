@@ -25,7 +25,7 @@ internal class CodeViewStyles(
     /** Highlights [text], the area's text, at once, with everything that goes over the tokens. */
     fun highlight(text: String) {
         if (text.isNotEmpty() && highlighter != null) {
-            area.setStyleSpans(0, restyle(text, codeStyleSpans(text, highlighter)))
+            area.restyleKeepingView(0, restyle(text, codeStyleSpans(text, highlighter)))
         }
     }
 
@@ -42,7 +42,7 @@ internal class CodeViewStyles(
         val unmasked = styled.mapStyles { style -> if (MASKED in style) style - MASKED else style }
         val wanted = withMasks(area.text, unmasked)
         val range = changedSpanRange(styled, wanted) ?: return
-        area.setStyleSpans(range.first, wanted.subView(range.first, range.last + 1))
+        area.restyleKeepingView(range.first, wanted.subView(range.first, range.last + 1))
     }
 
     /** [spans], the styles of [text], with `masked` added on the [maskedRanges]. */
