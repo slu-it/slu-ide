@@ -137,7 +137,9 @@ The sandbox is Linux on ARM with fast cores; CI (`.github/workflows/ci.yml`) run
 runners and `build -x uiTest` on macOS, and the user only sees those failures after pushing. Every case below broke
 CI once.
 - **Linked temp folders:** on macOS `/var/folders/...` is a link to `/private/var/folders/...`. When the code resolves
-  links (the file watcher reports real paths), compare against `tempDir.toRealPath()`.
+  links (the file watcher reports real paths), compare against `tempDir.toRealPath()`. A missing file has no real
+  path, so code comparing it with a real project folder resolves its nearest existing folder instead; test such code
+  with a project reached through a `Files.createSymbolicLink` (`BindingRenameFileStatesTest`), which fails on Linux too.
 - **Few cores:** the macOS runner has 3 cores, so the common `ForkJoinPool` has 2 threads. Code that must not stall
   never waits on `Process.onExit()` or other default async completions (git cancel once hung until its timeout).
   Reproduce with `-XX:ActiveProcessorCount=3`.

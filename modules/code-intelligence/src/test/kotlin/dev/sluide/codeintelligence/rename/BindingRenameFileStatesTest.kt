@@ -10,8 +10,10 @@ import dev.sluide.fileviewers.FileViewHost
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.collections.FXCollections
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import java.net.URI
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
@@ -25,7 +27,10 @@ import kotlin.test.assertEquals
  */
 class BindingRenameFileStatesTest {
     @TempDir
-    lateinit var folder: Path
+    lateinit var temp: Path
+
+    /** The project, reached through a link as macOS reaches its temp folders (`/var` to `/private/var`). */
+    private lateinit var folder: Path
 
     @TempDir
     lateinit var elsewhere: Path
@@ -48,6 +53,11 @@ class BindingRenameFileStatesTest {
 
             override fun currentText(file: Path): String? = openTexts[file]
         }
+
+    @BeforeEach
+    fun link() {
+        folder = Files.createSymbolicLink(temp.resolve("project"), Files.createDirectory(temp.resolve("real")))
+    }
 
     @AfterEach
     fun close() {

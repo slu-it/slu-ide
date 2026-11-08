@@ -68,15 +68,26 @@ internal class BindingRenameFileStates(
     }
 }
 
-/** Whether [file] lies inside [projectFolder] by real paths, as a workspace edit checks closed files. */
+/**
+ * Whether [file] lies inside [projectFolder] by real paths, as a workspace edit checks closed files; a missing file by
+ * the real path of its nearest existing folder, so it stays inside a project reached through a link.
+ */
 private fun isInside(
     file: Path,
     projectFolder: Path?,
 ): Boolean =
     try {
         val project = projectFolder?.takeIf { Files.isDirectory(it) }?.toRealPath()
-        val real = if (Files.exists(file)) file.toRealPath() else file.toAbsolutePath().normalize()
-        project != null && real.startsWith(project)
+        project != null && realOrNearest(file).startsWith(project)
     } catch (_: IOException) {
         false
     }
+
+/** The real path of [file], or of its nearest existing ancestor with the missing rest appended. */
+private fun realOrNearest(file: Path): Path {
+    // Not normalized before resolving: a `..` behind a link leads where the link points.
+    val absolute = file.toAbsolutePath()
+    var existing: Path? = absolute
+    while (existing != null && !Files.exists(existing)) existing = existing.parent
+    return (existing?.toRealPath()?.resolve(existing.relativize(absolute)) ?: absolute).normalize()
+}
