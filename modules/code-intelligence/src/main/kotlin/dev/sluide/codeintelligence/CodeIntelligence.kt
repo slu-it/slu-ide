@@ -12,6 +12,7 @@ import dev.sluide.codeintelligence.navigation.NavigationFeature
 import dev.sluide.codeintelligence.navigation.OccurrencesFeature
 import dev.sluide.codeintelligence.navigation.REFERENCES
 import dev.sluide.codeintelligence.navigation.navigationBlocker
+import dev.sluide.codeintelligence.semantic.SemanticTokensFeature
 import dev.sluide.codeintelligence.server.RestartServerItem
 import dev.sluide.codeintelligence.server.ServerBannerFeature
 import dev.sluide.codeintelligence.server.hasStarted
@@ -176,6 +177,7 @@ internal fun builtInFeatures(
         NavigationFeature(navigation),
         OccurrencesFeature(),
         DiagnosticsFeature(),
+        SemanticTokensFeature(),
         CompletionFeature(),
         SignatureFeature(),
         ServerHoverFeature(),

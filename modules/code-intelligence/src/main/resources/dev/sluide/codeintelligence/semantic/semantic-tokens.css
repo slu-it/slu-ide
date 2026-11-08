@@ -1,0 +1,37 @@
+/*
+ * Semantic highlighting of the code intelligence (ADR 0148), added to bound editors: a few subtle colours over the
+ * lexical ones of syntax.css, for names the lexer cannot tell apart (parameters, self and cls, builtin constants such
+ * as __name__ in the keyword colour). Single classes only, as syntax.css explains; the rules override the lexical
+ * ones by coming later with the same specificity.
+ */
+
+.sem-parameter {
+    -fx-fill: #7d5b1b;
+}
+
+.sem-self {
+    -fx-fill: #94558d;
+}
+
+.sem-builtin-constant {
+    -fx-fill: #0033b3;
+    -fx-font-weight: bold;
+}
+
+.sem-deprecated {
+    -fx-strikethrough: true;
+}
+
+@media (prefers-color-scheme: dark) {
+    .sem-parameter {
+        -fx-fill: #c9a26d;
+    }
+
+    .sem-self {
+        -fx-fill: #b07fab;
+    }
+
+    .sem-builtin-constant {
+        -fx-fill: #cc7832;
+    }
+}
