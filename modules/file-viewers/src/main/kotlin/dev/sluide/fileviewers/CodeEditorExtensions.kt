@@ -240,6 +240,9 @@ interface ExtensibleCodeEditor : GutterColumns {
      */
     fun applyEdits(edits: List<OffsetEdit>): Boolean = false
 
+    /** Whether [applyEdits] would change the text now: `false` while the editor is read-only or [lock]ed. */
+    val canApplyEdits: Boolean get() = false
+
     /** Whether the editor has unsaved changes. */
     val dirty: ObservableBooleanValue get() = ReadOnlyBooleanWrapper(false).readOnlyProperty
 

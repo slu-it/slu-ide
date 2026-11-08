@@ -21,6 +21,7 @@ import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.fileviewers.SoftWrap
+import dev.sluide.fileviewers.library.LibraryCodeExtension
 import dev.sluide.games.BlockBreaker
 import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
@@ -133,6 +134,7 @@ class MainWindow(
     private val converting: Converting,
     private val readAloud: ReadAloud,
     private val translate: Translate,
+    private val libraryCode: LibraryCodeExtension,
     gitFileComparison: GitFileComparison,
     private val docker: Docker,
     private val dockerSession: DockerSession,
@@ -454,6 +456,7 @@ class MainWindow(
                 add(readAloud.editorExtension)
                 add(translate.editorExtension)
                 add(codeIntelligence.editorExtension)
+                add(libraryCode)
             },
         )
         editorArea.windowServices.register(SoftWrap::class.java, softWrap)

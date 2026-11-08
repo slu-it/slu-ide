@@ -20,6 +20,7 @@ internal class BindingEditTarget(
         return object : BoundText {
             override val version get() = bound.document.version
             override val text get() = bound.document.text
+            override val canApply get() = bound.editor.canApplyEdits
 
             override fun apply(edits: List<OffsetEdit>) = bound.editor.applyEdits(edits)
         }

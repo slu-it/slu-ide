@@ -257,6 +257,8 @@ internal class ExtensibleCodeView(
         return true
     }
 
+    override val canApplyEdits: Boolean get() = view.canReplaceText
+
     override val dirty: ObservableBooleanValue get() = view.dirty
 
     override fun onSaved(listener: () -> Unit): AutoCloseable {

@@ -71,6 +71,8 @@ internal open class FakeCodeEditor(
         batch(listOf(Triple(at, at, typed)), caretAfter = at + typed.length)
     }
 
+    override val canApplyEdits: Boolean get() = true
+
     /**
      * Applies [edits] as one batch, from the last, as the real editor does: the caret moves with the text (after an
      * edit ending at or before it, behind the new text of one containing it).

@@ -7,10 +7,13 @@ import dev.sluide.fileviewers.SoftWrap
 import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.context.annotation.ClassPathBeanDefinitionScanner
 import org.springframework.core.type.filter.AssignableTypeFilter
+import org.springframework.core.type.filter.RegexPatternTypeFilter
 import java.nio.file.Path
 
 /** The packages whose viewers the application's component scan finds: those of the core and of the previews. */
 private val VIEWER_PACKAGES = arrayOf("dev.sluide.fileviewers", "dev.sluide.previews")
+
+private val LIBRARY_AND_SETTINGS = Regex("dev\\.sluide\\.fileviewers\\.(library|settings)\\..*").toPattern()
 
 /**
  * Every viewer bean, found by a component scan as in the application, so that the core's viewers need no import here.
@@ -22,6 +25,8 @@ internal val allViewers: List<FileViewer> by lazy {
         // scan does not have.
         ClassPathBeanDefinitionScanner(context).apply {
             addExcludeFilter(AssignableTypeFilter(SoftWrap::class.java))
+            // The library-code extension and the Editor settings page need the settings store, and are no viewers.
+            addExcludeFilter(RegexPatternTypeFilter(LIBRARY_AND_SETTINGS))
             scan(*VIEWER_PACKAGES)
         }
         context.refresh()

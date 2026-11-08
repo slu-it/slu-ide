@@ -89,6 +89,9 @@ internal interface BoundText {
     /** The document's text (`\n` line breaks). */
     val text: String
 
+    /** Whether [apply] can change the text now: `false` while the editor is read-only or locked. */
+    val canApply: Boolean get() = true
+
     /** Applies [edits] (sorted, not overlapping) as one undo step; `false` if the editor cannot be edited. */
     fun apply(edits: List<OffsetEdit>): Boolean
 }
@@ -217,6 +220,7 @@ internal class WorkspaceEdits(
                     "$name is no longer open as the server knows it."
                 }
             }
+            if (snapshot.bound?.canApply == false) return "$name is read-only."
             val text = snapshot.bound?.text ?: snapshot.openText ?: continue
             val checked = checkEdits(text, fileEdits.edits)
             if (checked is CheckedEdits.Invalid) return "$name: ${checked.reason}."

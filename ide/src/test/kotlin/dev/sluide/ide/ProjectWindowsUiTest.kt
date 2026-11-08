@@ -26,6 +26,7 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.SoftWrap
+import dev.sluide.fileviewers.library.LibraryCodeExtension
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.games.BlockBreaker
 import dev.sluide.games.Doubles
@@ -260,6 +261,7 @@ class ProjectWindowsUiTest {
                     Converting::class.java,
                     ReadAloud::class.java,
                     Translate::class.java,
+                    LibraryCodeExtension::class.java,
                     DockerSession::class.java,
                     Docker::class.java,
                     Databases::class.java,

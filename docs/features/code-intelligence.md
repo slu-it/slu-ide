@@ -104,9 +104,10 @@ Decision in [ADR 0148](../adr/0148-diagnostics-quick-fixes-semantic-highlighting
   closed file in the project is changed on disk in one step, keeping its line breaks, its permissions and a BOM.
   Nothing changes when one of the files cannot be edited: it changed since the server made the edit or while the
   files were read, it is open with unsaved changes the server never saw (save it first), it is outside the project,
-  read-only, library code while "Open library code read-only" is on ([ADR 0150](../adr/0150-library-code-read-only.md);
-  a closed file of a virtual environment, `site-packages`, `__pypackages__`, the standard library or typeshed), not UTF-8 or larger
-  than 10 MiB, or the edit does not fit its text. If a closed file cannot be written
+  read-only (also an open library tab that is locked, refused up front), library code while "Open library code
+  read-only" is on ([ADR 0150](../adr/0150-library-code-read-only.md); a closed file of a virtual environment,
+  `site-packages`, `__pypackages__`, the standard library or typeshed), not UTF-8 or larger than 10 MiB, or the edit
+  does not fit its text. If a closed file cannot be written
   after the open editors were changed, the message names the files that changed. Creating, renaming or deleting files
   is not supported yet.
 - **Semantic highlighting:** parameters, `self` and `cls`, and builtin constants (`__name__`, `NotImplemented`) get
@@ -130,7 +131,8 @@ Decision in [ADR 0149](../adr/0149-rename-file-structure-go-to-symbol.md).
   (no undo takes those back). **Rename** applies it (open files are changed in their editors and left unsaved, closed
   ones are written, see "Edits in other files" above), **Cancel** changes
   nothing. When a file would refuse the rename (open without code intelligence with unsaved changes, closed and
-  outside the project, closed library code, or missing on disk), the dialog says so and offers Cancel only.
+  outside the project, closed library code, open but read-only, or missing on disk), the dialog says so and offers
+  Cancel only.
 - If the text of this or another open Python file changed while the server answered or the dialog showed, nothing
   changes ("The text changed. Rename again."). A rename that could not be applied, or only to some files, says so in a message naming the files.
 

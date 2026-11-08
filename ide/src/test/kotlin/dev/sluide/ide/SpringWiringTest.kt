@@ -34,6 +34,8 @@ import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
+import dev.sluide.fileviewers.library.LibraryCodeExtension
+import dev.sluide.fileviewers.settings.EditorSettingsPage
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.games.BlockBreaker
 import dev.sluide.games.Doubles
@@ -249,6 +251,8 @@ class SpringWiringTest {
                         PythonSettingsPage::class.java,
                         InstallPrompts::class.java,
                         CodeIntelligenceWiring::class.java,
+                        EditorSettingsPage::class.java,
+                        LibraryCodeExtension::class.java,
                         LibraryCodeSettings::class.java,
                     )
                 for (type in types) {

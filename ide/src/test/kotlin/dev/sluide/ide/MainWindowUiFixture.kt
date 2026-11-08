@@ -29,6 +29,7 @@ import dev.sluide.fileviewers.ExtensionFileViewer
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.SoftWrap
+import dev.sluide.fileviewers.library.LibraryCodeExtension
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.games.BlockBreaker
 import dev.sluide.games.Doubles
@@ -417,6 +418,7 @@ abstract class MainWindowUiFixture {
                 TranslationPreferences(projectData),
                 fontSettings,
             ).also(translates::add),
+            LibraryCodeExtension(LibraryCodeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
             GitFileComparison(git),
             Docker(dockerSession, terminals, tasks, DockerRunStore(projectData)).also(dockers::add),
             dockerSession,

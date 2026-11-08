@@ -57,6 +57,10 @@
   download or a custom path (`python.ty.path`, applied on OK or Apply). Lives in the `python` module (`PythonSettings`,
   `PythonSettingsPage` with `PythonSettingsPageModel`, package `dev.sluide.python.settings`; [python.md](python.md),
   [ADR 0144](../adr/0144-python-via-ty.md)).
+- Editor: the check box "Open library code read-only" (`editor.libraryCodeReadOnly`, on by default) with a note on
+  what counts as library code; applies on OK or Apply, to open tabs at once. Lives in `file-viewers`
+  (`EditorSettingsPage` with `EditorSettingsPageModel`, package `dev.sluide.fileviewers.settings`;
+  [library-code.md](library-code.md), [ADR 0150](../adr/0150-library-code-read-only.md)).
 - Secrets: the secret store, saved passphrases with Remove and Forget All Saved Secrets. Lives in the `secrets` module
   (`SecretsSettingsPage` with `SecretsSettingsPageModel`; [secrets.md](secrets.md)).
 - Structure: `FontSpec`, `FontStyle`, `FontArea` (values), `SettingsStore` (properties file), `FontSettings` (Spring

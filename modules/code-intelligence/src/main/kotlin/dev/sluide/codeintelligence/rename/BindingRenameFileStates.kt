@@ -35,7 +35,11 @@ internal class BindingRenameFileStates(
             when {
                 bound != null -> {
                     known[file] =
-                        if (bound.editor.dirty.get()) RenameFileState.UNSAVED else RenameFileState.OPEN
+                        when {
+                            !bound.editor.canApplyEdits -> RenameFileState.READ_ONLY
+                            bound.editor.dirty.get() -> RenameFileState.UNSAVED
+                            else -> RenameFileState.OPEN
+                        }
                 }
 
                 openText != null -> {

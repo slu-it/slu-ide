@@ -255,6 +255,10 @@ the Bicep graph and `BicepParamFileViewer`.
       `replaceText` and the find bar's Replace and Replace All change nothing and `canReplaceText` is false, while
       caret, selection, copy, find and scrolling work. Saving still works, and a change on disk still reloads the text.
       Unlike a file shown read-only for its encoding, a lock shows no banner.
+    - `readOnlyLock()` is a lock that also makes Save do nothing and sets the view's `FileView.readOnlyMarked` (a
+      lock icon in its tab) until every such lock is closed; library code uses it ([library-code.md](library-code.md)).
+      Views that embed a code view (`.gitignore`, `.env`, the previews, shell scripts, Gradle, Dockerfile, Compose)
+      show the embedded view's `readOnlyMarked`.
     - `overlay(layer, ranges)` shows `StyledRange`s as a named layer over highlighting, masks and find matches,
       replacing that layer's previous ranges (an empty list clears it); layers stay through background highlighting
       and find updates, and any change of the text (an edit, a reload) clears them, unless they follow edits (below).

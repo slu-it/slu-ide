@@ -69,11 +69,13 @@ class BindingRenameFileStatesTest {
     private fun bound(
         name: String,
         dirty: Boolean,
+        editable: Boolean = true,
     ): Path {
         val file = folder.resolve(name).also { it.writeText("x = 1\n") }
         val editor =
             object : FakeCodeEditor(file, "x = 1\n", host) {
                 override val dirty = SimpleBooleanProperty(dirty)
+                override val canApplyEdits get() = editable
             }
         fx.onFx { intelligence.extend(editor) }
         return file
@@ -91,6 +93,7 @@ class BindingRenameFileStatesTest {
         intelligence = fx.onFx { CodeIntelligence(fx.servers, FXCollections.observableSet()) { listOf(capture) } }
         val clean = bound("a.py", dirty = false)
         val dirty = bound("b.py", dirty = true)
+        val locked = bound("d.py", dirty = false, editable = false)
         val saved = folder.resolve("notes.txt").also { it.writeText("run\n") }
         openTexts[saved] = "run\n"
         val unsaved = folder.resolve("other.txt").also { it.writeText("run\n") }
@@ -101,7 +104,7 @@ class BindingRenameFileStatesTest {
         val venv = folder.resolve(".venv").also { Files.createDirectories(it) }
         venv.resolve("pyvenv.cfg").writeText("home = /usr/bin\n")
         val library = venv.resolve("lib.py").also { it.writeText("run\n") }
-        val files = listOf(clean, dirty, saved, unsaved, closed, outside, missing, library)
+        val files = listOf(clean, dirty, locked, saved, unsaved, closed, outside, missing, library)
 
         val found = CompletableFuture<Map<Path, RenameFileState>>()
         fx.onFx {
@@ -116,6 +119,7 @@ class BindingRenameFileStatesTest {
             mapOf(
                 clean to RenameFileState.OPEN,
                 dirty to RenameFileState.UNSAVED,
+                locked to RenameFileState.READ_ONLY,
                 saved to RenameFileState.OPEN,
                 unsaved to RenameFileState.UNSAVED_UNKNOWN,
                 closed to RenameFileState.CLOSED,

@@ -120,6 +120,9 @@ internal enum class RenameFileState(
     /** Closed library code while library code is read-only (ADR 0150): not written. */
     LIBRARY("library code", "is library code"),
 
+    /** Open in an editor with code intelligence that cannot be edited (read-only, locked): nothing can be applied. */
+    READ_ONLY("read-only", "is read-only"),
+
     /** Not open and not a file on disk (deleted since the server read it): nothing to write. */
     MISSING("does not exist", "does not exist"),
 }

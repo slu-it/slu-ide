@@ -197,6 +197,8 @@ internal class CodeView(
         banner(
             fileName.map { "$it is not valid UTF-8: it is opened and saved as Windows-1252." },
             Button("Convert to UTF-8").apply {
+                // Converting makes the view dirty, which a read-only lock then cannot save.
+                disableProperty().bind(additions.locks.readOnlyMarked)
                 setOnAction {
                     encoding.convert()
                     showEncoding()

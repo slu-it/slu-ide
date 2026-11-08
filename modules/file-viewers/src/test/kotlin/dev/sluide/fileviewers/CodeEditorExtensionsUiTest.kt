@@ -2,6 +2,9 @@ package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.code.CodeView
 import dev.sluide.fileviewers.languages.PythonFileViewer
+import dev.sluide.fileviewers.library.LibraryCodeExtension
+import dev.sluide.librarycode.LibraryCodeSettings
+import dev.sluide.settings.SettingsStore
 import javafx.beans.property.SimpleObjectProperty
 import javafx.event.Event
 import javafx.scene.Node
@@ -27,6 +30,7 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
+import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
@@ -441,5 +445,112 @@ class CodeEditorExtensionsUiTest {
 
         robot.interact { handle.close() }
         assertFalse(url in view.area.stylesheets)
+    }
+
+    @Test
+    fun `a read-only lock refuses Save and marks the view until closed`(robot: FxRobot) {
+        val file = file("notes.txt", "x = 1\n")
+        val view = shown(robot, DefaultTextFileViewer(), file)
+        robot.interact { view.area.insertText(0, "y") }
+        assertFalse(view.readOnlyMarked.value)
+        val lock = WaitForAsyncUtils.asyncFx<AutoCloseable> { view.extensible.readOnlyLock() }.get()
+
+        assertTrue(view.readOnlyMarked.value)
+        assertFalse(view.canReplaceText, "it is a lock too")
+        robot.interact { view.save() }
+        assertEquals("x = 1\n", file.readText(), "Save does nothing")
+        assertTrue(view.dirty.value)
+
+        robot.interact { lock.close() }
+        assertFalse(view.readOnlyMarked.value)
+        robot.interact { view.save() }
+        assertEquals("yx = 1\n", file.readText())
+    }
+
+    @Test
+    fun `library code opens locked with a banner, Edit Anyway unlocks and the banner changes`(robot: FxRobot) {
+        val venv = dir.resolve("venv").also { it.createDirectories() }
+        venv.resolve("pyvenv.cfg").writeText("home = /usr/bin\n")
+        val library = venv.resolve("mod.py").apply { writeText("x = 1\n") }
+        val settings = LibraryCodeSettings(SettingsStore(dir.resolve("settings.properties")))
+        val view = WaitForAsyncUtils.asyncFx<CodeView> { PythonFileViewer().open(library) as CodeView }.get()
+        robot.interact {
+            container.children.setAll(view.node)
+            view.host = host(CodeEditorExtensions().apply { add(LibraryCodeExtension(settings)) })
+        }
+
+        val texts = { robot.lookup(".editor-banner .label").queryAllAs(Label::class.java).map { it.text } }
+        assertEquals(
+            listOf(
+                "venv/mod.py is library code (virtual environment venv): read-only, as changes are lost on the next install.",
+            ),
+            texts(),
+        )
+        assertTrue(view.readOnlyMarked.value)
+        assertFalse(view.area.isEditable)
+        robot.interact {
+            view.area.fireEvent(
+                KeyEvent(KeyEvent.KEY_TYPED, "y", "", KeyCode.UNDEFINED, false, false, false, false),
+            )
+            assertFalse(view.replaceText("other"))
+        }
+        assertEquals("x = 1\n", view.area.text, "typing changes nothing")
+
+        // A moved file is classified again.
+        robot.interact { view.moved(dir.resolve("outside.py")) }
+        assertTrue(view.area.isEditable, "moved out of the venv")
+        assertFalse(view.readOnlyMarked.value)
+        assertTrue(texts().isEmpty())
+        robot.interact { view.moved(library) }
+        assertFalse(view.area.isEditable, "moved into it again")
+        assertEquals(1, texts().size)
+
+        robot.interact { robot.lookup(".editor-banner .button").queryButton().fire() }
+        assertTrue(view.area.isEditable)
+        assertFalse(view.readOnlyMarked.value)
+        assertEquals(
+            listOf("Editing library code (virtual environment venv): changes are lost on the next install."),
+            texts(),
+        )
+        assertSame(view.area, container.scene.focusOwner, "the focus is back in the text")
+
+        // The setting releases a tab that is still locked and locks it again, but not one with unsaved changes.
+        val second = venv.resolve("second.py").apply { writeText("x = 1\n") }
+        val locked = WaitForAsyncUtils.asyncFx<CodeView> { PythonFileViewer().open(second) as CodeView }.get()
+        robot.interact {
+            locked.host = host(CodeEditorExtensions().apply { add(LibraryCodeExtension(settings)) })
+        }
+        assertFalse(locked.area.isEditable, "locked")
+        robot.interact { settings.readOnly.set(false) }
+        assertTrue(view.area.isEditable)
+        assertTrue(texts().isEmpty(), "the setting off removes the banner of an unlocked tab too")
+
+        assertTrue(locked.area.isEditable, "the setting released it")
+        robot.interact { locked.area.insertText(0, "y") }
+        robot.interact { settings.readOnly.set(true) }
+        assertTrue(locked.area.isEditable, "unsaved changes stay unlocked")
+        assertFalse(locked.readOnlyMarked.value)
+
+        // The view unlocked with Edit Anyway stays unlocked through the setting, and warns again; Dismiss removes it.
+        assertTrue(view.area.isEditable)
+        assertEquals(1, texts().size, "the Edit Anyway view warns again")
+        robot.interact { robot.lookup(".editor-banner .button").queryButton().fire() }
+        assertTrue(texts().isEmpty())
+        assertTrue(view.area.isEditable)
+    }
+
+    @Test
+    fun `Convert to UTF-8 is disabled while a read-only lock is held`(robot: FxRobot) {
+        // "Grüße" in Windows-1252.
+        val latin1 = byteArrayOf(0x47, 0x72, 0xFC.toByte(), 0xDF.toByte(), 0x65)
+        val file = dir.resolve("latin1.txt").apply { writeBytes(latin1) }
+        val view = shown(robot, DefaultTextFileViewer(), file)
+        val convert = { robot.lookup(".encoding-banner .button").queryButton() }
+        assertFalse(convert().isDisable)
+
+        val lock = WaitForAsyncUtils.asyncFx<AutoCloseable> { view.extensible.readOnlyLock() }.get()
+        assertTrue(convert().isDisable, "converting would make the view dirty, which Save then refuses")
+        robot.interact { lock.close() }
+        assertFalse(convert().isDisable)
     }
 }

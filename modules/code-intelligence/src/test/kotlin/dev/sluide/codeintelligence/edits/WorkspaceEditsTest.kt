@@ -292,6 +292,30 @@ class WorkspaceEditsTest {
     }
 
     @Test
+    fun `a bound editor that cannot apply edits refuses the whole edit before anything changes`() {
+        val locked = dir.resolve("locked.py")
+        val other = dir.resolve("other.py")
+        val closed = dir.resolve("closed.py")
+        target.boundTexts[locked] = FakeBound(1, "a\n", canApply = false)
+        target.boundTexts[other] = FakeBound(1, "b\n")
+        closed.writeText("c\n")
+        val edit =
+            WorkspaceEdit(
+                listOf(
+                    documentEdit(other, 1, insert(0, "x")),
+                    documentEdit(closed, null, insert(0, "y")),
+                    documentEdit(locked, 1, insert(0, "z")),
+                ),
+            )
+
+        val result = assertIs<WorkspaceEditResult>(apply(edit))
+
+        assertEquals(listOf("locked.py is read-only."), result.failures)
+        assertEquals(emptyList(), target.boundTexts.getValue(other).applied, "nothing was applied")
+        assertEquals("c\n", closed.readText())
+    }
+
+    @Test
     fun `an edit outside a closed file's text refuses the open files' edits too`() {
         val open = dir.resolve("open.py")
         val closed = dir.resolve("closed.py")
@@ -391,6 +415,7 @@ class WorkspaceEditsTest {
     private class FakeBound(
         override var version: Int,
         override var text: String,
+        override val canApply: Boolean = true,
     ) : BoundText {
         val applied = mutableListOf<List<OffsetEdit>>()
 
