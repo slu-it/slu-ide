@@ -8,12 +8,14 @@ import dev.sluide.docker.DockerSession
 import dev.sluide.fileexplorer.ExplorerBar
 import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.FileExplorerView
+import dev.sluide.fileviewers.CodeEditorExtensions
 import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.githubactions.RemoteSources
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.ide.github.WindowWorkflowSources
+import dev.sluide.languageservers.LanguageServers
 import dev.sluide.settings.FontArea
 import javafx.scene.Node
 import javafx.scene.control.Label
@@ -44,6 +46,7 @@ import kotlin.io.path.moveTo
 import kotlin.io.path.name
 import kotlin.io.path.writeText
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -79,6 +82,13 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertSame(dockers.single(), editorArea.windowServices.get(Docker::class.java))
         // Code editors wrap by the one switch of all windows (ADR 0130).
         assertSame(softWrap, editorArea.windowServices.get(SoftWrap::class.java))
+        // Python editors get code intelligence from the window's language servers (ADR 0145).
+        val codeIntelligence = codeIntelligences.single()
+        assertSame(codeIntelligence.languageServers, editorArea.windowServices.get(LanguageServers::class.java))
+        assertContains(
+            checkNotNull(editorArea.windowServices.get(CodeEditorExtensions::class.java)).extensions,
+            codeIntelligence.editorExtension,
+        )
 
         val opened = mutableListOf<URI>()
         mainWindow.openWebPage = { opened += it }
