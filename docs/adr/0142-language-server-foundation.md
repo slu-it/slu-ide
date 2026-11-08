@@ -93,8 +93,9 @@ belong to the Python ADR (0144). What the spikes showed about servers in general
   slash) and compares URIs from servers after normalizing them (percent-encoding, `file:/`, `file://localhost/`).
 - **Notifications belong to one connection:** every connection that reaches `Running` gets a number, and
   `onConnected` listeners run on the FX thread once the server is initialized, the moment from which notifications go
-  to it. `notify` (in order with requests on the outbound thread) reaches only the server announced when it was
-  called; notifications made before that or for a server replaced since are dropped. So a document change is either
+  to it, in the same FX step that sets the state to `Running` (an editor bound after seeing `Running` must not be
+  re-synced and pulled a second time). `notify` (in order with requests on the outbound thread) reaches only the
+  server announced when it was called; notifications made before that or for a server replaced since are dropped. So a document change is either
   in the state the `onConnected` re-sync sends (it happened before, on the FX thread) or sent as a notification
   afterwards, never both: a `didChange` applied twice would corrupt the server's copy.
 

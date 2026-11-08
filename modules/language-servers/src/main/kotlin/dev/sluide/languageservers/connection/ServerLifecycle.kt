@@ -46,8 +46,12 @@ internal class ServerLifecycle(
     private val scheduler: Scheduler,
     private val timing: ServerTiming,
     private val nanoTime: () -> Long,
-    /** Hands each new state on; called under the lock, in order. */
-    private val publish: (ServerState) -> Unit,
+    /**
+     * Hands each new state on; called under the lock, in order. [ServerState.Running] comes with the number of the
+     * connection that runs (`epoch`), so that the state and the connection are announced in one step; other states
+     * with `null`.
+     */
+    private val publish: (state: ServerState, epoch: Int?) -> Unit,
     /** The client of a new connection; `current` says whether that connection is still the session's. */
     private val newClient: (
         root: Path,
@@ -55,8 +59,6 @@ internal class ServerLifecycle(
         name: String,
         current: () -> Boolean,
     ) -> LanguageClient,
-    /** After `initialized`, on the outbound thread: the connection number `epoch` runs. */
-    private val connected: (epoch: Int) -> Unit,
 ) {
     private val outbound = NamedThreads.single("sluide-lsp-${spec.id}")
     private val lock = Any()
@@ -210,18 +212,15 @@ internal class ServerLifecycle(
             crashed(gen, "${spec.name} language server: ${e.message ?: e.toString()}")
             return
         }
-        val epoch =
-            synchronized(lock) {
-                if (!isCurrentLocked(gen)) return
-                running = conn
-                runningEpoch = ++connects
-                runningSince = nanoTime()
-                setState(ServerState.Running)
-                runningEpoch
-            }
+        synchronized(lock) {
+            if (!isCurrentLocked(gen)) return
+            running = conn
+            runningEpoch = ++connects
+            runningSince = nanoTime()
+            setState(ServerState.Running, runningEpoch)
+        }
         val server = result.serverInfo?.let { " (${it.name} ${it.version.orEmpty()})" }.orEmpty()
         log.log(System.Logger.Level.INFO, "lsp $name initialized in ${(nanoTime() - started) / 1_000_000} ms$server")
-        connected(epoch)
     }
 
     /** Waits for the trust checks; `false`, settled [ServerState.Untrusted] or failed, if the server may not run. */
@@ -362,9 +361,13 @@ internal class ServerLifecycle(
         newState: ServerState,
     ) = synchronized(lock) { if (isCurrentLocked(gen)) setState(newState) }
 
-    private fun setState(newState: ServerState) {
+    private fun setState(
+        newState: ServerState,
+        epoch: Int? = null,
+    ) {
+        require((newState == ServerState.Running) == (epoch != null)) { "Running comes with its connection" }
         state = newState
-        publish(newState)
+        publish(newState, epoch)
     }
 
     private fun isCurrent(gen: Int) = synchronized(lock) { isCurrentLocked(gen) }

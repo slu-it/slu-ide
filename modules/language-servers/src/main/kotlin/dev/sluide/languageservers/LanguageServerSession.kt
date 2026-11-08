@@ -64,15 +64,21 @@ class LanguageServerSession internal constructor(
             scheduler = scheduler,
             timing = timing,
             nanoTime = nanoTime,
-            publish = { state -> dispatch(Runnable { stateWrapper.set(state) }) },
-            newClient = { root, features, name, current -> SessionClient(name, root, features, events(current)) },
-            connected = { epoch ->
-                fx {
-                    connectedEpoch = epoch
-                    connectedListeners.callEach("connected") { it() }
-                    featureListeners.callEach("features") { it() }
-                }
+            // A running server and its connection in one FX step: whatever sees Running and queues work on the FX
+            // thread (an editor binding) finds the connection announced, not announced again after it.
+            publish = { state, epoch ->
+                dispatch(
+                    Runnable {
+                        stateWrapper.set(state)
+                        if (epoch != null && !isClosed) {
+                            connectedEpoch = epoch
+                            connectedListeners.callEach("connected") { it() }
+                            featureListeners.callEach("features") { it() }
+                        }
+                    },
+                )
             },
+            newClient = { root, features, name, current -> SessionClient(name, root, features, events(current)) },
         )
 
     /** The server's state; changes on the FX thread. */
@@ -162,7 +168,8 @@ class LanguageServerSession internal constructor(
     /**
      * Calls [listener] on the FX thread each time a server was initialized (also after restarts): where document sync
      * opens the open files again with [notify]. Notifications made before this call are dropped, those made from here
-     * on reach the new server.
+     * on reach the new server. It runs in the FX step that sets [state] to `Running`, after the state listeners: a
+     * state listener's notification on seeing `Running` is still dropped.
      */
     fun onConnected(listener: () -> Unit): AutoCloseable = connectedListeners.subscribe(listener)
 

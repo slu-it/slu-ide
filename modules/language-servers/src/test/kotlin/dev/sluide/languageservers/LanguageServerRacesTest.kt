@@ -7,6 +7,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -32,11 +33,27 @@ class LanguageServerRacesTest {
         spec: TestSpec = this.spec,
         gate: TrustGate = TrustGate { _, _ -> true },
         timing: ServerTiming = ServerTiming(shutdown = 200.milliseconds, exit = 200.milliseconds),
-    ) = LanguageServers(listOf(spec), { folder }, gate, Runnable::run, starter, scheduler, timing, System::nanoTime)
+        dispatch: (Runnable) -> Unit = Runnable::run,
+    ) = LanguageServers(listOf(spec), { folder }, gate, dispatch, starter, scheduler, timing, System::nanoTime)
         .also { servers = it }
 
     private fun LanguageServers.awaitState(expected: ServerState) =
         awaitTrue("state $expected") { state(spec).value == expected }
+
+    @Test
+    fun `a running server is announced with its connection in one FX step, so work queued on seeing it comes after`() {
+        val fx = LinkedBlockingQueue<Runnable>()
+        val session = servers(FakeStarter(), dispatch = { fx.add(it) }).session(spec)
+        var connected = false
+        session.onConnected { connected = true }
+
+        session.ensureStarted()
+        while (session.state.value != ServerState.Running) {
+            checkNotNull(fx.poll(5, TimeUnit.SECONDS)) { "no FX step, state ${session.state.value}" }.run()
+        }
+
+        assertTrue(connected, "connected announced in the step that set Running")
+    }
 
     @Test
     fun `a restart ends the running server politely, ignores its end and counts restarts from the start again`() {

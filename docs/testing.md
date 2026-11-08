@@ -155,6 +155,11 @@ CI once.
 - **File watching:** the macOS JDK polls (every 2 s, by path, mtime per entry): late events, no events for a folder
   deleted and recreated in between. Tests with a real `FileWatcher` hold under that or are skipped on macOS with an
   `os.name` assumption and a reason.
+- **Gaps between FX steps:** a test thread that polls a state set on the FX thread (`awaitRunning`) and then queues
+  work races whatever the background thread dispatches next; under load the work lands in between (a binding opened
+  and pulled, then re-opened and pulled again by the late connection announcement). Announce what belongs together in one FX step, and reproduce by
+  widening the gap with a temporary `Thread.sleep` on the background thread; a regression test drains a queued
+  dispatch one step at a time (`LanguageServerRacesTest`).
 - **Media playback:** JavaFX Media on Linux plays through ALSA, and CI runners and the sandbox have no sound card:
   every `MediaPlayer` then fails with "Could not create player!" ("Could not open audio device" with
   `-Djfxmedia.loglevel=debug`). So the root `build.gradle.kts` points the test tasks of the modules that play sound
