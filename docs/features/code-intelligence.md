@@ -100,5 +100,31 @@ Decision in [ADR 0147](../adr/0147-completion-signature-help-and-docs.md).
 - **Hover** (and F1) shows the server's type and docs for the name under the mouse, as formatted text: code blocks in
   monospace, bold, italics, lists; links show as plain text.
 
+## Diagnostics, quick fixes and semantic highlighting
+Decision in [ADR 0148](../adr/0148-diagnostics-quick-fixes-semantic-highlighting.md).
+- **Diagnostics** of the server show as you type (ty checks about 0.3 s after the last keystroke, and again after
+  changes to other files): errors with a red wavy underline, warnings amber wavy, information blue dotted; unused or
+  unreachable code faded, deprecated names struck through. An underline next to an edit disappears until the server's
+  next answer. Each line with an error, warning or information has an icon in a narrow gutter column (the worst one;
+  hovering it lists the messages). When the server stops (a crash, Restart), its diagnostics and semantic colours go
+  until the new server answers.
+- **Hover:** the diagnostics at the place come first in the hover popup, each with its message, its source and code
+  (e.g. "ty · unresolved-reference") and its documentation link as text.
+- **Quick fixes:** **Alt+Enter**, or **Show Quick Fixes** in the context menu, lists the server's fixes for the caret
+  or the selection at the caret (ty: add an import, ignore the rule for this line); preferred ones first, ones that
+  cannot be applied now greyed with the reason. **Enter** applies the selected one as one undo step. A fix taken after
+  the text changed is refused ("Ask for the quick fixes again"). The menu item is disabled "(server not running)" while
+  the server does not run.
+- **Edits in other files** (from a fix, and from rename later): an open editor gets them unsaved, as one undo step; a
+  closed file in the project is changed on disk in one step, keeping its line breaks, its permissions and a BOM.
+  Nothing changes when one of the files cannot be edited: it changed since the server made the edit or while the
+  files were read, it is open with unsaved changes the server never saw (save it first), it is outside the project,
+  read-only, not UTF-8 or larger than 10 MiB, or the edit does not fit its text. If a closed file cannot be written
+  after the open editors were changed, the message names the files that changed. Creating, renaming or deleting files
+  is not supported yet.
+- **Semantic highlighting:** parameters, `self` and `cls`, and builtin constants (`__name__`, `NotImplemented`) get
+  subtle colours of their own over the usual highlighting, in the dark and the light theme; they follow about 0.5 s
+  after typing. It cannot be turned off yet.
+
 ## Keys
 See [keyboard-shortcuts.md](keyboard-shortcuts.md), "Code intelligence".

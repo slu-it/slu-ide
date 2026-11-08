@@ -75,6 +75,7 @@ keys of a popup are taken only while it shows, before the editor's own; otherwis
 | Enter, double-click (definition chooser, usages list) | Jump to the place; Tab does not take it |
 | Any key no binding takes (a note such as "No declaration found" shown) | Hide the note; the key still acts |
 | F1 | Show the hover popup at the caret (only while a feature has something to show there) |
+| Alt+Enter (Option+Enter on macOS) | Show the quick fixes at the caret or selection (also Show Quick Fixes in the context menu) |
 | Escape (hover popup shown) | Hide the hover popup |
 | Mouse resting on a character for 0.5 s | Show the hover popup there |
 | Up / Down (caret popup shown) | Previous / next item, wrapping around |
