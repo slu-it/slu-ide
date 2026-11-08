@@ -125,8 +125,8 @@ Decision in [ADR 0149](../adr/0149-rename-file-structure-go-to-symbol.md).
   with their number of changes, marking open files with unsaved changes and closed files that are written to disk
   (no undo takes those back). **Rename** applies it (open files are changed in their editors and left unsaved, closed
   ones are written, see "Edits in other files" above), **Cancel** changes
-  nothing. When a file would refuse the rename (open without code intelligence with unsaved changes, or closed and
-  outside the project), the dialog says so and offers Cancel only.
+  nothing. When a file would refuse the rename (open without code intelligence with unsaved changes, closed and
+  outside the project, or missing on disk), the dialog says so and offers Cancel only.
 - If the text of this or another open Python file changed while the server answered or the dialog showed, nothing
   changes ("The text changed. Rename again."). A rename that could not be applied, or only to some files, says so in a message naming the files.
 

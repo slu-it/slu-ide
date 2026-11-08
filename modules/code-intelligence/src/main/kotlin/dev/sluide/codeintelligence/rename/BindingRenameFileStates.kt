@@ -12,8 +12,8 @@ private val log = System.getLogger(BindingRenameFileStates::class.java.name)
 
 /**
  * How the files of a rename stand in [binding]'s window: bound editors by their unsaved state, read on the FX thread;
- * other open editors compared with the disk and closed files placed inside or outside the project on [io], as the
- * workspace edit will find them (ADR 0148). [done][RenameFileStates.of] runs on [fx].
+ * other open editors compared with the disk and closed files found missing, inside or outside the project on [io], as
+ * the workspace edit will find them (ADR 0148). [done][RenameFileStates.of] runs on [fx].
  */
 internal class BindingRenameFileStates(
     private val binding: DocumentBinding,
@@ -54,7 +54,12 @@ internal class BindingRenameFileStates(
                     found[file] = if (saved) RenameFileState.OPEN else RenameFileState.UNSAVED_UNKNOWN
                 }
                 for (file in closed) {
-                    found[file] = if (isInside(file, projectFolder)) RenameFileState.CLOSED else RenameFileState.OUTSIDE
+                    found[file] =
+                        when {
+                            !Files.isRegularFile(file) -> RenameFileState.MISSING
+                            isInside(file, projectFolder) -> RenameFileState.CLOSED
+                            else -> RenameFileState.OUTSIDE
+                        }
                 }
             } catch (e: RuntimeException) {
                 log.log(System.Logger.Level.ERROR, "Could not look at the files of a rename", e)
@@ -68,26 +73,14 @@ internal class BindingRenameFileStates(
     }
 }
 
-/**
- * Whether [file] lies inside [projectFolder] by real paths, as a workspace edit checks closed files; a missing file by
- * the real path of its nearest existing folder, so it stays inside a project reached through a link.
- */
+/** Whether the existing [file] lies inside [projectFolder] by real paths, as a workspace edit checks closed files. */
 private fun isInside(
     file: Path,
     projectFolder: Path?,
 ): Boolean =
     try {
         val project = projectFolder?.takeIf { Files.isDirectory(it) }?.toRealPath()
-        project != null && realOrNearest(file).startsWith(project)
+        project != null && file.toRealPath().startsWith(project)
     } catch (_: IOException) {
         false
     }
-
-/** The real path of [file], or of its nearest existing ancestor with the missing rest appended. */
-private fun realOrNearest(file: Path): Path {
-    // Not normalized before resolving: a `..` behind a link leads where the link points.
-    val absolute = file.toAbsolutePath()
-    var existing: Path? = absolute
-    while (existing != null && !Files.exists(existing)) existing = existing.parent
-    return (existing?.toRealPath()?.resolve(existing.relativize(absolute)) ?: absolute).normalize()
-}

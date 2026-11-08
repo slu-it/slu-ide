@@ -129,15 +129,20 @@ class RenameModelTest {
             renamePreview(
                 "run",
                 "start",
-                listOf(FileChanges(b, listOf(edit)), FileChanges(stub, listOf(edit))),
-                mapOf(b to RenameFileState.UNSAVED_UNKNOWN, stub to RenameFileState.OUTSIDE),
+                listOf(FileChanges(b, listOf(edit)), FileChanges(stub, listOf(edit)), FileChanges(c, listOf(edit))),
+                mapOf(
+                    b to RenameFileState.UNSAVED_UNKNOWN,
+                    stub to RenameFileState.OUTSIDE,
+                    c to RenameFileState.MISSING,
+                ),
                 folder,
             )
-        assertEquals("2 changes in 2 files", refused.summary)
+        assertEquals("3 changes in 3 files", refused.summary)
         assertEquals(stub.toString(), refused.rows.first().path, "outside the project absolute")
+        assertEquals(PreviewRow("c.py", 1, "does not exist"), refused.rows[1])
         assertEquals(
             "The rename cannot be applied: b.py has unsaved changes the server does not know; lib.pyi is outside the " +
-                "project.",
+                "project; c.py does not exist.",
             refused.refusal,
         )
         assertEquals(

@@ -23,7 +23,7 @@ import kotlin.test.assertEquals
 
 /**
  * How the rename preview finds the files of a window: bound editors by their unsaved state, other open editors by
- * their text against the disk, closed files inside or outside the project.
+ * their text against the disk, closed files missing, inside or outside the project.
  */
 class BindingRenameFileStatesTest {
     @TempDir
@@ -80,7 +80,7 @@ class BindingRenameFileStatesTest {
     }
 
     @Test
-    fun `bound editors by unsaved state, open ones against the disk, closed ones inside or outside the project`() {
+    fun `bound editors by unsaved state, open ones against the disk, closed ones missing, inside or outside`() {
         fx = FxServers(folder, spec)
         fx.fake.awaitRunning(spec)
         val capture =
@@ -113,7 +113,7 @@ class BindingRenameFileStatesTest {
                 unsaved to RenameFileState.UNSAVED_UNKNOWN,
                 closed to RenameFileState.CLOSED,
                 outside to RenameFileState.OUTSIDE,
-                missing to RenameFileState.CLOSED,
+                missing to RenameFileState.MISSING,
             ),
             found.get(5, TimeUnit.SECONDS),
         )

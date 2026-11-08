@@ -54,9 +54,10 @@ files changes files the user does not see, possibly closed ones on disk.
     of the files by path (project-relative, absolute outside) with their counts, marking files open with unsaved
     changes ("unsaved changes": a bound editor, changed there and left unsaved; "unsaved changes the server does not
     know": an editor without code intelligence whose text differs from the disk), closed files in the project
-    ("written to disk": no undo takes that back) and closed files outside the project. The states come from `RenameFileStates` (bound editors on the FX thread, the disk on a `NamedThreads`
+    ("written to disk": no undo takes that back), closed files outside the project and files that do not exist (checked
+    first, as the applier refuses them before it compares real paths). The states come from `RenameFileStates` (bound editors on the FX thread, the disk on a `NamedThreads`
     virtual thread). Rename is the default button, Cancel the other; a dismissed dialog cancels. Files the applier
-    would refuse (outside the project, unknown unsaved changes) are named in a line "The rename cannot be applied: …"
+    would refuse (outside the project, unknown unsaved changes, missing) are named in a line "The rename cannot be applied: …"
     and the dialog then offers Cancel only: applying could only be refused.
   - **Applying** goes through `WorkspaceEdits` (all its checks, ADR 0148). A refusal or a partial failure shows an
     `Alert` (warning, owned by the window) with "Rename not applied: …" or "Renamed in a.py only. …". The caret goes

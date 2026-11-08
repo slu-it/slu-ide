@@ -99,23 +99,26 @@ internal fun renameFailure(result: WorkspaceEditResult): String {
 internal enum class RenameFileState(
     /** What the preview says of the file, `null` for nothing. */
     val note: String?,
-    /** Whether the workspace edit will be refused because of it. */
-    val refuses: Boolean,
+    /** Why the workspace edit will be refused because of it, following the file's name; `null` if it will not be. */
+    val refusal: String?,
 ) {
     /** Closed, inside the project: written on disk, which no undo takes back. */
-    CLOSED("written to disk", false),
+    CLOSED("written to disk", null),
 
     /** Open in an editor, as the server knows it: changed there, left unsaved. */
-    OPEN(null, false),
+    OPEN(null, null),
 
     /** Open in an editor with code intelligence and unsaved changes, which the server knows: changed there. */
-    UNSAVED("unsaved changes", false),
+    UNSAVED("unsaved changes", null),
 
     /** Open in an editor without code intelligence with unsaved changes the server never saw. */
-    UNSAVED_UNKNOWN("unsaved changes the server does not know", true),
+    UNSAVED_UNKNOWN("unsaved changes the server does not know", "has unsaved changes the server does not know"),
 
     /** Closed and outside the project: not written. */
-    OUTSIDE("outside the project", true),
+    OUTSIDE("outside the project", "is outside the project"),
+
+    /** Not open and not a file on disk (deleted since the server read it): nothing to write. */
+    MISSING("does not exist", "does not exist"),
 }
 
 /** One file in the rename preview: its [path] as shown, its number of changes and what to know about it. */
@@ -152,9 +155,7 @@ internal fun renamePreview(
     val total = changes.sumOf { it.count }
     val refusing =
         changes.mapNotNull { change ->
-            val state = states[change.file]?.takeIf { it.refuses } ?: return@mapNotNull null
-            val name = change.file.fileName
-            if (state == RenameFileState.OUTSIDE) "$name is outside the project" else "$name has ${state.note}"
+            states[change.file]?.refusal?.let { "${change.file.fileName} $it" }
         }
     return RenamePreview(
         header = "Rename “$old” to “$new”?",
