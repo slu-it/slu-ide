@@ -90,7 +90,8 @@ files changes files the user does not see, possibly closed ones on disk.
   generation check for answers already on their way); a blank query asks nothing ("Type a symbol name"); while asked,
   the last rows stay and "Searching…" shows only without any. Rows show the name, then the container and the path
   (project-relative) and the kind icon; the server's order is kept, but names equal to the query come first, then
-  those starting with it (`rankWorkspaceSymbols`), at most 200. A symbol sent with its file only (`WorkspaceSymbol` with
+  those starting with it, the same case before other cases, and types and functions before variables within each
+  (`rankWorkspaceSymbols`: `Console` finds the class before ty's many `console` variables), at most 200. A symbol sent with its file only (`WorkspaceSymbol` with
   a `WorkspaceSymbolLocation`) is resolved first when the server declares `workspaceSymbol/resolve` (added to
   `ServerFeatures.supports`; a resolve still on its way is dropped when the popup opens again or the window closes),
   else opened at its first line. The jump starts from the caret of the editor focused when

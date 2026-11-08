@@ -140,7 +140,8 @@ focus back. While it shows, the window's shortcuts (Shortcut+S, Shortcut+W…) d
   filters by name as completion does (names starting with the text first, then parts, then letters in order).
 - **Go to symbol:** **Shortcut+Alt+Shift+O** (Cmd+Option+Shift+O on macOS), or **Navigate → Go to Symbol…**, searches the
   symbols of the whole project at the top of the window: type a name, and 0.2 s later the list shows the server's
-  matches (at most 200), exact names first, then names starting with it; each row shows the kind icon, the name, its
+  matches (at most 200), exact names first, then names starting with it (the same case first, classes and functions
+  before variables); each row shows the kind icon, the name, its
   class or module and its file. It works from anywhere in a window with a running Python server, also with the focus
   in the explorer; without one it says "Go to Symbol is not available (no language server running)".
 

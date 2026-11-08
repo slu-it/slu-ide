@@ -21,7 +21,10 @@ class WorkspaceSymbolsTest {
     private val file = folder.resolve("pkg/console.py")
     private val at = Range(Position(4, 6), Position(4, 13))
 
-    private fun row(name: String) = WorkspaceSymbolRow(name, null, SymbolKind.Class, file, Position(0, 0))
+    private fun row(
+        name: String,
+        kind: SymbolKind = SymbolKind.Class,
+    ) = WorkspaceSymbolRow(name, null, kind, file, Position(0, 0))
 
     @Test
     fun `symbol information and workspace symbols become rows, a file-only location without a position`() {
@@ -45,13 +48,33 @@ class WorkspaceSymbolsTest {
     }
 
     @Test
-    fun `exact names come first, then prefixes, each in the server's order, at most the cap`() {
-        val rows = listOf("get_console", "Console", "console_log", "ConsoleOptions", "console").map(::row)
+    fun `exact names come first, then prefixes, the same case first, each in the server's order, at most the cap`() {
+        val rows = listOf("get_console", "Console", "console_log", "ConsoleOptions", "console").map { row(it) }
         assertEquals(
-            listOf("Console", "console", "console_log", "ConsoleOptions", "get_console"),
+            listOf("console", "Console", "console_log", "ConsoleOptions", "get_console"),
             rankWorkspaceSymbols(rows, "console").map { it.name },
         )
-        assertEquals(listOf("Console", "console"), rankWorkspaceSymbols(rows, " console ", cap = 2).map { it.name })
+        assertEquals(listOf("console", "Console"), rankWorkspaceSymbols(rows, " console ", cap = 2).map { it.name })
+        assertEquals(
+            listOf("Console", "console", "ConsoleOptions", "console_log", "get_console"),
+            rankWorkspaceSymbols(rows, "Console").map { it.name },
+        )
+    }
+
+    @Test
+    fun `within a match types and functions come before variables, as ty lists many console variables first`() {
+        val rows =
+            listOf(
+                row("console", SymbolKind.Variable),
+                row("console", SymbolKind.Variable),
+                row("console", SymbolKind.Module),
+                row("Console", SymbolKind.Class),
+            )
+        assertEquals(
+            listOf(SymbolKind.Module, SymbolKind.Variable, SymbolKind.Variable, SymbolKind.Class),
+            rankWorkspaceSymbols(rows, "console").map { it.kind },
+        )
+        assertEquals(SymbolKind.Class, rankWorkspaceSymbols(rows, "Console").first().kind)
     }
 
     @Test

@@ -66,8 +66,10 @@ internal fun workspaceSymbolRows(
 }
 
 /**
- * [rows] for [query] in the order shown: names equal to it first (ignoring case), then those starting with it, then the
- * rest, each in the server's order (ty's answers are fuzzy and unranked); at most [cap].
+ * [rows] for [query] in the order shown: names equal to it first (the same case before other cases), then those
+ * starting with it (the same way), then the rest; within each, types and functions before variables, else the server's
+ * order (ty's answers are fuzzy and unranked); at most [cap]. `Console` finds the class before the many `console`
+ * variables.
  */
 internal fun rankWorkspaceSymbols(
     rows: List<WorkspaceSymbolRow>,
@@ -76,14 +78,33 @@ internal fun rankWorkspaceSymbols(
 ): List<WorkspaceSymbolRow> {
     val wanted = query.trim()
     return rows
-        .sortedBy { row ->
-            when {
-                row.name.equals(wanted, ignoreCase = true) -> 0
-                row.name.startsWith(wanted, ignoreCase = true) -> 1
-                else -> 2
-            }
-        }.take(cap)
+        .sortedWith(
+            compareBy<WorkspaceSymbolRow> { row ->
+                when {
+                    row.name == wanted -> 0
+                    row.name.equals(wanted, ignoreCase = true) -> 1
+                    row.name.startsWith(wanted) -> 2
+                    row.name.startsWith(wanted, ignoreCase = true) -> 3
+                    else -> 4
+                }
+            }.thenBy { row -> if (row.kind in DECLARATION_KINDS) 0 else 1 },
+        ).take(cap)
 }
+
+/** Kinds that name a type, function or module, shown before variables of the same match. */
+private val DECLARATION_KINDS =
+    setOf(
+        SymbolKind.Class,
+        SymbolKind.Interface,
+        SymbolKind.Struct,
+        SymbolKind.Enum,
+        SymbolKind.Function,
+        SymbolKind.Method,
+        SymbolKind.Constructor,
+        SymbolKind.Module,
+        SymbolKind.Namespace,
+        SymbolKind.Package,
+    )
 
 /** How a go to symbol row shows: the name, its container and path (relative to [projectFolder]) at the right, icon. */
 internal fun workspaceSymbolCell(
