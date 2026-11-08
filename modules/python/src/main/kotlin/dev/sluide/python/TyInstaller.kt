@@ -8,6 +8,7 @@ import dev.sluide.localmodels.InstallState
 import dev.sluide.localmodels.InstalledTool
 import dev.sluide.localmodels.ToolInstaller
 import dev.sluide.localmodels.ToolRelease
+import javafx.beans.InvalidationListener
 import javafx.beans.binding.Bindings
 import javafx.beans.binding.ObjectBinding
 import javafx.beans.property.ReadOnlyObjectProperty
@@ -85,7 +86,10 @@ class TyInstaller internal constructor(
     override val toolName = "ty"
 
     init {
-        tools.current.subscribe { tool -> installedExecutable = tool?.executable }
+        // An invalidation listener registered before the availability binding: JavaFX tells invalidation listeners
+        // first and in order, so the command names the new version before anyone sees ty become ready.
+        installedExecutable = tools.current.get()?.executable
+        tools.current.addListener(InvalidationListener { installedExecutable = tools.current.get()?.executable })
         lastExecutable = configuredExecutable()
         settings.tyPath.subscribe { _ -> commandMayHaveChanged() }
         tools.current.subscribe { _ -> commandMayHaveChanged() }

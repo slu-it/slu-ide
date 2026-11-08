@@ -90,6 +90,23 @@ class TyInstallerTest {
     }
 
     @Test
+    fun `whoever sees ty become ready gets its command at once`() {
+        // Code intelligence starts the server as soon as the availability turns ready; that start asks for the
+        // command right away, so the command must not lag behind the availability (the real app found none).
+        val installer = fakes.installer()
+        val commandsWhenReady = mutableListOf<ServerCommand?>()
+        installer.availability.subscribe { now ->
+            if (now == ServerAvailability.Ready) commandsWhenReady += installer.command()
+        }
+
+        installer.install(null)
+        fakes.runQueued()
+
+        assertEquals(1, commandsWhenReady.size)
+        assertEquals(installer.command(), commandsWhenReady.single())
+    }
+
+    @Test
     fun `an installed version is read from disk when the installer is created`() {
         fakes.installer().install(null)
         fakes.runQueued()
