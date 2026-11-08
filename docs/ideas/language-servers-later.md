@@ -41,8 +41,9 @@ built. Each needs a decision of its own.
   background ([python.md](../features/python.md)); a background check needs an ADR exception to the network rule in
   `.claude/rules/safety.md`.
 - **Sigstore attestation verification** of ty downloads (for instance with sigstore-java; the signer identity would be
-  Astral's release workflow), on top of the pinned sha256 and GitHub's API digest. Not explored beyond this: the
-  library's weight and whether the releases carry attestations are unknown.
+  Astral's release workflow), on top of the pinned sha256 and GitHub's API digest. ty's releases carry attestations
+  (two per archive for 0.0.99, from `GET /repos/astral-sh/ty/attestations/sha256:<digest>`, checked 2026-11-07); the
+  library's weight and the exact signer identity are not explored yet.
 
 ## Navigation
 - **Opening targets outside the project** (site-packages, ty's copies of the standard library) read-only. They open
