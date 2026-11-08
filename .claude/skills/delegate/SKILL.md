@@ -96,8 +96,11 @@ a design problem, not a local fix.
 ## Parallel packages
 - At most three worktree agents at a time (12 cores, about 6 GB free). Count every implementer still running,
   including one applying review fixes, before starting the next package.
-- Packages are pairwise disjoint on files; `docs/index.md`, README and `docs/architecture.md` go into a final
-  package that collects each package's "index drift" notes. Freeze shared constructor signatures up front.
+- Packages are pairwise disjoint on files, except that each package adds its own rows to `docs/index.md` (its ADR,
+  its feature page) and its own module and dependency rows to `docs/architecture.md`: deferring them leaves master's
+  docs check red between merges. README and cross-cutting rewrites go into a final package. Freeze shared constructor
+  signatures up front, and name one owner for shared test fixtures (fakes, harnesses): two packages that each added a
+  caret to the same fake merged without a textual conflict into duplicate members.
 - When several packages add entries to the same registry or list (file types, menus, a doc table), the brief names
   each package's anchor ("right after the Bicep rows"), so the inserts don't touch. Rebase conflicts that remain in
   imports or such lists are resolved by keeping both sides, dropping exact duplicates.
@@ -115,7 +118,10 @@ a design problem, not a local fix.
    head; the fix goes back to the implementer, who runs `worktree-check.sh start` again first). Exit 3 is a rebase
    conflict, already aborted: run `git -C <worktree> rebase master` yourself, resolve (keep both sides of lists and
    imports), `--continue`, compile there (`./gradlew --no-daemon <:module>:testClasses -q`; the script won't, since it
-   did not rebase), then run the script again.
+   did not rebase), then run the script again. After resolving conflicts in shared code or fixtures, compile every
+   commit of the branch, not only the tip: `for c in $(git rev-list --reverse master..HEAD); do git checkout -q $c;
+   ./gradlew --no-daemon <:module>:testClasses -q >/dev/null 2>&1; echo "$c $?"; done` (read `$?` right after
+   Gradle, not after a command substitution), then check out the branch again.
 2. The final gate on master (above). With `DISPLAY` set, `build` already includes `uiTest`.
 3. Only after the review is through (no Blockers or Shoulds left) and the gate is green:
    `merge-package.sh --remove <worktree>` (refuses unmerged branches); merged worktrees are not removed

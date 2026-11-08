@@ -127,6 +127,10 @@ A behavior is tested once, at the lowest level that can see it
 - Drags inside one window use plain mouse events (`TabStrip`, the explorer), not `startDragAndDrop`: on Linux, GTK's
   drag loop leaves a pointer grab, so a dialog opened after a platform drop gets keys but no clicks. UI tests with a
   seam instead of the dialog never see this; check anything that opens a dialog after a gesture in the real app.
+- Fake language servers (`FakeLanguageServers`, `FakeServer`): a request cancelled before the session's outbound
+  thread sent it never reaches the fake, so "the server got n requests" after a latest-wins sequence depends on
+  timing. Wait for each request to arrive before the next step cancels it (`CompletionModelTest`), or assert on the
+  last request only.
 
 ## Portability: CI runs Linux x64 and macOS
 The sandbox is Linux on ARM with fast cores; CI (`.github/workflows/ci.yml`) runs the full `build` on slower x64 Linux
@@ -182,6 +186,8 @@ DISPLAY=:99 xdotool key ctrl+o                      # drive the UI
   Files in the explorer open with a double-click (`xdotool mousemove X Y click --repeat 2 1`).
 - Without a window manager, dialogs get no keyboard focus and popups close at once; the script starts openbox. If a
   dialog still has no focus: `xdotool windowfocus <id>` (id from `xdotool search --name '<title>'`).
+- openbox binds Ctrl+Alt+Left/Right (and other Ctrl+Alt arrows) to desktop switching, so those keys never reach the
+  app on this display (Back/Forward of the Navigate menu): use the menu, or a UI test, to check them.
 - `xdotool key F2` (and other function keys) arrives with Alt held on this display's keymap (`xev` shows `Alt_L`,
   state `0x8`), so a view that ignores keys with Alt never sees it. Check such keys with a UI test instead.
 - `setup-display.sh` only reports a display as running if it answers (`xdpyinfo`, with a timeout). One that does not

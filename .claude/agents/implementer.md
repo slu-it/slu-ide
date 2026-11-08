@@ -15,6 +15,10 @@ update and docs to read.
 4. Keep logic in plain Kotlin classes, outside JavaFX controls, so it is unit-testable without a toolkit (ADR 0084):
    decisions in `internal` pure functions or plain classes, an FX-free host (interface or class of functions) for
    what they need from the view, delays and debounces as constructor parameters with the real default.
+   JavaFX tells invalidation listeners before change listeners (`subscribe { }` is a change listener): a value other
+   code reads when a binding fires (a `@Volatile` mirror for another thread) is updated in an `InvalidationListener`
+   registered before that binding, or a listener of the binding can still read the old value (ty's server found no
+   command right after an install).
 5. Add or adjust tests with the change at the lowest level that can see the behavior (`docs/testing.md`, "Choosing
    the test level"). Before adding a test, grep for an existing one of the same behavior and extend it. A new
    `@Tag("ui")` test needs a reason a unit test cannot cover it; say it in the report. When logic moves out of a view,
