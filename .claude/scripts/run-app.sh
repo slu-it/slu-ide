@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Starts the real Thoreau app on a virtual display for a visual check, in a chosen theme, without touching the user's
 # settings: the app runs with a throwaway user.home that holds only a settings.properties with the theme.
-# Usage: .claude/scripts/run-app.sh [--theme dark|light] [--display N] <project-folder>
+# Usage: .claude/scripts/run-app.sh [--theme dark|light] [--display N] [--setting key=value]... <project-folder>
 #        .claude/scripts/run-app.sh --stop <pid>
-# Defaults: theme dark, display 99. Builds the jar with Gradle when it is missing or older than the sources.
+# Defaults: theme dark, display 99. --setting adds a line to the throwaway settings.properties (e.g.
+# python.ty.path=/path/to/ty), repeatable. Builds the jar with Gradle when it is missing or older than the sources.
 # Prints pid=, display=, home= (the throwaway folder) and log= (app output), one per line.
 # Afterwards (see docs/testing.md):
 #   DISPLAY=:99 import -window root shot.png      # screenshot
@@ -35,15 +36,17 @@ fi
 
 theme=dark
 display_number=99
+settings=()
 while [ "$#" -gt 1 ]; do
   case "$1" in
     --theme) theme="${2:?}"; shift 2 ;;
     --display) display_number="${2:?}"; shift 2 ;;
+    --setting) settings+=("${2:?}"); shift 2 ;;
     *) break ;;
   esac
 done
 case "$theme" in dark | light) ;; *) echo "Theme must be dark or light" >&2; exit 2 ;; esac
-folder="$(cd "${1:?usage: run-app.sh [--theme dark|light] [--display N] <project-folder>}" && pwd)"
+folder="$(cd "${1:?usage: run-app.sh [--theme dark|light] [--display N] [--setting key=value]... <project-folder>}" && pwd)"
 
 jar="$root/ide/build/libs/ide-0.1.0-SNAPSHOT.jar"
 stale() {
@@ -90,6 +93,7 @@ fi
 home="$(mktemp -d "$state_dir/thoreau-run-XXXXXX")"
 mkdir -p "$home/.sluide"
 echo "theme=${theme^^}" >"$home/.sluide/settings.properties"
+for setting in ${settings[@]+"${settings[@]}"}; do echo "$setting" >>"$home/.sluide/settings.properties"; done
 nohup java -Dprism.order=sw "-Duser.home=$home" -jar "$jar" "$folder" >"$home/app.log" 2>&1 &
 pid=$!
 echo "$home" >"$state_dir/thoreau-run-$pid.home"
