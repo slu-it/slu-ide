@@ -40,6 +40,7 @@ import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.games.BlockBreaker
 import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
+import dev.sluide.games.MiniGolf
 import dev.sluide.games.OrbitGuard
 import dev.sluide.games.Solitaire
 import dev.sluide.games.Sudoku
@@ -47,6 +48,7 @@ import dev.sluide.games.WordGuess
 import dev.sluide.games.blockbreaker.BlockBreakerPreferences
 import dev.sluide.games.doubles.DoublesPreferences
 import dev.sluide.games.minesweeper.MinesweeperPreferences
+import dev.sluide.games.minigolf.MiniGolfPreferences
 import dev.sluide.games.orbitguard.OrbitGuardPreferences
 import dev.sluide.games.solitaire.SolitairePreferences
 import dev.sluide.games.sudoku.SudokuPreferences
@@ -236,6 +238,7 @@ class SpringWiringTest {
                         SolitairePreferences::class.java,
                         OrbitGuardPreferences::class.java,
                         BlockBreakerPreferences::class.java,
+                        MiniGolfPreferences::class.java,
                         ModelStore::class.java,
                         ModelInstaller::class.java,
                         SpeechSettingsPage::class.java,
@@ -316,6 +319,7 @@ class SpringWiringTest {
                         Solitaire::class.java,
                         OrbitGuard::class.java,
                         BlockBreaker::class.java,
+                        MiniGolf::class.java,
                         CodeIntelligenceWiring::class.java,
                     )
                 val scoped =

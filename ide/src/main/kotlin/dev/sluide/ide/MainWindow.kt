@@ -25,6 +25,7 @@ import dev.sluide.fileviewers.library.LibraryCodeExtension
 import dev.sluide.games.BlockBreaker
 import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
+import dev.sluide.games.MiniGolf
 import dev.sluide.games.OrbitGuard
 import dev.sluide.games.Solitaire
 import dev.sluide.games.Sudoku
@@ -146,6 +147,7 @@ class MainWindow(
     private val solitaire: Solitaire,
     private val orbitGuard: OrbitGuard,
     private val blockBreaker: BlockBreaker,
+    private val miniGolf: MiniGolf,
     diagnostics: Diagnostics,
     private val softWrap: SoftWrap,
     private val codeIntelligence: CodeIntelligenceWiring,
@@ -290,6 +292,7 @@ class MainWindow(
             solitaire,
             orbitGuard,
             blockBreaker,
+            miniGolf,
             openWebPage = { openWebPage(it) },
             showError = { s, m -> showError(s, m) },
         )

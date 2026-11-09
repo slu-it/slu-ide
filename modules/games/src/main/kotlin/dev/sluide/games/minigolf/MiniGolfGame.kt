@@ -81,7 +81,10 @@ internal class MiniGolfGame(
         private set
 
     private val recording = mutableListOf<Vec>()
-    private var shotInProgress = false
+
+    /** True only while a shot rolls (a counted stroke); false during a push roll and when nothing rolls. */
+    var shotInProgress = false
+        private set
 
     /** Where the ball goes back after water: the shot's start, or where it rested before a push. */
     private var rollStart = hole.tee

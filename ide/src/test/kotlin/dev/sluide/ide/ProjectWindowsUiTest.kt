@@ -31,6 +31,7 @@ import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.games.BlockBreaker
 import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
+import dev.sluide.games.MiniGolf
 import dev.sluide.games.OrbitGuard
 import dev.sluide.games.Solitaire
 import dev.sluide.games.Sudoku
@@ -38,6 +39,7 @@ import dev.sluide.games.WordGuess
 import dev.sluide.games.blockbreaker.BlockBreakerPreferences
 import dev.sluide.games.doubles.DoublesPreferences
 import dev.sluide.games.minesweeper.MinesweeperPreferences
+import dev.sluide.games.minigolf.MiniGolfPreferences
 import dev.sluide.games.orbitguard.OrbitGuardPreferences
 import dev.sluide.games.solitaire.SolitairePreferences
 import dev.sluide.games.sudoku.SudokuPreferences
@@ -206,6 +208,7 @@ class ProjectWindowsUiTest {
                 register(SolitairePreferences::class.java)
                 register(OrbitGuardPreferences::class.java)
                 register(BlockBreakerPreferences::class.java)
+                register(MiniGolfPreferences::class.java)
                 register(ConnectionStore::class.java)
                 register(PasswordCache::class.java)
                 register(QueryHistory::class.java)
@@ -272,6 +275,7 @@ class ProjectWindowsUiTest {
                     Solitaire::class.java,
                     OrbitGuard::class.java,
                     BlockBreaker::class.java,
+                    MiniGolf::class.java,
                     CodeIntelligenceWiring::class.java,
                     LibraryCodeSettings::class.java,
                 )

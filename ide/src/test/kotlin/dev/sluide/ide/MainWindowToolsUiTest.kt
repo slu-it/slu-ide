@@ -294,13 +294,23 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot: FxRobot,
     ) {
         assertEquals(
-            listOf("Minesweeper", "Word Guess", "Doubles", "Sudoku", "Solitaire", "Orbit Guard", "Block Breaker"),
+            listOf(
+                "Minesweeper",
+                "Word Guess",
+                "Doubles",
+                "Sudoku",
+                "Solitaire",
+                "Orbit Guard",
+                "Block Breaker",
+                "Mini Golf",
+            ),
             menu(robot, "Games").items.map { it.text },
         )
         val gameItems = menu(robot, "Games").items
         val (item, wordGuessItem, doublesItem, sudokuItem, solitaireItem) = gameItems
         val orbitGuardItem = gameItems[5]
         val blockBreakerItem = gameItems[6]
+        val miniGolfItem = gameItems[7]
         robot.interact { robot.lookup(".tree-view").query<Node>().requestFocus() }
 
         robot.interact { item.fire() }
@@ -384,6 +394,17 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot.interact { blockBreakerGames.single().showTab() }
 
         assertEquals(listOf("Block Breaker"), tabTitles(robot))
+
+        robot.interact { miniGolfItem.fire() }
+        robot.interact { miniGolfItem.fire() }
+
+        assertEquals(listOf("Block Breaker", "Mini Golf"), tabTitles(robot))
+        assertEquals("Mini Golf", checkNotNull(editorArea.selectedTab).title.value)
+
+        robot.interact { editorArea.closeAll() }
+        robot.interact { miniGolfGames.single().showTab() }
+
+        assertEquals(listOf("Mini Golf"), tabTitles(robot))
     }
 
     private fun focusIsInSelectedTab(): Boolean {

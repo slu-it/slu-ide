@@ -12,6 +12,7 @@ import dev.sluide.editorarea.EditorArea
 import dev.sluide.games.BlockBreaker
 import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
+import dev.sluide.games.MiniGolf
 import dev.sluide.games.OrbitGuard
 import dev.sluide.games.Solitaire
 import dev.sluide.games.Sudoku
@@ -36,7 +37,7 @@ import java.nio.file.Path
  * The tools of one window: the Terminal and Docker Sandbox menus with the terminal tabs they open in the
  * [editorArea], the Tools menu with the Coloring, Codecs, Converting, Read Aloud and Translate tabs (ADR 0110,
  * ADR 0112, ADR 0115, ADR 0124, ADR 0126), the Services menu with the Docker and Databases tabs (ADR 0118,
- * ADR 0121) and the Games menu with the Minesweeper, Word Guess, Doubles, Sudoku, Solitaire, Orbit Guard and Block Breaker tabs (ADR 0131, 0132, 0136, 0137, 0138, 0139, 0140).
+ * ADR 0121) and the Games menu with the Minesweeper, Word Guess, Doubles, Sudoku, Solitaire, Orbit Guard, Block Breaker and Mini Golf tabs (ADR 0131, 0132, 0136, 0137, 0138, 0139, 0140, 0152).
  * [showError] shows why a tool cannot be started.
  * Used on the JavaFX thread.
  */
@@ -60,6 +61,7 @@ internal class WindowTools(
     solitaire: Solitaire,
     orbitGuard: OrbitGuard,
     blockBreaker: BlockBreaker,
+    miniGolf: MiniGolf,
     /** Opens a web page in the system browser. */
     openWebPage: (URI) -> Unit,
     private val showError: (Stage, String) -> Unit,
@@ -135,6 +137,9 @@ internal class WindowTools(
     /** The Block Breaker tool of the Games menu; it has no key binding. */
     internal val blockBreakerTool = WindowTool("Block Breaker", blockBreaker::createTab)
 
+    /** The Mini Golf tool of the Games menu; it has no key binding. */
+    internal val miniGolfTool = WindowTool("Mini Golf", miniGolf::createTab)
+
     /** The Games menu logic; tests choose tools through it. */
     internal val gamesMenu =
         ToolsMenu(
@@ -149,6 +154,7 @@ internal class WindowTools(
                 solitaireTool,
                 orbitGuardTool,
                 blockBreakerTool,
+                miniGolfTool,
             ),
             "Games",
         )
@@ -174,6 +180,7 @@ internal class WindowTools(
         solitaire.showTab = { gamesMenu.open(solitaireTool) }
         orbitGuard.showTab = { gamesMenu.open(orbitGuardTool) }
         blockBreaker.showTab = { gamesMenu.open(blockBreakerTool) }
+        miniGolf.showTab = { gamesMenu.open(miniGolfTool) }
     }
 
     /** The Tools menu: Coloring, Codecs, Converting, Read Aloud, Translate. */
@@ -182,7 +189,7 @@ internal class WindowTools(
     /** The Services menu: Docker, Databases. */
     fun servicesMenu(): Menu = servicesMenu.menu()
 
-    /** The Games menu: Minesweeper, Word Guess, Doubles, Sudoku, Solitaire, Orbit Guard and Block Breaker. */
+    /** The Games menu: Minesweeper, Word Guess, Doubles, Sudoku, Solitaire, Orbit Guard, Block Breaker and Mini Golf. */
     fun gamesMenu(): Menu = gamesMenu.menu()
 
     /** The Terminal menu: New Terminal. */

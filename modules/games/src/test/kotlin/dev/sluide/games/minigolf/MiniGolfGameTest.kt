@@ -174,6 +174,7 @@ internal class MiniGolfGameTest {
         val events = mutableListOf<GameEvent>()
         repeat(30) { if (game.phase == Phase.AIMING) events += game.step() }
         assertEquals(Phase.ROLLING, game.phase, "swept by the bar")
+        assertFalse(game.shotInProgress, "a push roll is no shot")
         game.stepUntil(Phase.AIMING)
         assertTrue(game.ball.distanceTo(start) > 3, "pushed away to ${game.ball}")
         assertEquals(0, game.strokes)
@@ -185,13 +186,16 @@ internal class MiniGolfGameTest {
     fun `the ghost is the previous shot, sampled every third step, kept until the next shot ends`() {
         val game = game()
         assertEquals(emptyList<Vec>(), game.ghostPath)
+        assertFalse(game.shotInProgress)
         game.shoot(0.0, 0.3)
+        assertTrue(game.shotInProgress)
         var steps = 0
         while (game.phase == Phase.ROLLING) {
             game.step()
             steps++
             if (game.phase == Phase.ROLLING) assertEquals(emptyList<Vec>(), game.ghostPath, "not during the shot")
         }
+        assertFalse(game.shotInProgress, "the roll has ended")
         val first = game.ghostPath
         assertEquals(Vec(50.0, 125.0), first.first())
         assertEquals(game.ball, first.last())
