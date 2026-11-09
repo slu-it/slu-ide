@@ -409,6 +409,19 @@ File does not react to it while a terminal has the focus.
 | Mouse move over the field | Move the paddle towards the pointer (keys win until the mouse moves again) |
 | Click on the field | Launch; in READY start; when paused resume if the board has the focus (else it only focuses; the click that activates an inactive window resumes only if the game had the focus when the window was left) |
 
+## Mini Golf
+[mini-golf.md](mini-golf.md). No menu key; the keys work while the board has the focus (a click on it gives it), and not with Shortcut, Ctrl, Meta or Alt.
+
+| Keys | Action |
+|---|---|
+| Space, Enter | Start in READY (the key is eaten); continue past the scorecard |
+| Esc | Cancel the aim |
+| P | Pause or resume |
+| F2 | New round (asks first once a stroke has been played) |
+| Press, drag, release on the field | Aim and putt |
+| Right click on the field | Cancel the aim |
+| Click on the field | Start in READY; continue past the scorecard; when paused resume if the board has the focus (else it only focuses; the click that activates an inactive window resumes only if the round had the focus when the window was left) |
+
 ## Settings
 [settings.md](settings.md)
 
