@@ -38,8 +38,10 @@ Measured with the pinned ty 0.0.99 through a scratch LSP client (2026-11-09):
 1. **Project root** of a Python file: walking up from its folder to the window folder (inclusive, never above), the
    nearest folder that holds `uv.lock` or a venv (a child folder with a `pyvenv.cfg` file: `.venv` first, then the
    others alphabetically). This covers uv, uv workspaces (members resolve to the workspace root), pip with a venv, and
-   Poetry or PDM with in-project venvs. A venv not named `.venv` reaches ty through the folder's configuration answer
-   (`environment.python`, answered by `scopeUri`); `.venv` and folders without a venv answer `{}` as before.
+   Poetry or PDM with in-project venvs. The venv of every project folder reaches ty through the folder's configuration
+   answer (`environment.python`, answered by `scopeUri`), `.venv` too: otherwise an inherited `VIRTUAL_ENV` (Thoreau
+   started from a shell with an activated venv) beats each project's `.venv` in ty's lookup order. Folders without a
+   venv answer `{}` as before.
 2. **Native files** (no project root) are served by the window folder, which is always the first workspace folder,
    with ty's own discovery of the default Python (`VIRTUAL_ENV`, Conda, `python3` on the `PATH`). A window folder that
    is itself a project root is simply that project, as before. Go to Symbol deduplicates its results (uri, range and

@@ -6,11 +6,19 @@ the pin `TyPin` and `TySmokeTest`; the page in the `dev.sluide.python.settings` 
 
 Python code intelligence comes from the language server [ty](https://github.com/astral-sh/ty) (Astral), run through
 the language-server client of [ADR 0142](../adr/0142-language-server-foundation.md) for files ending in `.py`, `.pyi`
-and `.pyw` inside the project folder. ty finds the project's virtual environment itself (`.venv` in the project
-folder, `VIRTUAL_ENV`, Conda, else `python3` on the PATH) and runs no program of the project, so it needs no trust
-question. Thoreau downloads it only on a click; the editor features are described in
-[code-intelligence.md](code-intelligence.md). Files of virtual environments, site-packages, the standard library and
+and `.pyw` inside the project folder. ty runs no program of the project, so it needs no trust question. Thoreau downloads it
+only on a click; the editor features are described in [code-intelligence.md](code-intelligence.md). Files of virtual environments, site-packages, the standard library and
 ty's typeshed stubs open read-only ([library-code.md](library-code.md)).
+
+## Projects and virtual environments
+Every Python project is a workspace folder of ty ([ADR 0151](../adr/0151-workspace-folders-per-project.md), logic in
+`PythonProjects`): the nearest folder from the file up to the window folder (never above it) that holds a `uv.lock` or
+a virtual environment (a child folder with a `pyvenv.cfg`; `.venv` first, then the others by name). Members of a uv
+workspace have only a `pyproject.toml` and so belong to the workspace root. Each project's virtual environment is passed to ty as
+the interpreter (so an inherited `VIRTUAL_ENV` does not win). A file without a project root
+("native") is served by the window folder with the default Python (`VIRTUAL_ENV`, Conda, else `python3` on the PATH).
+- **Refresh:** the `site-packages` of each project's virtual environment are watched, so ty picks up `uv sync` and
+  `pip install` without a restart; a new `uv.lock`, `pyproject.toml` or virtual environment re-resolves the open files.
 
 ## Settings → Languages → Python
 - **Status line:** "Installed: ty 0.0.99", "Installed: ty 0.1.0 (this Thoreau was tested with 0.0.99)",
