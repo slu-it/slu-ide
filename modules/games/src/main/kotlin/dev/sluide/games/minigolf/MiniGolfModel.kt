@@ -77,13 +77,7 @@ internal class MiniGolfModel(
             val keys = "Drag to aim · release to putt · Esc cancel · P pause · F2 new round"
             val best = bestTotal ?: return keys
             val diff = best - game.course.sumOf { it.par }
-            val par =
-                when {
-                    diff < 0 -> "−${-diff}"
-                    diff > 0 -> "+$diff"
-                    else -> "E"
-                }
-            return "$keys · Best: $best ($par)"
+            return "$keys · Best: $best (${ScoreText.toPar(diff)})"
         }
 
     val needsAnimation: Boolean get() = session.needsAnimation
