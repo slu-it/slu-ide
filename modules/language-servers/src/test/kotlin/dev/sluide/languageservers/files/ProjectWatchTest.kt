@@ -223,6 +223,30 @@ class ProjectWatchTest {
     }
 
     @Test
+    fun `a hidden or excluded folder that appears or goes is reported as an entry of its parent, not watched`() {
+        // What the workspace folders hear when a venv is created or deleted in a project (ADR 0151).
+        val project = folder("project")
+        watch()
+        val venvs = listOf(".venv", "venv").map { project.resolve(it).createDirectories() }
+        project.resolve(".venv/pyvenv.cfg").writeText("home = /usr/bin")
+
+        watcher.report(project, *venvs.toTypedArray())
+        worker.runAll()
+        venvs.forEach { it.toFile().deleteRecursively() }
+        watcher.report(project, *venvs.toTypedArray())
+        worker.runAll()
+
+        assertEquals(
+            listOf(
+                venvs.map { FileChange(it, FileChangeKind.CREATED) }.toSet(),
+                venvs.map { FileChange(it, FileChangeKind.DELETED) }.toSet(),
+            ),
+            batches.map { it.toSet() },
+        )
+        assertTrue(venvs.none { it in watcher.listeners })
+    }
+
+    @Test
     fun `a folder its parent reports as an entry keeps its watch`() {
         val src = folder("src")
         watch()
@@ -247,26 +271,6 @@ class ProjectWatchTest {
 
         assertEquals(emptyMap(), watcher.listeners)
         assertEquals(emptyList(), batches)
-    }
-
-    /** Records watches; [report] calls a folder's listener as `FileWatcher` would. */
-    private class FakeDirectoryWatcher : DirectoryWatcher {
-        val listeners = HashMap<Path, (List<Path>) -> Unit>()
-        val watches = mutableListOf<Path>()
-
-        override fun watch(
-            directory: Path,
-            listener: (List<Path>) -> Unit,
-        ): AutoCloseable {
-            listeners[directory] = listener
-            watches.add(directory)
-            return AutoCloseable { listeners.remove(directory, listener) }
-        }
-
-        fun report(
-            directory: Path,
-            vararg paths: Path,
-        ) = listeners.getValue(directory)(paths.toList())
     }
 
     /** Runs its tasks when the test calls [runAll]. */
