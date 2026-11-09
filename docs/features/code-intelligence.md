@@ -43,6 +43,14 @@ One at a time, above the text of a Python editor:
 Once ty is installed (from the banner, Settings, an update or a custom path), the servers of open Python editors start;
 a server that ran restarts with the new ty.
 
+## Project status line
+A bar below the text of a bound editor says which project the file belongs to, when the language server's spec has
+something to say (`workspaceStatus`) and only while the server runs: for Python `Python project:
+deployables/backend_one · .venv · Python 3.12`, or `No Python project · default Python` (the texts:
+[python.md](python.md)). It follows the file's project when `pyproject.toml`, `uv.lock` or the venv changes, and goes away when
+the server stops or fails. A line with a project folder is a link: a click selects the folder in the explorer and
+expands the column. The tooltip shows the absolute paths. `WorkspaceStatusFeature`; ADR 0151.
+
 ## Navigation
 - **Go to definition:** **Shortcut+B** at the caret, **Navigate → Go to Definition**, **Go to Definition** in the
   context menu (at the right-click), or **Shortcut+click** on a name. Holding **Shortcut** over a name underlines it
@@ -150,7 +158,8 @@ focus back. While it shows, the window's shortcuts (Shortcut+S, Shortcut+W…) d
   matches (at most 200), exact names first, then names starting with it (the same case first, classes and functions
   before variables); each row shows the kind icon, the name, its
   class or module and its file. It works from anywhere in a window with a running Python server, also with the focus
-  in the explorer; without one it says "Go to Symbol is not available (no language server running)".
+  in the explorer; without one it says "Go to Symbol is not available (no language server running)". A symbol the
+  server sends twice (ty does when a project folder lies inside the window folder) shows once.
 
 ## Hover
 Resting the mouse on a character of a Python editor for half a second, or **F1** at the caret, shows a popup below it

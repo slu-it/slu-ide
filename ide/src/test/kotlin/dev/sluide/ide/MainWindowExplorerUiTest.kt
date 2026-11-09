@@ -26,6 +26,7 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
@@ -207,6 +208,23 @@ class MainWindowExplorerUiTest : MainWindowUiFixture() {
 
         robot.interact { panel.expanded.set(true) }
         assertEquals(todoWidth, onFx(robot) { todoPanel.width }, DIVIDER_SLACK)
+    }
+
+    @Test
+    fun `the code intelligence's project status line selects a folder in the explorer and expands the column`(
+        robot: FxRobot,
+    ) {
+        val folder = project.resolve("backend").also { it.createDirectories() }
+        robot.interact { projectService.open(project) }
+        robot.interact {
+            fileExplorer.selectionModel.clearSelection()
+            panel.expanded.set(false)
+        }
+
+        robot.interact { codeIntelligences.single().intelligence.revealInExplorer(folder) }
+
+        assertTrue(expanded(robot))
+        robot.interact { assertEquals(folder, fileExplorer.selectionModel.selectedItem?.value) }
     }
 
     @Test
