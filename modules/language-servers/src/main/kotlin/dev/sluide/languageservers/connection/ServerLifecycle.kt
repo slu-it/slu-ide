@@ -52,9 +52,13 @@ internal class ServerLifecycle(
      * with `null`.
      */
     private val publish: (state: ServerState, epoch: Int?) -> Unit,
+    /**
+     * The workspace folders a server started for the window folder `root` gets in `initialize`, the window folder
+     * first; called on the outbound thread at each start (ADR 0151).
+     */
+    private val workspaceFolders: (root: Path) -> List<Path>,
     /** The client of a new connection; `current` says whether that connection is still the session's. */
     private val newClient: (
-        root: Path,
         features: ServerFeatures,
         name: String,
         current: () -> Boolean,
@@ -185,7 +189,7 @@ internal class ServerLifecycle(
         val conn =
             LspConnection(
                 process,
-                newClient(root, features, name) {
+                newClient(features, name) {
                     isCurrent(gen)
                 },
                 features,
@@ -204,7 +208,7 @@ internal class ServerLifecycle(
         }
         conn.listen()
         val started = nanoTime()
-        val result = initialize(gen, conn, root) ?: return
+        val result = initialize(gen, conn, root, workspaceFolders(root)) ?: return
         features.initialized(result.capabilities)
         try {
             conn.server.initialized(InitializedParams())
@@ -240,9 +244,10 @@ internal class ServerLifecycle(
         gen: Int,
         conn: LspConnection,
         root: Path,
+        folders: List<Path>,
     ): InitializeResult? =
         try {
-            val answer = conn.server.initialize(initializeParams(root))
+            val answer = conn.server.initialize(initializeParams(root, folders))
             val deadline = System.nanoTime() + timing.initialize.inWholeNanoseconds
             var result: InitializeResult? = null
             // Asks every 100 ms whether a restart or close replaced this start, so that the next start does not wait.
@@ -274,18 +279,20 @@ internal class ServerLifecycle(
             null
         }
 
-    private fun initializeParams(root: Path) =
-        InitializeParams().apply {
-            processId = ProcessHandle.current().pid().toInt()
-            // The version in the manifest of this module's jar, if it names one.
-            clientInfo = ClientInfo("Thoreau", ServerLifecycle::class.java.`package`?.implementationVersion)
-            @Suppress("DEPRECATION")
-            rootUri = LspUris.of(root)
-            workspaceFolders = listOf(workspaceFolder(root))
-            initializationOptions = initializationOptions(root)
-            capabilities = clientCapabilities().also(spec::adjustCapabilities)
-            trace = "off"
-        }
+    private fun initializeParams(
+        root: Path,
+        folders: List<Path>,
+    ) = InitializeParams().apply {
+        processId = ProcessHandle.current().pid().toInt()
+        // The version in the manifest of this module's jar, if it names one.
+        clientInfo = ClientInfo("Thoreau", ServerLifecycle::class.java.`package`?.implementationVersion)
+        @Suppress("DEPRECATION")
+        rootUri = LspUris.of(root)
+        workspaceFolders = folders.map(::workspaceFolder)
+        initializationOptions = initializationOptions(root)
+        capabilities = clientCapabilities().also(spec::adjustCapabilities)
+        trace = "off"
+    }
 
     /** The spec's initialization options as JSON; options that are no JSON value are left out. */
     private fun initializationOptions(root: Path): Any? =

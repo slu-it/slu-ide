@@ -1,5 +1,8 @@
 package dev.sluide.languageservers
 
+import dev.sluide.languageservers.workspace.WorkspaceDocument
+import javafx.beans.property.ReadOnlyObjectWrapper
+import javafx.beans.value.ObservableValue
 import org.eclipse.lsp4j.DidChangeTextDocumentParams
 import org.eclipse.lsp4j.DidCloseTextDocumentParams
 import org.eclipse.lsp4j.DidOpenTextDocumentParams
@@ -11,6 +14,7 @@ import org.eclipse.lsp4j.TextDocumentItem
 import org.eclipse.lsp4j.TextDocumentSyncKind
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 
 private val log = System.getLogger(DocumentSync::class.java.name)
 
@@ -22,6 +26,9 @@ private val log = System.getLogger(DocumentSync::class.java.name)
  * offsets are each in the text the one before left reaches the server as it happened. Every server that starts (also
  * after a restart) gets every open document again with `didOpen`, its current text and a new version; what was sent
  * before that went to the previous server or was dropped (ADR 0142, notifications belong to one connection).
+ *
+ * Each document's workspace folder is asked off the FX thread when it opens or moves; its `didOpen` waits for the
+ * answer on the outbound thread, after the folder was added on the server (ADR 0151).
  */
 class DocumentSync internal constructor(
     private val session: LanguageServerSession,
@@ -45,7 +52,11 @@ class DocumentSync internal constructor(
         text: String,
     ): SyncedDocument {
         val key = key(file)
-        val document = documents[key] ?: Document(key, languageId, text).also { documents[key] = it }
+        val document =
+            documents[key] ?: Document(key, languageId, text).also {
+                documents[key] = it
+                it.resolveFolder()
+            }
         document.handles++
         if (document.handles == 1) document.sendOpen()
         return SyncedDocument(document)
@@ -54,14 +65,21 @@ class DocumentSync internal constructor(
     /** Whether [file] is open. */
     fun isOpen(file: Path): Boolean = key(file) in documents
 
+    /** The workspace folder of the open [file] ([LanguageServerSession.workspaceFolderOf]). */
+    internal fun folderOf(file: Path): ObservableValue<Path?> =
+        documents[key(file)]?.folderValue ?: ReadOnlyObjectWrapper<Path?>(null).readOnlyProperty
+
+    /** The open documents, for the workspace folders. */
+    internal fun workspaceDocuments(): List<WorkspaceDocument> = documents.values.toList()
+
     private fun key(file: Path) = file.toAbsolutePath().normalize()
 
     /** The state of one open file, shared by its handles. */
     internal inner class Document(
-        var file: Path,
+        override var file: Path,
         private val languageId: String,
         text: String,
-    ) {
+    ) : WorkspaceDocument {
         val text = StringBuilder(text)
         var version = 1
         var handles = 0
@@ -76,9 +94,43 @@ class DocumentSync internal constructor(
 
         private val uri get() = LspUris.of(file)
 
+        override var folder: CompletableFuture<Path?> = CompletableFuture.completedFuture(null)
+            private set
+
+        private val folderWrapper = ReadOnlyObjectWrapper<Path?>(null)
+        val folderValue: ObservableValue<Path?> = folderWrapper.readOnlyProperty
+
+        /** Asks the spec for the workspace folder of [file]; the value follows on the FX thread. */
+        fun resolveFolder() = adopt(session.workspace.resolve(file))
+
+        override fun adopt(resolution: CompletableFuture<Path?>) {
+            folder = resolution
+            if (resolution.isDone) {
+                show(resolution, resolution.getNow(null))
+            } else {
+                resolution.thenAccept { path -> session.fx { show(resolution, path) } }
+            }
+        }
+
+        private fun show(
+            resolution: CompletableFuture<Path?>,
+            path: Path?,
+        ) {
+            if (folder === resolution && folderWrapper.get() != path) {
+                folderWrapper.set(path)
+                session.workspaceChanged()
+            }
+        }
+
         fun sendOpen() {
             val item = TextDocumentItem(uri, languageId, version, text.toString())
-            session.notify { it.textDocumentService.didOpen(DidOpenTextDocumentParams(item)) }
+            session.notifyInFolder(folder) { it.textDocumentService.didOpen(DidOpenTextDocumentParams(item)) }
+        }
+
+        override fun reopenOnServer() {
+            if (detached) return
+            sendClose()
+            reopen()
         }
 
         fun reopen() {
@@ -166,6 +218,7 @@ class DocumentSync internal constructor(
             documents.remove(file, this)
             file = target
             documents[target] = this
+            resolveFolder()
             reopen()
         }
 

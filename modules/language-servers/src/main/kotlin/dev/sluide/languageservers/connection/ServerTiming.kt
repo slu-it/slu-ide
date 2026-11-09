@@ -17,6 +17,10 @@ internal data class ServerTiming(
     val shutdown: Duration = 2.seconds,
     /** How long the server may take to exit after `exit` before it is killed. */
     val exit: Duration = 1.seconds,
+    /** How long the changes of a workspace folder settle before it is refreshed or its files' folders are asked again. */
+    val workspaceDebounce: Duration = 1.seconds,
+    /** How long a `didOpen` waits for the spec to name its document's workspace folder before the window folder serves it. */
+    val workspaceFolderWait: Duration = 10.seconds,
 )
 
 /** Runs tasks after a delay; tests replace it with one they run by hand. */

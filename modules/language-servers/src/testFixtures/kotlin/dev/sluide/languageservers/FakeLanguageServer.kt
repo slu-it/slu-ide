@@ -7,6 +7,7 @@ import org.eclipse.lsp4j.DefinitionParams
 import org.eclipse.lsp4j.DidChangeConfigurationParams
 import org.eclipse.lsp4j.DidChangeTextDocumentParams
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams
+import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams
 import org.eclipse.lsp4j.DidCloseTextDocumentParams
 import org.eclipse.lsp4j.DidOpenTextDocumentParams
 import org.eclipse.lsp4j.DidSaveTextDocumentParams
@@ -58,6 +59,9 @@ open class FakeServer :
 
     /** The parameters of the `workspace/didChangeWatchedFiles` notifications received, in order. */
     val watchedFileChanges = CopyOnWriteArrayList<DidChangeWatchedFilesParams>()
+
+    /** The `workspace/didChangeWorkspaceFolders` notifications received, in order; [calls] has them as `-uri +uri`. */
+    val workspaceFolderChanges = CopyOnWriteArrayList<DidChangeWorkspaceFoldersParams>()
 
     @Volatile
     var initializeParams: InitializeParams? = null
@@ -146,6 +150,13 @@ open class FakeServer :
 
     override fun didChangeConfiguration(params: DidChangeConfigurationParams) {
         calls += "didChangeConfiguration"
+    }
+
+    override fun didChangeWorkspaceFolders(params: DidChangeWorkspaceFoldersParams) {
+        workspaceFolderChanges += params
+        val removed = params.event.removed.map { "-${it.uri}" }
+        val added = params.event.added.map { "+${it.uri}" }
+        calls += "didChangeWorkspaceFolders ${(removed + added).joinToString(" ")}"
     }
 
     override fun didChangeWatchedFiles(params: DidChangeWatchedFilesParams) {

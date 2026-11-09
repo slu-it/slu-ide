@@ -10,6 +10,10 @@ internal class TestSpec(
     private val config: (ConfigurationItem) -> Any? = { null },
     private val initOptions: Any? = null,
     override val id: String = "test",
+    /** The workspace folder of a file in a project folder; `null` keeps the default (the window folder). */
+    private val folders: ((file: Path, projectFolder: Path) -> Path?)? = null,
+    private val watched: (folder: Path) -> List<Path> = { emptyList() },
+    private val affects: (change: Path) -> Boolean = { false },
 ) : LanguageServerSpec {
     override val name = "Test"
 
@@ -22,4 +26,13 @@ internal class TestSpec(
     override fun command() = command
 
     override fun configuration(item: ConfigurationItem) = config(item)
+
+    override fun workspaceFolder(
+        file: Path,
+        projectFolder: Path,
+    ): Path? = folders?.invoke(file, projectFolder) ?: super.workspaceFolder(file, projectFolder)
+
+    override fun watchedFolders(folder: Path) = watched(folder)
+
+    override fun affectsWorkspaceFolders(change: Path) = affects(change)
 }

@@ -64,7 +64,8 @@ internal interface ClientEvents {
  */
 internal class SessionClient(
     private val name: String,
-    private val root: Path,
+    /** The session's workspace folders now, the window folder first; a snapshot that never blocks. */
+    private val folders: () -> List<Path>,
     private val features: ServerFeatures,
     private val events: ClientEvents,
 ) : LanguageClient {
@@ -99,7 +100,7 @@ internal class SessionClient(
     }
 
     override fun workspaceFolders(): CompletableFuture<List<WorkspaceFolder>> =
-        CompletableFuture.completedFuture(listOf(workspaceFolder(root)))
+        CompletableFuture.completedFuture(folders().map(::workspaceFolder))
 
     override fun createProgress(params: WorkDoneProgressCreateParams): CompletableFuture<Void?> =
         CompletableFuture.completedFuture(null)

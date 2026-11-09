@@ -16,8 +16,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -29,7 +31,16 @@ class LanguageServerFilesTest {
     @TempDir
     lateinit var folder: Path
 
-    private val first = TestSpec(id = "first")
+    /** The paths the first spec was asked whether they affect workspace folders. */
+    private val askedAffects = CopyOnWriteArrayList<Path>()
+    private val first =
+        TestSpec(
+            id = "first",
+            affects = { change ->
+                askedAffects.add(change)
+                false
+            },
+        )
     private val second = TestSpec(id = "second")
     private val starter = FakeStarter()
     private val scheduler = FakeScheduler()
@@ -130,6 +141,20 @@ class LanguageServerFilesTest {
         servers.session(first).flush(server)
 
         assertEquals(listOf(LspUris.of(file) to FileChangeType.Created), server.events())
+    }
+
+    @Test
+    fun `every change of the project watch reaches the specs' workspace folders, also one no server watcher wants`() {
+        val servers = servers()
+        val server = servers.running(first)
+        val file = folder.resolve("uv.lock").apply { writeText("version = 1") }
+        val venv = folder.resolve(".venv").createDirectories()
+
+        assertNotNull(listeners[folder], "the project folder is watched")(listOf(file, venv))
+        servers.session(first).flush(server)
+
+        assertEquals(setOf(file, venv), askedAffects.toSet())
+        assertEquals(emptyList(), server.watchedFileChanges, "the server registered no watchers")
     }
 
     @Test

@@ -5,9 +5,16 @@ import dev.sluide.languageservers.connection.Scheduler
 import dev.sluide.languageservers.connection.ServerLifecycle
 import dev.sluide.languageservers.connection.ServerTiming
 import dev.sluide.languageservers.connection.SessionClient
+import dev.sluide.languageservers.files.DirectoryWatcher
 import dev.sluide.languageservers.process.ServerStarter
+import dev.sluide.languageservers.workspace.Signal
+import dev.sluide.languageservers.workspace.WorkspaceDocument
+import dev.sluide.languageservers.workspace.WorkspaceFolders
+import dev.sluide.languageservers.workspace.WorkspaceHost
+import javafx.beans.Observable
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
+import javafx.beans.value.ObservableValue
 import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.PublishDiagnosticsParams
 import org.eclipse.lsp4j.services.LanguageServer
@@ -17,6 +24,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executor
 
 private val log = System.getLogger(LanguageServerSession::class.java.name)
 
@@ -44,6 +52,10 @@ class LanguageServerSession internal constructor(
     scheduler: Scheduler,
     timing: ServerTiming,
     nanoTime: () -> Long,
+    /** This session's own thread that asks the spec for workspace folders and what to watch for them (ADR 0151). */
+    folderWorker: Executor,
+    /** Watches the folders the spec names per workspace folder. */
+    directoryWatcher: DirectoryWatcher,
 ) {
     private val stateWrapper = ReadOnlyObjectWrapper<ServerState>(ServerState.Stopped)
     private val diagnosticsListeners = ConcurrentHashMap<String, CopyOnWriteArrayList<DiagnosticsListener>>()
@@ -55,7 +67,38 @@ class LanguageServerSession internal constructor(
     @Volatile
     private var connectedEpoch: Int? = null
 
-    private val lifecycle =
+    private val changes = Signal()
+
+    internal val workspace: WorkspaceFolders =
+        WorkspaceFolders(
+            spec = spec,
+            projectFolder = projectFolder,
+            worker = folderWorker,
+            dispatch = { runnable -> fx { runnable.run() } },
+            scheduler = scheduler,
+            debounce = timing.workspaceDebounce,
+            resolveWait = timing.workspaceFolderWait,
+            directoryWatcher = directoryWatcher,
+            host =
+                object : WorkspaceHost {
+                    override fun documents(): Collection<WorkspaceDocument> = documents.workspaceDocuments()
+
+                    override fun notify(action: (LanguageServer) -> Unit) = this@LanguageServerSession.notify(action)
+
+                    override fun onOutbound(action: (LanguageServer?) -> Unit) =
+                        lifecycle.onServer { running ->
+                            try {
+                                action(running?.server)
+                            } catch (e: RuntimeException) {
+                                log.log(System.Logger.Level.INFO, "lsp ${spec.id} workspace folders: $e")
+                            }
+                        }
+
+                    override fun changed() = workspaceChanged()
+                },
+        )
+
+    private val lifecycle: ServerLifecycle =
         ServerLifecycle(
             spec = spec,
             projectFolder = projectFolder,
@@ -78,7 +121,10 @@ class LanguageServerSession internal constructor(
                     },
                 )
             },
-            newClient = { root, features, name, current -> SessionClient(name, root, features, events(current)) },
+            workspaceFolders = { root -> workspace.foldersFor(root) },
+            newClient = { features, name, current ->
+                SessionClient(name, { workspace.current }, features, events(current))
+            },
         )
 
     /** The server's state; changes on the FX thread. */
@@ -92,6 +138,21 @@ class LanguageServerSession internal constructor(
 
     /** The documents open on the server: `didOpen`, `didChange`, `didSave`, `didClose`, reopened on every new server. */
     val documents: DocumentSync = DocumentSync(this)
+
+    /**
+     * The workspace folder that serves the open document [file] (ADR 0151), as the spec named it
+     * ([LanguageServerSpec.workspaceFolder]; the window folder itself if the spec named that); `null` for the window
+     * folder, also while the spec is still being asked (the value follows once it answered) and for a file that is
+     * not open (a constant `null`). Follows re-resolutions and moves while the document is open. FX thread.
+     */
+    fun workspaceFolderOf(file: Path): ObservableValue<Path?> = documents.folderOf(file)
+
+    /**
+     * Fires on the FX thread after a document's workspace folder changed ([workspaceFolderOf]), and after a refresh of
+     * a workspace folder or a re-resolution of folders after a project change finished: what an editor shows about its
+     * project (status line, environment notice) may have changed.
+     */
+    val workspaceChanges: Observable = changes
 
     /**
      * Starts the server unless it runs, starts or failed (only [restart] starts a failed one); also when it was
@@ -166,6 +227,25 @@ class LanguageServerSession internal constructor(
     }
 
     /**
+     * Like [notify], with the workspace folder [folder] resolves to added on the server first unless it is known
+     * (`didChangeWorkspaceFolders`): for `didOpen`. Waits for the folder on the outbound thread, in order.
+     */
+    internal fun notifyInFolder(
+        folder: CompletableFuture<Path?>,
+        action: (LanguageServer) -> Unit,
+    ) = notify { server ->
+        workspace.announce(folder, server)
+        action(server)
+    }
+
+    /** Changes on disk, unfiltered: those the spec names ask the open documents' folders again. FX thread. */
+    internal fun workspaceFilesChanged(changes: List<FileChange>) = workspace.filesChanged(changes)
+
+    internal fun workspaceChanged() {
+        if (!isClosed) changes.fire()
+    }
+
+    /**
      * Calls [listener] on the FX thread each time a server was initialized (also after restarts): where document sync
      * opens the open files again with [notify]. Notifications made before this call are dropped, those made from here
      * on reach the new server. It runs in the FX step that sets [state] to `Running`, after the state listeners: a
@@ -189,7 +269,10 @@ class LanguageServerSession internal constructor(
     fun onFeaturesChanged(listener: () -> Unit): AutoCloseable = featureListeners.subscribe(listener)
 
     /** Ends the server with its window; nothing is delivered afterwards. */
-    internal fun close() = lifecycle.close()
+    internal fun close() {
+        lifecycle.close()
+        workspace.close()
+    }
 
     /** What the client of one connection hands on; dropped once that connection is no longer the session's. */
     private fun events(current: () -> Boolean) =
@@ -226,7 +309,7 @@ class LanguageServerSession internal constructor(
     ) = fx { if (!pending.isCancelled) action() }
 
     /** Runs [action] on the FX thread unless the session closed by then. */
-    private fun fx(action: () -> Unit) = dispatch(Runnable { if (!isClosed) action() })
+    internal fun fx(action: () -> Unit) = dispatch(Runnable { if (!isClosed) action() })
 
     /** Calls every listener; one that throws is logged and the others still run. */
     private fun <T> List<T>.callEach(

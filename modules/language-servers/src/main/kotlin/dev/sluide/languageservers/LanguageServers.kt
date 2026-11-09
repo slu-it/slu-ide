@@ -38,6 +38,11 @@ class LanguageServers internal constructor(
     /** Runs the project watch's disk work; the default drops it, so that tests watch nothing unless they ask. */
     private val fileWorker: Executor = Executor {},
     private val watchOptions: ProjectWatchOptions = ProjectWatchOptions(),
+    /**
+     * The executor of each session that asks its spec for workspace folders (ADR 0151); a document's `didOpen` waits
+     * for the answer. The default runs inline, so that tests get the answer at once.
+     */
+    folderWorker: (LanguageServerSpec) -> Executor = { Executor(Runnable::run) },
 ) : AutoCloseable {
     /**
      * @param projectFolder the window's folder, asked at each start (`null`: no servers).
@@ -65,6 +70,7 @@ class LanguageServers internal constructor(
         DirectoryWatcher(fileWatcher::watch),
         NamedThreads.single("sluide-lsp-files"),
         projectWatch,
+        { spec -> NamedThreads.single("sluide-lsp-${spec.id}-folders") },
     )
 
     init {
@@ -73,7 +79,18 @@ class LanguageServers internal constructor(
 
     private val sessions =
         specs.associateWith { spec ->
-            LanguageServerSession(spec, projectFolder, trustGate, dispatch, starter, scheduler, timing, nanoTime)
+            LanguageServerSession(
+                spec,
+                projectFolder,
+                trustGate,
+                dispatch,
+                starter,
+                scheduler,
+                timing,
+                nanoTime,
+                folderWorker(spec),
+                directoryWatcher,
+            )
         }
 
     private val watchLock = Any()
@@ -106,9 +123,13 @@ class LanguageServers internal constructor(
      * Tells every running server about the [events] its file watchers want (`workspace/didChangeWatchedFiles`): the
      * project watch's changes, and those a caller knows first (the explorer's moves and deletes; a save of an open
      * document counts as changed). Starts no server: one that does not run has no watchers. FX thread.
+     *
+     * Every change also reaches each session's workspace folders unfiltered: one its spec names
+     * ([LanguageServerSpec.affectsWorkspaceFolders]) asks the workspace folders of the open documents below it again.
      */
     fun filesChanged(events: List<FileChange>) {
         if (events.isEmpty()) return
+        sessions.values.forEach { it.workspaceFilesChanged(events) }
         for (session in sessions.values) {
             val filter = WatcherFilter(session.features.fileWatchers())
             if (filter.isEmpty) continue
