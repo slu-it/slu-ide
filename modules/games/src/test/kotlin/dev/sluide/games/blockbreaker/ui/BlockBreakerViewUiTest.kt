@@ -10,6 +10,7 @@ import dev.sluide.games.blockbreaker.PowerUp
 import dev.sluide.games.blockbreaker.Rules
 import dev.sluide.games.common.SessionState
 import dev.sluide.games.common.ui.FieldLayout
+import dev.sluide.games.common.ui.firePress
 import dev.sluide.projectdata.ProjectDataStore
 import javafx.event.Event
 import javafx.scene.Cursor
@@ -166,6 +167,16 @@ class BlockBreakerViewUiTest {
     private fun playing(robot: FxRobot) {
         startCountdown(robot)
         assertTrue(waitUntil { model.state == SessionState.PLAYING })
+    }
+
+    @Test
+    fun `a mouse press on the status line returns the focus to the board`(robot: FxRobot) {
+        robot.interact { view.node.lookup(".button").requestFocus() }
+        assertFalse(fx { view.board.isFocused })
+
+        robot.interact { firePress(view.status) }
+
+        assertSame(view.board, fx { stage.scene.focusOwner })
     }
 
     @Test

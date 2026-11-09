@@ -2,6 +2,7 @@ package dev.sluide.games.doubles.ui
 
 import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.WrappingToolbar
+import dev.sluide.games.common.ui.focusBoardOnPress
 import dev.sluide.games.doubles.BoardSize
 import dev.sluide.games.doubles.Direction
 import dev.sluide.games.doubles.DoublesModel
@@ -125,6 +126,7 @@ internal class DoublesView(
         model.onChange = installedChange
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
+        focusBoardOnPress(node, board)
         // Consumed, or the scroll pane around the board takes the focus afterwards.
         board.setOnMousePressed {
             pressX = it.sceneX

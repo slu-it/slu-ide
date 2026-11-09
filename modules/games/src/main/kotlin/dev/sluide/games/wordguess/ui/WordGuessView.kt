@@ -2,6 +2,7 @@ package dev.sluide.games.wordguess.ui
 
 import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.WrappingToolbar
+import dev.sluide.games.common.ui.focusBoardOnPress
 import dev.sluide.games.wordguess.KeyAction
 import dev.sluide.games.wordguess.Language
 import dev.sluide.games.wordguess.MIN_TILE
@@ -92,6 +93,7 @@ internal class WordGuessView(
         model.onChange = installed
         // The editor area focuses the tab's content; the keys belong to the grid.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusGrid.request(grid) }
+        focusBoardOnPress(node, grid)
         // Consumed, or the scroll pane around the grid takes the focus afterwards.
         grid.setOnMousePressed {
             grid.requestFocus()

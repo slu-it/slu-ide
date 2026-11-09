@@ -4,6 +4,7 @@ import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.games.common.formatTime
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.TabVisibility
+import dev.sluide.games.common.ui.focusBoardOnPress
 import dev.sluide.games.sudoku.BoardLayout
 import dev.sluide.games.sudoku.Flash
 import dev.sluide.games.sudoku.KeyAction
@@ -168,6 +169,7 @@ internal class SudokuView(
         model.onFlash = installedFlash
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
+        focusBoardOnPress(node, board)
         model.ensureGame()
         refresh()
     }

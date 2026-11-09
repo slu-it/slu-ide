@@ -9,6 +9,7 @@ import dev.sluide.games.blockbreaker.keyAction
 import dev.sluide.games.common.SessionState
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.RealtimeLoop
+import dev.sluide.games.common.ui.focusBoardOnPress
 import javafx.scene.Cursor
 import javafx.scene.Node
 import javafx.scene.control.Alert
@@ -108,6 +109,7 @@ internal class BlockBreakerView(
         board.setOnMouseDragged(::pointerMoved)
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
+        focusBoardOnPress(node, board)
         model.onChange = installedChange
         // The subscription above ran before the view owned the model.
         model.windowFocusChanged(windowCountsAsActive(board.scene?.window?.isFocused))

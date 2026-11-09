@@ -1,5 +1,6 @@
 package dev.sluide.games.minesweeper.ui
 
+import dev.sluide.games.common.ui.firePress
 import dev.sluide.games.minesweeper.BoardSize
 import dev.sluide.games.minesweeper.CellKind
 import dev.sluide.games.minesweeper.MinesweeperGame
@@ -122,9 +123,21 @@ class MinesweeperViewUiTest {
 
     @Test
     fun `a primary click opens a cell and a secondary click flags another`(robot: FxRobot) {
+        val scrollPane = view.node.lookup(".scroll-pane")
+        var scrollPaneFocused = false
+        robot.interact {
+            scrollPane.focusedProperty().addListener { _, _, focused ->
+                scrollPaneFocused =
+                    scrollPaneFocused || focused
+            }
+        }
+
         click(robot, 8, 8, MouseButton.PRIMARY)
         click(robot, 0, 8, MouseButton.SECONDARY)
 
+        // A press the board consumes never reaches the scroll pane, which would take the focus and hand it back.
+        assertFalse(scrollPaneFocused)
+        assertSame(view.board, fx { stage.scene.focusOwner })
         assertEquals(CellKind.OPENED, fx { model.game.cell(8, 8) })
         assertEquals(CellKind.FLAGGED, fx { model.game.cell(0, 8) })
         assertEquals("9", fx { model.counterText })
@@ -148,6 +161,16 @@ class MinesweeperViewUiTest {
     @Test
     fun `focusing the tab content hands the focus to the board`(robot: FxRobot) {
         robot.interact { view.node.requestFocus() }
+
+        assertSame(view.board, fx { stage.scene.focusOwner })
+    }
+
+    @Test
+    fun `a mouse press on the empty area around the board leaves the focus on the board`(robot: FxRobot) {
+        robot.interact { view.sizeMenu.requestFocus() }
+        assertFalse(fx { view.board.isFocused })
+
+        robot.interact { firePress(view.node.lookup(".scroll-pane")) }
 
         assertSame(view.board, fx { stage.scene.focusOwner })
     }

@@ -1,5 +1,6 @@
 package dev.sluide.games.doubles.ui
 
+import dev.sluide.games.common.ui.firePress
 import dev.sluide.games.doubles.BoardSize
 import dev.sluide.games.doubles.Cell
 import dev.sluide.games.doubles.Direction
@@ -243,6 +244,16 @@ class DoublesViewUiTest {
         assertFalse(fx { view.board.isFocused })
 
         robot.interact { view.node.requestFocus() }
+
+        assertSame(view.board, fx { stage.scene.focusOwner })
+    }
+
+    @Test
+    fun `a mouse press on the empty area around the board leaves the focus on the board`(robot: FxRobot) {
+        robot.interact { view.sizeMenu.requestFocus() }
+        assertFalse(fx { view.board.isFocused })
+
+        robot.interact { firePress(view.node.lookup(".scroll-pane")) }
 
         assertSame(view.board, fx { stage.scene.focusOwner })
     }

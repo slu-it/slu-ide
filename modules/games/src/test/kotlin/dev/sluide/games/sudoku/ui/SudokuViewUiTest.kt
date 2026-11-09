@@ -1,6 +1,7 @@
 package dev.sluide.games.sudoku.ui
 
 import dev.sluide.games.common.GameClock
+import dev.sluide.games.common.ui.firePress
 import dev.sluide.games.sudoku.Cell
 import dev.sluide.games.sudoku.Generator
 import dev.sluide.games.sudoku.Grid
@@ -178,6 +179,15 @@ class SudokuViewUiTest {
 
         assertEquals("3", digit(empty))
         assertTrue("sdk-entry" in styles(empty))
+    }
+
+    @Test
+    fun `a mouse press on the empty area around the board leaves the focus on the board`(robot: FxRobot) {
+        focusDecoy(robot)
+
+        robot.interact { firePress(view.node.lookup(".scroll-pane")) }
+
+        assertSame(view.board, fx { stage.scene.focusOwner })
     }
 
     @Test

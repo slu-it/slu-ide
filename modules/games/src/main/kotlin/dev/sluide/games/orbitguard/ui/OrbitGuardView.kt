@@ -5,6 +5,7 @@ import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.games.common.SessionState
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.RealtimeLoop
+import dev.sluide.games.common.ui.focusBoardOnPress
 import dev.sluide.games.orbitguard.Difficulty
 import dev.sluide.games.orbitguard.KeyAction
 import dev.sluide.games.orbitguard.OrbitGuardModel
@@ -89,6 +90,7 @@ internal class OrbitGuardView(
         board.setOnMousePressed { board.requestFocus() }
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
+        focusBoardOnPress(node, board)
         model.onChange = installedChange
         refresh()
     }

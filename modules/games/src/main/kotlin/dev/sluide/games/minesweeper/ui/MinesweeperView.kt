@@ -4,6 +4,7 @@ import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.TabVisibility
+import dev.sluide.games.common.ui.focusBoardOnPress
 import dev.sluide.games.minesweeper.BoardSize
 import dev.sluide.games.minesweeper.MinesweeperModel
 import dev.sluide.games.minesweeper.Preset
@@ -93,6 +94,7 @@ internal class MinesweeperView(
         model.onChange = installed
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
+        focusBoardOnPress(node, board)
         refresh()
     }
 
@@ -140,6 +142,8 @@ internal class MinesweeperView(
     }
 
     private fun mousePressed(event: MouseEvent) {
+        // Consumed, or the scroll pane around the board takes the focus afterwards.
+        event.consume()
         board.requestFocus()
         val (x, y) = board.cellAt(event.x, event.y) ?: return
         when (event.button) {

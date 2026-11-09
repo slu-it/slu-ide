@@ -2,6 +2,7 @@ package dev.sluide.games.orbitguard.ui
 
 import dev.sluide.games.common.PauseReason
 import dev.sluide.games.common.SessionState
+import dev.sluide.games.common.ui.firePress
 import dev.sluide.games.orbitguard.Difficulty
 import dev.sluide.games.orbitguard.OrbitGuardGame
 import dev.sluide.games.orbitguard.OrbitGuardModel
@@ -159,6 +160,16 @@ class OrbitGuardViewUiTest {
         focusBoard(robot)
 
         assertTrue(press(robot, KeyCode.LEFT))
+
+        assertSame(view.board, fx { stage.scene.focusOwner })
+    }
+
+    @Test
+    fun `a mouse press on the status line returns the focus to the board`(robot: FxRobot) {
+        robot.interact { view.node.lookup(".button").requestFocus() }
+        assertFalse(fx { view.board.isFocused })
+
+        robot.interact { firePress(view.status) }
 
         assertSame(view.board, fx { stage.scene.focusOwner })
     }

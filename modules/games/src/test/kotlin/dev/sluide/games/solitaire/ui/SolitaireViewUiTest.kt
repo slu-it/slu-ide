@@ -1,6 +1,7 @@
 package dev.sluide.games.solitaire.ui
 
 import dev.sluide.games.common.GameClock
+import dev.sluide.games.common.ui.firePress
 import dev.sluide.games.solitaire.Cancellable
 import dev.sluide.games.solitaire.Deals
 import dev.sluide.games.solitaire.KeyAction
@@ -202,6 +203,15 @@ class SolitaireViewUiTest {
         robot.interact { decoy.requestFocus() }
 
         robot.interact { view.node.requestFocus() }
+
+        assertSame(view.table, fx { stage.scene.focusOwner })
+    }
+
+    @Test
+    fun `a mouse press on the empty area around the table leaves the focus on the table`(robot: FxRobot) {
+        robot.interact { decoy.requestFocus() }
+
+        robot.interact { firePress(view.node.lookup(".scroll-pane")) }
 
         assertSame(view.table, fx { stage.scene.focusOwner })
     }

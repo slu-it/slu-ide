@@ -1,5 +1,6 @@
 package dev.sluide.games.wordguess.ui
 
+import dev.sluide.games.common.ui.firePress
 import dev.sluide.games.wordguess.KeyboardKey
 import dev.sluide.games.wordguess.Language
 import dev.sluide.games.wordguess.WordGuessModel
@@ -204,6 +205,16 @@ class WordGuessViewUiTest {
         assertFalse(fx { view.grid.isFocused })
 
         robot.interact { view.node.requestFocus() }
+
+        assertSame(view.grid, fx { stage.scene.focusOwner })
+    }
+
+    @Test
+    fun `a mouse press on the empty area around the grid leaves the focus on the grid`(robot: FxRobot) {
+        robot.interact { view.languageMenu.requestFocus() }
+        assertFalse(fx { view.grid.isFocused })
+
+        robot.interact { firePress(view.node.lookup(".scroll-pane")) }
 
         assertSame(view.grid, fx { stage.scene.focusOwner })
     }

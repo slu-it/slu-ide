@@ -4,6 +4,7 @@ import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.games.common.formatTime
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.TabVisibility
+import dev.sluide.games.common.ui.focusBoardOnPress
 import dev.sluide.games.solitaire.KeyAction
 import dev.sluide.games.solitaire.Mode
 import dev.sluide.games.solitaire.PileKind
@@ -161,6 +162,7 @@ internal class SolitaireView(
         model.onEvent = ::onEvent
         // The editor area focuses the tab's content; the keys belong to the table.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusTable.request(table) }
+        focusBoardOnPress(node, table)
         model.ensureGame()
         refresh()
     }
