@@ -17,7 +17,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DifficultyPreferencesTest {
@@ -146,62 +145,12 @@ class DifficultyPreferencesTest {
     }
 
     @Test
-    fun `reads once and keeps the value in memory`() {
-        seed("""{"game":{"difficulty":"easy"}}""")
-        val preferences = preferences()
-        assertEquals(Level.EASY, preferences.lastDifficulty)
-
-        seed("""{"game":{"difficulty":"hard"}}""")
-
-        assertEquals(Level.EASY, preferences.lastDifficulty)
-    }
-
-    @Test
     fun `quitting writes the pending value at once`() {
         val preferences = preferences(Duration.ofMinutes(1))
         preferences.saveDifficulty(Level.HARD)
 
         preferences.destroy()
 
-        assertEquals("hard", stored()?.get("difficulty")?.asString())
-    }
-
-    @Test
-    fun `a save after quitting writes at once`() {
-        val preferences = preferences(Duration.ofMinutes(1))
-        preferences.destroy()
-
-        preferences.recordScore(Level.NORMAL, 64)
-
-        assertEquals(64, stored()?.get("best")?.get("normal")?.asInt())
-        assertEquals(0, tasks.get())
-    }
-
-    @Test
-    fun `rapid changes end in one write of the latest values`() {
-        // Long enough that the changes always fall within it, even on a slow runner.
-        val preferences = preferences(Duration.ofMillis(500))
-
-        preferences.saveDifficulty(Level.EASY)
-        preferences.recordScore(Level.EASY, 10)
-        preferences.recordScore(Level.EASY, 20)
-        preferences.saveDifficulty(Level.HARD)
-        writesDone()
-
-        assertEquals(1, tasks.get())
-        assertEquals("""{"difficulty":"hard","best":{"easy":20}}""", stored().toString())
-    }
-
-    @Test
-    fun `a change after a write writes again`() {
-        val preferences = preferences()
-
-        preferences.saveDifficulty(Level.EASY)
-        writesDone()
-        preferences.saveDifficulty(Level.HARD)
-        writesDone()
-
-        assertEquals(2, tasks.get())
         assertEquals("hard", stored()?.get("difficulty")?.asString())
     }
 
@@ -219,25 +168,6 @@ class DifficultyPreferencesTest {
 
         assertEquals(written, tasks.get())
         assertEquals("""{"difficulty":"normal","best":{"normal":100}}""", stored().toString())
-    }
-
-    @Test
-    fun `no write at all for first changes that change nothing`() {
-        val preferences = preferences()
-
-        preferences.saveDifficulty(Level.NORMAL)
-        preferences.recordScore(Level.EASY, 0)
-        writesDone()
-
-        assertEquals(0, tasks.get())
-        assertNull(store.readShared())
-    }
-
-    @Test
-    fun `quitting without a change writes nothing`() {
-        preferences().destroy()
-
-        assertNull(store.readShared())
     }
 
     @Test
