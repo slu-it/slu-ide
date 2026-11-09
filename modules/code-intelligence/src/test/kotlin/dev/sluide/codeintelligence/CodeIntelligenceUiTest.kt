@@ -4,9 +4,11 @@ import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.OffsetEdit
 import dev.sluide.languageservers.FakeLanguageServers
 import dev.sluide.languageservers.ServerAvailability
+import dev.sluide.languageservers.WorkspaceStatus
 import dev.sluide.projectdata.ProjectDataStore
 import javafx.application.Platform
 import javafx.scene.control.Button
+import javafx.scene.control.Hyperlink
 import javafx.scene.control.Label
 import javafx.scene.control.ProgressBar
 import javafx.stage.Stage
@@ -93,6 +95,30 @@ internal class CodeIntelligenceUiTest : EditorUiFixture() {
         assertEquals("ty could not be installed: offline", fx { bannerText() })
         robot.interact { button("not-now").fire() }
         assertNull(fx { lookup(".code-intelligence-banner") })
+    }
+
+    @Test
+    fun `a bound editor shows the project status line and a click reveals its folder, until the binding ends`(
+        robot: FxRobot,
+    ) {
+        val project = dir.resolve("backend")
+        val spec = PySpec(status = { _, _ -> WorkspaceStatus("Python project: backend", project, "tooltip") })
+        val intelligence = intelligence(spec)
+        val revealed = mutableListOf<Path>()
+        fx { intelligence.revealInExplorer = { revealed.add(it) } }
+        projectFolder = dir
+        open(robot, dir.resolve("main.py"), "print(1)\n", listOf(intelligence))
+        checkNotNull(servers).awaitRunning(spec)
+        awaitTrue("status line") { fx { lookup("#workspace-status") != null } }
+
+        val item = fx { lookup("#workspace-status") as Hyperlink }
+        assertEquals("Python project: backend", fx { item.text })
+
+        robot.interact { item.fire() }
+        assertEquals(listOf(project), revealed)
+
+        fx { intelligence.close() }
+        assertNull(fx { lookup("#workspace-status") }, "the line goes with the binding")
     }
 
     private fun lookup(selector: String) = view?.node?.lookup(selector)

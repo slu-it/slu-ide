@@ -1,0 +1,18 @@
+/*
+ * The project status line of a bound editor (ADR 0151), a status item below the text: plain status text; a link
+ * (a click selects the project folder in the explorer) looks the same, without underline or visited colour.
+ */
+
+.workspace-status,
+.workspace-status:visited,
+.workspace-status:hover {
+    -fx-text-fill: -fx-text-background-color;
+    -fx-opacity: 0.7;
+    -fx-underline: false;
+    -fx-padding: 0;
+    -fx-border-color: transparent;
+}
+
+.workspace-status:hover {
+    -fx-opacity: 1;
+}

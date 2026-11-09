@@ -27,6 +27,7 @@ import dev.sluide.codeintelligence.ui.HoverFeature
 import dev.sluide.codeintelligence.ui.SearchAnchor
 import dev.sluide.codeintelligence.ui.SearchPopup
 import dev.sluide.codeintelligence.ui.ServerHoverFeature
+import dev.sluide.codeintelligence.workspace.WorkspaceStatusFeature
 import dev.sluide.fileviewers.CodeEditorExtension
 import dev.sluide.fileviewers.ExtensibleCodeEditor
 import dev.sluide.fileviewers.FileViewHost
@@ -62,8 +63,13 @@ class CodeIntelligence internal constructor(
         this(
             languageServers,
             FXCollections.observableSet(),
-            { notNow -> builtInFeatures(notNow, prompts, navigation, libraryReadOnly) },
+            { notNow ->
+                builtInFeatures(notNow, prompts, navigation, libraryReadOnly) { revealInExplorer(it) }
+            },
         )
+
+    /** Selects a folder in the window's explorer, for a click on the project status line (ADR 0151); set by the app. */
+    var revealInExplorer: (Path) -> Unit = {}
 
     private val attachments = LinkedHashSet<EditorAttachment>()
 
@@ -229,18 +235,20 @@ private fun realPath(file: Path): Path? =
     }
 
 /**
- * The features of every binding, in order: the server banner, navigation, rename, file structure, diagnostics and
- * quick fixes, semantic tokens, completion, signature help, the server's hover, the hover popup, the restart item last.
- * Hover providers are asked and context menu items shown in the order their features attach.
+ * The features of every binding, in order: the server banner, the project status line, navigation, rename, file
+ * structure, diagnostics and quick fixes, semantic tokens, completion, signature help, the server's hover, the hover
+ * popup, the restart item last. Hover providers are asked and context menu items shown in the order their features attach.
  */
 internal fun builtInFeatures(
     notNow: ObservableSet<String>,
     prompts: InstallPrompts,
     navigation: Navigation,
     libraryReadOnly: () -> Boolean,
+    revealInExplorer: (Path) -> Unit = {},
 ): List<BindingFeature> =
     listOf(
         ServerBannerFeature(notNow, prompts),
+        WorkspaceStatusFeature(revealInExplorer),
         NavigationFeature(navigation),
         OccurrencesFeature(),
         RenameFeature(libraryReadOnly),

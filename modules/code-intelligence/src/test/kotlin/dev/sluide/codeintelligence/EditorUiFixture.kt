@@ -33,6 +33,9 @@ internal abstract class EditorUiFixture {
     protected lateinit var stage: Stage
     protected var view: FileView? = null
 
+    /** The project folder of the window the views are in; none by default. */
+    protected var projectFolder: Path? = null
+
     protected fun startStage(stage: Stage) {
         this.stage = stage
         stage.scene = Scene(container, 600.0, 400.0)
@@ -56,6 +59,8 @@ internal abstract class EditorUiFixture {
             override fun openFile(file: Path) = false
 
             override fun openWebPage(uri: URI) {}
+
+            override val projectFolder: Path? get() = this@EditorUiFixture.projectFolder
 
             override fun <T : Any> windowService(type: Class<T>): T? = registry.get(type)
         }

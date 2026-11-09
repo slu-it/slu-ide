@@ -98,7 +98,8 @@ interface LanguageServerSpec {
 
     /**
      * What the editor's status line says about the workspace [folder] of a file (ADR 0151); `null` for the window
-     * folder or a file served by it ("native"). `null`, the default, shows nothing. Not called by the session.
+     * folder or a file served by it ("native"). `null`, the default, shows nothing. Not called by the session; called on the FX thread for each bound
+     * editor after every workspace change: keep it to a few small reads.
      */
     fun workspaceStatus(
         folder: Path?,
@@ -107,7 +108,8 @@ interface LanguageServerSpec {
 
     /**
      * A problem of [file]'s environment the editor shows as a notice (a project without a virtual environment), or
-     * `null`, the default, for none. Not called by the session.
+     * `null`, the default, for none. Not called by the session; called on the FX thread for each bound editor after
+     * every workspace change: keep it to a few small reads.
      */
     fun environmentProblem(
         file: Path,

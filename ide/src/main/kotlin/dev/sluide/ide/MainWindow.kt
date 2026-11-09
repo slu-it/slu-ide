@@ -368,6 +368,8 @@ class MainWindow(
 
         fileExplorer.onOpenFile = { editorArea.open(it) }
         editorArea.tabMenu.selectInExplorer = explorer::select
+        // A click on an editor's project status line selects the project folder (ADR 0151).
+        codeIntelligence.intelligence.revealInExplorer = explorer::select
         editorArea.tabMenu.canSelectInExplorer = fileExplorer::canReveal
         fileExplorer.canOpenFile = editorArea::canOpen
         // Per-file project data (run-argument histories, ADR 0091) follows files and folders renamed or moved in the

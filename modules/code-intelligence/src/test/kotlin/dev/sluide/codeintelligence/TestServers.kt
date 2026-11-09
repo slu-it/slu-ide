@@ -8,6 +8,7 @@ import dev.sluide.languageservers.ServerAvailability
 import dev.sluide.languageservers.ServerCommand
 import dev.sluide.languageservers.ServerInstaller
 import dev.sluide.languageservers.TrustGate
+import dev.sluide.languageservers.WorkspaceStatus
 import javafx.beans.property.SimpleObjectProperty
 import org.eclipse.lsp4j.SaveOptions
 import org.eclipse.lsp4j.ServerCapabilities
@@ -24,7 +25,13 @@ internal class PySpec(
     override val id: String = "python",
     override val name: String = "Python",
     override val runsProjectCode: Boolean = false,
+    private val status: (Path?, Path) -> WorkspaceStatus? = { _, _ -> null },
 ) : LanguageServerSpec {
+    override fun workspaceStatus(
+        folder: Path?,
+        projectFolder: Path,
+    ) = status(folder, projectFolder)
+
     override val trustCheckId: String? get() = if (runsProjectCode) "test" else null
 
     override fun matches(file: Path) = file.fileName.toString().endsWith(".py")
