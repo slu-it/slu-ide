@@ -115,6 +115,8 @@ internal class CodeIntelligenceUiTest : EditorUiFixture() {
 
         val item = fx { lookup("#workspace-status") as Hyperlink }
         assertEquals("Python project: backend", fx { item.text })
+        // The muted look comes only from the line's stylesheet, so this fails if the stylesheet does not reach it.
+        assertEquals(0.7, fx { item.opacity }, 0.001)
 
         robot.interact { item.fire() }
         assertEquals(listOf(project), revealed)

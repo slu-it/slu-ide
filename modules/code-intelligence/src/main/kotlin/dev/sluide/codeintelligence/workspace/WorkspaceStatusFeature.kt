@@ -5,6 +5,7 @@ import dev.sluide.codeintelligence.binding.DocumentBinding
 import dev.sluide.fileviewers.ExtensibleCodeEditor
 import dev.sluide.languageservers.WorkspaceStatus
 import javafx.scene.Node
+import javafx.scene.control.Control
 import javafx.scene.control.Hyperlink
 import javafx.scene.control.Label
 import javafx.scene.control.Tooltip
@@ -44,7 +45,6 @@ private class WorkspaceStatusItem(
     private val model: WorkspaceStatusModel,
     private val revealInExplorer: (Path) -> Unit,
 ) : AutoCloseable {
-    private val stylesheet = editor.addStylesheet(WORKSPACE_STATUS_CSS)
     private var handle: AutoCloseable? = null
     private val subscription = model.status.subscribe { status -> render(status) }
 
@@ -56,7 +56,7 @@ private class WorkspaceStatusItem(
 
     private fun nodeOf(status: WorkspaceStatus): Node {
         val folder = status.folder
-        val node: Node =
+        val node: Control =
             if (folder == null) {
                 Label(status.text)
             } else {
@@ -69,6 +69,8 @@ private class WorkspaceStatusItem(
                 }
             }
         node.styleClass += "workspace-status"
+        // On the item itself: the editor's stylesheets apply to the text area only, not to the status bar beside it.
+        node.stylesheets += WORKSPACE_STATUS_CSS
         node.id = "workspace-status"
         status.tooltip?.let { Tooltip.install(node, Tooltip(it)) }
         return node
@@ -78,7 +80,6 @@ private class WorkspaceStatusItem(
         subscription.unsubscribe()
         handle?.close()
         handle = null
-        stylesheet.close()
         model.close()
     }
 }
