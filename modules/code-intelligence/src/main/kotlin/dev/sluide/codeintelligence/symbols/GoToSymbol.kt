@@ -28,6 +28,14 @@ internal fun symbolSource(
     (listOfNotNull(focused) + bindings).firstOrNull { !it.isClosed && navigationBlocker(it, WORKSPACE_SYMBOL) == null }
 
 /**
+ * [rows] without repeats: a server that holds a folder twice (ty with a project folder nested in the window folder,
+ * ADR 0151) sends each symbol twice; the first of rows equal in file, position, name, container and kind stays (the
+ * container tells apart the `run` of two classes sent with their file only).
+ */
+internal fun distinctSymbols(rows: List<WorkspaceSymbolRow>): List<WorkspaceSymbolRow> =
+    rows.distinctBy { listOf(it.file, it.position, it.name, it.container, it.kind) }
+
+/**
  * Go to symbol of one window (ADR 0149): the search popup asks a running server of the window ([symbolSource]) for the
  * symbols matching the typed query (`workspace/symbol`, [SymbolSearch]: debounced, latest wins), ranked by
  * [rankWorkspaceSymbols]. Taking one opens it, from the focused bound editor's caret if there was one when the popup
@@ -95,7 +103,7 @@ internal class GoToSymbol(
         slot.send(
             session,
             { it.workspaceService.symbol(WorkspaceSymbolParams(query)) },
-            { result -> done(workspaceSymbolRows(result), null) },
+            { result -> done(distinctSymbols(workspaceSymbolRows(result)), null) },
             { error -> done(emptyList(), failure(ACTION, error)) },
         )
         return AutoCloseable { slot.cancel() }

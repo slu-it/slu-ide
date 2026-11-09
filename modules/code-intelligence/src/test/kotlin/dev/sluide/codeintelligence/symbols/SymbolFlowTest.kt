@@ -219,6 +219,48 @@ class SymbolFlowTest {
     }
 
     @Test
+    fun `go to symbol shows a symbol the server sends twice once, and keeps symbols that differ in place or name`() {
+        setUp(caret = 2)
+        server.workspaceSymbols = {
+            listOf(
+                located("Console", file, 0),
+                located("Console", file, 0),
+                located("Console", file, 4),
+                located("Console", other, 0),
+                located("ConsoleX", file, 0),
+            )
+        }
+        fx.onFx { symbols.open() }
+        fx.onFx { symbolView.type("console") }
+        fx.onFx { timers.runDue() }
+        awaitTrue("rows") { fx.onFx { symbolView.items.isNotEmpty() } }
+
+        assertEquals(
+            listOf(file to 0, file to 4, other to 0, file to 0),
+            fx.onFx { symbolView.items.map { it.file to it.position?.line } },
+        )
+    }
+
+    @Test
+    fun `go to symbol keeps same-named symbols of different containers sent with their file only`() {
+        setUp(caret = 2)
+
+        fun fileOnly(container: String) =
+            WorkspaceSymbol(
+                "run",
+                SymbolKind.Method,
+                Either.forRight(WorkspaceSymbolLocation(LspUris.of(other))),
+            ).apply { containerName = container }
+        server.workspaceSymbols = { listOf(fileOnly("A"), fileOnly("B"), fileOnly("A")) }
+        fx.onFx { symbols.open() }
+        fx.onFx { symbolView.type("run") }
+        fx.onFx { timers.runDue() }
+        awaitTrue("rows") { fx.onFx { symbolView.items.isNotEmpty() } }
+
+        assertEquals(listOf("A", "B"), fx.onFx { symbolView.items.map { it.container } })
+    }
+
+    @Test
     fun `go to symbol asks a running server also when no bound editor has the focus, and records no way back then`() {
         setUp(caret = 2)
         focused = false
