@@ -142,6 +142,8 @@ internal class ExtensibleCodeView(
 
     override fun addBanner(node: Node): AutoCloseable = additions.addBanner(node)
 
+    override fun addStatusItem(node: Node): AutoCloseable = additions.addStatusItem(node)
+
     override fun lock(): AutoCloseable = additions.locks.lock()
 
     override fun readOnlyLock(): AutoCloseable = additions.locks.readOnlyLock()

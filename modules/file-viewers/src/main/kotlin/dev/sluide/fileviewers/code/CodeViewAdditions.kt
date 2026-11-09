@@ -12,6 +12,7 @@ import javafx.collections.FXCollections
 import javafx.collections.ListChangeListener
 import javafx.collections.ObservableList
 import javafx.scene.Node
+import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 import javafx.util.Subscription
 import org.fxmisc.richtext.CodeArea
@@ -19,8 +20,8 @@ import org.fxmisc.richtext.model.StyleSpans
 
 /**
  * What the extensions of a code view (ADR 0108) add to it beside gutter columns and menu items: [toolbar] items,
- * [banners], edit [locks], [overlay layers][layers] over the styles of [area], [textChanges] for listeners and
- * [activities]. [ownToolbar]: the view stands alone and shows the toolbar items itself, after its own [leading]
+ * [banners], [statusBar] items, edit [locks], [overlay layers][layers] over the styles of [area], [textChanges] for
+ * listeners and [activities]. [ownToolbar]: the view stands alone and shows the toolbar items itself, after its own [leading]
  * controls; an embedding view places them in its own toolbar. [lockChanged] is called when the first lock is taken and
  * when the last one is closed. FX thread.
  */
@@ -35,6 +36,9 @@ internal class CodeViewAdditions(
     /** The extensions' banners, below the find bar and the view's own banners. */
     val banners = VBox()
 
+    /** The extensions' status items, in a bar below the text; hidden while it has none. */
+    val statusBar = StatusBar()
+
     val locks = EditLocks(lockChanged)
     val layers = OverlayLayers(area)
 
@@ -48,10 +52,42 @@ internal class CodeViewAdditions(
         return AutoCloseable { banners.children -= node }
     }
 
+    /** Shows [node] in the [statusBar] after the items added before it until the handle is closed. */
+    fun addStatusItem(node: Node): AutoCloseable = statusBar.add(node)
+
     /** Stops following the text and the added activities; closing the handles afterwards is harmless. */
     fun dispose() {
         textChanges.dispose()
         activities.dispose()
+    }
+}
+
+/** The bar below a code view's text with the status items of its extensions; it takes no space while empty. */
+internal class StatusBar : HBox() {
+    init {
+        styleClass += "code-status-bar"
+        isFocusTraversable = false
+        isVisible = false
+        isManaged = false
+        children.addListener(
+            ListChangeListener {
+                val any = children.isNotEmpty()
+                isVisible = any
+                isManaged = any
+            },
+        )
+    }
+
+    /** Adds [node] after the items added before; closing the handle removes it, a second close does nothing. */
+    fun add(node: Node): AutoCloseable {
+        children += node
+        var open = true
+        return AutoCloseable {
+            if (open) {
+                open = false
+                children -= node
+            }
+        }
     }
 }
 

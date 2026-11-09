@@ -103,6 +103,12 @@ interface ExtensibleCodeEditor : GutterColumns {
     fun addBanner(node: Node): AutoCloseable = AutoCloseable {}
 
     /**
+     * Shows [node] in the status bar below the text, after the items added before it, until the handle is closed. FX
+     * thread.
+     */
+    fun addStatusItem(node: Node): AutoCloseable = AutoCloseable {}
+
+    /**
      * Makes the editor read-only until every returned lock is closed (closing one twice is harmless): typing and
      * pasting change nothing, `canReplaceText` is false, `replaceText` and the find bar's Replace and Replace All
      * refuse; caret, selection, copy, find and scrolling work. Saving still works, and a change on disk still reloads.

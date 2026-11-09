@@ -2,6 +2,8 @@ package dev.sluide.fileviewers.code
 
 import dev.sluide.fileviewers.ViewActivity
 import javafx.beans.property.SimpleObjectProperty
+import javafx.scene.Node
+import javafx.scene.layout.Region
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import kotlin.test.Test
@@ -11,6 +13,28 @@ import kotlin.test.assertTrue
 
 /** The locks and activities that extensions add to a code view; how the view shows them is `CodeEditorExtensionsUiTest`'s. */
 class CodeViewAdditionsTest {
+    @Test
+    fun `status items show in order, the bar shows only while it has items, closing twice is harmless`() {
+        val bar = StatusBar()
+        val first = Region()
+        val second = Region()
+        assertFalse(bar.isVisible)
+        assertFalse(bar.isManaged)
+
+        val one = bar.add(first)
+        val two = bar.add(second)
+        assertEquals(listOf<Node>(first, second), bar.children.toList())
+        assertTrue(bar.isVisible && bar.isManaged)
+
+        one.close()
+        one.close()
+        assertEquals(listOf<Node>(second), bar.children.toList())
+        assertTrue(bar.isVisible, "the second is still there")
+        two.close()
+        assertFalse(bar.isVisible)
+        assertFalse(bar.isManaged)
+    }
+
     @Test
     fun `locks are held until all are closed, closing one twice changes nothing`() {
         var changes = 0

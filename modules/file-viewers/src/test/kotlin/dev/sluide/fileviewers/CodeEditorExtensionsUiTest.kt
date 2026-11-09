@@ -396,6 +396,24 @@ class CodeEditorExtensionsUiTest {
     }
 
     @Test
+    fun `an extension's status item shows below the text until closed`(robot: FxRobot) {
+        val view = shown(robot, DefaultTextFileViewer(), file("notes.txt"))
+        val item = Label("status item")
+        val handle = WaitForAsyncUtils.asyncFx<AutoCloseable> { view.extensible.addStatusItem(item) }.get()
+        robot.interact { container.layout() }
+
+        val bar = robot.lookup(".code-status-bar").queryAs(Node::class.java)
+        assertTrue(bar.isVisible)
+        val areaBottom = view.area.localToScene(view.area.layoutBounds).maxY
+        assertTrue(item.localToScene(item.layoutBounds).minY >= areaBottom, "item below the text area")
+
+        robot.interact { handle.close() }
+        robot.interact { container.layout() }
+        assertFalse(bar.isVisible)
+        assertNull(item.scene)
+    }
+
+    @Test
     fun `the view's activity combines the added ones`(robot: FxRobot) {
         val running = SimpleObjectProperty(ViewActivity.NONE)
         val subscriptions = mutableListOf<Subscription>()

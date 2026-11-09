@@ -16,6 +16,18 @@
     -fx-font-weight: normal;
 }
 
+/* The extensions' status items below the text (StatusBar); hidden and unmanaged while it has none. */
+.code-status-bar {
+    -fx-font-family: "System";
+    -fx-font-style: normal;
+    -fx-font-weight: normal;
+    -fx-spacing: 8;
+    -fx-alignment: center-left;
+    -fx-padding: 2 6 2 6;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: derive(-fx-background, -12%) transparent transparent transparent;
+}
+
 .editor-banner {
     /* The view inherits the editor font; banners are UI and use the system font in its size. */
     -fx-font-family: "System";

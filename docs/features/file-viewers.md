@@ -251,6 +251,8 @@ the Bicep graph and `BicepParamFileViewer`.
       row: the embedding view places the items in its own toolbar, after `CodeEditor.softWrapButton`. The `.env` view
       (`EnvFileView`) embeds its `CodeView` without a row: its own toolbar has Soft Wrap but not the items.
     - `addBanner(node)` shows a banner above the text, below the find bar and the view's own banners, until closed.
+    - `addStatusItem(node)` shows an item in a bar below the text (`.code-status-bar`, after the items added before it,
+      hidden while empty) until closed; embedded editors show it too.
     - `lock()` makes the text read-only until every lock is closed (closing one twice is harmless): typing, pasting,
       `replaceText` and the find bar's Replace and Replace All change nothing and `canReplaceText` is false, while
       caret, selection, copy, find and scrolling work. Saving still works, and a change on disk still reloads the text.

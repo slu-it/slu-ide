@@ -48,6 +48,8 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   window, so only the scene root's stylesheets reach it, not the module's. Colour them inline by appending to the
   icon's own style (a `FontIcon` keeps its glyph font there) with `-fx-icon-color: -fx-text-background-color`, which
   also follows the highlighted item (`FILE_ACTION_ICON_STYLE` in the explorer's `ExplorerMenu.kt`).
+- Below the text: `CodeEditor.addStatusItem` adds items to a bar below the editor text (hidden while empty), e.g.
+  the Python project of a file (ADR 0151).
 
 ## Tool and service tabs
 - Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate), Services menu (Docker, Databases) and Games menu

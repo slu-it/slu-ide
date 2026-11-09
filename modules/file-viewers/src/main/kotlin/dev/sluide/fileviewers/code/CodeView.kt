@@ -138,6 +138,7 @@ internal class CodeView(
         BorderPane(pane).apply {
             // Unlike `code-view`, which the scroll panes of diff views have too.
             styleClass += "code-editor"
+            bottom = additions.statusBar
             top = VBox(*listOfNotNull(additions.toolbar.row, banners, additions.banners).toTypedArray())
             stylesheets +=
                 checkNotNull(CodeView::class.java.getResource("/dev/sluide/fileviewers/code-view.css")).toExternalForm()
