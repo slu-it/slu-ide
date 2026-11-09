@@ -4,8 +4,8 @@
 pure engine (`Puzzle`, `PipePuzzleGame`, `Flow`, `NetworkSolver`, `NetworkGenerator`, `PathGenerator`, `Generator`), the
 FX-free `PipePuzzleModel`, `KeyAction`, `PipePuzzlePreferences`, and in `ui` the tab, view, toolbar, `BoardCanvas`, the
 timing in `BoardAnimation`, `BoardGeometry` and the painters; shared with the other turn-based games: `GameClock` in
-`dev.sluide.games.common`, `TabVisibility`, `PauseOverlay` and `focusBoardOnPress` (`BoardFocus.kt`) in `dev.sluide.games.common.ui`, and
-`FocusWhenShown` from `file-viewers`); menu in `ide`
+`dev.sluide.games.common`, `TabVisibility`, `PauseOverlay` and `focusBoardOnPress` (`BoardFocus.kt`) in
+`dev.sluide.games.common.ui`, and `FocusWhenShown` from `file-viewers`); menu in `ide`
 (`ToolsMenu`, `WindowTools`); decisions in [ADR 0153](../adr/0153-pipe-puzzle.md)
 
 The pipe puzzle: every cell holds a tile, and turning the tiles has to bring the flow from the fixed source to the fixed
@@ -54,9 +54,9 @@ Three toolbar menus, each showing the current choice:
   puzzle — F2 to try again".
 
 ## Playing
-- **Mouse:** a click on a tile turns it clockwise, a right click (also Ctrl+click, on every platform) counter-clockwise, with a
-  quarter-turn animation of about 100 ms. A new turn finishes a running one at once. A click outside the board does
-  nothing. There is no locking, no undo and no turn counter.
+- **Mouse:** a click on a tile turns it clockwise, a right click (also Ctrl+click, on every platform)
+  counter-clockwise, with a quarter-turn animation of about 100 ms. A new turn finishes a running one at once. A click
+  outside the board does nothing. There is no locking, no undo and no turn counter.
 - **Keyboard** (arrows, Space, Enter): see the keys below. The cursor is drawn only while the board has the focus; the
   first arrow press puts it on the centre tile.
 - **Live fill:** after every turn the tiles connected to the source through matching openings are drawn filled. An
@@ -107,8 +107,8 @@ The keys work only while the board has the focus (a click on it gives it), and n
 - "Generating a puzzle…" while one is made; "Could not generate a puzzle — F2 to try again" if that failed.
 - While playing: "Best: 1:23" when the mode and size have a best time, else "Connect every tile to the source"
   (Network) or "Lead the flow to the drain without leaks" (Path).
-- After solving: "Solved in 1:23", then " with 1 hint (+0:30)" or " with 2 hints (+1:00)" when hints were used, then " —
-  new best!" for a record.
+- After solving: "Solved in 1:23", then " with 1 hint (+0:30)" or " with 2 hints (+1:00)" when hints were used,
+  then " — new best!" for a record.
 
 ## Stored
 User-wide in `~/.sluide/shared.json`, field `pipePuzzle` ([ADR 0101](../adr/0101-shared-data-file.md)): the last mode,

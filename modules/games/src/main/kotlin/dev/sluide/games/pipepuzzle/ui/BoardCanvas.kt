@@ -112,8 +112,9 @@ internal class BoardCanvas(
     }
 
     private fun run() {
-        redraw()
-        if (animation.isRunning(clock())) timer.start()
+        val now = clock()
+        redraw(now)
+        if (animation.isRunning(now)) timer.start()
     }
 
     private fun pressed(event: MouseEvent) {
