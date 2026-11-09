@@ -1,6 +1,6 @@
 # 0149. Rename, file structure and go to symbol; the search popup
 
-- Status: accepted; amends [0145](0145-code-intelligence-module.md) (`PopupCell.indent`, a second popup kind that
+- Status: accepted; amended by [0151](0151-workspace-folders-per-project.md) (Go to Symbol deduplicates); amends [0145](0145-code-intelligence-module.md) (`PopupCell.indent`, a second popup kind that
   takes the focus, `DocumentBinding.bindings`), [0146](0146-navigation.md) (the Navigate menu's last two items), [0142](0142-language-server-foundation.md)
   (`workspaceSymbol/resolve` in `ServerFeatures.supports`, `LanguageServerSpec.isIdentifier`); see [0148](0148-diagnostics-quick-fixes-semantic-highlighting.md),
   [0144](0144-python-via-ty.md), [0084](0084-testability-logic-out-of-controls.md)

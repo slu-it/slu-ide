@@ -32,9 +32,13 @@ built. Each needs a decision of its own.
   server rooted at the file's folder, or a server's single-file mode.
 - **Shebang-only Python scripts** (no extension) are not served: the spec matches by file name only (ADR 0144).
   It would need a look at the first line when the file opens.
-- **Watching site-packages.** ty registers watchers there, but Thoreau's project watch covers only the project, so
-  after `pip install` the user must use Restart Python Language Server (ADR 0142). Watching a folder outside the
-  project costs a `WatchService` registration per folder (see the notes on macOS polling in ADR 0142).
+- **Watching site-packages of venvs outside the project.** A project's own venv is watched and its folder refreshed
+  (removed and added again) after a `pip install` or `uv sync` ([ADR 0151](../adr/0151-workspace-folders-per-project.md)).
+  Venvs outside the project (Poetry and Hatch caches, `UV_PROJECT_ENVIRONMENT`, Conda environments per project) are
+  not found as project roots, so their packages still need Restart Python Language Server; a per-project interpreter
+  setting would cover them. Each watched folder costs a `WatchService` registration (macOS polling, ADR 0142).
+- **Removing workspace folders** whose files were all closed: they stay until the window closes or changes its
+  folder; a folder goes only when a re-resolution leaves no open document in it (ADR 0151).
 - **`workspace/applyEdit` from servers** is refused; ty does not need it (ADR 0142, 0148). It comes with the first
   server that does. Resource operations (create, rename, delete files) in workspace edits are refused too (ADR 0148).
 - **A background update check for ty**, opt-in. Today Check for Updates is a click and nothing is fetched in the

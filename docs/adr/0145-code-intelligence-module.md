@@ -3,7 +3,8 @@
 - Status: accepted; amended by [0146](0146-navigation.md) (`popupOwner` for focus), [0147](0147-completion-signature-help-and-docs.md)
   (`CaretPopup` Tab callback, popups above their anchor), [0148](0148-diagnostics-quick-fixes-semantic-highlighting.md)
   (`CaretPopup` `choosable`, `DocumentBinding.bindingOf`), [0149](0149-rename-file-structure-go-to-symbol.md)
-  (`PopupCell.indent`, the search popup that takes the focus, `DocumentBinding.bindings`); amends [0142](0142-language-server-foundation.md) (`ServerInstaller.toolName`,
+  (`PopupCell.indent`, the search popup that takes the focus, `DocumentBinding.bindings`),
+  [0151](0151-workspace-folders-per-project.md) (status line, environment notice); amends [0142](0142-language-server-foundation.md) (`ServerInstaller.toolName`,
   `ServerAvailability.Failed.canRetry`), [0141](0141-editor-api-for-language-features.md) (`popupOwner`),
   [0108](0108-code-editor-extensions-and-context-menu.md) (`CodeEditorExtensions.extensions` public); see
   [0141](0141-editor-api-for-language-features.md), [0144](0144-python-via-ty.md),
