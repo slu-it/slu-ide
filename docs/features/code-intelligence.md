@@ -47,8 +47,8 @@ a server that ran restarts with the new ty.
 A bar below the text of a bound editor says which project the file belongs to, when the language server's spec has
 something to say (`workspaceStatus`) and only while the server runs: for Python `Python project:
 deployables/backend_one · .venv · Python 3.12`, or `No Python project · default Python` (the texts:
-[python.md](python.md)). It follows the file's project when `pyproject.toml`, `uv.lock` or the venv changes, and goes away when
-the server stops or fails. A line with a project folder is a link: a click selects the folder in the explorer and
+[python.md](python.md)). It follows the file's project when `pyproject.toml`, `uv.lock` or the venv changes, and goes
+away when the server stops or fails. A line with a project folder is a link: a click selects the folder in the explorer and
 expands the column. The tooltip shows the absolute paths. `WorkspaceStatusFeature`; ADR 0151.
 
 ## Navigation

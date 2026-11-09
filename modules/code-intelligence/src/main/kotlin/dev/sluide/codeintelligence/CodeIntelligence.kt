@@ -237,7 +237,8 @@ private fun realPath(file: Path): Path? =
 /**
  * The features of every binding, in order: the server banner, the project status line, navigation, rename, file
  * structure, diagnostics and quick fixes, semantic tokens, completion, signature help, the server's hover, the hover
- * popup, the restart item last. Hover providers are asked and context menu items shown in the order their features attach.
+ * popup, the restart item last. Hover providers are asked and context menu items shown in the order their features
+ * attach.
  */
 internal fun builtInFeatures(
     notNow: ObservableSet<String>,
