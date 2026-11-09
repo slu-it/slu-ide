@@ -1,11 +1,28 @@
 package dev.sluide.languageservers
 
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
 
 /** What a language spec decides by default. */
 class LanguageServerSpecTest {
+    /** A spec that keeps every default. */
+    private val plain =
+        object : LanguageServerSpec {
+            override val id = "plain"
+            override val name = "Plain"
+
+            override fun matches(file: Path) = true
+
+            override fun languageId(file: Path) = "plain"
+
+            override fun command(): ServerCommand? = null
+        }
+
     @ParameterizedTest
     @CsvSource(
         "start, true",
@@ -19,6 +36,18 @@ class LanguageServerSpecTest {
         name: String,
         expected: Boolean,
     ) {
-        assertEquals(expected, TestSpec().isIdentifier(name))
+        assertEquals(expected, plain.isIdentifier(name))
+    }
+
+    @Test
+    fun `by default the window folder serves every file, nothing is watched and no change re-resolves folders`() {
+        val window = Path.of("/work/mono")
+        val file = window.resolve("deployables/backend_one/app.py")
+
+        assertNull(plain.workspaceFolder(file, window))
+        assertEquals(emptyList(), plain.watchedFolders(window))
+        assertFalse(plain.affectsWorkspaceFolders(window.resolve("uv.lock")))
+        assertNull(plain.workspaceStatus(null, window))
+        assertNull(plain.environmentProblem(file, window))
     }
 }

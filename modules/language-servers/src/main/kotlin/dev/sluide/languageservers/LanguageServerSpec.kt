@@ -61,6 +61,58 @@ interface LanguageServerSpec {
      * default any non-empty name without whitespace or control characters.
      */
     fun isIdentifier(name: String): Boolean = name.isNotEmpty() && name.none { it.isWhitespace() || it.isISOControl() }
+
+    /**
+     * The workspace folder that serves [file], a file inside the window's [projectFolder] (ADR 0151): the session adds
+     * it to the server's workspace folders (`workspace/didChangeWorkspaceFolders`) before the file's `didOpen`, once.
+     * `null`, the default, means the window folder serves it, which is always the first workspace folder; so does a
+     * folder outside [projectFolder]. Called on the session's folder worker, never on the FX thread, when the file
+     * opens or moves and when [affectsWorkspaceFolders] names a change above it; may look at a few files, keep it
+     * quick: the file's `didOpen` waits for the answer.
+     */
+    fun workspaceFolder(
+        file: Path,
+        projectFolder: Path,
+    ): Path? = null
+
+    /**
+     * Folders whose entries the session watches (not their subfolders) for the workspace [folder], which may lie
+     * outside the project watch (a venv's `site-packages`): a change there refreshes [folder] on the server (removed,
+     * then added) and re-opens its documents. Asked for every workspace folder, the window folder too, again after
+     * each refresh and after each re-resolution ([affectsWorkspaceFolders]) of documents it serves: an answer other
+     * than the one watched (a venv that appeared, went or was replaced) refreshes the folder too, so answer the same
+     * list for the same state. On the session's folder worker. Folders that do not exist (yet) are fine. None by
+     * default.
+     */
+    fun watchedFolders(folder: Path): List<Path> = emptyList()
+
+    /**
+     * Whether [change], a path the project watch or a caller reports as created, changed or deleted (a hidden or
+     * excluded folder such as `.venv` too, when it appears in or goes from a watched folder), may change the
+     * [workspaceFolder] of the open files below its parent folder or what [watchedFolders] answers for their folders.
+     * It only makes the session ask those again, once a second passed without further such changes there; nothing is
+     * sent to the server unless an answer changed. So it may be broad (any folder): it is called on the FX thread for
+     * every change, so decide by the path alone and keep it cheap. `false` by default.
+     */
+    fun affectsWorkspaceFolders(change: Path): Boolean = false
+
+    /**
+     * What the editor's status line says about the workspace [folder] of a file (ADR 0151); `null` for the window
+     * folder or a file served by it ("native"). `null`, the default, shows nothing. Not called by the session.
+     */
+    fun workspaceStatus(
+        folder: Path?,
+        projectFolder: Path,
+    ): WorkspaceStatus? = null
+
+    /**
+     * A problem of [file]'s environment the editor shows as a notice (a project without a virtual environment), or
+     * `null`, the default, for none. Not called by the session.
+     */
+    fun environmentProblem(
+        file: Path,
+        projectFolder: Path,
+    ): EnvironmentProblem? = null
 }
 
 /**
