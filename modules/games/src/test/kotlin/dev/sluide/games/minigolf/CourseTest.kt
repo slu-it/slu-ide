@@ -105,6 +105,14 @@ internal class CourseTest {
                         rotatingBar(180 to 125, 20, 240)
                     },
                 ),
+                // The block's right edge comes to 195, 2 units from the water: it would push a ball in at every step.
+                Arguments.of(
+                    "mover walls",
+                    testHole {
+                        slidingBlock(140 to 125, 180 to 125, 30, 28, 120)
+                        water(rect(197, 24, 227, 230))
+                    },
+                ),
                 // The lower part slopes into the bottom rail: a pocket the ball never leaves.
                 Arguments.of("slopes drain", testHole { slope(rect(100, 150, 200, 230), 0 to 50) }),
             )

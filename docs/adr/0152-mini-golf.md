@@ -72,8 +72,8 @@ both must be checkable by unit tests, without a scene.
   a wall is in the way. A resting ball that gets hit hard enough to reach the rest speed rolls without a stroke (a
   weaker push only moves it); such a roll is not a shot and leaves no ghost line. The course test checks that no point
   of a mover moves by the ball radius or more per step, that no mover comes near the tee or covers it, and that every
-  mover keeps 2 × ball radius + half its thickness to every wall and bumper over its whole period, so that it cannot
-  pin a ball.
+  mover keeps 2 × ball radius + half its thickness to every wall, bumper and water over its whole period, so that it
+  can neither pin a ball nor push it into the water at every step.
 - **Tunnels**: pairs of mouths. A ball whose centre enters one leaves the other in that mouth's fixed exit direction
   at the same speed, and cannot re-enter the mouth it came out of until it has left it.
 - **Roll limit**: a roll that has not ended after 20 s (1200 steps) stops where it is.
@@ -127,7 +127,8 @@ Considered:
 - Physics values live in one `Rules` object; changing one may break reference solutions, which `ShotSearch` finds
   again. The course test proves that each hole's reference solution holes the ball in par, that a ball left on a slope
   (on a 6-unit grid) rolls off it, and that movers move less than the ball radius per step, never reach or cover the
-  tee and keep room for a ball to every wall and bumper; it does not prove that a hole cannot trap a ball elsewhere.
+  tee and keep room for a ball to every wall, bumper and water; it does not prove that a hole cannot trap a ball
+  elsewhere.
 - Holes are data written with the builder, so the course can be extended in parallel without touching the engine.
 - The feature page, keyboard shortcuts, the Games list in the UI conventions and the ideas page are added with the
   view.

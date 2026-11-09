@@ -86,7 +86,10 @@ internal object CourseChecks {
             }
         }
 
-    /** Every mover keeps room for a ball to every wall and bumper, so that it cannot pin a ball. */
+    /**
+     * Every mover keeps room for a ball to every wall, bumper and water, so that it can neither pin a ball nor push one
+     * into the water again and again (a push into water puts the ball back without a penalty).
+     */
     fun moverWalls(hole: Hole): List<String> =
         hole.movers.flatMap { mover ->
             val room = 2 * Rules.BALL_RADIUS + mover.thickness / 2
@@ -97,15 +100,23 @@ internal object CourseChecks {
                     hole.bumpers.minOfOrNull { bumper ->
                         segments.minOf { it.distanceTo(bumper.center) } - bumper.radius
                     } ?: Double.MAX_VALUE
-                if (minOf(toWalls, toBumpers) <
-                    room
-                ) {
-                    "$mover comes within ${minOf(toWalls, toBumpers)} of a wall"
-                } else {
-                    null
-                }
+                val toWater = hole.water.minOfOrNull { waterDistance(segments, it) } ?: Double.MAX_VALUE
+                val nearest = minOf(toWalls, toBumpers, toWater)
+                if (nearest < room) "$mover comes within $nearest of a wall, bumper or water" else null
             }
         }
+
+    /** The distance between a mover's [segments] and a [water] polygon, 0 when they overlap. */
+    private fun waterDistance(
+        segments: List<Segment>,
+        water: Polygon,
+    ): Double {
+        val endsInWater = segments.any { water.contains(it.a) || water.contains(it.b) }
+        val outline = segments.map { it.a }
+        val coversWater = outline.size >= 3 && water.points.any { Polygon(outline).contains(it) }
+        if (endsInWater || coversWater) return 0.0
+        return segments.minOf { segment -> water.edges().minOf { distance(segment, it) } }
+    }
 
     /** A resting ball left anywhere on a slope rolls off it: it rests on flat felt, drops or splashes. */
     fun slopesDrain(hole: Hole): List<String> {
