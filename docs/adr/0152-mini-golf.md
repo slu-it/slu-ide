@@ -20,8 +20,8 @@ both must be checkable by unit tests, without a scene.
   window; the round outlives the tab (window bean `MiniGolf`) and is lost on a restart. Package
   `dev.sluide.games.minigolf`, `shared.json` field `miniGolf`. Tab tooltip "Putt your way through 18 holes".
 - **Solo, one hand-drawn course of 18 holes**, played in order, each with a par of 2 to 4 (about 52 in total). One new
-  element per hole early on (straight lane, dogleg, bank shot, sand, slope, bumpers, water, rotating bar, tunnel), then
-  combinations.
+  element per hole early on (lane with a side pocket, dogleg, bank shot, sand, slope, bumpers, water, rotating bar,
+  tunnel), then combinations.
 - **Stroke cap**: when the stroke count (penalties included) reaches 7 and the ball is not in, it is picked up, the hole
   scores **8**, and the game goes on to the next hole. A splash that brings the count to 7 counts too.
 

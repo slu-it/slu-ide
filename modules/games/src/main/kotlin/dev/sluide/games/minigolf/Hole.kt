@@ -66,7 +66,7 @@ internal fun rect(
 ) = poly(x1 to y1, x2 to y1, x2 to y2, x1 to y2)
 
 /**
- * Builds a [Hole]:
+ * Builds a [Hole], for example a plain lane (not a hole of the course):
  * ```
  * hole(1, par = 2) {
  *     green(30 to 104, 290 to 104, 290 to 152, 30 to 152)
