@@ -370,6 +370,10 @@ class MainWindow(
         editorArea.tabMenu.selectInExplorer = explorer::select
         // A click on an editor's project status line selects the project folder (ADR 0151).
         codeIntelligence.intelligence.revealInExplorer = explorer::select
+        // The environment banner's Run uv sync opens a terminal tab (ADR 0151).
+        codeIntelligence.intelligence.runInTerminal = { folder, name, command ->
+            tools.runInTerminal(stage, folder, name, command)
+        }
         editorArea.tabMenu.canSelectInExplorer = fileExplorer::canReveal
         fileExplorer.canOpenFile = editorArea::canOpen
         // Per-file project data (run-argument histories, ADR 0091) follows files and folders renamed or moved in the

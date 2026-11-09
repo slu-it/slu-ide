@@ -172,6 +172,20 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     }
 
     @Test
+    fun `the code intelligence's environment banner opens its command as a named terminal tab`(robot: FxRobot) {
+        val sub = project.resolve("backend").createDirectories()
+        robot.interact { projectService.open(project) }
+
+        robot.interact {
+            codeIntelligences.single().intelligence.runInTerminal(sub, "uv sync (backend)", "echo done")
+        }
+
+        // The command may already have ended: the tab then says "(exited)".
+        assertTrue(tabTitles(robot).single().startsWith("uv sync (backend)"), tabTitles(robot).toString())
+        assertEquals("Terminal in $sub: echo done", checkNotNull(editorArea.selectedTab).tooltip)
+    }
+
+    @Test
     fun `offers Docker Sandbox - Claude Code and Environment, disabled without a folder`(robot: FxRobot) {
         val items = sandboxItems(robot)
 
@@ -218,11 +232,13 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot.interact {
             menu(robot, "Terminal").items.single().fire()
             sandboxItems(robot).first().fire()
+            codeIntelligences.single().intelligence.runInTerminal(folder, "uv sync (project)", "uv sync")
         }
 
-        assertEquals(2, errors.size, errors.toString())
+        assertEquals(3, errors.size, errors.toString())
         assertTrue(errors[0].startsWith("The terminal cannot be started. $shell could not be started in $folder ("))
         assertTrue(errors[1].startsWith("Claude Code cannot be started. $shell could not be started in $folder ("))
+        assertTrue(errors[2].startsWith("The terminal cannot be started. $shell could not be started in $folder ("))
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals(0, terminals.openCount)
     }

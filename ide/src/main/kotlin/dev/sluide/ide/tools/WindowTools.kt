@@ -213,6 +213,23 @@ internal class WindowTools(
     }
 
     /**
+     * Runs [command] in a new terminal tab named [name] in [folder] (the code intelligence's environment banner,
+     * ADR 0151); shows an error if the shell cannot be started.
+     */
+    internal fun runInTerminal(
+        stage: Stage,
+        folder: Path,
+        name: String,
+        command: String,
+    ) {
+        try {
+            editorArea.open(terminals.open(folder, name, command))
+        } catch (e: TerminalStartException) {
+            showError(stage, "The terminal cannot be started. ${e.message}")
+        }
+    }
+
+    /**
      * The sandbox actions; each is enabled only where it may run, which is checked again when it is started. The whole
      * menu is disabled until the check for `sbx` has found it.
      */
