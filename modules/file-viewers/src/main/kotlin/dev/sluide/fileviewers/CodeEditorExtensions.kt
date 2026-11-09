@@ -104,7 +104,7 @@ interface ExtensibleCodeEditor : GutterColumns {
 
     /**
      * Shows [node] in the status bar below the text, after the items added before it, until the handle is closed. FX
-     * thread.
+     * thread. [addStylesheet] reaches only the text area, not the status bar: a styled item brings its own stylesheet.
      */
     fun addStatusItem(node: Node): AutoCloseable = AutoCloseable {}
 
