@@ -51,6 +51,17 @@ deployables/backend_one · .venv · Python 3.12`, or `No Python project · defau
 away when the server stops or fails. A line with a project folder is a link: a click selects the folder in the explorer and
 expands the column. The tooltip shows the absolute paths. `WorkspaceStatusFeature`; ADR 0151.
 
+## Missing virtual environment
+A banner above the text of a bound editor when the spec reports an environment problem (`environmentProblem`), only
+while the server runs; for Python "No virtual environment for backend_one, so its packages cannot be resolved."
+(when: [python.md](python.md)). Buttons: the problem's action, **Run uv sync**, which runs the spec's constant command
+in a new terminal tab named `uv sync (backend_one)` in the project folder and adds it to the editor area (a shell that
+cannot start shows the terminal error); **Not Now**, which hides the notice of that folder in this window until the app
+restarts; **Don't Ask Again**, which hides it in every window for good (id `python.environment` in the
+declined prompts, see Banners). There is no trust question: the command runs on an explicit click (ADR 0089). The
+banner stays while the terminal runs and disappears by itself once the venv appears (the project is re-resolved).
+`EnvironmentBannerModel`, `EnvironmentBanner`; ADR 0151.
+
 ## Navigation
 - **Go to definition:** **Shortcut+B** at the caret, **Navigate → Go to Definition**, **Go to Definition** in the
   context menu (at the right-click), or **Shortcut+click** on a name. Holding **Shortcut** over a name underlines it

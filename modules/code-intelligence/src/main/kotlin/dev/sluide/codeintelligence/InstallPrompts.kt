@@ -13,8 +13,9 @@ import java.util.concurrent.Executor
 private val log = System.getLogger(InstallPrompts::class.java.name)
 
 /**
- * The languages whose install banner the user answered with Don't Ask Again (ADR 0145): user-wide, in every window,
- * kept in the shared data file (ADR 0101) as `{"codeIntelligence": {"installDeclined": ["python"]}}` by spec id.
+ * The prompts the user answered with Don't Ask Again (ADR 0145): user-wide, in every window, kept in the shared data
+ * file (ADR 0101) as `{"codeIntelligence": {"installDeclined": ["python"]}}` by prompt id: the spec id for a
+ * language's install banner, `<spec id>.environment` for its environment notice (ADR 0151).
  * Settings still installs. Read on first use of [declined]; written off the FX thread.
  */
 @Component
@@ -25,15 +26,15 @@ class InstallPrompts internal constructor(
     @Autowired
     constructor(store: ProjectDataStore) : this(store, NamedThreads.single("sluide-install-prompts"))
 
-    /** The spec ids declined; FX thread. Every window's banners follow it. */
+    /** The prompt ids declined; FX thread. Every window's banners follow it. */
     val declined: ObservableSet<String> by lazy(LazyThreadSafetyMode.NONE) {
         FXCollections.observableSet(read().toMutableSet())
     }
 
-    /** Never asks again for [specId] in any window, and saves that. FX thread. */
-    fun decline(specId: String) {
-        if (!declined.add(specId)) return
-        writer.execute { write(specId) }
+    /** Never asks again for [promptId] in any window, and saves that. FX thread. */
+    fun decline(promptId: String) {
+        if (!declined.add(promptId)) return
+        writer.execute { write(promptId) }
     }
 
     private fun read(): Set<String> {
@@ -42,12 +43,12 @@ class InstallPrompts internal constructor(
         return ids.filter { it.isString }.map { it.asString() }.toSet()
     }
 
-    private fun write(specId: String) {
+    private fun write(promptId: String) {
         val written =
             store.updateShared { root ->
                 val field = root.get(FIELD) as? ObjectNode ?: root.putObject(FIELD)
                 val ids = field.get(DECLINED) as? ArrayNode ?: field.putArray(DECLINED)
-                if (ids.none { it.isString && it.asString() == specId }) ids.add(specId)
+                if (ids.none { it.isString && it.asString() == promptId }) ids.add(promptId)
             }
         if (!written) {
             log.log(System.Logger.Level.WARNING, "Don't Ask Again not saved: the shared data file cannot be written")

@@ -1,6 +1,7 @@
 package dev.sluide.codeintelligence
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.languageservers.EnvironmentProblem
 import dev.sluide.languageservers.FakeLanguageServers
 import dev.sluide.languageservers.FakeServer
 import dev.sluide.languageservers.LanguageServerSpec
@@ -26,7 +27,13 @@ internal class PySpec(
     override val name: String = "Python",
     override val runsProjectCode: Boolean = false,
     private val status: (Path?, Path) -> WorkspaceStatus? = { _, _ -> null },
+    private val problem: (Path, Path) -> EnvironmentProblem? = { _, _ -> null },
 ) : LanguageServerSpec {
+    override fun environmentProblem(
+        file: Path,
+        projectFolder: Path,
+    ) = problem(file, projectFolder)
+
     override fun workspaceStatus(
         folder: Path?,
         projectFolder: Path,

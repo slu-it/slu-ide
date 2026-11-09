@@ -94,8 +94,8 @@ Measured with the pinned ty 0.0.99 through a scratch LSP client (2026-11-09):
    `LanguageServerSpec.workspaceStatus(folder, projectFolder)` (`WorkspaceStatus`; `folder` null: not clickable).
 6. **Missing-venv notice** (an editor banner like the server banners of
    [ADR 0145](0145-code-intelligence-module.md)): shown when the file's project root has no venv (a `uv.lock` alone),
-   or the file is native and a folder with `pyproject.toml` or `uv.lock` lies above it inside the window folder (the
-   nearest is named): `No virtual environment for backend_one, so its packages cannot be resolved.` Buttons:
+   or the file is native and a folder with only a `pyproject.toml` (no `uv.lock`, no venv) lies above it inside the
+   window folder (the nearest is named; after `uv sync` it is a project root): `No virtual environment for backend_one, so its packages cannot be resolved.` Buttons:
    **Run uv sync** runs `uv sync` in a terminal tab named `uv sync (backend_one)` with that folder as working
    directory; an explicit click needs no trust question ([ADR 0089](0089-running-shell-scripts.md)), the command
    is a constant and the folder only the working directory. **Not Now** hides it for this window and folder,

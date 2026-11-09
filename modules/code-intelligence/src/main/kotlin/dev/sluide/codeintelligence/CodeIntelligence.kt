@@ -27,6 +27,7 @@ import dev.sluide.codeintelligence.ui.HoverFeature
 import dev.sluide.codeintelligence.ui.SearchAnchor
 import dev.sluide.codeintelligence.ui.SearchPopup
 import dev.sluide.codeintelligence.ui.ServerHoverFeature
+import dev.sluide.codeintelligence.workspace.EnvironmentBannerFeature
 import dev.sluide.codeintelligence.workspace.WorkspaceStatusFeature
 import dev.sluide.fileviewers.CodeEditorExtension
 import dev.sluide.fileviewers.ExtensibleCodeEditor
@@ -64,12 +65,28 @@ class CodeIntelligence internal constructor(
             languageServers,
             FXCollections.observableSet(),
             { notNow ->
-                builtInFeatures(notNow, prompts, navigation, libraryReadOnly) { revealInExplorer(it) }
+                builtInFeatures(
+                    notNow,
+                    environmentNotNow,
+                    prompts,
+                    navigation,
+                    libraryReadOnly,
+                    { revealInExplorer(it) },
+                ) { folder, name, command -> runInTerminal(folder, name, command) }
             },
         )
 
     /** Selects a folder in the window's explorer, for a click on the project status line (ADR 0151); set by the app. */
     var revealInExplorer: (Path) -> Unit = {}
+
+    /**
+     * Opens a terminal tab named `name` in `folder` and runs `command` there, for the environment banner's button
+     * (ADR 0151); FX thread, set by the app.
+     */
+    var runInTerminal: (folder: Path, name: String, command: String) -> Unit = { _, _, _ -> }
+
+    /** The project folders whose environment banner the user put off with Not Now in this window; until restart. */
+    internal val environmentNotNow: ObservableSet<Path> = FXCollections.observableSet()
 
     private val attachments = LinkedHashSet<EditorAttachment>()
 
@@ -235,21 +252,24 @@ private fun realPath(file: Path): Path? =
     }
 
 /**
- * The features of every binding, in order: the server banner, the project status line, navigation, rename, file
- * structure, diagnostics and quick fixes, semantic tokens, completion, signature help, the server's hover, the hover
- * popup, the restart item last. Hover providers are asked and context menu items shown in the order their features
+ * The features of every binding, in order: the server banner, the project status line, the environment banner,
+ * navigation, rename, file structure, diagnostics and quick fixes, semantic tokens, completion, signature help, the
+ * server's hover, the hover popup, the restart item last. Hover providers are asked and context menu items shown in the order their features
  * attach.
  */
 internal fun builtInFeatures(
     notNow: ObservableSet<String>,
+    environmentNotNow: ObservableSet<Path>,
     prompts: InstallPrompts,
     navigation: Navigation,
     libraryReadOnly: () -> Boolean,
-    revealInExplorer: (Path) -> Unit = {},
+    revealInExplorer: (Path) -> Unit,
+    runInTerminal: (folder: Path, name: String, command: String) -> Unit,
 ): List<BindingFeature> =
     listOf(
         ServerBannerFeature(notNow, prompts),
         WorkspaceStatusFeature(revealInExplorer),
+        EnvironmentBannerFeature(environmentNotNow, prompts, runInTerminal),
         NavigationFeature(navigation),
         OccurrencesFeature(),
         RenameFeature(libraryReadOnly),

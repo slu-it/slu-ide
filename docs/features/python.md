@@ -19,6 +19,13 @@ the interpreter (so an inherited `VIRTUAL_ENV` does not win). A file without a p
 ("native") is served by the window folder with the default Python (`VIRTUAL_ENV`, Conda, else `python3` on the PATH).
 - **Refresh:** the `site-packages` of each project's virtual environment are watched, so ty picks up `uv sync` and
   `pip install` without a restart; a new `uv.lock`, `pyproject.toml` or virtual environment re-resolves the open files.
+- **Status line** below the text of an editor: `Python project: <rel> · <venv> · Python 3.12`, `Python project: <rel> ·
+  no virtual environment`, or `No Python project · default Python`; a click reveals the project folder in the explorer
+  ([code-intelligence.md](code-intelligence.md)).
+- **Missing virtual environment:** a banner with **Run uv sync** (a terminal tab in the project folder) when a project
+  root has no virtual environment, or a native file lies below a `pyproject.toml` (without `uv.lock` or virtual
+  environment); the terminal opens in that `pyproject.toml` folder, which becomes a project root after `uv sync`. It
+  disappears once the environment exists ([code-intelligence.md](code-intelligence.md)).
 
 ## Settings → Languages → Python
 - **Status line:** "Installed: ty 0.0.99", "Installed: ty 0.1.0 (this Thoreau was tested with 0.0.99)",

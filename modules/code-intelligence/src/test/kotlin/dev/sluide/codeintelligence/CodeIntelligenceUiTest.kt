@@ -2,7 +2,9 @@ package dev.sluide.codeintelligence
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.OffsetEdit
+import dev.sluide.languageservers.EnvironmentProblem
 import dev.sluide.languageservers.FakeLanguageServers
+import dev.sluide.languageservers.ProblemAction
 import dev.sluide.languageservers.ServerAvailability
 import dev.sluide.languageservers.WorkspaceStatus
 import dev.sluide.projectdata.ProjectDataStore
@@ -119,6 +121,34 @@ internal class CodeIntelligenceUiTest : EditorUiFixture() {
 
         fx { intelligence.close() }
         assertNull(fx { lookup("#workspace-status") }, "the line goes with the binding")
+    }
+
+    @Test
+    fun `a bound editor shows the environment banner and its Run button opens the problem's command in a terminal`(
+        robot: FxRobot,
+    ) {
+        val project = dir.resolve("backend")
+        val problem =
+            EnvironmentProblem(
+                project,
+                "No virtual environment for backend.",
+                ProblemAction("Run uv sync", "uv sync (backend)", "uv sync"),
+            )
+        val spec = PySpec(problem = { _, _ -> problem })
+        val intelligence = intelligence(spec)
+        val runs = mutableListOf<Triple<Path, String, String>>()
+        fx { intelligence.runInTerminal = { folder, name, command -> runs += Triple(folder, name, command) } }
+        projectFolder = dir
+        open(robot, dir.resolve("main.py"), "print(1)\n", listOf(intelligence))
+        checkNotNull(servers).awaitRunning(spec)
+        awaitTrue("environment banner") { fx { lookup("#code-intelligence-environment") != null } }
+
+        val banner = fx { lookup("#code-intelligence-environment") }
+        assertEquals("No virtual environment for backend.", fx { (banner?.lookup(".label") as Label).text })
+        assertEquals("Run uv sync", fx { (lookup("#code-intelligence-environment-run") as Button).text })
+
+        robot.interact { (lookup("#code-intelligence-environment-run") as Button).fire() }
+        assertEquals(listOf(Triple(project, "uv sync (backend)", "uv sync")), runs)
     }
 
     private fun lookup(selector: String) = view?.node?.lookup(selector)
