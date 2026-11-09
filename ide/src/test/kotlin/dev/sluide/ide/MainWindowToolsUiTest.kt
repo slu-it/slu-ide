@@ -303,6 +303,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
                 "Orbit Guard",
                 "Block Breaker",
                 "Mini Golf",
+                "Pipe Puzzle",
             ),
             menu(robot, "Games").items.map { it.text },
         )
@@ -311,6 +312,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         val orbitGuardItem = gameItems[5]
         val blockBreakerItem = gameItems[6]
         val miniGolfItem = gameItems[7]
+        val pipePuzzleItem = gameItems[8]
         robot.interact { robot.lookup(".tree-view").query<Node>().requestFocus() }
 
         robot.interact { item.fire() }
@@ -405,6 +407,17 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot.interact { miniGolfGames.single().showTab() }
 
         assertEquals(listOf("Mini Golf"), tabTitles(robot))
+
+        robot.interact { pipePuzzleItem.fire() }
+        robot.interact { pipePuzzleItem.fire() }
+
+        assertEquals(listOf("Mini Golf", "Pipe Puzzle"), tabTitles(robot))
+        assertEquals("Pipe Puzzle", checkNotNull(editorArea.selectedTab).title.value)
+
+        robot.interact { editorArea.closeAll() }
+        robot.interact { pipePuzzleGames.single().showTab() }
+
+        assertEquals(listOf("Pipe Puzzle"), tabTitles(robot))
     }
 
     private fun focusIsInSelectedTab(): Boolean {

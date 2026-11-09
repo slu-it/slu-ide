@@ -36,6 +36,7 @@ import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
 import dev.sluide.games.MiniGolf
 import dev.sluide.games.OrbitGuard
+import dev.sluide.games.PipePuzzle
 import dev.sluide.games.Solitaire
 import dev.sluide.games.Sudoku
 import dev.sluide.games.WordGuess
@@ -44,6 +45,7 @@ import dev.sluide.games.doubles.DoublesPreferences
 import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.games.minigolf.MiniGolfPreferences
 import dev.sluide.games.orbitguard.OrbitGuardPreferences
+import dev.sluide.games.pipepuzzle.PipePuzzlePreferences
 import dev.sluide.games.solitaire.SolitairePreferences
 import dev.sluide.games.sudoku.SudokuPreferences
 import dev.sluide.games.wordguess.WordGuessPreferences
@@ -310,6 +312,9 @@ abstract class MainWindowUiFixture {
     /** The Mini Golf games of the windows created by [mainWindow]. */
     internal val miniGolfGames = mutableListOf<MiniGolf>()
 
+    /** The Pipe Puzzle games of the windows created by [mainWindow]. */
+    internal val pipePuzzleGames = mutableListOf<PipePuzzle>()
+
     /**
      * The Docker settings of the windows: an executable that does not exist, so that a Docker tab shows its note and
      * never reaches an engine of the machine.
@@ -445,6 +450,7 @@ abstract class MainWindowUiFixture {
             OrbitGuard(OrbitGuardPreferences(projectData)).also(orbitGuardGames::add),
             BlockBreaker(BlockBreakerPreferences(projectData)).also(blockBreakerGames::add),
             MiniGolf(MiniGolfPreferences(projectData)).also(miniGolfGames::add),
+            PipePuzzle(PipePuzzlePreferences(projectData)).also(pipePuzzleGames::add),
             // Only its folder and capturing flag are read; the tests replace the capture.
             Diagnostics(),
             softWrap,

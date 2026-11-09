@@ -27,6 +27,7 @@ import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
 import dev.sluide.games.MiniGolf
 import dev.sluide.games.OrbitGuard
+import dev.sluide.games.PipePuzzle
 import dev.sluide.games.Solitaire
 import dev.sluide.games.Sudoku
 import dev.sluide.games.WordGuess
@@ -148,6 +149,7 @@ class MainWindow(
     private val orbitGuard: OrbitGuard,
     private val blockBreaker: BlockBreaker,
     private val miniGolf: MiniGolf,
+    private val pipePuzzle: PipePuzzle,
     diagnostics: Diagnostics,
     private val softWrap: SoftWrap,
     private val codeIntelligence: CodeIntelligenceWiring,
@@ -293,6 +295,7 @@ class MainWindow(
             orbitGuard,
             blockBreaker,
             miniGolf,
+            pipePuzzle,
             openWebPage = { openWebPage(it) },
             showError = { s, m -> showError(s, m) },
         )

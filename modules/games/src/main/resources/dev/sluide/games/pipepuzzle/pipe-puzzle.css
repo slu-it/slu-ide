@@ -1,0 +1,33 @@
+/*
+ * The Pipe Puzzle tab. The toolbar and status line use Modena's looked-up colours and follow the theme; the board is
+ * dark in both themes (its colours are our own, painted on the canvas).
+ */
+.pipe-puzzle {
+    -fx-background-color: -fx-background;
+}
+
+/* Like .sdk-toolbar of Sudoku; keep in sync. */
+.pp-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.pp-toolbar .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.pp-status-bar {
+    -fx-padding: 2 8 2 8;
+}
+
+.pp-status {
+    -fx-opacity: 0.7;
+    -fx-min-height: 1.4em;
+}
+
+.pp-generating {
+    -fx-font-size: 1.4em;
+    -fx-text-fill: white;
+    -fx-opacity: 0.8;
+}
