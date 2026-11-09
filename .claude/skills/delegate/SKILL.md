@@ -32,7 +32,9 @@ report to the user gives the number of Sonnet and Opus implementer runs.
 
 ## Brief
 Sonnet does well with a precise brief and guesses without one. Every implementer brief states:
-1. Goal and acceptance criteria (observable behavior).
+1. Goal and acceptance criteria (observable behavior). Designed content (levels, holes, puzzles) gets measurable
+   targets, not "make it hard": Mini Golf's first holes came back trivially solvable until the brief named a limit on
+   shots from the tee that hole in one, measured over the search grid, plus a required look at a render.
 2. Files and classes to touch; anything outside them needs a stop-and-report.
 3. Signatures and behavior of new or changed API, including threading (FX thread or not).
 4. Tests to add or change, with the level per behavior (`docs/testing.md`, "Choosing the test level"): unit, naming
