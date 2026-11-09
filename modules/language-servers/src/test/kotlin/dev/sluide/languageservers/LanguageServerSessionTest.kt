@@ -80,6 +80,8 @@ class LanguageServerSessionTest {
     @Test
     fun `initializes, then sends initialized, declaring the project folder and the capabilities the features use`() {
         val server = running(session())
+        // Running follows sending `initialized`; the fake records it when it arrives on its own reader thread.
+        awaitTrue("initialized received") { server.calls.size >= 2 }
 
         assertEquals(listOf("initialize", "initialized"), server.calls.take(2))
         val params = server.initializeParams!!
