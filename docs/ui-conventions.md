@@ -53,7 +53,7 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
 
 ## Tool and service tabs
 - Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate), Services menu (Docker, Databases) and Games menu
-  (Minesweeper, Word Guess, Doubles, Sudoku, Solitaire, Orbit Guard, Block Breaker, Mini Golf) after Docker Sandbox in the menu bar (ADR 0110, 0118, 0121, 0131, 0132, 0136, 0137, 0138, 0139, 0140, 0152), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
+  (Minesweeper, Word Guess, Doubles, Sudoku, Solitaire, Orbit Guard, Block Breaker, Mini Golf, Pipe Puzzle) after Docker Sandbox in the menu bar (ADR 0110, 0118, 0121, 0131, 0132, 0136, 0137, 0138, 0139, 0140, 0152, 0153), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
 - One tab per window: the menu selects the open tab or creates one. Closes with Shortcut+W without a question and is
   not restored after a restart. Tools have no key binding; a service may get an Alt+N panel key (Docker: Alt+8,
   Databases: Alt+7).
@@ -61,7 +61,7 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   `openScratch`, ...) in `WindowTools` or `MainWindow`; a callback left unset fails silently, so the wiring gets a
   test.
 - State lives in the window and outlives the tab; anything stored is opt-in per tool and never holds pasted secrets
-  (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, Translate the last source, target and quality; neither the text; Word Guess the last language; Doubles the last size and best scores; Sudoku the last size and level and the best times; Solitaire the last game, draw and suits and the high scores; Orbit Guard and Block Breaker the last difficulty and the best score per difficulty; Mini Golf the best total and the best per hole).
+  (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, Translate the last source, target and quality; neither the text; Word Guess the last language; Doubles the last size and best scores; Sudoku the last size and level and the best times; Solitaire the last game, draw and suits and the high scores; Orbit Guard and Block Breaker the last difficulty and the best score per difficulty; Mini Golf the best total and the best per hole; Pipe Puzzle the last mode, size and look and the best time per mode and size).
 - A game tab sets `EditorTab.focusOnShow`: the editor area focuses its content when it is opened or chosen (ADR 0050),
   and the view passes the focus on to its board or grid with `FocusWhenShown`, as that is in a scene only after the
   first layout. A press anywhere in the tab that no child consumes returns the focus to the board via

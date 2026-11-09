@@ -422,6 +422,21 @@ File does not react to it while a terminal has the focus.
 | Right click on the field | Cancel the aim |
 | Click on the field | Start in READY; continue past the scorecard; when paused resume if the board has the focus (else it only focuses; the click that activates an inactive window resumes only if the round had the focus when the window was left) |
 
+## Pipe Puzzle
+[pipe-puzzle.md](pipe-puzzle.md). No menu key; the keys work while the board has the focus (a click on it gives it), and not with Shortcut, Ctrl, Meta or Alt.
+
+| Keys | Action |
+|---|---|
+| Arrow keys | Move the cursor (the first press puts it on the centre tile) |
+| Space, Enter | Turn the tile at the cursor clockwise |
+| Shift+Space, Shift+Enter | Turn it counter-clockwise |
+| H | Hint (+30 s) |
+| R | Restart (asks first once a tile was turned) |
+| P | Pause or resume |
+| F2 | New game (asks first once a tile was turned) |
+| Click on a tile | Turn it clockwise (also gives the board the focus) |
+| Right click, Ctrl+click on a tile | Turn it counter-clockwise |
+
 ## Settings
 [settings.md](settings.md)
 

@@ -1,7 +1,7 @@
 # Idea: Games, what is left for later
 
 **Status:** idea, collected 2026-11-05 while building Minesweeper ([ADR 0131](../adr/0131-games-menu-minesweeper.md)), Word Guess
-([ADR 0132](../adr/0132-word-guess.md)), Doubles ([ADR 0136](../adr/0136-doubles.md)), Sudoku, Solitaire, Orbit Guard, Block Breaker and Mini Golf;
+([ADR 0132](../adr/0132-word-guess.md)), Doubles ([ADR 0136](../adr/0136-doubles.md)), Sudoku, Solitaire, Orbit Guard, Block Breaker, Mini Golf and Pipe Puzzle;
 nothing decided or built. Each needs a decision of its own before it is built.
 
 - **Statistics per size**: games played, won, win rate and streaks next to the best times. Needs a stored record per
@@ -37,8 +37,12 @@ nothing decided or built. Each needs a decision of its own before it is built.
   **course editor**, **keyboard aiming**, a **power meter**, **path prediction**, **resuming after a restart** and
   **sound effects**. Also: the scorecard keeps the loop at 60 fps while nothing moves; pause the loop while nothing
   moves.
+- **Pipe Puzzle** ([ADR 0153](../adr/0153-pipe-puzzle.md), [feature](../features/pipe-puzzle.md)): **wrap-around
+  edges**, **tile locking**, **undo and redo**, a **rotation counter** compared with the minimum, a **coloured
+  multi-pair mode**, a **timed flow countdown**, a **move limit**, a **daily puzzle**, **hexagonal tiles** and
+  **resuming after a restart**.
 - **Further games** in the `games` module, one package each, as items of the Games menu (Minesweeper, Word Guess,
-  Doubles, Sudoku, Solitaire, Orbit Guard, Block Breaker and Mini Golf exist; for example Pyramid or Mahjong solitaire).
+  Doubles, Sudoku, Solitaire, Orbit Guard, Block Breaker, Mini Golf and Pipe Puzzle exist; for example Pyramid or Mahjong solitaire).
 - **The WebView variant**: a self-contained HTML, CSS and JS page in a WebView, portable to any web server and freer
   to style. Rejected for Minesweeper (it needs an exception to "Kotlin only", its logic is testable only through
   WebView UI tests); it could be reconsidered for a game that is mostly animation.
