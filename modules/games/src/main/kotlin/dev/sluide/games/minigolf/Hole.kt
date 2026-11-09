@@ -8,8 +8,8 @@ import dev.sluide.games.minigolf.geometry.Vec
 /**
  * One hole of the course, drawn by hand with [hole]. Painters draw [greens] (the felt, outlined by rails), [blocks]
  * (solid obstacles) and [looseWalls] (single walls such as a diagonal bank); the physics only uses [walls], which holds
- * every edge of [greens] and [blocks] plus [looseWalls]. Greens must neither overlap nor touch each other, since each outline is a rail: an L-shaped lane is one
- * polygon, not two rectangles.
+ * every edge of [greens] and [blocks] plus [looseWalls]. Greens must neither overlap nor touch each other, since each
+ * outline is a rail: an L-shaped lane is one polygon, not two rectangles.
  */
 internal data class Hole(
     val number: Int,

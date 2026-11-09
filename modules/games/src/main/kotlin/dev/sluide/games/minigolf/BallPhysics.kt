@@ -275,6 +275,7 @@ internal class BallPhysics(
                     Exit(Vec(0.0, -1.0), dy + halfHeight, Vec(p.x, center.y - halfHeight - r)),
                     Exit(Vec(0.0, 1.0), halfHeight - dy, Vec(p.x, center.y + halfHeight + r)),
                 ).sortedWith(compareBy({ -(it.normal dot surface) }, { it.depth }))
+            // The fallback is unreachable on course holes: moverWalls keeps room for a ball between a block and any wall.
             val exit = exits.firstOrNull { clearOfStatic(it.position) } ?: exits.first()
             ball.position = exit.position
             reflect(ball, exit.normal, Rules.WALL_RESTITUTION, surface)

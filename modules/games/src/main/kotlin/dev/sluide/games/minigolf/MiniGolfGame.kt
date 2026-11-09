@@ -29,10 +29,10 @@ internal enum class Phase {
  * it is not recorded as the ghost path. A push never costs a stroke: water after a shot sends the ball back to where
  * the shot was played from with one penalty stroke, water after a push (a roll or a weaker move) sends it back to where
  * it rested before the push, without one. A ball put back is moved out of a sliding block that now covers the spot,
- * and a tunnel mouth it lies in stays blocked for the next shot. The stroke cap applies when any roll ends without holing (rest, splash, roll limit)
- * and the stroke count has reached [Rules.STROKE_CAP], so a splash on the 6th shot (7 strokes) is picked up too. A
- * ball that comes to rest over the cup drops. [stepCount] starts at 0 on every hole, so moving obstacles are in the
- * same place whenever a hole begins.
+ * and a tunnel mouth it lies in stays blocked for the next shot. The stroke cap applies when any roll ends without
+ * holing (rest, splash, roll limit) and the stroke count has reached [Rules.STROKE_CAP], so a splash on the 6th shot
+ * (7 strokes) is picked up too. A ball that comes to rest over the cup drops. [stepCount] starts at 0 on every hole, so
+ * moving obstacles are in the same place whenever a hole begins.
  *
  * `startAt` and `placeBall` are test seams only.
  */
