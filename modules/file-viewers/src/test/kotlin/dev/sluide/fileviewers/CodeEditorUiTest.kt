@@ -1,8 +1,10 @@
 package dev.sluide.fileviewers
 
 import dev.sluide.projectdata.ProjectDataStore
+import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Label
+import javafx.scene.control.TextField
 import javafx.scene.control.ToggleButton
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
@@ -317,6 +319,31 @@ class CodeEditorUiTest {
         assertEquals("mine changed\r\n", content.written.last(), "a moved editor keeps its content")
         assertFalse(Files.exists(virtual.parent))
         assertFalse(Files.exists(moved.parent))
+    }
+
+    @Test
+    fun `wipe leaves an empty, clean editor without undo history and with an empty find bar`(robot: FxRobot) {
+        val file = dir.resolve("a.json").apply { writeText("{\"secret\": 1}\n") }
+        val editor = open(file, robot)
+        robot.interact { robot.area().insertText(0, " ") }
+        robot.press(robot.area(), KeyCode.F, shortcut = true)
+        val query = robot.lookup(".find-query").queryAs(TextField::class.java)
+        robot.interact { query.text = "secret" }
+
+        robot.interact { editor.wipe() }
+
+        assertEquals("", editor.text)
+        assertEquals("", editor.savedText)
+        assertFalse(editor.dirty.get())
+        robot.interact { robot.area().undo() }
+        assertEquals("", editor.text)
+        assertFalse(robot.area().isUndoAvailable)
+        assertEquals("", query.text)
+        assertTrue(robot.lookup(".find-bar").queryAll<Node>().isEmpty(), "the find bar is hidden")
+        assertEquals("{\"secret\": 1}\n", file.readText(), "wiping does not save")
+        robot.interact { editor.wipe() }
+        assertEquals("", editor.text)
+        assertFalse(editor.dirty.get())
     }
 
     @Test

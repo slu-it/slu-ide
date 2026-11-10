@@ -280,6 +280,26 @@ internal class FindBar(
         }
     }
 
+    /**
+     * Hides the bar and forgets its query, replacement and matches, without moving the focus; for wiping the text of a
+     * view ([CodeView.wipe]).
+     */
+    fun wipe() {
+        container.children -= node
+        following?.unsubscribe()
+        following = null
+        // Hidden first, so that clearing the query searches nothing.
+        query.clear()
+        replacement.clear()
+        queryPause.stop()
+        matches = emptyList()
+        current = null
+        error = null
+        truncated = false
+        stale = false
+        counter.text = ""
+    }
+
     /** Stops following the text, e.g. when its view is closed. */
     fun dispose() {
         following?.unsubscribe()

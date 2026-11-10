@@ -5,6 +5,7 @@ import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableValue
 import javafx.scene.Node
+import javafx.scene.control.MenuItem
 import java.io.IOException
 import java.net.URI
 import java.nio.file.Path
@@ -105,6 +106,19 @@ interface FileView {
     fun dispose() {}
 
     /**
+     * Clears what the view shows and remembers of its content (text, undo history, saved text, find state, rendered
+     * output), as far as the JVM lets go of it, e.g. before a view of decrypted content is disposed. Callable on the FX
+     * thread, more than once. Views that hold nothing worth wiping do nothing, as by default.
+     */
+    fun wipe() {}
+
+    /** Items of the view for the context menu of its tab, after the file's own items; none by default. FX thread. */
+    val tabMenuItems: List<MenuItem> get() = emptyList()
+
+    /** The tooltip of the lock icon on the view's tab while [readOnlyMarked]; [LIBRARY_CODE_LOCK_TEXT] by default. */
+    val lockMarkerText: String get() = LIBRARY_CODE_LOCK_TEXT
+
+    /**
      * Gives the focus to the content at once, e.g. the text of a code view, or the source of a preview unless the
      * preview is shown alone; by default to the [node]. Used to give the focus back to the view, e.g. when a diff
      * shown over it is hidden; [focus] is what a view gets when its tab is shown.
@@ -165,6 +179,9 @@ interface FileView {
     /** Whether the view shows its file read-only as library code (or similar), for a lock icon in its tab; FX thread. */
     val readOnlyMarked: ObservableBooleanValue get() = NOT_MARKED
 }
+
+/** The default [FileView.lockMarkerText]: what the lock icon on a tab of library code says. */
+const val LIBRARY_CODE_LOCK_TEXT = "Library code, read-only"
 
 /** What a view shows on its tab besides its name. */
 enum class ViewActivity { NONE, RUNNING, FAILED }

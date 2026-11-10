@@ -53,7 +53,7 @@ import java.time.Duration
  *
  * The file's bytes are read and saved only through [content] (the file on disk by default); content from elsewhere
  * (e.g. decrypted) makes [file] a virtual path, used for its name and folder only. Extensions skip content that is
- * [FileContent.confidential] unless they opt in.
+ * [FileContent.confidential] unless they opt in; [wipe] clears the text and what remembers it.
  *
  * Edited text is highlighted again once typing pauses, on a background thread; the result is handed to the FX thread
  * through [dispatch] (`Platform.runLater`, replaced in tests), and dropped if the text changed meanwhile. Only the
@@ -235,6 +235,9 @@ internal class CodeView(
 
     /** The change markers shown in the [gutter], following unsaved edits. */
     private val changeMarkers: ChangeMarkerFollower
+
+    /** The saved text the change markers were last taken for; empty after [wipe]. */
+    val changeMarkersText: String get() = changeMarkers.baseText
 
     /** Shown while the file does not exist, e.g. after it was deleted while the view had unsaved changes. */
     private val deletedBanner = banner(fileName.map { "$it was deleted on disk; saving recreates it." })
@@ -475,6 +478,23 @@ internal class CodeView(
         generatedBanner.show(file)
         extensible.moved(to)
         return true
+    }
+
+    /**
+     * Clears the text, its undo history, the saved text, the change markers and the find bar's query and matches, as
+     * far as the JVM lets go of them; the view is clean afterwards. For confidential content, before it is disposed.
+     */
+    override fun wipe() {
+        findBar.wipe()
+        hideConflict()
+        area.replaceText("")
+        styles.highlight("")
+        savedText = ""
+        keptMine.set(false)
+        encoding.saved()
+        undoManager.forgetHistory()
+        undoManager.mark()
+        changeMarkers.show(null)
     }
 
     override fun dispose() {

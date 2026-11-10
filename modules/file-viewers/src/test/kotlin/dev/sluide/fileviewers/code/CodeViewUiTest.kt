@@ -2,12 +2,15 @@ package dev.sluide.fileviewers.code
 
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileView
+import dev.sluide.fileviewers.LineChange
+import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.highlight.TomlHighlighter
 import dev.sluide.fileviewers.isTextFile
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.layout.HBox
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 import javafx.scene.text.Font
@@ -194,6 +197,57 @@ class CodeViewUiTest {
         robot.interact { view.save() }
         assertContentEquals("Grüße\r\n".toByteArray(), file.readBytes())
         assertFalse(view.dirty.get())
+    }
+
+    @Test
+    fun `wipe drops a change on disk and a pending conversion, and the view is clean`(robot: FxRobot) {
+        val file = dir.resolve("latin1.txt").apply { writeBytes(windows1252) }
+        val view = open(file, robot)
+        robot.interact {
+            bannerButton(robot, "Convert to UTF-8").fire()
+            view.area.insertText(0, "mine ")
+        }
+        file.writeText("theirs\n")
+        robot.interact { view.reload() }
+        assertTrue(view.conflictShown)
+
+        robot.interact { view.wipe() }
+
+        assertFalse(view.conflictShown)
+        assertFalse(view.dirty.get())
+        assertEquals("", view.area.text)
+    }
+
+    @Test
+    fun `wipe drops text kept over a change on disk and the change markers with the text they were of`(
+        robot: FxRobot,
+    ) {
+        val file = dir.resolve("main.py").apply { writeText("a\nb\nc\n") }
+        val view = open(file, robot)
+        robot.interact {
+            view.showChanges(TextDiff("a\nB\nc\n", listOf(LineChange(1..1, 1..1))))
+            view.area.insertText(0, "mine\n")
+        }
+        file.writeText("theirs\n")
+        robot.interact { view.reload() }
+        robot.interact { bannerButton(robot, "Keep mine").fire() }
+        assertTrue(view.dirty.get())
+        assertTrue(markerClasses(robot).isNotEmpty())
+
+        robot.interact { view.wipe() }
+
+        assertFalse(view.dirty.get())
+        assertEquals(emptyList(), markerClasses(robot))
+        assertEquals("", view.changeMarkersText)
+    }
+
+    /** The change-marker classes in the gutter rows shown, besides the marker's own. */
+    private fun markerClasses(robot: FxRobot): List<String> {
+        WaitForAsyncUtils.waitForFxEvents()
+        return robot
+            .lookup(".${Gutter.GUTTER_STYLE}")
+            .queryAllAs(HBox::class.java)
+            .flatMap { row -> row.children[1].styleClass.filter { it != Gutter.MARKER_STYLE } }
     }
 
     @Test

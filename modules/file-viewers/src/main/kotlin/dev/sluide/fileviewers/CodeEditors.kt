@@ -95,6 +95,13 @@ interface CodeEditor :
      * controls, and hides it while the source side is hidden; the editor never sets its visibility.
      */
     val softWrapButton: Node
+
+    /**
+     * Replaces the text with an empty one, forgets the undo history, makes the saved text empty (so the editor is clean
+     * and change markers have nothing to show) and clears the find bar's query and matches. FX thread; doing it again
+     * changes nothing.
+     */
+    override fun wipe()
 }
 
 /** A read-only text with line numbers, highlighted like code views, e.g. the body of an HTTP response. */
@@ -388,4 +395,6 @@ private class CodeViewEditor(
 
     override fun addContextMenuItems(items: (EditorMenuTarget) -> List<MenuItem>) =
         view.extensible.addContextMenuItems(items)
+
+    override fun wipe() = view.wipe()
 }

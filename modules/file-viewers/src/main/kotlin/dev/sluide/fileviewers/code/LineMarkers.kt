@@ -169,7 +169,8 @@ internal class ChangeMarkers(
     text: String,
 ) {
     /** The text [base] belongs to: the saved text when the diff was shown. */
-    private var baseText = text
+    var baseText = text
+        private set
     private var base: List<LineMarker?> = unmarked(text)
 
     /** The saved text the [edits] started from; `null` when they do not lead from it to the text (too many, or kept). */

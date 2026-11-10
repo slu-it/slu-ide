@@ -21,6 +21,9 @@ internal class ChangeMarkerFollower(
 ) {
     private val changeMarkers = ChangeMarkers(savedText.get())
 
+    /** The saved text the markers were last taken for by [show]. */
+    val baseText: String get() = changeMarkers.baseText
+
     /** The diff given to [show] while [deferred]. */
     private var pendingChanges: PendingChanges? = null
 
