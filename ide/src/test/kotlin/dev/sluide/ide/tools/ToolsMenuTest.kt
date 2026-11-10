@@ -7,9 +7,12 @@ import javafx.scene.Node
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
+import javafx.scene.shape.Rectangle
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotSame
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 
 class ToolsMenuTest {
@@ -52,6 +55,20 @@ class ToolsMenuTest {
             .handle(null)
         assertEquals(listOf("Docker"), created)
         assertEquals("Tools", menu(tool("Coloring")).menu().text, "the default title")
+    }
+
+    @Test
+    fun `an item shows its tool's graphic, a fresh node on each menu call, and none without one`() {
+        val plain = tool("Plain")
+        val iconic = WindowTool("Iconic", { FakeTab("Iconic") }, graphic = { Rectangle(16.0, 16.0) })
+        val menu = menu(plain, iconic)
+
+        val (plainItem, iconicItem) = menu.menu().items
+        val again = menu.menu().items.last()
+
+        assertNull(plainItem.graphic)
+        assertIs<Rectangle>(iconicItem.graphic)
+        assertNotSame(iconicItem.graphic, again.graphic)
     }
 
     @Test

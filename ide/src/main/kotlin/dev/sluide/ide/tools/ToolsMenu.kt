@@ -1,6 +1,7 @@
 package dev.sluide.ide.tools
 
 import dev.sluide.editorarea.EditorTab
+import javafx.scene.Node
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.input.KeyCombination
@@ -14,6 +15,8 @@ internal class WindowTool(
     val createTab: () -> EditorTab,
     val accelerator: KeyCombination? = null,
     val newTabEachTime: Boolean = false,
+    /** Makes the node shown before the title on the menu item, a fresh one per call; none by default. */
+    val graphic: (() -> Node)? = null,
 )
 
 /**
@@ -40,6 +43,7 @@ internal class ToolsMenu(
                 .map { tool ->
                     MenuItem(tool.title).apply {
                         accelerator = tool.accelerator
+                        graphic = tool.graphic?.invoke()
                         setOnAction { open(tool) }
                     }
                 }.toTypedArray(),
