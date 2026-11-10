@@ -5,7 +5,10 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
 
-/** Fits a [fieldWidth] x [fieldHeight] field into an area keeping its aspect, centred, at least scale 1. Pure. */
+/**
+ * Fits a [fieldWidth] x [fieldHeight] field into an area keeping its aspect, centred, at least scale 1, then times the
+ * zoom of [fit] (below 1 the field is smaller than the area). Pure.
+ */
 internal class FieldLayout(
     val fieldWidth: Int,
     val fieldHeight: Int,
@@ -14,8 +17,9 @@ internal class FieldLayout(
         areaWidth: Double,
         areaHeight: Double,
         outputScale: Double,
+        zoom: Double = 1.0,
     ): FieldPlacement {
-        val scale = max(1.0, min(areaWidth / fieldWidth, areaHeight / fieldHeight))
+        val scale = max(1.0, min(areaWidth / fieldWidth, areaHeight / fieldHeight)) * zoom
         return FieldPlacement(
             scale,
             (areaWidth - fieldWidth * scale) / 2,
@@ -48,6 +52,18 @@ internal data class FieldPlacement(
     val width: Double get() = x(fieldWidth.toDouble()) - x(0.0)
 
     val height: Double get() = y(fieldHeight.toDouble()) - y(0.0)
+
+    /** The snapped width of the field span [fw] at [fx], at least one device pixel so that thin shapes never vanish. */
+    fun spanWidth(
+        fx: Double,
+        fw: Double,
+    ): Double = max(x(fx + fw) - x(fx), 1 / outputScale)
+
+    /** Like [spanWidth] for the height. */
+    fun spanHeight(
+        fy: Double,
+        fh: Double,
+    ): Double = max(y(fy + fh) - y(fy), 1 / outputScale)
 
     // (round(offset * os) + floor(v * scale * os)) / os
     private fun snap(

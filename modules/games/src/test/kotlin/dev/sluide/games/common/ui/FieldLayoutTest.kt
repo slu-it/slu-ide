@@ -75,4 +75,42 @@ class FieldLayoutTest {
             assertEquals(Math.rint(device).toDouble(), device, 1e-9)
         }
     }
+
+    @Test
+    fun `zoom 0_5 halves the scale and keeps the field centred and snapped`() {
+        // Fit scale 2 (height 480), zoomed 1: the field is 320 x 240 in 1000 x 480.
+        val p = layout.fit(1000.0, 480.0, 1.0, 0.5)
+
+        assertEquals(1.0, p.scale)
+        assertEquals(340.0, p.offsetX)
+        assertEquals(120.0, p.offsetY)
+        assertEquals(320.0, p.width)
+        assertEquals(240.0, p.height)
+        assertEquals(340.0, p.x(0.0))
+        assertEquals(660.0, p.x(320.0))
+    }
+
+    @Test
+    fun `zoom goes below the scale 1 floor and may overhang a tiny area`() {
+        val p = layout.fit(100.0, 50.0, 1.0, 0.25)
+
+        assertEquals(0.25, p.scale)
+        assertEquals(80.0, p.width)
+        assertEquals(60.0, p.height)
+        assertEquals(10.0, p.offsetX)
+        assertEquals(-5.0, p.offsetY)
+    }
+
+    @ParameterizedTest
+    @ValueSource(doubles = [1.0, 1.5, 2.0])
+    fun `a 1 px span keeps at least one device pixel below one device pixel per field pixel`(os: Double) {
+        val small = layout.fit(320.0, 240.0, os, 0.25)
+        assertEquals(0.25, small.scale)
+        for (px in 0 until 320) {
+            assertTrue(small.spanWidth(px.toDouble(), 1.0) * os >= 1.0 - 1e-9, "width at $px")
+            assertTrue(small.spanHeight(px % 240.0, 1.0) * os >= 1.0 - 1e-9, "height at $px")
+        }
+        // A wide span is its snapped width.
+        assertEquals(small.width, small.spanWidth(0.0, 320.0))
+    }
 }
