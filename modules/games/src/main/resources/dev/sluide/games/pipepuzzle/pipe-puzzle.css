@@ -26,6 +26,11 @@
     -fx-min-height: 1.4em;
 }
 
+.pp-scroll, .pp-scroll > .viewport {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
 .pp-generating {
     -fx-font-size: 1.4em;
     -fx-text-fill: white;

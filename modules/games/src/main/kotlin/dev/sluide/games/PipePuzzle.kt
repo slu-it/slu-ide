@@ -2,6 +2,7 @@ package dev.sluide.games
 
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.pipepuzzle.Generator
 import dev.sluide.games.pipepuzzle.PipePuzzleModel
 import dev.sluide.games.pipepuzzle.PipePuzzlePreferences
@@ -26,14 +27,17 @@ class PipePuzzle internal constructor(
     private val tabFactory: (PipePuzzleModel) -> EditorTab,
 ) {
     @Autowired
-    constructor(preferences: PipePuzzlePreferences) : this(
+    constructor(
+        preferences: PipePuzzlePreferences,
+        zoomPreferences: GameZoomPreferences,
+    ) : this(
         PipePuzzleModel(
             preferences,
             { mode, size -> Generator().generate(mode, size, Random.Default) },
             NamedThreads.single("sluide-pipe-puzzle-generator"),
             Platform::runLater,
         ),
-        { PipePuzzleTab(PipePuzzleView(it)) },
+        { PipePuzzleTab(PipePuzzleView(it, zoomPreferences)) },
     )
 
     /** Shows the Pipe Puzzle tab of the window (opening it if needed); set by ide. */

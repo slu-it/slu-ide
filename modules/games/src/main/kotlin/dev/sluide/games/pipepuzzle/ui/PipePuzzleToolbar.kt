@@ -4,6 +4,7 @@ import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.games.pipepuzzle.BoardSize
 import dev.sluide.games.pipepuzzle.Look
 import dev.sluide.games.pipepuzzle.Mode
+import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.MenuButton
@@ -33,6 +34,7 @@ internal class ToolbarActions(
 /** The Pipe Puzzle toolbar: the controls, which [PipePuzzleView] updates; the clicks go to [actions]. */
 internal class PipePuzzleToolbar(
     actions: ToolbarActions,
+    zoom: Node,
 ) {
     val modeMenu = MenuButton()
     val sizeMenu = MenuButton()
@@ -60,7 +62,7 @@ internal class PipePuzzleToolbar(
                 menu.items.setAll(items.values)
             }
             leading.setAll(modeMenu, sizeMenu, lookMenu, newGameButton, restartButton, hintButton, pauseButton)
-            trailing.setAll(timer)
+            trailing.setAll(timer, zoom)
             styleClass += "pp-toolbar"
         }
 

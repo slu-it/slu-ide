@@ -451,7 +451,7 @@ abstract class MainWindowUiFixture {
             OrbitGuard(OrbitGuardPreferences(projectData), GameZoomPreferences(projectData)).also(orbitGuardGames::add),
             BlockBreaker(BlockBreakerPreferences(projectData), GameZoomPreferences(projectData)).also(blockBreakerGames::add),
             MiniGolf(MiniGolfPreferences(projectData), GameZoomPreferences(projectData)).also(miniGolfGames::add),
-            PipePuzzle(PipePuzzlePreferences(projectData)).also(pipePuzzleGames::add),
+            PipePuzzle(PipePuzzlePreferences(projectData), GameZoomPreferences(projectData)).also(pipePuzzleGames::add),
             // Only its folder and capturing flag are read; the tests replace the capture.
             Diagnostics(),
             softWrap,

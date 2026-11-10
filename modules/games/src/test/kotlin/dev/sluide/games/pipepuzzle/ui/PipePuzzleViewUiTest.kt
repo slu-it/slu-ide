@@ -1,6 +1,8 @@
 package dev.sluide.games.pipepuzzle.ui
 
 import dev.sluide.games.common.GameClock
+import dev.sluide.games.common.GameZoomPreferences
+import dev.sluide.games.common.ZoomRange
 import dev.sluide.games.pipepuzzle.BoardSize
 import dev.sluide.games.pipepuzzle.Generator
 import dev.sluide.games.pipepuzzle.Look
@@ -11,7 +13,9 @@ import dev.sluide.games.pipepuzzle.PipePuzzlePreferences
 import dev.sluide.games.pipepuzzle.Pos
 import dev.sluide.projectdata.ProjectDataStore
 import javafx.event.Event
+import javafx.geometry.Point2D
 import javafx.scene.Scene
+import javafx.scene.control.ScrollPane
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
@@ -51,6 +55,7 @@ class PipePuzzleViewUiTest {
     private lateinit var model: PipePuzzleModel
     private lateinit var view: PipePuzzleView
     private lateinit var stage: Stage
+    private lateinit var zoomPreferences: GameZoomPreferences
     private val asked = mutableListOf<List<String>>()
     private var answer = false
     private var now = 1000L
@@ -61,6 +66,7 @@ class PipePuzzleViewUiTest {
         val store = ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())
         val preferences = PipePuzzlePreferences(store, Duration.ZERO) { it.run() }
         preferences.lastSize = BoardSize.S5
+        zoomPreferences = GameZoomPreferences(store, Duration.ZERO) { it.run() }
         val generator = Generator()
         val sync = Executor { it.run() }
         model =
@@ -71,7 +77,7 @@ class PipePuzzleViewUiTest {
                 sync,
                 GameClock(),
             )
-        view = PipePuzzleView(model) { now }
+        view = PipePuzzleView(model, zoomPreferences) { now }
         view.confirm = { title, header, verb, content ->
             asked += listOf(title, header, verb, content)
             answer
@@ -111,10 +117,25 @@ class PipePuzzleViewUiTest {
         robot: FxRobot,
         pos: Pos,
         button: MouseButton,
+    ) {
+        val geometry = fx { view.board.geometry() }
+        clickAt(
+            robot,
+            Point2D(geometry.cellX(pos) + geometry.cellSize / 2, geometry.cellY(pos) + geometry.cellSize / 2),
+            button,
+        )
+    }
+
+    /** A press at [local], in the board's coordinates. */
+    private fun clickAt(
+        robot: FxRobot,
+        local: Point2D,
+        button: MouseButton,
     ) = robot.interact {
-        val geometry = view.board.geometry()
-        val x = geometry.cellX(pos) + geometry.cellSize / 2
-        val y = geometry.cellY(pos) + geometry.cellSize / 2
+        // The event's coordinates are the scene's: they are converted to the board's on delivery.
+        val at = view.board.localToScene(local)
+        val x = at.x
+        val y = at.y
         val event =
             MouseEvent(
                 MouseEvent.MOUSE_PRESSED,
@@ -340,6 +361,36 @@ class PipePuzzleViewUiTest {
     }
 
     @Test
+    fun `the zoom resizes the cells, is saved, scrolls the board and keeps clicks on their tiles`(robot: FxRobot) {
+        fun cell() = fx { view.board.geometry().cellSize }
+        val fit = cell()
+        assertEquals(BoardGeometry.MAX_CELL, fit)
+
+        robot.interact { view.zoomControls.zoomTo(2.0) }
+        assertEquals(2 * fit, cell())
+        assertEquals(2.0, fx { zoomPreferences.zoom(PipePuzzleView.GAME_ID, ZoomRange.ABOVE_FIT) })
+
+        // 5 cells of 144 px are wider than the 600 px tab: the board is larger than the viewport and scrolls.
+        val scroll = fx { view.node.lookup(".pp-scroll") as ScrollPane }
+        assertTrue(fx { view.board.width > scroll.viewportBounds.width })
+
+        // A click at the middle of a tile of the top left corner, with the origin and cell computed here.
+        val game = checkNotNull(fx { model.game })
+        val pos =
+            (0..3)
+                .flatMap { row -> (0..3).map { col -> Pos(row, col) } }
+                .first { !game.puzzle.isFixed(it) && game.tile(it).rotatedCw() != game.tile(it) }
+        val before = fx { game.tile(pos) }
+        val originX = fx { Math.floor(maxOf(0.0, (view.board.width - 5 * 144.0) / 2)) }
+        val originY = fx { Math.floor(maxOf(0.0, (view.board.height - 5 * 144.0) / 2)) }
+        val local = Point2D(originX + pos.col * 144.0 + 72.0, originY + pos.row * 144.0 + 72.0)
+        clickAt(robot, local, MouseButton.PRIMARY)
+
+        assertEquals(before.rotatedCw(), fx { game.tile(pos) })
+        assertTrue(fx { view.board.isFocused })
+    }
+
+    @Test
     fun `Restart stays available after a win and ends a running flow`(robot: FxRobot) {
         robot.interact { while (model.game?.isSolved == false) model.hint() }
         assertTrue(fx { view.board.isAnimating })
@@ -355,7 +406,7 @@ class PipePuzzleViewUiTest {
     fun `a disposed view leaves the callbacks to the view that took over`(robot: FxRobot) {
         lateinit var second: PipePuzzleView
         robot.interact {
-            second = PipePuzzleView(model) { now }
+            second = PipePuzzleView(model, zoomPreferences) { now }
             view.dispose()
             stage.scene.root = VBox(second.node)
         }

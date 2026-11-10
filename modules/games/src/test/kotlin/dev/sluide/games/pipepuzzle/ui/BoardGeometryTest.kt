@@ -78,4 +78,27 @@ class BoardGeometryTest {
     fun `origin is on whole pixels`() {
         assertEquals(52.0, BoardGeometry(301.0, 200.0, 7).originX)
     }
+
+    @Test
+    fun `the zoom scales the Fit cell, which is clamped first`() {
+        assertEquals(57.0, BoardGeometry(400.0, 900.0, 7, 1.0).cellSize)
+        assertEquals(28.0, BoardGeometry(400.0, 900.0, 7, 0.5).cellSize)
+        assertEquals(114.0, BoardGeometry(400.0, 900.0, 7, 2.0).cellSize)
+        // 100 px fit the minimum cell of 28 px; half of it is below the minimum, and zoom 0 stays at 1 px
+        assertEquals(14.0, BoardGeometry(100.0, 100.0, 12, 0.5).cellSize)
+        assertEquals(1.0, BoardGeometry(100.0, 100.0, 12, 0.001).cellSize)
+        assertEquals(144.0, BoardGeometry(2000.0, 2000.0, 5, 2.0).cellSize)
+    }
+
+    @Test
+    fun `posAt finds cells of the zoomed size, with the cell taken from the Fit area`() {
+        // Fit 360 px: 72 px cells, 144 px at zoom 2: a 720 px board in a 800 px wide canvas, centred at x = 40
+        val g = BoardGeometry(800.0, 720.0, 5, 2.0, 360.0, 360.0)
+        assertEquals(144.0, g.cellSize)
+        assertEquals(40.0, g.originX)
+        assertEquals(Pos(0, 0), g.posAt(40.0, 0.0))
+        assertEquals(Pos(2, 3), g.posAt(40.0 + 3 * 144.0 + 143.9, 2 * 144.0 + 1.0))
+        assertNull(g.posAt(39.9, 10.0))
+        assertNull(g.posAt(40.0 + 720.0, 10.0))
+    }
 }

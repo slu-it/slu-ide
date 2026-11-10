@@ -1,5 +1,6 @@
 package dev.sluide.games.pipepuzzle.ui
 
+import dev.sluide.games.common.ui.FitArea
 import dev.sluide.games.pipepuzzle.KeyAction
 import dev.sluide.games.pipepuzzle.PipePuzzleModel
 import dev.sluide.games.pipepuzzle.Pos
@@ -9,6 +10,8 @@ import javafx.scene.canvas.Canvas
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.layout.Region
+import kotlin.math.max
 
 /**
  * The direction of a click: primary turns clockwise, secondary counter-clockwise, and so does primary with Ctrl (a
@@ -25,18 +28,36 @@ internal fun turnClockwise(
     }
 
 /**
- * The board drawn into the whole area it gets: clicks turn tiles, keys become [KeyAction]s for [onAction], and the
+ * The board drawn into the whole area it gets: its cells are the Fit size of the inside of [area] (the scroll pane
+ * around the board) times [zoom] (ADR 0155), and its minimum size is the zoomed board, so that it scrolls above Fit
+ * ([FitArea]). Clicks turn tiles, keys become [KeyAction]s for [onAction], and the
  * turn and win animations run on one timer that exists only while an animation runs. FX thread. [clock] gives
  * milliseconds; tests replace it.
  */
 internal class BoardCanvas(
     private val model: PipePuzzleModel,
+    area: Region,
     private val onAction: (KeyAction) -> Unit,
     private val clock: () -> Long = { System.nanoTime() / NANOS_PER_MILLI },
 ) : Canvas() {
     private val animation = BoardAnimation()
     private var flowLayers: List<List<Pos>> = emptyList()
     private var minimumSide = 0
+    private val fitArea =
+        FitArea(area) {
+            parent?.requestLayout()
+            redraw()
+        }
+
+    /** The factor on the Fit size of the cells (ADR 0155). */
+    var zoom = 1.0
+        set(value) {
+            if (field != value) {
+                field = value
+                parent?.requestLayout()
+                redraw()
+            }
+        }
 
     private val timer =
         object : AnimationTimer() {
@@ -59,13 +80,13 @@ internal class BoardCanvas(
 
     override fun isResizable(): Boolean = true
 
-    override fun minWidth(height: Double): Double = side() * BoardGeometry.MIN_CELL
+    override fun minWidth(height: Double): Double = side() * zoomedCell()
 
-    override fun minHeight(width: Double): Double = side() * BoardGeometry.MIN_CELL
+    override fun minHeight(width: Double): Double = side() * zoomedCell()
 
-    override fun prefWidth(height: Double): Double = side() * PREF_CELL
+    override fun prefWidth(height: Double): Double = max(side() * PREF_CELL, minWidth(height))
 
-    override fun prefHeight(width: Double): Double = side() * PREF_CELL
+    override fun prefHeight(width: Double): Double = max(side() * PREF_CELL, minHeight(width))
 
     override fun maxWidth(height: Double): Double = Double.MAX_VALUE
 
@@ -81,8 +102,11 @@ internal class BoardCanvas(
 
     private fun side(): Int = model.game?.side ?: model.size.side
 
+    private fun zoomedCell(): Double = BoardGeometry.cellFor(fitArea.innerWidth, fitArea.innerHeight, side(), zoom)
+
     /** Where the board lies in the current area. */
-    internal fun geometry(): BoardGeometry = BoardGeometry(width, height, side())
+    internal fun geometry(): BoardGeometry =
+        BoardGeometry(width, height, side(), zoom, fitArea.innerWidth, fitArea.innerHeight)
 
     /** The tile just turned animates from its old angle. */
     fun turned(

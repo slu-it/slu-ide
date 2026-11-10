@@ -84,9 +84,9 @@ paused does nothing and asks nothing.
 
 ## Layout
 - The toolbar (a wrapping toolbar): Mode, Size, Look, New Game ("New Game (F2)"), Restart ("Restart Puzzle (R)"), Hint
-  ("Hint (H)"), Pause ("Pause (P)") and the timer at the end. The tab's tooltip is "Turn the tiles to connect the
-  flow".
-- The board is centred in the tab; a tile is between 28 and 72 pixels.
+  ("Hint (H)"), Pause ("Pause (P)"), and at the end the timer and the zoom group. The tab's tooltip is "Turn the tiles
+  to connect the flow".
+- The board is centred in the tab; a tile is between 28 and 72 pixels at Fit.
 
 ## Keys
 | Input | Action |
@@ -124,6 +124,8 @@ the FX thread.
 ## Scaling
 The board fills the tab with tiles of 28 to 72 pixels and the drawing scales with them. The Paused overlay and the
 Generating text never change the board's size.
+Zoom: 25%–200% relative to Fit, see [game-zoom.md](game-zoom.md). The zoom group is the last item of the toolbar, stored
+as `pipePuzzle`. The board lies in a scroll pane: when it is larger than the tab (above Fit, or a small tab) it scrolls.
 
 ## Not included
 Wrap-around edges, locking tiles, undo and redo, a rotation counter against the minimum, a coloured mode with several

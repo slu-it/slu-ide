@@ -1,7 +1,10 @@
 package dev.sluide.games.pipepuzzle.ui
 
 import dev.sluide.fileviewers.FocusWhenShown
+import dev.sluide.games.common.GameZoomPreferences
+import dev.sluide.games.common.ZoomRange
 import dev.sluide.games.common.formatTime
+import dev.sluide.games.common.ui.GameZoomControls
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.TabVisibility
 import dev.sluide.games.common.ui.focusBoardOnPress
@@ -19,6 +22,7 @@ import javafx.scene.control.Button
 import javafx.scene.control.ButtonBar.ButtonData
 import javafx.scene.control.ButtonType
 import javafx.scene.control.Label
+import javafx.scene.control.ScrollPane
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.StackPane
@@ -30,12 +34,18 @@ import javafx.util.Duration
  */
 internal class PipePuzzleView(
     private val model: PipePuzzleModel,
+    zoomPreferences: GameZoomPreferences,
     clock: () -> Long = { System.nanoTime() / NANOS_PER_MILLI },
 ) {
     /** Asks a question with a [verb] button and Cancel (the default); true for the verb. Tests replace it. */
     internal var confirm: (title: String, header: String, verb: String, content: String) -> Boolean = ::askConfirm
 
-    internal val board = BoardCanvas(model, ::keyAction, clock)
+    private val scrollPane = ScrollPane()
+    internal val board = BoardCanvas(model, scrollPane, ::keyAction, clock)
+    internal val zoomControls =
+        GameZoomControls(ZoomRange.ABOVE_FIT, zoomPreferences.zoom(GAME_ID, ZoomRange.ABOVE_FIT)) {
+            zoomPreferences.setZoom(GAME_ID, it)
+        }
     private val toolbar =
         PipePuzzleToolbar(
             ToolbarActions(
@@ -47,6 +57,7 @@ internal class PipePuzzleView(
                 chooseSize = ::chooseSize,
                 chooseLook = { look -> act { model.look = look } },
             ),
+            zoomControls.node,
         )
     internal val modeMenu get() = toolbar.modeMenu
     internal val sizeMenu get() = toolbar.sizeMenu
@@ -73,7 +84,17 @@ internal class PipePuzzleView(
         }
     internal val overlay: Node get() = pauseOverlay.node
     private val boardArea =
-        StackPane(board, generating, pauseOverlay.node).apply {
+        StackPane(
+            scrollPane.apply {
+                content = board
+                styleClass += "pp-scroll"
+                isFitToWidth = true
+                isFitToHeight = true
+                isFocusTraversable = false
+            },
+            generating,
+            pauseOverlay.node,
+        ).apply {
             // The board alone sets the size: the overlay's hint is wider than a small board.
             pauseOverlay.node.apply {
                 minWidth = 0.0
@@ -113,6 +134,8 @@ internal class PipePuzzleView(
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
         focusBoardOnPress(node, board)
+        zoomControls.zoom.subscribe { zoom -> board.zoom = zoom.toDouble() }
+        zoomControls.install(node)
         model.ensureGame()
         refresh()
     }
@@ -228,7 +251,8 @@ internal class PipePuzzleView(
         return alert.showAndWait().orElse(ButtonType.CANCEL) == confirm
     }
 
-    private companion object {
+    internal companion object {
+        const val GAME_ID = "pipePuzzle"
         const val TICK_MILLIS = 200.0
         const val NANOS_PER_MILLI = 1_000_000L
     }
