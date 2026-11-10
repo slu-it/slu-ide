@@ -3,6 +3,7 @@ package dev.sluide.games.solitaire.ui
 import dev.sluide.games.common.GameClock
 import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.common.ZoomRange
+import dev.sluide.games.common.ui.fireMouse
 import dev.sluide.games.common.ui.firePress
 import dev.sluide.games.solitaire.Cancellable
 import dev.sluide.games.solitaire.Deals
@@ -248,6 +249,37 @@ class SolitaireViewUiTest {
                 .slots
                 .getValue(stock)
         }.let { it.x + it.w / 2 to it.y + it.h / 2 }
+
+    @Test
+    fun `a card drag delivered to another node stays with the table`(robot: FxRobot) {
+        val seen = mutableListOf<MouseEvent>()
+        robot.interact { decoy.addEventFilter(MouseEvent.ANY) { seen += it } }
+        val pile = PileId(PileKind.TABLEAU, 0)
+        val rect =
+            fx {
+                view.table
+                    .layoutNow()
+                    .cards
+                    .last { it.pile == pile }
+                    .rect
+            }
+        val at = fx { view.table.localToScene(rect.x + rect.w / 2, rect.y + rect.h / 2) }
+        robot.interact { fireMouse(MouseEvent.MOUSE_PRESSED, view.table, at.x, at.y) }
+
+        robot.interact { fireMouse(MouseEvent.MOUSE_DRAGGED, decoy, at.x + 30, at.y + 30) }
+
+        assertEquals(
+            30.0,
+            fx {
+                view.table
+                    .nodesOf(pile, 1)
+                    .single()
+                    .translateX
+            },
+        )
+        robot.interact { fireMouse(MouseEvent.MOUSE_RELEASED, decoy, at.x + 30, at.y + 30) }
+        assertTrue(seen.isEmpty())
+    }
 
     @Test
     fun `a click on the table gives it the keyboard`(robot: FxRobot) {

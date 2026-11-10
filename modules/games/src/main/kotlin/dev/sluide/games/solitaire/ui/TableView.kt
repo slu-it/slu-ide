@@ -1,6 +1,7 @@
 package dev.sluide.games.solitaire.ui
 
 import dev.sluide.games.common.ui.FitArea
+import dev.sluide.games.common.ui.keepDragsOn
 import dev.sluide.games.solitaire.PileId
 import dev.sluide.games.solitaire.Table
 import javafx.animation.PauseTransition
@@ -76,6 +77,7 @@ internal class TableView(
                 .toExternalForm(),
         )
         drag.install()
+        keepDragsOn(this)
         redraw()
         // the subscriptions call back at once with no scene; the first drawing is the one above
         sceneProperty().flatMap { it.preferences.colorSchemeProperty() }.subscribe { _ -> redrawInScene() }

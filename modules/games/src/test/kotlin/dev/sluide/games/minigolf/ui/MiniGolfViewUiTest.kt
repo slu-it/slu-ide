@@ -195,6 +195,23 @@ class MiniGolfViewUiTest {
     }
 
     @Test
+    fun `an aim drag delivered to another node stays with the board`(robot: FxRobot) {
+        playing(robot)
+        val seen = mutableListOf<MouseEvent>()
+        robot.interact { other.addEventFilter(MouseEvent.ANY) { seen += it } }
+        mouse(robot, MouseEvent.MOUSE_PRESSED, 100.0, 125.0)
+        // a press only stores the point; the drag that follows is what aims
+        assertNull(fx { model.aim })
+
+        mouse(robot, MouseEvent.MOUSE_DRAGGED, 40.0, 125.0, target = other)
+        assertNotNull(fx { model.aim })
+        mouse(robot, MouseEvent.MOUSE_RELEASED, 40.0, 125.0, target = other)
+
+        assertEquals(1, fx { model.game.strokes })
+        assertTrue(seen.isEmpty())
+    }
+
+    @Test
     fun `a drag aims and a right click cancels the aim`(robot: FxRobot) {
         playing(robot)
         mouse(robot, MouseEvent.MOUSE_PRESSED, 100.0, 125.0)

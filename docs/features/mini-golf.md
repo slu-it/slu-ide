@@ -18,7 +18,8 @@ toolbar (New Game, Pause), the field and a status line.
   slingshot, and its **power** grows with the drag length up to 80 field units. A line from the ball shows direction
   and power: longer, and green to yellow to red, with more power. There is no path prediction.
 - **Release** to putt. A release after less than 4 units, **Esc** or a **right click** cancels the aim. The pointer
-  stays visible, and a drag that leaves the field keeps aiming.
+  stays visible, and a drag that leaves the field keeps aiming until the release, even when the pointer crosses other
+  views or split dividers.
 - The **ghost line** draws the previous shot of the hole faintly while the ball rests; a new hole starts without one.
 - Moving obstacles keep moving while you aim.
 

@@ -9,6 +9,7 @@ import dev.sluide.games.common.ui.GameZoomControls
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.RealtimeLoop
 import dev.sluide.games.common.ui.focusBoardOnPress
+import dev.sluide.games.common.ui.keepDragsOn
 import dev.sluide.games.minigolf.KeyAction
 import dev.sluide.games.minigolf.MiniGolfModel
 import dev.sluide.games.minigolf.geometry.Vec
@@ -101,6 +102,7 @@ internal class MiniGolfView(
         board.setOnMousePressed(::mousePressed)
         board.setOnMouseDragged(::mouseDragged)
         board.setOnMouseReleased(::mouseReleased)
+        keepDragsOn(board)
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
         focusBoardOnPress(node, board)

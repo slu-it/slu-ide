@@ -73,6 +73,7 @@ a new deal (after the guard question, see below) and is remembered.
 ## Playing
 - **Drag** a card, or a run that can move, to another pile. While you drag, every legal drop target is outlined.
   Dropped anywhere else, the cards slide back.
+  A drag stays with the table until the release, even when the pointer crosses other views or split dividers.
 - **Click** on a card plays it the best way: onto a foundation if it can go there, else onto a column that has cards
   (the leftmost one that takes it), else onto an empty column, and a single card into a free cell. A click on a run
   moves the run. A click on a foundation card does nothing: cards come back from a foundation only by dragging.
