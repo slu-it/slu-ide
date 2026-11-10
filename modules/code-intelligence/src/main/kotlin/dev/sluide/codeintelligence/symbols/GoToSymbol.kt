@@ -19,7 +19,8 @@ internal const val RESOLVE_WORKSPACE_SYMBOL = "workspaceSymbol/resolve"
 
 /**
  * The bound editor whose server go to symbol asks: the [focused] one's if its server answers `workspace/symbol`, else
- * the first of [bindings] whose server does; `null` if none.
+ * the first of [bindings] whose server does; `null` if none. A binding whose document the server does not serve is
+ * skipped ([navigationBlocker]).
  */
 internal fun symbolSource(
     focused: DocumentBinding?,

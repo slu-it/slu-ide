@@ -34,7 +34,8 @@ internal class WorkspaceStatusFeature(
                 session.workspaceFolderOf(file),
                 session.workspaceChanges,
                 binding.editor.host.projectFolder,
-            ) { folder, project -> binding.spec.workspaceStatus(folder, project) }
+                { session.gateOf(binding.file)?.served == true },
+            ) { folder, project -> binding.spec.workspaceStatus(binding.file, folder, project) }
         return WorkspaceStatusItem(binding.editor, model, revealInExplorer)
     }
 }

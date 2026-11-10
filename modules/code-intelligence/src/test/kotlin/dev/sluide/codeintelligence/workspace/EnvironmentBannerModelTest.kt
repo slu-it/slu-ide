@@ -1,6 +1,7 @@
 package dev.sluide.codeintelligence.workspace
 
 import dev.sluide.codeintelligence.InstallPrompts
+import dev.sluide.languageservers.DocumentGate
 import dev.sluide.languageservers.EnvironmentProblem
 import dev.sluide.languageservers.ProblemAction
 import dev.sluide.languageservers.ServerState
@@ -44,6 +45,8 @@ class EnvironmentBannerModelTest {
         if (withAction) ProblemAction("Run uv sync", "uv sync (${at.fileName})", "uv sync") else null,
     )
 
+    private var gate: DocumentGate? = DocumentGate.SERVED
+
     private fun model(prompts: InstallPrompts = prompts()) =
         EnvironmentBannerModel(
             state,
@@ -54,12 +57,63 @@ class EnvironmentBannerModelTest {
             notNow,
             prompts,
             { problem },
+            { gate },
         ) { f, n, c -> runs += Triple(f, n, c) }
 
     @Test
     fun `the notice shows the problem while the server runs`() {
         problem = problemOf(backend)
         assertEquals(problem, model().problem.value)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = ["Running", "Stopped", "Unavailable"])
+    fun `a document that is not served shows its gate's reason whatever the server's state, before the spec's problem`(
+        name: String,
+    ) {
+        problem = problemOf(backend)
+        val reason = problemOf(other, withAction = false)
+        gate = DocumentGate(false, reason = reason)
+        state.value =
+            when (name) {
+                "Running" -> ServerState.Running
+                "Stopped" -> ServerState.Stopped
+                else -> ServerState.Unavailable
+            }
+        val model = model()
+        assertEquals(reason, model.problem.value)
+
+        gate = DocumentGate.SERVED
+        changes.value++
+        assertEquals(if (name == "Running") problem else null, model.problem.value)
+    }
+
+    @Test
+    fun `a gate that has not answered, or not served without a reason, shows nothing`() {
+        problem = problemOf(backend)
+        gate = null
+        val model = model()
+        assertNull(model.problem.value)
+        gate = DocumentGate(false)
+        changes.value++
+        assertNull(model.problem.value, "the spec's problem is for a served document")
+    }
+
+    @Test
+    fun `Not Now and Don't Ask Again hide the reason of a document that is not served as they hide a problem`() {
+        val reason = problemOf(other, withAction = false)
+        gate = DocumentGate(false, reason = reason)
+        val prompts = prompts()
+        val model = model(prompts)
+        model.notNow()
+        assertNull(model.problem.value)
+        assertEquals(setOf(other), notNow.toSet())
+
+        notNow.clear()
+        assertEquals(reason, model.problem.value)
+        model.dontAskAgain()
+        assertNull(model.problem.value)
+        assertEquals(setOf("python.environment"), prompts.declined.toSet())
     }
 
     @Test

@@ -149,8 +149,14 @@ internal fun navigationBlocker(
         is ServerState.Failed -> "server stopped"
     }
 
-/** Why [method] cannot be asked of [binding]'s server now; `null` if it can. */
+/**
+ * Why [method] cannot be asked of [binding]'s server now; `null` if it can. A document the server does not serve
+ * (ADR 0160) cannot be asked, while the server runs for another one.
+ */
 internal fun navigationBlocker(
     binding: DocumentBinding,
     method: String,
-): String? = navigationBlocker(binding.session.state.value, binding.session.features.supports(method))
+): String? {
+    if (!binding.served.value) return "not served by the ${binding.spec.name} language server"
+    return navigationBlocker(binding.session.state.value, binding.session.features.supports(method))
+}

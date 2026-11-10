@@ -5,9 +5,16 @@ import dev.sluide.codeintelligence.FakeCodeEditor
 import dev.sluide.codeintelligence.FxServers
 import dev.sluide.codeintelligence.PySpec
 import dev.sluide.codeintelligence.awaitTrue
+import dev.sluide.codeintelligence.navigation.DEFINITION
+import dev.sluide.codeintelligence.navigation.navigationBlocker
+import dev.sluide.codeintelligence.symbols.SymbolServer
+import dev.sluide.codeintelligence.symbols.WORKSPACE_SYMBOL
+import dev.sluide.codeintelligence.symbols.symbolSource
 import dev.sluide.fileviewers.OffsetEdit
+import dev.sluide.languageservers.DocumentGate
 import dev.sluide.languageservers.FakeServer
 import dev.sluide.languageservers.LspUris
+import dev.sluide.languageservers.ServerState
 import javafx.collections.FXCollections
 import javafx.scene.control.MenuItem
 import org.eclipse.lsp4j.DidChangeTextDocumentParams
@@ -21,6 +28,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -77,6 +85,125 @@ class DocumentBindingTest {
         fx.onFx { handle?.close() }
         awaitTrue("didClose") { closes == listOf(uri("a.py")) }
         assertEquals(0, editor.subscribed, "no listener left")
+    }
+
+    @Test
+    fun `request features attach while the document is served and close when it is not, always-on ones stay`() {
+        val answer = AtomicReference(DocumentGate(false))
+        val gating = PySpec(gateAnswer = answer)
+        fx = FxServers(folder, gating)
+        val events = mutableListOf<String>()
+        val features =
+            listOf(
+                BindingFeature {
+                    events += "banner attached"
+                    AutoCloseable { events += "banner closed" }
+                },
+                ServedFeatures(
+                    listOf(
+                        BindingFeature {
+                            events += "a attached"
+                            AutoCloseable { events += "a closed" }
+                        },
+                        BindingFeature {
+                            events += "b attached"
+                            AutoCloseable { events += "b closed" }
+                        },
+                    ),
+                ),
+            )
+        val intelligence = fx.onFx { CodeIntelligence(fx.servers, FXCollections.observableSet()) { features } }
+        val editor = FakeCodeEditor(folder.resolve("a.py"), "x")
+        fx.onFx { intelligence.extend(editor) }
+        val binding = checkNotNull(fx.onFx { intelligence.attached.single().binding })
+        awaitTrue("answered") { fx.onFx { fx.servers.session(gating).gateOf(binding.file) } != null }
+        assertEquals(false, fx.onFx { binding.served.value })
+        assertEquals(listOf("banner attached"), fx.onFx { events.toList() })
+
+        answer.set(DocumentGate.SERVED)
+        fx.onFx { editor.fileProperty.set(folder.resolve("b.py")) }
+        awaitTrue("served") { fx.onFx { binding.served.value } }
+        assertEquals(listOf("banner attached", "a attached", "b attached"), fx.onFx { events.toList() })
+
+        answer.set(DocumentGate(false))
+        fx.onFx { editor.fileProperty.set(folder.resolve("c.py")) }
+        awaitTrue("not served") { !fx.onFx { binding.served.value } }
+        assertEquals(
+            listOf("banner attached", "a attached", "b attached", "b closed", "a closed"),
+            fx.onFx { events.toList() },
+        )
+
+        answer.set(DocumentGate.SERVED)
+        fx.onFx { editor.fileProperty.set(folder.resolve("d.py")) }
+        awaitTrue("served again") { fx.onFx { binding.served.value } }
+        assertEquals(listOf("a attached", "b attached"), fx.onFx { events.takeLast(2) })
+
+        fx.onFx { intelligence.close() }
+        assertEquals(listOf("b closed", "a closed", "banner closed"), fx.onFx { events.takeLast(3) })
+    }
+
+    @Test
+    fun `a document not served has a blocker naming the language and is no go to symbol source, a served one is`() {
+        val gating =
+            PySpec(gateByFile = {
+                if (it.fileName.toString() ==
+                    "a.py"
+                ) {
+                    DocumentGate.SERVED
+                } else {
+                    DocumentGate(false)
+                }
+            })
+        fx = FxServers(folder, gating, newServer = { SymbolServer() })
+        val intelligence = fx.onFx { CodeIntelligence(fx.servers, FXCollections.observableSet()) { emptyList() } }
+        val editorA = FakeCodeEditor(folder.resolve("a.py"), "x")
+        val editorB = FakeCodeEditor(folder.resolve("b.py"), "y")
+        fx.onFx {
+            intelligence.extend(editorA)
+            intelligence.extend(editorB)
+        }
+        val (a, b) = fx.onFx { intelligence.attached.map { checkNotNull(it.binding) } }
+        awaitTrue("served and running") { fx.onFx { a.served.value && a.session.state.value == ServerState.Running } }
+        awaitTrue("b answered") { fx.onFx { fx.servers.session(gating).gateOf(b.file) } != null }
+
+        assertEquals(
+            "not served by the Python language server",
+            fx.onFx { navigationBlocker(b, DEFINITION) },
+        )
+        assertNull(fx.onFx { navigationBlocker(a, WORKSPACE_SYMBOL) }, "the server runs and a is served")
+        // Only the gate keeps b out: its server runs and supports workspace symbols.
+        assertEquals(a, fx.onFx { symbolSource(b, listOf(b, a)) })
+    }
+
+    @Test
+    fun `a spec that does not gate is served from the start and its features attach at once`() {
+        val attached = mutableListOf<String>()
+        val intelligence =
+            intelligence(
+                listOf(
+                    ServedFeatures(
+                        listOf(
+                            BindingFeature {
+                                attached += "a"
+                                null
+                            },
+                        ),
+                    ),
+                ),
+            )
+        val editor = FakeCodeEditor(folder.resolve("a.py"), "x")
+        fx.onFx { intelligence.extend(editor) }
+        assertEquals(listOf("a"), fx.onFx { attached.toList() })
+        assertEquals(
+            true,
+            fx.onFx {
+                intelligence.attached
+                    .single()
+                    .binding
+                    ?.served
+                    ?.value
+            },
+        )
     }
 
     @Test

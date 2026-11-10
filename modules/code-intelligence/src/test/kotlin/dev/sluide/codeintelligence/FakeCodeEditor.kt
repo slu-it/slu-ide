@@ -32,6 +32,7 @@ internal open class FakeCodeEditor(
     val fileProperty = SimpleObjectProperty(file)
     var currentText = initialText
     val banners = mutableListOf<Node>()
+    val statusItems = mutableListOf<Node>()
     val keyBindings = mutableListOf<KeyCombination>()
     private val menuProviders = mutableListOf<(EditorMenuTarget) -> List<MenuItem>>()
     private val changeListeners = mutableListOf<(TextChange) -> Unit>()
@@ -107,6 +108,11 @@ internal open class FakeCodeEditor(
     override fun addBanner(node: Node): AutoCloseable {
         banners += node
         return AutoCloseable { banners -= node }
+    }
+
+    override fun addStatusItem(node: Node): AutoCloseable {
+        statusItems += node
+        return AutoCloseable { statusItems -= node }
     }
 
     override fun onTextChange(listener: (TextChange) -> Unit): AutoCloseable {

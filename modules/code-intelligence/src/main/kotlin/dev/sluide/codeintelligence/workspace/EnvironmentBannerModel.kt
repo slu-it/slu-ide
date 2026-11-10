@@ -1,6 +1,7 @@
 package dev.sluide.codeintelligence.workspace
 
 import dev.sluide.codeintelligence.InstallPrompts
+import dev.sluide.languageservers.DocumentGate
 import dev.sluide.languageservers.EnvironmentProblem
 import dev.sluide.languageservers.ServerState
 import javafx.beans.InvalidationListener
@@ -12,15 +13,18 @@ import javafx.collections.ObservableSet
 import java.nio.file.Path
 
 /**
- * What a bound editor's environment banner says (ADR 0151): the spec's [EnvironmentProblem] of the file, only while the
- * server runs and the user has not put it off (Not Now for the problem's folder in this window, Don't Ask Again for
- * the spec in every window); `null` otherwise. Recomputed when the server's [state], the file's [folder], [changes] of
- * the workspace folders, [notNow] or the declined ids fire. FX thread.
+ * What a bound editor's environment banner says (ADR 0151, 0160): for a document the server does not serve, the
+ * [reason][DocumentGate.reason] of its gate whatever the server's state (nothing while the gate has not answered);
+ * otherwise the spec's [EnvironmentProblem] of the file, only while the server runs. Shown only if the user has not
+ * put it off (Not Now for the problem's folder in this window, Don't Ask Again for the spec in every window); `null`
+ * otherwise. Recomputed when the server's [state], the file's [folder], [changes] of the workspace folders, [notNow]
+ * or the declined ids fire. FX thread.
  *
  * @param declineId the id Don't Ask Again stores in [prompts] (`python.environment`).
  * @param notNow the problem folders put off in this window until the app restarts.
  * @param projectFolder the window's project folder, `null` for none.
  * @param problemOf the spec's `environmentProblem` for the file in the project folder.
+ * @param gateOf the session's gate answer of the file (`null`: not answered); served by default.
  * @param runInTerminal opens a terminal tab named `name` in `folder` and runs `command` there.
  */
 internal class EnvironmentBannerModel(
@@ -32,6 +36,7 @@ internal class EnvironmentBannerModel(
     private val notNow: ObservableSet<Path>,
     private val prompts: InstallPrompts,
     private val problemOf: (project: Path) -> EnvironmentProblem?,
+    private val gateOf: () -> DocumentGate? = { DocumentGate.SERVED },
     private val runInTerminal: (folder: Path, name: String, command: String) -> Unit,
 ) : AutoCloseable {
     private val wrapper = ReadOnlyObjectWrapper<EnvironmentProblem?>(compute())
@@ -63,8 +68,16 @@ internal class EnvironmentBannerModel(
 
     private fun compute(): EnvironmentProblem? {
         val project = projectFolder ?: return null
-        if (state.value != ServerState.Running || declineId in prompts.declined) return null
-        val found = problemOf(project) ?: return null
+        if (declineId in prompts.declined) return null
+        val gate = gateOf() ?: return null
+        val found: EnvironmentProblem?
+        if (gate.served) {
+            if (state.value != ServerState.Running) return null
+            found = problemOf(project)
+        } else {
+            found = gate.reason
+        }
+        if (found == null) return null
         return found.takeUnless { it.folder in notNow }
     }
 

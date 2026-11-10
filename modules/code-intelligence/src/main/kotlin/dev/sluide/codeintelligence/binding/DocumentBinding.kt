@@ -10,6 +10,9 @@ import dev.sluide.languageservers.LanguageServerSpec
 import dev.sluide.languageservers.LanguageServers
 import dev.sluide.languageservers.LspUris
 import dev.sluide.languageservers.SyncedDocument
+import javafx.beans.InvalidationListener
+import javafx.beans.property.ReadOnlyBooleanWrapper
+import javafx.beans.value.ObservableValue
 import javafx.scene.control.MenuItem
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
@@ -62,6 +65,8 @@ class DocumentBinding internal constructor(
 
     private val menuProviders = mutableListOf<(EditorMenuTarget) -> List<MenuItem>>()
     private val handles = mutableListOf<AutoCloseable>()
+    private val servedWrapper = ReadOnlyBooleanWrapper()
+    private val gateListener = InvalidationListener { servedWrapper.set(isServed()) }
 
     /** Whether the binding ended; features check it in late callbacks. */
     var isClosed = false
@@ -78,7 +83,19 @@ class DocumentBinding internal constructor(
                 document.changed(DocumentChange(change.start, change.removed, change.inserted)) { editor.text }
             }
         handles += editor.onSaved { document.saved() }
+        // Before any feature subscribes: a value read when the binding's own value fires is up to date.
+        servedWrapper.set(isServed())
+        session.workspaceChanges.addListener(gateListener)
     }
+
+    /**
+     * Whether the server sees the document (ADR 0160): its gate answered served. `false` while a gating spec has not
+     * answered. Follows the session's [workspaceChanges][LanguageServerSession.workspaceChanges] and moves. The
+     * request features attach only while it is `true` (`ServedFeatures`).
+     */
+    val served: ObservableValue<Boolean> = servedWrapper.readOnlyProperty
+
+    private fun isServed() = session.gateOf(file)?.served == true
 
     /** The file the binding is for; follows moves within the language. */
     val file: Path get() = document.file
@@ -157,12 +174,16 @@ class DocumentBinding internal constructor(
     }
 
     /** The editor's file moved to [to], still in this language and project: the server hears close and open. */
-    internal fun moved(to: Path) = document.moved(to)
+    internal fun moved(to: Path) {
+        document.moved(to)
+        servedWrapper.set(isServed())
+    }
 
     /** Ends the binding: the features' handles close (last attached first), then the document closes on the server. */
     override fun close() {
         if (isClosed) return
         isClosed = true
+        session.workspaceChanges.removeListener(gateListener)
         for (handle in handles.asReversed()) {
             try {
                 handle.close()

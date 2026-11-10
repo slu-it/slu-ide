@@ -11,7 +11,8 @@ import java.nio.file.Path
 
 /**
  * What a bound editor's project status line says (ADR 0151): the spec's [WorkspaceStatus] of the file's workspace
- * folder, only while the server runs and there is a project folder to show it for; `null` otherwise. Recomputed when
+ * folder, only while the server runs, the document is [served] and there is a project folder to show it for; `null`
+ * otherwise (a document that is not served shows nothing: its banner says why, ADR 0160). Recomputed when
  * the server's [state], the file's [folder] or [changes] of the workspace folders fire. FX thread.
  *
  * @param folder the workspace folder of the file (`null`: native, served by the window folder).
@@ -24,6 +25,7 @@ internal class WorkspaceStatusModel(
     private val folder: ObservableValue<Path?>,
     private val changes: Observable,
     private val projectFolder: Path?,
+    private val served: () -> Boolean = { true },
     private val statusOf: (folder: Path?, projectFolder: Path) -> WorkspaceStatus?,
 ) : AutoCloseable {
     private val wrapper = ReadOnlyObjectWrapper<WorkspaceStatus?>(compute())
@@ -42,7 +44,7 @@ internal class WorkspaceStatusModel(
 
     private fun compute(): WorkspaceStatus? {
         val project = projectFolder ?: return null
-        if (state.value != ServerState.Running) return null
+        if (state.value != ServerState.Running || !served()) return null
         return statusOf(folder.value, project)
     }
 

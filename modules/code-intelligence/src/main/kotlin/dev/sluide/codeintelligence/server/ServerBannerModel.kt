@@ -7,6 +7,8 @@ import dev.sluide.languageservers.ServerAvailability
 import dev.sluide.languageservers.ServerState
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.value.ObservableValue
 import javafx.collections.ObservableSet
 import javafx.util.Subscription
 import kotlin.math.roundToLong
@@ -101,7 +103,7 @@ internal fun noticeText(notice: ServerNotice): String =
 
         is ServerNotice.InstallFailed -> {
             if (notice.canRetry) {
-                val what = notice.tool ?: "The ${notice.language} language server"
+                val what = notice.tool?.let(::sentenceStart) ?: "The ${notice.language} language server"
                 "$what could not be installed: ${notice.message}"
             } else {
                 val sentence = if (notice.message.endsWith('.')) notice.message else "${notice.message}."
@@ -118,18 +120,27 @@ internal fun noticeText(notice: ServerNotice): String =
         }
     }
 
+/**
+ * [tool] at the start of a sentence: a name that begins with a lowercase article (`the TypeScript language server`)
+ * is capitalized; a lowercase product name (`ty`) stays as it is written.
+ */
+private fun sentenceStart(tool: String) =
+    if (tool.startsWith("the ")) tool.replaceFirstChar { it.titlecase() } else tool
+
 /** `14 MB`, as Settings → Languages → Python says it (decimal megabytes, rounded). */
 internal fun megabytes(bytes: Long) = "${(bytes / 1_000_000.0).roundToLong()} MB"
 
 /**
  * The banner of one bound editor without its controls (ADR 0145): [notice] follows the installer's availability, the
  * session's state, Not Now of this window ([notNow], spec ids) and Don't Ask Again ([prompts]); the actions are the
- * banner's buttons. [tasks] is the window's `BackgroundTasks` for the install row. FX thread.
+ * banner's buttons. [tasks] is the window's `BackgroundTasks` for the install row. No notice while the document is not
+ * [served] (not served, or a gating spec's gate not answered yet: ADR 0160); the default is served. FX thread.
  */
 internal class ServerBannerModel(
     private val session: LanguageServerSession,
     private val notNow: ObservableSet<String>,
     private val prompts: InstallPrompts,
+    private val served: ObservableValue<Boolean> = SimpleBooleanProperty(true),
     private val tasks: () -> BackgroundTasks?,
 ) : AutoCloseable {
     private val spec = session.spec
@@ -145,6 +156,7 @@ internal class ServerBannerModel(
             session.state.subscribe { _ -> update() },
             notNow.subscribe { update() },
             prompts.declined.subscribe { update() },
+            served.subscribe { _ -> update() },
         )
 
     init {
@@ -175,6 +187,10 @@ internal class ServerBannerModel(
     override fun close() = subscriptions.forEach { it.unsubscribe() }
 
     private fun update() {
+        if (!served.value) {
+            noticeWrapper.set(null)
+            return
+        }
         noticeWrapper.set(
             noticeFor(
                 spec.name,

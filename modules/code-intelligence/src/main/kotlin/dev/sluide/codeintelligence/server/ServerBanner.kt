@@ -125,7 +125,12 @@ internal class ServerBannerFeature(
     override fun attach(binding: DocumentBinding): AutoCloseable {
         val host = binding.editor.host
         val model =
-            ServerBannerModel(binding.session, notNow, prompts) { host.windowService(BackgroundTasks::class.java) }
+            ServerBannerModel(
+                binding.session,
+                notNow,
+                prompts,
+                binding.served,
+            ) { host.windowService(BackgroundTasks::class.java) }
         return ServerBanner(binding.editor, model)
     }
 }

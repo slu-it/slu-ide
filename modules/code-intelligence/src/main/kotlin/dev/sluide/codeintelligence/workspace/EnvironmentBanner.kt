@@ -94,6 +94,7 @@ internal class EnvironmentBannerFeature(
                 notNow,
                 prompts,
                 { project -> spec.environmentProblem(file, project) },
+                { session.gateOf(binding.file) },
                 runInTerminal,
             )
         return EnvironmentBanner(binding.editor, model)

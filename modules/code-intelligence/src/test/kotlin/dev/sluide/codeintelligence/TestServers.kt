@@ -1,6 +1,7 @@
 package dev.sluide.codeintelligence
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.languageservers.DocumentGate
 import dev.sluide.languageservers.EnvironmentProblem
 import dev.sluide.languageservers.FakeLanguageServers
 import dev.sluide.languageservers.FakeServer
@@ -28,7 +29,27 @@ internal class PySpec(
     override val runsProjectCode: Boolean = false,
     private val status: (Path?, Path) -> WorkspaceStatus? = { _, _ -> null },
     private val problem: (Path, Path) -> EnvironmentProblem? = { _, _ -> null },
+    /** Gates documents when given: the answer for every file (a volatile holder the test can change). */
+    val gateAnswer: java.util.concurrent.atomic.AtomicReference<DocumentGate>? = null,
+    /** Gates documents when given, by file; wins over [gateAnswer]. */
+    private val gateByFile: ((Path) -> DocumentGate)? = null,
+    private val configs: (Path, Path) -> List<Path> = { _, _ -> emptyList() },
+    private val keeps: (Path) -> Boolean = { false },
 ) : LanguageServerSpec {
+    override val gatesDocuments: Boolean get() = gateAnswer != null || gateByFile != null
+
+    override fun gate(
+        file: Path,
+        projectFolder: Path,
+    ): DocumentGate = gateByFile?.invoke(file) ?: gateAnswer?.get() ?: DocumentGate.SERVED
+
+    override fun configFiles(
+        file: Path,
+        projectFolder: Path,
+    ) = configs(file, projectFolder)
+
+    override fun keepsDiagnostics(file: Path) = keeps(file)
+
     override fun environmentProblem(
         file: Path,
         projectFolder: Path,

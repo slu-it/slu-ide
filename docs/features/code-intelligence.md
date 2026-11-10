@@ -62,6 +62,31 @@ declined prompts, see Banners). There is no trust question: the command runs on 
 banner stays while the terminal runs and disappears by itself once the venv appears (the project is re-resolved).
 `EnvironmentBannerModel`, `EnvironmentBanner`; ADR 0151.
 
+## Projects the server does not serve
+A language whose server cannot handle every project of its language (for TypeScript: a project on an older
+TypeScript than the server supports) answers a gate per document (`gatesDocuments`, ADR 0160). A document that is not
+served is never sent to the server, and a server whose open documents are all not served does not start. The editor
+shows a banner above the text with the gate's reason (an environment problem, usually without a button), whatever the
+server's state; **Not Now** (per project folder, this window) and **Don't Ask Again** (per language, id
+`<language>.environment`) work as on the environment banner. No install, installing, stopped or trust banner shows for
+such a document, nor while the gate has not answered yet (no flash of the install prompt). The request features
+(navigation, rename, file structure, diagnostics, semantic colours, completion, signature help, hovers, the restart
+item) are attached only while the document is served (`ServedFeatures`): when the answer flips they close with their
+menu items and hover sections and attach again on the way back. The status line shows nothing for such a document;
+the banner says why. In such an editor the Navigate entries are disabled with the reason ("not served by the TypeScript
+language server"), and Go to Symbol asks the server through a served editor instead. Languages that do not gate (Python) serve every document from the start.
+
+## Configuration problems
+A banner above the text, after the environment banner, when the server reported problems for the configuration files
+that concern the document (`configFiles`; for TypeScript the nearest `tsconfig.json` or `jsconfig.json`, whose
+problems the server reports on the file itself even when a base config it extends sets the option): `tsconfig.json
+has 3 problems for TypeScript:` (the file named relative to the project folder when it is not directly in it, e.g.
+`apps/b/tsconfig.json`), then a link per problem, `3:5  Option 'x' has been removed.` (1-based line and column,
+first line of the message), at most ten and "… and N more". A click opens the file with the caret there. **Not Now**
+hides the banner of that file in this window until its set of problems changes; there is no Don't Ask Again. It
+follows the server live: fixing the file makes the server publish an empty list and the banner goes. It shows only
+while the document is served. `ConfigProblemsModel`, `ConfigProblemsBanner`; ADR 0160.
+
 ## Navigation
 - **Go to definition:** **Shortcut+B** at the caret, **Navigate → Go to Definition**, **Go to Definition** in the
   context menu (at the right-click), or **Shortcut+click** on a name. Holding **Shortcut** over a name underlines it

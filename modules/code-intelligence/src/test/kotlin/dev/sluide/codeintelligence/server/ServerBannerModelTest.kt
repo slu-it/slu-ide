@@ -10,6 +10,8 @@ import dev.sluide.languageservers.ServerAvailability
 import dev.sluide.languageservers.ServerState
 import dev.sluide.languageservers.TrustGate
 import dev.sluide.projectdata.ProjectDataStore
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.value.ObservableValue
 import javafx.collections.FXCollections
 import javafx.collections.ObservableSet
 import org.junit.jupiter.api.AfterEach
@@ -88,8 +90,9 @@ class ServerBannerModelTest {
         notNow: ObservableSet<String>,
         prompts: InstallPrompts,
         tasks: BackgroundTasks? = null,
+        served: ObservableValue<Boolean> = SimpleBooleanProperty(true),
     ) = servers.onFx {
-        ServerBannerModel(servers.servers.session(spec), notNow, prompts) { tasks }
+        ServerBannerModel(servers.servers.session(spec), notNow, prompts, served) { tasks }
     }
 
     @Test
@@ -116,6 +119,33 @@ class ServerBannerModelTest {
         assertEquals(setOf("python"), servers.onFx { InstallPrompts(store(), Runnable::run).declined.toSet() })
         val restarted = model(servers, spec, FXCollections.observableSet(), InstallPrompts(store(), Runnable::run))
         assertNull(servers.onFx { restarted.notice.value }, "a new window after a restart does not ask")
+    }
+
+    @Test
+    fun `a sentence starting with the tool name is capitalized, one with it inside is not`() {
+        assertEquals(
+            "The TypeScript language server could not be installed: offline",
+            noticeText(ServerNotice.InstallFailed("TypeScript", "the TypeScript language server", "offline")),
+        )
+        assertEquals(
+            "Code intelligence for TypeScript needs the TypeScript language server (9 MB download).",
+            noticeText(ServerNotice.Missing("TypeScript", "the TypeScript language server", 9_000_000)),
+        )
+    }
+
+    @Test
+    fun `no notice while the document is not served, also not while its gate is unanswered, and back once served`() {
+        val spec = PySpec(FakeInstaller())
+        val servers = FxServers(folder, spec).also { fx = it }
+        val served = SimpleBooleanProperty(false)
+        val model = model(servers, spec, FXCollections.observableSet(), prompts(), served = served)
+        assertNull(servers.onFx { model.notice.value })
+
+        servers.onFx { served.set(true) }
+        assertEquals(ServerNotice.Missing("Python", "ty", 14_200_000), servers.onFx { model.notice.value })
+
+        servers.onFx { served.set(false) }
+        assertNull(servers.onFx { model.notice.value })
     }
 
     @Test

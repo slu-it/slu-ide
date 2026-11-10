@@ -21,9 +21,10 @@ class WorkspaceStatusModelTest {
     private val changes = Signal()
     private var version = 1
     private var projectFolder: Path? = window
+    private var served = true
 
     private fun model() =
-        WorkspaceStatusModel(state, folder, changes, projectFolder) { f, _ ->
+        WorkspaceStatusModel(state, folder, changes, projectFolder, { served }) { f, _ ->
             WorkspaceStatus(
                 f?.let { "project ${it.fileName} v$version" } ?: "no project",
                 f,
@@ -35,6 +36,20 @@ class WorkspaceStatusModelTest {
     fun `the line shows the spec's text, folder and tooltip while the server runs`() {
         val status = model().status.value
         assertEquals(WorkspaceStatus("project backend v1", backend, "tip /work/backend"), status)
+    }
+
+    @Test
+    fun `a document that is not served shows no line, and the line is back once it is`() {
+        served = false
+        val model = model()
+        assertNull(model.status.value)
+
+        served = true
+        changes.fire()
+        assertEquals("project backend v1", model.status.value?.text)
+        served = false
+        changes.fire()
+        assertNull(model.status.value)
     }
 
     @Test

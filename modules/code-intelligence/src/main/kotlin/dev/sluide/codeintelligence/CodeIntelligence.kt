@@ -3,6 +3,7 @@ package dev.sluide.codeintelligence
 import dev.sluide.codeintelligence.binding.BindingFeature
 import dev.sluide.codeintelligence.binding.DocumentBinding
 import dev.sluide.codeintelligence.binding.EditorAttachment
+import dev.sluide.codeintelligence.binding.ServedFeatures
 import dev.sluide.codeintelligence.completion.CompletionFeature
 import dev.sluide.codeintelligence.diagnostics.DiagnosticsFeature
 import dev.sluide.codeintelligence.navigation.BindingNavigation
@@ -27,6 +28,8 @@ import dev.sluide.codeintelligence.ui.HoverFeature
 import dev.sluide.codeintelligence.ui.SearchAnchor
 import dev.sluide.codeintelligence.ui.SearchPopup
 import dev.sluide.codeintelligence.ui.ServerHoverFeature
+import dev.sluide.codeintelligence.workspace.ConfigProblem
+import dev.sluide.codeintelligence.workspace.ConfigProblemsFeature
 import dev.sluide.codeintelligence.workspace.EnvironmentBannerFeature
 import dev.sluide.codeintelligence.workspace.WorkspaceStatusFeature
 import dev.sluide.fileviewers.CodeEditorExtension
@@ -36,6 +39,7 @@ import dev.sluide.languageservers.LanguageServerSpec
 import dev.sluide.languageservers.LanguageServers
 import dev.sluide.languageservers.ServerAvailability
 import javafx.collections.FXCollections
+import javafx.collections.ObservableMap
 import javafx.collections.ObservableSet
 import javafx.stage.Window
 import java.io.IOException
@@ -68,6 +72,7 @@ class CodeIntelligence internal constructor(
                 builtInFeatures(
                     notNow,
                     environmentNotNow,
+                    configProblemsNotNow,
                     prompts,
                     navigation,
                     libraryReadOnly,
@@ -87,6 +92,9 @@ class CodeIntelligence internal constructor(
 
     /** The project folders whose environment banner the user put off with Not Now in this window; until restart. */
     internal val environmentNotNow: ObservableSet<Path> = FXCollections.observableSet()
+
+    /** The problems of each config file whose banner the user put off with Not Now in this window; until restart. */
+    internal val configProblemsNotNow: ObservableMap<Path, List<ConfigProblem>> = FXCollections.observableHashMap()
 
     private val attachments = LinkedHashSet<EditorAttachment>()
 
@@ -252,14 +260,17 @@ private fun realPath(file: Path): Path? =
     }
 
 /**
- * The features of every binding, in order: the server banner, the project status line, the environment banner,
- * navigation, rename, file structure, diagnostics and quick fixes, semantic tokens, completion, signature help, the
- * server's hover, the hover popup, the restart item last. Hover providers are asked and context menu items shown in the order their features
- * attach.
+ * The features of every binding, in order: the server banner, the project status line, the environment banner and the
+ * configuration problems banner (always attached; for a document the server does not serve the server banner, the
+ * status line and the config problems banner show nothing, and the environment banner shows the gate's reason),
+ * then, only while the document is served ([ServedFeatures], ADR 0160): navigation, rename, file structure,
+ * diagnostics and quick fixes, semantic tokens, completion, signature help, the server's hover, the hover popup, the
+ * restart item last. Hover providers are asked and context menu items shown in the order their features attach.
  */
 internal fun builtInFeatures(
     notNow: ObservableSet<String>,
     environmentNotNow: ObservableSet<Path>,
+    configProblemsNotNow: ObservableMap<Path, List<ConfigProblem>>,
     prompts: InstallPrompts,
     navigation: Navigation,
     libraryReadOnly: () -> Boolean,
@@ -270,15 +281,20 @@ internal fun builtInFeatures(
         ServerBannerFeature(notNow, prompts),
         WorkspaceStatusFeature(revealInExplorer),
         EnvironmentBannerFeature(environmentNotNow, prompts, runInTerminal),
-        NavigationFeature(navigation),
-        OccurrencesFeature(),
-        RenameFeature(libraryReadOnly),
-        FileStructureFeature(navigation),
-        DiagnosticsFeature(libraryReadOnly),
-        SemanticTokensFeature(),
-        CompletionFeature(),
-        SignatureFeature(),
-        ServerHoverFeature(),
-        HoverFeature(),
-        RestartServerItem,
+        ConfigProblemsFeature(configProblemsNotNow),
+        ServedFeatures(
+            listOf(
+                NavigationFeature(navigation),
+                OccurrencesFeature(),
+                RenameFeature(libraryReadOnly),
+                FileStructureFeature(navigation),
+                DiagnosticsFeature(libraryReadOnly),
+                SemanticTokensFeature(),
+                CompletionFeature(),
+                SignatureFeature(),
+                ServerHoverFeature(),
+                HoverFeature(),
+                RestartServerItem,
+            ),
+        ),
     )
