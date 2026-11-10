@@ -11,8 +11,10 @@ decisions in [ADR 0145](../adr/0145-code-intelligence-module.md), [ADR 0146](../
 [ADR 0148](../adr/0148-diagnostics-quick-fixes-semantic-highlighting.md) and
 [ADR 0149](../adr/0149-rename-file-structure-go-to-symbol.md)
 
-Code editors of files a language server serves get code intelligence from it: for now Python (`.py`, `.pyi`, `.pyw`)
-through ty ([python.md](python.md)). Only files inside the window's project folder are served; a window without a
+Code editors of files a language server serves get code intelligence from it: Python (`.py`, `.pyi`, `.pyw`)
+through ty ([python.md](python.md)), and TypeScript and JavaScript (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`,
+`.mjs`, `.cjs`) of TypeScript 6 or later projects through the TypeScript 7 server ([typescript.md](typescript.md)).
+The sections below use Python's texts as examples. Only files inside the window's project folder are served; a window without a
 folder, scratch files and files outside the project get none. Highlighting and editing work as before in every state
 below, with or without a server.
 
