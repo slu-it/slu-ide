@@ -230,6 +230,20 @@ the Bicep graph and `BicepParamFileViewer`.
     adds style classes (`StyledRange`) over the highlighting and the error mark, restyling only the changed span
     (an edit or `replaceText` clears it), `reveal(start, end)` scrolls a range into view without moving the caret. Its
     font is inherited from its `node`: the caller binds the node's style to `FontSettings.font(FontArea.EDITOR)` (`FontSpec::toCss`) if it should have the editor font.
+  - Content-backed views (`FileContent.kt`): a `CodeView` reads and saves its file's bytes only through a
+    `FileContent` (`read()`, `write(bytes)`, `confidential`), by default `DiskContent(file)` (`Files.readAllBytes`,
+    `Files.write` in place, following a move). `CodeEditors.open(..., content)` and a `ContentFileViewer`
+    (`opensContent(name)`, `open(file, content)`) take content from elsewhere, e.g. a decrypted file: the `file` given
+    is then a virtual path that decides type, highlighting and `.editorconfig` (its folder's), and is never read,
+    written, watched or checked for existence; a moved view keeps that content. Encoding, line endings and changes
+    (`DiskChange`, on `reload()`) work on the content's bytes as on a file's. `DefaultTextFileViewer` is the
+    `ContentFileViewer` for `.txt` names. Content that is `confidential` gets no `CodeEditorExtension` unless the
+    extension sets `attachesToConfidential` (none does yet). `FileView.wipe()` clears what a view holds of its
+    content before it is disposed (no-op by default); code views and `CodeEditor.wipe()` empty the text, forget the
+    undo history, make the saved text empty (clean, no change markers) and clear the find bar's query and matches.
+    `FileView.tabMenuItems` (items for the tab's context menu, none by default) and `FileView.lockMarkerText` (the
+    tooltip of the tab's lock icon, `LIBRARY_CODE_LOCK_TEXT` "Library code, read-only" by default) let a view adapt
+    its tab.
   - `CodeEditorExtensions` (`CodeEditorExtensions.kt`) is a window service that extends every code editor of the
     window, whichever view embeds it ([ADR 0108](../adr/0108-code-editor-extensions-and-context-menu.md)). Each
     `CodeEditorExtension` added to it gets `extend(editor)` once per code view, on the FX thread, when the view first
