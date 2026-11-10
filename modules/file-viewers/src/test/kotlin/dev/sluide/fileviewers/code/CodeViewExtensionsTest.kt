@@ -77,6 +77,33 @@ class CodeViewExtensionsTest {
     }
 
     @Test
+    fun `a confidential editor gets only the extensions that attach to confidential content`() {
+        val window =
+            CodeEditorExtensions().apply {
+                add { extended ->
+                    events += "plain extends ${extended.file.value}"
+                    null
+                }
+                add(
+                    object : CodeEditorExtension {
+                        override val attachesToConfidential = true
+
+                        override fun extend(editor: ExtensibleCodeEditor): AutoCloseable? {
+                            events += "opted in extends ${editor.file.value}"
+                            return null
+                        }
+                    },
+                )
+            }
+        val confidential = CodeViewExtensions(editor, confidential = true) { host -> attached += host }
+
+        confidential.attach(host(window))
+        extensions.attach(host(window))
+
+        assertEquals(listOf("opted in extends a.py", "plain extends a.py", "opted in extends a.py"), events)
+    }
+
+    @Test
     fun `an extension that throws is logged and skipped, the others still extend and close`() {
         val window =
             CodeEditorExtensions().apply {

@@ -44,6 +44,12 @@ fun interface CodeEditorExtension {
      * handle (`null` for none) is closed when the editor is disposed.
      */
     fun extend(editor: ExtensibleCodeEditor): AutoCloseable?
+
+    /**
+     * Whether the extension also extends editors of confidential content ([FileContent.confidential], e.g. a decrypted
+     * file), whose text must not leave the view; `false` by default, so such editors get no extensions.
+     */
+    val attachesToConfidential: Boolean get() = false
 }
 
 /**

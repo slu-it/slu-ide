@@ -52,7 +52,8 @@ import java.time.Duration
  * when the file is [moved].
  *
  * The file's bytes are read and saved only through [content] (the file on disk by default); content from elsewhere
- * (e.g. decrypted) makes [file] a virtual path, used for its name and folder only.
+ * (e.g. decrypted) makes [file] a virtual path, used for its name and folder only. Extensions skip content that is
+ * [FileContent.confidential] unless they opt in.
  *
  * Edited text is highlighted again once typing pauses, on a background thread; the result is handed to the FX thread
  * through [dispatch] (`Platform.runLater`, replaced in tests), and dropped if the text changed meanwhile. Only the
@@ -118,7 +119,7 @@ internal class CodeView(
 
     /** What features of the window see of the view and add to it (ADR 0108), from the first [host] that has them. */
     val extensible = ExtensibleCodeView(this, area, initialFile, additions, jumpScroll, highlighter == null)
-    private val extensions = CodeViewExtensions(extensible, extensible::attached)
+    private val extensions = CodeViewExtensions(extensible, content.confidential, extensible::attached)
     private val contextMenu = EditorContextMenu(area, extensible::contextMenuItems, listOf(softWrap.menuItem))
 
     /**

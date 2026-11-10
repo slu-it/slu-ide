@@ -117,6 +117,29 @@ class CodeEditorExtensionsUiTest {
     }
 
     @Test
+    fun `an editor of confidential content is not extended`(robot: FxRobot) {
+        val extended = mutableListOf<ExtensibleCodeEditor>()
+        val extensions = recording(extended, mutableListOf())
+        val secret =
+            object : FileContent {
+                override fun read() = "x = 1\n".toByteArray()
+
+                override fun write(bytes: ByteArray) {}
+
+                override val confidential = true
+            }
+        val editor =
+            WaitForAsyncUtils
+                .asyncFx<CodeEditor> { CodeEditors.open(dir.resolve("secret.py"), null, content = secret) }
+                .get()
+
+        robot.interact { editor.host = host(extensions) }
+
+        // Opting in is CodeViewExtensionsTest's; this is the confidential flag reaching the extensions.
+        assertEquals(emptyList(), extended)
+    }
+
+    @Test
     fun `an extension sees the lines, adds a gutter column and follows the shown lines`(robot: FxRobot) {
         val extended = mutableListOf<ExtensibleCodeEditor>()
         val view =
