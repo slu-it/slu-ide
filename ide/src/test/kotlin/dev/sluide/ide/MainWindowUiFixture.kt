@@ -449,7 +449,7 @@ abstract class MainWindowUiFixture {
             Sudoku(SudokuPreferences(projectData), GameZoomPreferences(projectData)).also(sudokuGames::add),
             Solitaire(SolitairePreferences(projectData)).also(solitaireGames::add),
             OrbitGuard(OrbitGuardPreferences(projectData), GameZoomPreferences(projectData)).also(orbitGuardGames::add),
-            BlockBreaker(BlockBreakerPreferences(projectData)).also(blockBreakerGames::add),
+            BlockBreaker(BlockBreakerPreferences(projectData), GameZoomPreferences(projectData)).also(blockBreakerGames::add),
             MiniGolf(MiniGolfPreferences(projectData)).also(miniGolfGames::add),
             PipePuzzle(PipePuzzlePreferences(projectData)).also(pipePuzzleGames::add),
             // Only its folder and capturing flag are read; the tests replace the capture.

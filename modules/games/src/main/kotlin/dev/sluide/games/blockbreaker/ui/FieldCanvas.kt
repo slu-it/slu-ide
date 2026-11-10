@@ -4,20 +4,22 @@ import dev.sluide.games.blockbreaker.BlockBreakerGame
 import dev.sluide.games.blockbreaker.BlockBreakerModel
 import dev.sluide.games.common.SessionState
 import dev.sluide.games.common.ui.FieldLayout
+import dev.sluide.games.common.ui.FieldPlacement
 import javafx.scene.canvas.Canvas
 import javafx.util.Subscription
 
 /**
  * The logical field x of [x], a coordinate in an area of [areaWidth] x [areaHeight] showing the field as [layout]
- * fits it; may lie outside the field (the model clamps). Pure.
+ * fits it at [zoom]; may lie outside the field (the model clamps). Pure.
  */
 internal fun fieldX(
     layout: FieldLayout,
     areaWidth: Double,
     areaHeight: Double,
     x: Double,
+    zoom: Double,
 ): Double {
-    val place = layout.fit(areaWidth, areaHeight, 1.0)
+    val place = layout.fit(areaWidth, areaHeight, 1.0, zoom)
     return (x - place.offsetX) / place.scale
 }
 
@@ -33,6 +35,13 @@ internal class FieldCanvas(
     /** The device scale of the current images; null before the first drawing. */
     internal val deviceScale: Double? get() = images?.deviceScale
 
+    /** The game zoom (ADR 0155), at most 1.0; setting it redraws. */
+    var zoom: Double = 1.0
+        set(value) {
+            field = value
+            redraw()
+        }
+
     private val scaleSubscription: Subscription =
         sceneProperty()
             .flatMap { it.windowProperty() }
@@ -45,7 +54,11 @@ internal class FieldCanvas(
     }
 
     /** The logical field x of [x] in canvas coordinates. */
-    fun fieldX(x: Double): Double = fieldX(layout, width, height, x)
+    fun fieldX(x: Double): Double = fieldX(layout, width, height, x, zoom)
+
+    /** Where the field lies in the canvas at the current zoom. */
+    internal val placement: FieldPlacement
+        get() = layout.fit(width, height, scene?.window?.renderScaleX ?: 1.0, zoom)
 
     /** Stops following the window's render scale. */
     fun dispose() = scaleSubscription.unsubscribe()
@@ -53,7 +66,7 @@ internal class FieldCanvas(
     fun redraw() {
         if (width <= 0 || height <= 0) return
         val outputScale = scene?.window?.renderScaleX ?: 1.0
-        val place = layout.fit(width, height, outputScale)
+        val place = placement
         val device = place.scale * outputScale
         val brickImages = images?.takeIf { it.deviceScale == device } ?: BrickImages(device).also { images = it }
         val gc = graphicsContext2D

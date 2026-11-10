@@ -5,6 +5,7 @@ import dev.sluide.games.blockbreaker.BlockBreakerModel
 import dev.sluide.games.blockbreaker.BlockBreakerPreferences
 import dev.sluide.games.blockbreaker.ui.BlockBreakerTab
 import dev.sluide.games.blockbreaker.ui.BlockBreakerView
+import dev.sluide.games.common.GameZoomPreferences
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -21,7 +22,10 @@ class BlockBreaker internal constructor(
     private val tabFactory: (BlockBreakerModel) -> EditorTab,
 ) {
     @Autowired
-    constructor(preferences: BlockBreakerPreferences) : this(preferences, { BlockBreakerTab(BlockBreakerView(it)) })
+    constructor(
+        preferences: BlockBreakerPreferences,
+        zoomPreferences: GameZoomPreferences,
+    ) : this(preferences, { BlockBreakerTab(BlockBreakerView(it, zoomPreferences)) })
 
     /** Shows the Block Breaker tab of the window (opening it if needed); set by ide. */
     var showTab: () -> Unit = {}

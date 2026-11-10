@@ -6,7 +6,10 @@ import dev.sluide.games.blockbreaker.BlockBreakerModel
 import dev.sluide.games.blockbreaker.Difficulty
 import dev.sluide.games.blockbreaker.KeyAction
 import dev.sluide.games.blockbreaker.keyAction
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.common.SessionState
+import dev.sluide.games.common.ZoomRange
+import dev.sluide.games.common.ui.GameZoomControls
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.RealtimeLoop
 import dev.sluide.games.common.ui.focusBoardOnPress
@@ -38,6 +41,7 @@ import java.util.Locale
  */
 internal class BlockBreakerView(
     private val model: BlockBreakerModel,
+    zoomPreferences: GameZoomPreferences,
 ) {
     val canvas = FieldCanvas(model)
     val newGameButton = Button("New Game")
@@ -69,6 +73,11 @@ internal class BlockBreakerView(
                 toggleGroup = difficultyGroup
                 setOnAction { chooseDifficulty(difficulty) }
             }
+        }
+
+    internal val zoomControls =
+        GameZoomControls(ZoomRange.UP_TO_FIT, zoomPreferences.zoom(GAME_ID, ZoomRange.UP_TO_FIT)) {
+            zoomPreferences.setZoom(GAME_ID, it)
         }
 
     val node: Node =
@@ -110,6 +119,8 @@ internal class BlockBreakerView(
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
         focusBoardOnPress(node, board)
+        zoomControls.zoom.subscribe { zoom -> canvas.zoom = zoom.toDouble() }
+        zoomControls.install(node)
         model.onChange = installedChange
         // The subscription above ran before the view owned the model.
         model.windowFocusChanged(windowCountsAsActive(board.scene?.window?.isFocused))
@@ -145,6 +156,7 @@ internal class BlockBreakerView(
         return WrappingToolbar().apply {
             hgap = 6.0
             leading.setAll(newGameButton, difficultyMenu, pauseButton)
+            trailing.setAll(zoomControls.node)
             styleClass += "bb-toolbar"
         }
     }
@@ -247,6 +259,7 @@ internal class BlockBreakerView(
     }
 
     private companion object {
+        const val GAME_ID = "blockBreaker"
         const val ICON_SIZE = 16
     }
 }

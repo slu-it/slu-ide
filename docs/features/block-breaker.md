@@ -110,9 +110,13 @@ by accident.
   the difficulty has a best. The tab's tooltip is "Clear the wall with paddle and ball".
 
 ## Scaling
-The field keeps its 4:3 ratio (320 × 240 logical pixels), is centred in the tab and scaled to fill it, at least scale 1;
+The field keeps its 4:3 ratio (320 × 240 logical pixels), is centred in the tab and scaled to fill it, at least scale 1
+at Fit (the zoom goes below it);
 the edges of each logical pixel are snapped to device pixels, so it stays sharp at fractional scales. The mouse position
 is mapped back to logical pixels. The toolbar wraps when the tab is narrow.
+
+Zoom: 25%–Fit, see [game-zoom.md](game-zoom.md); the field then gets smaller than the tab, centred, with the board
+background around it.
 
 ## Stored
 User-wide in `~/.sluide/shared.json`, field `blockBreaker` ([ADR 0101](../adr/0101-shared-data-file.md)): the last

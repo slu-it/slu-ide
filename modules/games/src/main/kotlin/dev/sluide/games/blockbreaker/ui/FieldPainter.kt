@@ -33,7 +33,7 @@ internal class Frame(
         fh: Double,
     ) {
         gc.fill = color
-        gc.fillRect(place.x(fx), place.y(fy), place.x(fx + fw) - place.x(fx), place.y(fy + fh) - place.y(fy))
+        gc.fillRect(place.x(fx), place.y(fy), place.spanWidth(fx, fw), place.spanHeight(fy, fh))
     }
 
     /**

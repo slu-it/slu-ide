@@ -8,7 +8,9 @@ import dev.sluide.games.blockbreaker.Difficulty
 import dev.sluide.games.blockbreaker.FixedRandom
 import dev.sluide.games.blockbreaker.PowerUp
 import dev.sluide.games.blockbreaker.Rules
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.common.SessionState
+import dev.sluide.games.common.ZoomRange
 import dev.sluide.games.common.ui.FieldLayout
 import dev.sluide.games.common.ui.firePress
 import dev.sluide.projectdata.ProjectDataStore
@@ -55,6 +57,7 @@ class BlockBreakerViewUiTest {
     lateinit var dir: Path
 
     private lateinit var model: BlockBreakerModel
+    private lateinit var zoomPreferences: GameZoomPreferences
     private lateinit var view: BlockBreakerView
     private lateinit var stage: Stage
     private lateinit var other: TextField
@@ -71,7 +74,8 @@ class BlockBreakerViewUiTest {
             BlockBreakerModel(preferences) { difficulty, _ ->
                 BlockBreakerGame(difficulty, FixedRandom()).also { if (withScore) it.addScore(100) }
             }
-        view = BlockBreakerView(model)
+        zoomPreferences = GameZoomPreferences(store, java.time.Duration.ZERO) { it.run() }
+        view = BlockBreakerView(model, zoomPreferences)
         view.confirmAbandon = { title, verb, score ->
             asked += Triple(title, verb, score)
             answer
@@ -317,7 +321,7 @@ class BlockBreakerViewUiTest {
     @Test
     fun `a disposed view leaves the model to the view that took it over`(robot: FxRobot) {
         startCountdown(robot)
-        val second = fx { BlockBreakerView(model) }
+        val second = fx { BlockBreakerView(model, zoomPreferences) }
 
         try {
             robot.interact { view.dispose() }
@@ -369,5 +373,22 @@ class BlockBreakerViewUiTest {
 
         robot.interact { other.requestFocus() }
         assertEquals(Cursor.DEFAULT, fx { view.board.cursor })
+    }
+
+    @Test
+    fun `zooming out shrinks the field, is saved and zoom in is disabled at Fit`(robot: FxRobot) {
+        fun width() = fx { view.canvas.placement.width }
+        val fit = width()
+        assertTrue(fx { view.zoomControls.zoomInButton.isDisable })
+
+        robot.interact { view.zoomControls.zoomTo(0.5) }
+
+        assertEquals(fit / 2, width(), 2.0)
+        assertEquals(0.5, fx { view.canvas.zoom })
+        // The pointer mapping of the press, drag and release paths follows the zoom.
+        assertEquals(0.0, fx { view.canvas.fieldX(view.canvas.placement.x(0.0)) }, 1.0)
+        assertEquals(320.0, fx { view.canvas.fieldX(view.canvas.placement.x(320.0)) }, 1.0)
+        assertEquals(0.5, fx { zoomPreferences.zoom("blockBreaker", ZoomRange.UP_TO_FIT) })
+        assertFalse(fx { view.zoomControls.zoomInButton.isDisable })
     }
 }
