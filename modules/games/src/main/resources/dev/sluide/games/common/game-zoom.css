@@ -1,0 +1,11 @@
+/*
+ * The zoom group of the game toolbars (GameZoomControls). It uses the theme's looked-up colours only, so it needs no
+ * dark rules.
+ */
+.game-zoom {
+    -fx-spacing: 2;
+}
+
+.game-zoom .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
