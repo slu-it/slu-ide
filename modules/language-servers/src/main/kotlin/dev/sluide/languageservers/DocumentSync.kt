@@ -1,5 +1,6 @@
 package dev.sluide.languageservers
 
+import dev.sluide.languageservers.workspace.Resolution
 import dev.sluide.languageservers.workspace.WorkspaceDocument
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableValue
@@ -29,6 +30,13 @@ private val log = System.getLogger(DocumentSync::class.java.name)
  *
  * Each document's workspace folder is asked off the FX thread when it opens or moves; its `didOpen` waits for the
  * answer on the outbound thread, after the folder was added on the server (ADR 0151).
+ *
+ * For a spec that gates documents ([LanguageServerSpec.gatesDocuments], ADR 0160) a document reaches the server only
+ * while its gate answer says served: nothing is sent before the answer, nor ever for a document that is not served.
+ * An answer that flips sends `didClose` (served to not served) or `didOpen` with the current text and the next version
+ * (not served to served). Whether a document is open on the server is decided on the FX thread and checked once more
+ * on the outbound thread per connection: a `didClose` goes only to a connection that got the document's `didOpen`
+ * (the TypeScript server crashes on any other).
  */
 class DocumentSync internal constructor(
     private val session: LanguageServerSession,
@@ -36,7 +44,7 @@ class DocumentSync internal constructor(
     private val documents = LinkedHashMap<Path, Document>()
 
     init {
-        session.onConnected { documents.values.forEach { it.reopen() } }
+        session.onConnected { documents.values.filter { it.isOpenOnServer }.forEach { it.reopen() } }
     }
 
     /**
@@ -44,7 +52,7 @@ class DocumentSync internal constructor(
      * editor normalizes it), starting the server if it is stopped. Counted per file: opening an open file returns
      * another handle to the same document (with the text it has) and the server hears `didClose` when the last handle
      * closes. Only one editor feeds a file's changes (one editor per file, ADR 0134); other handles read positions and
-     * save.
+     * save. For a spec that gates documents, the `didOpen` (and the start) waits until the gate answered served.
      */
     fun open(
         file: Path,
@@ -52,18 +60,26 @@ class DocumentSync internal constructor(
         text: String,
     ): SyncedDocument {
         val key = key(file)
-        val document =
-            documents[key] ?: Document(key, languageId, text).also {
-                documents[key] = it
-                it.resolveFolder()
-            }
-        document.handles++
-        if (document.handles == 1) document.sendOpen()
+        documents[key]?.let { open ->
+            open.handles++
+            return SyncedDocument(open)
+        }
+        val document = Document(key, languageId, text)
+        documents[key] = document
+        document.handles = 1
+        document.resolveFolder()
+        document.sync()
         return SyncedDocument(document)
     }
 
     /** Whether [file] is open. */
     fun isOpen(file: Path): Boolean = key(file) in documents
+
+    /** The gate answer of the open [file] ([LanguageServerSession.gateOf]). */
+    internal fun gateOf(file: Path): DocumentGate? = documents[key(file)]?.gate
+
+    /** Whether an open document is served. */
+    internal fun anyServed(): Boolean = documents.values.any { it.gate?.served == true }
 
     /** The workspace folder of the open [file] ([LanguageServerSession.workspaceFolderOf]). */
     internal fun folderOf(file: Path): ObservableValue<Path?> =
@@ -94,41 +110,112 @@ class DocumentSync internal constructor(
 
         private val uri get() = LspUris.of(file)
 
-        override var folder: CompletableFuture<Path?> = CompletableFuture.completedFuture(null)
+        override var resolution: CompletableFuture<Resolution> =
+            CompletableFuture.completedFuture(Resolution(null, DocumentGate.SERVED))
             private set
 
         private val folderWrapper = ReadOnlyObjectWrapper<Path?>(null)
         val folderValue: ObservableValue<Path?> = folderWrapper.readOnlyProperty
 
-        /** Asks the spec for the workspace folder of [file]; the value follows on the FX thread. */
-        fun resolveFolder() = adopt(session.workspace.resolve(file))
+        private val gating get() = session.spec.gatesDocuments
 
-        override fun adopt(resolution: CompletableFuture<Path?>) {
-            folder = resolution
-            if (resolution.isDone) {
-                show(resolution, resolution.getNow(null))
-            } else {
-                resolution.thenAccept { path -> session.fx { show(resolution, path) } }
-            }
+        /** The gate answer shown ([LanguageServerSession.gateOf]): `null` until a gating spec answered. */
+        var gate: DocumentGate? = if (gating) null else DocumentGate.SERVED
+            private set
+
+        /** Whether a `didOpen` was queued since the last `didClose`: open on the server as the FX thread decided. */
+        var isOpenOnServer = false
+            private set
+
+        /** Whether any `didOpen` was queued: the first one has version 1, every later one the next version. */
+        private var announced = false
+
+        /** The connection that got this document's `didOpen` and no `didClose` since; outbound thread only. */
+        @Volatile
+        private var openedOn: Int? = null
+
+        /** The fail-closed wait of a gating spec's unanswered resolution. */
+        private var timeout: AutoCloseable? = null
+
+        private val isLive get() = !detached && handles > 0 && documents[file] === this
+
+        /** Asks the spec for the workspace folder (and gate) of [file]; the values follow on the FX thread. */
+        fun resolveFolder() {
+            adopt(session.workspace.resolve(file))
+        }
+
+        override fun adopt(resolution: CompletableFuture<Resolution>): Boolean {
+            this.resolution = resolution
+            timeout?.close()
+            timeout = null
+            if (resolution.isDone) return show(resolution, resolution.join())
+            resolution.thenAccept { answer -> session.fx { show(resolution, answer) } }
+            if (gating) timeout = session.workspace.afterWait { failClosed(resolution) }
+            return false
         }
 
         private fun show(
-            resolution: CompletableFuture<Path?>,
-            path: Path?,
-        ) {
-            if (folder === resolution && folderWrapper.get() != path) {
-                folderWrapper.set(path)
-                session.workspaceChanged()
+            resolution: CompletableFuture<Resolution>,
+            answer: Resolution,
+        ): Boolean {
+            if (this.resolution !== resolution || detached || documents[file] !== this) return false
+            timeout?.close()
+            timeout = null
+            return apply(answer.folder, answer.gate)
+        }
+
+        /** The gating spec did not answer within the folder wait: not served until it does (fail closed). */
+        private fun failClosed(resolution: CompletableFuture<Resolution>) {
+            if (this.resolution !== resolution || resolution.isDone || !isLive) return
+            log.log(System.Logger.Level.WARNING, "lsp ${session.spec.id}: no gate answer for $file yet; not served")
+            apply(folderWrapper.get(), Resolution.NOT_SERVED)
+        }
+
+        /** Shows [folder] and [newGate], opens or closes the document on the server as it says; whether it did. */
+        private fun apply(
+            folder: Path?,
+            newGate: DocumentGate,
+        ): Boolean {
+            val folderChanged = folderWrapper.get() != folder
+            if (folderChanged) folderWrapper.set(folder)
+            val gateChanged = gate != newGate
+            gate = newGate
+            if (gateChanged && isLive) session.workspace.gates.name(this, newGate.watched)
+            val synced = sync()
+            if (folderChanged || gateChanged) session.workspaceChanged()
+            return synced
+        }
+
+        /**
+         * Opens the document on the server if it is open here and served but not open there, closes it if it is open
+         * there but no longer here or no longer served; whether it sent one. A gating spec's server starts with the
+         * first document served.
+         */
+        fun sync(): Boolean {
+            val wanted = isLive && gate?.served == true
+            if (wanted == isOpenOnServer) return false
+            if (wanted) {
+                if (gating) session.startServed()
+                if (announced) version++
+                sendOpen()
+            } else {
+                sendClose()
+            }
+            return true
+        }
+
+        private fun sendOpen() {
+            isOpenOnServer = true
+            announced = true
+            val params = DidOpenTextDocumentParams(TextDocumentItem(uri, languageId, version, text.toString()))
+            session.notifyInFolder(resolution) { running ->
+                running.server.textDocumentService.didOpen(params)
+                openedOn = running.epoch
             }
         }
 
-        fun sendOpen() {
-            val item = TextDocumentItem(uri, languageId, version, text.toString())
-            session.notifyInFolder(folder) { it.textDocumentService.didOpen(DidOpenTextDocumentParams(item)) }
-        }
-
         override fun reopenOnServer() {
-            if (detached) return
+            if (detached || !isOpenOnServer) return
             sendClose()
             reopen()
         }
@@ -188,19 +275,20 @@ class DocumentSync internal constructor(
         }
 
         private fun sendChange(event: TextDocumentContentChangeEvent) {
+            if (!isOpenOnServer) return
             val params = DidChangeTextDocumentParams(VersionedTextDocumentIdentifier(uri, version), listOf(event))
-            session.notify { it.textDocumentService.didChange(params) }
+            session.notifyRunning { if (openedOn == it.epoch) it.server.textDocumentService.didChange(params) }
         }
 
         fun saved() {
-            if (detached) return
+            if (detached || !isOpenOnServer) return
             val options = session.features.saveOptions() ?: return
             val params =
                 DidSaveTextDocumentParams(
                     TextDocumentIdentifier(uri),
                     if (options.includeText) text.toString() else null,
                 )
-            session.notify { it.textDocumentService.didSave(params) }
+            session.notifyRunning { if (openedOn == it.epoch) it.server.textDocumentService.didSave(params) }
         }
 
         fun moved(to: Path) {
@@ -216,29 +304,52 @@ class DocumentSync internal constructor(
             }
             sendClose()
             documents.remove(file, this)
+            session.workspace.gates.forget(this)
             file = target
             documents[target] = this
+            // The answer was for the old path: a gating spec is asked again, not served until it answers.
+            val hadGate = gating && gate != null
+            if (gating) gate = null
             resolveFolder()
-            reopen()
+            sync()
+            if (hadGate && gate == null) session.workspaceChanged()
         }
 
         fun closed() {
             handles--
             if (handles > 0 || detached) return
             documents.remove(file, this)
-            sendClose()
+            ended()
         }
 
         /** Closes the document on the server for good; its handles do nothing any more. */
         private fun detach() {
-            sendClose()
             documents.remove(file, this)
             detached = true
+            ended()
         }
 
+        /** The document is no longer open here: closed on the server if it was open there, its watches end. */
+        private fun ended() {
+            sendClose()
+            session.workspace.gates.forget(this)
+            timeout?.close()
+            timeout = null
+        }
+
+        /**
+         * `didClose`, decided on the outbound thread: only a connection that got the document's `didOpen` (and no
+         * `didClose` since) gets it, whatever the FX thread believes; on another one (a new server, or none got it, the
+         * document was not served) it is dropped, as the server never saw the document. Starts no server.
+         */
         private fun sendClose() {
+            isOpenOnServer = false
             val params = DidCloseTextDocumentParams(TextDocumentIdentifier(uri))
-            session.notify { it.textDocumentService.didClose(params) }
+            session.notifyRunning(start = false) { running ->
+                if (openedOn != running.epoch) return@notifyRunning
+                openedOn = null
+                running.server.textDocumentService.didClose(params)
+            }
         }
     }
 }
@@ -257,7 +368,8 @@ class SyncedDocument internal constructor(
 
     /**
      * The version the server last got or will get: 1 at open, one more with every change, every move and every reopen
-     * on a new server.
+     * on a new server. A document a gating spec does not serve keeps counting its changes; its first `didOpen` carries
+     * the version it has then, a later one the next.
      */
     val version: Int get() = document.version
 

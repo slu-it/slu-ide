@@ -50,4 +50,31 @@ class LanguageServerSpecTest {
         assertNull(plain.workspaceStatus(null, window))
         assertNull(plain.environmentProblem(file, window))
     }
+
+    @Test
+    fun `by default no document is gated and the status line is the folder's`() {
+        val window = Path.of("/work/mono")
+        val file = window.resolve("apps/a/main.ts")
+        val status = WorkspaceStatus("TypeScript project: apps/a", window.resolve("apps/a"), null)
+        val folderStatus =
+            object : LanguageServerSpec {
+                override val id = "folders"
+                override val name = "Folders"
+
+                override fun matches(file: Path) = true
+
+                override fun languageId(file: Path) = "folders"
+
+                override fun command(): ServerCommand? = null
+
+                override fun workspaceStatus(
+                    folder: Path?,
+                    projectFolder: Path,
+                ) = status
+            }
+
+        assertFalse(plain.gatesDocuments)
+        assertEquals(DocumentGate.SERVED, plain.gate(file, window))
+        assertEquals(status, folderStatus.workspaceStatus(file, window.resolve("apps/a"), window))
+    }
 }

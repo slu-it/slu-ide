@@ -23,12 +23,14 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -42,6 +44,15 @@ class DocumentSyncTest {
     lateinit var folder: Path
 
     private val spec = TestSpec()
+
+    /** A spec that gates documents: files whose name starts with `old` are not served. */
+    private val gating =
+        TestSpec(gatesDocuments = true, gates = {
+            file,
+            _,
+            ->
+            DocumentGate(!file.fileName.toString().startsWith("old"))
+        })
     private val fx = Executors.newSingleThreadExecutor { Thread(it, "test-fx").apply { isDaemon = true } }
     private val connects = AtomicInteger()
     private var servers: LanguageServers? = null
@@ -56,6 +67,7 @@ class DocumentSyncTest {
     private fun session(
         capabilities: () -> ServerCapabilities = { syncing(TextDocumentSyncKind.Incremental) },
         beforeStart: (Int) -> Unit = {},
+        spec: TestSpec = this.spec,
     ): LanguageServerSession {
         starter = FakeStarter({ FakeServer().apply { this.capabilities = capabilities() } }, beforeStart)
         val created =
@@ -107,6 +119,26 @@ class DocumentSyncTest {
         get() = documentNotifications.filterIsInstance<DidCloseTextDocumentParams>().map { it.textDocument.uri }
 
     private fun uri(name: String) = LspUris.of(folder.resolve(name))
+
+    /** The document notifications [this] got, as `open a.py 1`, `change a.py`, `save a.py`, `close a.py`. */
+    private fun FakeServer.log() =
+        documentNotifications.map { notification ->
+            when (notification) {
+                is DidOpenTextDocumentParams -> "open ${name(
+                    notification.textDocument.uri,
+                )} ${notification.textDocument.version}"
+
+                is DidChangeTextDocumentParams -> "change ${name(notification.textDocument.uri)}"
+
+                is DidSaveTextDocumentParams -> "save ${name(notification.textDocument.uri)}"
+
+                is DidCloseTextDocumentParams -> "close ${name(notification.textDocument.uri)}"
+
+                else -> notification.toString()
+            }
+        }
+
+    private fun name(uri: String) = LspUris.toPath(uri)?.fileName.toString()
 
     @Test
     fun `each change of a batch reaches an incremental server as a range on the text the change before left`() {
@@ -328,6 +360,85 @@ class DocumentSyncTest {
         session.flush(server)
         assertEquals(listOf("abcd" to 3), server.opens.map { it.textDocument.text to it.textDocument.version })
         assertEquals(emptyList(), server.changes)
+    }
+
+    @Test
+    fun `a window whose documents are all not served never starts the server, not on edits, requests or restarts`() {
+        val session = session(spec = gating)
+        val old = session.open("old.py", "x")
+        val error = CompletableFuture<Throwable>()
+
+        onFx {
+            old.changed(DocumentChange(1, "", "y")) { "xy" }
+            old.saved()
+            session.ensureStarted()
+            session.request<Any>({ CompletableFuture() }, {}, { error.complete(it) })
+            session.notify {
+                it.workspaceService.didChangeConfiguration(DidChangeConfigurationParams(emptyMap<String, Any>()))
+            }
+            session.restart()
+            old.moved(folder.resolve("old2.py"))
+        }
+
+        assertIs<LanguageServerNotRunningException>(error.get(5, TimeUnit.SECONDS))
+        assertEquals(DocumentGate(false), onFx { session.gateOf(folder.resolve("old2.py")) })
+        assertEquals(null, onFx { session.gateOf(folder.resolve("old.py")) }, "not open any more")
+        onFx { old.close() }
+        assertEquals(ServerState.Stopped, onFx { session.state.value })
+        assertEquals(emptyList(), starter.processes)
+    }
+
+    @Test
+    fun `a started gated server restarts also once its last served document closed`() {
+        val session = session(spec = gating)
+        val served = session.open("a.py", "a")
+        awaitTrue("started by the served document") { connects.get() == 1 }
+        onFx { served.close() }
+
+        onFx { session.restart() }
+
+        awaitTrue("restarted, for an update of the server") { connects.get() == 2 }
+        assertEquals(2, starter.processes.size)
+    }
+
+    @Test
+    fun `a document its gate does not serve never reaches the server, through edits, saves, moves and restarts`() {
+        val session = session(spec = gating, capabilities = { saving(Either.forRight(SaveOptions(true))) })
+        val served = session.open("a.py", "a")
+        awaitTrue("started by the served document") { connects.get() == 1 }
+        val first = starter.last.server
+        val old = session.open("old.py", "x")
+        onFx {
+            old.changed(DocumentChange(1, "", "y")) { "xy" }
+            old.saved()
+            old.moved(folder.resolve("old2.py"))
+            served.changed(DocumentChange(1, "", "b")) { "ab" }
+        }
+        session.flush(first)
+
+        val before = connects.get()
+        onFx { session.restart() }
+        awaitTrue("restarted") { connects.get() > before }
+        val second = starter.last.server
+        onFx {
+            // Served under its new name: opened with its current text, the first version it reaches a server with.
+            old.moved(folder.resolve("new.py"))
+            old.close()
+            served.close()
+        }
+        session.flush(second)
+
+        // The first didOpen went to the starting server and was dropped; the reopen on connect counts one more.
+        assertEquals(listOf("open a.py 2", "change a.py"), first.log())
+        assertEquals(listOf("open a.py 4", "open new.py 2", "close new.py", "close a.py"), second.log())
+        assertEquals(
+            "xy",
+            second.opens
+                .single { it.textDocument.uri == uri("new.py") }
+                .textDocument.text,
+        )
+        first.assertClosesFollowOpens()
+        second.assertClosesFollowOpens()
     }
 
     private fun DidChangeTextDocumentParams.describe() = contentChanges.single().describe()

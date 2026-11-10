@@ -39,7 +39,10 @@ class FakeLanguageServers(
     /** The fake servers started so far, oldest first. */
     val started: List<FakeServer> get() = starter.processes.map { it.server }
 
-    /** Starts [spec]'s server and waits until it runs; the fake server that runs. */
+    /**
+     * Starts [spec]'s server and waits until it runs; the fake server that runs. A spec that gates documents starts only
+     * once an open document is served (ADR 0160): open one first.
+     */
     fun awaitRunning(spec: LanguageServerSpec): FakeServer {
         val session = servers.session(spec)
         session.ensureStarted()

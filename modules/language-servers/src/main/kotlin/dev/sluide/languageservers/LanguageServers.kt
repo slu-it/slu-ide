@@ -7,14 +7,11 @@ import dev.sluide.languageservers.connection.ServerTiming
 import dev.sluide.languageservers.connection.SleepingScheduler
 import dev.sluide.languageservers.files.DirectoryWatcher
 import dev.sluide.languageservers.files.ProjectWatch
-import dev.sluide.languageservers.files.WatcherFilter
 import dev.sluide.languageservers.process.OsServerStarter
 import dev.sluide.languageservers.process.ServerStarter
 import javafx.application.Platform
 import javafx.beans.property.ReadOnlyObjectProperty
-import org.eclipse.lsp4j.DidChangeWatchedFilesParams
 import org.eclipse.lsp4j.FileChangeType
-import org.eclipse.lsp4j.FileEvent
 import java.nio.file.Path
 import java.util.concurrent.Executor
 
@@ -130,14 +127,7 @@ class LanguageServers internal constructor(
     fun filesChanged(events: List<FileChange>) {
         if (events.isEmpty()) return
         sessions.values.forEach { it.workspaceFilesChanged(events) }
-        for (session in sessions.values) {
-            val filter = WatcherFilter(session.features.fileWatchers())
-            if (filter.isEmpty) continue
-            val wanted = events.filter(filter::matches)
-            if (wanted.isEmpty()) continue
-            val params = DidChangeWatchedFilesParams(wanted.map { FileEvent(LspUris.of(it.path), it.kind.type()) })
-            session.notify { it.workspaceService.didChangeWatchedFiles(params) }
-        }
+        sessions.values.forEach { it.watchedFilesChanged(events) }
     }
 
     /** Ends every server (`shutdown`, `exit`, kill after the timeouts) off the calling thread. */
@@ -173,7 +163,8 @@ class LanguageServers internal constructor(
 private fun ServerState.isActive() =
     this == ServerState.Starting || this == ServerState.Running || this is ServerState.Restarting
 
-private fun FileChangeKind.type() =
+/** The LSP type of a file event of this kind. */
+internal fun FileChangeKind.type() =
     when (this) {
         FileChangeKind.CREATED -> FileChangeType.Created
         FileChangeKind.CHANGED -> FileChangeType.Changed

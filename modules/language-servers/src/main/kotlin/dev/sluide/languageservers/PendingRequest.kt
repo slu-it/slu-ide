@@ -46,7 +46,9 @@ class PendingRequest internal constructor() {
 class RequestSlot {
     private var current: PendingRequest? = null
 
-    /** Cancels the previous request of this slot and sends a new one, as [LanguageServerSession.request]. */
+    /**
+     * Cancels the previous request of this slot and sends a new one, as [LanguageServerSession.request]; FX thread.
+     */
     fun <T> send(
         session: LanguageServerSession,
         call: (LanguageServer) -> CompletableFuture<T>,

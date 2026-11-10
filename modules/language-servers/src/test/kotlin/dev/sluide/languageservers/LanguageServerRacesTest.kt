@@ -4,6 +4,7 @@ import dev.sluide.languageservers.connection.ServerTiming
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -53,6 +54,37 @@ class LanguageServerRacesTest {
         }
 
         assertTrue(connected, "connected announced in the step that set Running")
+    }
+
+    @Test
+    fun `a gate that flips while the document's didOpen is still queued sends didOpen, then didClose, in order`() {
+        val marker = folder.resolve("old")
+        val spec =
+            TestSpec(
+                gatesDocuments = true,
+                gates = { file, _ -> DocumentGate(!(file.fileName.toString() == "x.py" && Files.exists(marker))) },
+                affects = { true },
+            )
+        val starter = FakeStarter()
+        val servers = servers(starter, spec = spec)
+        val session = servers.session(spec)
+        session.documents.open(folder.resolve("a.py"), "python", "a")
+        awaitTrue("opened on the server it started") {
+            starter.processes.isNotEmpty() && "didOpen a" in starter.last.server.calls
+        }
+        val server = starter.last.server
+        val hold = CountDownLatch(1)
+        session.notify { hold.await(5, TimeUnit.SECONDS) }
+
+        session.documents.open(folder.resolve("x.py"), "python", "x")
+        Files.createFile(marker)
+        servers.filesChanged(listOf(FileChange(marker, FileChangeKind.CREATED)))
+        scheduler.runNext()
+        hold.countDown()
+
+        awaitTrue("closed") { "didClose" in server.calls }
+        assertEquals(listOf("didOpen a", "didOpen x", "didClose"), server.calls.filter { it.startsWith("did") })
+        server.assertClosesFollowOpens()
     }
 
     @Test

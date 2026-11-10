@@ -107,6 +107,40 @@ interface LanguageServerSpec {
     ): WorkspaceStatus? = null
 
     /**
+     * What the status line says about [file] in its workspace [folder] (ADR 0151, 0160): for a spec whose line depends
+     * on the file (the project version found above it), not only on its folder. By default the folder's line
+     * ([workspaceStatus] without the file). Not called by the session; called on the FX thread for each bound editor
+     * after every workspace change: keep it to a few small reads.
+     */
+    fun workspaceStatus(
+        file: Path,
+        folder: Path?,
+        projectFolder: Path,
+    ): WorkspaceStatus? = workspaceStatus(folder, projectFolder)
+
+    /**
+     * Whether the session asks [gate] for every document before the server sees it (ADR 0160). `false`, the default:
+     * every document is served and the server starts as soon as one is open or anything is sent. `true`: a document is
+     * sent only once its gate answered served, and the server starts only once a document is served; an answer that
+     * fails or takes longer than the folder wait (10 s) counts as not served until it comes (fail closed).
+     */
+    val gatesDocuments: Boolean get() = false
+
+    /**
+     * Whether the server may see [file], a file inside the window's [projectFolder] (ADR 0160); asked only if
+     * [gatesDocuments]. Called on the session's folder worker together with [workspaceFolder]: when the file opens or
+     * moves, when [affectsWorkspaceFolders] names a change above it and when a folder its last answer
+     * [watched][DocumentGate.watched] changed; never on the FX thread. May read a few small files (`package.json`);
+     * the document waits for the answer before the server gets it. Answer the same for the same state: a different
+     * answer (served, reason or watched folders) counts as a change. An exception counts as not served. Served by
+     * default.
+     */
+    fun gate(
+        file: Path,
+        projectFolder: Path,
+    ): DocumentGate = DocumentGate.SERVED
+
+    /**
      * A problem of [file]'s environment the editor shows as a notice (a project without a virtual environment), or
      * `null`, the default, for none. Not called by the session; called on the FX thread for each bound editor after
      * every workspace change: keep it to a few small reads.

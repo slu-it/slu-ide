@@ -1,12 +1,15 @@
 package dev.sluide.languageservers
 
 import dev.sluide.languageservers.connection.ClientEvents
+import dev.sluide.languageservers.connection.RunningServer
 import dev.sluide.languageservers.connection.Scheduler
 import dev.sluide.languageservers.connection.ServerLifecycle
 import dev.sluide.languageservers.connection.ServerTiming
 import dev.sluide.languageservers.connection.SessionClient
 import dev.sluide.languageservers.files.DirectoryWatcher
+import dev.sluide.languageservers.files.WatcherFilter
 import dev.sluide.languageservers.process.ServerStarter
+import dev.sluide.languageservers.workspace.Resolution
 import dev.sluide.languageservers.workspace.Signal
 import dev.sluide.languageservers.workspace.WorkspaceDocument
 import dev.sluide.languageservers.workspace.WorkspaceFolders
@@ -16,6 +19,8 @@ import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableValue
 import org.eclipse.lsp4j.ConfigurationItem
+import org.eclipse.lsp4j.DidChangeWatchedFilesParams
+import org.eclipse.lsp4j.FileEvent
 import org.eclipse.lsp4j.PublishDiagnosticsParams
 import org.eclipse.lsp4j.services.LanguageServer
 import java.nio.file.Path
@@ -38,7 +43,8 @@ class LanguageServerNotRunningException(
 /**
  * The connection of one window to the server of one spec ([LanguageServers.session]). It outlives restarts: listeners
  * stay registered, requests go to whichever server runs. The server starts on [ensureStarted] or with the first
- * request or notification.
+ * request or notification; for a spec that gates documents ([LanguageServerSpec.gatesDocuments], ADR 0160) only once
+ * an open document is served, and then by itself.
  *
  * Everything sent (requests, notifications) goes out in order on one outbound thread; results, listener calls and
  * state changes arrive on the FX thread through `dispatch`. Nothing here blocks the calling thread.
@@ -95,6 +101,9 @@ class LanguageServerSession internal constructor(
                         }
 
                     override fun changed() = workspaceChanged()
+
+                    override fun watchedFilesChanged(changes: List<FileChange>) =
+                        this@LanguageServerSession.watchedFilesChanged(changes)
                 },
         )
 
@@ -148,20 +157,46 @@ class LanguageServerSession internal constructor(
     fun workspaceFolderOf(file: Path): ObservableValue<Path?> = documents.folderOf(file)
 
     /**
-     * Fires on the FX thread after a document's workspace folder changed ([workspaceFolderOf]), and after a refresh of
-     * a workspace folder or a re-resolution of folders after a project change finished: what an editor shows about its
-     * project (status line, environment notice) may have changed.
+     * Fires on the FX thread after a document's workspace folder changed ([workspaceFolderOf]) or its gate answer
+     * changed ([gateOf]), and after a refresh of a workspace folder or a re-resolution of folders after a project
+     * change finished: what an editor shows about its project (status line, environment notice) may have changed.
      */
     val workspaceChanges: Observable = changes
 
     /**
-     * Starts the server unless it runs, starts or failed (only [restart] starts a failed one); also when it was
-     * [ServerState.Unavailable] or [ServerState.Untrusted] before, for a server installed or trusted since.
+     * Whether the server may see the open document [file] (ADR 0160): [DocumentGate.SERVED] from the open on for a
+     * spec that does not gate documents; for one that does, `null` until the spec answered, then its answer (not
+     * served, without a reason, if it failed or has not answered within the folder wait, until it does). `null` for
+     * a file that is not open. Changes come with [workspaceChanges]. FX thread.
      */
-    fun ensureStarted() = lifecycle.ensureStarted(evenIfRefused = true)
+    fun gateOf(file: Path): DocumentGate? = documents.gateOf(file)
 
-    /** Stops the server and starts it again ("Restart … Language Server", after an update). */
-    fun restart() = lifecycle.restart()
+    /**
+     * Starts the server unless it runs, starts or failed (only [restart] starts a failed one); also when it was
+     * [ServerState.Unavailable] or [ServerState.Untrusted] before, for a server installed or trusted since. For a spec
+     * that gates documents only while an open document is served: the session starts it itself when the first one is
+     * (ADR 0160), so a window whose documents are all not served never starts the server. FX thread.
+     */
+    fun ensureStarted() {
+        if (spec.gatesDocuments && !documents.anyServed()) return
+        lifecycle.ensureStarted(evenIfRefused = true)
+    }
+
+    /** A gating spec's document became served: start the server as [ensureStarted] does. FX thread. */
+    internal fun startServed() = lifecycle.ensureStarted(evenIfRefused = true)
+
+    /**
+     * Stops the server and starts it again ("Restart … Language Server", after an update). For a spec that gates
+     * documents, a server not started yet (stopped, unavailable, untrusted) stays so while no open document is served
+     * (ADR 0160); a started one restarts. FX thread.
+     */
+    fun restart() {
+        val notStarted =
+            state.value.let {
+                it == ServerState.Stopped || it == ServerState.Unavailable || it == ServerState.Untrusted
+            }
+        if (!notStarted || mayStart()) lifecycle.restart()
+    }
 
     /**
      * Sends the request [call] makes with the server proxy, after everything sent before; requests made while the
@@ -169,7 +204,8 @@ class LanguageServerSession internal constructor(
      * when cancelled, a derived future (`thenApply`) does not. [onResult] gets the result on the FX thread unless the
      * request was cancelled or the session closed first; [onError] gets the server's error
      * ([org.eclipse.lsp4j.jsonrpc.ResponseErrorException]) or a [LanguageServerNotRunningException], also when the
-     * server stops (crash, restart) before it answered. A cancelled request calls neither.
+     * server stops (crash, restart) before it answered. A cancelled request calls neither. For a spec that gates
+     * documents it starts no server while no open document is served: it then gets not running (ADR 0160). FX thread.
      */
     fun <T> request(
         call: (LanguageServer) -> CompletableFuture<T>,
@@ -177,7 +213,7 @@ class LanguageServerSession internal constructor(
         onError: (Throwable) -> Unit = logRequestError,
     ): PendingRequest {
         val pending = PendingRequest()
-        lifecycle.ensureStarted(evenIfRefused = false)
+        if (mayStart()) lifecycle.ensureStarted(evenIfRefused = false)
         lifecycle.onServer { running ->
             if (pending.isCancelled) return@onServer
             if (running == null) {
@@ -210,16 +246,26 @@ class LanguageServerSession internal constructor(
      * `didSave`, `didClose`, `didChangeWatchedFiles`), to the server whose connection [onConnected] last announced.
      * Dropped if no server was announced yet or another one runs when it is sent: [onConnected] re-sends the state a
      * new server needs, so nothing reaches a server twice. Call it on the FX thread: the ordering against the
-     * [onConnected] re-sync relies on it.
+     * [onConnected] re-sync relies on it. Starts the server unless it runs, for a spec that gates documents only while
+     * an open document is served (ADR 0160).
      */
-    fun notify(action: (LanguageServer) -> Unit) {
+    fun notify(action: (LanguageServer) -> Unit) = notifyRunning { action(it.server) }
+
+    /**
+     * Like [notify], with the connection's number: for what must go to the connection that got something before.
+     * Without [start], a stopped server is not started (a `didClose` needs none).
+     */
+    internal fun notifyRunning(
+        start: Boolean = true,
+        action: (RunningServer) -> Unit,
+    ) {
         val epoch = connectedEpoch
-        lifecycle.ensureStarted(evenIfRefused = false)
+        if (start && mayStart()) lifecycle.ensureStarted(evenIfRefused = false)
         if (epoch == null) return
         lifecycle.onServer { running ->
             if (running == null || running.epoch != epoch) return@onServer
             try {
-                action(running.server)
+                action(running)
             } catch (e: RuntimeException) {
                 log.log(System.Logger.Level.INFO, "lsp ${spec.id} notification failed: $e")
             }
@@ -227,19 +273,32 @@ class LanguageServerSession internal constructor(
     }
 
     /**
-     * Like [notify], with the workspace folder [folder] resolves to added on the server first unless it is known
-     * (`didChangeWorkspaceFolders`): for `didOpen`. Waits for the folder on the outbound thread, in order.
+     * Like [notifyRunning], with the workspace folder [folder] resolves to added on the server first unless it is
+     * known (`didChangeWorkspaceFolders`): for `didOpen`. Waits for the folder on the outbound thread, in order.
      */
     internal fun notifyInFolder(
-        folder: CompletableFuture<Path?>,
-        action: (LanguageServer) -> Unit,
-    ) = notify { server ->
-        workspace.announce(folder, server)
-        action(server)
+        folder: CompletableFuture<Resolution>,
+        action: (RunningServer) -> Unit,
+    ) = notifyRunning { running ->
+        workspace.announce(folder, running.server)
+        action(running)
     }
 
     /** Changes on disk, unfiltered: those the spec names ask the open documents' folders again. FX thread. */
     internal fun workspaceFilesChanged(changes: List<FileChange>) = workspace.filesChanged(changes)
+
+    /**
+     * Tells the running server about the [changes] its file watchers want (`workspace/didChangeWatchedFiles`); starts
+     * no server, one that does not run has no watchers. FX thread.
+     */
+    internal fun watchedFilesChanged(changes: List<FileChange>) {
+        val filter = WatcherFilter(features.fileWatchers())
+        if (filter.isEmpty) return
+        val wanted = changes.filter(filter::matches)
+        if (wanted.isEmpty()) return
+        val params = DidChangeWatchedFilesParams(wanted.map { FileEvent(LspUris.of(it.path), it.kind.type()) })
+        notify { it.workspaceService.didChangeWatchedFiles(params) }
+    }
 
     internal fun workspaceChanged() {
         if (!isClosed) changes.fire()
@@ -295,6 +354,9 @@ class LanguageServerSession internal constructor(
                 if (current()) fx { featureListeners.callEach("features") { it() } }
             }
         }
+
+    /** Whether something sent may start the server: always, for a spec that gates documents once one is served. */
+    private fun mayStart(): Boolean = !spec.gatesDocuments || documents.anyServed()
 
     private fun notRunning() = LanguageServerNotRunningException("${spec.name} language server is not running")
 

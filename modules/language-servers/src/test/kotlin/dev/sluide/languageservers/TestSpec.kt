@@ -14,6 +14,9 @@ internal class TestSpec(
     private val folders: ((file: Path, projectFolder: Path) -> Path?)? = null,
     private val watched: (folder: Path) -> List<Path> = { emptyList() },
     private val affects: (change: Path) -> Boolean = { false },
+    /** Whether the gate is asked; [gates] answers it. */
+    override val gatesDocuments: Boolean = false,
+    private val gates: (file: Path, projectFolder: Path) -> DocumentGate = { _, _ -> DocumentGate.SERVED },
 ) : LanguageServerSpec {
     override val name = "Test"
 
@@ -35,4 +38,9 @@ internal class TestSpec(
     override fun watchedFolders(folder: Path) = watched(folder)
 
     override fun affectsWorkspaceFolders(change: Path) = affects(change)
+
+    override fun gate(
+        file: Path,
+        projectFolder: Path,
+    ) = gates(file, projectFolder)
 }

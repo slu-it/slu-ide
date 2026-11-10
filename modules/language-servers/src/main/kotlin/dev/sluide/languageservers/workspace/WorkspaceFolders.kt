@@ -1,12 +1,11 @@
 package dev.sluide.languageservers.workspace
 
+import dev.sluide.languageservers.DocumentGate
 import dev.sluide.languageservers.FileChange
 import dev.sluide.languageservers.LanguageServerSpec
 import dev.sluide.languageservers.connection.Scheduler
 import dev.sluide.languageservers.connection.workspaceFolder
 import dev.sluide.languageservers.files.DirectoryWatcher
-import javafx.beans.InvalidationListener
-import javafx.beans.Observable
 import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams
 import org.eclipse.lsp4j.WorkspaceFoldersChangeEvent
 import org.eclipse.lsp4j.services.LanguageServer
@@ -14,7 +13,6 @@ import java.nio.file.Path
 import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executor
 import java.util.concurrent.RejectedExecutionException
@@ -28,13 +26,19 @@ private val log = System.getLogger(WorkspaceFolders::class.java.name)
 internal interface WorkspaceDocument {
     val file: Path
 
-    /** The resolution of its workspace folder (`null`: the window folder), the latest one. */
-    val folder: CompletableFuture<Path?>
+    /** The latest resolution of its workspace folder and gate. */
+    val resolution: CompletableFuture<Resolution>
 
-    /** Takes [resolution] as its folder; the value of `workspaceFolderOf` follows. */
-    fun adopt(resolution: CompletableFuture<Path?>)
+    /**
+     * Takes [resolution] as its own; the values of `workspaceFolderOf` and `gateOf` follow. Whether that opened or
+     * closed the document on the server (its gate flipped), so that it needs no reopen.
+     */
+    fun adopt(resolution: CompletableFuture<Resolution>): Boolean
 
-    /** Opens the document on the server again: `didClose`, then `didOpen` with its current text, under [folder]. */
+    /**
+     * Opens the document on the server again, `didClose`, then `didOpen` with its current text, under its folder; only
+     * if it is open there (served).
+     */
     fun reopenOnServer()
 }
 
@@ -54,6 +58,9 @@ internal interface WorkspaceHost {
 
     /** Tells the listeners of `workspaceChanges`. */
     fun changed()
+
+    /** Changes in a folder a gate watches, for the server's file watchers (`didChangeWatchedFiles`). */
+    fun watchedFilesChanged(changes: List<FileChange>)
 }
 
 /**
@@ -67,6 +74,10 @@ internal interface WorkspaceHost {
  * the spec watches for it changes, or when the spec names other folders to watch than before. A project change the
  * spec names ([LanguageServerSpec.affectsWorkspaceFolders]) asks the folders of the open documents below it again.
  * Both wait [debounce] for the changes of a burst.
+ *
+ * For a spec that gates documents ([LanguageServerSpec.gatesDocuments], ADR 0160) the spec's gate is asked with each
+ * folder, in the same [Resolution]; a change in a folder a gate answer names asks the gates of the documents that
+ * named it again ([DocumentGates]).
  */
 internal class WorkspaceFolders(
     private val spec: LanguageServerSpec,
@@ -74,7 +85,7 @@ internal class WorkspaceFolders(
     private val worker: Executor,
     /** Runs on the FX thread unless the session closed. */
     private val dispatch: (Runnable) -> Unit,
-    scheduler: Scheduler,
+    private val scheduler: Scheduler,
     debounce: Duration,
     /** How long a `didOpen` waits for its document's folder before the window folder serves it. */
     private val resolveWait: Duration,
@@ -94,6 +105,16 @@ internal class WorkspaceFolders(
         FolderWatches(directoryWatcher) { folder ->
             debouncer.trigger(Pending.Refresh(folder)) { fx { refresh(folder) } }
         }
+
+    /** The watches of the folders the gate answers name, and which documents named them. */
+    val gates: DocumentGates =
+        DocumentGates(directoryWatcher, { task -> onWorker(task = task) }) { folder, changes ->
+            if (changes.isNotEmpty()) fx { host.watchedFilesChanged(changes) }
+            debouncer.trigger(Pending.Gate(folder)) { fx { reResolve(gates.naming(folder)) } }
+        }
+
+    /** What a document resolves to while its spec cannot answer: the window folder; for a gating spec not served. */
+    private val unanswered = Resolution(null, if (spec.gatesDocuments) Resolution.NOT_SERVED else DocumentGate.SERVED)
 
     /** Resolutions a `didOpen` stopped waiting for; their answer re-opens the document when it comes. */
     private val late = Collections.synchronizedSet(Collections.newSetFromMap(IdentityHashMap<Any, Boolean>()))
@@ -120,13 +141,22 @@ internal class WorkspaceFolders(
         return known
     }
 
-    /** Asks the spec on the worker which folder serves [file]; FX thread. Never fails: a failure is the window folder. */
-    fun resolve(file: Path): CompletableFuture<Path?> {
-        val result = CompletableFuture<Path?>()
-        val root = window() ?: return result.also { it.complete(null) }
-        onWorker({ result.complete(null) }) { result.complete(ask(file, root)) }
+    /**
+     * Asks the spec on the worker which folder serves [file], and its gate; FX thread. Never fails: a failure is the
+     * window folder, and for a gating spec not served.
+     */
+    fun resolve(file: Path): CompletableFuture<Resolution> {
+        val result = CompletableFuture<Resolution>()
+        val root = window() ?: return result.also { it.complete(unanswered) }
+        onWorker({ result.complete(unanswered) }) { result.complete(ask(file, root)) }
         return result
     }
+
+    /**
+     * Runs [action] on the FX thread once the folder wait passed, unless the session closed: when a gating spec's
+     * answer counts as not served. Closing the result cancels it.
+     */
+    fun afterWait(action: () -> Unit): AutoCloseable = scheduler.schedule(resolveWait) { fx(action) }
 
     /**
      * Adds the folder [folder] resolves to (waiting for it) on [server] unless it is known: `didChangeWorkspaceFolders`,
@@ -136,10 +166,10 @@ internal class WorkspaceFolders(
      * Outbound thread.
      */
     fun announce(
-        folder: CompletableFuture<Path?>,
+        folder: CompletableFuture<Resolution>,
         server: LanguageServer,
     ) {
-        val path = await(folder) ?: return
+        val path = await(folder)?.folder ?: return
         synchronized(lock) {
             val window = known.firstOrNull()
             if (closed || window == null || !path.startsWith(window) || path in known) return
@@ -164,7 +194,9 @@ internal class WorkspaceFolders(
                     .normalize()
                     .parent ?: continue
             if (host.documents().none { it.file.startsWith(parent) }) continue
-            debouncer.trigger(Pending.Resolve(parent)) { fx { reResolve(parent) } }
+            debouncer.trigger(Pending.Resolve(parent)) {
+                fx { reResolve(host.documents().filter { it.file.startsWith(parent) }) }
+            }
         }
     }
 
@@ -173,6 +205,7 @@ internal class WorkspaceFolders(
         closed = true
         debouncer.close()
         watches.closeAll(forGood = true)
+        gates.close()
         synchronized(lock) { known = emptyList() }
     }
 
@@ -189,45 +222,52 @@ internal class WorkspaceFolders(
     }
 
     /**
-     * Asks the folders of the open documents below [parent] again, and for the folders that serve them (before and
-     * after) what to watch, on the worker; then [reResolved] applies what changed.
+     * Asks the folders (and gates) of the open [documents] again, and for the folders that serve them (before and
+     * after) what to watch, on the worker; then [reResolved] applies what changed. The folders their gates name are
+     * watched again (a watch that ended with its folder is renewed).
      */
-    private fun reResolve(parent: Path) {
-        val documents = host.documents().filter { it.file.startsWith(parent) }
+    private fun reResolve(documents: List<WorkspaceDocument>) {
         val root = window()
         if (documents.isEmpty() || root == null) return
-        val before = documents.map { it.folder }
+        val before = documents.map { it.resolution }
         val files = documents.map { it.file }
         onWorker {
             val answers = files.map { ask(it, root) }
-            val served = (before.map { it.getNow(null) } + answers).map { it ?: root }.distinct()
+            gates.renew(answers.flatMap { it.gate.watched }.toSet())
+            val served =
+                (before.map { it.getNow(null)?.folder } + answers.map { it.folder }).map { it ?: root }.distinct()
             val rewatch = served.filter { it in known && watchesChanged(it) }
-            fx { reResolved(documents.indices.map { Answer(documents[it], before[it], answers[it]) }, rewatch) }
+            fx { reResolved(documents.indices.map { Answer(documents[it], before[it], answers[it]) }, rewatch, root) }
         }
     }
 
     /**
      * Applies a re-resolution: folders no open document resolves to any more are removed, folders whose watched
      * folders changed are refreshed, and documents whose folder changed, that a removed folder served or that a
-     * refreshed folder serves are opened again, each once and after those notifications. FX thread.
+     * refreshed folder serves are opened again, each once and after those notifications. A document whose gate
+     * flipped was opened or closed by its new answer and is not opened again. FX thread.
      */
     private fun reResolved(
         answers: List<Answer>,
         rewatch: List<Path>,
+        root: Path,
     ) {
-        val window = known.firstOrNull() ?: return
+        // No server ran yet (a gating spec whose documents are not served): nothing is known, the answers still count.
+        val window = known.firstOrNull() ?: root
         val open = host.documents()
         val moved = LinkedHashSet<WorkspaceDocument>()
+        val synced = HashSet<WorkspaceDocument>()
         val left = LinkedHashSet<Path>()
         for ((document, before, answer) in answers) {
             // Closed, moved or asked again meanwhile: the newer answer counts.
-            if (document !in open || document.folder !== before) continue
+            if (document !in open || document.resolution !== before) continue
             val old = before.getNow(null)
             if (old == answer) continue
-            document.adopt(CompletableFuture.completedFuture(answer))
-            if ((old ?: window) != (answer ?: window)) {
+            if (document.adopt(CompletableFuture.completedFuture(answer))) synced.add(document)
+            val oldFolder = old?.folder
+            if ((oldFolder ?: window) != (answer.folder ?: window)) {
                 moved.add(document)
-                if (old != null && old != window) left.add(old)
+                if (oldFolder != null && oldFolder != window) left.add(oldFolder)
             }
         }
         val removed = left.filter { folder -> open.none { resolvesTo(it, folder) } }
@@ -237,7 +277,7 @@ internal class WorkspaceFolders(
         val refreshed = rewatch.filter { it !in removed && it in known }
         refreshed.forEach(::reAdd)
         val all = reopen + open.filter { document -> refreshed.any { servedBy(document, it, window) } }
-        all.forEach(WorkspaceDocument::reopenOnServer)
+        all.filter { it !in synced }.forEach(WorkspaceDocument::reopenOnServer)
         host.changed()
     }
 
@@ -276,14 +316,14 @@ internal class WorkspaceFolders(
         folder: Path,
         window: Path,
     ): Boolean {
-        val resolution = document.folder
-        return !resolution.isDone || (resolution.getNow(null) ?: window) == folder
+        val resolution = document.resolution
+        return !resolution.isDone || (resolution.getNow(null)?.folder ?: window) == folder
     }
 
     private fun resolvesTo(
         document: WorkspaceDocument,
         folder: Path,
-    ): Boolean = !document.folder.isDone || document.folder.getNow(null) == folder
+    ): Boolean = !document.resolution.isDone || document.resolution.getNow(null)?.folder == folder
 
     /** The innermost known folder that holds [file]: the one ty serves it from. */
     private fun innermost(file: Path): Path? = known.filter { file.startsWith(it) }.maxByOrNull { it.nameCount }
@@ -294,7 +334,13 @@ internal class WorkspaceFolders(
         return watchedFolders(folder) != watched
     }
 
+    /** The spec's answers for [file]: its folder and, for a gating spec, its gate; worker. */
     private fun ask(
+        file: Path,
+        root: Path,
+    ) = Resolution(askFolder(file, root), if (spec.gatesDocuments) askGate(file, root) else DocumentGate.SERVED)
+
+    private fun askFolder(
         file: Path,
         root: Path,
     ): Path? =
@@ -307,6 +353,19 @@ internal class WorkspaceFolders(
         } catch (e: RuntimeException) {
             log.log(System.Logger.Level.WARNING, "lsp ${spec.id}: no workspace folder for $file", e)
             null
+        }
+
+    private fun askGate(
+        file: Path,
+        root: Path,
+    ): DocumentGate =
+        try {
+            spec.gate(file, root).let { gate ->
+                gate.copy(watched = gate.watched.map { it.toAbsolutePath().normalize() }.distinct())
+            }
+        } catch (e: RuntimeException) {
+            log.log(System.Logger.Level.WARNING, "lsp ${spec.id}: no gate answer for $file; not served", e)
+            Resolution.NOT_SERVED
         }
 
     private fun window(): Path? = projectFolder()?.toAbsolutePath()?.normalize()
@@ -334,7 +393,7 @@ internal class WorkspaceFolders(
             watches.update(folder, watchedFolders(folder)) { !closed && folder in known }
         }
 
-    private fun await(folder: CompletableFuture<Path?>): Path? =
+    private fun await(folder: CompletableFuture<Resolution>): Resolution? =
         try {
             folder.get(resolveWait.inWholeMilliseconds, TimeUnit.MILLISECONDS)
         } catch (_: TimeoutException) {
@@ -351,12 +410,13 @@ internal class WorkspaceFolders(
 
     /** A folder [announce] stopped waiting for came: its document, opened under the window folder, opens again. */
     private fun lateAnswer(
-        resolution: CompletableFuture<Path?>,
-        path: Path?,
+        resolution: CompletableFuture<Resolution>,
+        answer: Resolution,
     ) {
         late.remove(resolution)
+        val path = answer.folder
         if (path == null || path == known.firstOrNull()) return
-        host.documents().filter { it.folder === resolution }.forEach(WorkspaceDocument::reopenOnServer)
+        host.documents().filter { it.resolution === resolution }.forEach(WorkspaceDocument::reopenOnServer)
         host.changed()
     }
 
@@ -386,8 +446,8 @@ internal class WorkspaceFolders(
     /** The answer of a re-resolution for [document], whose folder was [before] when it was asked. */
     private data class Answer(
         val document: WorkspaceDocument,
-        val before: CompletableFuture<Path?>,
-        val folder: Path?,
+        val before: CompletableFuture<Resolution>,
+        val resolution: Resolution,
     )
 
     private sealed interface Pending {
@@ -398,28 +458,9 @@ internal class WorkspaceFolders(
         data class Resolve(
             val parent: Path,
         ) : Pending
+
+        data class Gate(
+            val folder: Path,
+        ) : Pending
     }
-}
-
-/** An [Observable] that tells its invalidation listeners each time it [fire]s; FX thread. */
-internal class Signal : Observable {
-    private val listeners = CopyOnWriteArrayList<InvalidationListener>()
-
-    override fun addListener(listener: InvalidationListener) {
-        listeners += listener
-    }
-
-    override fun removeListener(listener: InvalidationListener) {
-        listeners -= listener
-    }
-
-    /** Calls every listener; one that throws is logged and the others still run. */
-    fun fire() =
-        listeners.forEach { listener ->
-            try {
-                listener.invalidated(this)
-            } catch (e: RuntimeException) {
-                log.log(System.Logger.Level.ERROR, "lsp: a workspace listener failed", e)
-            }
-        }
 }

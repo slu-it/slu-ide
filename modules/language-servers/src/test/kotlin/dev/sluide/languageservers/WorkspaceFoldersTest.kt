@@ -2,8 +2,16 @@ package dev.sluide.languageservers
 
 import dev.sluide.languageservers.connection.ServerTiming
 import dev.sluide.languageservers.files.FakeDirectoryWatcher
+import dev.sluide.languageservers.workspace.Resolution
 import javafx.beans.InvalidationListener
 import org.eclipse.lsp4j.DidChangeConfigurationParams
+import org.eclipse.lsp4j.DidChangeWatchedFilesRegistrationOptions
+import org.eclipse.lsp4j.DidOpenTextDocumentParams
+import org.eclipse.lsp4j.FileChangeType
+import org.eclipse.lsp4j.FileSystemWatcher
+import org.eclipse.lsp4j.Registration
+import org.eclipse.lsp4j.RegistrationParams
+import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -70,6 +78,31 @@ class WorkspaceFoldersTest {
                 if (Files.isDirectory(venv)) listOf(venv.resolve("site")) else emptyList()
             },
             // Broad, as a real spec may be: anything but notes asks the documents' folders again.
+            affects = { it.fileName.toString() != "notes.txt" },
+        )
+
+    private val gateAsked = CopyOnWriteArrayList<Path>()
+
+    /**
+     * Gates documents (ADR 0160): a file is not served while an `old` marker lies in its folder or in its folder's
+     * `node_modules`, which its answer watches. `broken.py` fails, `slow.py` waits for [slow]. It watches `site` in
+     * every workspace folder.
+     */
+    private val gating =
+        TestSpec(
+            gatesDocuments = true,
+            folders = { file, _ ->
+                if (file.fileName.toString() == "slow.py") slow.await(5, TimeUnit.SECONDS)
+                null
+            },
+            gates = { file, _ ->
+                gateAsked.add(file)
+                if (file.fileName.toString() == "broken.py") error("no answer")
+                val modules = file.parent.resolve("node_modules")
+                val old = Files.exists(file.parent.resolve("old")) || Files.exists(modules.resolve("old"))
+                DocumentGate(!old, watched = listOf(modules))
+            },
+            watched = { listOf(it.resolve("site")) },
             affects = { it.fileName.toString() != "notes.txt" },
         )
 
@@ -479,6 +512,187 @@ class WorkspaceFoldersTest {
         assertEquals(listOf(LspUris.of(folder)), second.initializedFolders())
         assertEquals(listOf("didOpen x"), second.sync())
         assertEquals(listOf(folder), session.workspace.current)
+    }
+
+    /** Registers a file watcher on [this] server that wants every file. */
+    private fun FakeServer.watchEverything() {
+        val options = DidChangeWatchedFilesRegistrationOptions(listOf(FileSystemWatcher(Either.forLeft("**/*"))))
+        client
+            .registerCapability(
+                RegistrationParams(listOf(Registration("w", "workspace/didChangeWatchedFiles", options))),
+            ).get(5, TimeUnit.SECONDS)
+    }
+
+    /** The file events [this] server got, in order: URI and type. */
+    private fun FakeServer.fileEvents() = watchedFileChanges.flatMap { it.changes }.map { it.uri to it.type }
+
+    /** Waits until the first server connected; it. */
+    private fun connected(): FakeServer {
+        awaitTrue("connected") { connects.get() == 1 }
+        return starter.last.server
+    }
+
+    @Test
+    fun `a gate answer that flips opens the document with its current text and next version, or closes it`() {
+        val session = session(spec = gating)
+        val app = folder.resolve("app").createDirectories()
+        val marker = app.resolve("old").also { it.writeText("") }
+        val document = session.open("app/x.py", "x")
+        assertEquals(
+            DocumentGate(false, listOf(app.resolve("node_modules"))),
+            onFx { session.gateOf(app.resolve("x.py")) },
+        )
+        assertEquals(emptyList(), starter.processes, "no server for a document that is not served")
+        val firedBefore = fired.get()
+
+        marker.deleteExisting()
+        changed(deleted(marker))
+        val server = connected()
+        session.flush(server)
+        assertEquals(listOf("didOpen x"), server.sync())
+        assertTrue(fired.get() > firedBefore, "the gate change is a workspace change")
+
+        marker.writeText("")
+        changed(created(marker))
+        onFx { document.changed(DocumentChange(1, "", "y")) { "xy" } }
+        // A refresh of the window folder re-opens only what is served.
+        watcher.report(folder.resolve("site"), folder.resolve("site/pkg"))
+        runDebounced()
+        session.flush(server)
+        assertEquals(listOf("didOpen x", "didClose", removed(folder), added(folder)), server.sync())
+
+        marker.deleteExisting()
+        changed(deleted(marker))
+        session.flush(server)
+        assertEquals(listOf("didOpen x", "didClose", removed(folder), added(folder), "didOpen xy"), server.sync())
+        // The first didOpen went to the starting server and was dropped; the reopen on connect counts one more.
+        assertEquals(
+            listOf(2, 4),
+            server.documentNotifications.filterIsInstance<DidOpenTextDocumentParams>().map { it.textDocument.version },
+        )
+        server.assertClosesFollowOpens()
+    }
+
+    @Test
+    fun `a change in a folder a gate watches asks only the documents that named it again and reaches the server`() {
+        val session = session(spec = gating)
+        val a = folder.resolve("a/node_modules").createDirectories()
+        val b = folder.resolve("b/node_modules")
+        session.open("a/x.py", "x")
+        val y = session.open("b/y.py", "y")
+        val server = connected()
+        session.flush(server)
+        assertTrue(a in watcher.listeners && b in watcher.listeners, "the named folders are watched, also one missing")
+
+        // No watcher of the server wants it yet: nothing is sent.
+        a.resolve("other.txt").writeText("")
+        watcher.report(a, a.resolve("other.txt"))
+        session.flush(server)
+        assertEquals(emptyList(), server.watchedFileChanges)
+        server.watchEverything()
+        gateAsked.clear()
+
+        a.resolve("old").writeText("")
+        watcher.report(a, a.resolve("old"), a.resolve("other.txt"))
+        session.flush(server)
+        val events = server.watchedFileChanges.single().changes
+        assertEquals(
+            listOf(
+                LspUris.of(a.resolve("old")) to FileChangeType.Created,
+                LspUris.of(a.resolve("other.txt")) to FileChangeType.Changed,
+            ),
+            events.map { it.uri to it.type },
+        )
+        assertEquals(listOf(1.seconds), scheduler.due.map { it.first }, "one wait for the burst")
+        runDebounced()
+        session.flush(server)
+
+        assertEquals(listOf(folder.resolve("a/x.py")), gateAsked, "only the document that named the folder")
+        assertEquals(listOf("didOpen x", "didOpen y", "didClose"), server.sync())
+        assertEquals(DocumentGate(false, listOf(a)), onFx { session.gateOf(folder.resolve("a/x.py")) })
+
+        onFx { y.close() }
+        assertFalse(b in watcher.listeners, "no open document names it any more")
+        servers!!.close()
+        assertEquals(emptyMap(), watcher.listeners)
+        server.assertClosesFollowOpens()
+    }
+
+    @Test
+    fun `a named folder that appears is watched again after the wait, and its entries reach the server as created`() {
+        val modules = folder.resolve("node_modules").createDirectories()
+        val typescript = modules.resolve("typescript")
+        val spec = TestSpec(gatesDocuments = true, gates = { _, _ -> DocumentGate(true, listOf(modules, typescript)) })
+        val session = session(spec = spec)
+        session.open("x.py", "x")
+        val server = connected()
+        server.watchEverything()
+        assertEquals(1, watcher.watches.count { it == typescript }, "watched while missing")
+
+        typescript.createDirectories().resolve("package.json").writeText("{}")
+        watcher.report(modules, typescript)
+        session.flush(server)
+        assertEquals(listOf(LspUris.of(typescript) to FileChangeType.Created), server.fileEvents())
+        runDebounced()
+        session.flush(server)
+
+        assertEquals(2, watcher.watches.count { it == typescript }, "watched again: its watch may have ended with it")
+        assertEquals(
+            listOf(
+                LspUris.of(typescript) to FileChangeType.Created,
+                LspUris.of(typescript.resolve("package.json")) to FileChangeType.Created,
+            ),
+            server.fileEvents(),
+        )
+    }
+
+    @Test
+    fun `a gating spec that fails or has not answered in time does not serve the document until its answer comes`() {
+        val folders = Executors.newSingleThreadExecutor { Thread(it, "test-folders").apply { isDaemon = true } }
+        val timing = ServerTiming(shutdown = 200.milliseconds, exit = 200.milliseconds)
+        val session = session(spec = gating, folderWorker = folders::execute, timing = timing)
+        session.open("x.py", "x")
+        val server = connected()
+        session.open("broken.py", "broken")
+        session.open("slow.py", "slow")
+        awaitTrue("broken answered") { onFx { session.gateOf(folder.resolve("broken.py")) } != null }
+        assertEquals(Resolution.NOT_SERVED, onFx { session.gateOf(folder.resolve("broken.py")) })
+        assertNull(onFx { session.gateOf(folder.resolve("slow.py")) }, "not answered yet")
+
+        val wait = scheduler.due.single { it.first == timing.workspaceFolderWait }
+        scheduler.due.remove(wait)
+        runDebounced(wait.second)
+        assertEquals(Resolution.NOT_SERVED, onFx { session.gateOf(folder.resolve("slow.py")) }, "fail closed")
+        session.flush(server)
+        assertEquals(listOf("didOpen x"), server.sync())
+
+        slow.countDown()
+        awaitTrue("the late answer") { onFx { session.gateOf(folder.resolve("slow.py")) }?.served == true }
+        session.flush(server)
+        assertEquals(listOf("didOpen x", "didOpen slow"), server.sync())
+        server.assertClosesFollowOpens()
+        folders.shutdownNow()
+    }
+
+    @Test
+    fun `a document closed while its gate answer is pending is never opened or closed on the server`() {
+        val folders = Executors.newSingleThreadExecutor { Thread(it, "test-folders").apply { isDaemon = true } }
+        val session = session(spec = gating, folderWorker = folders::execute)
+        session.open("x.py", "x")
+        val server = connected()
+        val pending = session.open("slow.py", "slow")
+
+        onFx { pending.close() }
+        slow.countDown()
+        session.flush(server)
+        // The answer arrived on the worker and was dropped on the FX thread: the worker is idle once it ran this.
+        folders.submit {}.get(5, TimeUnit.SECONDS)
+        onFx {}
+        session.flush(server)
+
+        assertEquals(listOf("didOpen x"), server.sync())
+        server.assertClosesFollowOpens()
+        folders.shutdownNow()
     }
 
     @Test
