@@ -2,6 +2,9 @@ package dev.sluide.games.minesweeper.ui
 
 import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.WrappingToolbar
+import dev.sluide.games.common.GameZoomPreferences
+import dev.sluide.games.common.ZoomRange
+import dev.sluide.games.common.ui.GameZoomControls
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.TabVisibility
 import dev.sluide.games.common.ui.focusBoardOnPress
@@ -34,16 +37,23 @@ import org.kordamp.ikonli.javafx.FontIcon
 
 /**
  * The Minesweeper tab: toolbar, board, status line and the pause overlay. It only shows [model] and forwards input;
- * the view that shows a model owns its [MinesweeperModel.onChange] until [dispose].
+ * the view that shows a model owns its [MinesweeperModel.onChange] until [dispose]. The zoom (ADR 0155) is read from
+ * and saved to [zoomPreferences].
  */
 internal class MinesweeperView(
     private val model: MinesweeperModel,
+    zoomPreferences: GameZoomPreferences,
 ) {
     /** Asks for a custom board size; null on Cancel. Tests replace it. */
     internal var askCustomSize: (Window?, BoardSize) -> BoardSize? =
         { owner, initial -> CustomSizeDialog(owner, initial).showAndWait().orElse(null) }
 
-    internal val board = BoardView(model)
+    private val scrollPane = ScrollPane()
+    internal val board = BoardView(model, scrollPane)
+    internal val zoomControls =
+        GameZoomControls(ZoomRange.ABOVE_FIT, zoomPreferences.zoom(GAME_ID, ZoomRange.ABOVE_FIT)) {
+            zoomPreferences.setZoom(GAME_ID, it)
+        }
     internal val sizeMenu = MenuButton()
     private val pauseButton = ToggleButton()
     private val pauseIcon = icon("mdi2p-pause")
@@ -71,7 +81,8 @@ internal class MinesweeperView(
             top = toolbar()
             center =
                 StackPane(
-                    ScrollPane(board).apply {
+                    scrollPane.apply {
+                        content = board
                         styleClass += "ms-scroll"
                         isFitToWidth = true
                         isFitToHeight = true
@@ -95,6 +106,8 @@ internal class MinesweeperView(
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
         focusBoardOnPress(node, board)
+        zoomControls.zoom.subscribe { zoom -> board.zoom = zoom.toDouble() }
+        zoomControls.install(node)
         refresh()
     }
 
@@ -128,7 +141,7 @@ internal class MinesweeperView(
         return WrappingToolbar().apply {
             hgap = 6.0
             leading.setAll(sizeMenu, newGame, pauseButton)
-            trailing.setAll(counter, timer)
+            trailing.setAll(counter, timer, zoomControls.node)
             styleClass += "ms-toolbar"
         }
     }
@@ -201,6 +214,7 @@ internal class MinesweeperView(
     }
 
     private companion object {
+        const val GAME_ID = "minesweeper"
         const val TICK_MILLIS = 200.0
         const val ICON_SIZE = 16
     }

@@ -41,6 +41,7 @@ import dev.sluide.games.Solitaire
 import dev.sluide.games.Sudoku
 import dev.sluide.games.WordGuess
 import dev.sluide.games.blockbreaker.BlockBreakerPreferences
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.doubles.DoublesPreferences
 import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.games.minigolf.MiniGolfPreferences
@@ -442,7 +443,7 @@ abstract class MainWindowUiFixture {
                 // Creating it touches no secret store; nothing here saves a password.
                 Secrets(),
             ).also(databases::add),
-            Minesweeper(MinesweeperPreferences(projectData)).also(minesweepers::add),
+            Minesweeper(MinesweeperPreferences(projectData), GameZoomPreferences(projectData)).also(minesweepers::add),
             WordGuess(WordGuessPreferences(projectData)).also(wordGuesses::add),
             Doubles(DoublesPreferences(projectData)).also(doublesGames::add),
             Sudoku(SudokuPreferences(projectData)).also(sudokuGames::add),

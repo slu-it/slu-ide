@@ -1,6 +1,7 @@
 package dev.sluide.games
 
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.minesweeper.MinesweeperModel
 import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.games.minesweeper.ui.MinesweeperTab
@@ -21,7 +22,10 @@ class Minesweeper internal constructor(
     private val tabFactory: (MinesweeperModel) -> EditorTab,
 ) {
     @Autowired
-    constructor(preferences: MinesweeperPreferences) : this(preferences, { MinesweeperTab(MinesweeperView(it)) })
+    constructor(
+        preferences: MinesweeperPreferences,
+        zoomPreferences: GameZoomPreferences,
+    ) : this(preferences, { MinesweeperTab(MinesweeperView(it, zoomPreferences)) })
 
     /** Shows the Minesweeper tab of the window (opening it if needed); set by ide. */
     var showTab: () -> Unit = {}

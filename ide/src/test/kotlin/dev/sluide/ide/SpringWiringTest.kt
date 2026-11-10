@@ -47,6 +47,7 @@ import dev.sluide.games.Solitaire
 import dev.sluide.games.Sudoku
 import dev.sluide.games.WordGuess
 import dev.sluide.games.blockbreaker.BlockBreakerPreferences
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.doubles.DoublesPreferences
 import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.games.minigolf.MiniGolfPreferences
@@ -234,6 +235,7 @@ class SpringWiringTest {
                         KokoroEngine::class.java,
                         SpeechPreferences::class.java,
                         MinesweeperPreferences::class.java,
+                        GameZoomPreferences::class.java,
                         WordGuessPreferences::class.java,
                         DoublesPreferences::class.java,
                         SudokuPreferences::class.java,
@@ -281,6 +283,7 @@ class SpringWiringTest {
                 context.getBean(ModelInstaller::class.java)
                 context.getBean(SpeechPreferences::class.java)
                 context.getBean(MinesweeperPreferences::class.java)
+                context.getBean(GameZoomPreferences::class.java)
                 context.getBean(WordGuessPreferences::class.java)
                 context.getBean(DoublesPreferences::class.java)
                 context.getBean(SudokuPreferences::class.java)

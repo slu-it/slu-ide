@@ -1,6 +1,9 @@
 package dev.sluide.games.minesweeper.ui
 
+import dev.sluide.games.common.GameZoomPreferences
+import dev.sluide.games.common.ZoomRange
 import dev.sluide.games.common.ui.firePress
+import dev.sluide.games.common.ui.keyPress
 import dev.sluide.games.minesweeper.BoardSize
 import dev.sluide.games.minesweeper.CellKind
 import dev.sluide.games.minesweeper.MinesweeperGame
@@ -8,6 +11,7 @@ import dev.sluide.games.minesweeper.MinesweeperModel
 import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.projectdata.ProjectDataStore
 import javafx.event.Event
+import javafx.geometry.Point2D
 import javafx.scene.Group
 import javafx.scene.Parent
 import javafx.scene.Scene
@@ -46,6 +50,7 @@ class MinesweeperViewUiTest {
     lateinit var dir: Path
 
     private lateinit var model: MinesweeperModel
+    private lateinit var zoomPreferences: GameZoomPreferences
     private lateinit var view: MinesweeperView
     private lateinit var stage: Stage
 
@@ -57,6 +62,7 @@ class MinesweeperViewUiTest {
         this.stage = stage
         val store = ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())
         val preferences = MinesweeperPreferences(store, Duration.ZERO, Executor { it.run() })
+        zoomPreferences = GameZoomPreferences(store, Duration.ZERO, Executor { it.run() })
         model =
             MinesweeperModel(
                 preferences,
@@ -70,7 +76,7 @@ class MinesweeperViewUiTest {
                     }
                 },
             )
-        view = MinesweeperView(model)
+        view = MinesweeperView(model, zoomPreferences)
         stage.scene = Scene(view.node as Parent, 700.0, 600.0)
         stage.show()
     }
@@ -82,8 +88,15 @@ class MinesweeperViewUiTest {
         x: Int,
         y: Int,
         button: MouseButton,
+    ) = clickAt(robot, button) { view.board.cellCenter(x, y) }
+
+    /** A press at the point [local] gives, in the board's coordinates. */
+    private fun clickAt(
+        robot: FxRobot,
+        button: MouseButton,
+        local: () -> Point2D,
     ) = robot.interact {
-        val at = view.board.localToScene(view.board.cellCenter(x, y))
+        val at = view.board.localToScene(local())
         val secondary = button == MouseButton.SECONDARY
         Event.fireEvent(
             view.board,
@@ -185,7 +198,7 @@ class MinesweeperViewUiTest {
             stage.scene.root = root
             other.requestFocus()
         }
-        val fresh = MinesweeperView(model)
+        val fresh = MinesweeperView(model, zoomPreferences)
 
         // Added and focused in one turn, before the layout pulse: the board is not in the scene yet.
         robot.interact {
@@ -201,7 +214,7 @@ class MinesweeperViewUiTest {
     fun `a disposed view leaves the model to the view that took it over`(robot: FxRobot) {
         lateinit var second: MinesweeperView
         robot.interact {
-            second = MinesweeperView(model)
+            second = MinesweeperView(model, zoomPreferences)
             view.dispose()
             stage.scene.root = second.node as Parent
         }
@@ -229,6 +242,43 @@ class MinesweeperViewUiTest {
         robot.interact { stage.scene.root = view.node as Parent }
         assertFalse(fx { model.isPaused })
         assertFalse(fx { view.overlay.isVisible })
+    }
+
+    @Test
+    fun `the zoom resizes the cells, is saved, opens the next view and keeps clicks on their cells`(robot: FxRobot) {
+        fun cell() =
+            fx {
+                view.node.scene.root
+                    .layout()
+                view.board.childrenUnmodifiable[0]
+                    .layoutBounds.width
+            }
+        assertEquals(40.0, cell())
+
+        // At the board: the keys work anywhere in the tab.
+        robot.interact { Event.fireEvent(view.board, keyPress(KeyCode.PLUS)) }
+        assertEquals(50.0, cell())
+        robot.interact { view.zoomControls.zoomTo(2.0) }
+        assertEquals(80.0, cell())
+        assertEquals(2.0, fx { zoomPreferences.zoom("minesweeper", ZoomRange.ABOVE_FIT) })
+
+        // The last column lies beyond the width of the scene: the board scrolls.
+        assertTrue(fx { view.board.width > stage.scene.width })
+
+        // The middle of cell (x, y) of the 80 px cells, behind the board's padding of 8 px.
+        fun middle(
+            x: Int,
+            y: Int,
+        ) = Point2D(8.0 + x * 80.0 + 40.0, 8.0 + y * 80.0 + 40.0)
+        clickAt(robot, MouseButton.PRIMARY) { middle(8, 8) }
+        clickAt(robot, MouseButton.PRIMARY) { middle(3, 8) }
+        assertEquals(CellKind.OPENED, fx { model.game.cell(8, 8) })
+        // A number next to the mines: it opens alone.
+        assertEquals(CellKind.OPENED, fx { model.game.cell(3, 8) })
+        assertEquals(CellKind.CLOSED, fx { model.game.cell(2, 8) })
+
+        val next = fx { MinesweeperView(model, zoomPreferences).also { it.dispose() } }
+        assertEquals(2.0, fx { next.board.zoom })
     }
 
     @Test

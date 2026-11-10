@@ -1,5 +1,6 @@
 package dev.sluide.games.minesweeper.ui
 
+import dev.sluide.games.common.ui.FitArea
 import dev.sluide.games.minesweeper.CellKind
 import dev.sluide.games.minesweeper.MIN_CELL
 import dev.sluide.games.minesweeper.MinesweeperModel
@@ -14,11 +15,15 @@ import org.kordamp.ikonli.javafx.FontIcon
 import kotlin.math.floor
 
 /**
- * The cells of the board, laid out as squares sized by [cellSize] and centred. Only shows [model]; [update] redraws
- * it, and the view maps mouse clicks to cells with [cellAt].
+ * The cells of the board, laid out as squares sized by [cellSize] at the [zoom] and centred. Only shows [model];
+ * [update] redraws it, and the view maps mouse clicks to cells with [cellAt].
+ *
+ * The Fit size is that of the inside of [area], the scroll pane around the board; the board's minimum size is the
+ * zoomed board, so that it scrolls above Fit ([FitArea]).
  */
 internal class BoardView(
     private val model: MinesweeperModel,
+    area: Region,
 ) : Region() {
     private class CellNode : Label() {
         var shown: List<Any>? = null
@@ -30,6 +35,16 @@ internal class BoardView(
     private var cell = MIN_CELL
     private var originX = 0.0
     private var originY = 0.0
+    private val fitArea = FitArea(area, ::requestLayout)
+
+    /** The factor on the Fit size of the cells (ADR 0155). */
+    var zoom = 1.0
+        set(value) {
+            if (field != value) {
+                field = value
+                requestLayout()
+            }
+        }
 
     init {
         styleClass += "ms-board"
@@ -141,16 +156,16 @@ internal class BoardView(
             this.styleClass += styleClass
         }
 
-    override fun computeMinWidth(height: Double) = columns * MIN_CELL + 2 * PADDING
+    override fun computeMinWidth(height: Double) = columns * zoomedCell() + 2 * PADDING
 
-    override fun computeMinHeight(width: Double) = rows * MIN_CELL + 2 * PADDING
+    override fun computeMinHeight(width: Double) = rows * zoomedCell() + 2 * PADDING
 
     override fun computePrefWidth(height: Double) = columns * cell + 2 * PADDING
 
     override fun computePrefHeight(width: Double) = rows * cell + 2 * PADDING
 
     override fun layoutChildren() {
-        val size = cellSize(width - 2 * PADDING, height - 2 * PADDING, columns, rows)
+        val size = zoomedCell()
         val changed = size != cell
         cell = size
         originX = ((width - columns * cell) / 2).coerceAtLeast(PADDING)
@@ -162,6 +177,10 @@ internal class BoardView(
             }
         }
     }
+
+    /** The cell at the zoom, from the Fit size of the area (at least the zoomed minimum while it is not laid out). */
+    private fun zoomedCell() =
+        cellSize(fitArea.innerWidth - 2 * PADDING, fitArea.innerHeight - 2 * PADDING, columns, rows, zoom)
 
     private companion object {
         const val PADDING = 8.0

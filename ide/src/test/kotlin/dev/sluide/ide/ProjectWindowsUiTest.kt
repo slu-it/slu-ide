@@ -38,6 +38,7 @@ import dev.sluide.games.Solitaire
 import dev.sluide.games.Sudoku
 import dev.sluide.games.WordGuess
 import dev.sluide.games.blockbreaker.BlockBreakerPreferences
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.doubles.DoublesPreferences
 import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.games.minigolf.MiniGolfPreferences
@@ -204,6 +205,7 @@ class ProjectWindowsUiTest {
                 register(DockerSettings::class.java)
                 register(DockerRunStore::class.java)
                 register(MinesweeperPreferences::class.java)
+                register(GameZoomPreferences::class.java)
                 register(WordGuessPreferences::class.java)
                 register(DoublesPreferences::class.java)
                 register(SudokuPreferences::class.java)
