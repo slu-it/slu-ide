@@ -27,5 +27,5 @@ internal object SvgPreview : Preview {
 
     override val zooms get() = true
 
-    override val exports by lazy { listOf(1, 2, 3).map { SvgPngExport(it) } }
+    override val exports by lazy { listOf(1, 2, 3).map { SvgPngExport(PngSize.Scale(it)) } }
 }

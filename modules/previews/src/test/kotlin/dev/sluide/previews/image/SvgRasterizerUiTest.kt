@@ -44,7 +44,7 @@ class SvgRasterizerUiTest {
     private fun rasterize(
         svg: String,
         scale: Int,
-    ) = rasterizer.rasterize(svg.toByteArray(), scale)
+    ) = rasterizer.rasterize(svg.toByteArray(), PngSize.Scale(scale))
 
     private fun BufferedImage.alpha(
         x: Int,
@@ -157,7 +157,7 @@ class SvgRasterizerUiTest {
             CompletableFuture.supplyAsync {
                 WebViewSvgRasterizer(
                     tile = 64,
-                ).rasterize(large.toByteArray(), 1)
+                ).rasterize(large.toByteArray(), PngSize.Scale(1))
             }
         try {
             WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
@@ -177,7 +177,7 @@ class SvgRasterizerUiTest {
             assertFailsWith<IOException> {
                 WebViewSvgRasterizer(
                     Duration.ofMillis(1),
-                ).rasterize(HALF_RED.toByteArray(), 1)
+                ).rasterize(HALF_RED.toByteArray(), PngSize.Scale(1))
             }
         assertEquals("Timed out", failure.message)
     }
@@ -196,7 +196,7 @@ class SvgRasterizerUiTest {
         // At 300% the tiles are larger, to keep the number of snapshots down; their borders are crossed all the same.
         for ((scale, tile) in listOf(1 to 64, 3 to 128)) {
             val whole = rasterize(SHAPES, scale)
-            val tiled = WebViewSvgRasterizer(tile = tile).rasterize(SHAPES.toByteArray(), scale)
+            val tiled = WebViewSvgRasterizer(tile = tile).rasterize(SHAPES.toByteArray(), PngSize.Scale(scale))
             assertEquals(whole.width to whole.height, tiled.width to tiled.height)
             // Prism's rasteriser clips a path to the tile before flattening its curves, so that the antialiased edge
             // of a curve differs a little (up to 21 of 255 here; equal with -Dprism.marlin.clip=false). Compared
@@ -215,7 +215,7 @@ class SvgRasterizerUiTest {
                 "<rect x='${i % 3 * 64}' y='${i / 3 * 64}' width='64' height='64' fill='#%06x'/>".format(color)
             }
         val svg = "<svg xmlns='http://www.w3.org/2000/svg' width='150' height='100'>$tiles</svg>"
-        val image = WebViewSvgRasterizer(tile = 64).rasterize(svg.toByteArray(), 1)
+        val image = WebViewSvgRasterizer(tile = 64).rasterize(svg.toByteArray(), PngSize.Scale(1))
         assertEquals(150 to 100, image.width to image.height)
         val points = listOf(10 to 10, 100 to 10, 140 to 10, 10 to 90, 100 to 90, 149 to 99)
         assertEquals(colors, points.map { (x, y) -> image.rgb(x, y) })
@@ -228,7 +228,7 @@ class SvgRasterizerUiTest {
         val right =
             "<svg xmlns='http://www.w3.org/2000/svg' width='128' height='64'>" +
                 "<rect x='75' width='53' height='64' fill='red'/></svg>"
-        val image = WebViewSvgRasterizer(tile = 64).rasterize(right.toByteArray(), 1)
+        val image = WebViewSvgRasterizer(tile = 64).rasterize(right.toByteArray(), PngSize.Scale(1))
         assertTrue((0 until 75).all { x -> (0 until 64).all { y -> image.alpha(x, y) == 0 } }, "drawn on the left")
         assertTrue(
             (75 until 128).all { x -> (0 until 64).all { y -> image.getRGB(x, y) == 0xffff0000.toInt() } },

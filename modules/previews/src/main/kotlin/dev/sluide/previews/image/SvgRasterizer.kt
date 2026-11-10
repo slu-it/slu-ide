@@ -28,18 +28,18 @@ import java.util.concurrent.TimeoutException
 
 private val log = System.getLogger(WebViewSvgRasterizer::class.java.name)
 
-/** Draws an SVG as pixels at [scale] times its own size; blocking, never on the FX thread. */
+/** Draws an SVG as pixels at [size]; blocking, never on the FX thread. */
 internal fun interface SvgRasterizer {
     @Throws(IOException::class)
     fun rasterize(
         svg: ByteArray,
-        scale: Int,
+        size: PngSize,
     ): BufferedImage
 }
 
 /**
  * Draws with the preview's WebKit: the SVG is an `<img>` (so its scripts never run) in an offscreen [WebView], laid out
- * at [scale] times its own size (`naturalWidth` × `naturalHeight`, the preview's 100%), so that the vector stays sharp,
+ * at the [PngSize] (relative to `naturalWidth` × `naturalHeight`, the preview's 100%), so that the vector stays sharp,
  * and snapshotted on a transparent background. A WebView only paints while its window shows, so during the call it sits
  * in the root of the app's window, unseen: in a group that is not laid out, fully transparent, ignores the mouse and is
  * far outside the window. A snapshot draws the view without its parents, so the group's opacity does not show in it.
@@ -60,11 +60,10 @@ internal class WebViewSvgRasterizer(
 
     override fun rasterize(
         svg: ByteArray,
-        scale: Int,
+        size: PngSize,
     ): BufferedImage {
         check(!Platform.isFxApplicationThread()) { "Rasterising blocks; not on the FX thread" }
-        require(scale >= 1) { "Scale $scale" }
-        val session = Session(page(svg), scale, tile)
+        val session = Session(page(svg), size, tile)
         Platform.runLater { session.failOnError(session::start) }
         try {
             return session.result.get(timeout.toMillis(), TimeUnit.MILLISECONDS)
@@ -84,7 +83,7 @@ internal class WebViewSvgRasterizer(
     }
 
     /**
-     * One call's view, on the FX thread: loads the [page], sizes the image at [scale] and the view at a [tile] of it
+     * One call's view, on the FX thread: loads the [page], sizes the image at [size] and the view at a [tile] of it
      * once it is loaded, and draws the image tile by tile, row by row: it shifts the image so that the tile is at the
      * view's top left and snapshots the view from the [MIN_PULSES]th pulse after the shift on until two snapshots of
      * the tile agree (a paint can take more than one pulse), at the [MAX_PULSES]th at the latest (an animated SVG
@@ -93,7 +92,7 @@ internal class WebViewSvgRasterizer(
      */
     private class Session(
         private val page: String,
-        private val scale: Int,
+        private val size: PngSize,
         private val tile: Int,
     ) {
         val result = CompletableFuture<BufferedImage>()
@@ -150,7 +149,7 @@ internal class WebViewSvgRasterizer(
                 }
             val (width, height) =
                 try {
-                    checkedSize(naturalWidth, naturalHeight, scale)
+                    checkedSize(naturalWidth, naturalHeight, size)
                 } catch (e: IOException) {
                     return fail(e.message.orEmpty())
                 }
@@ -303,7 +302,7 @@ internal class WebViewSvgRasterizer(
 }
 
 /**
- * The size in pixels of an image of [naturalWidth] × [naturalHeight] drawn at [scale] times its size.
+ * The size in pixels of an image of [naturalWidth] × [naturalHeight] drawn at [size].
  *
  * @throws IOException if the image has no size (WebKit could not decode it) or is larger than
  *   [WebViewSvgRasterizer.MAX_SIDE] on a side or [WebViewSvgRasterizer.MAX_PIXELS] in all
@@ -311,15 +310,16 @@ internal class WebViewSvgRasterizer(
 internal fun checkedSize(
     naturalWidth: Long,
     naturalHeight: Long,
-    scale: Int,
+    size: PngSize,
 ): Pair<Int, Int> {
     if (naturalWidth <= 0 || naturalHeight <= 0) throw IOException("Not an SVG image")
-    val (width, height) = naturalWidth * scale to naturalHeight * scale
+    val (width, height) = size.pixels(naturalWidth, naturalHeight)
     if (width > WebViewSvgRasterizer.MAX_SIDE ||
         height > WebViewSvgRasterizer.MAX_SIDE ||
         width * height > WebViewSvgRasterizer.MAX_PIXELS
     ) {
-        throw IOException("Too large at ${scale * 100}%: $width × $height px")
+        val at = (size as? PngSize.Scale)?.let { " at ${it.factor * 100}%" }.orEmpty()
+        throw IOException("Too large$at: $width × $height px")
     }
     return width.toInt() to height.toInt()
 }
