@@ -51,6 +51,12 @@ no find, replace or go to line, and Tab indents instead of moving the focus.
 | Shortcut+D | Duplicate the selection or line |
 | Shortcut+Y | Delete lines |
 | Alt+Shift+Up / Down | Move lines up / down |
+| Cmd+Left / Right (macOS) | Line start / end; with Shift extends the selection |
+| Option+Left / Right (macOS) | Word left / right; with Shift extends the selection |
+| Cmd+Up / Down (macOS) | Start / end of the text; with Shift extends the selection |
+| Option+Up / Down (macOS) | Start / end of the paragraph, then of the previous / next one (without Shift) |
+| Option+Backspace / Delete (macOS) | Delete the word before / after the caret |
+| Cmd+Backspace / Delete (macOS) | Delete to the line start / end (one character when already there) |
 | Shortcut+/ or Shortcut+Shift+7 | Comment lines out or back in |
 | Shortcut+F | Find |
 | Shortcut+R | Replace |
@@ -63,6 +69,11 @@ no find, replace or go to line, and Tab indents instead of moving the focus.
 | Shortcut+Z / Shortcut+Shift+Z | Undo / redo |
 | Shortcut+X / C / V / A | Cut / copy / paste / select all (RichTextFX; also shown in the context menu) |
 | Menu key, Shift+F10 | Context menu at the caret |
+
+The macOS rows follow a Cocoa text view ([ADR 0154](../adr/0154-macos-text-keys.md)); with a selection the delete keys
+delete just the selection, and they act only in editable views. The navigation keys also apply in the side-by-side diff
+and in read-only code views. On other platforms RichTextFX's Shortcut+Left / Right (word) and Shortcut+Backspace /
+Delete (word delete) stay, and the macOS rows do not exist.
 
 ## Code intelligence
 In code editors of files a language server serves, e.g. Python ([code-intelligence.md](code-intelligence.md)). The

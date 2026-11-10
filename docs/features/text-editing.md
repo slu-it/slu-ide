@@ -30,6 +30,9 @@ and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
   | Shortcut+D | Duplicates the selection after it and selects the copy; without a selection, copies the line below and moves the caret along. |
   | Shortcut+Y | Deletes the lines the selection or caret touches; the caret keeps its column on the line that takes their place. |
   | Alt+Shift+Up / Down | Moves those lines above the previous / below the next line, with the selection. |
+  | Cmd+Left / Right, Option+Left / Right, Cmd+Up / Down (macOS) | Line start / end, word left / right, text start / end; with Shift they extend the selection. Also in the side-by-side diff and read-only views. |
+  | Option+Up / Down (macOS) | Start / end of the paragraph, then of the previous / next one. |
+  | Option+Backspace / Delete, Cmd+Backspace / Delete (macOS) | Delete a word, or to the line start / end (one character when already there); with a selection, just the selection. |
   | Shortcut+/, Shortcut+Shift+7 | Comments the touched non-blank lines out, or back in if all of them are commented (see below). Shortcut+/ is matched by the character, so it also works where `/` is Shift+7; Shortcut+Shift+7 works on every layout. |
   | Shortcut+F | Opens the find bar (below). |
   | Shortcut+R | Opens the find bar with the row for replacing. |
