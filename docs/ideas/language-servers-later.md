@@ -10,7 +10,7 @@ built. Each needs a decision of its own.
 - **Inlay hints** (types inline). The foundation already accepts `workspace/inlayHint/refresh`
   ([ADR 0142](../adr/0142-language-server-foundation.md)), but nothing asks for hints. RichTextFX's `CodeArea` holds
   plain text, so hints inside a line need a custom segment or document model; hints at the end of the line are the
-  cheaper variant. Hover already shows types.
+  cheaper variant. The TypeScript server offers type hints now ([ADR 0161](../adr/0161-typescript-via-typescript-7.md)). Hover already shows types.
 - **A Problems tab** listing the diagnostics of open files or of the whole project. Today they show only in the
   editor (underline, gutter icon, hover). Open files are a view over what the editors already hold; the whole project
   needs the server's pulled workspace diagnostics.
@@ -26,8 +26,14 @@ built. Each needs a decision of its own.
 - **More languages on the foundation.** A language is a `LanguageServerSpec` plus, if Thoreau installs the server, an
   installer (ADR 0142, [ADR 0143](../adr/0143-tool-installs.md), ADR 0144). Candidates: Kotlin through
   [kotlin-lsp](https://kotlinlang.org/docs/kotlin-lsp.html) (Alpha; it imports the Gradle build, i.e. runs project
-  code, so it belongs behind the trust question, see [code-navigation.md](code-navigation.md)), TypeScript, Java
-  (jdtls).
+  code, so it belongs behind the trust question, see [code-navigation.md](code-navigation.md)), Java (jdtls).
+  TypeScript is done ([ADR 0161](../adr/0161-typescript-via-typescript-7.md), [typescript.md](../features/typescript.md)).
+- **Semantic colours for more token types** (class, interface, type, function, ...): today the generic mapping
+  colours parameters and deprecated symbols only (ADR 0148).
+- **Shebang-only JavaScript scripts** (`#!/usr/bin/env node`, no extension) are not served by the TypeScript spec, as
+  for Python (ADR 0161).
+- **Vue and Svelte single-file components** through their own servers or TypeScript plugins (ADR 0161).
+- **TypeScript language-service plugins** once TypeScript 7.x has them; tsconfig `plugins` are ignored today.
 - **Files outside the project folder and scratch files** get no server today (ADR 0142, 0144). Options: a second
   server rooted at the file's folder, or a server's single-file mode.
 - **Shebang-only Python scripts** (no extension) are not served: the spec matches by file name only (ADR 0144).
