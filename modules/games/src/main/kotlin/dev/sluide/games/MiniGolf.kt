@@ -1,6 +1,7 @@
 package dev.sluide.games
 
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.minigolf.MiniGolfModel
 import dev.sluide.games.minigolf.MiniGolfPreferences
 import dev.sluide.games.minigolf.ui.MiniGolfTab
@@ -21,7 +22,10 @@ class MiniGolf internal constructor(
     private val tabFactory: (MiniGolfModel) -> EditorTab,
 ) {
     @Autowired
-    constructor(preferences: MiniGolfPreferences) : this(preferences, { MiniGolfTab(MiniGolfView(it)) })
+    constructor(
+        preferences: MiniGolfPreferences,
+        zoomPreferences: GameZoomPreferences,
+    ) : this(preferences, { MiniGolfTab(MiniGolfView(it, zoomPreferences)) })
 
     /** Shows the Mini Golf tab of the window (opening it if needed); set by ide. */
     var showTab: () -> Unit = {}

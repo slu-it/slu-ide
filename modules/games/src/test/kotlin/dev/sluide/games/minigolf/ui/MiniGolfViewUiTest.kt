@@ -1,6 +1,8 @@
 package dev.sluide.games.minigolf.ui
 
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.common.SessionState
+import dev.sluide.games.common.ZoomRange
 import dev.sluide.games.common.ui.firePress
 import dev.sluide.games.minigolf.MiniGolfGame
 import dev.sluide.games.minigolf.MiniGolfModel
@@ -54,6 +56,7 @@ class MiniGolfViewUiTest {
     lateinit var dir: Path
 
     private lateinit var model: MiniGolfModel
+    private lateinit var zoomPreferences: GameZoomPreferences
     private lateinit var view: MiniGolfView
     private lateinit var other: TextField
     private var asked = 0
@@ -75,7 +78,8 @@ class MiniGolfViewUiTest {
                     },
                 )
             }
-        view = MiniGolfView(model)
+        zoomPreferences = GameZoomPreferences(store, java.time.Duration.ZERO) { it.run() }
+        view = MiniGolfView(model, zoomPreferences)
         view.confirmAbandon = {
             asked++
             answer
@@ -332,7 +336,7 @@ class MiniGolfViewUiTest {
     @Test
     fun `a disposed view leaves the model to the view that took it over`(robot: FxRobot) {
         startCountdown(robot)
-        val second = fx { MiniGolfView(model) }
+        val second = fx { MiniGolfView(model, zoomPreferences) }
 
         try {
             robot.interact { view.dispose() }
@@ -358,5 +362,23 @@ class MiniGolfViewUiTest {
         robot.interact { firePress(view.status) }
 
         assertSame(view.board, fx { view.board.scene.focusOwner })
+    }
+
+    @Test
+    fun `zooming out shrinks the field, is saved and zoom in is disabled at Fit`(robot: FxRobot) {
+        fun width() = fx { view.canvas.placement.width }
+        val fit = width()
+        assertTrue(fx { view.zoomControls.zoomInButton.isDisable })
+
+        robot.interact { view.zoomControls.zoomTo(0.5) }
+
+        assertEquals(fit / 2, width(), 2.0)
+        assertEquals(0.5, fx { view.canvas.zoom })
+        // The pointer mapping of the press, drag and release paths follows the zoom.
+        val corner = fx { view.canvas.placement.let { view.canvas.fieldPoint(it.x(0.0), it.y(0.0)) } }
+        assertEquals(0.0, corner.x, 1.0)
+        assertEquals(0.0, corner.y, 1.0)
+        assertEquals(0.5, fx { zoomPreferences.zoom("miniGolf", ZoomRange.UP_TO_FIT) })
+        assertFalse(fx { view.zoomControls.zoomInButton.isDisable })
     }
 }

@@ -2,7 +2,10 @@ package dev.sluide.games.minigolf.ui
 
 import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.WrappingToolbar
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.common.SessionState
+import dev.sluide.games.common.ZoomRange
+import dev.sluide.games.common.ui.GameZoomControls
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.RealtimeLoop
 import dev.sluide.games.common.ui.focusBoardOnPress
@@ -33,6 +36,7 @@ import org.kordamp.ikonli.javafx.FontIcon
  */
 internal class MiniGolfView(
     private val model: MiniGolfModel,
+    zoomPreferences: GameZoomPreferences,
 ) {
     val canvas = FieldCanvas(model)
     val newGameButton = Button("New Game")
@@ -55,6 +59,11 @@ internal class MiniGolfView(
         }
 
     internal val overlay: Node get() = pauseOverlay.node
+
+    internal val zoomControls =
+        GameZoomControls(ZoomRange.UP_TO_FIT, zoomPreferences.zoom(GAME_ID, ZoomRange.UP_TO_FIT)) {
+            zoomPreferences.setZoom(GAME_ID, it)
+        }
 
     val node: Node =
         BorderPane().apply {
@@ -95,6 +104,8 @@ internal class MiniGolfView(
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
         focusBoardOnPress(node, board)
+        zoomControls.zoom.subscribe { zoom -> canvas.zoom = zoom.toDouble() }
+        zoomControls.install(node)
         model.onChange = installedChange
         model.onHoleInOne = installedHoleInOne
         // The subscription above ran before the view owned the model.
@@ -127,6 +138,7 @@ internal class MiniGolfView(
         return WrappingToolbar().apply {
             hgap = 6.0
             leading.setAll(newGameButton, pauseButton)
+            trailing.setAll(zoomControls.node)
             styleClass += "mg-toolbar"
         }
     }
@@ -232,6 +244,7 @@ internal class MiniGolfView(
     }
 
     private companion object {
+        const val GAME_ID = "miniGolf"
         const val ICON_SIZE = 16
     }
 }

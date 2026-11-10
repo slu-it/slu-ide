@@ -17,7 +17,7 @@ import kotlin.math.max
 
 /**
  * The logical field point of ([x], [y]), a point in an area of [areaWidth] x [areaHeight] showing the field as
- * [layout] fits it; may lie outside the field (a drag that leaves it keeps reporting; the model caps the power). Pure.
+ * [layout] fits it at [zoom]; may lie outside the field (a drag that leaves it keeps reporting; the model caps the power). Pure.
  */
 internal fun fieldPoint(
     layout: FieldLayout,
@@ -25,8 +25,9 @@ internal fun fieldPoint(
     areaHeight: Double,
     x: Double,
     y: Double,
+    zoom: Double,
 ): Vec {
-    val place = layout.fit(areaWidth, areaHeight, 1.0)
+    val place = layout.fit(areaWidth, areaHeight, 1.0, zoom)
     return Vec((x - place.offsetX) / place.scale, (y - place.offsetY) / place.scale)
 }
 
@@ -47,6 +48,13 @@ internal class FieldCanvas(
     private val layout = FieldLayout(Rules.FIELD_WIDTH.toInt(), Rules.FIELD_HEIGHT.toInt())
     private val burst = BurstState()
 
+    /** The game zoom (ADR 0155), at most 1.0; setting it redraws. */
+    var zoom: Double = 1.0
+        set(value) {
+            field = value
+            redraw()
+        }
+
     private val scaleSubscription: Subscription =
         sceneProperty()
             .flatMap { it.windowProperty() }
@@ -62,7 +70,11 @@ internal class FieldCanvas(
     fun fieldPoint(
         x: Double,
         y: Double,
-    ): Vec = fieldPoint(layout, width, height, x, y)
+    ): Vec = fieldPoint(layout, width, height, x, y, zoom)
+
+    /** Where the field lies in the canvas at the current zoom. */
+    internal val placement: FieldPlacement
+        get() = layout.fit(width, height, scene?.window?.renderScaleX ?: 1.0, zoom)
 
     /** Starts the hole-in-one burst at [cup] on the current hole. */
     fun startBurst(cup: Vec) {
@@ -77,7 +89,7 @@ internal class FieldCanvas(
 
     fun redraw() {
         if (width <= 0 || height <= 0) return
-        val place = layout.fit(width, height, scene?.window?.renderScaleX ?: 1.0)
+        val place = placement
         val gc = graphicsContext2D
         gc.fill = MiniGolfPalette.SURROUND
         gc.fillRect(0.0, 0.0, width, height)

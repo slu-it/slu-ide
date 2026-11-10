@@ -193,7 +193,7 @@ class BlockBreakerViewUiTest {
         fx {
             val place =
                 FieldLayout(BlockBreakerGame.WIDTH, BlockBreakerGame.HEIGHT)
-                    .fit(view.board.width, view.board.height, 1.0)
+                    .fit(view.board.width, view.board.height, 1.0, 1.0)
             place.offsetX + fieldX * place.scale
         }
 
@@ -351,7 +351,11 @@ class BlockBreakerViewUiTest {
                     view.canvas.snapshot(null, WritableImage(view.canvas.width.toInt(), view.canvas.height.toInt()))
                 }
             // The middle of brick (0, 0), a tier-1 brick, in the colour of its tier (not the letterbox background).
-            val place = FieldLayout(BlockBreakerGame.WIDTH, BlockBreakerGame.HEIGHT).fit(image.width, image.height, 1.0)
+            val place =
+                FieldLayout(
+                    BlockBreakerGame.WIDTH,
+                    BlockBreakerGame.HEIGHT,
+                ).fit(image.width, image.height, 1.0, 1.0)
             val x = place.x(Rules.PLAY_LEFT + Rules.BRICK_WIDTH / 2.0).toInt()
             val y = place.y(Rules.BRICK_TOP + Rules.BRICK_HEIGHT / 2.0).toInt()
             assertEquals(

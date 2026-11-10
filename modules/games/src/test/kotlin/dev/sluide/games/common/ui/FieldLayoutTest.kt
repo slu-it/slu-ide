@@ -11,7 +11,7 @@ class FieldLayoutTest {
 
     @Test
     fun `a wide area is limited by its height and the field is centred horizontally`() {
-        val p = layout.fit(1000.0, 480.0, 1.0)
+        val p = layout.fit(1000.0, 480.0, 1.0, 1.0)
 
         assertEquals(2.0, p.scale)
         assertEquals((1000.0 - 640.0) / 2, p.offsetX)
@@ -20,7 +20,7 @@ class FieldLayoutTest {
 
     @Test
     fun `a tall area is limited by its width and the field is centred vertically`() {
-        val p = layout.fit(640.0, 1000.0, 1.0)
+        val p = layout.fit(640.0, 1000.0, 1.0, 1.0)
 
         assertEquals(2.0, p.scale)
         assertEquals(0.0, p.offsetX)
@@ -29,7 +29,7 @@ class FieldLayoutTest {
 
     @Test
     fun `the scale is at least 1 in a small area`() {
-        val p = layout.fit(100.0, 50.0, 1.0)
+        val p = layout.fit(100.0, 50.0, 1.0, 1.0)
 
         assertEquals(1.0, p.scale)
     }
@@ -57,7 +57,7 @@ class FieldLayoutTest {
     @ParameterizedTest
     @ValueSource(doubles = [1.0, 1.5, 2.0, 2.5])
     fun `the edges of adjacent field pixels touch without gaps and the field has its snapped size`(os: Double) {
-        val p = layout.fit(777.0, 555.0, os)
+        val p = layout.fit(777.0, 555.0, os, 1.0)
 
         // One edge function serves both neighbours, so every pixel is between 1 and ceil(scale) device pixels wide.
         var sum = 0.0

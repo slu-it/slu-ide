@@ -77,8 +77,11 @@ slope arrows, bumpers, tunnel mouths, the cup with a flag, a white ball with a s
 total. The tab's tooltip is "Putt your way through 18 holes".
 
 ## Scaling
-The field keeps its 4:3 ratio (320 × 240 units), is centred in the tab and scaled to fill it, at least scale 1. The
-pointer is mapped back to field units. The toolbar wraps when the tab is narrow.
+The field keeps its 4:3 ratio (320 × 240 units), is centred in the tab and scaled to fill it, at least scale 1 at Fit
+(the zoom goes below it). The pointer is mapped back to field units. The toolbar wraps when the tab is narrow.
+
+Zoom: 25%–Fit, see [game-zoom.md](game-zoom.md); the field then gets smaller than the tab, centred, with the board
+background around it.
 
 ## Stored
 User-wide in `~/.sluide/shared.json`, field `miniGolf` ([ADR 0101](../adr/0101-shared-data-file.md)): the best total

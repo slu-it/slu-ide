@@ -17,7 +17,7 @@ internal class FieldLayout(
         areaWidth: Double,
         areaHeight: Double,
         outputScale: Double,
-        zoom: Double = 1.0,
+        zoom: Double,
     ): FieldPlacement {
         val scale = max(1.0, min(areaWidth / fieldWidth, areaHeight / fieldHeight)) * zoom
         return FieldPlacement(

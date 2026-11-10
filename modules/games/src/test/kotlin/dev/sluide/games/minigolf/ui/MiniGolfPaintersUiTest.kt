@@ -23,7 +23,7 @@ import kotlin.test.assertTrue
 @ExtendWith(ApplicationExtension::class)
 class MiniGolfPaintersUiTest {
     private lateinit var canvas: Canvas
-    private val placement = FieldLayout(320, 240).fit(640.0, 480.0, 1.0)
+    private val placement = FieldLayout(320, 240).fit(640.0, 480.0, 1.0, 1.0)
 
     @Start
     fun start(stage: Stage) {
