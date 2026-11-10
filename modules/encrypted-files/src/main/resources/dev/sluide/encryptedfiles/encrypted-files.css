@@ -1,0 +1,64 @@
+/*
+ * The tab of an encrypted file (EncryptedFileView): the locked pane (LockedPane), a centred column with a large lock,
+ * the password field, Unlock and a message, and, while unlocked, the strip above the inner view (UnlockedStrip), styled
+ * like the previews' toolbar (.preview-toolbar in preview-view.css; keep in sync). Only looked-up colours, so no dark
+ * rules are needed.
+ */
+
+.encrypted-file-view {
+    -fx-background-color: -fx-background;
+}
+
+.encrypted-locked {
+    -fx-spacing: 10;
+    -fx-padding: 24;
+}
+
+.encrypted-lock-icon {
+    -fx-icon-size: 64;
+    -fx-icon-color: -fx-text-base-color;
+    -fx-opacity: 0.7;
+}
+
+.encrypted-title {
+    -fx-font-size: 1.15em;
+}
+
+.encrypted-password {
+    -fx-pref-column-count: 22;
+}
+
+.encrypted-message {
+    -fx-opacity: 0.8;
+}
+
+.encrypted-strip {
+    -fx-padding: 2 6 2 6;
+    -fx-hgap: 0;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.encrypted-strip-state {
+    -fx-spacing: 4;
+    -fx-padding: 0 8 0 2;
+}
+
+.encrypted-strip-state .label, .encrypted-strip-message {
+    -fx-font-size: 0.9em;
+}
+
+.encrypted-strip-message {
+    -fx-padding: 0 8 0 4;
+    -fx-font-weight: bold;
+}
+
+.encrypted-strip-button {
+    -fx-padding: 2 10 2 10;
+    -fx-font-size: 0.9em;
+    -fx-background-radius: 0;
+}
+
+.encrypted-strip-icon, .encrypted-strip-button .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}

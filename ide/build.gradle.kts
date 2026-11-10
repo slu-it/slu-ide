@@ -87,6 +87,9 @@ dependencies {
     implementation(project(":modules:code-intelligence"))
     // Saved secrets: values encrypted with one key in the OS secret store; Secrets is a singleton (ADR 0122).
     implementation(project(":modules:secrets"))
+    // Encrypted files: EncryptedFileViewer is a FileViewer and EncryptedFiles a singleton, both found by component scan
+    // (ADR 0162).
+    implementation(project(":modules:encrypted-files"))
     // Library code opens read-only: LibraryCodeSettings is a singleton found by component scan (ADR 0150).
     implementation(project(":modules:library-code"))
     // The explorer's Run item has a Material Design play icon, like the HTTP client's Run (ADR 0012).

@@ -25,6 +25,8 @@ import dev.sluide.docker.settings.DockerSettings
 import dev.sluide.docker.settings.DockerSettingsPage
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
+import dev.sluide.encryptedfiles.EncryptedFiles
+import dev.sluide.encryptedfiles.ui.EncryptedFileViewer
 import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.ExplorerSettings
 import dev.sluide.fileexplorer.FileExplorerView
@@ -136,6 +138,7 @@ import org.springframework.boot.WebApplicationType
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.core.MethodParameter
 import java.nio.file.Path
+import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -270,6 +273,8 @@ class SpringWiringTest {
                         EditorSettingsPage::class.java,
                         LibraryCodeExtension::class.java,
                         LibraryCodeSettings::class.java,
+                        EncryptedFiles::class.java,
+                        EncryptedFileViewer::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -393,6 +398,11 @@ class SpringWiringTest {
                 }
                 assertIs<MarkdownFileViewer>(fileViewers.viewerFor(dir.resolve("Dockerfile.md")))
                 assertIs<IgnoreFileViewer>(fileViewers.viewerFor(dir.resolve("Dockerfile.dockerignore")))
+                // Encrypted files get their viewer by the last extension, which shows the inner type's content viewer
+                // (ADR 0162); the file is binary, so no text viewer may take it.
+                dir.resolve("notes.md.sluenc").writeBytes(byteArrayOf(0, 1, 2, -1))
+                assertIs<EncryptedFileViewer>(fileViewers.viewerFor(dir.resolve("notes.md.sluenc")))
+                assertIs<MarkdownFileViewer>(fileViewers.contentViewerFor("notes.md"))
             }
     }
 }
