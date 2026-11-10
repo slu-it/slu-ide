@@ -1,6 +1,6 @@
 # 0016. Markdown preview with commonmark-java in a WebView
 
-- Status: accepted; partly superseded by [0017](0017-webview-previews.md) (pages loaded on their own)
+- Status: accepted; partly superseded by [0017](0017-webview-previews.md) (pages loaded on their own); amended by [0157](0157-markdown-front-matter.md)
 - Date: 2026-10-14
 
 ## Context

@@ -24,6 +24,8 @@ Decision in [ADR 0058](../adr/0058-markdown-html-export.md).
   the page and is listed in the dialog after the export; math that cannot be typeset keeps its TeX source and is
   reported as well. Labels are measured with the IDE's fonts, so in a browser with other fonts a label may sit a little
   tight.
+- **Front matter:** exported as the same highlighted code block as in the preview (`<pre class="front-matter">`); a
+  `<name>.css` can hide it with `.front-matter { display: none; }`.
 - **Custom styles:** `<name>.css` next to the Markdown file is inlined after the built-in styles, so it overrides only
   what it sets. In the reader's dark scheme the body has the class `dark`, so dark rules use `body.dark …`.
 - **Colour scheme:** the page follows the reader's light or dark setting (`prefers-color-scheme`), also when it changes,

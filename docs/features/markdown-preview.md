@@ -11,6 +11,10 @@
   [previews.md](previews.md#zooming-documents).
 - Rendering: CommonMark with GitHub's tables, strikethrough, task lists, autolinks and heading anchors; fenced code
   with a known language is highlighted like the code views.
+- Front matter (YAML between `---` and `---` or `...`, TOML between `+++` lines) at the very start of the file, as in
+  SKILL.md, Jekyll or Hugo, shows as a highlighted YAML or TOML code block. It needs a non-blank second line and a
+  closing marker. It is not in the table of contents; in the source it is highlighted as YAML or TOML with the marker
+  lines as annotations.
 - Math, typeset by KaTeX (bundled, works offline): `$…$` inline (no space inside the dollars, no digit after the
   closing one, so `$5 and $6` stays text; `\$` is a dollar sign), `$$…$$` (also within a paragraph) and blocks
   between `$$` lines as display math, and ` ```math ` fences. Like a code fence, a `$$` line without a closing one

@@ -181,8 +181,8 @@ the Bicep graph and `BicepParamFileViewer`.
   matches ([env-files.md](env-files.md), [ADR 0030](../adr/0030-masking-env-values.md)).
 - `MarkdownFileViewer` (`.md`, `.markdown`) is no code viewer: it shows the Markdown source, highlighted like the
   code views, beside a rendered preview ([markdown-preview.md](markdown-preview.md)). Fenced code in the source is
-  highlighted as its language by `FencedCodeHighlighter` when it names a known one (` ```ts `, `~~~python`). Front matter at the start (YAML or TOML) is highlighted as that language, its marker lines as
-  annotations.
+  highlighted as its language by `FencedCodeHighlighter` when it names a known one (` ```ts `, `~~~python`). Front matter at the start (YAML or TOML) is highlighted as that language, its marker
+  lines as annotations.
 - Diff views: `FileViewers.openDiff(file, TextDiff)` shows a file side by side with an original version (left) in a
   `DiffFileView`: two read-only RichTextFX code areas with titles from the `TextDiff`, the same highlighting as the
   file's code viewer (plain for `DefaultTextFileViewer`; other viewers get no diff, `null`). `LineChange`s are
