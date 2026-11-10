@@ -69,6 +69,22 @@ class FileViewers(
     }
 
     /**
+     * The viewer to show content of a file named [name] with, or `null` if none can: of the registered
+     * [ContentFileViewer]s (the default text viewer last) that [open its content][ContentFileViewer.opensContent]
+     * (a [PathFileViewer] only if its path matches), the one [viewerFor] ranks first by name.
+     * The name alone decides; no file is looked at.
+     */
+    fun contentViewerFor(name: String): ContentFileViewer? {
+        val path = Path.of(name)
+        return specific
+            .filterIsInstance<ContentFileViewer>()
+            .filter { it.opensContent(name) }
+            .filter { it !is PathFileViewer || it.matchesPath(path) }
+            .minByOrNull { nameMatch(it as FileViewer, path) ?: NameMatch.EXTENSION }
+            ?: fallback.takeIf { it.opensContent(name) }
+    }
+
+    /**
      * Shows [file] side by side with the original of [diff], highlighted like its code viewer would (ADR 0015).
      * `null` if no viewer can show the file or its viewer does not show plain or highlighted text.
      */

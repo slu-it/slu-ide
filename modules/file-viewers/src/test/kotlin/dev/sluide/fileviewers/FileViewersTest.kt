@@ -264,6 +264,70 @@ class FileViewersTest {
         assertSame(fallback, viewer("empty"))
     }
 
+    /** A preview-like viewer of another module that also shows content from elsewhere. */
+    private class ContentStub(
+        extensions: Set<String>,
+    ) : ExtensionsStub(extensions),
+        ContentFileViewer {
+        override fun opensContent(name: String) = name.substringAfterLast('.').lowercase() in fileExtensions
+
+        override fun open(
+            file: Path,
+            content: FileContent,
+        ): FileView = error("not needed")
+    }
+
+    @Test
+    fun `the viewer for content is picked by the name alone among the viewers that show content`() {
+        val markdown = ContentStub(setOf("md"))
+        val json = ContentStub(setOf("json"))
+        val yaml = ContentStub(setOf("yml", "yaml"))
+        val image = ExtensionsStub(setOf("png", "md"))
+        val viewers = FileViewers(listOf(image, markdown, json, yaml, KotlinFileViewer()), fallback)
+
+        // None of these files exists.
+        assertSame(markdown, viewers.contentViewerFor("notes.md"), "a viewer that cannot show content is skipped")
+        assertSame(fallback, viewers.contentViewerFor("notes.txt"))
+        assertSame(json, viewers.contentViewerFor("notes.JSON"))
+        assertSame(yaml, viewers.contentViewerFor("notes.yaml"))
+        assertNull(viewers.contentViewerFor("notes.png"))
+        assertNull(viewers.contentViewerFor("Makefile"))
+    }
+
+    /** A content viewer that claims the exact name `compose.yaml`, in the folders that [inFolder] accepts. */
+    private class NamedContentStub(
+        private val inFolder: Boolean = true,
+    ) : NamedFileViewer,
+        PathFileViewer,
+        ContentFileViewer {
+        override val fileNames = setOf("compose.yaml")
+
+        override fun canOpen(file: Path) = true
+
+        override fun matchesPath(file: Path) = inFolder
+
+        override fun opensContent(name: String) = name == "compose.yaml"
+
+        override fun open(file: Path): FileView = error("not needed")
+
+        override fun open(
+            file: Path,
+            content: FileContent,
+        ): FileView = error("not needed")
+    }
+
+    @Test
+    fun `of two viewers showing the content the better name match wins, and a path viewer needs its path`() {
+        val yaml = ContentStub(setOf("yaml"))
+        val elsewhere = NamedContentStub(inFolder = false)
+
+        assertSame(yaml, FileViewers(listOf(elsewhere, yaml), fallback).contentViewerFor("compose.yaml"))
+        val inFolder = NamedContentStub()
+        assertSame(inFolder, FileViewers(listOf(yaml, inFolder), fallback).contentViewerFor("compose.yaml"))
+        assertSame(inFolder, FileViewers(listOf(inFolder, yaml), fallback).contentViewerFor("compose.yaml"))
+        assertSame(yaml, FileViewers(listOf(inFolder, yaml), fallback).contentViewerFor("other.yaml"))
+    }
+
     /** A viewer of another module for files with the [fileExtensions], e.g. images. */
     private open class ExtensionsStub(
         override val fileExtensions: Set<String>,
