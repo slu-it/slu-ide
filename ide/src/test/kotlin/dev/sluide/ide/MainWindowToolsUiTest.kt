@@ -34,6 +34,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
+import kotlin.io.path.deleteExisting
 import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
@@ -186,23 +187,44 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `offers Docker Sandbox - Claude Code and Environment, disabled without a folder`(robot: FxRobot) {
-        val items = sandboxItems(robot)
+    fun `offers one Docker Sandbox item with an accelerator, disabled without a folder, and named by the folder`(
+        robot: FxRobot,
+    ) {
+        val item = sandboxItems(robot).single()
 
-        assertEquals(listOf("Claude Code", "Environment"), items.map { it.text })
-        assertEquals(listOf(true, true), items.map { it.isDisable })
-    }
+        assertEquals("New Docker Sandbox Session (Claude Code)", item.text)
+        assertEquals(
+            KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
+            item.accelerator,
+        )
+        assertTrue(item.isDisable)
 
-    @Test
-    fun `Environment is enabled below the home folder once the folder has an sbxenv yaml`(robot: FxRobot) {
         val folder = home.resolve("work/project").createDirectories()
         robot.interact { projectService.open(folder) }
-        assertEquals(listOf(false, true), sandboxItems(robot).map { it.isDisable })
+        assertEquals("New Docker Sandbox Session (Claude Code)", item.text)
+        assertFalse(item.isDisable)
 
         folder.resolve("sbxenv.yaml").createFile()
         robot.interact { menu(robot, "Docker Sandbox").onShowing.handle(null) }
 
-        assertEquals(listOf(false, false), sandboxItems(robot).map { it.isDisable })
+        assertEquals("New Docker Sandbox Session (Environment)", item.text)
+        assertFalse(item.isDisable)
+    }
+
+    @Test
+    fun `firing the sandbox item chooses the action again from the current folder`(robot: FxRobot) {
+        val folder = home.resolve("work/project").createDirectories()
+        val file = folder.resolve("sbxenv.yaml").createFile()
+        robot.interact { projectService.open(folder) }
+        robot.interact { menu(robot, "Docker Sandbox").onShowing.handle(null) }
+        assertEquals("New Docker Sandbox Session (Environment)", sandboxItems(robot).single().text)
+
+        // The menu is not shown again, so its label is stale when the accelerator fires.
+        file.deleteExisting()
+        robot.interact { sandboxItems(robot).single().fire() }
+
+        // The fake shell may already have exited, which appends " (exited)" to the title.
+        assertTrue(tabTitles(robot).single().startsWith("Claude Code 1"), tabTitles(robot).toString())
     }
 
     @Test
@@ -212,7 +234,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot.interact { projectService.open(home) }
 
         // Fired directly: the menu would not offer it, the start is checked again.
-        robot.interact { sandboxItems(robot).first().fire() }
+        robot.interact { sandboxItems(robot).single().fire() }
 
         assertEquals(1, errors.size)
         assertTrue(errors.single().startsWith("Claude Code cannot be started. Docker sandboxes run only"), errors[0])
@@ -231,7 +253,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         robot.interact {
             menu(robot, "Terminal").items.single().fire()
-            sandboxItems(robot).first().fire()
+            sandboxItems(robot).single().fire()
             codeIntelligences.single().intelligence.runInTerminal(folder, "uv sync (project)", "uv sync")
         }
 
@@ -260,7 +282,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         WaitForAsyncUtils.waitForFxEvents()
 
         assertFalse(menu.isDisable)
-        assertEquals(listOf(false, true), menu.items.map { it.isDisable })
+        assertFalse(menu.items.single().isDisable)
     }
 
     @Test

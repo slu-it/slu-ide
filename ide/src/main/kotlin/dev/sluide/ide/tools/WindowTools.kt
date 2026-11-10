@@ -244,28 +244,36 @@ internal class WindowTools(
     }
 
     /**
-     * The sandbox actions; each is enabled only where it may run, which is checked again when it is started. The whole
-     * menu is disabled until the check for `sbx` has found it.
+     * One item, "New Docker Sandbox Session (Environment)" where the project folder has an `sbxenv.yaml`, else
+     * "(Claude Code)"; enabled only where that action may run. The action is chosen again when the item fires (the
+     * accelerator works without the menu showing), and checked again when it is started. The whole menu is disabled
+     * until the check for `sbx` has found it.
      */
     fun dockerSandboxMenu(stage: Stage): Menu {
-        val items =
-            SandboxAction.entries.associateWith { action ->
-                MenuItem(action.title).apply { setOnAction { openSandbox(stage, action) } }
+        val item =
+            MenuItem().apply {
+                accelerator = KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
+                setOnAction { openSandbox(stage, SandboxAction.forFolder(projectService.projectFolder.get())) }
             }
 
-        fun updateItems() =
-            items.forEach { (action, item) ->
-                item.isDisable = dockerSandbox.problem(action, projectService.projectFolder.get()) != null
-            }
-        projectService.projectFolder.subscribe { _ -> updateItems() }
-        return Menu("Docker Sandbox", null, *items.values.toTypedArray()).apply {
+        fun updateItem() {
+            val folder = projectService.projectFolder.get()
+            val action = SandboxAction.forFolder(folder)
+            item.text = "New Docker Sandbox Session (${action.title})"
+            item.isDisable = dockerSandbox.problem(action, folder) != null
+        }
+        updateItem()
+        // Fired before an accelerator checks isDisable, so Shortcut+Shift+B sees a fresh state too.
+        item.setOnMenuValidation { updateItem() }
+        projectService.projectFolder.subscribe { _ -> updateItem() }
+        return Menu("Docker Sandbox", null, item).apply {
             // Also picks up an sbxenv.yaml created or deleted since the folder was opened.
-            setOnShowing { updateItems() }
+            setOnShowing { updateItem() }
             isDisable = true
             dockerSandbox.sbxInstalled.thenAccept { installed ->
                 Platform.runLater {
                     isDisable = !installed
-                    updateItems()
+                    updateItem()
                 }
             }
         }
