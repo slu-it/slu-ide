@@ -445,7 +445,7 @@ abstract class MainWindowUiFixture {
             ).also(databases::add),
             Minesweeper(MinesweeperPreferences(projectData), GameZoomPreferences(projectData)).also(minesweepers::add),
             WordGuess(WordGuessPreferences(projectData), GameZoomPreferences(projectData)).also(wordGuesses::add),
-            Doubles(DoublesPreferences(projectData)).also(doublesGames::add),
+            Doubles(DoublesPreferences(projectData), GameZoomPreferences(projectData)).also(doublesGames::add),
             Sudoku(SudokuPreferences(projectData)).also(sudokuGames::add),
             Solitaire(SolitairePreferences(projectData)).also(solitaireGames::add),
             OrbitGuard(OrbitGuardPreferences(projectData)).also(orbitGuardGames::add),

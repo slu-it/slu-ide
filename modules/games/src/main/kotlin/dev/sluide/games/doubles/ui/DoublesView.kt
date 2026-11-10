@@ -2,19 +2,21 @@ package dev.sluide.games.doubles.ui
 
 import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.WrappingToolbar
+import dev.sluide.games.common.GameZoomPreferences
+import dev.sluide.games.common.ZoomRange
+import dev.sluide.games.common.ui.FitArea
+import dev.sluide.games.common.ui.GameZoomControls
 import dev.sluide.games.common.ui.focusBoardOnPress
 import dev.sluide.games.doubles.BoardSize
 import dev.sluide.games.doubles.Direction
 import dev.sluide.games.doubles.DoublesModel
 import dev.sluide.games.doubles.KeyAction
-import dev.sluide.games.doubles.MIN_TILE
 import dev.sluide.games.doubles.MoveResult
 import dev.sluide.games.doubles.SCORE_ROW_FACTOR
 import dev.sluide.games.doubles.SECTION_GAP_FACTOR
 import dev.sluide.games.doubles.dragDirection
 import dev.sluide.games.doubles.keyAction
 import dev.sluide.games.doubles.tileSize
-import javafx.geometry.Bounds
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Node
@@ -41,10 +43,12 @@ import kotlin.math.max
 
 /**
  * The Doubles tab: toolbar, score boxes, board and status line. It only shows [model] and forwards input; the view
- * that shows a model owns its callbacks until [dispose].
+ * that shows a model owns its callbacks until [dispose]. The zoom (ADR 0155) is read from and saved to
+ * [zoomPreferences].
  */
 internal class DoublesView(
     private val model: DoublesModel,
+    zoomPreferences: GameZoomPreferences,
 ) {
     val board = BoardView()
     val sizeMenu = MenuButton()
@@ -52,6 +56,10 @@ internal class DoublesView(
     val undoButton = Button()
     val scoreValue = Label().apply { styleClass += "dbl-score-value" }
     val bestValue = Label().apply { styleClass += "dbl-score-value" }
+    val zoomControls =
+        GameZoomControls(ZoomRange.ABOVE_FIT, zoomPreferences.zoom(GAME_ID, ZoomRange.ABOVE_FIT)) {
+            zoomPreferences.setZoom(GAME_ID, it)
+        }
     val status = Label().apply { styleClass += "dbl-status" }
 
     /** Asks whether to abandon the running game of [score]; replaced in tests. */
@@ -78,7 +86,11 @@ internal class DoublesView(
             }
         }
 
-    private var bounds: Bounds? = null
+    internal val scrollPane = ScrollPane()
+
+    /** The Fit size comes from the scroll pane's inside; the zoomed tiles are the content's minimum size. */
+    private val fitArea = FitArea(scrollPane) { resize() }
+    private var zoom = 1.0
 
     val node: Node =
         BorderPane().apply {
@@ -88,12 +100,12 @@ internal class DoublesView(
                     .toExternalForm()
             top = toolbar()
             center =
-                ScrollPane(content).apply {
+                scrollPane.apply {
+                    this.content = this@DoublesView.content
                     styleClass += "dbl-scroll"
                     isFitToWidth = true
                     isFitToHeight = true
                     isFocusTraversable = false
-                    viewportBoundsProperty().addListener { _, _, b -> resize(b) }
                 }
             bottom = HBox(status).apply { styleClass += "dbl-status-bar" }
         }
@@ -134,8 +146,11 @@ internal class DoublesView(
             board.requestFocus()
             it.consume()
         }
-        layoutBoard()
-        board.show(model.tiles, model.size.side)
+        zoomControls.zoom.subscribe { value ->
+            zoom = value.toDouble()
+            resize()
+        }
+        zoomControls.install(node)
         refreshLabels()
     }
 
@@ -159,6 +174,7 @@ internal class DoublesView(
         return WrappingToolbar().apply {
             hgap = 6.0
             leading.setAll(sizeMenu, newGameButton, undoButton)
+            trailing.setAll(zoomControls.node)
             styleClass += "dbl-toolbar"
         }
     }
@@ -225,10 +241,9 @@ internal class DoublesView(
     }
 
     private fun currentTile(): Double =
-        bounds?.let { tileSize(it.width - 2 * PADDING, it.height - 2 * PADDING, model.size.side) } ?: MIN_TILE
+        tileSize(fitArea.innerWidth - 2 * PADDING, fitArea.innerHeight - 2 * PADDING, model.size.side, zoom)
 
-    private fun resize(newBounds: Bounds?) {
-        bounds = newBounds
+    private fun resize() {
         board.finishAnimation()
         layoutBoard()
         board.show(model.tiles, model.size.side)
@@ -292,6 +307,7 @@ internal class DoublesView(
     private fun format(n: Int) = "%,d".format(Locale.ROOT, n)
 
     private companion object {
+        const val GAME_ID = "doubles"
         const val ICON_SIZE = 16
         const val PADDING = 8.0
         const val DRAG_MIN = 16.0

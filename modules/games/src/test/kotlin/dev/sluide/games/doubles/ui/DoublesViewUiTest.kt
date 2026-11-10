@@ -1,6 +1,9 @@
 package dev.sluide.games.doubles.ui
 
+import dev.sluide.games.common.GameZoomPreferences
+import dev.sluide.games.common.ZoomRange
 import dev.sluide.games.common.ui.firePress
+import dev.sluide.games.common.ui.keyPress
 import dev.sluide.games.doubles.BoardSize
 import dev.sluide.games.doubles.Cell
 import dev.sluide.games.doubles.Direction
@@ -46,6 +49,7 @@ class DoublesViewUiTest {
     lateinit var dir: Path
 
     private lateinit var model: DoublesModel
+    private lateinit var zoomPreferences: GameZoomPreferences
     private lateinit var view: DoublesView
     private lateinit var stage: Stage
     private val asked = mutableListOf<Triple<String, String, Int>>()
@@ -70,7 +74,8 @@ class DoublesViewUiTest {
                     DoublesGame(size, random)
                 }
             }
-        view = DoublesView(model)
+        zoomPreferences = GameZoomPreferences(store, java.time.Duration.ZERO) { it.run() }
+        view = DoublesView(model, zoomPreferences)
         view.board.animationDuration = Duration.ZERO
         view.confirmAbandon = { title, verb, score ->
             asked += Triple(title, verb, score)
@@ -203,7 +208,7 @@ class DoublesViewUiTest {
     fun `a disposed view leaves both callbacks to the view that took over`(robot: FxRobot) {
         lateinit var second: DoublesView
         robot.interact {
-            second = DoublesView(model)
+            second = DoublesView(model, zoomPreferences)
             second.board.animationDuration = Duration.ZERO
             view.dispose()
             stage.scene.root = second.node as Parent
@@ -327,5 +332,32 @@ class DoublesViewUiTest {
             fx { view.board.nodeCount() == model.tiles.size && view.board.nodesSettled() }
         }
         assertEquals(fx { model.tiles }.associate { it.cell to it.value.toString() }, texts())
+    }
+
+    @Test
+    fun `the zoom resizes the tiles, is saved and scrolls above Fit`(robot: FxRobot) {
+        fun boardWidth(): Double {
+            fx {
+                view.node.scene.root
+                    .layout()
+            }
+            return fx { view.board.minWidth }
+        }
+        val fit = boardWidth()
+
+        // At the board: the keys work anywhere in the tab.
+        robot.interact { Event.fireEvent(view.board, keyPress(KeyCode.PLUS)) }
+        assertTrue(boardWidth() > fit)
+        robot.interact { Event.fireEvent(view.board, keyPress(KeyCode.DIGIT0)) }
+        assertEquals(fit, boardWidth())
+
+        robot.interact { view.zoomControls.zoomTo(2.0) }
+        assertEquals(2 * fit, boardWidth())
+        assertEquals(2.0, fx { zoomPreferences.zoom("doubles", ZoomRange.ABOVE_FIT) })
+        assertTrue(fx { view.scrollPane.content.layoutBounds.width > view.scrollPane.viewportBounds.width })
+        assertTrue(fx { view.scrollPane.content.layoutBounds.height > view.scrollPane.viewportBounds.height })
+
+        val next = fx { DoublesView(model, zoomPreferences).also { it.dispose() } }
+        assertEquals(2.0, fx { next.zoomControls.zoom.get() })
     }
 }

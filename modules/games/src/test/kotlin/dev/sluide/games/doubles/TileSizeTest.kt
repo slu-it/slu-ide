@@ -27,6 +27,16 @@ class TileSizeTest {
     }
 
     @Test
+    fun `the zoom scales the Fit size, limits included, to at least 1 px`() {
+        assertEquals(100.0, tileSize(461.0, 5000.0, 4, zoom = 1.0))
+        assertEquals(50.0, tileSize(461.0, 5000.0, 4, zoom = 0.5))
+        assertEquals(200.0, tileSize(461.0, 5000.0, 4, zoom = 2.0))
+        assertEquals(2 * MAX_TILE, tileSize(5000.0, 5000.0, 4, zoom = 2.0))
+        assertEquals(MIN_TILE / 4, tileSize(100.0, 100.0, 6, zoom = 0.25))
+        assertEquals(1.0, tileSize(0.0, 0.0, 3, zoom = 0.01))
+    }
+
+    @Test
     fun `the font shrinks with the number of digits`() {
         assertEquals(45.0, fontSize(100.0, 2), 1e-9)
         assertEquals(45.0, fontSize(100.0, 64), 1e-9)

@@ -1,6 +1,7 @@
 package dev.sluide.games
 
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.doubles.DoublesModel
 import dev.sluide.games.doubles.DoublesPreferences
 import dev.sluide.games.doubles.ui.DoublesTab
@@ -21,7 +22,10 @@ class Doubles internal constructor(
     private val tabFactory: (DoublesModel) -> EditorTab,
 ) {
     @Autowired
-    constructor(preferences: DoublesPreferences) : this(preferences, { DoublesTab(DoublesView(it)) })
+    constructor(
+        preferences: DoublesPreferences,
+        zoomPreferences: GameZoomPreferences,
+    ) : this(preferences, { DoublesTab(DoublesView(it, zoomPreferences)) })
 
     /** Shows the Doubles tab of the window (opening it if needed); set by ide. */
     var showTab: () -> Unit = {}

@@ -70,6 +70,10 @@ follow the theme (`prefers-color-scheme`). The font shrinks with the number of d
 (tooltip "New Game (F2)") and Undo (tooltip "Undo (U)"). The tab's tooltip is "Slide and merge tiles to reach the
 goal".
 
+## Scaling
+The tiles are sized to fill the tab, between 40 and 110 px.
+Zoom: 25%–200% relative to Fit, see [game-zoom.md](game-zoom.md).
+
 ## Stored
 User-wide in `~/.sluide/shared.json`, field `doubles` ([ADR 0101](../adr/0101-shared-data-file.md)): the last size and
 the best score per size.
