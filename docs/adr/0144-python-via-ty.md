@@ -1,6 +1,7 @@
 # 0144. Python code intelligence through ty, pinned, installed and updated on click
 
-- Status: accepted; amended by [0151](0151-workspace-folders-per-project.md) (project roots, `environment.python` per folder); see [0142](0142-language-server-foundation.md), [0143](0143-tool-installs.md),
+- Status: accepted; amended by [0151](0151-workspace-folders-per-project.md) (project roots, `environment.python` per folder),
+  [0159](0159-shared-server-tool-layer.md) (install, update check, smoke test and page in `server-tools`); see [0142](0142-language-server-foundation.md), [0143](0143-tool-installs.md),
   [0053](0053-project-trust.md), [0043](0043-git-log-fetch.md), [0008](0008-settings.md),
   [0067](0067-feature-settings-in-their-module.md), [0003](0003-javafx-platform-jars.md)
 - Date: 2026-11-07

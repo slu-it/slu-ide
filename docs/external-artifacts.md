@@ -107,7 +107,7 @@ new major version is worth a check of `docs/adr/0124-read-aloud-speech.md` ("Pho
 - Licence: MIT (GitHub repository licence of `astral-sh/ty`).
 - Update: at runtime Settings → Languages → Python → Check for Updates (installs for this user only); the pin with the
   skill (part 1, "ty").
-- Tests: `TyPinTest` (reads the pin), `TyInstallerTest`, `TyUpdatesTest` (recorded GitHub answers),
+- Tests: `TyToolTest` (reads the pin), `TyInstallerTest`, `TyUpdatesTest` (recorded GitHub answers),
   `TySmokeTestTest` (its real-ty case runs when ty is installed or `SLUIDE_TEST_TY` names one). Feature:
   `docs/features/python.md`; decision: ADR 0144.
 

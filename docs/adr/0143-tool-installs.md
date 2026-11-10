@@ -1,6 +1,7 @@
 # 0143. Tool installs in local-models: versioned command-line tools from release archives
 
-- Status: accepted; amends [0125](0125-local-models-module.md); see [0043](0043-git-log-fetch.md),
+- Status: accepted; amends [0125](0125-local-models-module.md); amended by [0159](0159-shared-server-tool-layer.md)
+  (a `Checksum` by algorithm instead of the sha256 string); see [0043](0043-git-log-fetch.md),
   [0060](0060-logging-conventions.md), [0061](0061-background-tasks.md), [0115](0115-converting-tool.md)
 - Date: 2026-11-07
 

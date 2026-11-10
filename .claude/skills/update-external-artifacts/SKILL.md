@@ -60,7 +60,7 @@ Per bump: find latest, download and verify, change the pin, run tests, update th
   For each of the three assets: download it into a fresh folder (`curl -L`), compare its `sha256sum` with the
   asset's `.sha256` file and the API asset's `digest`, take `.bytes` from the API `size` (and `stat`), and check
   that the archive still holds `ty-<target>/ty` (`tar -tzf`). Update the properties and the ty section of
-  `docs/external-artifacts.md` (version, sizes). Tests: `verify.sh :modules:python` (`TyPinTest`; run
+  `docs/external-artifacts.md` (version, sizes). Tests: `verify.sh :modules:python` (`TyToolTest`; run
   `TySmokeTestTest` with `SLUIDE_TEST_TY=<unpacked ty>` for the real smoke test).
   Real-app check: Settings → Languages → Python → Install, then open a Python file.
 - **CI actions**: check the latest major of each action in `.github/workflows/*.yml` (GitHub `releases/latest` of the

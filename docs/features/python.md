@@ -1,8 +1,9 @@
 # Python: ty
 
-**Module:** `modules/python` (package `dev.sluide.python`: `TySpec`, `TyInstaller`, `TyUpdates`, `PythonSettings`,
-the pin `TyPin` and `TySmokeTest`; the page in the `dev.sluide.python.settings` package); decision in
-[ADR 0144](../adr/0144-python-via-ty.md)
+**Module:** `modules/python` (package `dev.sluide.python`: `TySpec`, `TyTool` with the pin and the smoke-test
+arguments, and `TyInstaller`, `TyUpdates`, `PythonSettings` over the shared server-tool layer of `modules/server-tools`;
+the page in the `dev.sluide.python.settings` package); decisions in [ADR 0144](../adr/0144-python-via-ty.md) and
+[ADR 0159](../adr/0159-shared-server-tool-layer.md)
 
 Python code intelligence comes from the language server [ty](https://github.com/astral-sh/ty) (Astral), run through
 the language-server client of [ADR 0142](../adr/0142-language-server-foundation.md) for files ending in `.py`, `.pyi`

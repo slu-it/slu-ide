@@ -55,8 +55,8 @@
 - Languages → Python: ty, the language server of Python: its status, Install/Cancel, Check for Updates with Update and
   the release notes, Roll Back, Delete… (after a question, Cancel is the default), and the ty executable, Thoreau's
   download or a custom path (`python.ty.path`, applied on OK or Apply). Lives in the `python` module (`PythonSettings`,
-  `PythonSettingsPage` with `PythonSettingsPageModel`, package `dev.sluide.python.settings`; [python.md](python.md),
-  [ADR 0144](../adr/0144-python-via-ty.md)).
+  `PythonSettingsPage`, package `dev.sluide.python.settings`, over `server-tools`' `ServerToolSettingsPage`;
+  [python.md](python.md), [ADR 0144](../adr/0144-python-via-ty.md), [ADR 0159](../adr/0159-shared-server-tool-layer.md)).
 - Editor: the check box "Open library code read-only" (`editor.libraryCodeReadOnly`, on by default) with a note on
   what counts as library code; applies on OK or Apply, to open tabs at once. Lives in `file-viewers`
   (`EditorSettingsPage` with `EditorSettingsPageModel`, package `dev.sluide.fileviewers.settings`;
