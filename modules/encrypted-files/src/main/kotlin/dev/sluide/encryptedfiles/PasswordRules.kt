@@ -1,5 +1,7 @@
 package dev.sluide.encryptedfiles
 
+import java.nio.CharBuffer
+
 /** The hint shown under a new password. */
 enum class Strength { WEAK, OK, STRONG }
 
@@ -10,20 +12,27 @@ enum class Strength { WEAK, OK, STRONG }
 object PasswordRules {
     const val MIN_LENGTH = 12
 
-    fun acceptable(password: CharArray): Boolean = Character.codePointCount(password, 0, password.size) >= MIN_LENGTH
+    fun acceptable(password: CharArray): Boolean = acceptable(CharBuffer.wrap(password))
+
+    /** [acceptable] for the text of a field, which needs no array copy while typing. */
+    fun acceptable(password: CharSequence): Boolean =
+        Character.codePointCount(password, 0, password.length) >= MIN_LENGTH
 
     /**
      * WEAK below [MIN_LENGTH] code points, or with one character class below 20; STRONG from 20 code points, or from
      * 14 with three of lowercase, uppercase, digits and others; OK otherwise.
      */
-    fun strength(password: CharArray): Strength {
+    fun strength(password: CharArray): Strength = strength(CharBuffer.wrap(password))
+
+    /** [strength] for the text of a field. */
+    fun strength(password: CharSequence): Strength {
         var length = 0
         var lower = false
         var upper = false
         var digit = false
         var other = false
         var index = 0
-        while (index < password.size) {
+        while (index < password.length) {
             val codePoint = Character.codePointAt(password, index)
             when {
                 Character.isLowerCase(codePoint) -> lower = true
