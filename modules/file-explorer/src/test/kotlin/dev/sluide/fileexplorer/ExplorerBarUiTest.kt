@@ -46,6 +46,7 @@ class ExplorerBarUiTest : FileExplorerViewUiFixture() {
                     "Collapse All",
                     "Refresh (F5)",
                     "Compact Middle Folders",
+                    "Hide Generated Folders",
                     "Collapse",
                 ),
                 bar.children.filterIsInstance<Control>().map { it.tooltip.text },
@@ -148,5 +149,16 @@ class ExplorerBarUiTest : FileExplorerViewUiFixture() {
         assertFalse(bar.compactToggle.isSelected)
         assertEquals(listOf(project.name, "src", "main", "kotlin", "App.kt", "README.md"), renderedNames(robot))
         robot.interact { assertEquals(project.resolve("src/main/kotlin"), view.selectionModel.selectedItem?.value) }
+    }
+
+    @Test
+    fun `the generated toggle follows the setting and sets it`(robot: FxRobot) {
+        assertTrue(bar.generatedToggle.isSelected, "on by default")
+
+        robot.interact { bar.generatedToggle.fire() }
+        assertFalse(explorerSettings.hideGeneratedFolders.get())
+
+        robot.interact { explorerSettings.hideGeneratedFolders.set(true) }
+        assertTrue(bar.generatedToggle.isSelected)
     }
 }

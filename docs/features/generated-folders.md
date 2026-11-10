@@ -5,7 +5,7 @@
 A generated folder is a folder that a build tool or package manager creates and can recreate (`node_modules`, a Python
 `.venv`, Gradle's `build`, Maven's `target`, ...). Nobody edits it by hand, and git usually ignores it.
 `generatedReason(folder, siblingNames)` classifies one folder and returns a `GeneratedReason` (the text shown in a
-tooltip as "Generated folder (<text>)") or null. It is a pure function over the file system: it runs on any thread,
+tooltip as "Generated folder: <text>. ...") or null. It is a pure function over the file system: it runs on any thread,
 never throws for IO problems (unreadable counts as "no") and does not look into the folder recursively. It costs at
 most five file lookups in the folder (plus one per project file in the grandparent for two-segment rules) and at most
 two small reads of regular files up to 4 KB; folders the catalogue knows cost no lookups in the folder at all. `siblingNames` are the names of all entries of the folder's parent,
@@ -82,7 +82,8 @@ looked up with one `Files.exists` in the grandparent.
 ## Hiding them in the explorer
 
 The setting `explorer.hideGeneratedFolders` (default on, shared by all windows) leaves generated folders out of the
-explorer tree (ADR 0158; the toggle button and the look of a shown generated folder come with the explorer's UI).
+explorer tree (ADR 0158). The explorer bar's **Hide Generated Folders** toggle (eye-off, after Compact Middle Folders) follows and
+sets the setting.
 
 - Every folder listed in the tree classifies its child folders, the project's own children included; a top-level node
   itself is never classified. Nothing is classified below a generated folder, shown or hidden, so a `node_modules`
@@ -102,3 +103,12 @@ explorer tree (ADR 0158; the toggle button and the look of a shown generated fol
   anyway, and so does selecting a new entry inside it (New File, Rename, Paste or a move into a hidden `build`).
   Only a generated folder is shown this way: a path below `.git` stays out. The exception survives re-listings from watch events and ends when the setting changes, on Refresh (F5) and on
   Collapse All, which hide the folder again.
+
+### The look
+
+A generated folder that is shown (option off, or revealed) has Material `folder-cog` (`folder-cog-outline` while
+expanded) in a muted grey and the tooltip "Generated folder: <reason>. Hidden while Hide Generated Folders is on", with
+the full path as first line on labelled or compacted rows. A library folder (virtual environment) that is also
+generated keeps its amber lock (library wins) while "Open library code read-only" is on, and its tooltip lists the
+library text, then the generated one; with that option off it shows the cog and the generated tooltip. The folders
+inside keep their normal icons.

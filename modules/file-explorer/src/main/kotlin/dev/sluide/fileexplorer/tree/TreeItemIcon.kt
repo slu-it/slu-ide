@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer.tree
 
+import dev.sluide.fileexplorer.generated.GeneratedReason
 import dev.sluide.fileicons.FileIcon
 import dev.sluide.fileicons.fileIconFor
 import dev.sluide.librarycode.LibraryKind
@@ -9,13 +10,15 @@ import java.nio.file.Path
  * The icon of this item: for a folder with [FileTreeItem.folderIcons] the top icon of a top-level folder (its parent is
  * not a [FileTreeItem]) or else the open or closed one; otherwise the icon of its type. [canOpen] says whether a file
  * of no known type is text, and is asked once per file: the answer is kept in [FileTreeItem.readable]. A library root
- * ([FileTreeItem.libraryKind]) shows the locked folder first, while [libraryReadOnly] is on ([libraryFolderIcon]).
+ * ([FileTreeItem.libraryKind]) shows the locked folder first, while [libraryReadOnly] is on ([libraryFolderIcon]); a shown generated folder shows
+ * the muted cog ([generatedFolderIcon]), after the library icon.
  */
 internal fun FileTreeItem.fileIcon(
     libraryReadOnly: Boolean,
     canOpen: (Path) -> Boolean,
 ): FileIcon {
     libraryFolderIcon(libraryKind, isExpanded, libraryReadOnly, parent !is FileTreeItem)?.let { return it }
+    generatedFolderIcon(generatedReason, isExpanded)?.let { return it }
     val folderIcons = folderIcons.takeIf { isDirectory }
     return if (folderIcons != null) {
         when {
@@ -57,3 +60,18 @@ internal fun libraryTooltip(
     } else {
         "Library code (${if (kind == LibraryKind.PYPACKAGES) "__pypackages__" else "virtual environment"}): opens read-only"
     }
+
+/** The icon of a shown generated folder (ADR 0158): the muted cog, open or closed; `null` without a [reason]. */
+internal fun generatedFolderIcon(
+    reason: GeneratedReason?,
+    expanded: Boolean,
+): FileIcon? =
+    when {
+        reason == null -> null
+        expanded -> FileIcon.GENERATED_FOLDER_OPEN
+        else -> FileIcon.GENERATED_FOLDER
+    }
+
+/** The tooltip of a shown generated folder, `null` without a [reason]. */
+internal fun generatedTooltip(reason: GeneratedReason?): String? =
+    reason?.let { "Generated folder: ${it.text}. Hidden while Hide Generated Folders is on" }

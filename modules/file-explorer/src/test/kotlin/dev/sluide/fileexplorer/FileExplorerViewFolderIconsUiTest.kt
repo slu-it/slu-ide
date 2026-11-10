@@ -31,7 +31,11 @@ class FileExplorerViewFolderIconsUiTest : FileExplorerViewUiFixture() {
     private val icons = FolderIcons(FileIcon.SCRATCHES, FileIcon.SCRATCH_FOLDER, FileIcon.SCRATCH_FOLDER_OPEN)
 
     @Start
-    fun start(stage: Stage) = startView(stage)
+    fun start(stage: Stage) {
+        startView(stage)
+        // A venv is also a generated folder: shown so that its icon can be checked.
+        explorerSettings.hideGeneratedFolders.set(false)
+    }
 
     private fun open(
         robot: FxRobot,
@@ -112,7 +116,11 @@ class FileExplorerViewFolderIconsUiTest : FileExplorerViewUiFixture() {
         robot.interact { view.open(project) }
         assertIcon(robot, ".venv", FileIcon.LIBRARY_FOLDER)
         val cell = robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).first { it.text == ".venv" }
-        assertEquals("Library code (virtual environment): opens read-only", cell.tooltip.text)
+        assertEquals(
+            "Library code (virtual environment): opens read-only\n" +
+                "Generated folder: virtual environment (pyvenv.cfg). Hidden while Hide Generated Folders is on",
+            cell.tooltip.text,
+        )
         assertIcon(robot, project.name, FileIcon.FOLDER_OPEN)
 
         expand(robot, ".venv")
@@ -120,8 +128,12 @@ class FileExplorerViewFolderIconsUiTest : FileExplorerViewUiFixture() {
         assertIcon(robot, "lib", FileIcon.FOLDER)
 
         robot.interact { libraryCodeSettings.readOnly.set(false) }
-        assertIcon(robot, ".venv", FileIcon.FOLDER_OPEN)
-        assertNull(cell.tooltip)
+        assertIcon(robot, ".venv", FileIcon.GENERATED_FOLDER_OPEN)
+        val shown = robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).first { it.text == ".venv" }
+        assertEquals(
+            "Generated folder: virtual environment (pyvenv.cfg). Hidden while Hide Generated Folders is on",
+            shown.tooltip.text,
+        )
     }
 
     @Test
@@ -168,4 +180,44 @@ class FileExplorerViewFolderIconsUiTest : FileExplorerViewUiFixture() {
         robot.interact { view.rename(item("later")) }
         assertIcon(robot, "renamed", FileIcon.SCRATCH_FOLDER)
     }
+
+    @Test
+    fun `a generated folder shown with the option off gets the cog icon and tooltip, its folders keep theirs`(
+        robot: FxRobot,
+    ) {
+        project.resolve("package.json").createFile()
+        project.resolve("node_modules/pkg").createDirectories()
+        robot.interact { view.open(project) }
+
+        assertIcon(robot, "node_modules", FileIcon.GENERATED_FOLDER)
+        assertEquals(
+            "Generated folder: node_modules for package.json. Hidden while Hide Generated Folders is on",
+            cellOf(robot, "node_modules").tooltip.text,
+        )
+        expand(robot, "node_modules")
+        assertIcon(robot, "node_modules", FileIcon.GENERATED_FOLDER_OPEN)
+        assertIcon(robot, "pkg", FileIcon.FOLDER)
+    }
+
+    @Test
+    fun `a row loses the cog icon and tooltip when git says it is not ignored`(robot: FxRobot) {
+        project.resolve("package.json").createFile()
+        project.resolve("node_modules").createDirectories()
+        robot.interact { view.open(project) }
+        assertIcon(robot, "node_modules", FileIcon.GENERATED_FOLDER)
+
+        robot.interact {
+            view.ignoredByGit = { false }
+            view.gitIgnoresChanged()
+        }
+
+        // The folder is hidden only with the option on, so with it off the same row stays, as a normal folder.
+        assertIcon(robot, "node_modules", FileIcon.FOLDER)
+        assertNull(cellOf(robot, "node_modules").tooltip)
+    }
+
+    private fun cellOf(
+        robot: FxRobot,
+        name: String,
+    ) = robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).first { it.text == name }
 }

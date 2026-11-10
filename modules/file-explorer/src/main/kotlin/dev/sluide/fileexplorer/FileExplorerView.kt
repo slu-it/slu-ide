@@ -263,6 +263,9 @@ class FileExplorerView(
     internal val compactFolders: BooleanProperty get() = settings.compactFolders
     private val compactUpdater = ChangeListener<Boolean> { _, _, _ -> recompact() }
 
+    /** Whether generated folders are hidden (ADR 0158); shared by all windows, bound by the explorer bar's toggle. */
+    internal val hideGeneratedFolders: BooleanProperty get() = settings.hideGeneratedFolders
+
     /** Which generated folders are hidden (ADR 0158); the revealed ones are forgotten when the setting changes. */
     private val generated = GeneratedFolderFilter { settings.hideGeneratedFolders.get() }
     private val hideGeneratedUpdater =

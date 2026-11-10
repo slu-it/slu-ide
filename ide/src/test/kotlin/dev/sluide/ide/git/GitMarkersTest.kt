@@ -18,6 +18,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlin.time.Duration.Companion.milliseconds
@@ -125,5 +126,18 @@ class GitMarkersTest {
     fun `without a repository nothing is marked`() {
         assertEquals(FileMarkers.NONE, GitStatusSnapshot.EMPTY.markers(path("a.kt"), false))
         assertEquals(FileMarkers.NONE, GitStatusSnapshot.EMPTY.markers(root, true))
+    }
+
+    @Test
+    fun `git ignores a folder only as a whole inside the repository`() {
+        val snapshot = snapshotOf("! node_modules/", "? drafts/", "! tools/out.log")
+
+        assertEquals(true, snapshot.ignoresFolder(path("node_modules")))
+        assertEquals(true, snapshot.ignoresFolder(path("node_modules/pkg")))
+        assertEquals(false, snapshot.ignoresFolder(path("drafts")))
+        assertEquals(false, snapshot.ignoresFolder(path("tools/build")))
+        assertEquals(false, snapshot.ignoresFolder(path("tools")), "ignored files do not make the folder ignored")
+        assertNull(snapshot.ignoresFolder(root.resolveSibling("elsewhere")))
+        assertNull(GitStatusSnapshot.EMPTY.ignoresFolder(path("node_modules")))
     }
 }

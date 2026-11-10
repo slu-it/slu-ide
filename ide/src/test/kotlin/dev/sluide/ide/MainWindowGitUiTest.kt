@@ -24,6 +24,7 @@ import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
 import javafx.scene.control.TableView
 import javafx.scene.control.TreeCell
+import javafx.scene.control.TreeItem
 import javafx.scene.control.TreeView
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
@@ -371,6 +372,49 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
                 .sorted(),
         )
         eventually(robot) { assertEquals(listOf("Rename", "Initial commit"), shownSubjects(robot)) }
+    }
+
+    @Test
+    fun `the explorer hides a generated folder that git ignores and shows one that git tracks`(robot: FxRobot) {
+        assumeTrue(git.available, "git is not installed")
+        val commit = arrayOf("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q")
+        runGit("init", "-q")
+        project.resolve(".gitignore").writeText("node_modules/\nbuild/\n")
+        project.resolve("package.json").writeText("{}\n")
+        project.resolve("node_modules").createDirectories()
+        project.resolve("node_modules/dep.js").writeText("1\n")
+        project.resolve("tools/build").createDirectories()
+        project.resolve("tools/build.gradle.kts").writeText("\n")
+        project.resolve("tools/build/x.txt").writeText("x\n")
+        runGit("add", ".gitignore", "package.json", "tools/build.gradle.kts")
+        runGit("add", "-f", "tools/build/x.txt")
+        runGit(*commit, "-m", "Initial commit")
+
+        robot.interact { projectService.open(project) }
+
+        fun shown() =
+            robot
+                .lookup(".tree-cell")
+                .queryAllAs(TreeCell::class.java)
+                .mapNotNull { (it.item as? Path)?.name }
+
+        fun expandTools() =
+            robot.interact {
+                fun find(item: TreeItem<Path>): TreeItem<Path>? =
+                    if (item.value?.name == "tools") item else item.children.firstNotNullOfOrNull(::find)
+                find(fileExplorer.root)?.isExpanded = true
+            }
+        // The tracked build folder appears once the status says that git does not ignore it.
+        eventually(robot) {
+            expandTools()
+            assertTrue("build" in shown(), shown().toString())
+        }
+        assertFalse("node_modules" in shown(), shown().toString())
+
+        // Git's view changes while the listing of tools does not: only gitIgnoresChanged can hide build again.
+        runGit("rm", "-r", "-q", "--cached", "tools/build")
+        gitStatus.refresh()
+        eventually(robot) { assertFalse("build" in shown(), shown().toString()) }
     }
 
     @Test

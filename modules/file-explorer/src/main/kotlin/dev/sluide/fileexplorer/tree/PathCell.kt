@@ -43,12 +43,13 @@ internal class PathCell(
     private val pathTooltip = Tooltip()
     private val icon = FontIcon().apply { iconSizeProperty().bind(fileIconSize) }
     private val iconUpdater = InvalidationListener { updateIcon() }
-    private val libraryUpdater =
+    private val decorationUpdater =
         InvalidationListener {
             updateIcon()
             updateTooltip()
         }
     private val libraryTooltip = Tooltip()
+    private val generatedFolderTooltip = Tooltip()
 
     // The name is a label in the graphic, so the markers can follow it; it looks like the cell's own text unless
     // a marker colours it.
@@ -89,7 +90,7 @@ internal class PathCell(
         // The text stays set (accessibility, lookups by name) but only the graphic is shown.
         contentDisplay = ContentDisplay.GRAPHIC_ONLY
         markerChanges.addListener(WeakInvalidationListener(markerUpdater))
-        libraryReadOnly.addListener(WeakInvalidationListener(libraryUpdater))
+        libraryReadOnly.addListener(WeakInvalidationListener(decorationUpdater))
         dropTarget.addListener(WeakInvalidationListener(dropTargetUpdater))
         cutChanges.addListener(WeakInvalidationListener(cutUpdater))
         selectedProperty().addListener { _ -> updateNameColour() }
@@ -98,12 +99,14 @@ internal class PathCell(
             (old as? FileTreeItem)?.let {
                 it.expandedProperty().removeListener(iconUpdater)
                 it.readable.removeListener(iconUpdater)
-                it.libraryKindProperty.removeListener(libraryUpdater)
+                it.libraryKindProperty.removeListener(decorationUpdater)
+                it.generatedReasonProperty.removeListener(decorationUpdater)
             }
             (new as? FileTreeItem)?.let {
                 it.expandedProperty().addListener(iconUpdater)
                 it.readable.addListener(iconUpdater)
-                it.libraryKindProperty.addListener(libraryUpdater)
+                it.libraryKindProperty.addListener(decorationUpdater)
+                it.generatedReasonProperty.addListener(decorationUpdater)
             }
         }
         addEventHandler(ContextMenuEvent.CONTEXT_MENU_REQUESTED) {
@@ -140,11 +143,14 @@ internal class PathCell(
             return
         }
         val library = libraryTooltip(entry.libraryKind, libraryReadOnly.value, entry.parent !is FileTreeItem)
+        val generated = generatedTooltip(entry.generatedReason)
         // Labelled and compacted rows show more or other than the name: the tooltip has the full path.
         val path = if (entry.label != null || entry.isCompacted) item.toString() else null
+        val lines = listOfNotNull(path, library, generated)
         tooltip =
             when {
-                library != null -> libraryTooltip.also { it.text = listOfNotNull(path, library).joinToString("\n") }
+                library != null -> libraryTooltip.also { it.text = lines.joinToString("\n") }
+                generated != null -> generatedFolderTooltip.also { it.text = lines.joinToString("\n") }
                 path != null -> pathTooltip.also { it.text = path }
                 else -> null
             }

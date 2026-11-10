@@ -23,6 +23,9 @@ works in, and a list of names alone hides a hand-written `build` folder.
   paste, move), adds the folder to a per-window set of exceptions; it
   is shown (with its reason) and survives re-listings. The set is cleared by the setting, Refresh and Collapse All.
 - Compacting (ADR 0096) ignores hiding; a compacted row is classified by its first folder.
+- Look and toggle: a shown generated folder gets a muted `folder-cog` icon and a tooltip with its reason; a library
+  folder keeps the lock (library wins) and lists both texts. The explorer bar has a Hide Generated Folders toggle
+  bound to the setting like Compact Middle Folders.
 - Rejected: `.gitignore` alone (hides `.env` and tmp folders), a name list alone (hides a hand-written `build`).
 
 ## Consequences

@@ -5,7 +5,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
 
-/** Why a folder counts as generated, shown in a tooltip: "Generated folder (<text>)". */
+/** Why a folder counts as generated, shown in a tooltip: "Generated folder: <text>. Hidden while ...". */
 internal data class GeneratedReason(
     val text: String,
 )

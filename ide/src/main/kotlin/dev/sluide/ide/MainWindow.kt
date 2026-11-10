@@ -52,8 +52,9 @@ import dev.sluide.ide.files.WindowTextFileActions
 import dev.sluide.ide.files.askUnsaved
 import dev.sluide.ide.files.fileMenu
 import dev.sluide.ide.git.WindowGitLog
+import dev.sluide.ide.git.gitStatusChanged
 import dev.sluide.ide.git.ignoreRuleEffects
-import dev.sluide.ide.git.markers
+import dev.sluide.ide.git.showGitStatus
 import dev.sluide.ide.git.textDiff
 import dev.sluide.ide.git.wouldCommit
 import dev.sluide.ide.github.RemoteCache
@@ -424,7 +425,7 @@ class MainWindow(
         fileExplorer.conversionTargets = conversions::targetNames
         fileExplorer.convertFile = conversions::convert
         // Git status markers, if git is installed and the folder is a repository (ADR 0013).
-        fileExplorer.markers = { path, directory -> gitStatus.snapshot.get().markers(path, directory) }
+        fileExplorer.showGitStatus(gitStatus.snapshot::get)
         // Not for the log file growing inside the folder: the status's own log lines would trigger the next refresh.
         // Nor for scratch files, which are normally in no repository (ADR 0066).
         fileExplorer.onFilesChanged = { changed ->
@@ -480,12 +481,11 @@ class MainWindow(
         httpSession.wouldCommit = { gitStatus.snapshot.get().wouldCommit(it) }
         gitStatus.snapshot.subscribe { snapshot ->
             stage.title = windowTitle(folder, snapshot.head)
-            fileExplorer.refreshMarkers()
+            fileExplorer.gitStatusChanged()
             editorArea.refreshDiffs()
             httpSession.gitStatusChanged()
             ignoreRuleEffects.changed()
-            // The Commit tab lists what can be committed (ADR 0048).
-            gitLog.workingTreeChanged()
+            gitLog.workingTreeChanged() // The Commit tab lists what can be committed (ADR 0048).
         }
 
         // Git runs only while the folder's trust allows it (ADR 0053), after its checks or the user's decision.
