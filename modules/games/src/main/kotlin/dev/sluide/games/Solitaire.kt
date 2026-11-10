@@ -2,6 +2,7 @@ package dev.sluide.games
 
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.solitaire.Cancellable
 import dev.sluide.games.solitaire.SolitaireModel
 import dev.sluide.games.solitaire.SolitairePreferences
@@ -29,9 +30,12 @@ class Solitaire internal constructor(
     private val tabFactory: (SolitaireModel) -> EditorTab,
 ) {
     @Autowired
-    constructor(preferences: SolitairePreferences) : this(
+    constructor(
+        preferences: SolitairePreferences,
+        zoomPreferences: GameZoomPreferences,
+    ) : this(
         modelOf(preferences),
-        { SolitaireTab(SolitaireView(it)) },
+        { SolitaireTab(SolitaireView(it, zoomPreferences)) },
     )
 
     /** Shows the Solitaire tab of the window (opening it if needed); set by ide. */

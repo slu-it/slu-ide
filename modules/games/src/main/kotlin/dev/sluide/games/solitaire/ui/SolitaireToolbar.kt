@@ -3,6 +3,7 @@ package dev.sluide.games.solitaire.ui
 import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.games.solitaire.Mode
 import dev.sluide.games.solitaire.Variant
+import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.MenuButton
@@ -28,6 +29,7 @@ internal class ToolbarActions(
 /** The Solitaire toolbar: the controls, which [SolitaireView] updates; the clicks go to [actions]. */
 internal class SolitaireToolbar(
     actions: ToolbarActions,
+    zoom: Node,
 ) {
     val gameMenu = MenuButton()
     val drawMenu = MenuButton()
@@ -71,7 +73,7 @@ internal class SolitaireToolbar(
                 hintButton,
                 pauseButton,
             )
-            trailing.setAll(score, moves, timer)
+            trailing.setAll(score, moves, timer, zoom)
             styleClass += "sol-toolbar"
         }
 

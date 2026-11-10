@@ -1,6 +1,8 @@
 package dev.sluide.games.solitaire.ui
 
 import dev.sluide.games.common.GameClock
+import dev.sluide.games.common.GameZoomPreferences
+import dev.sluide.games.common.ZoomRange
 import dev.sluide.games.common.ui.firePress
 import dev.sluide.games.solitaire.Cancellable
 import dev.sluide.games.solitaire.Deals
@@ -18,12 +20,17 @@ import dev.sluide.games.solitaire.solver.SolveResult
 import dev.sluide.projectdata.ProjectDataStore
 import javafx.event.Event
 import javafx.event.EventType
+import javafx.geometry.Orientation
 import javafx.scene.Scene
+import javafx.scene.control.ScrollBar
+import javafx.scene.control.ScrollPane
 import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.layout.Priority
+import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -35,6 +42,7 @@ import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import java.util.concurrent.Executor
+import kotlin.math.floor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -57,6 +65,7 @@ class SolitaireViewUiTest {
     private lateinit var view: SolitaireView
     private lateinit var stage: Stage
     private lateinit var preferences: SolitairePreferences
+    private lateinit var zoomPreferences: GameZoomPreferences
     private val asked = mutableListOf<List<String>>()
     private var answer = false
     private val solves = mutableListOf<Int>()
@@ -71,7 +80,9 @@ class SolitaireViewUiTest {
         val store = ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())
         preferences = SolitairePreferences(store, java.time.Duration.ZERO) { it.run() }
         model = modelOf(sync)
+        zoomPreferences = GameZoomPreferences(store, java.time.Duration.ZERO, sync)
         view = viewOf(model)
+        VBox.setVgrow(view.node, Priority.ALWAYS)
         stage.scene = Scene(VBox(decoy, view.node), 900.0, 700.0)
         stage.sizeToScene()
         stage.show()
@@ -100,7 +111,7 @@ class SolitaireViewUiTest {
         )
 
     private fun viewOf(model: SolitaireModel) =
-        SolitaireView(model, animationSpeed = 0.0).also {
+        SolitaireView(model, zoomPreferences, animationSpeed = 0.0).also {
             it.confirm = { title, header, verb, content ->
                 asked += listOf(title, header, verb, content)
                 answer
@@ -121,6 +132,70 @@ class SolitaireViewUiTest {
 
     private val stock = PileId(PileKind.STOCK)
     private val waste = PileId(PileKind.WASTE)
+
+    @Test
+    fun `the zoom resizes the cards, is saved and makes the table scroll`(robot: FxRobot) {
+        fun cardWidth() =
+            fx {
+                view.node.scene.root
+                    .layout()
+                view.table.layoutNow().cardWidth
+            }
+        // The dealt columns fit the height of the tab, so Fit needs no bar.
+        val fit = cardWidth()
+
+        robot.interact { view.zoomControls.zoomTo(0.5) }
+        assertEquals(floor(fit * 0.5), cardWidth())
+        assertEquals(0.5, fx { zoomPreferences.zoom(SolitaireView.GAME_ID, ZoomRange.ABOVE_FIT) })
+
+        robot.interact { view.zoomControls.zoomTo(2.0) }
+        // Both bars show at 200% and take their width from the Fit: the Fit width loses up to 2 px (a bar is about 15 px), doubled, never wider.
+        assertTrue(cardWidth() in floor(fit * 2.0) - 4.0..floor(fit * 2.0))
+        val scroll = scrollPane()
+        // The cards outgrow the tab: the table is larger than the viewport, which the scroll pane scrolls.
+        assertTrue(fx { view.table.width > scroll.viewportBounds.width })
+        assertTrue(fx { view.table.height > scroll.viewportBounds.height })
+    }
+
+    private fun scrollPane() = fx { view.node.lookup(".sol-scroll") as ScrollPane }
+
+    private fun barShows(orientation: Orientation) =
+        fx {
+            scrollPane().lookupAll(".scroll-bar").filterIsInstance<ScrollBar>().any {
+                it.orientation == orientation && it.isVisible
+            }
+        }
+
+    @Test
+    fun `at Fit a table that scrolls vertically still fits the viewport in width`(robot: FxRobot) {
+        val tall = emptyTable(Mode.KLONDIKE_DRAW_1, mapOf(PileId(PileKind.TABLEAU, 0) to pileOf(30, up = 24)))
+        robot.interact {
+            view.table.show(tall)
+            view.node.scene.root
+                .layout()
+        }
+        val scroll = scrollPane()
+
+        // The column passes the height even squeezed, so the vertical bar shows; a horizontal one would hide a column.
+        assertTrue(fx { view.table.height > scroll.viewportBounds.height })
+        assertTrue(fx { view.table.width <= scroll.viewportBounds.width })
+        assertFalse(barShows(Orientation.HORIZONTAL))
+    }
+
+    @Test
+    fun `in a narrow tab only the horizontal bar shows`(robot: FxRobot) {
+        robot.interact {
+            (view.node as Region).maxWidth = 380.0
+            view.node.scene.root
+                .layout()
+        }
+        val scroll = scrollPane()
+
+        // The smallest cards need about 392 px; the squeeze counts the bar's height, so the columns still fit.
+        assertTrue(barShows(Orientation.HORIZONTAL))
+        assertFalse(barShows(Orientation.VERTICAL))
+        assertTrue(fx { view.table.height <= scroll.viewportBounds.height })
+    }
 
     @Test
     fun `a key on the table reaches the model and the table shows the new state`(robot: FxRobot) {

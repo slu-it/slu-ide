@@ -1,9 +1,12 @@
 package dev.sluide.games.solitaire.ui
 
+import dev.sluide.games.common.ui.FitArea
 import dev.sluide.games.solitaire.PileId
 import dev.sluide.games.solitaire.Table
 import javafx.animation.PauseTransition
 import javafx.application.ColorScheme
+import javafx.geometry.Orientation
+import javafx.scene.control.ScrollBar
 import javafx.scene.image.ImageView
 import javafx.scene.layout.Pane
 import javafx.scene.layout.Region
@@ -12,17 +15,28 @@ import javafx.util.Duration
 /**
  * The Solitaire table: slots, cards and highlights, drawn from [layout]. Transparent: the felt is on the tab's root.
  * The view never changes the game; it asks [host] to play and waits for the owner's [show] with the new table.
- * Mouse play is in [TableDrag]. Put it in a ScrollPane with fitToWidth and fitToHeight: its preferred size is the
- * minimum the layout needs.
+ * Mouse play is in [TableDrag]. Put it in the ScrollPane [area] with fitToWidth and fitToHeight: the cards are sized
+ * from the inside of [area] (the Fit size) times [zoom] (ADR 0155), and the minimum size is that of the layout, so
+ * that the table scrolls above Fit and below the smallest cards ([FitArea]).
  *
  * Everything is recreated on [show], on a size change and when the theme or the screen scale changes (correctness
  * over reuse; a table shows at most about a hundred cards).
  */
 internal class TableView(
     private val host: TableHost,
+    private val area: Region,
     slideBack: Duration = Duration.millis(150.0),
     hintDuration: Duration = Duration.millis(1500.0),
 ) : Pane() {
+    /** The factor on the Fit size of the cards (ADR 0155). */
+    var zoom: Double = 1.0
+        set(value) {
+            if (field != value) {
+                field = value
+                requestLayout()
+            }
+        }
+
     /** No mouse input while false. */
     var inputEnabled: Boolean = true
 
@@ -37,11 +51,12 @@ internal class TableView(
 
     internal var shown: Table = host.table
         private set
+    private val fitArea = FitArea(area, ::requestLayout)
     private var current: Layout = layout(shown, 0.0, 0.0)
     private var images: CardImages? = null
     private val nodes = HashMap<Pair<PileId, Int>, ImageView>()
     private val highlights = mutableListOf<Region>()
-    private var laidOut = 0.0 to 0.0
+    private var laidOut = Triple(0.0, 0.0, 1.0)
     private var cursor: Pair<PileId, Int>? = null
     private var picked: Pair<PileId, Int>? = null
     private var hint: Triple<PileId, Int, PileId>? = null
@@ -78,6 +93,30 @@ internal class TableView(
         redraw()
     }
 
+    /** The layout of [table] at the current Fit size and zoom, leaving room for the scroll bars that show. */
+    internal fun layoutOf(table: Table): Layout =
+        fitLayout(
+            table,
+            fitArea.innerWidth,
+            fitArea.innerHeight,
+            zoom,
+            barSize(Orientation.VERTICAL),
+            barSize(Orientation.HORIZONTAL),
+        )
+
+    /** The width of the vertical or height of the horizontal bar of the scroll pane, as its skin sizes it. */
+    private fun barSize(orientation: Orientation): Double {
+        val bar =
+            area.childrenUnmodifiable.filterIsInstance<ScrollBar>().firstOrNull { it.orientation == orientation }
+        val size =
+            when {
+                bar == null -> 0.0
+                orientation == Orientation.VERTICAL -> area.snapSizeX(bar.prefWidth(-1.0))
+                else -> area.snapSizeY(bar.prefHeight(-1.0))
+            }
+        return if (size > 0.0) size else DEFAULT_BAR
+    }
+
     /** The layout in use. */
     fun layoutNow(): Layout = current
 
@@ -111,16 +150,18 @@ internal class TableView(
     }
 
     override fun layoutChildren() {
-        if (laidOut != width to height) redraw()
+        if (laidOut != fitKey()) redraw()
     }
 
-    override fun computePrefWidth(height: Double): Double = layout(shown, 0.0, 0.0).prefWidth
+    private fun fitKey() = Triple(fitArea.innerWidth, fitArea.innerHeight, zoom)
 
-    override fun computePrefHeight(width: Double): Double = layout(shown, if (width < 0) 0.0 else width, 0.0).prefHeight
+    override fun computePrefWidth(height: Double): Double = computeMinWidth(height)
 
-    override fun computeMinWidth(height: Double): Double = computePrefWidth(height)
+    override fun computePrefHeight(width: Double): Double = computeMinHeight(width)
 
-    override fun computeMinHeight(width: Double): Double = computePrefHeight(width)
+    override fun computeMinWidth(height: Double): Double = layoutOf(shown).minWidth
+
+    override fun computeMinHeight(width: Double): Double = layoutOf(shown).minHeight
 
     /** The nodes of the top [count] cards of [pile], bottom to top. */
     internal fun nodesOf(
@@ -185,8 +226,8 @@ internal class TableView(
     private fun redraw() {
         beforeRebuild()
         drag.cancel()
-        laidOut = width to height
-        current = layout(shown, width, height)
+        laidOut = fitKey()
+        current = layoutOf(shown)
         val cards = imagesFor(current.cardWidth)
         children.clear()
         nodes.clear()
@@ -214,5 +255,10 @@ internal class TableView(
         val old = images
         if (old != null && old.width == cardWidth && old.dark == dark && old.scale == scale) return old
         return CardImages(cardWidth, dark, scale).also { images = it }
+    }
+
+    private companion object {
+        /** The size of a bar that is not sized yet. */
+        const val DEFAULT_BAR = 12.0
     }
 }

@@ -52,7 +52,7 @@ internal class Animator(
         if (speed <= 0.0) return
         val old = if (reverse) step.outcome.table else step.before
         val new = if (reverse) step.before else step.outcome.table
-        val oldLayout = layout(old, view.width, view.height)
+        val oldLayout = view.layoutOf(old)
         var plan =
             planStep(
                 step.move,

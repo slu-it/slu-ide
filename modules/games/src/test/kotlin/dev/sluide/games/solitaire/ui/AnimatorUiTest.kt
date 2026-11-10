@@ -1,6 +1,7 @@
 package dev.sluide.games.solitaire.ui
 
 import dev.sluide.games.common.GameClock
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.solitaire.Cancellable
 import dev.sluide.games.solitaire.Card
 import dev.sluide.games.solitaire.Deals
@@ -80,7 +81,7 @@ class AnimatorUiTest {
                 GameClock(),
                 { 7 },
             )
-        view = SolitaireView(model)
+        view = SolitaireView(model, GameZoomPreferences(store, java.time.Duration.ZERO, sync))
         stage.scene = Scene(VBox(view.node), 900.0, 700.0)
         stage.show()
     }

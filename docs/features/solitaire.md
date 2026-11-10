@@ -145,8 +145,8 @@ resumes. While paused or won, input and the buttons that change the game are off
 ## Layout and look
 - The toolbar (a wrapping toolbar), in this order: Game, Draw or Suits, New Game ("New Game (F2)"), Restart ("Restart
   Deal"), Deal Number… ("Deal Number…"), Undo ("Undo (U)"), Redo ("Redo (Shift+U)"), Hint ("Hint (H)"), Pause ("Pause
-  (P)"), and at the end the score ("Score: 320"), the moves ("Moves: 12") and the timer. The menus' tooltips are "Game",
-  "Draw" and "Suits". The tab's tooltip is "Move every card to the foundations".
+  (P)"), and at the end the score ("Score: 320"), the moves ("Moves: 12"), the timer and the zoom group. The menus'
+  tooltips are "Game", "Draw" and "Suits". The tab's tooltip is "Move every card to the foundations".
 - The **table** is felt green in both themes, darker in the dark theme. Empty piles show a rounded outline. The status
   line below shows "Deal #48213 · High score: 4,210" (without the high score when there is none), or the hint and
   result texts.
@@ -209,6 +209,8 @@ they are. Written a moment after a change, off the FX thread.
 ## Scaling
 The cards follow the tab between 48 and 160 pixels wide, and the toolbar wraps when the tab is narrow. The Paused
 overlay and the Dealing… text never change the size of the table.
+Zoom: 25%–200% relative to Fit, see [game-zoom.md](game-zoom.md). The zoom group is the last item of the toolbar, stored
+as `solitaire`; above Fit the table is larger than the tab and scrolls.
 
 ## Not included
 Statistics (played, won, streaks), more games (Pyramid, TriPeaks, Golf, Yukon), FreeCell with fewer cells, Vegas

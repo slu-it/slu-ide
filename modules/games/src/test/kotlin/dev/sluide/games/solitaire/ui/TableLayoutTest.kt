@@ -140,4 +140,111 @@ class TableLayoutTest {
         assertTrue(result.prefHeight > 300.0)
         assertEquals(column.last().rect.y + h + 8.0, result.prefHeight, 1e-9)
     }
+
+    @Test
+    fun `zoom 1 is the Fit size, and the zoom scales the Fit card width`() {
+        val fit = layout(klondike, 1000.0, 700.0).cardWidth
+        assertEquals(125.0, fit)
+        assertEquals(fit, layout(klondike, 1000.0, 700.0, 1.0).cardWidth)
+        assertEquals(62.0, layout(klondike, 1000.0, 700.0, 0.5).cardWidth)
+        assertEquals(250.0, layout(klondike, 1000.0, 700.0, 2.0).cardWidth)
+    }
+
+    @Test
+    fun `the zoom is taken from the clamped Fit width, with no floor at the minimum card width`() {
+        // 300 px fits 48 px cards (the minimum); half of that is below the minimum
+        assertEquals(24.0, layout(klondike, 300.0, 700.0, 0.5).cardWidth)
+        assertEquals(1.0, layout(klondike, 300.0, 700.0, 0.001).cardWidth)
+    }
+
+    @Test
+    fun `a zoomed table needs the size of its cards`() {
+        val zoomed = layout(klondike, 1000.0, 700.0, 2.0)
+        assertTrue(zoomed.minWidth > 1000.0)
+        assertEquals(zoomed.minWidth, zoomed.prefWidth)
+        val fit = layout(klondike, 1000.0, 700.0)
+        assertTrue(fit.minWidth <= 1000.0 && fit.minHeight <= 700.0)
+        assertEquals(1000.0, fit.prefWidth)
+    }
+
+    @Test
+    fun `the squeeze of a column uses the zoomed cards against the given height`() {
+        val table = emptyTable(Mode.KLONDIKE_DRAW_1, mapOf(tableau(0) to pileOf(14, up = 8)))
+
+        fun step(result: Layout): Double {
+            val column = result.cards.filter { it.pile == tableau(0) }
+            return (column[9].rect.y - column[8].rect.y) / result.cardHeight
+        }
+        // half size cards fit the column in 700 px at the normal overlap, doubled ones are squeezed to the minimum
+        assertEquals(0.28, step(layout(table, 1000.0, 700.0, 0.5)), 1e-9)
+        assertEquals(0.14, step(layout(table, 1000.0, 700.0, 2.0)), 1e-9)
+    }
+
+    private val column = PileId(PileKind.TABLEAU, 0)
+
+    private fun tallTable(count: Int = 30) =
+        emptyTable(Mode.KLONDIKE_DRAW_1, mapOf(column to pileOf(count, up = count * 4 / 5)))
+
+    @Test
+    fun `fitLayout takes no bar space when nothing scrolls`() {
+        val result = fitLayout(klondike, 1000.0, 700.0, 1.0, 12.0, 14.0)
+        assertEquals(layout(klondike, 1000.0, 700.0).cardWidth, result.cardWidth)
+        assertEquals(1000.0, result.prefWidth)
+    }
+
+    @Test
+    fun `fitLayout with only a vertical bar fits the width that remains`() {
+        val table = tallTable()
+        val result = fitLayout(table, 1000.0, 500.0, 1.0, 12.0, 14.0)
+        assertEquals(layout(table, 988.0, 500.0).cardWidth, result.cardWidth)
+        assertTrue(result.minWidth <= 988.0)
+        assertTrue(result.minHeight > 500.0)
+    }
+
+    @Test
+    fun `fitLayout with only a horizontal bar squeezes against the height that remains`() {
+        // 380 px hold only the minimum cards, which need more width: the horizontal bar shows, taking 14 px of height
+        val table = tallTable(19)
+        val result = fitLayout(table, 380.0, 400.0, 1.0, 12.0, 14.0)
+        assertEquals(48.0, result.cardWidth)
+        assertTrue(result.minWidth > 380.0)
+        assertEquals(layout(table, 380.0, 386.0).minHeight, result.minHeight)
+        assertTrue(result.minHeight <= 386.0 + 1e-9)
+    }
+
+    @Test
+    fun `fitLayout with both bars takes both from the layout`() {
+        val table = tallTable()
+        val result = fitLayout(table, 380.0, 400.0, 1.0, 12.0, 14.0)
+        assertEquals(layout(table, 368.0, 386.0).minHeight, result.minHeight)
+        assertTrue(result.minHeight > 386.0)
+        assertTrue(result.minWidth > 380.0)
+    }
+
+    @Test
+    fun `a column squeezed exactly to the height takes no bar space at any height`() {
+        val table = tallTable(19)
+        for (height in 300..900) {
+            val plain = layout(table, 1000.0, height.toDouble())
+            if (plain.minHeight > height) continue
+            assertEquals(plain.cardWidth, fitLayout(table, 1000.0, height.toDouble(), 1.0, 12.0, 14.0).cardWidth)
+        }
+    }
+
+    @Test
+    fun `with a horizontal bar a column that fits the height that remains takes no vertical bar space`() {
+        // At 200% the cards are wider than the inside: the horizontal bar shows. Where the column, squeezed against
+        // the height left beside that bar, still fits, the width keeps the vertical bar's 12 px.
+        val table = tallTable(19)
+        var checked = 0
+        for (height in 300..3000) {
+            val besideBar = layout(table, 1000.0, height - 14.0, 2.0)
+            if (besideBar.minHeight > height - 14.0) continue
+            val result = fitLayout(table, 1000.0, height.toDouble(), 2.0, 12.0, 14.0)
+            assertEquals(besideBar.cardWidth, result.cardWidth)
+            assertEquals(besideBar.minHeight, result.minHeight)
+            checked++
+        }
+        assertTrue(checked > 0)
+    }
 }

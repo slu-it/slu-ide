@@ -13,6 +13,7 @@ import javafx.application.ColorScheme
 import javafx.event.Event
 import javafx.event.EventType
 import javafx.scene.Scene
+import javafx.scene.control.ScrollPane
 import javafx.scene.image.Image
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
@@ -78,8 +79,12 @@ class TableViewUiTest {
 
     @Start
     fun start(stage: Stage) {
-        view = TableView(host, slideBack = Duration.ZERO, hintDuration = Duration.millis(1500.0))
-        stage.scene = Scene(view, 1000.0, 700.0)
+        val scroll = ScrollPane()
+        view = TableView(host, scroll, slideBack = Duration.ZERO, hintDuration = Duration.millis(1500.0))
+        scroll.content = view
+        scroll.isFitToWidth = true
+        scroll.isFitToHeight = true
+        stage.scene = Scene(scroll, 1000.0, 700.0)
         stage.show()
     }
 

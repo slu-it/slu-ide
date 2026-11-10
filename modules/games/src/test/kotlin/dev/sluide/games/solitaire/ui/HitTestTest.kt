@@ -58,4 +58,14 @@ class HitTestTest {
         assertNull(pileAt(result, slot.x + 5, result.prefHeight + 5))
         assertNull(pileAt(result, result.prefWidth + 5, 400.0))
     }
+
+    @Test
+    fun `a zoomed layout hits the cards at their zoomed places`() {
+        val zoomed = layout(table, 1000.0, 700.0, 2.0)
+        val card = zoomed.cards.last { it.pile == tableau(1) }
+        val hit = cardAt(zoomed, card.rect.x + card.rect.w - 1, card.rect.y + 5)
+        assertEquals(tableau(1), hit?.pile)
+        // the same point on the Fit layout is no card
+        assertNull(cardAt(result, card.rect.x + card.rect.w - 1, card.rect.y + 5)?.takeIf { it.pile == tableau(1) })
+    }
 }

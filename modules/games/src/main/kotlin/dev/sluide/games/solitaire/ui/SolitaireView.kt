@@ -1,7 +1,10 @@
 package dev.sluide.games.solitaire.ui
 
 import dev.sluide.fileviewers.FocusWhenShown
+import dev.sluide.games.common.GameZoomPreferences
+import dev.sluide.games.common.ZoomRange
 import dev.sluide.games.common.formatTime
+import dev.sluide.games.common.ui.GameZoomControls
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.TabVisibility
 import dev.sluide.games.common.ui.focusBoardOnPress
@@ -35,6 +38,7 @@ import javafx.util.Duration
  */
 internal class SolitaireView(
     private val model: SolitaireModel,
+    zoomPreferences: GameZoomPreferences,
     animationSpeed: Double = 1.0,
 ) {
     /** Asks a question with a [verb] button and Cancel (the default); true for the verb. Tests replace it. */
@@ -49,7 +53,12 @@ internal class SolitaireView(
         dialogs.askAlternative(number, alternative)
     }
 
-    internal val table = TableView(model)
+    private val scrollPane = ScrollPane()
+    internal val table = TableView(model, scrollPane)
+    internal val zoomControls =
+        GameZoomControls(ZoomRange.ABOVE_FIT, zoomPreferences.zoom(GAME_ID, ZoomRange.ABOVE_FIT)) {
+            zoomPreferences.setZoom(GAME_ID, it)
+        }
 
     /** Plays the slides, flips and the deal; [animationSpeed] scales its durations (0: none, as in tests). */
     internal val animator = Animator(table, animationSpeed) { syncInput() }
@@ -74,6 +83,7 @@ internal class SolitaireView(
                 hint = { act(model::hint) },
                 pause = { act(model::togglePause) },
             ),
+            zoomControls.node,
         )
     internal val gameMenu get() = toolbar.gameMenu
     internal val drawMenu get() = toolbar.drawMenu
@@ -115,7 +125,8 @@ internal class SolitaireView(
             top = toolbar.node
             center =
                 StackPane(
-                    ScrollPane(table).apply {
+                    scrollPane.apply {
+                        content = table
                         styleClass += "sol-scroll"
                         isFitToWidth = true
                         isFitToHeight = true
@@ -163,6 +174,8 @@ internal class SolitaireView(
         // The editor area focuses the tab's content; the keys belong to the table.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusTable.request(table) }
         focusBoardOnPress(node, table)
+        zoomControls.zoom.subscribe { zoom -> table.zoom = zoom.toDouble() }
+        zoomControls.install(node)
         model.ensureGame()
         refresh()
     }
@@ -378,5 +391,9 @@ internal class SolitaireView(
             model.onEvent = {}
             model.hidden = true
         }
+    }
+
+    internal companion object {
+        const val GAME_ID = "solitaire"
     }
 }

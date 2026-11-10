@@ -49,6 +49,9 @@ internal data class Layout(
     val cards: List<Placed>,
     val prefWidth: Double,
     val prefHeight: Double,
+    /** The size the cards need at least, however large the given size is: the table's minimum size. */
+    val minWidth: Double,
+    val minHeight: Double,
 )
 
 private const val MIN_CARD_WIDTH = 48.0
@@ -115,17 +118,19 @@ internal fun shownIndex(
 
 /**
  * The layout of [table] in [width] x [height]: columns across the width (card width 48..160 px), the top row, and the
- * tableau below it with overlaps that squeeze when a column would pass [height].
+ * tableau below it with overlaps that squeeze when a column would pass [height]. The card width is the Fit width
+ * times [zoom] (ADR 0155), at least 1 px; the squeeze uses the zoomed cards.
  */
 internal fun layout(
     table: Table,
     width: Double,
     height: Double,
+    zoom: Double = 1.0,
 ): Layout {
     val variant = table.mode.variant
     val columns = columnCount(table)
     val raw = (width - 2 * EDGE) / (columns * (1 + GAP))
-    val w = floor(raw.coerceIn(MIN_CARD_WIDTH, MAX_CARD_WIDTH))
+    val w = max(1.0, floor(floor(raw.coerceIn(MIN_CARD_WIDTH, MAX_CARD_WIDTH)) * zoom))
     val h = w * CardPainter.ASPECT
     val gap = w * GAP
     val margin = gap / 2 + EDGE
@@ -166,6 +171,7 @@ internal fun layout(
     val tableau = table.ids(PileKind.TABLEAU)
     val available = height - tableauY - EDGE - h
     val worst = tableau.maxOfOrNull { nominalExtent(table.pile(it), h) } ?: 0.0
+    val squeezeToFit = worst > 0.0 && worst > available && available / worst >= MIN_SQUEEZE
     val squeeze = if (worst <= 0.0 || worst <= available) 1.0 else (available / worst).coerceIn(MIN_SQUEEZE, 1.0)
     for ((column, id) in tableau.withIndex()) {
         val rect = Rect(colX(column), tableauY, w, h)
@@ -178,6 +184,37 @@ internal fun layout(
             y += h * squeeze * if (up) UP_OVERLAP else DOWN_OVERLAP
         }
     }
-    val extent = tableauY + h + worst * squeeze + EDGE
-    return Layout(w, h, slots, cards, max(width, needed), max(height, extent))
+    // Squeezed to fit: exactly the height, not a rounding error above it, which would count as too tall.
+    val extent = if (squeezeToFit) height else tableauY + h + worst * squeeze + EDGE
+    return Layout(w, h, slots, cards, max(width, needed), max(height, extent), needed, extent)
+}
+
+private const val BAR_EPS = 0.5
+
+/**
+ * The layout of [table] in the inside of the scroll pane, [innerWidth] x [innerHeight] without bars, at [zoom]: each
+ * scroll bar of [vBar] px width and [hBar] px height takes its space from the layout only when it will show, and the
+ * squeeze runs against the height that remains. It depends only on the inside, the zoom and the table, so it cannot
+ * oscillate.
+ */
+internal fun fitLayout(
+    table: Table,
+    innerWidth: Double,
+    innerHeight: Double,
+    zoom: Double,
+    vBar: Double,
+    hBar: Double,
+): Layout {
+    val first = layout(table, innerWidth, innerHeight, zoom)
+    var needH = first.minWidth > innerWidth + BAR_EPS
+    // The card width depends on the width only; beside a horizontal bar the column squeezes against what remains.
+    val height = innerHeight - (if (needH) hBar else 0.0)
+    val needV = (if (needH) layout(table, innerWidth, height, zoom) else first).minHeight > height + BAR_EPS
+    if (needV &&
+        !needH
+    ) {
+        needH = layout(table, innerWidth - vBar, innerHeight, zoom).minWidth > innerWidth - vBar + BAR_EPS
+    }
+    if (!needV && !needH) return first
+    return layout(table, innerWidth - (if (needV) vBar else 0.0), innerHeight - (if (needH) hBar else 0.0), zoom)
 }
