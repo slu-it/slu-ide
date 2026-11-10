@@ -1,6 +1,7 @@
 package dev.sluide.fileexplorer.tree
 
 import dev.sluide.fileexplorer.FolderIcons
+import dev.sluide.fileexplorer.generated.GeneratedFolderFilter
 import dev.sluide.fileicons.FileIcon
 import javafx.scene.control.TreeItem
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -364,5 +365,195 @@ class FileTreeItemTest {
         assertEquals(listOf("src", "two.txt"), one.rows())
         val kotlin = one.row("src").row("main").row("kotlin")
         assertTrue(one.row("src").isExpanded && one.row("src").row("main").isExpanded && kotlin.isExpanded)
+    }
+
+    private fun filter(hide: Boolean = true) = GeneratedFolderFilter { hide }
+
+    private fun withPackageJson(vararg folders: String) {
+        root.resolve("package.json").createFile()
+        folders.forEach { root.resolve(it).createDirectories() }
+    }
+
+    @Test
+    fun `a generated folder is hidden while the setting is on and shown with its reason while it is off`() {
+        withPackageJson("node_modules", "tmp", ".env", "src")
+        val hide = booleanArrayOf(true)
+        val item = FileTreeItem(root, generated = GeneratedFolderFilter { hide[0] })
+
+        assertEquals(listOf(".env", "src", "tmp", "package.json"), names(item))
+
+        hide[0] = false
+        item.refresh()
+
+        assertEquals(listOf(".env", "node_modules", "src", "tmp", "package.json"), names(item))
+        val reasons =
+            item.children.filterIsInstance<FileTreeItem>().associate {
+                it.value.name to
+                    it.generatedReason?.text
+            }
+        assertEquals("node_modules for package.json", reasons["node_modules"])
+        assertNull(reasons["tmp"])
+        assertNull(reasons[".env"])
+    }
+
+    @Test
+    fun `the direct children of a top-level folder are classified, the top-level folder itself is not`() {
+        root.resolve("build.gradle.kts").createFile()
+        root.resolve("build").createDirectories()
+        val top = FileTreeItem(root, generated = filter())
+
+        assertEquals(listOf("build.gradle.kts"), names(top))
+        assertNull(top.generatedReason)
+    }
+
+    @Test
+    fun `git decides in a repository, folders it does not cover keep the structural reason`() {
+        withPackageJson("node_modules")
+        val filter = filter()
+        val item = FileTreeItem(root, generated = filter)
+        assertEquals(listOf("package.json"), names(item))
+
+        filter.ignoredByGit = { false }
+        item.refresh()
+        assertEquals(listOf("node_modules", "package.json"), names(item))
+        assertNull((item.children.first() as FileTreeItem).generatedReason)
+
+        filter.ignoredByGit = { null }
+        item.refresh()
+        assertEquals(listOf("package.json"), names(item))
+
+        filter.ignoredByGit = { true }
+        item.refresh()
+        assertEquals(listOf("package.json"), names(item))
+    }
+
+    @Test
+    fun `nothing is classified below a generated folder`() {
+        withPackageJson("node_modules/pkg/node_modules")
+        root.resolve("node_modules/pkg/package.json").createFile()
+        val item = FileTreeItem(root, generated = filter(hide = false))
+
+        val modules = item.children.first() as FileTreeItem
+        val pkg = modules.children.single() as FileTreeItem
+        assertNull(pkg.generatedReason)
+        assertEquals(listOf("node_modules", "package.json"), names(pkg))
+        assertNull((pkg.children.first() as FileTreeItem).generatedReason)
+    }
+
+    @Test
+    fun `refresh hides an existing folder when its project file appears`() {
+        root.resolve("node_modules").createDirectories()
+        val item = FileTreeItem(root, generated = filter())
+        assertEquals(listOf("node_modules"), names(item))
+
+        root.resolve("package.json").createFile()
+        item.refresh()
+
+        assertEquals(listOf("package.json"), names(item))
+    }
+
+    @Test
+    fun `a revealed folder stays shown over refreshes until the exceptions are cleared`() {
+        withPackageJson("node_modules")
+        val filter = filter()
+        val item = FileTreeItem(root, generated = filter)
+
+        filter.unhide(root.resolve("node_modules"))
+        item.refresh()
+        item.refresh()
+        assertEquals(listOf("node_modules", "package.json"), names(item))
+        assertEquals("node_modules for package.json", (item.children.first() as FileTreeItem).generatedReason?.text)
+
+        filter.clearRevealed()
+        item.refresh()
+        assertEquals(listOf("package.json"), names(item))
+    }
+
+    @Test
+    fun `a git change lists a folder again only if a generated folder becomes shown or hidden`() {
+        withPackageJson("node_modules", "dist")
+        val filter = filter()
+        val added = mutableListOf<FileTreeItem>()
+        val item = FileTreeItem(root, generated = filter, onChildrenAdded = { added += it })
+        assertEquals(listOf("package.json"), names(item))
+
+        // Not covered, still hidden: nothing is listed again, so a file created meanwhile is not there yet.
+        root.resolve("new.txt").createFile()
+        item.gitIgnoresChanged()
+        assertTrue(added.isEmpty())
+        assertEquals(listOf("package.json"), names(item))
+
+        filter.ignoredByGit = { it.name == "dist" }
+        item.gitIgnoresChanged()
+        assertEquals(listOf("node_modules", "new.txt", "package.json"), names(item))
+        assertEquals(1, added.size)
+
+        // Nothing flips this time: the file created now stays unseen.
+        root.resolve("later.txt").createFile()
+        item.gitIgnoresChanged()
+        assertEquals(listOf("node_modules", "new.txt", "package.json"), names(item))
+
+        // Ignored again: node_modules goes away, the folder is listed again (and shows later.txt).
+        filter.ignoredByGit = { true }
+        item.gitIgnoresChanged()
+        assertEquals(listOf("later.txt", "new.txt", "package.json"), names(item))
+    }
+
+    @Test
+    fun `a folder that stops being generated classifies its loaded content`() {
+        root.resolve("package.json").createFile()
+        val outer = root.resolve("node_modules")
+        outer.resolve("pkg/node_modules").createDirectories()
+        outer.resolve("pkg/package.json").createFile()
+        val filter = filter()
+        filter.unhide(outer)
+        val item = FileTreeItem(root, generated = filter)
+        val pkg = (item.children.first() as FileTreeItem).children.single() as FileTreeItem
+        assertEquals(listOf("node_modules", "package.json"), names(pkg))
+
+        filter.ignoredByGit = { if (it == outer) false else null }
+        item.gitIgnoresChanged()
+
+        assertNull((item.children.first() as FileTreeItem).generatedReason)
+        assertEquals(listOf("package.json"), names(pkg))
+    }
+
+    @Test
+    fun `refreshParentsOf lists the loaded folders again that hold the entries, at any depth`() {
+        root.resolve("package.json").createFile()
+        val sub = root.resolve("sub").also { it.resolve("package.json").createParentDirectories().createFile() }
+        sub.resolve("dist").createDirectories()
+        val filter = filter()
+        filter.unhide(sub.resolve("dist"))
+        filter.unhide(root.resolve("node_modules").createDirectories())
+        val item = FileTreeItem(root, generated = filter)
+        val subRow = item.children.first { it.value == sub } as FileTreeItem
+        assertEquals(listOf("dist", "package.json"), names(subRow))
+        assertEquals(listOf("node_modules", "sub", "package.json"), names(item))
+
+        val cleared = filter.clearRevealed()
+        item.refreshParentsOf(cleared)
+
+        assertEquals(listOf("sub", "package.json"), names(item))
+        assertEquals(listOf("package.json"), names(subRow))
+    }
+
+    @Test
+    fun `a git change updates the reasons of shown folders without replacing their rows`() {
+        withPackageJson("node_modules")
+        val filter = filter(hide = false)
+        val item = FileTreeItem(root, generated = filter)
+        val modules = item.children.first() as FileTreeItem
+        assertEquals("node_modules for package.json", modules.generatedReason?.text)
+
+        filter.ignoredByGit = { false }
+        item.gitIgnoresChanged()
+
+        assertSame(modules, item.children.first())
+        assertNull(modules.generatedReason)
+
+        filter.ignoredByGit = { true }
+        item.gitIgnoresChanged()
+        assertEquals("node_modules for package.json", modules.generatedReason?.text)
     }
 }

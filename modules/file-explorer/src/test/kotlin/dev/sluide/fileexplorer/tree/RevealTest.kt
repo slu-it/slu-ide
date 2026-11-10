@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer.tree
 
+import dev.sluide.fileexplorer.generated.GeneratedFolderFilter
 import javafx.scene.control.TreeItem
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
@@ -191,5 +192,80 @@ class RevealTest {
         assertEquals("empty/a/b", row.displayName)
         assertSame(top, row.parent)
         assertTrue(row.isExpanded)
+    }
+
+    @Test
+    fun `a file in a hidden generated folder is found by unhiding the folder`() {
+        project.resolve("package.json").createFile()
+        val file = project.resolve("node_modules/x/index.js").also { it.parent.createDirectories() }.createFile()
+        val venvFile = project.resolve(".venv/lib/site.py").also { it.parent.createDirectories() }.createFile()
+        project.resolve(".venv/pyvenv.cfg").createFile()
+        val filter = GeneratedFolderFilter { true }
+        val top = FileTreeItem(project, generated = filter)
+        assertEquals(listOf("package.json"), top.children.map { it.value.fileName.toString() })
+        val revealed = mutableListOf<Path>()
+        val unhide: (Path) -> Unit = {
+            revealed.add(it)
+            filter.unhide(it)
+        }
+
+        assertNull(findForReveal(listOf(top), file))
+        val (_, item) = assertNotNull(findForReveal(listOf(top), file, unhide))
+        val (_, venvItem) = assertNotNull(findForReveal(listOf(top), venvFile, unhide))
+
+        assertEquals(file, item.value)
+        assertEquals(venvFile, venvItem.value)
+        assertEquals(listOf(project.resolve("node_modules"), project.resolve(".venv")), revealed)
+    }
+
+    @Test
+    fun `a revealed folder keeps its row when the parent is read again`() {
+        project.resolve("package.json").createFile()
+        val file = project.resolve("node_modules/x/index.js").also { it.parent.createDirectories() }.createFile()
+        val filter = GeneratedFolderFilter { true }
+        val top = FileTreeItem(project, generated = filter)
+
+        findForReveal(listOf(top), file, filter::unhide)
+        top.refresh()
+
+        assertEquals(listOf("node_modules", "package.json"), top.children.map { it.value.fileName.toString() })
+        assertNotNull((top.children.first() as FileTreeItem).generatedReason)
+    }
+
+    @Test
+    fun `expanding to a file in a hidden folder unhides the folder`() {
+        project.resolve("package.json").createFile()
+        val file = project.resolve("node_modules/x/index.js").also { it.parent.createDirectories() }.createFile()
+        val filter = GeneratedFolderFilter { true }
+        val top = FileTreeItem(project, generated = filter)
+
+        val item = assertNotNull(expandTo(top, file, filter::unhide))
+
+        assertEquals(file, item.value)
+        assertTrue(top.children.any { it.value.fileName.toString() == "node_modules" })
+    }
+
+    @Test
+    fun `a path with no generated folder on the way is not unhidden, e g below the git folder`() {
+        project.resolve("package.json").createFile()
+        val config = project.resolve(".git/config").also { it.parent.createDirectories() }.createFile()
+        val revealed = mutableListOf<Path>()
+
+        assertNull(
+            findForReveal(
+                listOf(
+                    FileTreeItem(
+                        project,
+                        generated =
+                            GeneratedFolderFilter {
+                                true
+                            },
+                    ),
+                ),
+                config,
+            ) { revealed.add(it) },
+        )
+
+        assertTrue(revealed.isEmpty())
     }
 }

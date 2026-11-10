@@ -16,6 +16,7 @@ import dev.sluide.fileexplorer.actions.askToDelete
 import dev.sluide.fileexplorer.actions.askToMove
 import dev.sluide.fileexplorer.actions.buildExplorerMenu
 import dev.sluide.fileexplorer.actions.comparePair
+import dev.sluide.fileexplorer.generated.GeneratedFolderFilter
 import dev.sluide.fileexplorer.tree.EXPAND_DELAY
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
@@ -25,6 +26,10 @@ import dev.sluide.fileexplorer.tree.collapseAll
 import dev.sluide.fileexplorer.tree.defaultCopyModifier
 import dev.sluide.fileexplorer.tree.expandTo
 import dev.sluide.fileexplorer.tree.findForReveal
+import dev.sluide.fileexplorer.tree.isShown
+import dev.sluide.fileexplorer.tree.keepSelection
+import dev.sluide.fileexplorer.tree.selectRow
+import dev.sluide.fileexplorer.tree.selectRows
 import dev.sluide.fileexplorer.tree.startWidth
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.filewatcher.FileWatcher
@@ -46,7 +51,6 @@ import javafx.scene.control.Alert
 import javafx.scene.control.SelectionMode
 import javafx.scene.control.TreeItem
 import javafx.scene.control.TreeView
-import javafx.scene.control.skin.VirtualFlow
 import javafx.scene.input.ContextMenuEvent
 import javafx.stage.Window
 import javafx.util.Duration
@@ -201,7 +205,7 @@ class FileExplorerView(
 
     // Loaded folders and the middle folders of compacted rows (ADR 0096).
     private val watches =
-        TreeWatches(fileWatcher, ::isShown, ::keepSelection) { changed -> onFilesChanged(changed) }
+        TreeWatches(fileWatcher, { isShown(it) }, { keepSelection(change = it) }) { changed -> onFilesChanged(changed) }
 
     // The hooks and test seams are read when an edit runs, not now, so later changes take effect.
     private val editHost =
@@ -259,6 +263,30 @@ class FileExplorerView(
     internal val compactFolders: BooleanProperty get() = settings.compactFolders
     private val compactUpdater = ChangeListener<Boolean> { _, _, _ -> recompact() }
 
+    /** Which generated folders are hidden (ADR 0158); the revealed ones are forgotten when the setting changes. */
+    private val generated = GeneratedFolderFilter { settings.hideGeneratedFolders.get() }
+    private val hideGeneratedUpdater =
+        ChangeListener<Boolean> { _, _, _ ->
+            generated.clearRevealed()
+            recompact(ancestorFallback = true)
+        }
+
+    /**
+     * Whether git ignores a folder: true/false when the window's git status covers it, null when it does not (no
+     * repository, no status yet, untrusted). FX thread.
+     */
+    var ignoredByGit: (Path) -> Boolean? by generated::ignoredByGit
+
+    /**
+     * Re-checks the generated folders of every loaded folder against [ignoredByGit] after the git status changed;
+     * re-lists only folders where one becomes shown or hidden. FX thread.
+     */
+    fun gitIgnoresChanged() =
+        keepSelection(ancestorFallback = true) {
+            topLevel().forEach(FileTreeItem::gitIgnoresChanged)
+            watches.closeVanished()
+        }
+
     private val font = fontSettings.font(FontArea.EXPLORER)
 
     // Material Design icons leave a margin around the glyph, so they are a bit larger than the text.
@@ -278,7 +306,7 @@ class FileExplorerView(
             canChange = ::canChange,
             canDropInto = { !edits.isBeingDeleted(it.value) },
             selectedEntries = ::selectedEntries,
-            reselect = { items -> selectRows(items.filter(::isShown)) },
+            reselect = { items -> selectRows(items.filter { isShown(it) }) },
             move = { items, folder -> move(items, folder) },
             copy = { items, folder -> copies.copyDrop(items, folder) },
             expandDelay = { dragExpandDelay },
@@ -306,6 +334,7 @@ class FileExplorerView(
         focusedProperty().addListener { _, _, focused -> if (focused) clipboard.checkCut() }
         windowFocused.addListener { _, _, focused -> if (focused == true) clipboard.checkCut() }
         compactFolders.addListener(WeakChangeListener(compactUpdater))
+        settings.hideGeneratedFolders.addListener(WeakChangeListener(hideGeneratedUpdater))
         // The cells inherit the font.
         styleProperty().bind(font.map(FontSpec::toCss))
         stylesheets += checkNotNull(FileExplorerView::class.java.getResource("file-explorer.css")).toExternalForm()
@@ -418,6 +447,7 @@ class FileExplorerView(
         onChildrenAdded = watches::watchChildMiddles,
         onChildrenLoaded = watches::watch,
         libraryRoots = { LibraryCode.libraryRootKind(it) },
+        generated = generated,
     )
 
     /** The top-level folders, the project first. */
@@ -432,7 +462,7 @@ class FileExplorerView(
         path: Path,
         focus: Boolean = false,
     ): Boolean {
-        val (folders, item) = findForReveal(topLevel(), path) ?: return false
+        val (folders, item) = findForReveal(topLevel(), path, generated::unhide) ?: return false
         // Only now, so that a path not found leaves the tree as it was.
         folders.forEach { it.isExpanded = true }
         selectRow(item)
@@ -448,12 +478,19 @@ class FileExplorerView(
 
     /**
      * Collapses every folder of every top-level node; the project stays expanded, the others collapse. A selected row
-     * that is hidden by it is replaced by its nearest ancestor still shown; the focus stays where it was.
+     * that is hidden by it is replaced by its nearest ancestor still shown; the focus stays where it was. Revealed
+     * generated folders hide again.
      */
     fun collapseAll() {
+        val revealed = generated.clearRevealed()
         val selected = selectionModel.selectedItems.filterNotNull().toList()
         val rows = collapseAll(topLevel(), projectItem, selected)
         if (rows != selected) selectRows(rows)
+        // The revealed generated folders hide again.
+        keepSelection(revealed.isNotEmpty()) {
+            topLevel().forEach { it.refreshParentsOf(revealed) }
+            watches.closeVanished()
+        }
     }
 
     /**
@@ -461,8 +498,9 @@ class FileExplorerView(
      * change on disk was missed.
      */
     fun refreshAll() {
-        keepSelection {
-            topLevel().flatMap(FileTreeItem::loadedFolders).forEach { folder ->
+        val revealed = generated.clearRevealed()
+        keepSelection(revealed.isNotEmpty()) {
+            topLevel().flatMap(FileTreeItem::loadedFolders).asSequence().filter { isShown(it) }.forEach { folder ->
                 folder.refresh()
                 folder.forgetReadability(listOf(folder.value))
                 watches.watch(folder)
@@ -473,27 +511,11 @@ class FileExplorerView(
     }
 
     /** Builds the tree again after compacting was turned on or off, keeping what was expanded and selected. */
-    private fun recompact() =
-        keepSelection {
+    private fun recompact(ancestorFallback: Boolean = false) =
+        keepSelection(ancestorFallback) {
             topLevel().forEach(FileTreeItem::refreshTree)
             watches.closeVanished()
         }
-
-    /**
-     * Runs [change] and selects the entries again that were selected if their rows were replaced (a compacted row split
-     * or joined): the row that stands for the entry now, for a middle folder its compacted row.
-     */
-    private fun keepSelection(change: () -> Unit) {
-        val selected = selectionModel.selectedItems.filterNotNull().toList()
-        change()
-        if (selected.all(::isShown)) return
-        val rows = (0 until expandedItemCount).mapNotNull { getTreeItem(it) as? FileTreeItem }
-        selectRows(
-            selected
-                .mapNotNull { item -> item.takeIf(::isShown) ?: rows.firstOrNull { it.represents(item.value) } }
-                .distinct(),
-        )
-    }
 
     /**
      * The width the explorer would like to start with: enough for the names of the shown entries with their icons and
@@ -542,33 +564,14 @@ class FileExplorerView(
     /** The folder dragged entries would be moved into if released now; `null` while there is none. */
     internal fun dropTarget(): TreeItem<Path>? = dragAndDrop.dropTarget.value
 
-    /** Whether [item] is still in the tree, e.g. not gone with a folder opened since. */
-    private fun isShown(item: TreeItem<Path>): Boolean = generateSequence(item) { it.parent }.last() === root
-
     /** Shows [path], an entry below [parent], at once, without waiting for the watch, selects and returns it. */
     private fun select(
         parent: FileTreeItem,
         path: Path,
     ): TreeItem<Path>? {
-        val item = expandTo(parent, path) ?: return null
+        val item = expandTo(parent, path, generated::unhide) ?: return null
         selectRow(item)
         return item
-    }
-
-    /** Selects [item], scrolling only as far as needed to show it, and focuses its row in the focus model. */
-    private fun selectRow(item: TreeItem<Path>) {
-        val row = getRow(item)
-        selectionModel.clearAndSelect(row)
-        // Rows inserted or removed before the focused one move the focus later, away from the selection.
-        Platform.runLater { focusModel.focus(getRow(item)) }
-        (lookup(".virtual-flow") as? VirtualFlow<*>)?.scrollTo(row) ?: scrollTo(row)
-    }
-
-    /** Selects exactly [items], scrolling to the first of them like [selectRow]; nothing for none. */
-    private fun selectRows(items: List<TreeItem<Path>>) {
-        val rows = items.sortedBy { getRow(it) }
-        selectRow(rows.firstOrNull() ?: return)
-        rows.drop(1).forEach { selectionModel.select(it) }
     }
 
     /** Passes [path] to [onOpenFile] if it is a regular file; returns whether it did. */

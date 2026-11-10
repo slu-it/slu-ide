@@ -78,3 +78,27 @@ looked up with one `Files.exists` in the grandparent.
 - `out`, `tmp`, `log`: too generic, often the user's own files.
 - `.idea`, `.yarn`, `.mvn`: hold settings, wrappers or committed state.
 - `build` without any of the project files above: could be anything.
+
+## Hiding them in the explorer
+
+The setting `explorer.hideGeneratedFolders` (default on, shared by all windows) leaves generated folders out of the
+explorer tree (ADR 0158; the toggle button and the look of a shown generated folder come with the explorer's UI).
+
+- Every folder listed in the tree classifies its child folders, the project's own children included; a top-level node
+  itself is never classified. Nothing is classified below a generated folder, shown or hidden, so a `node_modules`
+  inside a shown `node_modules/pkg` is a normal folder.
+- The structural reason above decides alone outside a git repository and before the window's git status has arrived.
+  In a repository the folder must also be ignored by git: a tracked folder, or one that is untracked but not ignored,
+  is a normal folder, so a tracked `build` reappears when the status arrives. A folder the status does not cover keeps
+  the structural reason.
+- A compacted row (Compact Middle Folders) is classified by its first folder, the entry in the listed folder; compacting
+  itself ignores hiding.
+- The tree is classified when a folder is listed (first load, watch events, F5) and when the setting changes. Each
+  loaded folder remembers its generated folders, so a change of the git status re-checks only those and lists a
+  folder again only if one of them becomes shown or hidden; otherwise it just updates their reasons.
+- Turning the setting off shows the folders with their reason; turning it on hides them again, keeping expansion and
+  selection (a selected row that vanishes is replaced by its nearest ancestor).
+- Revealing a path inside a hidden folder (Reveal in Explorer, opening a file from outside) shows that folder
+  anyway, and so does selecting a new entry inside it (New File, Rename, Paste or a move into a hidden `build`).
+  Only a generated folder is shown this way: a path below `.git` stays out. The exception survives re-listings from watch events and ends when the setting changes, on Refresh (F5) and on
+  Collapse All, which hide the folder again.

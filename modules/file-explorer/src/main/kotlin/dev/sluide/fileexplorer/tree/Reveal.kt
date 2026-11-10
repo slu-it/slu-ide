@@ -10,11 +10,13 @@ import java.nio.file.Path
  * folders on the way and reading a folder again if the entry is new, before its watch reported it, or a compacted row
  * on the way no longer stands for its folders (ADR 0096). Returns the folders from the top-level one down to the parent
  * of the item, and the item (the top-level folder itself, with no folders, for its own path; the compacted row for one
- * of its middle folders); `null` if no top-level folder holds [path] or it does not exist. Expands nothing.
+ * of its middle folders); `null` if no top-level folder holds [path] or it does not exist. Expands nothing. An entry
+ * on the way that has no row but is a generated folder (so hidden) is passed to [unhide] and the folder read again.
  */
 internal fun findForReveal(
     topLevel: List<FileTreeItem>,
     path: Path,
+    unhide: (Path) -> Unit = {},
 ): Pair<List<FileTreeItem>, TreeItem<Path>>? {
     val target = path.toAbsolutePath().normalize()
     val top = topLevel.filter { target.startsWith(it.value) }.maxByOrNull { it.value.nameCount } ?: return null
@@ -27,9 +29,23 @@ internal fun findForReveal(
         if (folder.represents(target)) break
         folders += folder
         val next = folder.value.resolve(folder.value.relativize(target).getName(0))
-        item = folder.step(next, target) ?: folder.also(FileTreeItem::refresh).step(next, target) ?: return null
+        item = folder.step(next, target)
+            ?: folder.also(FileTreeItem::refresh).step(next, target)
+            ?: folder.unhidden(next, unhide)?.step(next, target)
+            ?: return null
     }
     return folders to item
+}
+
+/** This folder after [unhide] was called for [next] and it was read again; `null` if [next] is no generated folder. */
+private fun FileTreeItem.unhidden(
+    next: Path,
+    unhide: (Path) -> Unit,
+): FileTreeItem? {
+    if (!isGeneratedCandidate(next)) return null
+    unhide(next)
+    refresh()
+    return this
 }
 
 /**
@@ -49,17 +65,18 @@ private fun FileTreeItem.step(
  * the item of [path]; `null`, expanding what was found on the way, if [path] is not below [parent] or does not exist.
  * A direct child is found after reading [parent] again. If [parent] is a row that no longer stands for its folders
  * (e.g. a folder that now holds only the new folder), its parent is read again first and the row for [parent]'s folder
- * taken instead.
+ * taken instead. [unhide] is passed to [findForReveal].
  */
 internal fun expandTo(
     parent: FileTreeItem,
     path: Path,
+    unhide: (Path) -> Unit = {},
 ): TreeItem<Path>? {
     val folder = current(parent)
     folder.isExpanded = true
     // Reads the folder for the first time, or again if it was loaded.
     folder.refresh()
-    val (folders, item) = findForReveal(listOf(folder), path) ?: return null
+    val (folders, item) = findForReveal(listOf(folder), path, unhide) ?: return null
     folders.forEach { it.isExpanded = true }
     return item
 }

@@ -11,6 +11,9 @@ private val log = System.getLogger(ExplorerSettings::class.java.name)
 /** The settings key of [ExplorerSettings.compactFolders]. */
 internal const val COMPACT_FOLDERS_KEY = "explorer.compactFolders"
 
+/** The settings key of [ExplorerSettings.hideGeneratedFolders]. */
+internal const val HIDE_GENERATED_FOLDERS_KEY = "explorer.hideGeneratedFolders"
+
 /**
  * The explorer's settings shared by all windows (a singleton bean), stored with [SettingsStore]. FX thread.
  */
@@ -24,17 +27,30 @@ class ExplorerSettings(
      * failure to store it logged.
      */
     val compactFolders: BooleanProperty by lazy {
-        val stored = settings.load()[COMPACT_FOLDERS_KEY]?.trim()?.toBooleanStrictOrNull() ?: true
-        SimpleBooleanProperty(stored).apply {
-            addListener { _, _, value -> store(value) }
-        }
+        flag(COMPACT_FOLDERS_KEY, "Cannot store whether the explorer compacts middle folders")
     }
 
-    private fun store(compact: Boolean) {
-        try {
-            settings.update(mapOf(COMPACT_FOLDERS_KEY to compact.toString()))
-        } catch (e: IOException) {
-            log.log(System.Logger.Level.WARNING, "Cannot store whether the explorer compacts middle folders", e)
+    /**
+     * Whether generated folders (`node_modules`, `build`, ADR 0158) are left out of the tree; stored as
+     * `explorer.hideGeneratedFolders` (default true), read and stored like [compactFolders].
+     */
+    val hideGeneratedFolders: BooleanProperty by lazy {
+        flag(HIDE_GENERATED_FOLDERS_KEY, "Cannot store whether the explorer hides generated folders")
+    }
+
+    private fun flag(
+        key: String,
+        failure: String,
+    ): BooleanProperty {
+        val stored = settings.load()[key]?.trim()?.toBooleanStrictOrNull() ?: true
+        return SimpleBooleanProperty(stored).apply {
+            addListener { _, _, value ->
+                try {
+                    settings.update(mapOf(key to value.toString()))
+                } catch (e: IOException) {
+                    log.log(System.Logger.Level.WARNING, failure, e)
+                }
+            }
         }
     }
 }

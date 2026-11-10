@@ -67,4 +67,17 @@ class ExplorerSettingsTest {
         assertFalse(explorer.compactFolders.get())
         assertEquals(listOf("WARNING Cannot store whether the explorer compacts middle folders"), records)
     }
+
+    @Test
+    fun `generated folders are hidden by default, and a change is stored under its own key`() {
+        val explorer = ExplorerSettings(settings)
+        assertTrue(explorer.hideGeneratedFolders.get())
+
+        explorer.hideGeneratedFolders.set(false)
+
+        assertEquals("false", settings.load()[HIDE_GENERATED_FOLDERS_KEY])
+        assertEquals("explorer.hideGeneratedFolders", HIDE_GENERATED_FOLDERS_KEY)
+        assertFalse(ExplorerSettings(settings).hideGeneratedFolders.get())
+        assertTrue(ExplorerSettings(settings).compactFolders.get())
+    }
 }

@@ -1,7 +1,11 @@
 package dev.sluide.fileexplorer.tree
 
 import dev.sluide.fileexplorer.FolderIcons
+import dev.sluide.fileexplorer.generated.GeneratedFolderFilter
+import dev.sluide.fileexplorer.generated.GeneratedReason
 import dev.sluide.librarycode.LibraryKind
+import javafx.beans.property.ReadOnlyObjectProperty
+import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.property.SimpleObjectProperty
 import javafx.collections.ObservableList
 import javafx.scene.control.TreeItem
@@ -32,6 +36,8 @@ internal class FileTreeItem(
     private val libraryRoots: (Path) -> LibraryKind? = { null },
     /** Whether [libraryKind] is looked up: false for top-level folders, the project and extra roots (ADR 0150). */
     private val detectLibrary: Boolean = false,
+    /** Leaves generated folders out of the children and gives their rows a reason (ADR 0158); inherited. */
+    private val generated: GeneratedFolderFilter? = null,
     private val onChildrenLoaded: (FileTreeItem) -> Unit = {},
 ) : TreeItem<Path>(path) {
     private val directory: Boolean = Files.isDirectory(path)
@@ -54,6 +60,20 @@ internal class FileTreeItem(
     private fun recheckLibrary() {
         libraryKindProperty.value = readLibraryKind()
     }
+
+    private val reason = ReadOnlyObjectWrapper<GeneratedReason?>(null)
+
+    /**
+     * Why this row is a generated folder, shown although it is one (the setting is off, or it was revealed); `null` for
+     * files, top-level rows and folders that are not generated. Updated when the parent lists again and on
+     * [gitIgnoresChanged].
+     */
+    val generatedReasonProperty: ReadOnlyObjectProperty<GeneratedReason?> get() = reason.readOnlyProperty
+
+    val generatedReason: GeneratedReason? get() = reason.value
+
+    /** The generated folders among the entries of this folder at its last listing, with their structural reason. */
+    private var candidates: Map<Path, GeneratedReason> = emptyMap()
 
     private var childrenLoaded = false
 
@@ -96,7 +116,7 @@ internal class FileTreeItem(
         if (directory && !childrenLoaded) {
             childrenLoaded = true
             val compacting = compact()
-            children.setAll(listDirectory(value).map { child(chainOf(it, compacting)) })
+            children.setAll(listShown().map { (path, why) -> child(chainOf(path, compacting), why) })
             onChildrenLoaded(this)
         }
         return children
@@ -117,21 +137,24 @@ internal class FileTreeItem(
         val compacting = compact()
         val replaced = mutableListOf<Pair<Set<Path>, FileTreeItem>>()
         val listed =
-            listDirectory(value).map { path ->
+            listShown().map { (path, why) ->
                 val existing = current[path]
                 val chain = chainOf(path, compacting)
                 when {
                     existing == null -> {
-                        child(chain)
+                        child(chain, why)
                     }
 
                     // A file that became a folder (or the other way round) needs a new item, as does another chain.
                     existing.directory != Files.isDirectory(chain.last()) || existing.chain != chain -> {
-                        child(chain).also { replaced += existing.expandedFolders() to it }
+                        child(chain, why).also { replaced += existing.expandedFolders() to it }
                     }
 
                     else -> {
-                        existing.also(FileTreeItem::recheckLibrary)
+                        existing.also {
+                            it.recheckLibrary()
+                            it.setReason(why)
+                        }
                     }
                 }
             }
@@ -205,20 +228,81 @@ internal class FileTreeItem(
             listOf(this) + super.getChildren().filterIsInstance<FileTreeItem>().flatMap { it.loadedFolders() }
         }
 
+    /** Whether this folder is generated or inside a generated folder: nothing below it is classified. */
+    private fun insideGenerated(): Boolean =
+        generatedReason != null || (parent as? FileTreeItem)?.insideGenerated() == true
+
+    /** The entries of this folder to show with their reason; remembers the generated ones as [candidates]. */
+    private fun listShown(): List<Pair<Path, GeneratedReason?>> {
+        val paths = listDirectory(value)
+        val filter = generated
+        if (filter == null || insideGenerated()) {
+            candidates = emptyMap()
+            return paths.map { it to null }
+        }
+        val names = paths.mapTo(HashSet()) { it.fileName.toString() }
+        candidates = paths.mapNotNull { path -> filter.structural(path, names)?.let { path to it } }.toMap()
+        return paths.mapNotNull { path ->
+            val why = candidates[path]?.let { filter.effective(path, it) }
+            if (filter.isHidden(path, why)) null else path to why
+        }
+    }
+
+    /** Whether [entry], an entry of this folder, was a generated folder at the last listing (shown or hidden). */
+    fun isGeneratedCandidate(entry: Path): Boolean = entry in candidates
+
+    /** Sets the reason; a folder that became or stopped being generated classifies its loaded content again. */
+    private fun setReason(why: GeneratedReason?) {
+        val changed = (reason.value == null) != (why == null)
+        reason.value = why
+        if (changed) refreshTree()
+    }
+
+    /**
+     * Checks the generated folders of this folder and the loaded folders below it against git again, after its status
+     * changed: lists a folder again if one of its generated folders becomes shown or hidden, else only updates the
+     * reasons of the shown ones.
+     */
+    fun gitIgnoresChanged() {
+        if (!childrenLoaded) return
+        val filter = generated
+        if (filter != null && candidates.isNotEmpty()) {
+            val rows = super.getChildren().filterIsInstance<FileTreeItem>().associateBy { it.sourcePath }
+            val reasons = candidates.mapValues { (path, why) -> filter.effective(path, why) }
+            if (reasons.any { (path, why) -> (path in rows) == filter.isHidden(path, why) }) {
+                refresh()
+            } else {
+                reasons.forEach { (path, why) -> rows[path]?.setReason(why) }
+            }
+        }
+        super.getChildren().filterIsInstance<FileTreeItem>().forEach(FileTreeItem::gitIgnoresChanged)
+    }
+
+    /** Lists again every loaded folder below this one that has one of [entries] as a row or candidate, to hide them. */
+    fun refreshParentsOf(entries: Set<Path>) {
+        if (!childrenLoaded) return
+        val rows = super.getChildren().filterIsInstance<FileTreeItem>()
+        if (rows.any { it.sourcePath in entries } || candidates.keys.any { it in entries }) refresh()
+        super.getChildren().filterIsInstance<FileTreeItem>().forEach { it.refreshParentsOf(entries) }
+    }
+
     private fun chainOf(
         path: Path,
         compacting: Boolean,
     ): List<Path> = if (compacting) compactChain(path) else listOf(path)
 
-    private fun child(chain: List<Path>) =
-        FileTreeItem(
-            chain.last(),
-            folderIcons = folderIcons,
-            chain = chain,
-            compact = compact,
-            onChildrenAdded = onChildrenAdded,
-            onChildrenLoaded = onChildrenLoaded,
-            libraryRoots = libraryRoots,
-            detectLibrary = true,
-        )
+    private fun child(
+        chain: List<Path>,
+        why: GeneratedReason?,
+    ) = FileTreeItem(
+        chain.last(),
+        folderIcons = folderIcons,
+        chain = chain,
+        compact = compact,
+        onChildrenAdded = onChildrenAdded,
+        onChildrenLoaded = onChildrenLoaded,
+        libraryRoots = libraryRoots,
+        detectLibrary = true,
+        generated = generated,
+    ).also { it.reason.value = why }
 }

@@ -111,6 +111,22 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
     }
 
     @Test
+    fun `New File into a hidden generated folder shows the folder`(robot: FxRobot) {
+        useUnwatchedView(robot)
+        project.resolve("build.gradle.kts").createFile()
+        project.resolve("build").createDirectories()
+        view.askName = { _, _, _ -> "build/out.txt" }
+        robot.interact { view.open(project) }
+        assertEquals(listOf(project.name, "build.gradle.kts"), renderedNames(robot))
+
+        robot.interact { menuItemFor(robot, cellNamed(robot, project.name), "New File…").fire() }
+
+        val created = project.resolve("build/out.txt")
+        assertEquals(listOf(project.name, "build", "out.txt", "build.gradle.kts"), renderedNames(robot))
+        robot.interact { assertEquals(created, view.selectionModel.selectedItem?.value) }
+    }
+
+    @Test
     fun `New Folder creates a folder in the clicked folder and expands it, or in the opened folder`(robot: FxRobot) {
         project.resolve("sub/inner.txt").createParentDirectories().createFile()
         useUnwatchedView(robot)

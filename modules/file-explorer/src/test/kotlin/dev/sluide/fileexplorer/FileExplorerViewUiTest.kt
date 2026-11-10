@@ -23,6 +23,7 @@ import kotlin.io.path.name
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
 /** Renders the real view in a stage. Needs a display, see the `uiTest` Gradle task. */
@@ -244,5 +245,68 @@ class FileExplorerViewUiTest : FileExplorerViewUiFixture() {
             assertEquals(listOf(project.name, "src/main/kotlin", "App.kt", "README.md"), renderedNames(robot))
             assertEquals(app, view.selectionModel.selectedItem?.value)
         }
+    }
+
+    @Test
+    fun `turning the setting off shows the generated folders and turning it on hides them again`(robot: FxRobot) {
+        project.resolve("package.json").createFile()
+        val inside = project.resolve("node_modules/a.js").createParentDirectories().createFile()
+        robot.interact { view.open(project) }
+        assertEquals(listOf(project.name, "package.json"), renderedNames(robot))
+
+        robot.interact { explorerSettings.hideGeneratedFolders.set(false) }
+        assertEquals(listOf(project.name, "node_modules", "package.json"), renderedNames(robot))
+
+        robot.interact { explorerSettings.hideGeneratedFolders.set(true) }
+        assertEquals(listOf(project.name, "package.json"), renderedNames(robot))
+
+        // A selected row that goes with the folder is replaced by the nearest ancestor still shown.
+        robot.interact { explorerSettings.hideGeneratedFolders.set(false) }
+        robot.interact { view.reveal(inside) }
+        robot.interact { assertEquals(inside, view.selectionModel.selectedItem?.value) }
+        robot.interact { explorerSettings.hideGeneratedFolders.set(true) }
+        assertEquals(listOf(project.name, "package.json"), renderedNames(robot))
+        robot.interact { assertEquals(project, view.selectionModel.selectedItem?.value) }
+    }
+
+    @Test
+    fun `Collapse All hides a revealed generated folder again and selects the project`(robot: FxRobot) {
+        revealedGeneratedFolderIsHiddenAgainBy(robot) { view.collapseAll() }
+    }
+
+    @Test
+    fun `Refresh hides a revealed generated folder again and selects the project`(robot: FxRobot) {
+        revealedGeneratedFolderIsHiddenAgainBy(robot) { view.refreshAll() }
+    }
+
+    private fun revealedGeneratedFolderIsHiddenAgainBy(
+        robot: FxRobot,
+        action: () -> Unit,
+    ) {
+        project.resolve("package.json").createFile()
+        val file = project.resolve("node_modules/x/index.js").createParentDirectories().createFile()
+        robot.interact { view.open(project) }
+        robot.interact { view.reveal(file) }
+        robot.interact { assertEquals(file, view.selectionModel.selectedItem?.value) }
+
+        robot.interact { action() }
+
+        assertEquals(listOf(project.name, "package.json"), renderedNames(robot))
+        robot.interact { assertEquals(project, view.selectionModel.selectedItem?.value) }
+    }
+
+    @Test
+    fun `revealing a file in a hidden generated folder shows the folder and selects the file`(robot: FxRobot) {
+        project.resolve("package.json").createFile()
+        val file = project.resolve("node_modules/x/index.js").createParentDirectories().createFile()
+        robot.interact { view.open(project) }
+
+        robot.interact { assertTrue(view.reveal(file)) }
+
+        robot.interact { assertEquals(file, view.selectionModel.selectedItem?.value) }
+        assertEquals(
+            listOf(project.name, "node_modules", "x", "index.js", "package.json"),
+            renderedNames(robot),
+        )
     }
 }
