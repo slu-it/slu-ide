@@ -26,6 +26,8 @@ import dev.sluide.docker.settings.DockerSettingsPage
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.encryptedfiles.EncryptedFiles
+import dev.sluide.encryptedfiles.settings.EncryptedFilesSettings
+import dev.sluide.encryptedfiles.settings.EncryptedFilesSettingsPage
 import dev.sluide.encryptedfiles.ui.EncryptedFileViewer
 import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.ExplorerSettings
@@ -275,6 +277,8 @@ class SpringWiringTest {
                         LibraryCodeSettings::class.java,
                         EncryptedFiles::class.java,
                         EncryptedFileViewer::class.java,
+                        EncryptedFilesSettings::class.java,
+                        EncryptedFilesSettingsPage::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")

@@ -1,6 +1,7 @@
 package dev.sluide.encryptedfiles.ui
 
 import dev.sluide.encryptedfiles.EncryptedFiles
+import dev.sluide.encryptedfiles.settings.EncryptedFilesSettings
 import dev.sluide.fileviewers.ExtensionFileViewer
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewers
@@ -19,11 +20,16 @@ import kotlin.io.path.extension
 @Component
 class EncryptedFileViewer internal constructor(
     private val files: EncryptedFiles,
+    private val settings: EncryptedFilesSettings,
     /** Lazy: [FileViewers] takes every viewer, this one included. */
     private val viewers: () -> FileViewers,
 ) : ExtensionFileViewer {
     @Autowired
-    constructor(files: EncryptedFiles, viewers: ObjectProvider<FileViewers>) : this(files, viewers::getObject)
+    constructor(
+        files: EncryptedFiles,
+        settings: EncryptedFilesSettings,
+        viewers: ObjectProvider<FileViewers>,
+    ) : this(files, settings, viewers::getObject)
 
     override val fileExtensions: Set<String> = setOf(SLUENC_EXTENSION)
 
@@ -35,7 +41,7 @@ class EncryptedFileViewer internal constructor(
     override fun open(file: Path): FileView {
         val handover = files.takeHandover(file)
         try {
-            return EncryptedFileView(file, files, viewers()::contentViewerFor, handover)
+            return EncryptedFileView(file, files, viewers()::contentViewerFor, settings, handover)
         } catch (e: Throwable) {
             handover?.close()
             throw e

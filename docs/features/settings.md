@@ -61,6 +61,11 @@
   what counts as library code; applies on OK or Apply, to open tabs at once. Lives in `file-viewers`
   (`EditorSettingsPage` with `EditorSettingsPageModel`, package `dev.sluide.fileviewers.settings`;
   [library-code.md](library-code.md), [ADR 0150](../adr/0150-library-code-read-only.md)).
+- Editor › Encrypted Files: the spinner "Lock after N minutes idle (0 = never)" (`encryptedFiles.idleLockMinutes`,
+  0 to 240, default 10); applies on OK or Apply, to open tabs at once. The page sits below the Editor page in the tree
+  (a page's item also holds pages below its name). Lives in `encrypted-files` (`EncryptedFilesSettings`,
+  `EncryptedFilesSettingsPage` with `EncryptedFilesSettingsPageModel`, package `dev.sluide.encryptedfiles.settings`;
+  [encrypted-files.md](encrypted-files.md), [ADR 0162](../adr/0162-encrypted-files.md)).
 - Secrets: the secret store, saved passphrases with Remove and Forget All Saved Secrets. Lives in the `secrets` module
   (`SecretsSettingsPage` with `SecretsSettingsPageModel`; [secrets.md](secrets.md)).
 - Structure: `FontSpec`, `FontStyle`, `FontArea` (values), `SettingsStore` (properties file), `FontSettings` (Spring

@@ -4,6 +4,7 @@ import dev.sluide.encryptedfiles.EncryptedFiles
 import dev.sluide.encryptedfiles.FileKey
 import dev.sluide.encryptedfiles.LockChoice
 import dev.sluide.encryptedfiles.SluencException
+import dev.sluide.encryptedfiles.settings.EncryptedFilesSettings
 import dev.sluide.fileviewers.ContentFileViewer
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileContent
@@ -11,9 +12,13 @@ import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FocusWhenShown
 import javafx.beans.property.ReadOnlyBooleanWrapper
+import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableBooleanValue
 import javafx.scene.Node
 import javafx.scene.control.MenuItem
+import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseEvent
+import javafx.scene.input.ScrollEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
 import java.io.IOException
@@ -30,8 +35,13 @@ internal class EncryptedFileView(
     file: Path,
     private val registry: EncryptedFiles,
     private val viewerFor: (innerName: String) -> ContentFileViewer?,
+    private val settings: EncryptedFilesSettings,
     handover: FileKey? = null,
     internal val session: EncryptedSession = EncryptedSession(file),
+    /** Makes the idle lock from the minutes setting and what to do when idle; tests give it a short unit. */
+    idleLockFactory: (minutes: () -> Int, onIdle: () -> Unit) -> IdleLock = { minutes, onIdle ->
+        IdleLock(minutes, onIdle)
+    },
 ) : EditableFileView {
     private var path: Path = file
     private val name: String get() = path.fileName.toString()
@@ -56,7 +66,7 @@ internal class EncryptedFileView(
     private val pendingFocus = FocusWhenShown()
 
     private val lockedPane = LockedPane(::unlock)
-    private val strip = UnlockedStrip(::lock)
+    private val strip = UnlockedStrip(::lock, ::changePassword)
     private val unlockedPane = BorderPane().apply { top = strip.node }
     private val root =
         StackPane(lockedPane.node).apply {
@@ -65,6 +75,11 @@ internal class EncryptedFileView(
         }
 
     private val lockItem = MenuItem("Lock").apply { setOnAction { lock() } }
+    private val changePasswordItem = MenuItem(CHANGE_PASSWORD_TEXT).apply { setOnAction { changePassword() } }
+
+    private val idleLock = idleLockFactory(settings::currentIdleLockMinutes, ::idleFired)
+    private val idleSettingListener = ChangeListener<Number> { _, _, _ -> idleLock.settingChanged() }
+    private var idleOn = false
 
     /**
      * Asked before locking with unsaved changes ("`<name>` has unsaved changes."): Save, Don't Save or Cancel. A dialog
@@ -93,8 +108,7 @@ internal class EncryptedFileView(
 
     override val lockMarkerText: String get() = LOCKED_MARKER_TEXT
 
-    // P3b adds Change Password… after Lock.
-    override val tabMenuItems: List<MenuItem> get() = listOf(lockItem)
+    override val tabMenuItems: List<MenuItem> get() = listOf(lockItem, changePasswordItem)
 
     override var host: FileViewHost?
         get() = hostValue
@@ -104,6 +118,10 @@ internal class EncryptedFileView(
         }
 
     init {
+        // While unlocked, a key press, mouse press or scroll in the tab counts as activity (the idle lock).
+        root.addEventFilter(KeyEvent.KEY_PRESSED) { idleLock.activity() }
+        root.addEventFilter(MouseEvent.MOUSE_PRESSED) { idleLock.activity() }
+        root.addEventFilter(ScrollEvent.SCROLL) { idleLock.activity() }
         session.onChange = ::render
         registry.register(this)
         if (handover != null) {
@@ -130,6 +148,45 @@ internal class EncryptedFileView(
 
             LockChoice.CANCEL -> {}
         }
+    }
+
+    /**
+     * Asks for the current and a new password, then saves the tab's present text, unsaved changes included, under the
+     * new key and password (a new data key and salt); the tab stays unlocked and is clean afterwards. The text is saved
+     * through the inner view, so its own encoding and line endings stay. Nothing while locked.
+     */
+    fun changePassword() {
+        if (!isUnlocked) return
+        // Saving under the new password replaces a file changed elsewhere, as any save does.
+        session.replaceQuestion(name)?.let { question -> if (!askReplace(question)) return }
+        showPasswordDialog(
+            root.scene?.window,
+            CHANGE_PASSWORD_TITLE,
+            withCurrent = true,
+            note = CHANGE_PASSWORD_NOTE,
+            confirmText = CHANGE_PASSWORD_BUTTON,
+            busyText = CHANGING,
+        ) { current, new, done ->
+            var late: String? = null
+            session.changePassword(current, new, { (inner as? EditableFileView)?.save() }, { late = it }) { error ->
+                if (error == null) {
+                    // An error after the file was written (e.g. the view's reload) shows in the strip.
+                    saveError = late
+                    render()
+                }
+                done(error, error == NOT_UNLOCKED)
+            }
+        }
+    }
+
+    /**
+     * The idle time passed: saves and locks, unless the file changed elsewhere with another password and the tab has
+     * unsaved changes (saving would ask Replace); it then stays unlocked and the next period tries again, as after a
+     * failed save. A clean tab locks with or without the warning.
+     */
+    private fun idleFired() {
+        if (!isUnlocked || (session.warningFailure != null && isDirty)) return
+        lockNow(saveFirst = true)
     }
 
     /**
@@ -200,6 +257,9 @@ internal class EncryptedFileView(
         if (disposed) return
         pendingFocus.cancel()
         dropInner()
+        idleLock.stop()
+        settings.idleLockMinutes.removeListener(idleSettingListener)
+        idleOn = false
         val closedEmpty = session.dispose()
         disposed = true
         lockedPane.field.clear()
@@ -261,8 +321,23 @@ internal class EncryptedFileView(
         if (disposed) return
         if (session.state == SessionState.UNLOCKED) showUnlocked() else showLocked()
         lockItem.isDisable = !isUnlocked
+        changePasswordItem.isDisable = !isUnlocked
+        followIdleLock()
         markedWrapper.set(!isUnlocked)
         registry.stateChanged()
+    }
+
+    /** Counts the idle time while unlocked, by the setting as it changes. */
+    private fun followIdleLock() {
+        if (isUnlocked == idleOn) return
+        idleOn = isUnlocked
+        if (idleOn) {
+            settings.idleLockMinutes.addListener(idleSettingListener)
+            idleLock.start()
+        } else {
+            settings.idleLockMinutes.removeListener(idleSettingListener)
+            idleLock.stop()
+        }
     }
 
     private fun showLocked() {

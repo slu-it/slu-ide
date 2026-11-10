@@ -11,7 +11,9 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -53,6 +55,9 @@ class EncryptedSessionTest {
             unlocker = { bytes, typed -> unlocker(bytes, typed) },
             background = backgroundTasks::addLast,
             fx = fxTasks::addLast,
+            rekeyer = { bytes, current, new ->
+                Sluenc.changePassword(bytes, current, new, ByteArray(0), params).also { keys += it.key }
+            },
         )
 
     private fun create(plain: String): FileKey {
@@ -402,4 +407,144 @@ class EncryptedSessionTest {
                 params,
             ).also { it.key.close() }
             .bytes
+
+    private val newPassword = "another long password"
+
+    /** Starts Change Password on the unlocked session and runs it; returns what `done` got ([DONE_NOT_CALLED] if not). */
+    private fun changePassword(
+        current: String = password,
+        saveUnder: () -> Unit = { session.write("changed".toByteArray()) },
+    ): Pair<String?, List<CharArray>> {
+        var result: String? = DONE_NOT_CALLED
+        val arrays = listOf(current.toCharArray(), newPassword.toCharArray())
+        session.changePassword(arrays[0], arrays[1], saveUnder) { result = it }
+        runUnlock()
+        return result to arrays
+    }
+
+    @Test
+    fun `changing the password swaps the key, closes the old one and writes under the new password`() {
+        create("secret").close()
+        unlock()
+        val old = checkNotNull(session.key)
+
+        val (result, arrays) = changePassword()
+
+        assertNull(result)
+        val fresh = checkNotNull(session.key)
+        assertTrue(old.isZeroed())
+        assertTrue(arrays.all { it.isZeroed() })
+        assertFalse(fresh.isZeroed())
+        // The new key reads the file it wrote: no KEY_MISMATCH for itself.
+        assertArrayEquals("changed".toByteArray(), Sluenc.decrypt(disk!!, fresh))
+        Sluenc.unlock(disk!!, newPassword.toCharArray()).close()
+        val e = assertThrows(SluencException::class.java) { Sluenc.unlock(disk!!, password.toCharArray()) }
+        assertEquals(SluencFailure.WRONG_PASSWORD, e.failure)
+    }
+
+    @Test
+    fun `a wrong current password changes nothing and zeroes both passwords`() {
+        create("secret").close()
+        unlock()
+        val key = checkNotNull(session.key)
+        val before = disk!!.copyOf()
+        var saved = false
+
+        val (result, arrays) = changePassword("not the password") { saved = true }
+
+        assertEquals(WRONG_CURRENT, result)
+        assertFalse(saved)
+        assertSame(key, session.key)
+        assertFalse(key.isZeroed())
+        assertArrayEquals(before, disk)
+        assertTrue(arrays.all { it.isZeroed() })
+    }
+
+    @Test
+    fun `a save that fails keeps the old key and drops the new one`() {
+        create("secret").close()
+        unlock()
+        val old = checkNotNull(session.key)
+
+        val (result, _) = changePassword { throw IOException("disk full") }
+
+        assertEquals("notes.md.sluenc could not be saved. disk full", result)
+        assertSame(old, session.key)
+        assertFalse(old.isZeroed())
+        assertTrue(keys.last().isZeroed())
+        Sluenc.unlock(disk!!, password.toCharArray()).close()
+    }
+
+    @Test
+    fun `an error after the file was written keeps the new key and is reported apart`() {
+        create("secret").close()
+        unlock()
+        val old = checkNotNull(session.key)
+        var late: String? = null
+        var result: String? = DONE_NOT_CALLED
+
+        session.changePassword(
+            password.toCharArray(),
+            newPassword.toCharArray(),
+            {
+                session.write("changed".toByteArray())
+                throw IOException("reload failed")
+            },
+            { late = it },
+        ) { result = it }
+        runUnlock()
+
+        assertNull(result)
+        assertEquals("notes.md.sluenc could not be saved. reload failed", late)
+        assertTrue(old.isZeroed())
+        assertSame(keys.last(), session.key)
+        assertArrayEquals("changed".toByteArray(), Sluenc.decrypt(disk!!, checkNotNull(session.key)))
+    }
+
+    @Test
+    fun `a view that wrote nothing cannot leave the file under the old key with a new one`() {
+        create("secret").close()
+        unlock()
+        val old = checkNotNull(session.key)
+
+        val (result, _) = changePassword { }
+
+        assertEquals(CANNOT_REWRITE, result)
+        assertSame(old, session.key)
+        assertTrue(keys.last().isZeroed())
+    }
+
+    @Test
+    fun `a lock while the new key is derived drops it`() {
+        create("secret").close()
+        unlock()
+        var result: String? = DONE_NOT_CALLED
+        session.changePassword(password.toCharArray(), newPassword.toCharArray(), { fail("must not save") }) {
+            result = it
+        }
+        while (backgroundTasks.isNotEmpty()) backgroundTasks.removeFirst().run()
+
+        session.lock()
+        while (fxTasks.isNotEmpty()) fxTasks.removeFirst().run()
+
+        assertEquals(NOT_UNLOCKED, result)
+        assertNull(session.key)
+        assertTrue(keys.last().isZeroed())
+    }
+
+    @Test
+    fun `changing the password of a locked session says so and zeroes the arrays`() {
+        create("secret").close()
+        val arrays = listOf(password.toCharArray(), newPassword.toCharArray())
+        var result: String? = DONE_NOT_CALLED
+
+        session.changePassword(arrays[0], arrays[1], { fail("must not save") }) { result = it }
+
+        assertEquals(NOT_UNLOCKED, result)
+        assertTrue(arrays.all { it.isZeroed() })
+    }
+
+    private companion object {
+        const val DONE_NOT_CALLED = "done was not called"
+    }
 }

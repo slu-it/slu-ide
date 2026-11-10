@@ -2,6 +2,7 @@ package dev.sluide.encryptedfiles.ui
 
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.encryptedfiles.AtomicFileWrite
+import dev.sluide.encryptedfiles.Created
 import dev.sluide.encryptedfiles.FileKey
 import dev.sluide.encryptedfiles.Sluenc
 import dev.sluide.encryptedfiles.SluencException
@@ -53,6 +54,10 @@ internal class EncryptedSession(
     private val unlocker: (ByteArray, CharArray) -> FileKey = Sluenc::unlock,
     private val background: (Runnable) -> Unit = { NamedThreads.virtual(UNLOCK_THREAD, it) },
     private val fx: (Runnable) -> Unit = Platform::runLater,
+    /** Checks the current password against the file and makes the new key; the file's bytes it returns are unused. */
+    private val rekeyer: (ByteArray, CharArray, CharArray) -> Created = { file, current, new ->
+        Sluenc.changePassword(file, current, new, ByteArray(0))
+    },
 ) {
     var state = SessionState.LOCKED
         private set
@@ -80,6 +85,9 @@ internal class EncryptedSession(
     /** Counts unlocks, locks and the dispose: an unlock result is taken only if nothing happened since it started. */
     private var generation = 0
     private var disposed = false
+
+    /** Counts [write]s, to see that a save under a new key really wrote the file. */
+    private var writes = 0
 
     /** The file's bytes as last read or written through the key, and whether their plain text was empty. */
     private var lastCiphertext: ByteArray? = null
@@ -140,6 +148,146 @@ internal class EncryptedSession(
             (result as? UnlockResult.Unlocked)?.key?.close()
             log.log(System.Logger.Level.WARNING, "Cannot finish unlocking an encrypted file: ${e.javaClass.name}")
         }
+    }
+
+    /**
+     * Changes the password: on [background] checks [current] against the file and derives the key of [new] (a new DEK and
+     * salt), then on [fx] makes it the session's key and calls [saveUnder], which must save the tab's present text
+     * through [write]. [done] gets `null` on success (the old key is closed), else the text for the dialog: a wrong
+     * current password, a save that wrote nothing (then the old key stays) or a tab locked meanwhile. Once the save
+     * wrote the file, it is under the new key whatever [saveUnder] does afterwards (e.g. a reload that fails): the
+     * old key is closed, [lateError] gets that later error and [done] gets `null`. Both arrays are zeroed afterwards,
+     * also when the tab is not unlocked (then [done] gets a message at once).
+     */
+    fun changePassword(
+        current: CharArray,
+        new: CharArray,
+        saveUnder: () -> Unit,
+        lateError: (String) -> Unit = {},
+        done: (String?) -> Unit,
+    ) {
+        if (state != SessionState.UNLOCKED || disposed) {
+            current.fill(ZERO)
+            new.fill(ZERO)
+            done(NOT_UNLOCKED)
+            return
+        }
+        val run = generation
+        val file = path
+        val task = Runnable { rekeyOffFx(run, file, current, new, saveUnder, lateError, done) }
+        try {
+            background(task)
+        } catch (e: RuntimeException) {
+            current.fill(ZERO)
+            new.fill(ZERO)
+            log.log(System.Logger.Level.WARNING, "Cannot start changing a password: ${e.javaClass.name}")
+            done(CHANGE_FAILED)
+        }
+    }
+
+    private fun rekeyOffFx(
+        run: Int,
+        file: Path,
+        current: CharArray,
+        new: CharArray,
+        saveUnder: () -> Unit,
+        lateError: (String) -> Unit,
+        done: (String?) -> Unit,
+    ) {
+        val result =
+            try {
+                rekeyAttempt(file, current, new)
+            } catch (e: Throwable) {
+                log.log(System.Logger.Level.WARNING, "Cannot change a password: ${e.javaClass.name}")
+                RekeyResult.Failed(CHANGE_FAILED)
+            } finally {
+                current.fill(ZERO)
+                new.fill(ZERO)
+            }
+        try {
+            fx(Runnable { finishRekey(run, result, saveUnder, lateError, done) })
+        } catch (e: Throwable) {
+            (result as? RekeyResult.Made)?.key?.close()
+            log.log(System.Logger.Level.WARNING, "Cannot finish changing a password: ${e.javaClass.name}")
+        }
+    }
+
+    private fun rekeyAttempt(
+        file: Path,
+        current: CharArray,
+        new: CharArray,
+    ): RekeyResult {
+        val bytes =
+            try {
+                readFile(file)
+            } catch (_: IOException) {
+                return RekeyResult.Failed(READ_FAILED)
+            }
+        return try {
+            RekeyResult.Made(rekeyer(bytes, current, new).key)
+        } catch (e: SluencException) {
+            RekeyResult.Failed(
+                if (e.failure == SluencFailure.WRONG_PASSWORD) {
+                    WRONG_CURRENT
+                } else {
+                    failureMessage(e.failure, e.formatVersion)
+                },
+            )
+        } catch (_: OutOfMemoryError) {
+            RekeyResult.Failed(OUT_OF_MEMORY)
+        }
+    }
+
+    private fun finishRekey(
+        run: Int,
+        result: RekeyResult,
+        saveUnder: () -> Unit,
+        lateError: (String) -> Unit,
+        done: (String?) -> Unit,
+    ) {
+        if (result is RekeyResult.Failed) {
+            done(result.message)
+            return
+        }
+        val fresh = (result as RekeyResult.Made).key
+        val old = key
+        if (run != generation || disposed || state != SessionState.UNLOCKED || old == null) {
+            fresh.close()
+            done(NOT_UNLOCKED)
+            return
+        }
+        key = fresh
+        val before = writes
+        val failure =
+            try {
+                saveUnder()
+                null
+            } catch (e: IOException) {
+                saveErrorText(path.fileName.toString(), e)
+            } catch (e: RuntimeException) {
+                log.log(System.Logger.Level.WARNING, "Cannot save under a new password: ${e.javaClass.name}")
+                CHANGE_FAILED
+            }
+        if (writes == before) {
+            key = old
+            fresh.close()
+            done(failure ?: CANNOT_REWRITE)
+            return
+        }
+        // The file is under the new key now, whatever went wrong after the write.
+        old.close()
+        failure?.let(lateError)
+        done(null)
+    }
+
+    private sealed interface RekeyResult {
+        class Made(
+            val key: FileKey,
+        ) : RekeyResult
+
+        class Failed(
+            val message: String,
+        ) : RekeyResult
     }
 
     /** Unlocks with [handedOver], a key derived elsewhere (a new file's); closes it if the session is not locked. */
@@ -229,6 +377,7 @@ internal class EncryptedSession(
                 plain.fill(0)
             }
         writeFile(path, bytes)
+        writes++
         lastCiphertext = bytes
         lastPlainEmpty = empty
         if (warningFailure != null) {

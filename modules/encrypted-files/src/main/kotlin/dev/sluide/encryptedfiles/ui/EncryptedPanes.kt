@@ -9,6 +9,7 @@ import javafx.scene.control.Tooltip
 import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 import org.kordamp.ikonli.javafx.FontIcon
+import org.kordamp.ikonli.materialdesign2.MaterialDesignK
 import org.kordamp.ikonli.materialdesign2.MaterialDesignL
 
 /**
@@ -74,10 +75,11 @@ internal class LockedPane(
 
 /**
  * The strip above an unlocked tab's view: the open lock, "Encrypted · unlocked", a message (a warning or why a save
- * failed), and Lock at the right.
+ * failed), Change Password… and Lock at the right.
  */
 internal class UnlockedStrip(
     onLock: () -> Unit,
+    onChangePassword: () -> Unit,
 ) {
     val message = Label().apply { styleClass += "encrypted-strip-message" }
 
@@ -87,6 +89,13 @@ internal class UnlockedStrip(
             tooltip = Tooltip(LOCK_TOOLTIP)
             isFocusTraversable = false
             setOnAction { onLock() }
+        }
+
+    val changePasswordButton =
+        Button(CHANGE_PASSWORD_TEXT, FontIcon(MaterialDesignK.KEY_CHANGE)).apply {
+            styleClass += "encrypted-strip-button"
+            isFocusTraversable = false
+            setOnAction { onChangePassword() }
         }
 
     val node =
@@ -101,7 +110,7 @@ internal class UnlockedStrip(
                     alignment = Pos.CENTER_LEFT
                 }
             leading += message
-            // P3b: Change Password… goes here, before Lock.
+            trailing += changePasswordButton
             trailing += lockButton
         }
 

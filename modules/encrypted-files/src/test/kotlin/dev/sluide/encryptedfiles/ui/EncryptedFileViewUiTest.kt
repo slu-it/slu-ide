@@ -4,15 +4,22 @@ import dev.sluide.encryptedfiles.EncryptedFiles
 import dev.sluide.encryptedfiles.KdfParams
 import dev.sluide.encryptedfiles.LockChoice
 import dev.sluide.encryptedfiles.Sluenc
+import dev.sluide.encryptedfiles.SluencException
+import dev.sluide.encryptedfiles.SluencFailure
+import dev.sluide.encryptedfiles.SluencFormat
+import dev.sluide.encryptedfiles.settings.EncryptedFilesSettings
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.previews.markdown.MarkdownFileViewer
+import dev.sluide.settings.SettingsStore
+import javafx.application.Platform
 import javafx.event.ActionEvent
 import javafx.scene.Node
 import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Labeled
+import javafx.scene.control.PasswordField
 import javafx.scene.control.TextField
 import javafx.scene.control.TextInputControl
 import javafx.scene.layout.HBox
@@ -21,6 +28,8 @@ import javafx.scene.text.Text
 import javafx.stage.Stage
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.GenericStyledArea
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -33,7 +42,9 @@ import org.testfx.util.WaitForAsyncUtils
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Duration
 import java.util.concurrent.LinkedBlockingQueue
+import kotlin.io.path.deleteIfExists
 import kotlin.io.path.readBytes
 import kotlin.io.path.writeBytes
 import kotlin.test.Test
@@ -57,7 +68,17 @@ class EncryptedFileViewUiTest {
     private val registry = EncryptedFiles()
     private val fallback = DefaultTextFileViewer()
     private lateinit var fileViewers: FileViewers
-    private val viewer = EncryptedFileViewer(registry) { fileViewers }
+
+    // Not in dir: the viewer is built in init, before JUnit injects it.
+    private val settingsFile = Files.createTempFile("sluenc-settings", ".properties")
+    private val settings = EncryptedFilesSettings(SettingsStore(settingsFile))
+    private val viewer = EncryptedFileViewer(registry, settings) { fileViewers }
+
+    @AfterEach
+    fun deleteSettings() {
+        settingsFile.deleteIfExists()
+    }
+
     private val password = "correct horse battery"
 
     init {
@@ -138,6 +159,15 @@ class EncryptedFileViewUiTest {
 
     private fun textOf(view: EncryptedFileView): String = fx { area(view).text }
 
+    private fun stripButton(
+        view: EncryptedFileView,
+        text: String,
+    ): Button =
+        view.node
+            .lookupAll(".encrypted-strip-button")
+            .filterIsInstance<Button>()
+            .single { it.text.startsWith(text) }
+
     /** The strip's message, or `null` while it shows none. */
     private fun stripMessage(view: EncryptedFileView): String? =
         fx { (view.node.lookup(".encrypted-strip-message") as Labeled).takeIf { it.isVisible }?.text }
@@ -205,7 +235,7 @@ class EncryptedFileViewUiTest {
         // The unlocks wait until the test lets them run.
         val unlocks = LinkedBlockingQueue<Runnable>()
         val session = EncryptedSession(file, background = unlocks::add)
-        val view = fx { EncryptedFileView(file, registry, fileViewers::contentViewerFor, session = session) }
+        val view = fx { EncryptedFileView(file, registry, fileViewers::contentViewerFor, settings, session = session) }
         robot.interact { container.children += view.node }
         val parts = locked(view)
 
@@ -329,7 +359,7 @@ class EncryptedFileViewUiTest {
         assertTrue(texts().any { "MARKER-4" in it })
         val source = fx { area(view) }
 
-        robot.interact { (view.node.lookup(".encrypted-strip-button") as Button).fire() }
+        robot.interact { stripButton(view, "Lock").fire() }
 
         assertNull(innerClass(view))
         assertEquals("", fx { source.text }, "the dropped view is wiped")
@@ -470,7 +500,7 @@ class EncryptedFileViewUiTest {
         failingView.askReplace = { false }
         failingView.askUnsaved = { LockChoice.SAVE }
 
-        robot.interact { (failingView.node.lookup(".encrypted-strip-button") as Button).fire() }
+        robot.interact { stripButton(failingView, "Lock").fire() }
 
         val reason = "failing.txt.sluenc could not be saved. Replacing the changed file was cancelled."
         assertTrue(fx { failingView.isUnlocked && failingView.dirty.get() })
@@ -515,5 +545,254 @@ class EncryptedFileViewUiTest {
             dirtyView.dispose()
             cleanView.dispose()
         }
+    }
+
+    private val newPassword = "another long password"
+
+    /** A view over [file] whose Change Password derives with small parameters, and whose idle time [time] drives. */
+    private fun openForChange(
+        file: Path,
+        robot: FxRobot,
+        time: FakeIdleTime = FakeIdleTime(),
+    ): EncryptedFileView {
+        val session =
+            EncryptedSession(
+                file,
+                rekeyer = { bytes, current, new ->
+                    Sluenc.changePassword(bytes, current, new, ByteArray(0), KdfParams(64, 1, 1))
+                },
+            )
+        val view =
+            fx {
+                EncryptedFileView(file, registry, fileViewers::contentViewerFor, settings, session = session) { m, f ->
+                    IdleLock(m, f, Duration.ofMinutes(1), { time.now }, time.scheduler)
+                }
+            }
+        robot.interact { container.children += view.node }
+        unlock(view, robot)
+        return view
+    }
+
+    private fun passwordFieldOf(
+        robot: FxRobot,
+        id: String,
+    ) = robot.lookup(id).queryAs(PasswordField::class.java)
+
+    private fun dialogShown(robot: FxRobot) = fx { robot.lookup("#password-new").tryQuery<Node>().isPresent }
+
+    private fun dialogButton(
+        robot: FxRobot,
+        text: String,
+    ) = fx { robot.lookup(".dialog-pane .button").queryAllAs(Button::class.java).single { it.text == text } }
+
+    private fun statusOf(robot: FxRobot) = fx { robot.lookup("#password-status").queryAs(Labeled::class.java).text }
+
+    /** Runs [open] later (it blocks the FX thread until its dialog closes) and waits for the dialog to show. */
+    private fun showDialog(
+        robot: FxRobot,
+        open: () -> Unit,
+    ) {
+        Platform.runLater(open)
+        awaitFx { dialogShown(robot) }
+    }
+
+    private fun type(
+        robot: FxRobot,
+        current: String?,
+        new: String = newPassword,
+        repeat: String = new,
+    ) = robot.interact {
+        if (current != null) passwordFieldOf(robot, "#password-current").text = current
+        passwordFieldOf(robot, "#password-new").text = new
+        passwordFieldOf(robot, "#password-repeat").text = repeat
+    }
+
+    @Test
+    fun `Change Password saves the text under the new password only, and the tab stays unlocked and clean`(
+        robot: FxRobot,
+    ) {
+        val file = create("notes.txt.sluenc", "one\n")
+        val view = openForChange(file, robot)
+        val oldKey = checkNotNull(fx { view.session.key })
+        robot.interact { area(view).insertText(0, "edited ") }
+        assertTrue(fx { view.dirty.get() })
+
+        showDialog(robot) { view.changePassword() }
+        assertTrue(fx { dialogButton(robot, "Change Password").isDisable })
+        type(robot, password)
+        assertFalse(fx { dialogButton(robot, "Change Password").isDisable })
+        robot.interact { dialogButton(robot, "Change Password").fire() }
+        awaitFx { !dialogShown(robot) }
+
+        assertEquals("edited one\n", decrypt(file, newPassword))
+        assertEquals(1, SluencFormat.parse(file.readBytes()).slotCount, "only the new password slot is written")
+        val e = assertThrows(SluencException::class.java) { decrypt(file, password) }
+        assertEquals(SluencFailure.WRONG_PASSWORD, e.failure)
+        assertTrue(fx { view.isUnlocked })
+        assertFalse(fx { view.dirty.get() })
+        assertTrue(oldKey.rawDek.all { it == 0.toByte() })
+        assertEquals("edited one\n", textOf(view))
+        robot.interact { view.dispose() }
+    }
+
+    @Test
+    fun `a wrong current password is said in the dialog, which stays, and nothing changes`(robot: FxRobot) {
+        val file = create("notes.txt.sluenc", "one\n")
+        val view = openForChange(file, robot)
+        robot.interact { area(view).insertText(0, "edited ") }
+
+        showDialog(robot) { view.changePassword() }
+        type(robot, "not the password")
+        robot.interact { dialogButton(robot, "Change Password").fire() }
+        awaitFx { statusOf(robot) == "The current password is wrong." }
+
+        assertTrue(dialogShown(robot))
+        assertEquals("", fx { passwordFieldOf(robot, "#password-current").text })
+        assertEquals(newPassword, fx { passwordFieldOf(robot, "#password-new").text })
+        assertEquals(newPassword, fx { passwordFieldOf(robot, "#password-repeat").text })
+        assertEquals("one\n", decrypt(file))
+        assertTrue(fx { view.isUnlocked && view.dirty.get() })
+        robot.interact { dialogButton(robot, "Cancel").fire() }
+        awaitFx { !dialogShown(robot) }
+        robot.interact { view.dispose() }
+    }
+
+    @Test
+    fun `the strip and the tab menu offer Change Password, the menu item only while unlocked`(robot: FxRobot) {
+        val view = open(create("notes.txt.sluenc", "one\n"), robot)
+        assertTrue(fx { view.tabMenuItems.single { it.text == "Change Password…" }.isDisable })
+        unlock(view, robot)
+        assertFalse(fx { view.tabMenuItems.single { it.text == "Change Password…" }.isDisable })
+        val labels =
+            fx {
+                view.node
+                    .lookupAll(".encrypted-strip-button")
+                    .filterIsInstance<Button>()
+                    .map { it.text }
+            }
+        assertEquals(listOf("Change Password…", "Lock"), labels)
+        robot.interact { view.dispose() }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Activity::class)
+    fun `idle time saves unsaved changes and locks, and a key press, mouse press or scroll moves the deadline`(
+        activity: Activity,
+        robot: FxRobot,
+    ) {
+        val file = create("notes.txt.sluenc", "one\n")
+        val time = FakeIdleTime()
+        settings.idleLockMinutes.set(1)
+        val view = openForChange(file, robot, time)
+        robot.interact { area(view).insertText(0, "edited ") }
+
+        // 59 s idle, then the activity: at 61 s the first timer finds only 2 s of idle time.
+        robot.interact { time.advance(Duration.ofSeconds(59)) }
+        robot.interact { view.node.fireEvent(activityEvent(activity)) }
+        robot.interact { time.advance(Duration.ofSeconds(2)) }
+        assertTrue(fx { view.isUnlocked })
+
+        robot.interact { time.advance(Duration.ofSeconds(60)) }
+        assertFalse(fx { view.isUnlocked })
+        assertEquals("edited one\n", decrypt(file))
+        robot.interact { view.dispose() }
+    }
+
+    @Test
+    fun `a changed idle setting applies to a tab that is open, and 0 turns it off`(robot: FxRobot) {
+        val file = create("notes.txt.sluenc", "one\n")
+        val time = FakeIdleTime()
+        settings.idleLockMinutes.set(5)
+        val view = openForChange(file, robot, time)
+
+        robot.interact { settings.idleLockMinutes.set(1) }
+        robot.interact { time.advance(Duration.ofMinutes(1)) }
+        assertFalse(fx { view.isUnlocked })
+
+        unlock(view, robot)
+        robot.interact { settings.idleLockMinutes.set(0) }
+        robot.interact { time.advance(Duration.ofMinutes(100)) }
+        assertTrue(fx { view.isUnlocked })
+        robot.interact { view.dispose() }
+    }
+
+    @Test
+    fun `the idle lock does not save over a file changed with another password, and stays unlocked`(robot: FxRobot) {
+        val file = create("notes.txt.sluenc", "one\n")
+        val time = FakeIdleTime()
+        settings.idleLockMinutes.set(1)
+        val view = openForChange(file, robot, time)
+        robot.interact { area(view).insertText(0, "mine ") }
+        changePasswordElsewhere(file, "another long password")
+        robot.interact { view.reload() }
+        val questions = mutableListOf<String>()
+        view.askReplace = { question ->
+            questions += question
+            false
+        }
+
+        robot.interact { time.advance(Duration.ofMinutes(1)) }
+
+        assertTrue(fx { view.isUnlocked && view.dirty.get() })
+        assertEquals(emptyList<String>(), questions)
+        assertEquals("theirs\n", decrypt(file, "another long password"))
+        robot.interact { time.advance(Duration.ofMinutes(1)) }
+        assertTrue(fx { view.isUnlocked })
+        robot.interact { view.dispose() }
+    }
+
+    @Test
+    fun `the idle lock locks a clean tab although the changed-elsewhere warning is still up`(robot: FxRobot) {
+        val file = create("notes.txt.sluenc", "one\n")
+        val time = FakeIdleTime()
+        settings.idleLockMinutes.set(1)
+        val view = openForChange(file, robot, time)
+        robot.interact { area(view).insertText(0, "mine ") }
+        changePasswordElsewhere(file, "another long password")
+        robot.interact { view.reload() }
+        assertTrue(fx { view.session.warningFailure != null })
+        // Undoing the edit makes the tab clean again; the warning stays until the file reads again.
+        robot.interact { area(view).undo() }
+        assertFalse(fx { view.dirty.get() })
+
+        robot.interact { time.advance(Duration.ofMinutes(1)) }
+
+        assertFalse(fx { view.isUnlocked })
+        robot.interact { view.dispose() }
+    }
+
+    @Test
+    fun `Change Password first asks to replace a file changed elsewhere, and Cancel changes nothing`(robot: FxRobot) {
+        val file = create("notes.txt.sluenc", "one\n")
+        val view = openForChange(file, robot)
+        robot.interact { area(view).insertText(0, "mine ") }
+        changePasswordElsewhere(file, "another long password")
+        robot.interact { view.reload() }
+        val questions = mutableListOf<String>()
+        view.askReplace = { question ->
+            questions += question
+            false
+        }
+
+        robot.interact { view.changePassword() }
+
+        assertEquals(1, questions.size)
+        assertTrue(questions.single().startsWith("Replace notes.txt.sluenc?"))
+        assertFalse(dialogShown(robot), "Cancel opens no dialog")
+        assertEquals("theirs\n", decrypt(file, "another long password"))
+        robot.interact { view.dispose() }
+    }
+
+    @Test
+    fun `a tab locked while the Change Password dialog is open closes the dialog on confirm`(robot: FxRobot) {
+        val view = openForChange(create("notes.txt.sluenc", "one\n"), robot)
+        showDialog(robot) { view.changePassword() }
+        type(robot, password)
+
+        robot.interact { view.lockNow(saveFirst = false) }
+        robot.interact { dialogButton(robot, "Change Password").fire() }
+
+        awaitFx { !dialogShown(robot) }
+        robot.interact { view.dispose() }
     }
 }

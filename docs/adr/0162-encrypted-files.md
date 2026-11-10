@@ -156,6 +156,11 @@ open on any machine with the password.
   only.
 - Wiping is best effort; the honest limits are documented, and a memory dump of the running process can still hold
   fragments of decrypted text.
+- Change Password derives the new key off the FX thread from the file on disk, then saves the tab's text through the
+  inner view under it (so encoding and line endings stay); a save that fails or writes nothing puts the old key back.
+  The idle lock reuses Lock with save first, skips the save while a changed-elsewhere warning is up (it would ask
+  Replace) and counts again after a failure. Idle time is read from `encryptedFiles.idleLockMinutes` (0 = off, default
+  10, at most 240).
 - Open, explored ideas (FIDO2 slot, ML-KEM recovery slot, key file, encrypting an existing file, Save Decrypted Copy,
   blocking remote images, clipboard auto-clear, lock when the app is in the background, passkeys) go to the ideas page
   `docs/ideas/encrypted-files.md`, and the behaviour to the feature page `docs/features/encrypted-files.md`, which
