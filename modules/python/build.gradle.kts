@@ -14,18 +14,20 @@ dependencies {
     // Deliberate module API dependency: TySpec is a LanguageServerSpec and TyInstaller its ServerInstaller (ADR 0142,
     // ADR 0144).
     api(project(":modules:language-servers"))
-    // Deliberate module API dependency: ty is installed, updated and rolled back by a ToolInstaller; its InstallState,
-    // InstalledTool and ToolRelease are in TyInstaller's API (ADR 0143, ADR 0144).
+    // Deliberate module API dependency: ty's install, update check, smoke test and settings page are the shared
+    // server-tool layer's, configured for ty (TyInstaller, TyUpdates, PythonSettings and PythonSettingsPage extend
+    // its classes; ADR 0159).
+    api(project(":modules:server-tools"))
+    // Deliberate module API dependency: ty's releases are ToolReleases with a Checksum and an ArchiveFormat; its
+    // InstallState and InstalledTool are in TyInstaller's API (ADR 0143, ADR 0144).
     api(project(":modules:local-models"))
-    // Deliberate module dependency: Settings → Languages → Python is a settings page, and the custom ty path is stored
-    // in settings.properties (ADR 0008, ADR 0067).
+    // Deliberate module dependency: the custom ty path is stored in settings.properties (ADR 0008, ADR 0067).
     implementation(project(":modules:settings"))
-    // Deliberate module dependency: the smoke test and the update check run on logged NamedThreads (ADR 0060).
-    implementation(project(":modules:background-tasks"))
     // Reads the GitHub release answer of the update check (JSON).
     implementation(libs.jackson.databind)
     implementation(libs.spring.context)
 
+    testImplementation(testFixtures(project(":modules:server-tools")))
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }

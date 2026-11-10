@@ -3,6 +3,8 @@ package dev.sluide.python
 import com.sun.net.httpserver.HttpServer
 import dev.sluide.localmodels.ArchiveFormat
 import dev.sluide.localmodels.Checksum
+import dev.sluide.servertools.HttpAnswer
+import dev.sluide.servertools.UpdateCheck
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -16,7 +18,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
-/** The update check against GitHub answers recorded on 2026-11-07 (trimmed to the fields read and three assets). */
+/**
+ * The update check against GitHub answers recorded on 2026-11-07 (trimmed to the fields read and three assets); the
+ * comparison with the installed version and the pin is tested in server-tools (`ToolUpdatesTest`).
+ */
 class TyUpdatesTest {
     @TempDir
     lateinit var dir: Path
@@ -26,25 +31,24 @@ class TyUpdatesTest {
 
     private fun resource(name: String) = checkNotNull(TyUpdatesTest::class.java.getResource(name)) { name }.readText()
 
-    private fun updates(
-        pinned: String = "0.0.99",
-        platform: String? = "linux-aarch64",
-        fetch: () -> HttpAnswer = { ok },
-    ) = TyUpdates(
-        TyPin(pinned, mapOf("linux-aarch64" to TyAsset(FAKE_ASSET, 1, "b".repeat(64)))),
-        platform,
-        fetch,
-        Runnable::run,
-        { it.run() },
-    )
+    private fun updates(fetch: () -> HttpAnswer = { ok }) =
+        TyUpdates(TyFakes(dir).tool, fetch, Runnable::run, { it.run() })
+
+    /** The check's answer for [answer], compared with [compared]. */
+    private fun interpret(
+        answer: HttpAnswer,
+        compared: String = "0.0.98",
+    ): UpdateCheck {
+        var result: UpdateCheck? = null
+        updates { answer }.check(compared) { result = it }
+        return checkNotNull(result)
+    }
 
     @Test
     fun `a newer release comes with this platform's asset, its size and GitHub's digest`() {
-        val result = updates(pinned = "0.0.98").interpret(ok, "0.0.98")
+        val available = assertIs<UpdateCheck.Available>(interpret(ok))
 
-        val available = assertIs<TyUpdateCheck.Available>(result)
         assertEquals("0.0.99", available.version)
-        assertEquals(true, available.newerThanPinned)
         assertEquals(URI("https://github.com/astral-sh/ty/releases/tag/0.0.99"), available.releaseNotes)
         val release = available.release
         assertEquals("0.0.99", release.version)
@@ -62,32 +66,18 @@ class TyUpdatesTest {
     }
 
     @Test
-    fun `a release newer than the installed one but not than the pin is not newer than tested`() {
-        val result = updates(pinned = "0.0.99").interpret(ok, "0.0.97")
-
-        assertEquals(false, assertIs<TyUpdateCheck.Available>(result).newerThanPinned)
-    }
-
-    @ParameterizedTest
-    @CsvSource("0.0.99", "0.1.0", "1.0")
-    fun `no newer release is up to date with the version compared`(compared: String) {
-        assertEquals(TyUpdateCheck.UpToDate(compared), updates().interpret(ok, compared))
-    }
-
-    @Test
     fun `a prerelease is not offered`() {
         val answer = ok.copy(body = latest.replace("\"prerelease\": false", "\"prerelease\": true"))
 
-        assertEquals(TyUpdateCheck.UpToDate("0.0.98"), updates().interpret(answer, "0.0.98"))
+        assertEquals(UpdateCheck.UpToDate("0.0.98"), interpret(answer))
     }
 
     @Test
-    fun `a newer release without an asset for this platform has no build`() {
+    fun `a newer release without the pinned asset name has no build`() {
         val notes = URI("https://github.com/astral-sh/ty/releases/tag/0.0.99")
         val withoutAsset = ok.copy(body = latest.replace(FAKE_ASSET, "ty-other.tar.gz"))
 
-        assertEquals(TyUpdateCheck.NoBuild("0.0.99", notes), updates(platform = null).interpret(ok, "0.0.98"))
-        assertEquals(TyUpdateCheck.NoBuild("0.0.99", notes), updates().interpret(withoutAsset, "0.0.98"))
+        assertEquals(UpdateCheck.NoBuild("0.0.99", notes), interpret(withoutAsset))
     }
 
     @ParameterizedTest
@@ -107,8 +97,8 @@ class TyUpdatesTest {
         val answer = ok.copy(body = latest.replace(original, replacement))
 
         assertEquals(
-            TyUpdateCheck.Failed("GitHub lists $FAKE_ASSET of ty 0.0.99 without its size or checksum"),
-            updates().interpret(answer, "0.0.98"),
+            UpdateCheck.Failed("GitHub lists $FAKE_ASSET of ty 0.0.99 without its size or checksum"),
+            interpret(answer),
         )
     }
 
@@ -118,23 +108,24 @@ class TyUpdatesTest {
         val tooMany = HttpAnswer(429, emptyMap(), resource("releases-rate-limited.json"))
         val limitText = "GitHub's limit of requests without sign-in is used up for now; try again in an hour"
 
-        assertEquals(TyUpdateCheck.Failed(limitText), updates().interpret(limited, "0.0.98"))
-        assertEquals(TyUpdateCheck.Failed(limitText), updates().interpret(tooMany, "0.0.98"))
+        assertEquals(UpdateCheck.Failed(limitText), interpret(limited))
+        assertEquals(UpdateCheck.Failed(limitText), interpret(tooMany))
         assertEquals(
-            TyUpdateCheck.Failed("GitHub answered with HTTP status 403"),
-            updates().interpret(HttpAnswer(403, emptyMap(), "Forbidden"), "0.0.98"),
+            UpdateCheck.Failed("GitHub answered with HTTP status 403"),
+            interpret(HttpAnswer(403, emptyMap(), "Forbidden")),
         )
         assertEquals(
-            TyUpdateCheck.Failed("GitHub answered with HTTP status 502"),
-            updates().interpret(HttpAnswer(502, emptyMap(), ""), "0.0.98"),
+            UpdateCheck.Failed("GitHub answered with HTTP status 502"),
+            interpret(HttpAnswer(502, emptyMap(), "")),
         )
+        assertEquals(UpdateCheck.Failed("GitHub has no ty release"), interpret(HttpAnswer(404, emptyMap(), "")))
     }
 
     @Test
     fun `a tag with a v is the version without it, also as the folder of the install`() {
         val answer = ok.copy(body = latest.replace("\"tag_name\": \"0.0.99\"", "\"tag_name\": \"v0.1.0\""))
 
-        val available = assertIs<TyUpdateCheck.Available>(updates().interpret(answer, "0.0.99"))
+        val available = assertIs<UpdateCheck.Available>(interpret(answer, "0.0.99"))
         assertEquals("0.1.0", available.version)
         assertEquals("0.1.0", available.release.version)
 
@@ -153,51 +144,46 @@ class TyUpdatesTest {
         val digest = "1aeb90425e934914f437f30ec7de6f5a55352aa858628903adb08a24a852191e"
         val answer = ok.copy(body = latest.replace(digest, digest.uppercase()))
 
-        val available = assertIs<TyUpdateCheck.Available>(updates().interpret(answer, "0.0.98"))
+        val available = assertIs<UpdateCheck.Available>(interpret(answer))
         assertEquals(Checksum.Sha256(digest), available.release.checksum)
     }
 
     @Test
     fun `an answer that is not a release is refused`() {
+        assertEquals(UpdateCheck.Failed("GitHub's answer is not readable"), interpret(ok.copy(body = "<html>")))
         assertEquals(
-            TyUpdateCheck.Failed("GitHub's answer is not readable"),
-            updates().interpret(ok.copy(body = "<html>"), "0.0.98"),
+            UpdateCheck.Failed("GitHub's latest ty release has no usable version"),
+            interpret(ok.copy(body = """{"tag_name": "../x"}""")),
         )
         assertEquals(
-            TyUpdateCheck.Failed("GitHub's latest ty release has no usable version"),
-            updates().interpret(ok.copy(body = """{"tag_name": "../x"}"""), "0.0.98"),
-        )
-        assertEquals(
-            TyUpdateCheck.Failed("GitHub's latest ty release has no usable version"),
-            updates().interpret(ok.copy(body = "[]"), "0.0.98"),
+            UpdateCheck.Failed("GitHub's latest ty release has no usable version"),
+            interpret(ok.copy(body = "[]")),
         )
     }
 
     @Test
-    fun `a check compares with the installed version, else the pin, and fails readably without GitHub`() {
-        val results = mutableListOf<TyUpdateCheck>()
-        updates(pinned = "0.0.99").check(null, results::add)
-        updates().check("0.0.98", results::add)
+    fun `a check without GitHub names it`() {
+        val results = mutableListOf<UpdateCheck>()
         updates { throw IOException("connection refused") }.check("0.0.98", results::add)
         updates { throw HttpTimeoutException("timed out") }.check("0.0.98", results::add)
-        updates { error("broken") }.check("0.0.98", results::add)
 
-        assertEquals(TyUpdateCheck.UpToDate("0.0.99"), results[0])
-        assertIs<TyUpdateCheck.Available>(results[1])
-        assertEquals(TyUpdateCheck.Failed("Cannot reach GitHub: connection refused"), results[2])
-        assertEquals(TyUpdateCheck.Failed("GitHub did not answer within 15 s"), results[3])
-        assertEquals(TyUpdateCheck.Failed("The check failed: broken"), results[4])
+        assertEquals(
+            listOf<UpdateCheck>(
+                UpdateCheck.Failed("Cannot reach GitHub: connection refused"),
+                UpdateCheck.Failed("GitHub did not answer within 15 s"),
+            ),
+            results,
+        )
     }
 
     @Test
-    fun `the request asks for GitHub's JSON as Thoreau and reads status, headers and body`() {
+    fun `the request asks for GitHub's JSON`() {
         val requests = mutableListOf<Pair<String?, String?>>()
         val server = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0)
         server.createContext("/repos/astral-sh/ty/releases/latest") { exchange ->
             requests += exchange.requestHeaders.getFirst("Accept") to exchange.requestHeaders.getFirst("User-Agent")
             val body = "{}".toByteArray()
-            exchange.responseHeaders.add("X-RateLimit-Remaining", "0")
-            exchange.sendResponseHeaders(403, body.size.toLong())
+            exchange.sendResponseHeaders(200, body.size.toLong())
             exchange.responseBody.use { it.write(body) }
         }
         server.start()
@@ -206,34 +192,10 @@ class TyUpdatesTest {
 
             val answer = TyUpdates.fetchLatest(uri)
 
-            assertEquals(HttpAnswer(403, answer.headers, "{}"), answer)
-            assertEquals("0", answer.headers["x-ratelimit-remaining"])
+            assertEquals(HttpAnswer(200, answer.headers, "{}"), answer)
             assertEquals(listOf<Pair<String?, String?>>("application/vnd.github+json" to "Thoreau"), requests)
         } finally {
             server.stop(0)
         }
-    }
-
-    @ParameterizedTest
-    @CsvSource(
-        "0.0.99, 0.0.98, 1",
-        "0.0.100, 0.0.99, 1",
-        "0.1.0, 0.0.99, 1",
-        "1.0, 0.99.99, 1",
-        "0.1, 0.1.0, 0",
-        "0.0.99, 0.0.99, 0",
-        "0.1.0, 0.1.0-rc1, 1",
-        "0.1.0-rc2, 0.1.0-rc1, 1",
-        "10.0.0, 9.0.0, 1",
-        "0.0.98, 0.0.99, -1",
-        "12345678901234567890.0, 1.0, 1",
-    )
-    fun `versions compare by number per dot segment`(
-        a: String,
-        b: String,
-        expected: Int,
-    ) {
-        assertEquals(expected, Integer.signum(TyUpdates.compareVersions(a, b)))
-        assertEquals(-expected, Integer.signum(TyUpdates.compareVersions(b, a)))
     }
 }
