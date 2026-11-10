@@ -14,7 +14,10 @@ private val BALL = Color.web("#f7f7f7")
 private val BALL_EDGE = Color.web("#4a5670")
 private val TRAIL = Color.web("#e8962a")
 
-/** The Block Breaker logo: a ball bouncing off the corner of a tilted brick, in a 16 by 16 box. */
+/**
+ * The Block Breaker logo: a ball bouncing off the corner of a tilted brick,
+ * in a 16 by 16 box (a fresh node per call).
+ */
 internal fun blockBreakerLogo(): Node {
     val brick =
         Rectangle(1.0, 9.0, 8.0, 4.5).apply {

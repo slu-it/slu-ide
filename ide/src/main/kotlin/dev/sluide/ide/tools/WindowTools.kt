@@ -38,7 +38,9 @@ import java.nio.file.Path
  * The tools of one window: the Terminal and Docker Sandbox menus with the terminal tabs they open in the
  * [editorArea], the Tools menu with the Coloring, Codecs, Converting, Read Aloud and Translate tabs (ADR 0110,
  * ADR 0112, ADR 0115, ADR 0124, ADR 0126), the Services menu with the Databases and Docker tabs (ADR 0118,
- * ADR 0121) and the Games menu (both sorted by title) with the Block Breaker, Doubles, Minesweeper, Mini Golf, Orbit Guard, Pipe Puzzle, Solitaire, Sudoku and Word Guess tabs (ADR 0131, 0132, 0136, 0137, 0138, 0139, 0140, 0152, 0153).
+ * ADR 0121) and the Games menu (both sorted by title) with the Block Breaker, Doubles, Minesweeper, Mini Golf,
+ * Orbit Guard, Pipe Puzzle, Solitaire, Sudoku and Word Guess tabs (ADR 0131, 0132, 0136, 0137, 0138, 0139, 0140,
+ * 0152, 0153, 0156).
  * [showError] shows why a tool cannot be started.
  * Used on the JavaFX thread.
  */
@@ -196,7 +198,10 @@ internal class WindowTools(
     /** The Services menu, sorted by title: Databases, Docker. */
     fun servicesMenu(): Menu = servicesMenu.menu()
 
-    /** The Games menu, sorted by title: Block Breaker, Doubles, Minesweeper, Mini Golf, Orbit Guard, Pipe Puzzle, Solitaire, Sudoku, Word Guess. */
+    /**
+     * The Games menu, sorted by title: Block Breaker, Doubles, Minesweeper, Mini Golf, Orbit Guard, Pipe Puzzle,
+     * Solitaire, Sudoku, Word Guess.
+     */
     fun gamesMenu(): Menu = gamesMenu.menu()
 
     /** The Terminal menu: New Terminal. */

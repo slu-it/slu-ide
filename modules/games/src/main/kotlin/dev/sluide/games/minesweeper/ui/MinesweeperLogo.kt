@@ -9,9 +9,9 @@ import javafx.scene.shape.Rectangle
 import javafx.scene.shape.StrokeLineCap
 
 private val MINE = Color.web("#d6504a")
-private val GLINT = Color.web("#ffd6c9")
+private val CORE = Color.web("#7a1f1c")
 
-/** The Minesweeper logo: a round mine with eight spikes, in a 16 by 16 box (a fresh node per call). */
+/** The Minesweeper logo: a round mine with eight spikes and a dark core, in a 16 by 16 box (a fresh node per call). */
 internal fun minesweeperLogo(): Node {
     val spikes =
         listOf(0.0 to 1.0, 1.0 to 0.0, 0.7 to 0.7, 0.7 to -0.7).map { (dx, dy) ->
@@ -25,6 +25,6 @@ internal fun minesweeperLogo(): Node {
         Rectangle(16.0, 16.0, Color.TRANSPARENT),
         *spikes.toTypedArray(),
         Circle(8.0, 8.0, 4.6, MINE),
-        Circle(6.5, 6.5, 1.3, GLINT),
+        Circle(8.0, 8.0, 1.7, CORE),
     )
 }

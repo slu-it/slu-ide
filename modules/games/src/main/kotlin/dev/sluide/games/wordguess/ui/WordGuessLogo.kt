@@ -16,7 +16,8 @@ internal fun wordGuessLogo(): Node {
     val bubble =
         SVGPath().apply {
             content =
-                "M3,1.5 H13 A2,2 0 0 1 15,3.5 V9.5 A2,2 0 0 1 13,11.5 H8.5 L5,15 V11.5 H3 A2,2 0 0 1 1,9.5 V3.5 A2,2 0 0 1 3,1.5 Z"
+                "M3,1.5 H13 A2,2 0 0 1 15,3.5 V9.5 A2,2 0 0 1 13,11.5 H8.5 L5,15 V11.5 H3 " +
+                "A2,2 0 0 1 1,9.5 V3.5 A2,2 0 0 1 3,1.5 Z"
             fill = BUBBLE
         }
     val letter =

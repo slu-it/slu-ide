@@ -12,7 +12,10 @@ private val LOW = Color.web("#c9692a")
 private val HIGH = Color.web("#f2c14e")
 private val EDGE = Color.web("#6b4311")
 
-/** The Doubles logo: two overlapping tiles with an arrow merging into the upper one, in a 16 by 16 box. */
+/**
+ * The Doubles logo: two overlapping tiles with an arrow merging into the upper one,
+ * in a 16 by 16 box (a fresh node per call).
+ */
 internal fun doublesLogo(): Node {
     fun tile(
         x: Double,

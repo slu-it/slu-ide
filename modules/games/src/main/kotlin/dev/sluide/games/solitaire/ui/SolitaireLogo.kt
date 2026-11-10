@@ -10,7 +10,10 @@ private val CARD = Color.web("#f4f4f4")
 private val OUTLINE = Color.web("#55627a")
 private val PIP = Color.web("#d6504a")
 
-/** The Solitaire logo: two fanned cards, the front one with a red diamond, in a 16 by 16 box. */
+/**
+ * The Solitaire logo: two fanned cards, the front one with a red diamond,
+ * in a 16 by 16 box (a fresh node per call).
+ */
 internal fun solitaireLogo(): Node {
     fun card(
         x: Double,

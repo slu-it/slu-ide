@@ -42,7 +42,8 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   `"Zoom In (Shortcut++)"`. A `Slider` still takes the focus on a click (its behaviour asks for it regardless) and
   then eats the arrow keys: hand the focus back to the view (`MediaControlBar.install`).
 - Icons: Ikonli Material Design 2 `FontIcon` (ADR 0012), coloured by the stylesheet with
-  `-fx-icon-color: -fx-text-base-color` so they follow the theme. Style the toolbar like `preview-view.css`
+  `-fx-icon-color: -fx-text-base-color` so they follow the theme (the game logos are the exception: fixed colours
+  on purpose, ADR 0156). Style the toolbar like `preview-view.css`
   (`.preview-toolbar`): no new colours, small padding.
   Icons in a control's context menu (`Control.contextMenu`) are the exception: that menu is shown relative to the
   window, so only the scene root's stylesheets reach it, not the module's. Colour them inline by appending to the
@@ -53,8 +54,8 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
 
 ## Tool and service tabs
 - Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate), Services menu (Databases, Docker) and Games menu
-  (Block Breaker, Doubles, Minesweeper, Mini Golf, Orbit Guard, Pipe Puzzle, Solitaire, Sudoku, Word Guess; the Services and Games lists are sorted by title, so a new entry lands in place) after Docker Sandbox in the menu bar (ADR 0110, 0118, 0121, 0131, 0132, 0136, 0137, 0138, 0139, 0140, 0152, 0153), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
-- A game shows a self-drawn, coloured 16 px logo on its Games menu item and its tab header (`<Game>Logo.kt` in the game's `ui` package, fixed colours, vector shapes; `WindowTool.graphic` and `EditorTab.icon()`, a fresh node per call); a new game adds its logo.
+  (Block Breaker, Doubles, Minesweeper, Mini Golf, Orbit Guard, Pipe Puzzle, Solitaire, Sudoku, Word Guess; the Services and Games lists are sorted by title, so a new entry lands in place) after Docker Sandbox in the menu bar (ADR 0110, 0118, 0121, 0131, 0132, 0136, 0137, 0138, 0139, 0140, 0152, 0153, 0156), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
+- A game shows a self-drawn, coloured 16 px logo on its Games menu item and its tab header (`<Game>Logo.kt` in the game's `ui` package, fixed colours, vector shapes; `WindowTool.graphic` and `EditorTab.icon()`, a fresh node per call); a new game adds its logo (ADR 0156).
 - One tab per window: the menu selects the open tab or creates one. Closes with Shortcut+W without a question and is
   not restored after a restart. Tools have no key binding; a service may get an Alt+N panel key (Docker: Alt+8,
   Databases: Alt+7).
