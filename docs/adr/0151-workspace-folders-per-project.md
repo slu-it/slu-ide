@@ -1,6 +1,8 @@
 # 0151. Python monorepos: one workspace folder per project, status line and missing-venv notice
 
-- Status: accepted; amends [0142](0142-language-server-foundation.md) (several workspace folders per session, the
+- Status: accepted; amended by [0160](0160-document-gate-and-kept-diagnostics.md) (the gate is asked with the
+  workspace folder, watched folders per gate answer, the status line per file); amends
+  [0142](0142-language-server-foundation.md) (several workspace folders per session, the
   spec's workspace hooks, folders watched outside the project), [0144](0144-python-via-ty.md) (project roots and
   `environment.python` per folder), [0141](0141-editor-api-for-language-features.md) (`addStatusItem`),
   [0145](0145-code-intelligence-module.md) (status line, environment notice with Run uv sync),

@@ -3,7 +3,8 @@
 - Status: accepted; amended by [0151](0151-workspace-folders-per-project.md) (several workspace folders per session, the spec's
   workspace hooks), [0145](0145-code-intelligence-module.md) (`ServerInstaller.toolName`, `ServerAvailability.Failed.canRetry`),
   [0149](0149-rename-file-structure-go-to-symbol.md) (`workspaceSymbol/resolve` in `ServerFeatures.supports`,
-  `LanguageServerSpec.isIdentifier`)
+  `LanguageServerSpec.isIdentifier`), [0160](0160-document-gate-and-kept-diagnostics.md) (a gate per document, lazy
+  start for gated specs, `didClose` only to the connection that got the `didOpen`, kept diagnostics of unopened files)
 - Date: 2026-11-07
 
 ## Context
