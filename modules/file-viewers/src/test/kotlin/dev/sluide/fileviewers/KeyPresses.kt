@@ -12,8 +12,8 @@ import org.testfx.util.WaitForAsyncUtils
 private val shortcutIsMeta = System.getProperty("os.name").startsWith("Mac")
 
 /**
- * Fires a key press of [code] with the given modifiers at [target], as if it had the focus. Synthetic OS input is
- * avoided (docs/testing.md).
+ * Fires a key press of [code] with the given modifiers (Cmd as [meta], where Shortcut is Ctrl) at [target], as if it
+ * had the focus. Synthetic OS input is avoided (docs/testing.md).
  */
 internal fun FxRobot.press(
     target: Node,
@@ -21,8 +21,9 @@ internal fun FxRobot.press(
     shortcut: Boolean = false,
     shift: Boolean = false,
     alt: Boolean = false,
+    meta: Boolean = false,
 ) {
-    interact { Event.fireEvent(target, keyPress(code, shift, shortcut = shortcut, alt = alt)) }
+    interact { Event.fireEvent(target, keyPress(code, shift, shortcut = shortcut, alt = alt, meta = meta)) }
 }
 
 /** A key press of [code] with the given modifiers. */
@@ -31,8 +32,18 @@ internal fun keyPress(
     shift: Boolean = false,
     shortcut: Boolean = false,
     alt: Boolean = false,
+    meta: Boolean = false,
 ): KeyEvent =
-    KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, shift, shortcut && !shortcutIsMeta, alt, shortcut && shortcutIsMeta)
+    KeyEvent(
+        KeyEvent.KEY_PRESSED,
+        "",
+        "",
+        code,
+        shift,
+        shortcut && !shortcutIsMeta,
+        alt,
+        meta || (shortcut && shortcutIsMeta),
+    )
 
 /**
  * The key that types `/` on this keyboard layout and whether it needs Shift (Shift+7 on some), as [TOGGLE_COMMENT]
