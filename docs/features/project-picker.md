@@ -13,9 +13,11 @@ in `ide`. Decision in [ADR 0034](../adr/0034-project-picker.md)
 - The picker is a window of its own, titled like a window without a folder: "Thoreau v<version>". It appears
   - at startup when no folder is given on the command line (folders given there open right away, without it);
   - when the last project window is closed, instead of quitting;
-  - with **File → Open Project…** in a project window (right after Open Folder…), to open another project. A picker
-    already showing comes to the front instead of a second one (`ProjectWindows.pickProject`), also when the last
-    window closes while it is open.
+  - with **File → Open Project…** (Shortcut+Shift+O) in a project window (right after Open Folder…), to open another
+    project. A picker already showing comes to the front instead of a second one (`ProjectWindows.pickProject`), also
+    when the last window closes while it is open. **File → Open Recent Project ▸** opens a remembered project without
+    the picker: the 10 newest, this window's own project left out, folders that no longer exist greyed out
+    ("No Recent Projects" when there are none).
 - Entries, top to bottom:
   - **Open new project…** shows the folder chooser, starting in the home folder; the chosen folder opens. Cancelling
     the chooser keeps the picker open.

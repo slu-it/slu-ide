@@ -1,17 +1,22 @@
 package dev.sluide.ide.files
 
 import dev.sluide.editorarea.EditorArea
+import dev.sluide.projects.RecentProjects
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
+import javafx.stage.Stage
+import javafx.stage.WindowEvent
+import java.nio.file.Path
 
 /**
- * The File menu of one window: the [scratchItems] (new scratch files), Open Folder… ([chooseFolder]) and Open Project…
- * ([pickProject]) | Save and Save All of the [editorArea] | Close Tab | Settings… ([showSettings]). Used on the JavaFX
- * thread.
+ * The File menu of one window: the [scratchItems] (new scratch files), Open Folder… ([chooseFolder]), Open Project…
+ * ([pickProject], Shortcut+Shift+O) and the Open Recent Project submenu (the [recentProjects] without the window's
+ * own, opened by [openRecent]) | Save and Save All of the [editorArea] | Close Tab | Settings… ([showSettings]) |
+ * Close Project (fires a close request on the [stage], like the window's close button). Used on the JavaFX thread.
  */
 internal fun fileMenu(
     editorArea: EditorArea,
@@ -19,6 +24,9 @@ internal fun fileMenu(
     chooseFolder: () -> Unit,
     pickProject: () -> Unit,
     showSettings: () -> Unit,
+    stage: Stage,
+    recentProjects: RecentProjects,
+    openRecent: (Path) -> Unit,
 ): Menu {
     val openFolder =
         MenuItem("Open Folder…").apply {
@@ -26,7 +34,11 @@ internal fun fileMenu(
             setOnAction { chooseFolder() }
         }
     // The project picker, to open a remembered project in another window (ADR 0034).
-    val openProject = MenuItem("Open Project…").apply { setOnAction { pickProject() } }
+    val openProject =
+        MenuItem("Open Project…").apply {
+            accelerator = KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
+            setOnAction { pickProject() }
+        }
     // Ctrl+S in a terminal goes to the shell, which consumes the key before the accelerator sees it; Cmd+S on
     // macOS and Ctrl+Alt+S send nothing to the shell, so they save from a terminal too.
     val save =
@@ -52,7 +64,13 @@ internal fun fileMenu(
             accelerator = KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN)
             setOnAction { showSettings() }
         }
-    val opening = scratchItems + listOf(SeparatorMenuItem(), openFolder, openProject)
+    val closeProject =
+        MenuItem("Close Project").apply {
+            setOnAction { stage.fireEvent(WindowEvent(stage, WindowEvent.WINDOW_CLOSE_REQUEST)) }
+        }
+    val recent =
+        recentProjectsMenu({ recentEntries(recentProjects.list(), editorArea.projectFolder()) }, openRecent)
+    val opening = scratchItems + listOf(SeparatorMenuItem(), openFolder, openProject, recent)
     return Menu(
         "File",
         null,
@@ -64,5 +82,7 @@ internal fun fileMenu(
         closeTab,
         SeparatorMenuItem(),
         settings,
+        SeparatorMenuItem(),
+        closeProject,
     )
 }

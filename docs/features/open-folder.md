@@ -7,8 +7,12 @@
 - Menu **File → Open Folder…** (Ctrl/Cmd+O) shows a `DirectoryChooser`, starting in the window's project folder.
   On Linux, Ctrl+O does not open the dialog while a terminal has the focus: the terminal sends it to the shell as ^O
   ([terminal.md](terminal.md)); the menu still works.
-- Menu **File → Open Project…**, right below, shows the project picker with the remembered projects
+- Menu **File → Open Project…** (Shortcut+Shift+O), right below, shows the project picker with the remembered projects
   ([project-picker.md](project-picker.md)); the chosen one opens in a new window, or its window comes to the front.
+  **File → Open Recent Project ▸** lists the 10 newest remembered projects (`name — path`, without this window's own,
+  missing folders greyed out) and opens the chosen one the same way, without the picker.
+- **File → Close Project** (last item, no shortcut) closes the window like its close button, including the questions
+  about unsaved files and running tabs; closing the last window shows the project picker.
 - One project folder per window:
   - in a window without a folder, the chosen folder opens in that window (windows Thoreau opens itself always have
     one: it starts with the project picker instead of an empty window). Its Databases tab then shows the project's

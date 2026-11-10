@@ -170,6 +170,26 @@ class MainWindowSaveCloseUiTest : MainWindowUiFixture() {
     }
 
     @Test
+    fun `File - Close Project goes through the question about edited files, Cancel keeps the window`(robot: FxRobot) {
+        val a = project.resolve("a.txt").apply { writeText("a") }
+        robot.interact {
+            projectService.open(project)
+            editorArea.open(a)
+            shownArea(robot).appendText("1")
+        }
+        var answer = SaveChoice.CANCEL
+        editorArea.confirmSave = { answer }
+
+        robot.interact { fileMenuItem(robot, "Close Project").fire() }
+        assertTrue(stage.isShowing)
+
+        answer = SaveChoice.SAVE
+        robot.interact { fileMenuItem(robot, "Close Project").fire() }
+        assertEquals("a1", a.readText())
+        assertFalse(stage.isShowing)
+    }
+
+    @Test
     fun `a checkout from the git log first asks to save the edited files of the repository`(robot: FxRobot) {
         assumeTrue(git.available, "git is not installed")
         runGit("init", "-q")

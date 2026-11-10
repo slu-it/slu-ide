@@ -19,8 +19,10 @@ import dev.sluide.languageservers.LanguageServers
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.SettingsStore
+import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.control.Label
+import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.TreeCell
 import javafx.scene.input.KeyCode
@@ -189,7 +191,8 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
                 "New Generated Scratch File… shortcut+shift+G",
                 "-",
                 "Open Folder… shortcut+O",
-                "Open Project…",
+                "Open Project… shortcut+shift+O",
+                "Open Recent Project",
                 "-",
                 "Save shortcut+S",
                 "Save All shortcut+alt+S",
@@ -197,6 +200,8 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
                 "Close Tab shortcut+W",
                 "-",
                 "Settings… shortcut+COMMA",
+                "-",
+                "Close Project",
             ),
             menu(robot, "File").items.map(::describe),
         )
@@ -229,6 +234,30 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         // Hidden before asserting, so that no picker stays on screen for the next tests.
         robot.interact { pickers.forEach(Stage::hide) }
         assertEquals(1, pickers.size)
+    }
+
+    @Test
+    fun `File - Open Recent Project lists the remembered projects but this one, and choosing one opens it`(
+        robot: FxRobot,
+    ) {
+        val gone = otherProject.resolve("gone")
+        robot.interact {
+            projectService.open(project)
+            recentProjects.opened(gone)
+            recentProjects.opened(otherProject)
+            recentProjects.opened(project)
+        }
+        val recent = menu(robot, "File").items.single { it.text == "Open Recent Project" } as Menu
+
+        robot.interact { recent.onShowing.handle(Event(Menu.ON_SHOWING)) }
+
+        assertEquals(
+            listOf(otherProject.name, "gone"),
+            recent.items.map { it.text!!.substringBefore(" — ") },
+        )
+        assertEquals(listOf(false, true), recent.items.map { it.isDisable })
+        robot.interact { recent.items.first().fire() }
+        assertEquals(listOf(otherProject), openedElsewhere)
     }
 
     @Test

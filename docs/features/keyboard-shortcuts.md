@@ -17,6 +17,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 |---|---|
 | Shortcut+Shift+N | File → New Scratch File… |
 | Shortcut+Shift+G | File → New Generated Scratch File… |
+| Shortcut+Shift+O | File → Open Project… (project picker) |
 | Shortcut+O | File → Open Folder… |
 | Shortcut+S | File → Save |
 | Shortcut+Alt+S | File → Save All |

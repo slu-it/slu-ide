@@ -55,7 +55,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
     @Test
     fun `offers File - Settings with Ctrl+Comma, which opens the settings dialog`(robot: FxRobot) {
-        val settings = menu(robot, "File").items.last()
+        val settings = fileMenuItem(robot, "Settings…")
         assertEquals("Settings…", settings.text)
         val accelerator = settings.accelerator as KeyCodeCombination
         assertEquals(KeyCode.COMMA, accelerator.code)
