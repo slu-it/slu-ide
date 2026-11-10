@@ -85,6 +85,9 @@ open on any machine with the password.
   made per operation and dropped. The tab takes the password from its field, clears the
   field at once and zeroes the array after the derivation; on lock and close the inner view is wiped (editor text,
   undo history, saved text, find state, rendered preview, the WebView loads an empty page), disposed and dropped.
+  Plain bytes are zeroed once used: the encoded text a save encrypts, the decryption that checks a change on disk,
+  and the decrypted bytes the inner view reads, which it decodes at once on the FX thread; the session zeroes those on
+  the next read, on lock and on close. The decoded text is a `String` and stays (see below).
 - Not achievable on the JVM, and said so on the feature page: immutable `String`s (RichTextFX's text, the
   `PasswordField`'s text, the WebView's DOM; a password with a character from U+0300 upward passes through a String
   during normalization), the key copy inside `SecretKeySpec` (its `destroy()` throws `DestroyFailedException` on
@@ -114,6 +117,18 @@ open on any machine with the password.
   its text to other windows' tools (`TextEditableView`).
 - **Not blocked**, and stated on the feature page: Copy to the clipboard, and remote images in the Markdown preview
   (a request to the image's host reveals that the note was opened, not its text).
+- **How the tab is built** (`EncryptedFileView`): a wrapper `EditableFileView`, not a `TextEditableView`, around the
+  view that `FileViewers.contentViewerFor` picks for the inner name (`notes.md`), opened on the virtual path beside
+  the file with a confidential `FileContent` that decrypts on read and encrypts and writes atomically on write. Its
+  `dirty` is one stable property, bound to the inner view's while unlocked. Diffs and change markers are never passed
+  on (`CodeView` would hand the virtual path to the host). Opening the tab neither reads nor decrypts the file.
+- The decisions live in the FX-free `EncryptedSession` (ADR 0084): locked, unlocking, unlocked; the key it owns; the
+  failure and warning texts; what a change on disk means. An unlock result that arrives after a lock, a newer unlock or
+  the close is dropped and its key closed. `Sluenc.unlock` already checks that the body decrypts, so the tab does not
+  decrypt a second time to verify. An `OutOfMemoryError` during Argon2 (a crafted file may ask for 1 GiB) shows "Not
+  enough memory to unlock."; any other unexpected failure is logged by its type only.
+- A new file's key reaches its first tab through the app-wide `EncryptedFiles` registry (`handOver`, taken once by
+  path); one not taken within a minute, or replaced by a newer one for the same file, is closed.
 
 **Several windows or tabs on one file**
 - Each tab locks and unlocks on its own. A change on disk is decrypted with the tab's DEK first: if it fits, the usual
@@ -121,11 +136,17 @@ open on any machine with the password.
   elsewhere), a clean tab locks with "Changed elsewhere with another password. Unlock again."; a dirty tab warns, and
   Save then asks before replacing the file with the tab's version under the password it was unlocked with (Replace or
   Cancel, Cancel the default).
+- A changed file that the tab's key cannot read for another reason (damaged, not `.sluenc`, newer format) is handled
+  the same way, with that failure's text. Cancel on the Replace question fails the save ("Replacing the changed file
+  was cancelled."), so closing the tab with Save keeps it open with its changes instead of dropping them; a save that
+  replaces the file ends the warning, and so does a later change on disk that the key reads again.
 
 **Empty encrypted scratches**
 - An encrypted scratch closed unlocked with empty saved content is deleted like an empty scratch (ADR 0066), without
   the size check (an empty `.sluenc` file is not 0 bytes). One closed while locked is never deleted, since its content
   is unknown.
+- The registry records such a close with the file's bytes as last read or written (`takeClosedEmpty`, once), so the
+  scratches delete the file only if it still holds those bytes; locking forgets them.
 
 ## Consequences
 - Text can be kept encrypted on disk with a password that never leaves memory; the format leaves room for hardware
