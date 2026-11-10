@@ -329,6 +329,9 @@ abstract class MainWindowUiFixture {
     /** The application-wide TODO store, in the test's project data and shared data file. */
     internal val todos by lazy { Todos(projectData) }
 
+    /** The games' zoom levels, one for all windows and games as in the application. */
+    internal val gameZoom by lazy { GameZoomPreferences(projectData) }
+
     /** The editors' soft wrap switch, one for all windows as in the application. */
     internal val softWrap by lazy { SoftWrap(projectData) }
     internal val todoPanel get() = todoPanels.first()
@@ -443,15 +446,15 @@ abstract class MainWindowUiFixture {
                 // Creating it touches no secret store; nothing here saves a password.
                 Secrets(),
             ).also(databases::add),
-            Minesweeper(MinesweeperPreferences(projectData), GameZoomPreferences(projectData)).also(minesweepers::add),
-            WordGuess(WordGuessPreferences(projectData), GameZoomPreferences(projectData)).also(wordGuesses::add),
-            Doubles(DoublesPreferences(projectData), GameZoomPreferences(projectData)).also(doublesGames::add),
-            Sudoku(SudokuPreferences(projectData), GameZoomPreferences(projectData)).also(sudokuGames::add),
-            Solitaire(SolitairePreferences(projectData), GameZoomPreferences(projectData)).also(solitaireGames::add),
-            OrbitGuard(OrbitGuardPreferences(projectData), GameZoomPreferences(projectData)).also(orbitGuardGames::add),
-            BlockBreaker(BlockBreakerPreferences(projectData), GameZoomPreferences(projectData)).also(blockBreakerGames::add),
-            MiniGolf(MiniGolfPreferences(projectData), GameZoomPreferences(projectData)).also(miniGolfGames::add),
-            PipePuzzle(PipePuzzlePreferences(projectData), GameZoomPreferences(projectData)).also(pipePuzzleGames::add),
+            Minesweeper(MinesweeperPreferences(projectData), gameZoom).also(minesweepers::add),
+            WordGuess(WordGuessPreferences(projectData), gameZoom).also(wordGuesses::add),
+            Doubles(DoublesPreferences(projectData), gameZoom).also(doublesGames::add),
+            Sudoku(SudokuPreferences(projectData), gameZoom).also(sudokuGames::add),
+            Solitaire(SolitairePreferences(projectData), gameZoom).also(solitaireGames::add),
+            OrbitGuard(OrbitGuardPreferences(projectData), gameZoom).also(orbitGuardGames::add),
+            BlockBreaker(BlockBreakerPreferences(projectData), gameZoom).also(blockBreakerGames::add),
+            MiniGolf(MiniGolfPreferences(projectData), gameZoom).also(miniGolfGames::add),
+            PipePuzzle(PipePuzzlePreferences(projectData), gameZoom).also(pipePuzzleGames::add),
             // Only its folder and capturing flag are read; the tests replace the capture.
             Diagnostics(),
             softWrap,
