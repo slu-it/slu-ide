@@ -57,6 +57,9 @@ Sandbox rules:
   never ends). Find PIDs with `ps -eo pid,args | grep '[p]attern'` and kill only processes you started.
 - A new dependency of `MainWindow` also goes into the explicit bean lists of `ProjectWindowsUiTest` and
   `SpringWiringTest` and into the constructor call in `MainWindowUiFixture`; run `ProjectWindowsUiTest`.
+- A module whose main code imports another module's types declares that module in its `build.gradle.kts` (with a
+  comment and a `docs/architecture.md` row), even when the classes already arrive through some other module's `api`:
+  reviews flagged this twice in one round (`typescript` → `local-models`, `language-servers`).
 - A new Spring bean in `dev.sluide.fileviewers` is also found by the previews' viewer scan (`AllViewers.kt`), which
   has no beans from other modules: run `:modules:previews` tests too, and exclude the bean there if it needs one.
 
