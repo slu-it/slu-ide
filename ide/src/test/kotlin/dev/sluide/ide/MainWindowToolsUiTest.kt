@@ -317,24 +317,29 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     ) {
         assertEquals(
             listOf(
-                "Minesweeper",
-                "Word Guess",
-                "Doubles",
-                "Sudoku",
-                "Solitaire",
-                "Orbit Guard",
                 "Block Breaker",
+                "Doubles",
+                "Minesweeper",
                 "Mini Golf",
+                "Orbit Guard",
                 "Pipe Puzzle",
+                "Solitaire",
+                "Sudoku",
+                "Word Guess",
             ),
             menu(robot, "Games").items.map { it.text },
         )
         val gameItems = menu(robot, "Games").items
-        val (item, wordGuessItem, doublesItem, sudokuItem, solitaireItem) = gameItems
-        val orbitGuardItem = gameItems[5]
-        val blockBreakerItem = gameItems[6]
-        val miniGolfItem = gameItems[7]
-        val pipePuzzleItem = gameItems[8]
+        val byText = gameItems.associateBy { it.text }
+        val item = byText.getValue("Minesweeper")
+        val wordGuessItem = byText.getValue("Word Guess")
+        val doublesItem = byText.getValue("Doubles")
+        val sudokuItem = byText.getValue("Sudoku")
+        val solitaireItem = byText.getValue("Solitaire")
+        val orbitGuardItem = byText.getValue("Orbit Guard")
+        val blockBreakerItem = byText.getValue("Block Breaker")
+        val miniGolfItem = byText.getValue("Mini Golf")
+        val pipePuzzleItem = byText.getValue("Pipe Puzzle")
         robot.interact { robot.lookup(".tree-view").query<Node>().requestFocus() }
 
         robot.interact { item.fire() }
@@ -451,8 +456,8 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     fun `Services - Docker and Databases open one tab each on Alt+8 and Alt+7, and a second choice selects it`(
         robot: FxRobot,
     ) {
-        val (docker, databases) = menu(robot, "Services").items
-        assertEquals(listOf("Docker", "Databases"), menu(robot, "Services").items.map { it.text })
+        val (databases, docker) = menu(robot, "Services").items
+        assertEquals(listOf("Databases", "Docker"), menu(robot, "Services").items.map { it.text })
         assertEquals(KeyCode.DIGIT8, (docker.accelerator as KeyCodeCombination).code)
         val databasesKey = databases.accelerator as KeyCodeCombination
         assertEquals(KeyCode.DIGIT7, databasesKey.code)
