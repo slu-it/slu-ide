@@ -54,7 +54,7 @@ internal class MarkdownHtmlExport(
         file: Path,
         text: String,
     ): ExportedPage {
-        val body = MarkdownRenderer.body(text, file.parent)
+        val body = MarkdownRenderer.body(text, file.parent, frontMatter = true)
         // Each address is downloaded once, failures included.
         val downloaded = mutableMapOf<URI, String?>()
         body.select("img[src]").forEach { image ->

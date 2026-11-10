@@ -19,6 +19,12 @@ class MarkdownOutlineTest {
     }
 
     @Test
+    fun `front matter is no heading and the lines after it are kept`() {
+        val result = headings("---", "name: delegate", "description: Use it", "---", "", "# Delegate")
+        assertEquals(listOf(Heading(1, "Delegate", 5)), result)
+    }
+
+    @Test
     fun `text is the plain text of the inline content`() {
         assertEquals("The code part", headings("# The `code` *part*").single().text)
     }

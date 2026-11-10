@@ -17,7 +17,7 @@ internal object MarkdownOutline {
     /** Every heading of [markdown] in document order, also those inside lists and quotes. */
     fun headings(markdown: String): List<Heading> {
         val found = mutableListOf<Heading>()
-        MarkdownRenderer.parse(markdown).accept(
+        MarkdownRenderer.parse(markdown, frontMatter = true).accept(
             object : AbstractVisitor() {
                 override fun visit(heading: org.commonmark.node.Heading) {
                     val line = heading.sourceSpans.firstOrNull()?.lineIndex

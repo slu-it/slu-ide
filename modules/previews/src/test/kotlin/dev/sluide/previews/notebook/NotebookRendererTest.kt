@@ -39,6 +39,16 @@ class NotebookRendererTest {
         """.trimIndent()
 
     @Test
+    fun `a markdown cell between thematic breaks is not front matter`() {
+        val page =
+            render("""{"cells":[{"cell_type":"markdown","source":["---\n","### Exercise 1\n","---"]}]}""")
+
+        assertEquals(2, page.select(".cell.markdown hr").size)
+        assertEquals("Exercise 1", page.selectFirst(".cell.markdown h3")?.text())
+        assertTrue(page.select("pre.front-matter").isEmpty())
+    }
+
+    @Test
     fun `markdown cells are rendered with math and attached images`() {
         val page = render(notebook)
 

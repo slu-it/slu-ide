@@ -15,6 +15,7 @@ import org.commonmark.ext.task.list.items.TaskListItemsExtension
 import org.commonmark.node.Block
 import org.commonmark.node.FencedCodeBlock
 import org.commonmark.node.Node
+import org.commonmark.node.SourceSpan
 import org.commonmark.parser.IncludeSourceSpans
 import org.commonmark.parser.Parser
 import org.commonmark.renderer.NodeRenderer
@@ -38,6 +39,7 @@ import kotlin.io.path.readBytes
  * preview (ADR 0016):
  * - every block element carries `data-line`, its first line in the source (0-based), for scroll sync;
  * - fenced code with a known language is highlighted like the code views (`<span class="keyword">`…);
+ * - front matter of a Markdown file (not of a notebook cell) is a highlighted `pre.front-matter` block (ADR 0157);
  * - math ([MarkdownMath]) is typeset by KaTeX, bundled in `vendor/katex` and only added to pages that have math;
  * - ` ```mermaid ` fences are drawn by Mermaid (`vendor/mermaid`, only on pages with diagrams), from the source kept in
  *   `data-source`, so that they can be drawn again in the other colour scheme;
@@ -94,16 +96,34 @@ internal object MarkdownRenderer {
         markdown: String,
         folder: Path,
         dark: Boolean = false,
-    ): String = page(body(markdown, folder), dark)
+    ): String = page(body(markdown, folder, frontMatter = true), dark)
 
-    /** The syntax tree of [markdown], with source spans on its blocks; see [MarkdownOutline]. */
-    internal fun parse(markdown: String): Node = parser.parse(markdown)
+    /**
+     * The syntax tree of [markdown], with source spans on its blocks; see [MarkdownOutline]. With [frontMatter] (a
+     * Markdown file, not a notebook cell), front matter at the start becomes a [FrontMatterBlock]; then only the line
+     * indexes of the source spans are reliable, not their input indexes.
+     */
+    internal fun parse(
+        markdown: String,
+        frontMatter: Boolean = false,
+    ): Node {
+        val found = (if (frontMatter) Highlighters.frontMatter(markdown) else null) ?: return parser.parse(markdown)
+        // Its lines become empty lines, so that the lines of everything after it keep their index.
+        val lineBreaks = markdown.substring(0, found.end).count { it == '\n' }
+        val document = parser.parse("\n".repeat(lineBreaks) + markdown.substring(found.end))
+        val block =
+            FrontMatterBlock(found.language, markdown.substring(found.contentStart, found.contentEnd))
+        block.addSourceSpan(SourceSpan.of(0, 0, 0, 0))
+        document.prependChild(block)
+        return document
+    }
 
     /** The rendered, sanitised content of [markdown], a file in [folder], with local images embedded. */
     fun body(
         markdown: String,
         folder: Path,
-    ): Element = sanitized(renderer.render(parse(markdown)), folder)
+        frontMatter: Boolean = false,
+    ): Element = sanitized(renderer.render(parse(markdown, frontMatter)), folder)
 
     /** [html] from a file in [folder], sanitised like rendered Markdown, with local images embedded. */
     fun sanitized(
@@ -289,15 +309,20 @@ body.dark .theme-toggle {
         node.sourceSpans.firstOrNull()?.let { attributes["data-line"] = it.lineIndex.toString() }
     }
 
-    /** Fenced code, highlighted like the code views when its language is known. */
+    /** Fenced code and front matter, highlighted like the code views when the language is known. */
     private class FencedCodeRenderer(
         private val context: HtmlNodeRendererContext,
     ) : NodeRenderer {
         private val html = context.writer
 
-        override fun getNodeTypes(): Set<Class<out Node>> = setOf(FencedCodeBlock::class.java)
+        override fun getNodeTypes(): Set<Class<out Node>> =
+            setOf(FencedCodeBlock::class.java, FrontMatterBlock::class.java)
 
         override fun render(node: Node) {
+            if (node is FrontMatterBlock) {
+                writeCode(node, node.language, node.literal, mapOf("class" to "front-matter"))
+                return
+            }
             val block = node as FencedCodeBlock
             val language = Highlighters.fenceLanguage(block.info.orEmpty())
             val code = block.literal
@@ -318,11 +343,20 @@ body.dark .theme-toggle {
                 html.line()
                 return
             }
+            writeCode(block, language, code, emptyMap())
+        }
+
+        private fun writeCode(
+            node: Node,
+            language: String,
+            code: String,
+            preAttributes: Map<String, String>,
+        ) {
             val highlighter = if (language.isEmpty()) null else Highlighters.forLanguage(language)
             html.line()
-            html.tag("pre", context.extendAttributes(block, "pre", emptyMap()))
+            html.tag("pre", context.extendAttributes(node, "pre", preAttributes))
             val codeClass = if (language.isEmpty()) emptyMap() else mapOf("class" to "language-$language")
-            html.tag("code", context.extendAttributes(block, "code", codeClass))
+            html.tag("code", context.extendAttributes(node, "code", codeClass))
             writeHighlighted(code, highlighter, html::text) { token, styleClass ->
                 html.tag("span", mapOf("class" to styleClass))
                 html.text(token)

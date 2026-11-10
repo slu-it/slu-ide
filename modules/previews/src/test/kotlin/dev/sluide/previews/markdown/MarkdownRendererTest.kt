@@ -31,6 +31,30 @@ class MarkdownRendererTest {
     }
 
     @Test
+    fun `YAML front matter is one highlighted code block and keeps the lines after it`() {
+        val page = render("---\nname: delegate\ndescription: Use it\n---\n\n# Delegate\n\nText\n")
+
+        val block = page.select("pre.front-matter")
+        assertEquals(1, block.size)
+        assertEquals("0", block.first()?.attr("data-line"))
+        val code = block.select("code.language-yaml")
+        assertEquals("name: delegate\ndescription: Use it\n", code.first()?.wholeText())
+        assertTrue(code.select("span").isNotEmpty())
+        assertTrue(page.select("hr, h2").isEmpty())
+        assertEquals("5", page.selectFirst("h1")?.attr("data-line"))
+        assertEquals("7", page.selectFirst("p")?.attr("data-line"))
+    }
+
+    @Test
+    fun `TOML front matter is a TOML block`() {
+        val page = render("+++\ntitle = \"Hi\"\n+++\n\nText\n")
+
+        assertEquals(1, page.select("pre.front-matter code.language-toml").size)
+        assertTrue(page.select("pre.front-matter span").isNotEmpty())
+        assertEquals("4", page.selectFirst("p")?.attr("data-line"))
+    }
+
+    @Test
     fun `GitHub tables, task lists, strikethrough, autolinks and heading anchors`() {
         val page =
             render(

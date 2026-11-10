@@ -130,6 +130,14 @@ class MarkdownHtmlExportTest {
     }
 
     @Test
+    fun `front matter is exported as a code block, not as a heading`() {
+        val html = Jsoup.parse(page("---\ntitle: Notes\n---\n\n# Body\n").html)
+
+        assertEquals(1, html.select("pre.front-matter").size)
+        assertTrue(html.select("h2").isEmpty())
+    }
+
+    @Test
     fun `math is typeset and diagrams are drawn in both variants`() {
         val page = page("Inline \$x\$.\n\n```math\ny\n```\n\n```mermaid\ngraph TD; A-->B\n```\n")
         assertEquals(listOf("x" to false, "y" to true), asked.single().first.map { it.tex to it.display })
