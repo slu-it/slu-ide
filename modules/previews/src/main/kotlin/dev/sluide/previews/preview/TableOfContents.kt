@@ -115,6 +115,14 @@ internal class TableOfContents(
         if (restore) restoreFocus()
     }
 
+    /** Closes the overlay and forgets its entries, selection and depths, e.g. when the view is wiped. */
+    fun clear() {
+        close()
+        list.selectionModel.clearSelection()
+        list.items.clear()
+        depths = emptyList()
+    }
+
     /** Updates the entries and the selected one, e.g. after the caret moved or the text changed; only while open. */
     fun refresh() = refresh(scroll = false)
 

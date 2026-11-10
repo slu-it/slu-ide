@@ -3,7 +3,9 @@ package dev.sluide.previews.preview
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.CodeEditor
 import dev.sluide.fileviewers.CodeEditors
+import dev.sluide.fileviewers.DiskContent
 import dev.sluide.fileviewers.EditableFileView
+import dev.sluide.fileviewers.FileContent
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.SyntaxHighlighter
@@ -75,6 +77,7 @@ internal class PreviewFileView(
     highlighter: SyntaxHighlighter,
     private val preview: Preview,
     comment: CommentSyntax = CommentSyntax.NONE,
+    content: FileContent = DiskContent(file),
 ) : EditableFileView {
     init {
         // They would share the left of the toolbar, and pages that run their own scripts have no in-page zoom of ours.
@@ -92,7 +95,7 @@ internal class PreviewFileView(
     /** The file shown; it changes when the file is [moved]. */
     private var file = file.toAbsolutePath().normalize()
 
-    val source: CodeEditor = CodeEditors.open(file, highlighter, comment.line, comment.block)
+    val source: CodeEditor = CodeEditors.open(file, highlighter, comment.line, comment.block, content)
     val webView = WebView().apply { isContextMenuEnabled = false }
     val mode: ObjectProperty<PreviewMode> = SimpleObjectProperty(preview.defaultMode)
 
@@ -132,12 +135,10 @@ internal class PreviewFileView(
             null
         }
 
-    /** The Export button, if the preview [can be exported][Preview.exports]. */
+    /** The Export button, if the preview [can be exported][Preview.exports] and the content may leave the view. */
     val export: ExportControls? =
-        preview.exports.takeIf { it.isNotEmpty() }?.let {
-            ExportControls(it, { file }, { source.savedText }, { pane.scene?.window }) {
-                host?.windowService(BackgroundTasks::class.java)
-            }
+        exportControlsFor(preview, content, source, { file }, { pane.scene?.window }) {
+            host?.windowService(BackgroundTasks::class.java)
         }
 
     private val pane =
@@ -217,6 +218,9 @@ internal class PreviewFileView(
 
     /** Whether the view was [disposed][dispose]: it stays stopped for good. */
     private var disposed = false
+
+    /** Whether the view was [wiped][wipe]: it shows nothing again, like a disposed one. */
+    private var wiped = false
 
     /** Focuses the source or the preview once it is shown ([focus]). */
     private val pendingFocus = FocusWhenShown()
@@ -306,6 +310,7 @@ internal class PreviewFileView(
     override val dirty get() = source.dirty
 
     override fun save() {
+        if (wiped) return
         source.save()
         reload()
     }
@@ -332,7 +337,7 @@ internal class PreviewFileView(
     }
 
     override fun reload() {
-        if (disposed) return
+        if (disposed || wiped) return
         source.reload()
         if (stopped && source.savedText != renderedText) resume() else render()
     }
@@ -375,6 +380,22 @@ internal class PreviewFileView(
         engine.load("")
         source.dispose()
         preview.detach()
+    }
+
+    /**
+     * Empties the source, the rendered text, the table of contents and the page, and stops the view for good like
+     * [dispose]; safe before it and twice.
+     */
+    override fun wipe() {
+        wiped = true
+        stopped = true
+        pendingFocus.cancel()
+        source.wipe()
+        renderedText = null
+        tocJump = null
+        copyFormatted?.clear()
+        toc?.clear()
+        engine.load("")
     }
 
     private fun show(mode: PreviewMode) {
@@ -451,7 +472,7 @@ internal class PreviewFileView(
     }
 
     private fun resume() {
-        if (disposed) return
+        if (disposed || wiped) return
         stopped = false
         noticePane.isVisible = false
         rerender()

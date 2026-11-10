@@ -14,7 +14,9 @@ import java.nio.file.Path
  */
 @Component
 class MarkdownFileViewer :
-    PreviewFileViewer(setOf("md", "markdown"), Highlighters.markdown, MarkdownPreview, CommentSyntax.XML)
+    PreviewFileViewer(setOf("md", "markdown"), Highlighters.markdown, MarkdownPreview, CommentSyntax.XML) {
+    override fun opensContent(name: String) = hasExtension(name)
+}
 
 /** Markdown rendered by [MarkdownRenderer], scrolling with the source. */
 internal object MarkdownPreview : Preview {

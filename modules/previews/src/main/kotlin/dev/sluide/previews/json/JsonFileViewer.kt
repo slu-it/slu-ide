@@ -29,6 +29,8 @@ class JsonFileViewer :
     NamedFileViewer {
     override val fileNames: Set<String> = setOf("Pipfile.lock")
 
+    override fun opensContent(name: String) = hasExtension(name)
+
     override fun canOpen(file: Path): Boolean {
         val name = file.fileName?.toString() ?: return false
         val known = matchesExtension(file) || fileNames.any { it.equals(name, ignoreCase = true) }

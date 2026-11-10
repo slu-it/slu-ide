@@ -6,7 +6,9 @@ Decision in [ADR 0058](../adr/0058-markdown-html-export.md).
 
 - **Export → HTML** in the toolbar of the Markdown preview (on the right, before the zoom and mode
   toggles; hidden in Source mode) writes `<name>.html` next to `<name>.md` (or `<name>.markdown`). It exports the saved
-  text, which is what the preview shows. PDF is to follow in the same menu.
+  text, which is what the preview shows. PDF is to follow in the same menu. Export is not created at all for
+  confidential content (`FileContent.confidential`, e.g. a decrypted file shown in memory): it would write that content
+  to disk.
 - If `<name>.html` already exists, a dialog asks whether to replace it. Cancel is the default and writes nothing.
 - The page looks like the preview: the same rendering, sanitising, code highlighting, math (KaTeX) and diagrams
   (Mermaid).

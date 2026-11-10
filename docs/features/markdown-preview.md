@@ -63,3 +63,5 @@
   HTML file beside it: [markdown-export.md](markdown-export.md).
 - Known gaps: the diff of a modified file ([git-diff.md](git-diff.md)) has no preview, it is highlighted as Markdown.
   Scroll sync goes from source to preview only.
+
+Markdown content that is not on disk (`ContentFileViewer`, e.g. a decrypted file) is shown by the same preview; its path is virtual and never read. Export is not created for confidential content.

@@ -33,3 +33,5 @@ JSON files show their highlighted source with a formatted, foldable view beside 
   keeps them). A byte order mark is ignored.
 - **Errors:** invalid JSON shows the error above what could be read before it.
 - **Large files:** at most 100 000 values are shown; a note below says so. The source always shows everything.
+
+JSON content that is not on disk (`ContentFileViewer`, e.g. a decrypted file) is shown by the same preview; its path is virtual and never read.

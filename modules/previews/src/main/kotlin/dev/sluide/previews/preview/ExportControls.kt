@@ -2,6 +2,8 @@ package dev.sluide.previews.preview
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
+import dev.sluide.fileviewers.CodeEditor
+import dev.sluide.fileviewers.FileContent
 import dev.sluide.fileviewers.WrappingToolbar
 import javafx.application.Platform
 import javafx.geometry.Insets
@@ -177,3 +179,19 @@ internal class ExportControls(
         const val GAP = 6.0
     }
 }
+
+/**
+ * The Export controls of [preview]'s view of [source], or `null` if it cannot be exported or its [content] is
+ * confidential: an export would write it to disk.
+ */
+internal fun exportControlsFor(
+    preview: Preview,
+    content: FileContent,
+    source: CodeEditor,
+    file: () -> Path,
+    owner: () -> Window?,
+    tasks: () -> BackgroundTasks?,
+): ExportControls? =
+    preview.exports
+        .takeIf { it.isNotEmpty() && !content.confidential }
+        ?.let { ExportControls(it, file, { source.savedText }, owner, tasks) }

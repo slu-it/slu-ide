@@ -21,7 +21,9 @@ class YamlFileViewer :
         Highlighters.yaml,
         YamlPreview,
         CommentSyntax.HASH,
-    )
+    ) {
+    override fun opensContent(name: String) = hasExtension(name)
+}
 
 /**
  * The YAML as nested, foldable blocks ([YamlRenderer]), scrolling with the source. Opens side by side with the source,

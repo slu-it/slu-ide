@@ -1,6 +1,8 @@
 package dev.sluide.previews.preview
 
+import dev.sluide.fileviewers.ContentFileViewer
 import dev.sluide.fileviewers.ExtensionFileViewer
+import dev.sluide.fileviewers.FileContent
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.SourceFileViewer
 import dev.sluide.fileviewers.SyntaxHighlighter
@@ -21,7 +23,8 @@ abstract class PreviewFileViewer internal constructor(
     private val preview: Preview,
     internal val comment: CommentSyntax = CommentSyntax.NONE,
 ) : SourceFileViewer,
-    ExtensionFileViewer {
+    ExtensionFileViewer,
+    ContentFileViewer {
     /** The source is highlighted like the previews show it, and so are its diffs. */
     final override val sourceHighlighter: SyntaxHighlighter get() = highlighter
 
@@ -37,4 +40,21 @@ abstract class PreviewFileViewer internal constructor(
     internal open fun newPreview(): Preview = preview
 
     override fun open(file: Path): FileView = PreviewFileView(file, highlighter, newPreview(), comment)
+
+    /**
+     * Whether this viewer shows content of a file named [name] ([ContentFileViewer]); no by default, as most previews
+     * read the shown path themselves (HTML is served from it). Markdown, JSON and YAML say yes by [hasExtension].
+     */
+    override fun opensContent(name: String): Boolean = false
+
+    /** Whether the extension of the file [name] is one of this viewer's; nothing is looked at. */
+    protected fun hasExtension(name: String): Boolean = name.substringAfterLast('.', "").lowercase() in fileExtensions
+
+    override fun open(
+        file: Path,
+        content: FileContent,
+    ): FileView {
+        require(opensContent(file.fileName.toString())) { "${javaClass.simpleName} does not show content" }
+        return PreviewFileView(file, highlighter, newPreview(), comment, content)
+    }
 }

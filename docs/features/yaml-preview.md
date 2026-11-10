@@ -43,3 +43,5 @@ YAML files show their highlighted source with a formatted, foldable view beside 
   nothing.
 - **Large files:** at most 100 000 nodes are shown, and nesting deeper than 200 levels is an error; a note or notice
   says so. The source always shows everything.
+
+YAML content that is not on disk (`ContentFileViewer`, e.g. a decrypted file) is shown by the same preview; its path is virtual and never read.

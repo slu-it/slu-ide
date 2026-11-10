@@ -120,6 +120,33 @@ class ViewerSelectionTest {
     }
 
     @Test
+    fun `among all viewers, only text, Markdown, JSON and YAML show content, whatever the order`() {
+        val expected =
+            mapOf(
+                "notes.md" to "MarkdownFileViewer",
+                "notes.json" to "JsonFileViewer",
+                "notes.yml" to "YamlFileViewer",
+                "notes.yaml" to "YamlFileViewer",
+                "notes.txt" to "DefaultTextFileViewer",
+                // These read the shown path themselves, or have no source to edit.
+                "page.html" to null,
+                "chart.mmd" to null,
+                "data.csv" to null,
+                "icon.svg" to null,
+                "cert.pem" to null,
+                "pom.xml" to null,
+                "main.bicep" to null,
+                "photo.png" to null,
+            )
+
+        for (viewers in allViewersInEitherOrder()) {
+            for ((name, viewer) in expected) {
+                assertEquals(viewer, viewers.contentViewerFor(name)?.let { it::class.simpleName }, name)
+            }
+        }
+    }
+
+    @Test
     fun `names like Dockerfile dot something open by their extension if a viewer takes it`() {
         // Dockerfile.dev itself is the docker module's (DockerfileBuildViewerTest, SpringWiringTest).
         val expected =

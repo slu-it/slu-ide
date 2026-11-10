@@ -237,7 +237,11 @@ the Bicep graph and `BicepParamFileViewer`.
     is then a virtual path that decides type, highlighting and `.editorconfig` (its folder's), and is never read,
     written, watched or checked for existence; a moved view keeps that content. Encoding, line endings and changes
     (`DiskChange`, on `reload()`) work on the content's bytes as on a file's. `DefaultTextFileViewer` is the
-    `ContentFileViewer` for `.txt` names. Content that is `confidential` gets no `CodeEditorExtension` unless the
+    `ContentFileViewer` for `.txt` names; of the previews, only the Markdown, JSON and YAML viewers are one (by
+    extension; the others, e.g. HTML, read the shown path themselves). `FileViewers.contentViewerFor(name)` picks the
+    one for a name, by the name alone: of the content viewers that `opensContent(name)` (a `PathFileViewer` only if its
+    path matches) the one `viewerFor` ranks first, else `DefaultTextFileViewer` if it opens the name, else `null`.
+    Content that is `confidential` gets no `CodeEditorExtension` unless the
     extension sets `attachesToConfidential` (none does yet). `FileView.wipe()` clears what a view holds of its
     content before it is disposed (no-op by default); code views and `CodeEditor.wipe()` empty the text, forget the
     undo history, make the saved text empty (clean, no change markers) and clear the find bar's query and matches.
