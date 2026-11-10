@@ -541,6 +541,23 @@ class ProjectWindowsUiTest {
     }
 
     @Test
+    fun `opening a project from a menu that fails shows an error instead of throwing, and leaves the windows`(
+        robot: FxRobot,
+    ) {
+        val failing = dir.resolve("failing").createDirectories()
+        windows.isFolder = { folder ->
+            Files.delete(folder)
+            true
+        }
+
+        robot.interact { windows.open(failing) }
+
+        assertTrue(errors.single().contains("failing"), errors.single())
+        assertEquals(listOf(first), windows.stages)
+        assertEquals(emptyList(), pickers())
+    }
+
+    @Test
     fun `a command-line folder that fails shows an error and the other folders still open`(robot: FxRobot) {
         val missing = dir.resolve("missing")
         val b = dir.resolve("b").createDirectories()

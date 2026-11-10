@@ -355,7 +355,7 @@ class MainWindow(
                                 chooseFolder = { chooseFolder(stage) },
                                 pickProject = projectWindows::pickProject,
                                 showSettings = { showSettings(stage) },
-                                stage,
+                                stage = stage,
                                 recentProjects = recentProjects,
                                 openRecent = projectWindows::open,
                             ),

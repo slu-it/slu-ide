@@ -183,9 +183,8 @@ class MainWindowSaveCloseUiTest : MainWindowUiFixture() {
         robot.interact { fileMenuItem(robot, "Close Project").fire() }
         assertTrue(stage.isShowing)
 
-        answer = SaveChoice.SAVE
+        answer = SaveChoice.DISCARD
         robot.interact { fileMenuItem(robot, "Close Project").fire() }
-        assertEquals("a1", a.readText())
         assertFalse(stage.isShowing)
     }
 

@@ -191,7 +191,12 @@ class ProjectWindows(
             stage.x = previous.x + CASCADE
             stage.y = previous.y + CASCADE
         }
-        show(stage, path)
+        // Like the picker's choice: an error is logged and shown, not thrown into the menu action that asked.
+        try {
+            tryOpening(path) { show(stage, it) }
+        } finally {
+            showPickerWithoutWindow()
+        }
     }
 
     private fun close(entry: OpenWindow) {
