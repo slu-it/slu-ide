@@ -11,7 +11,9 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -156,6 +158,66 @@ class ScratchFilesTest {
         assertFalse(files.deleteIfEmpty(outside))
         assertTrue(Files.exists(outside))
         assertFalse(files.deleteIfEmpty(empty), "missing")
+    }
+
+    private val encrypted = ScratchType("Markdown (encrypted)", "md.sluenc", encrypted = true)
+
+    @Test
+    fun `the bytes overload names like the string one and writes the exact bytes`() {
+        val files = scratches()
+        val bytes = byteArrayOf(0, -1, 0x53, 0x10, -128)
+        val first = files.create("scratch", "md.sluenc", bytes)
+        val second = files.create("scratch", "md.sluenc", bytes)
+        assertEquals("scratch.md.sluenc", first.fileName.toString())
+        assertEquals("scratch_1.md.sluenc", second.fileName.toString())
+        assertContentEquals(bytes, Files.readAllBytes(first))
+        assertNull(files.lastType)
+    }
+
+    @Test
+    fun `create refuses an encrypted type`() {
+        assertFailsWith<IllegalArgumentException> { scratches().create(encrypted) }
+    }
+
+    @Test
+    fun `deleteIfEncryptedEmpty deletes a non-empty sluenc file in the folder`() {
+        val files = scratches()
+        val file = files.create("scratch", "md.SLUENC", byteArrayOf(1, 2, 3))
+        assertTrue(files.deleteIfEncryptedEmpty(file, byteArrayOf(1, 2, 3)))
+        assertFalse(Files.exists(file))
+    }
+
+    @Test
+    fun `deleteIfEncryptedEmpty keeps a file whose bytes differ from the expected ones`() {
+        val files = scratches()
+        val file = files.create("scratch", "md.sluenc", byteArrayOf(1, 2, 3))
+        assertFalse(files.deleteIfEncryptedEmpty(file, byteArrayOf(1, 2, 4)))
+        assertTrue(Files.exists(file))
+        assertTrue(files.deleteIfEncryptedEmpty(file, byteArrayOf(1, 2, 3)))
+    }
+
+    @Test
+    fun `deleteIfEncryptedEmpty refuses what is not a contained sluenc file`() {
+        val files = scratches()
+        val plain = files.create("scratch", "md", byteArrayOf(1))
+        val outside = Files.write(temp.resolve("outside.md.sluenc"), byteArrayOf(1))
+        val dir = Files.createDirectory(files.folder.resolve("dir.sluenc"))
+        assertFalse(files.deleteIfEncryptedEmpty(plain, byteArrayOf(1)), "no .sluenc name")
+        assertFalse(files.deleteIfEncryptedEmpty(outside, byteArrayOf(1)))
+        assertFalse(files.deleteIfEncryptedEmpty(dir, byteArrayOf(1)))
+        assertTrue(Files.exists(plain) && Files.exists(outside) && Files.exists(dir))
+    }
+
+    @Test
+    fun `deleteIfEncryptedEmpty does not follow a link`() {
+        val files = scratches()
+        files.ensureFolder()
+        val target = Files.write(temp.resolve("target.md.sluenc"), byteArrayOf(1))
+        val link = files.folder.resolve("link.md.sluenc")
+        symlink(link, target)
+        assertFalse(files.deleteIfEncryptedEmpty(link, byteArrayOf(1)))
+        assertTrue(Files.exists(link, LinkOption.NOFOLLOW_LINKS))
+        assertTrue(Files.exists(target))
     }
 
     private fun symlink(

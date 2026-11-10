@@ -29,10 +29,14 @@ fun safeBaseName(name: String): String =
         .trimEnd('.', ' ')
         .ifEmpty { "scratch" }
 
-/** A kind of scratch file offered by the picker: its shown [name] and the [extension] of new files (without dot). */
+/**
+ * A kind of scratch file offered by the picker: its shown [name] and the [extension] of new files (without dot).
+ * An [encrypted] type asks for a password first; the app creates its files with encrypted bytes.
+ */
 data class ScratchType(
     val name: String,
     val extension: String,
+    val encrypted: Boolean = false,
 )
 
 /** The types the picker offers, in this order. */
@@ -63,6 +67,18 @@ val SCRATCH_TYPES: List<ScratchType> =
     )
 
 /**
+ * The encrypted types, not yet in [SCRATCH_TYPES]: they are offered in the picker once the app wires the password
+ * flow; a later package appends them.
+ */
+val ENCRYPTED_SCRATCH_TYPES: List<ScratchType> =
+    listOf(
+        ScratchType("Plain Text (encrypted)", "txt.sluenc", encrypted = true),
+        ScratchType("Markdown (encrypted)", "md.sluenc", encrypted = true),
+        ScratchType("JSON (encrypted)", "json.sluenc", encrypted = true),
+        ScratchType("YAML (encrypted)", "yaml.sluenc", encrypted = true),
+    )
+
+/**
  * The scratch files in one folder shared by all project windows (`~/.sluide/scratches`): new files named by the lowest
  * free number, empty or generated (ADR 0114), and the deletion of empty ones. Plain file IO on the calling thread;
  * the files are tiny.
@@ -77,7 +93,10 @@ class ScratchFiles(
     /** The scratches folder, absolute and normalized. */
     val folder: Path = folder.toAbsolutePath().normalize()
 
-    /** The type chosen last in this run of the app, preselected by the picker; in memory only. */
+    /**
+     * The type chosen last in this run of the app, preselected by the picker; in memory only. [create] with a type
+     * sets it; for an encrypted type (created through the bytes overload) the app sets it itself.
+     */
     @Volatile
     var lastType: ScratchType? = null
 
@@ -94,7 +113,10 @@ class ScratchFiles(
     }
 
     /** Creates an empty new file `scratch.<ext>`, `scratch_<n>.<ext>`, ... of [type] (see below). Sets [lastType]. */
-    fun create(type: ScratchType): Path = create("scratch", type.extension).also { lastType = type }
+    fun create(type: ScratchType): Path {
+        require(!type.encrypted) { "An encrypted scratch is created with its encrypted bytes" }
+        return create("scratch", type.extension).also { lastType = type }
+    }
 
     /**
      * Creates a new file `<baseName>.<extension>`, else `<baseName>_<n>.<extension>` with the lowest free n >= 1, with
@@ -106,6 +128,15 @@ class ScratchFiles(
         baseName: String,
         extension: String,
         content: String = "",
+    ): Path = create(baseName, extension, content.toByteArray(Charsets.UTF_8))
+
+    /**
+     * Like the String version, but writes [bytes] as they are (an encrypted scratch). Does not touch [lastType].
+     */
+    fun create(
+        baseName: String,
+        extension: String,
+        bytes: ByteArray,
     ): Path {
         ensureFolder()
         var number = 0
@@ -121,8 +152,8 @@ class ScratchFiles(
                 }
             try {
                 channel.use {
-                    val bytes = ByteBuffer.wrap(content.toByteArray(Charsets.UTF_8))
-                    while (bytes.hasRemaining()) it.write(bytes)
+                    val buffer = ByteBuffer.wrap(bytes)
+                    while (buffer.hasRemaining()) it.write(buffer)
                 }
             } catch (e: IOException) {
                 try {
@@ -147,19 +178,38 @@ class ScratchFiles(
         changed.isNotEmpty() && changed.all { contains(it) || it.toAbsolutePath().normalize() == folder }
 
     /** Deletes [path] if it is contained, a regular file (links not followed) and empty; says whether it did. */
-    fun deleteIfEmpty(path: Path): Boolean {
+    fun deleteIfEmpty(path: Path): Boolean = deleteChecked(path) { Files.size(it) == 0L }
+
+    /**
+     * Deletes [path] if it is contained, a regular file (links not followed), named `*.sluenc` (any case) and its
+     * current bytes equal [expected] (the ciphertext the caller last read or wrote, so a file changed meanwhile
+     * stays); says whether it did. The caller has established that the decrypted content is empty.
+     */
+    fun deleteIfEncryptedEmpty(
+        path: Path,
+        expected: ByteArray,
+    ): Boolean =
+        deleteChecked(path) {
+            it.fileName.toString().endsWith(".sluenc", ignoreCase = true) &&
+                Files.readAllBytes(it).contentEquals(expected)
+        }
+
+    private fun deleteChecked(
+        path: Path,
+        wanted: (Path) -> Boolean,
+    ): Boolean {
         if (!contains(path)) return false
         val file = path.toAbsolutePath().normalize()
         return try {
             // A symlinked subfolder must not lead out of the folder.
             file.parent.toRealPath().startsWith(folder.toRealPath()) &&
                 Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) &&
-                Files.size(file) == 0L &&
+                wanted(file) &&
                 Files.deleteIfExists(file)
         } catch (_: NoSuchFileException) {
             false
         } catch (e: IOException) {
-            log.log(System.Logger.Level.WARNING, "Cannot delete the empty scratch file $file", e)
+            log.log(System.Logger.Level.WARNING, "Cannot delete the scratch file $file", e)
             false
         }
     }

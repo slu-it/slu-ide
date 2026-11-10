@@ -277,7 +277,7 @@ enum class FileIcon(
     LOCK(
         MaterialDesignF.FILE_LOCK,
         "file-icon-security",
-        setOf("lock"),
+        setOf("lock", "sluenc"),
         setOf("package-lock.json", "pnpm-lock.yaml", "npm-shrinkwrap.json", "gradle.lockfile"),
     ),
     LICENSE(

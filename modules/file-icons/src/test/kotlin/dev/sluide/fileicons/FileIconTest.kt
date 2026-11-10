@@ -51,6 +51,7 @@ class FileIconTest {
                 "lib.jar" to FileIcon.PACKAGE,
                 "server.pem" to FileIcon.CERTIFICATE,
                 "Cargo.lock" to FileIcon.LOCK,
+                "notes.md.sluenc" to FileIcon.LOCK,
                 "app.properties" to FileIcon.CONFIG,
                 "setup.exe" to FileIcon.WINDOWS,
                 "main.bicep" to FileIcon.AZURE,
