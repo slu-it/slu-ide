@@ -19,6 +19,16 @@ class TileSizeTest {
     }
 
     @Test
+    fun `the zoom scales the Fit size, limits included, to at least 1 px`() {
+        assertEquals(40.0, tileSize(400.0, 395.0, zoom = 1.0))
+        assertEquals(20.0, tileSize(400.0, 395.0, zoom = 0.5))
+        assertEquals(80.0, tileSize(400.0, 395.0, zoom = 2.0))
+        assertEquals(2 * MAX_TILE, tileSize(5000.0, 5000.0, zoom = 2.0))
+        assertEquals(MIN_TILE / 4, tileSize(100.0, 100.0, zoom = 0.25))
+        assertEquals(1.0, tileSize(0.0, 0.0, zoom = 0.01))
+    }
+
+    @Test
     fun `grid and keyboard fit from 380 by 460 pixels of content`() {
         val side = tileSize(380.0 - 16, 460.0 - 16)
 

@@ -1,6 +1,7 @@
 package dev.sluide.games
 
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.wordguess.WordGuessModel
 import dev.sluide.games.wordguess.WordGuessPreferences
 import dev.sluide.games.wordguess.ui.WordGuessTab
@@ -21,7 +22,10 @@ class WordGuess internal constructor(
     private val tabFactory: (WordGuessModel) -> EditorTab,
 ) {
     @Autowired
-    constructor(preferences: WordGuessPreferences) : this(preferences, { WordGuessTab(WordGuessView(it)) })
+    constructor(
+        preferences: WordGuessPreferences,
+        zoomPreferences: GameZoomPreferences,
+    ) : this(preferences, { WordGuessTab(WordGuessView(it, zoomPreferences)) })
 
     /** Shows the Word Guess tab of the window (opening it if needed); set by ide. */
     var showTab: () -> Unit = {}

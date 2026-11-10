@@ -1,6 +1,9 @@
 package dev.sluide.games.wordguess.ui
 
+import dev.sluide.games.common.GameZoomPreferences
+import dev.sluide.games.common.ZoomRange
 import dev.sluide.games.common.ui.firePress
+import dev.sluide.games.common.ui.keyPress
 import dev.sluide.games.wordguess.KeyboardKey
 import dev.sluide.games.wordguess.Language
 import dev.sluide.games.wordguess.WordGuessModel
@@ -49,6 +52,7 @@ class WordGuessViewUiTest {
     lateinit var dir: Path
 
     private lateinit var model: WordGuessModel
+    private lateinit var zoomPreferences: GameZoomPreferences
     private lateinit var view: WordGuessView
     private lateinit var stage: Stage
 
@@ -60,7 +64,8 @@ class WordGuessViewUiTest {
         val english = WordList(listOf("CRANE"), setOf("CRANE", "SLATE"))
         val german = WordList(listOf("BÜHNE"), setOf("BÜHNE"))
         model = WordGuessModel(preferences, { if (it == Language.EN) english else german }, Random(1))
-        view = WordGuessView(model)
+        zoomPreferences = GameZoomPreferences(store, Duration.ZERO, Executor { it.run() })
+        view = WordGuessView(model, zoomPreferences)
         stage.scene = Scene(view.node as Parent, 600.0, 700.0)
         // The primary stage is shared by the UI test classes; a size set by an earlier test would outlive the scene.
         stage.sizeToScene()
@@ -229,7 +234,7 @@ class WordGuessViewUiTest {
             stage.scene.root = root
             other.requestFocus()
         }
-        val fresh = WordGuessView(model)
+        val fresh = WordGuessView(model, zoomPreferences)
 
         // Added and focused in one turn, before the layout pulse: the grid is not in the scene yet.
         robot.interact {
@@ -290,7 +295,7 @@ class WordGuessViewUiTest {
     fun `a disposed view leaves the model to the view that took it over`(robot: FxRobot) {
         lateinit var second: WordGuessView
         robot.interact {
-            second = WordGuessView(model)
+            second = WordGuessView(model, zoomPreferences)
             view.dispose()
             stage.scene.root = second.node as Parent
         }
@@ -302,5 +307,40 @@ class WordGuessViewUiTest {
         robot.interact { second.dispose() }
         robot.interact { model.type('b') }
         assertEquals("A", fx { (second.grid.children[0] as HBox).children.map { (it as Label).text }.joinToString("") })
+    }
+
+    @Test
+    fun `the zoom resizes grid and keyboard together, is saved and scrolls above Fit`(robot: FxRobot) {
+        fun layoutNow() =
+            fx {
+                view.node.scene.root
+                    .layout()
+            }
+
+        fun tile(): Double {
+            layoutNow()
+            return fx { tiles(0)[0].minWidth }
+        }
+
+        fun key(): Double = fx { view.keyboard.keyOf('Q')!!.minHeight }
+        val fit = tile()
+        val fitKey = key()
+
+        // At the grid: the keys work anywhere in the tab.
+        robot.interact { Event.fireEvent(view.grid, keyPress(KeyCode.PLUS)) }
+        assertTrue(tile() > fit)
+        robot.interact { Event.fireEvent(view.grid, keyPress(KeyCode.DIGIT0)) }
+        assertEquals(fit, tile())
+
+        robot.interact { view.zoomControls.zoomTo(2.0) }
+        assertEquals(2 * fit, tile())
+        assertEquals(2 * fitKey, key())
+        assertEquals(2.0, fx { zoomPreferences.zoom("wordGuess", ZoomRange.ABOVE_FIT) })
+        // The content outgrows the viewport: the scroll pane scrolls.
+        assertTrue(fx { view.scrollPane.content.layoutBounds.width > view.scrollPane.viewportBounds.width })
+        assertTrue(fx { view.scrollPane.content.layoutBounds.height > view.scrollPane.viewportBounds.height })
+
+        val next = fx { WordGuessView(model, zoomPreferences).also { it.dispose() } }
+        assertEquals(2.0, fx { next.zoomControls.zoom.get() })
     }
 }

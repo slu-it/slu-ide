@@ -1,6 +1,7 @@
 package dev.sluide.games.wordguess
 
 import kotlin.math.floor
+import kotlin.math.max
 import kotlin.math.min
 
 internal const val MIN_TILE = 24.0
@@ -26,8 +27,15 @@ private const val HEIGHT_UNITS =
     MAX_GUESSES + (MAX_GUESSES - 1) * GAP_FACTOR + SECTION_GAP_FACTOR +
         KEY_ROWS * KEY_HEIGHT_FACTOR + (KEY_ROWS - 1) * GAP_FACTOR
 
-/** The side of a square tile that lets the grid and the keyboard fill the available space, within the limits. */
+/**
+ * The side of a square tile: the Fit size, which lets the grid and the keyboard fill the available space within the
+ * limits, times [zoom] (ADR 0155); at least 1 px.
+ */
 internal fun tileSize(
     availableWidth: Double,
     availableHeight: Double,
-): Double = floor(min(availableWidth / WIDTH_UNITS, availableHeight / HEIGHT_UNITS)).coerceIn(MIN_TILE, MAX_TILE)
+    zoom: Double = 1.0,
+): Double {
+    val fit = floor(min(availableWidth / WIDTH_UNITS, availableHeight / HEIGHT_UNITS)).coerceIn(MIN_TILE, MAX_TILE)
+    return max(1.0, floor(fit * zoom))
+}

@@ -61,6 +61,10 @@ Four lists in the module's resources: allowed guesses and answers per language.
 The answers are common base forms, trimmed by hand; offensive words are left out. Sources, steps, hashes and license
 texts: `modules/games/src/main/resources/dev/sluide/games/wordguess/NOTICE-word-lists.txt`.
 
+## Scaling
+The tile side follows the tab between 24 and 60 px, the keys with it.
+Zoom: 25%–200% relative to Fit, see [game-zoom.md](game-zoom.md).
+
 ## Stored
 User-wide in `~/.sluide/shared.json`, field `wordGuess` ([ADR 0101](../adr/0101-shared-data-file.md)): the last
 language.
