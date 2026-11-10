@@ -12,6 +12,7 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.input.ScrollEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.Pane
+import javafx.scene.text.Text
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -104,8 +105,10 @@ class GameZoomControlsUiTest {
         assertEquals("200%", checked())
         assertTrue(fx { controls.zoomInButton.isDisable })
         assertFalse(fx { controls.zoomOutButton.isDisable })
-        // The level keeps one width, so that the buttons beside it stay in place.
+        // The level keeps one width, so that the buttons beside it stay in place, and the widest preset is shown whole:
+        // the label lays out with its snapped insets, which can be wider than the fractional ones.
         assertEquals(width, fx { controls.levelMenu.width })
+        assertEquals("200%", fx { (controls.levelMenu.lookup(".label").lookup(".text") as Text).text })
     }
 
     @Test

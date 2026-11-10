@@ -183,7 +183,10 @@ internal class GameZoomControls(
 
         fun fix() {
             val widest = labels.maxOf { text -> Text(text).also { it.font = label.font }.layoutBounds.width }
-            val width = ceil(widest + label.insets.left + label.insets.right)
+            // The label lays its text out within its insets snapped to the render scale, each at most 0.5 px over the
+            // fractional one at any scale of at least 1 (8.7 px of padding takes 9 px at 1.0): 1 px covers both sides,
+            // also after the window moves to a screen with another scale.
+            val width = ceil(widest + label.insets.left + label.insets.right + 1.0)
             label.minWidth = width
             label.prefWidth = width
             label.maxWidth = width
