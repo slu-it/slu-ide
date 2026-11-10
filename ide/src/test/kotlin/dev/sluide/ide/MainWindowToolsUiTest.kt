@@ -41,6 +41,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -345,6 +346,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         robot.interact { item.fire() }
         robot.interact { item.fire() }
+        assertNotNull(checkNotNull(editorArea.selectedTab).icon(), "the game tab has its logo")
 
         assertEquals(listOf("Minesweeper"), tabTitles(robot))
         assertEquals("Play Minesweeper while you wait", checkNotNull(editorArea.selectedTab).tooltip)
@@ -360,6 +362,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         robot.interact { wordGuessItem.fire() }
         robot.interact { wordGuessItem.fire() }
+        assertNotNull(checkNotNull(editorArea.selectedTab).icon(), "the game tab has its logo")
 
         assertEquals(listOf("Minesweeper", "Word Guess"), tabTitles(robot))
         assertEquals("Word Guess", checkNotNull(editorArea.selectedTab).title.value)
@@ -372,6 +375,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         robot.interact { doublesItem.fire() }
         robot.interact { doublesItem.fire() }
+        assertNotNull(checkNotNull(editorArea.selectedTab).icon(), "the game tab has its logo")
 
         assertEquals(listOf("Word Guess", "Doubles"), tabTitles(robot))
         assertEquals("Doubles", checkNotNull(editorArea.selectedTab).title.value)
@@ -383,6 +387,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         robot.interact { sudokuItem.fire() }
         robot.interact { sudokuItem.fire() }
+        assertNotNull(checkNotNull(editorArea.selectedTab).icon(), "the game tab has its logo")
 
         assertEquals(listOf("Doubles", "Sudoku"), tabTitles(robot))
         assertEquals("Sudoku", checkNotNull(editorArea.selectedTab).title.value)
@@ -394,6 +399,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         robot.interact { solitaireItem.fire() }
         robot.interact { solitaireItem.fire() }
+        assertNotNull(checkNotNull(editorArea.selectedTab).icon(), "the game tab has its logo")
 
         assertEquals(listOf("Sudoku", "Solitaire"), tabTitles(robot))
         assertEquals("Solitaire", checkNotNull(editorArea.selectedTab).title.value)
@@ -405,6 +411,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         robot.interact { orbitGuardItem.fire() }
         robot.interact { orbitGuardItem.fire() }
+        assertNotNull(checkNotNull(editorArea.selectedTab).icon(), "the game tab has its logo")
 
         assertEquals(listOf("Solitaire", "Orbit Guard"), tabTitles(robot))
         assertEquals("Orbit Guard", checkNotNull(editorArea.selectedTab).title.value)
@@ -416,6 +423,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         robot.interact { blockBreakerItem.fire() }
         robot.interact { blockBreakerItem.fire() }
+        assertNotNull(checkNotNull(editorArea.selectedTab).icon(), "the game tab has its logo")
 
         assertEquals(listOf("Orbit Guard", "Block Breaker"), tabTitles(robot))
         assertEquals("Block Breaker", checkNotNull(editorArea.selectedTab).title.value)
@@ -427,6 +435,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         robot.interact { miniGolfItem.fire() }
         robot.interact { miniGolfItem.fire() }
+        assertNotNull(checkNotNull(editorArea.selectedTab).icon(), "the game tab has its logo")
 
         assertEquals(listOf("Block Breaker", "Mini Golf"), tabTitles(robot))
         assertEquals("Mini Golf", checkNotNull(editorArea.selectedTab).title.value)
@@ -438,6 +447,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         robot.interact { pipePuzzleItem.fire() }
         robot.interact { pipePuzzleItem.fire() }
+        assertNotNull(checkNotNull(editorArea.selectedTab).icon(), "the game tab has its logo")
 
         assertEquals(listOf("Mini Golf", "Pipe Puzzle"), tabTitles(robot))
         assertEquals("Pipe Puzzle", checkNotNull(editorArea.selectedTab).title.value)
