@@ -5,7 +5,9 @@ import dev.sluide.encryptedfiles.ui.lockAllQuestion
 import dev.sluide.encryptedfiles.ui.showLockAllQuestion
 import dev.sluide.fileviewers.FileView
 import javafx.beans.property.ReadOnlyBooleanWrapper
+import javafx.beans.property.ReadOnlyIntegerWrapper
 import javafx.beans.value.ObservableBooleanValue
+import javafx.beans.value.ObservableIntegerValue
 import javafx.stage.Window
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -36,9 +38,13 @@ class EncryptedFiles internal constructor(
     private val views = LinkedHashSet<EncryptedFileView>()
     private val closedEmpty = HashMap<Path, ByteArray>()
     private val anyUnlockedWrapper = ReadOnlyBooleanWrapper(false)
+    private val revisionWrapper = ReadOnlyIntegerWrapper(0)
 
     /** Whether a tab of an encrypted file is unlocked in any window, e.g. to enable Lock All. */
     val anyUnlocked: ObservableBooleanValue = anyUnlockedWrapper.readOnlyProperty
+
+    /** Counts every change of a tab's lock state, for what depends on one tab's state ([isUnlockedEncrypted]). */
+    val revision: ObservableIntegerValue = revisionWrapper.readOnlyProperty
 
     /**
      * Asked once before [lockAll] locks tabs of which `count` have unsaved changes: save them all, discard the changes,
@@ -95,6 +101,11 @@ class EncryptedFiles internal constructor(
     /** Whether [view] is an encrypted file's view that is unlocked now, e.g. to enable Lock Encrypted File. */
     fun isUnlockedEncrypted(view: FileView): Boolean = (view as? EncryptedFileView)?.isUnlocked == true
 
+    /** Locks [view] if it is an unlocked encrypted file's view, asking first about unsaved changes. */
+    fun lock(view: FileView) {
+        (view as? EncryptedFileView)?.lock()
+    }
+
     internal fun register(view: EncryptedFileView) {
         views += view
         stateChanged()
@@ -113,7 +124,10 @@ class EncryptedFiles internal constructor(
     }
 
     /** Called by a view whose state changed. */
-    internal fun stateChanged() = anyUnlockedWrapper.set(views.any { it.isUnlocked })
+    internal fun stateChanged() {
+        anyUnlockedWrapper.set(views.any { it.isUnlocked })
+        revisionWrapper.set(revisionWrapper.get() + 1)
+    }
 
     private fun normalized(file: Path): Path = file.toAbsolutePath().normalize()
 
