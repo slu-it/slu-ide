@@ -127,6 +127,7 @@ import dev.sluide.translation.engine.LanguageDetector
 import dev.sluide.translation.engine.TranslationEngine
 import dev.sluide.translation.opusmt.OpusMtEngine
 import dev.sluide.translation.settings.TranslationSettingsPage
+import dev.sluide.typescript.TypeScriptSpec
 import dev.sluide.typescript.TypeScriptUpdates
 import dev.sluide.typescript.settings.TypeScriptSettingsPage
 import org.junit.jupiter.api.io.TempDir
@@ -259,6 +260,9 @@ class SpringWiringTest {
                         TySpec::class.java,
                         TyUpdates::class.java,
                         PythonSettingsPage::class.java,
+                        // Counted, not created: the spec needs TypeScriptInstaller and TypeScriptSettings, whose creation
+                        // reads settings.properties. Its logic is in TypeScriptSpecTest.
+                        TypeScriptSpec::class.java,
                         TypeScriptUpdates::class.java,
                         TypeScriptSettingsPage::class.java,
                         InstallPrompts::class.java,

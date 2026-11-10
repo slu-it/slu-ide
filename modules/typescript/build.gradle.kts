@@ -11,6 +11,10 @@ javafx {
 }
 
 dependencies {
+    // Deliberate module API dependency: TypeScriptSpec is a LanguageServerSpec and TypeScriptInstaller its ServerInstaller;
+    // DocumentGate, EnvironmentProblem, ServerCommand, WorkspaceStatus and lsp4j's ConfigurationItem are in its API
+    // (ADR 0142, ADR 0160, ADR 0161).
+    api(project(":modules:language-servers"))
     // Deliberate module API dependency: the TypeScript server's install, update check, smoke test and settings page
     // are the shared server-tool layer's (TypeScriptInstaller, TypeScriptUpdates, TypeScriptSettings and
     // TypeScriptSettingsPage extend its classes; ADR 0159).
