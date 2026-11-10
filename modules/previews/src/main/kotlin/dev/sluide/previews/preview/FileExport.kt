@@ -1,5 +1,6 @@
 package dev.sluide.previews.preview
 
+import javafx.stage.Window
 import java.io.IOException
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
@@ -7,6 +8,8 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
 
 /** One item of a preview's Export menu: writes a file made from the saved text beside the previewed file. */
 internal interface FileExport {
@@ -15,6 +18,15 @@ internal interface FileExport {
 
     /** The file the export of [file] is written to. */
     fun target(file: Path): Path
+
+    /**
+     * The export to run for [file], after asking the user for its settings, if any; completes with null if they
+     * cancelled. Called on the FX thread; may complete on any thread.
+     */
+    fun choose(
+        file: Path,
+        owner: Window?,
+    ): CompletionStage<FileExport?> = CompletableFuture.completedFuture(this)
 
     /**
      * Writes the export of [text], the saved content of [file], to [target]; blocking, never on the FX thread. Returns

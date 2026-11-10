@@ -4,7 +4,9 @@ import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.WindowServices
 import dev.sluide.fileviewers.WrappingToolbar
+import dev.sluide.previews.image.CustomSvgPngExport
 import dev.sluide.previews.image.SvgFileViewer
+import dev.sluide.previews.image.SvgMeasurer
 import dev.sluide.previews.markdown.MarkdownFileViewer
 import dev.sluide.previews.table.CsvFileViewer
 import javafx.scene.Node
@@ -27,6 +29,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 import kotlin.io.path.exists
+import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -297,6 +300,58 @@ class ExportUiTest {
         val view = open(robot, "broken.svg", "not an image")
         assertEquals(listOf("Could not export broken.svg: Not an SVG image"), exported(view, "PNG 300%"))
         assertFalse(dir.resolve("broken@3x.png").exists())
+    }
+
+    /** Runs [custom] through an [ExportControls]; returns the reports and whether the button is enabled again. */
+    private fun chosen(
+        custom: CustomSvgPngExport,
+        file: Path,
+    ): Pair<List<String>, ExportControls> {
+        val reports = CopyOnWriteArrayList<String>()
+        val controls =
+            fx {
+                ExportControls(listOf(custom), { file }, { "" }, { null }, { null }).apply {
+                    report = { reports += it }
+                    confirmOverwrite = { true }
+                }
+            }
+        fx { controls.export(custom) }
+        // The button is disabled from the call on, so that this does not return before the choice is made.
+        WaitForAsyncUtils.waitFor(30, TimeUnit.SECONDS) { !fx { controls.button.isDisable } }
+        WaitForAsyncUtils.waitForFxEvents()
+        return reports.toList() to controls
+    }
+
+    @Test
+    fun `a custom size is asked for after measuring and written as name-WxH`(robot: FxRobot) {
+        open(robot, "logo.svg", LOGO)
+        val file = dir.resolve("logo.svg")
+        val asked = CopyOnWriteArrayList<Pair<Int, Int>>()
+        val custom = CustomSvgPngExport()
+        custom.ask = { _, natural ->
+            asked += natural
+            32 to 16
+        }
+        assertEquals(emptyList(), chosen(custom, file).first)
+        assertEquals(listOf(40 to 20), asked)
+        val image = assertNotNull(ImageIO.read(dir.resolve("logo-32x16.png").toFile()))
+        assertEquals(32 to 16, image.width to image.height)
+
+        // Cancel: nothing is written or reported.
+        val before = dir.listDirectoryEntries().toSet()
+        custom.ask = { _, _ -> null }
+        assertEquals(emptyList(), chosen(custom, file).first)
+        assertEquals(before, dir.listDirectoryEntries().toSet())
+    }
+
+    @Test
+    fun `a failing measurement is reported and the button is enabled again`(robot: FxRobot) {
+        open(robot, "logo.svg", LOGO)
+        val custom = CustomSvgPngExport(measurer = SvgMeasurer { throw IOException("Not an SVG image") })
+        custom.ask = { _, _ -> error("not asked") }
+        val (reports, controls) = chosen(custom, dir.resolve("logo.svg"))
+        assertEquals(listOf("Could not export logo.svg: Not an SVG image"), reports)
+        assertFalse(fx { controls.button.isDisable })
     }
 
     private companion object {

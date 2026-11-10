@@ -55,6 +55,16 @@ and screens with high pixel density. The Markdown preview already has an Export 
     limit (e.g. 5121 × 6552 px), 42 tiles take about 14 s at most.
   - **The saved file's bytes are drawn,** not its text re-encoded, so an encoding named in the XML declaration holds.
   - **No `javafx.swing` dependency:** the pixels are copied into a `BufferedImage` by hand and written with `ImageIO`.
+  - **A custom size** (amended 2026-11-10): the Export menu has a fourth item, "PNG Custom…" (an 800 × 800 favicon
+    needed a 32 × 32 fallback). `PngSize` is either `Scale` (100/200/300 %) or `Pixels` (width × height); the
+    rasteriser and `checkedSize` take it, with the same limits. The natural size is measured by the same `Session`
+    (`SvgMeasurer`: after the load it reads `naturalWidth`/`naturalHeight` and draws nothing). `FileExport.choose`
+    lets an item ask first (called on the FX thread; the measuring runs on a virtual thread, the dialog on the FX
+    thread): `ExportControls` calls it before the target and overwrite check
+    and disables the button meanwhile; null (Cancel) does nothing, an exception is reported like an export error.
+    The dialog is prefilled with the natural size and always keeps the aspect ratio (no toggle; the other side is
+    computed from the natural ratio, so it does not drift); over the limits it shows a hint and Export is off. The
+    file is named `logo-32x32.png`, so that several sizes (`favicon-16x16.png`, `favicon-32x32.png`) coexist.
 - **Rejected:**
   - JSVG: a small pure-Java library and the least code, but it has no `foreignObject` and only partial CSS, so the
     PNG could differ from the preview.

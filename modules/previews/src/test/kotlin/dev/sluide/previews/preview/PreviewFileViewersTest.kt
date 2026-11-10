@@ -195,7 +195,7 @@ class PreviewFileViewersTest {
         assertTrue(CsvFileViewer().newPreview().exports.isEmpty())
         assertEquals(listOf("HTML"), MarkdownFileViewer().newPreview().exports.map { it.label })
         assertEquals(
-            listOf("PNG 100%", "PNG 200%", "PNG 300%"),
+            listOf("PNG 100%", "PNG 200%", "PNG 300%", "PNG Custom…"),
             SvgFileViewer().newPreview().exports.map { it.label },
         )
     }

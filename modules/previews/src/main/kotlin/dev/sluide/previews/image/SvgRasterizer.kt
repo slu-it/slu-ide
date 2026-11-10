@@ -37,6 +37,12 @@ internal fun interface SvgRasterizer {
     ): BufferedImage
 }
 
+/** Reads the natural size of an SVG (its preview's 100%); blocking, never on the FX thread. */
+internal fun interface SvgMeasurer {
+    @Throws(IOException::class)
+    fun measure(svg: ByteArray): Pair<Int, Int>
+}
+
 /**
  * Draws with the preview's WebKit: the SVG is an `<img>` (so its scripts never run) in an offscreen [WebView], laid out
  * at the [PngSize] (relative to `naturalWidth` × `naturalHeight`, the preview's 100%), so that the vector stays sharp,
@@ -49,11 +55,13 @@ internal fun interface SvgRasterizer {
  * by piece, so that large images need no large render textures.
  * Fails if no window shows whose root is a [Pane], if the text is not an SVG image, if a side would exceed [MAX_SIDE]
  * pixels or the image [MAX_PIXELS] pixels, or if the drawing is not done within [timeout].
+ * It also [measure]s an SVG: the same view loads the page and only reads the natural size, without drawing.
  */
 internal class WebViewSvgRasterizer(
     private val timeout: Duration = Duration.ofSeconds(30),
     private val tile: Int = TILE,
-) : SvgRasterizer {
+) : SvgRasterizer,
+    SvgMeasurer {
     init {
         require(tile >= 1) { "Tile $tile" }
     }
@@ -61,7 +69,16 @@ internal class WebViewSvgRasterizer(
     override fun rasterize(
         svg: ByteArray,
         size: PngSize,
-    ): BufferedImage {
+    ): BufferedImage = run(svg, size) as BufferedImage
+
+    @Suppress("UNCHECKED_CAST")
+    override fun measure(svg: ByteArray): Pair<Int, Int> = run(svg, null) as Pair<Int, Int>
+
+    /** Draws [svg] at [size], or reads its natural size if [size] is null. */
+    private fun run(
+        svg: ByteArray,
+        size: PngSize?,
+    ): Any {
         check(!Platform.isFxApplicationThread()) { "Rasterising blocks; not on the FX thread" }
         val session = Session(page(svg), size, tile)
         Platform.runLater { session.failOnError(session::start) }
@@ -84,18 +101,18 @@ internal class WebViewSvgRasterizer(
 
     /**
      * One call's view, on the FX thread: loads the [page], sizes the image at [size] and the view at a [tile] of it
-     * once it is loaded, and draws the image tile by tile, row by row: it shifts the image so that the tile is at the
-     * view's top left and snapshots the view from the [MIN_PULSES]th pulse after the shift on until two snapshots of
+     * once it is loaded (a null [size] only reads the natural size, as a `Pair` of ints, and draws nothing), and draws
+     * the image tile by tile, row by row: it shifts the image so that the tile is at the view's top left and snapshots the view from the [MIN_PULSES]th pulse after the shift on until two snapshots of
      * the tile agree (a paint can take more than one pulse), at the [MAX_PULSES]th at the latest (an animated SVG
      * never settles). A blank snapshot is not taken as settled, since the view is blank until its first paint: a
      * fully transparent tile takes [MAX_PULSES] pulses. The [result] is the image of the tiles' last snapshots.
      */
     private class Session(
         private val page: String,
-        private val size: PngSize,
+        private val size: PngSize?,
         private val tile: Int,
     ) {
-        val result = CompletableFuture<BufferedImage>()
+        val result = CompletableFuture<Any>()
         private var webView: WebView? = null
         private var host: Group? = null
         private var timer: AnimationTimer? = null
@@ -147,6 +164,11 @@ internal class WebViewSvgRasterizer(
                 listOf("naturalWidth", "naturalHeight").map {
                     (engine.executeScript("document.getElementById('svg').$it") as? Number)?.toLong() ?: 0
                 }
+            if (size == null) {
+                if (naturalWidth <= 0 || naturalHeight <= 0) return fail("Not an SVG image")
+                result.complete(naturalWidth.toInt() to naturalHeight.toInt())
+                return
+            }
             val (width, height) =
                 try {
                     checkedSize(naturalWidth, naturalHeight, size)
@@ -301,6 +323,15 @@ internal class WebViewSvgRasterizer(
     }
 }
 
+/** Whether [width] × [height] px exceeds [WebViewSvgRasterizer.MAX_SIDE] on a side or [WebViewSvgRasterizer.MAX_PIXELS]. */
+internal fun exceedsLimits(
+    width: Long,
+    height: Long,
+): Boolean =
+    width > WebViewSvgRasterizer.MAX_SIDE ||
+        height > WebViewSvgRasterizer.MAX_SIDE ||
+        width * height > WebViewSvgRasterizer.MAX_PIXELS
+
 /**
  * The size in pixels of an image of [naturalWidth] × [naturalHeight] drawn at [size].
  *
@@ -314,10 +345,7 @@ internal fun checkedSize(
 ): Pair<Int, Int> {
     if (naturalWidth <= 0 || naturalHeight <= 0) throw IOException("Not an SVG image")
     val (width, height) = size.pixels(naturalWidth, naturalHeight)
-    if (width > WebViewSvgRasterizer.MAX_SIDE ||
-        height > WebViewSvgRasterizer.MAX_SIDE ||
-        width * height > WebViewSvgRasterizer.MAX_PIXELS
-    ) {
+    if (exceedsLimits(width, height)) {
         val at = (size as? PngSize.Scale)?.let { " at ${it.factor * 100}%" }.orEmpty()
         throw IOException("Too large$at: $width × $height px")
     }

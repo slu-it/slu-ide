@@ -80,7 +80,7 @@ updated when the summary or keywords no longer fit.
 | [0056](adr/0056-http-client-setup-from-the-explorer.md) | New HTTP Client Setup as a window-contributed explorer folder action | `FolderAction`, `HttpClientSetup`, env files, `example.http` | |
 | [0057](adr/0057-visual-environment-editor.md) | Split JSON/visual editor for HTTP client environment files | `http-client.env.json`, env editor, tree table, private value locks, `TextEditableView`, `NamedFileViewer` |  |
 | [0058](adr/0058-markdown-html-export.md) | Self-contained Markdown HTML export reusing the preview renderer | Markdown export, HTML, math, Mermaid, offscreen WebEngine, `<name>.css` | |
-| [0059](adr/0059-svg-export-as-png.md) | SVG to PNG at 100/200/300 % via a hidden WebView | SVG, PNG export, `FileExport`, Export menu, `@2x` | |
+| [0059](adr/0059-svg-export-as-png.md) | SVG to PNG at 100/200/300 % or a custom size via a hidden WebView | SVG, PNG export, `FileExport`, Export menu, `@2x`, custom size, `-32x32`, favicon, `PngSize` | |
 | [0060](adr/0060-logging-conventions.md) | Logging conventions; every git command numbered | logging, log levels, `git#n`, stderr, FX watchdog | amends 0013; see 0051, 0061 |
 | [0061](adr/0061-background-tasks.md) | Per-window background-task registry shown under the explorer | `BackgroundTasks`, `background-tasks`, cancel, `withdrawCancel`, `BackgroundTasks.forTests`, progress, `BackgroundTask.progress` | amended by 0106 |
 | [0062](adr/0062-git-concurrency.md) | Which git work runs in parallel and which is queued | git concurrency, threads, `sluide-git-diff`, `diffAsync`, `GitCancellation`, `.git` stamps, write holds | amends 0013, 0015, 0021, 0035, 0041, 0053 |
@@ -222,7 +222,7 @@ updated when the summary or keywords no longer fit.
 | [json-preview.md](features/json-preview.md) | Formatted, foldable view of JSON | `.json`, `.jsonc`, folds, Collapse All, Copy Formatted |
 | [xml-preview.md](features/xml-preview.md) | Formatted, foldable view of XML | `.xml`, `.xsd`, `.fxml`, folds, Copy Formatted |
 | [yaml-preview.md](features/yaml-preview.md) | Formatted, foldable view of YAML | `.yml`, `.yaml`, anchors, `---` documents, Copy Formatted |
-| [svg-png-export.md](features/svg-png-export.md) | SVG exported as PNG at 100/200/300 % | Export → PNG, `@2x`, `@3x`, transparent background |
+| [svg-png-export.md](features/svg-png-export.md) | SVG exported as PNG at 100/200/300 % or a custom size (locked ratio) | Export → PNG, `@2x`, `@3x`, PNG Custom…, custom size, `-32x32`, favicon, transparent background |
 | [github-actions-graph.md](features/github-actions-graph.md) | Graph preview of GitHub Actions workflows | `.github/workflows`, jobs, `needs`, `uses:`, Fetch References, click to source |
 
 ### Git

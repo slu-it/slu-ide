@@ -11,6 +11,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 
 class SvgPngExportTest {
@@ -59,6 +60,13 @@ class SvgPngExportTest {
         assertEquals(8 to 6, image.width to image.height)
         assertEquals(0xffff0000.toInt(), image.getRGB(0, 0))
         assertEquals(0, image.getRGB(1, 0) ushr 24)
+    }
+
+    @Test
+    fun `the custom item is named for its dialog and writes nothing itself`() {
+        val custom = CustomSvgPngExport({ 1 to 1 }, rasterizer)
+        assertEquals("PNG Custom…", custom.label)
+        assertFailsWith<IllegalStateException> { custom.target(Path("/a/logo.svg")) }
     }
 
     @Test

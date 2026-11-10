@@ -17,6 +17,7 @@ import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignE
 import java.io.IOException
 import java.nio.file.Path
+import java.util.concurrent.CompletionException
 import kotlin.io.path.exists
 
 private val log = System.getLogger(ExportControls::class.java.name)
@@ -26,7 +27,7 @@ private val log = System.getLogger(ExportControls::class.java.name)
  * the file. An existing target is only replaced after asking. The export is written off the FX thread (it may download
  * images or render offscreen); the button is disabled meanwhile. Problems (an error, or what the export lacks, such as
  * images not embedded) are reported in a dialog; a clean export is not.
- * Everything but the writing runs on the FX thread.
+ * Everything but the writing runs on the FX thread. An item may first ask for settings ([FileExport.choose]).
  *
  * The writing is a task of the window's [tasks] (ADR 0061), "Exporting <file> as <item>", started on its thread; it
  * fails with the reason of a file or network problem, or the exception of anything else. Without a window's tasks
@@ -56,9 +57,46 @@ internal class ExportControls(
     /** Tells the user [message]; tests replace it, since it blocks. */
     var report: (String) -> Unit = ::showReport
 
-    /** Writes [fileExport]'s export of the saved text, after asking if the target exists. */
+    /**
+     * Writes the export of the saved text that [fileExport] [chooses][FileExport.choose], after asking if the target
+     * exists. If the choice is not made at once (a dialog, a measurement), the button is disabled meanwhile; a
+     * cancelled choice does nothing, a failed one is reported.
+     */
     fun export(fileExport: FileExport) {
         val source = file()
+        val choice = fileExport.choose(source, owner())
+        val future = choice.toCompletableFuture()
+        if (future.isDone && !future.isCompletedExceptionally) {
+            future.getNow(null)?.let { write(it, source) }
+            return
+        }
+        button.isDisable = true
+        choice.whenComplete { chosen, error ->
+            Platform.runLater {
+                button.isDisable = false
+                when {
+                    error != null -> {
+                        val cause = (error as? CompletionException)?.cause ?: error
+                        log.log(
+                            if (cause is IOException) System.Logger.Level.WARNING else System.Logger.Level.ERROR,
+                            "Choosing the export of $source failed",
+                            cause,
+                        )
+                        report("Could not export ${source.fileName}: ${cause.message ?: cause.javaClass.simpleName}")
+                    }
+
+                    chosen != null -> {
+                        write(chosen, source)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun write(
+        fileExport: FileExport,
+        source: Path,
+    ) {
         val target = fileExport.target(source)
         if (target.exists() && !confirmOverwrite(target)) return
         val text = savedText()

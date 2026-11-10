@@ -192,6 +192,28 @@ class SvgRasterizerUiTest {
     }
 
     @Test
+    fun `measuring gives the natural size`() {
+        val sized = "<svg xmlns='http://www.w3.org/2000/svg' width='30' height='20'/>"
+        val viewBoxOnly = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 25'/>"
+        assertEquals(30 to 20, rasterizer.measure(sized.toByteArray()))
+        val (width, height) = rasterizer.measure(viewBoxOnly.toByteArray())
+        assertTrue(width > 0 && height > 0, "$width × $height")
+        val failure = assertFailsWith<IOException> { rasterizer.measure("text".toByteArray()) }
+        assertEquals("Not an SVG image", failure.message)
+    }
+
+    @Test
+    fun `a size in pixels draws exactly that size`() {
+        val large =
+            "<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'>" +
+                "<rect width='100' height='200' fill='red'/></svg>"
+        val image = rasterizer.rasterize(large.toByteArray(), PngSize.Pixels(32, 32))
+        assertEquals(32 to 32, image.width to image.height)
+        assertEquals(0xffff0000.toInt(), image.getRGB(4, 16))
+        assertEquals(0, image.getRGB(28, 16) ushr 24)
+    }
+
+    @Test
     fun `an image drawn in tiles equals the image drawn in one`() {
         // At 300% the tiles are larger, to keep the number of snapshots down; their borders are crossed all the same.
         for ((scale, tile) in listOf(1 to 64, 3 to 128)) {
