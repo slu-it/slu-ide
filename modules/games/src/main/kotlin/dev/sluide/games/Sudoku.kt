@@ -2,6 +2,7 @@ package dev.sluide.games
 
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.sudoku.Generator
 import dev.sluide.games.sudoku.SudokuModel
 import dev.sluide.games.sudoku.SudokuPreferences
@@ -25,14 +26,17 @@ class Sudoku internal constructor(
     private val tabFactory: (SudokuModel) -> EditorTab,
 ) {
     @Autowired
-    constructor(preferences: SudokuPreferences) : this(
+    constructor(
+        preferences: SudokuPreferences,
+        zoomPreferences: GameZoomPreferences,
+    ) : this(
         SudokuModel(
             preferences,
             Generator()::generate,
             NamedThreads.single("sluide-sudoku-generator"),
             Platform::runLater,
         ),
-        { SudokuTab(SudokuView(it)) },
+        { SudokuTab(SudokuView(it, zoomPreferences)) },
     )
 
     /** Shows the Sudoku tab of the window (opening it if needed); set by ide. */

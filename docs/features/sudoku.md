@@ -147,6 +147,7 @@ Medium and no best time; other fields of `sudoku` stay as they are. Written a mo
 ## Scaling
 The cell size follows the tab between 28 and 64 pixels and the pad and the fonts with it. The Paused overlay and the
 Generating text never change the board's size.
+Zoom: 25%–200% relative to Fit, see [game-zoom.md](game-zoom.md).
 
 ## Not included
 Resuming after a restart, statistics per level, a hint that explains the step, digit-first input on the pad, a mode

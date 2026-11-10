@@ -1,7 +1,11 @@
 package dev.sluide.games.sudoku.ui
 
 import dev.sluide.fileviewers.FocusWhenShown
+import dev.sluide.games.common.GameZoomPreferences
+import dev.sluide.games.common.ZoomRange
 import dev.sluide.games.common.formatTime
+import dev.sluide.games.common.ui.FitArea
+import dev.sluide.games.common.ui.GameZoomControls
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.TabVisibility
 import dev.sluide.games.common.ui.focusBoardOnPress
@@ -15,9 +19,9 @@ import dev.sluide.games.sudoku.SudokuModel
 import dev.sluide.games.sudoku.SudokuSize
 import dev.sluide.games.sudoku.boardLayout
 import dev.sluide.games.sudoku.keyAction
+import dev.sluide.games.sudoku.zoomedCell
 import javafx.animation.KeyFrame
 import javafx.animation.Timeline
-import javafx.geometry.Bounds
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Node
@@ -38,16 +42,22 @@ import javafx.util.Duration
 
 /**
  * The Sudoku tab: toolbar, board with the number pad, status line and the pause overlay. It only shows [model] and
- * forwards input; the view that shows a model owns its callbacks until [dispose].
+ * forwards input; the view that shows a model owns its callbacks until [dispose]. The zoom (ADR 0155) is read from
+ * and saved to [zoomPreferences].
  */
 internal class SudokuView(
     private val model: SudokuModel,
+    zoomPreferences: GameZoomPreferences,
 ) {
     /** Asks a question with a [verb] button and Cancel (the default); true for the verb. Tests replace it. */
     internal var confirm: (title: String, header: String, verb: String, content: String) -> Boolean = ::askConfirm
 
     internal val board = BoardView()
     internal val pad = PadView()
+    internal val zoomControls =
+        GameZoomControls(ZoomRange.ABOVE_FIT, zoomPreferences.zoom(GAME_ID, ZoomRange.ABOVE_FIT)) {
+            zoomPreferences.setZoom(GAME_ID, it)
+        }
     private val toolbar =
         SudokuToolbar(
             ToolbarActions(
@@ -62,6 +72,7 @@ internal class SudokuView(
                 chooseSize = ::chooseSize,
                 chooseLevel = ::chooseLevel,
             ),
+            zoomControls,
         )
     internal val sizeMenu get() = toolbar.sizeMenu
     internal val levelMenu get() = toolbar.levelMenu
@@ -121,8 +132,13 @@ internal class SudokuView(
     internal var padBeside: Boolean = true
         private set
     private var arranged: Boolean? = null
-    private var bounds: Bounds? = null
+    private var zoom = 1.0
     private var disposed = false
+
+    internal val scrollPane = ScrollPane()
+
+    /** The Fit size comes from the scroll pane's inside; the zoomed cells are the content's minimum size. */
+    private val fitArea = FitArea(scrollPane) { refresh() }
 
     val node: Node =
         BorderPane().apply {
@@ -131,15 +147,12 @@ internal class SudokuView(
                 checkNotNull(SudokuView::class.java.getResource("/dev/sluide/games/sudoku/sudoku.css")).toExternalForm()
             top = toolbar.node
             center =
-                ScrollPane(content).apply {
+                scrollPane.apply {
+                    this.content = this@SudokuView.content
                     styleClass += "sdk-scroll"
                     isFitToWidth = true
                     isFitToHeight = true
                     isFocusTraversable = false
-                    viewportBoundsProperty().addListener { _, _, b ->
-                        bounds = b
-                        refresh()
-                    }
                 }
             bottom = HBox(status).apply { styleClass += "sdk-status-bar" }
         }
@@ -171,7 +184,11 @@ internal class SudokuView(
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
         focusBoardOnPress(node, board)
         model.ensureGame()
-        refresh()
+        zoomControls.zoom.subscribe { value ->
+            zoom = value.toDouble()
+            refresh()
+        }
+        zoomControls.install(node)
     }
 
     private fun act(action: () -> Unit) {
@@ -277,14 +294,19 @@ internal class SudokuView(
         toolbar.timer.text = formatTime(model.elapsedMillis)
     }
 
-    /** Sizes the cells for the viewport and puts the pad beside or below the board. */
+    /** Sizes the cells (the Fit size of the scroll pane's inside times the zoom) and puts the pad beside or below the board. */
     private fun layoutBoard(): BoardLayout {
-        val b = bounds
         val layout =
-            if (b == null) {
-                BoardLayout(MIN_CELL, true)
+            if (scrollPane.width <= 0.0 || scrollPane.height <= 0.0) {
+                // Not laid out yet.
+                BoardLayout(zoomedCell(MIN_CELL, zoom), true)
             } else {
-                boardLayout(b.width - 2 * PADDING - SLACK, b.height - 2 * PADDING - SLACK, model.size)
+                boardLayout(
+                    fitArea.innerWidth - 2 * PADDING - SLACK,
+                    fitArea.innerHeight - 2 * PADDING - SLACK,
+                    model.size,
+                    zoom,
+                )
             }
         padBeside = layout.padBeside
         val box: Pane = if (layout.padBeside) besideBox else belowBox
@@ -334,6 +356,7 @@ internal class SudokuView(
     }
 
     private companion object {
+        const val GAME_ID = "sudoku"
         const val TICK_MILLIS = 200.0
         const val PADDING = 8.0
 

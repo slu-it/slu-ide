@@ -1,6 +1,7 @@
 package dev.sluide.games.sudoku.ui
 
 import dev.sluide.fileviewers.WrappingToolbar
+import dev.sluide.games.common.ui.GameZoomControls
 import dev.sluide.games.sudoku.Level
 import dev.sluide.games.sudoku.SudokuSize
 import javafx.scene.control.Button
@@ -29,6 +30,7 @@ internal class ToolbarActions(
 /** The Sudoku toolbar: the controls, which [SudokuView] updates; the clicks go to [actions]. */
 internal class SudokuToolbar(
     actions: ToolbarActions,
+    zoomControls: GameZoomControls,
 ) {
     val sizeMenu = MenuButton()
     val levelMenu = MenuButton()
@@ -82,7 +84,7 @@ internal class SudokuToolbar(
                 hintButton,
                 pauseButton,
             )
-            trailing.setAll(timer)
+            trailing.setAll(timer, zoomControls.node)
             styleClass += "sdk-toolbar"
         }
 

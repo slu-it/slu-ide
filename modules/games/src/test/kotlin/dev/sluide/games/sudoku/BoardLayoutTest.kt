@@ -37,6 +37,24 @@ class BoardLayoutTest {
     }
 
     @Test
+    fun `the zoom scales the Fit cell, limits included, to at least 1 px`() {
+        assertEquals(55.0, boardLayout(900.0, 500.0, SudokuSize.NINE, zoom = 1.0).cell)
+        assertEquals(27.0, boardLayout(900.0, 500.0, SudokuSize.NINE, zoom = 0.5).cell)
+        assertEquals(110.0, boardLayout(900.0, 500.0, SudokuSize.NINE, zoom = 2.0).cell)
+        assertEquals(2 * MAX_CELL, boardLayout(3000.0, 3000.0, SudokuSize.FOUR, zoom = 2.0).cell)
+        assertEquals(MIN_CELL / 4, boardLayout(100.0, 100.0, SudokuSize.NINE, zoom = 0.25).cell)
+        assertEquals(1.0, boardLayout(0.0, 0.0, SudokuSize.NINE, zoom = 0.01).cell)
+    }
+
+    @Test
+    fun `the arrangement is that of the Fit cell at any zoom`() {
+        assertTrue(boardLayout(900.0, 500.0, SudokuSize.NINE, zoom = 2.0).padBeside)
+        assertFalse(boardLayout(400.0, 900.0, SudokuSize.NINE, zoom = 2.0).padBeside)
+        assertEquals(88.0, boardLayout(400.0, 900.0, SudokuSize.NINE, zoom = 2.0).cell)
+        assertFalse(boardLayout(400.0, 900.0, SudokuSize.NINE, zoom = 0.5).padBeside)
+    }
+
+    @Test
     fun `a small grid gets bigger cells than a large one in the same area`() {
         assertTrue(boardLayout(600.0, 500.0, SudokuSize.FOUR).cell > boardLayout(600.0, 500.0, SudokuSize.NINE).cell)
     }

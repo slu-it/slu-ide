@@ -1,7 +1,10 @@
 package dev.sluide.games.sudoku.ui
 
 import dev.sluide.games.common.GameClock
+import dev.sluide.games.common.GameZoomPreferences
+import dev.sluide.games.common.ZoomRange
 import dev.sluide.games.common.ui.firePress
+import dev.sluide.games.common.ui.keyPress
 import dev.sluide.games.sudoku.Cell
 import dev.sluide.games.sudoku.Generator
 import dev.sluide.games.sudoku.Grid
@@ -22,6 +25,7 @@ import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
+import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import javafx.util.Duration
@@ -53,6 +57,7 @@ class SudokuViewUiTest {
     lateinit var dir: Path
 
     private lateinit var model: SudokuModel
+    private lateinit var zoomPreferences: GameZoomPreferences
     private lateinit var view: SudokuView
     private lateinit var stage: Stage
     private val asked = mutableListOf<List<String>>()
@@ -76,7 +81,8 @@ class SudokuViewUiTest {
                 sync,
                 GameClock(),
             )
-        view = SudokuView(model)
+        zoomPreferences = GameZoomPreferences(store, java.time.Duration.ZERO) { it.run() }
+        view = SudokuView(model, zoomPreferences)
         view.flashDuration = Duration.ZERO
         view.confirm = { title, header, verb, content ->
             asked += listOf(title, header, verb, content)
@@ -447,7 +453,7 @@ class SudokuViewUiTest {
     fun `a disposed view leaves both callbacks to the view that took over and pauses the game`(robot: FxRobot) {
         lateinit var second: SudokuView
         robot.interact {
-            second = SudokuView(model)
+            second = SudokuView(model, zoomPreferences)
             second.flashDuration = Duration.seconds(5.0)
             view.dispose()
             stage.scene.root = VBox(decoy, second.node)
@@ -464,5 +470,36 @@ class SudokuViewUiTest {
         robot.interact { second.dispose() }
 
         assertTrue(fx { model.hidden })
+    }
+
+    @Test
+    fun `the zoom resizes the cells, is saved and scrolls above Fit, and Shortcut+0 fits instead of erasing`(
+        robot: FxRobot,
+    ) {
+        fun cell(): Double {
+            fx {
+                view.node.scene.root
+                    .layout()
+            }
+            return fx { (view.board.cellRoot(empty) as Region).minWidth }
+        }
+        val fit = cell()
+        click(robot, empty)
+        press(robot, KeyCode.DIGIT3)
+
+        // At the board: the keys work anywhere in the tab.
+        robot.interact { Event.fireEvent(view.board, keyPress(KeyCode.PLUS)) }
+        assertTrue(cell() > fit)
+        robot.interact { view.zoomControls.zoomTo(2.0) }
+        assertEquals(2 * fit, cell())
+        assertEquals(2.0, fx { zoomPreferences.zoom("sudoku", ZoomRange.ABOVE_FIT) })
+        assertTrue(fx { view.scrollPane.content.layoutBounds.width > view.scrollPane.viewportBounds.width })
+
+        // Plain 0 is Erase; with Shortcut it is Fit.
+        robot.interact { Event.fireEvent(view.board, keyPress(KeyCode.DIGIT0)) }
+        assertEquals(fit, cell())
+
+        val next = fx { SudokuView(model, zoomPreferences).also { it.dispose() } }
+        assertEquals(1.0, fx { next.zoomControls.zoom.get() })
     }
 }
