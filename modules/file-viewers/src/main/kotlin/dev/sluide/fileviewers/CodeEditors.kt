@@ -3,6 +3,8 @@ package dev.sluide.fileviewers
 import dev.sluide.fileviewers.code.CodeView
 import dev.sluide.fileviewers.code.TextAreaEditor
 import dev.sluide.fileviewers.code.codeStyleSpans
+import dev.sluide.fileviewers.code.installMacTextKeys
+import dev.sluide.fileviewers.code.onMac
 import dev.sluide.textediting.CommentSyntax
 import javafx.beans.value.ObservableValue
 import javafx.collections.ListChangeListener
@@ -291,10 +293,13 @@ private class AreaTextEditor(
     ) = editor.selectRange(start, end)
 }
 
-private class AreaDisplay : CodeDisplay {
+internal class AreaDisplay(
+    macKeys: Boolean = onMac,
+) : CodeDisplay {
     private val area =
         CodeArea().apply {
             isEditable = false
+            installMacTextKeys(this, macKeys)
             paragraphGraphicFactory = LineNumberFactory.get(this)
         }
 

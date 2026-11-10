@@ -82,6 +82,7 @@ internal class CodeView(
     highlightPause: Duration = HIGHLIGHT_PAUSE,
     followPause: Duration = FOLLOW_PAUSE,
     ownToolbar: Boolean = false,
+    macKeys: Boolean = onMac,
     private val dispatch: (Runnable) -> Unit = Platform::runLater,
 ) : EditableFileView,
     TextEditableView,
@@ -245,6 +246,7 @@ internal class CodeView(
         undoManager.forgetHistory()
         undoManager.mark()
         indentStyle = IndentStyle.forFile(file, savedText, defaultIndent)
+        installMacTextKeys(area, macKeys)
         Nodes.addInputMap(area, editorKeys(area, { indentStyle }, comment))
         Nodes.addInputMap(area, findBar.keys)
         Nodes.addInputMap(area, goToLine.keys)

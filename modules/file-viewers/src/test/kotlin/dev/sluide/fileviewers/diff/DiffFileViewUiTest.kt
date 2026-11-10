@@ -374,4 +374,20 @@ class DiffFileViewUiTest {
         assertEquals(current.removeSuffix("\n"), right.text.trimEnd('\n'))
         assertTrue(right.paragraphClasses().all { it.isEmpty() })
     }
+
+    @Test
+    fun `cmd left goes to the line start in both sides when the mac text keys are on`(robot: FxRobot) {
+        val view = fx { SideBySideDiffView(CurrentText.Fixed("val one = 1\n"), null, diff, macKeys = true) }
+        robot.interact { container.children.setAll(view.node) }
+        val areas = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).toList()
+        assertEquals(2, areas.size)
+
+        for (area in areas) {
+            robot.interact { area.moveTo(0, 5) }
+            robot.press(area, KeyCode.LEFT, meta = true)
+            assertEquals(0, area.caretPosition)
+        }
+    }
+
+    private fun <T> fx(block: () -> T): T = WaitForAsyncUtils.asyncFx(block).get()
 }

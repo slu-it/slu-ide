@@ -8,6 +8,8 @@ import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.fileviewers.alignDiff
 import dev.sluide.fileviewers.code.codeStyleSpans
+import dev.sluide.fileviewers.code.installMacTextKeys
+import dev.sluide.fileviewers.code.onMac
 import dev.sluide.fileviewers.code.overlayRanges
 import dev.sluide.fileviewers.textLines
 import dev.sluide.textediting.decodeTextLeniently
@@ -64,6 +66,7 @@ internal class SideBySideDiffView(
     private val current: CurrentText,
     private val highlighter: SyntaxHighlighter?,
     private var diff: TextDiff,
+    private val macKeys: Boolean = onMac,
 ) : DiffFileView {
     private val left = Side()
     private val right = Side()
@@ -277,7 +280,11 @@ internal class SideBySideDiffView(
 
     /** One side: a title above a code area. */
     private inner class Side {
-        val area = CodeArea().apply { isEditable = false }
+        val area =
+            CodeArea().apply {
+                isEditable = false
+                installMacTextKeys(this, macKeys)
+            }
         val pane = VirtualizedScrollPane(area).apply { styleClass += "code-view" }
         private val title = Label().apply { styleClass += "diff-title" }
         val box = BorderPane(pane).apply { top = title }

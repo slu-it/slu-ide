@@ -279,6 +279,18 @@ class EditorKeysUiTest {
         assertEquals(text, view.area.text)
     }
 
+    @Test
+    fun `cmd left goes to the line start when the mac text keys are on`(robot: FxRobot) {
+        val file = dir.resolve("Main.kt").apply { writeText("fun f() {}") }
+        val view = WaitForAsyncUtils.asyncFx<CodeView> { CodeView(file, null, macKeys = true) }.get()
+        robot.interact { container.children.setAll(view.node) }
+        view.select(5, robot = robot)
+
+        robot.press(view.area, KeyCode.LEFT, meta = true)
+
+        assertEquals(0, view.area.caretPosition)
+    }
+
     /** Presses Shortcut+Shift+7, which unlike Shortcut+/ is matched by the key on every platform. */
     private fun FxRobot.pressToggleComment(view: CodeView) {
         press(view.area, KeyCode.DIGIT7, shortcut = true, shift = true)

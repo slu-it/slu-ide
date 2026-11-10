@@ -332,4 +332,19 @@ class CodeEditorUiTest {
         assertEquals(before, editor.text)
         assertFalse(editor.dirty.get())
     }
+
+    @Test
+    fun `a display moves by line with cmd left when the mac text keys are on`(robot: FxRobot) {
+        val display = WaitForAsyncUtils.asyncFx<CodeDisplay> { AreaDisplay(macKeys = true) }.get()
+        robot.interact {
+            container.children.setAll(display.node)
+            display.show("abc def\n", null)
+        }
+        val area = robot.area()
+        robot.interact { area.moveTo(4) }
+
+        robot.press(area, KeyCode.LEFT, meta = true)
+
+        assertEquals(0, area.caretPosition)
+    }
 }

@@ -470,5 +470,18 @@ class TextAreaEditorUiTest {
         return bounds != null && bounds.minY >= -3 && bounds.maxY <= editor.area.height + 3
     }
 
+    @Test
+    fun `cmd left goes to the line start when the mac text keys are on`(robot: FxRobot) {
+        val editor = fx { TextAreaEditor("some text", null, macKeys = true) }
+        robot.interact {
+            container.children.setAll(editor.node)
+            editor.area.moveTo(5)
+        }
+
+        robot.press(editor.area, KeyCode.LEFT, meta = true)
+
+        assertEquals(0, editor.area.caretPosition)
+    }
+
     private fun <T> fx(block: () -> T): T = WaitForAsyncUtils.asyncFx(block).get()
 }

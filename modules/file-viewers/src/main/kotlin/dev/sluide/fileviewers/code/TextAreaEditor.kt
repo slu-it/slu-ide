@@ -28,6 +28,7 @@ internal class TextAreaEditor(
     comment: CommentSyntax = CommentSyntax.NONE,
     indentStyle: IndentStyle = IndentStyle.DEFAULT,
     private val highlightPause: Duration = HIGHLIGHT_PAUSE,
+    macKeys: Boolean = onMac,
     private val dispatch: (Runnable) -> Unit = Platform::runLater,
 ) {
     val area = CodeArea()
@@ -102,6 +103,7 @@ internal class TextAreaEditor(
         area.undoManager = UndoUtils.plainTextUndoManager(area)
         area.replaceText(text)
         area.undoManager.forgetHistory()
+        installMacTextKeys(area, macKeys)
         Nodes.addInputMap(area, editorKeys(area, { indentStyle }, comment))
         area.moveTo(0)
         // An edit makes the marked error and the overlay's ranges stale.
