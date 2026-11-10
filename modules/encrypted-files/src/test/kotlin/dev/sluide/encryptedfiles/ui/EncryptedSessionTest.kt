@@ -495,7 +495,7 @@ class EncryptedSessionTest {
         runUnlock()
 
         assertNull(result)
-        assertEquals("notes.md.sluenc could not be saved. reload failed", late)
+        assertEquals("The password was changed and the file saved, but showing it again failed. reload failed", late)
         assertTrue(old.isZeroed())
         assertSame(keys.last(), session.key)
         assertArrayEquals("changed".toByteArray(), Sluenc.decrypt(disk!!, checkNotNull(session.key)))

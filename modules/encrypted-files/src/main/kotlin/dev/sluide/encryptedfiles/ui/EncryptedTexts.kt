@@ -82,16 +82,19 @@ internal fun lockAllQuestion(count: Int): String =
 internal fun saveErrorText(
     name: String,
     e: IOException,
-): String {
-    val reason =
-        when (e) {
-            is NoSuchFileException -> "Its folder does not exist."
-            is AccessDeniedException -> "Access denied."
-            is FileSystemException -> e.reason ?: "The file system refused it."
-            else -> e.message ?: "Unknown error."
-        }
-    return "$name could not be saved. $reason"
-}
+): String = "$name could not be saved. ${ioReason(e)}"
+
+/** Shown in the strip when Change Password wrote the file but the view failed afterwards (e.g. its reload). */
+internal fun changedButFailedText(e: IOException): String =
+    "The password was changed and the file saved, but showing it again failed. ${ioReason(e)}"
+
+private fun ioReason(e: IOException): String =
+    when (e) {
+        is NoSuchFileException -> "Its folder does not exist."
+        is AccessDeniedException -> "Access denied."
+        is FileSystemException -> e.reason ?: "The file system refused it."
+        else -> e.message ?: "Unknown error."
+    }
 
 /** The message of the IOException a save throws when the Replace question was cancelled. */
 internal const val REPLACE_CANCELLED = "Replacing the changed file was cancelled."

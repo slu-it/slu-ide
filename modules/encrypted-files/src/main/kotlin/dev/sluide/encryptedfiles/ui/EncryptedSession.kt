@@ -263,7 +263,7 @@ internal class EncryptedSession(
                 saveUnder()
                 null
             } catch (e: IOException) {
-                saveErrorText(path.fileName.toString(), e)
+                if (writes == before) saveErrorText(path.fileName.toString(), e) else changedButFailedText(e)
             } catch (e: RuntimeException) {
                 log.log(System.Logger.Level.WARNING, "Cannot save under a new password: ${e.javaClass.name}")
                 CHANGE_FAILED
