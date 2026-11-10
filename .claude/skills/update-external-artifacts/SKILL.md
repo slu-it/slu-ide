@@ -1,6 +1,6 @@
 ---
 name: update-external-artifacts
-description: Use when asked to update or bump bundled versions, or to check for newer models, tools or libraries in Thoreau (Kokoro, Opus-MT, KaTeX, Mermaid, workflow parser, Simple Icons, Gradle wrapper, ty, Gradle libraries). Finds the latest upstream version, verifies checksums, changes the pin, runs the tests and reports.
+description: Use when asked to update or bump bundled versions, or to check for newer models, tools or libraries in Thoreau (Kokoro, Opus-MT, KaTeX, Mermaid, workflow parser, Simple Icons, Gradle wrapper, ty, TypeScript, Gradle libraries). Finds the latest upstream version, verifies checksums, changes the pin, runs the tests and reports.
 ---
 
 # Updating external artifacts and libraries
@@ -63,6 +63,17 @@ Per bump: find latest, download and verify, change the pin, run tests, update th
   `docs/external-artifacts.md` (version, sizes). Tests: `verify.sh :modules:python` (`TyToolTest`; run
   `TySmokeTestTest` with `SLUIDE_TEST_TY=<unpacked ty>` for the real smoke test).
   Real-app check: Settings → Languages → Python → Install, then open a Python file.
+- **TypeScript** (language server): latest via `https://registry.npmjs.org/-/package/typescript/dist-tags` (`latest`; a few hundred
+  bytes, where the package document is megabytes). The pin is
+  `modules/typescript/src/main/resources/dev/sluide/typescript/typescript-release.properties`: `version` and per
+  Thoreau platform `<platform>.asset` (`typescript-<os>-<arch>-<version>.tgz`), `.bytes`, `.integrity`. Per platform
+  package (`@typescript/typescript-linux-x64`, `-linux-arm64`, `-darwin-arm64`): fetch
+  `https://registry.npmjs.org/@typescript/typescript-<os>-<arch>/<version>` for `dist.tarball` and `dist.integrity`,
+  download the tarball into a fresh folder (`curl -L`), recompute `openssl dgst -sha512 -binary f.tgz | base64` and
+  compare it with `dist.integrity`, take `.bytes` from `stat`, and check that the archive still holds
+  `package/lib/tsc` (`tar -tzf`). Update the properties and the TypeScript section of `docs/external-artifacts.md`
+  (version, sizes, date). Tests: `verify.sh :modules:typescript` with `SLUIDE_TEST_TSC=<unpacked package/lib/tsc>` for
+  the real smoke test. Real-app check: Settings → Languages → TypeScript → Install, then open a TypeScript file.
 - **CI actions**: check the latest major of each action in `.github/workflows/*.yml` (GitHub `releases/latest` of the
   action's repo); edit all workflow files together. Cannot be tested here; say so in the report.
 - **espeak-ng** is user-installed; nothing to bump.

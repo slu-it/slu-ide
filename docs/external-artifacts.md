@@ -20,6 +20,7 @@ Facts were checked against the repository on 2026-11-07; items marked "unverifie
 | Gradle wrapper | 9.8.1 | build tool | `gradle/wrapper/gradle-wrapper.properties`, vendored `gradle/wrapper/gradle-wrapper.jar` | `distributionSha256Sum`; jar: `gradle-<v>-wrapper.jar.sha256` |
 | espeak-ng | user's installation | external, never bundled | ADR 0124; `modules/speech/src/main/kotlin/dev/sluide/speech/kokoro/EspeakLocator.kt` | none |
 | ty (Python language server) | 0.0.99 | download on click (Settings → Languages → Python) | `modules/python/src/main/resources/dev/sluide/python/ty-release.properties` | bytes + sha256 per platform asset, same file (checked against the `.sha256` files and the GitHub API `digest`); updates: GitHub's `digest` and `size` at runtime |
+| TypeScript language server | 7.0.2 | download on click (Settings → Languages → TypeScript) | `modules/typescript/src/main/resources/dev/sluide/typescript/typescript-release.properties` | bytes + npm SRI `sha512` integrity per platform package tarball, same file (compared with a recomputed sha512 of the download); updates: the registry's `dist.integrity` and the tarball size at runtime |
 | CI tools | see CI section | CI | `.github/workflows/*.yml` | none |
 
 ## Kokoro text-to-speech (Read Aloud)
@@ -110,6 +111,32 @@ new major version is worth a check of `docs/adr/0124-read-aloud-speech.md` ("Pho
 - Tests: `TyToolTest` (reads the pin), `TyInstallerTest`, `TyUpdatesTest` (recorded GitHub answers),
   `TySmokeTestTest` (its real-ty case runs when ty is installed or `SLUIDE_TEST_TY` names one). Feature:
   `docs/features/python.md`; decision: ADR 0144.
+
+## TypeScript language server
+- Source: the npm registry, one package per platform (the native server is not in the `typescript` package):
+  `https://registry.npmjs.org/@typescript/typescript-<os>-<arch>/-/typescript-<os>-<arch>-<version>.tgz`. Version
+  7.0.2, pinned on 2026-11-10.
+- Platforms and packages: linux-x64 `@typescript/typescript-linux-x64` (9,669,334 bytes), linux-aarch64
+  `@typescript/typescript-linux-arm64` (8,900,516 bytes), mac-aarch64 `@typescript/typescript-darwin-arm64`
+  (9,270,373 bytes). The asset name is the tarball's file name and carries the version
+  (`typescript-linux-arm64-7.0.2.tgz`). No pin for macOS on Intel or Windows: the page says "No TypeScript build for
+  this platform" and a custom path still works.
+- Integrity: `typescript-release.properties` holds `version` and per platform `<platform>.asset`, `.bytes`,
+  `.integrity` (npm's `dist.integrity`, `sha512-<base64>`); each was compared with a sha512 recomputed from a
+  downloaded copy (`openssl dgst -sha512 -binary | base64`). The installer checks size and sha512, then runs a smoke
+  test (`tsc --version` printing `Version …`, an LSP `initialize` with `tsc --lsp --stdio`) before it switches. An
+  update from Settings looks up `dist.tarball` and `dist.integrity` of the platform package's version (the tarball must
+  be exactly the registry URL of that package and version) and takes the size from the `Content-Range` total of a
+  ranged `GET` (`Range: bytes=0-0`), because npm publishes no size.
+- The archive is a gzip tar with entries under `package/`; the executable is `package/lib/tsc`, and the `lib.*.d.ts`
+  files beside it must stay. It runs without Node.js and with an empty environment.
+- Installed under `~/.sluide/tools/typescript/<version>/`, the previous version kept for rollback.
+- Licence: Apache-2.0 (the packages' `license` field).
+- Update: at runtime Settings → Languages → TypeScript → Check for Updates (latest from the `latest` dist-tag at
+  `https://registry.npmjs.org/-/package/typescript/dist-tags`; installs for this user only); the pin with the skill (part 1,
+  "TypeScript").
+- Tests: `TypeScriptToolTest` (reads the pin), `NpmUpdatesTest` (fake registry answers), `TypeScriptSmokeTestTest` (its
+  real-tsc case runs when tsc is installed or `SLUIDE_TEST_TSC` names one), `TypeScriptSettingsPageUiTest`.
 
 ## CI
 Versions are major tags, not hashes: `actions/checkout@v6`, `actions/setup-java@v6` (Temurin, Java 25),
