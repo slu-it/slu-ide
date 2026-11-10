@@ -59,6 +59,17 @@ class SettingsUiTest {
         }
     }
 
+    /** A page at [path], e.g. one at a group's own name with another below it, like Editor and Editor › Encrypted Files. */
+    private class NamedPage(
+        override val path: List<String>,
+    ) : SettingsPage {
+        override val node = Label(path.joinToString(" › "))
+
+        override fun load() {}
+
+        override fun apply() {}
+    }
+
     /** A page whose edits cannot be stored. */
     private class FailingPage : SettingsPage {
         override val path = listOf("Broken", "Page")
@@ -119,6 +130,23 @@ class SettingsUiTest {
 
         close(robot, dialog, ButtonType.CANCEL)
         assertEquals(0, other.applied)
+    }
+
+    @Test
+    fun `a page also serves as the parent of the pages below its name`(robot: FxRobot) {
+        val editor = NamedPage(listOf("Editor"))
+        val child = NamedPage(listOf("Editor", "Encrypted Files"))
+        val dialog = open(robot, child, editor)
+
+        val items = dialog.tree.root.children
+        assertEquals(listOf("Editor"), items.map { it.value.name })
+        assertEquals(listOf("Encrypted Files"), items.single().children.map { it.value.name })
+        robot.interact { dialog.tree.selectionModel.select(items.single()) }
+        assertSame(editor, dialog.shownPage, "selecting Editor shows the Editor page")
+        robot.interact { dialog.select(listOf("Editor", "Encrypted Files")) }
+        assertSame(child, dialog.shownPage)
+
+        close(robot, dialog, ButtonType.CANCEL)
     }
 
     @Test

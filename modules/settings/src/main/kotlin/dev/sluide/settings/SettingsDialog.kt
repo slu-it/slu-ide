@@ -25,10 +25,10 @@ class SettingsDialog(
     private val pages: List<SettingsPage>,
     owner: Window? = null,
 ) : Dialog<ButtonType>() {
-    /** A tree node: a group like "Display" (no page) or a page. */
+    /** A tree node: a group like "Display" (no page) or a page; a page's item also holds the pages below its path. */
     internal class Entry(
         val name: String,
-        val page: SettingsPage?,
+        var page: SettingsPage?,
     ) {
         override fun toString() = name
     }
@@ -112,8 +112,12 @@ class SettingsDialog(
         var parent = tree.root
         page.path.forEachIndexed { index, name ->
             val isPage = index == page.path.lastIndex
+            // A group or a page serves as parent ("Editor" and "Editor › Encrypted Files"); a group that only
+            // children created so far becomes the page's item.
+            val existing = parent.children.firstOrNull { it.value.name == name && (!isPage || it.value.page == null) }
+            if (existing != null && isPage) existing.value.page = page
             parent =
-                parent.children.firstOrNull { !isPage && it.value.page == null && it.value.name == name }
+                existing
                     ?: TreeItem(Entry(name, if (isPage) page else null)).also {
                         it.isExpanded = true
                         parent.children += it

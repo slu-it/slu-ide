@@ -18,6 +18,9 @@ dependencies {
     implementation(project(":modules:background-tasks"))
     // Argon2id derives the key of a password slot (ADR 0162); the JDK has no Argon2.
     implementation(libs.bcprov)
+    // Deliberate module API dependency: the idle lock time is stored in settings.properties and shown on a SettingsPage;
+    // EncryptedFilesSettings is a public bean taking the SettingsStore (ADR 0162).
+    api(project(":modules:settings"))
     implementation(libs.spring.context)
     // The locked pane's and the strip's icons: Material Design Icons, like the other toolbars (ADR 0012).
     implementation(libs.ikonli.javafx)
