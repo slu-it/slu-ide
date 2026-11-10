@@ -75,6 +75,10 @@ dependencies {
     // Python through the language server ty: TySpec, TyInstaller, TyUpdates and Settings → Languages → Python are
     // found by component scan; the page opens release notes in the system browser (ADR 0144).
     implementation(project(":modules:python"))
+    // TypeScript and JavaScript through the TypeScript 7 language server: TypeScriptInstaller, TypeScriptUpdates and
+    // Settings → Languages → TypeScript are found by component scan; the page opens release notes in the system
+    // browser (ADR 0159).
+    implementation(project(":modules:typescript"))
     // Every window has its LanguageServers (specs from Spring, its folder, trust and the FileWatcher), registered as a
     // window service and closed with the window (ADR 0142).
     implementation(project(":modules:language-servers"))

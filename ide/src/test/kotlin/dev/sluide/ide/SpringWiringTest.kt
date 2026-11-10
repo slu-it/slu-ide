@@ -127,6 +127,8 @@ import dev.sluide.translation.engine.LanguageDetector
 import dev.sluide.translation.engine.TranslationEngine
 import dev.sluide.translation.opusmt.OpusMtEngine
 import dev.sluide.translation.settings.TranslationSettingsPage
+import dev.sluide.typescript.TypeScriptUpdates
+import dev.sluide.typescript.settings.TypeScriptSettingsPage
 import org.junit.jupiter.api.io.TempDir
 import org.springframework.beans.factory.config.DependencyDescriptor
 import org.springframework.boot.WebApplicationType
@@ -257,6 +259,8 @@ class SpringWiringTest {
                         TySpec::class.java,
                         TyUpdates::class.java,
                         PythonSettingsPage::class.java,
+                        TypeScriptUpdates::class.java,
+                        TypeScriptSettingsPage::class.java,
                         InstallPrompts::class.java,
                         CodeIntelligenceWiring::class.java,
                         EditorSettingsPage::class.java,
