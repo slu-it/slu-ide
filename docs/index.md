@@ -200,6 +200,7 @@ updated when the summary or keywords no longer fit.
 | [file-explorer.md](features/file-explorer.md) | Project tree with file operations, multi-selection and moves | tree, New File, Rename F2, Delete, drag move, copy/paste, compact folders, Select Opened File, Reveal, Open in Terminal, collapse, stripe, Alt+1 |
 | [scratch-files.md](features/scratch-files.md) | Scratch files of any type under the explorer's Scratches root, also generated ones | New Scratch File, Shortcut+Shift+N, `~/.sluide/scratches`, type picker, generated scratch files, Shortcut+Shift+G, UUID, ULID, password |
 | [file-watching.md](features/file-watching.md) | `FileWatcher` reports folder changes to explorer, editor and git | `FileWatcher`, watches, combined events, macOS polling |
+| [generated-folders.md](features/generated-folders.md) | Which folders count as generated: self-marking folders and the catalogue of build-tool folders per language | generated folders, node_modules, .venv, build, target, CACHEDIR.TAG, pyvenv.cfg, catalogue, `generatedReason` |
 
 ### Editor
 | Feature | Summary | Keywords |
