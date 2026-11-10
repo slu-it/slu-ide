@@ -17,6 +17,7 @@ internal class TestSpec(
     /** Whether the gate is asked; [gates] answers it. */
     override val gatesDocuments: Boolean = false,
     private val gates: (file: Path, projectFolder: Path) -> DocumentGate = { _, _ -> DocumentGate.SERVED },
+    private val keeps: (file: Path) -> Boolean = { false },
 ) : LanguageServerSpec {
     override val name = "Test"
 
@@ -43,4 +44,6 @@ internal class TestSpec(
         file: Path,
         projectFolder: Path,
     ) = gates(file, projectFolder)
+
+    override fun keepsDiagnostics(file: Path) = keeps(file)
 }

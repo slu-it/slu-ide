@@ -52,7 +52,7 @@ class LanguageServerSpecTest {
     }
 
     @Test
-    fun `by default no document is gated and the status line is the folder's`() {
+    fun `by default no document is gated, no push kept, no config file named and the status line is the folder's`() {
         val window = Path.of("/work/mono")
         val file = window.resolve("apps/a/main.ts")
         val status = WorkspaceStatus("TypeScript project: apps/a", window.resolve("apps/a"), null)
@@ -75,6 +75,8 @@ class LanguageServerSpecTest {
 
         assertFalse(plain.gatesDocuments)
         assertEquals(DocumentGate.SERVED, plain.gate(file, window))
+        assertFalse(plain.keepsDiagnostics(window.resolve("tsconfig.json")))
+        assertEquals(emptyList(), plain.configFiles(file, window))
         assertEquals(status, folderStatus.workspaceStatus(file, window.resolve("apps/a"), window))
     }
 }

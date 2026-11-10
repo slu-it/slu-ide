@@ -221,6 +221,51 @@ class LanguageServerSessionTest {
     }
 
     @Test
+    fun `pushes for files no editor listens to are kept as the spec says, the latest per file, until a restart`() {
+        val session = session(TestSpec(keeps = { it.fileName.toString() == "tsconfig.json" }))
+        val server = running(session)
+        val config = folder.resolve("tsconfig.json")
+        val shown = folder.resolve("shown/tsconfig.json")
+        val fired = AtomicInteger()
+        session.keptDiagnosticsChanges.addListener { fired.incrementAndGet() }
+        val heard = CopyOnWriteArrayList<String>()
+        session.onDiagnostics(shown) { params ->
+            heard.add(
+                params.diagnostics
+                    .single()
+                    .message.left,
+            )
+        }
+
+        fun messages() = session.keptDiagnostics(config).map { it.message.left }
+
+        server.client.publishDiagnostics(diagnostics(LspUris.of(config), "old"))
+        // Another form of the same URI replaces it.
+        server.client.publishDiagnostics(diagnostics("file:$folder/./tsconfig.json", "new"))
+        server.client.publishDiagnostics(diagnostics(LspUris.of(folder.resolve("other.json")), "dropped"))
+        // A file an editor listens to: its listener gets it, nothing is kept.
+        server.client.publishDiagnostics(diagnostics(LspUris.of(shown), "shown"))
+        // Pushes arrive in order on one reader thread (and are dispatched inline): all before it arrived.
+        awaitTrue("the listened file's push") { heard.isNotEmpty() }
+
+        assertEquals(listOf("new"), messages())
+        assertEquals(emptyList(), session.keptDiagnostics(folder.resolve("other.json")))
+        assertEquals(emptyList(), session.keptDiagnostics(shown))
+        assertEquals(listOf("shown"), heard)
+        assertEquals(2, fired.get())
+
+        server.client.publishDiagnostics(PublishDiagnosticsParams(LspUris.of(config), emptyList()))
+        awaitTrue("removed by an empty push") { messages().isEmpty() }
+        server.client.publishDiagnostics(diagnostics(LspUris.of(config), "again"))
+        awaitTrue("kept again") { messages() == listOf("again") }
+        val before = fired.get()
+
+        session.restart()
+        awaitTrue("cleared by the restart") { messages().isEmpty() }
+        assertEquals(before + 1, fired.get())
+    }
+
+    @Test
     fun `a request slot cancels the request sent before, on the server too, and delivers only the latest`() {
         val session = session()
         val server = running(session)

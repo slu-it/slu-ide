@@ -141,6 +141,26 @@ interface LanguageServerSpec {
     ): DocumentGate = DocumentGate.SERVED
 
     /**
+     * Whether the session keeps what the server publishes for [file], a file no editor listens to
+     * ([LanguageServerSession.keptDiagnostics], ADR 0160): for files the server reports on without them being open (a
+     * project's `tsconfig.json`). Decide by the path alone; called on the connection's reader thread for each such
+     * push. `false` by default: those pushes are dropped.
+     */
+    fun keepsDiagnostics(file: Path): Boolean = false
+
+    /**
+     * The configuration files whose problems concern [file] (its project's nearest config: the TypeScript server reports
+     * an option an `extends` base sets on the project's own `tsconfig.json`), whose
+     * [kept diagnostics][LanguageServerSession.keptDiagnostics] the editor shows (ADR 0160). Not called by the session;
+     * called on the FX thread for each bound editor after a workspace change: keep it to a few small reads. None by
+     * default.
+     */
+    fun configFiles(
+        file: Path,
+        projectFolder: Path,
+    ): List<Path> = emptyList()
+
+    /**
      * A problem of [file]'s environment the editor shows as a notice (a project without a virtual environment), or
      * `null`, the default, for none. Not called by the session; called on the FX thread for each bound editor after
      * every workspace change: keep it to a few small reads.

@@ -19,6 +19,7 @@ import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableValue
 import org.eclipse.lsp4j.ConfigurationItem
+import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams
 import org.eclipse.lsp4j.FileEvent
 import org.eclipse.lsp4j.PublishDiagnosticsParams
@@ -74,6 +75,7 @@ class LanguageServerSession internal constructor(
     private var connectedEpoch: Int? = null
 
     private val changes = Signal()
+    private val kept = KeptDiagnostics()
 
     internal val workspace: WorkspaceFolders =
         WorkspaceFolders(
@@ -122,6 +124,8 @@ class LanguageServerSession internal constructor(
                 dispatch(
                     Runnable {
                         stateWrapper.set(state)
+                        // Pushes for files no editor shows belong to the server that sent them.
+                        if (state != ServerState.Running && !isClosed) kept.clear()
                         if (epoch != null && !isClosed) {
                             connectedEpoch = epoch
                             connectedListeners.callEach("connected") { it() }
@@ -170,6 +174,18 @@ class LanguageServerSession internal constructor(
      * a file that is not open. Changes come with [workspaceChanges]. FX thread.
      */
     fun gateOf(file: Path): DocumentGate? = documents.gateOf(file)
+
+    /**
+     * What the running server last published for [file], a file no editor listens to whose diagnostics the spec keeps
+     * ([LanguageServerSpec.keepsDiagnostics], ADR 0160: a `tsconfig.json`); none if nothing was published, the last
+     * push was empty, or the server stopped or restarts since. Pushes for files an editor listens to
+     * ([onDiagnostics]) are not kept; what was kept for a file before an editor listened to it stays until the server
+     * stops or restarts. Any thread; changes on the FX thread with [keptDiagnosticsChanges].
+     */
+    fun keptDiagnostics(file: Path): List<Diagnostic> = kept.of(file)
+
+    /** Fires on the FX thread after [keptDiagnostics] changed for some file, also when they were cleared. */
+    val keptDiagnosticsChanges: Observable = kept.changes
 
     /**
      * Starts the server unless it runs, starts or failed (only [restart] starts a failed one); also when it was
@@ -331,6 +347,7 @@ class LanguageServerSession internal constructor(
     internal fun close() {
         lifecycle.close()
         workspace.close()
+        kept.clear(fire = false)
     }
 
     /** What the client of one connection hands on; dropped once that connection is no longer the session's. */
@@ -340,8 +357,15 @@ class LanguageServerSession internal constructor(
 
             override fun diagnostics(params: PublishDiagnosticsParams) {
                 if (!current()) return
-                val listeners = diagnosticsListeners[LspUris.normalize(params.uri)] ?: return
-                fx { listeners.callEach("diagnostics") { it(params) } }
+                val uri = LspUris.normalize(params.uri)
+                val listeners = diagnosticsListeners[uri]
+                if (listeners != null) {
+                    fx { listeners.callEach("diagnostics") { it(params) } }
+                } else if (keeps(uri)) {
+                    val diagnostics = params.diagnostics.orEmpty().toList()
+                    // Checked again on the FX thread: a clear for a restart may have come in between.
+                    fx { if (current()) kept.keep(uri, diagnostics) }
+                }
             }
 
             override fun refresh(kind: RefreshKind) {
@@ -354,6 +378,17 @@ class LanguageServerSession internal constructor(
                 if (current()) fx { featureListeners.callEach("features") { it() } }
             }
         }
+
+    /** Whether the spec keeps the pushes for [uri]'s file; a spec that throws keeps nothing (logged). */
+    private fun keeps(uri: String): Boolean {
+        val file = LspUris.toPath(uri) ?: return false
+        return try {
+            spec.keepsDiagnostics(file)
+        } catch (e: RuntimeException) {
+            log.log(System.Logger.Level.WARNING, "lsp ${spec.id}: keepsDiagnostics failed for $file", e)
+            false
+        }
+    }
 
     /** Whether something sent may start the server: always, for a spec that gates documents once one is served. */
     private fun mayStart(): Boolean = !spec.gatesDocuments || documents.anyServed()
