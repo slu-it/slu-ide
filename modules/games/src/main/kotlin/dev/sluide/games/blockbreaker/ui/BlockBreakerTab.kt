@@ -17,5 +17,7 @@ internal class BlockBreakerTab(
     override val focusOnShow: Boolean = true
     override val content: Node get() = view.node
 
+    override fun icon(): Node? = blockBreakerLogo()
+
     override fun dispose() = view.dispose()
 }

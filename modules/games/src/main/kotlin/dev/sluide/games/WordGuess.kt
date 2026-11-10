@@ -6,6 +6,8 @@ import dev.sluide.games.wordguess.WordGuessModel
 import dev.sluide.games.wordguess.WordGuessPreferences
 import dev.sluide.games.wordguess.ui.WordGuessTab
 import dev.sluide.games.wordguess.ui.WordGuessView
+import dev.sluide.games.wordguess.ui.wordGuessLogo
+import javafx.scene.Node
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -35,4 +37,7 @@ class WordGuess internal constructor(
 
     /** A new Word Guess tab on the window's game, which outlives the tab. */
     fun createTab(): EditorTab = tabFactory(model)
+
+    /** A new logo node for the Games menu item and the tab header: a 16 by 16 vector drawing. */
+    fun logo(): Node = wordGuessLogo()
 }

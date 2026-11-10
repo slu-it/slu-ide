@@ -10,8 +10,10 @@ import dev.sluide.games.solitaire.solver.DealGenerator
 import dev.sluide.games.solitaire.solver.Solver
 import dev.sluide.games.solitaire.ui.SolitaireTab
 import dev.sluide.games.solitaire.ui.SolitaireView
+import dev.sluide.games.solitaire.ui.solitaireLogo
 import javafx.animation.PauseTransition
 import javafx.application.Platform
+import javafx.scene.Node
 import javafx.util.Duration
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
@@ -43,6 +45,9 @@ class Solitaire internal constructor(
 
     /** A new Solitaire tab on the window's game, which outlives the tab. */
     fun createTab(): EditorTab = tabFactory(model)
+
+    /** A new logo node for the Games menu item and the tab header: a 16 by 16 vector drawing. */
+    fun logo(): Node = solitaireLogo()
 
     private companion object {
         fun modelOf(preferences: SolitairePreferences): SolitaireModel {

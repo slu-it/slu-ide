@@ -17,5 +17,7 @@ internal class MiniGolfTab(
     override val focusOnShow: Boolean = true
     override val content: Node get() = view.node
 
+    override fun icon(): Node? = miniGolfLogo()
+
     override fun dispose() = view.dispose()
 }

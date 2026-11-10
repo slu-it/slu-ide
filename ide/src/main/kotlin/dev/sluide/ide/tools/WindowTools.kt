@@ -119,31 +119,31 @@ internal class WindowTools(
         )
 
     /** The Minesweeper tool of the Games menu; it has no key binding. */
-    internal val minesweeperTool = WindowTool("Minesweeper", minesweeper::createTab)
+    internal val minesweeperTool = WindowTool("Minesweeper", minesweeper::createTab, graphic = minesweeper::logo)
 
     /** The Word Guess tool of the Games menu; it has no key binding. */
-    internal val wordGuessTool = WindowTool("Word Guess", wordGuess::createTab)
+    internal val wordGuessTool = WindowTool("Word Guess", wordGuess::createTab, graphic = wordGuess::logo)
 
     /** The Doubles tool of the Games menu; it has no key binding. */
-    internal val doublesTool = WindowTool("Doubles", doubles::createTab)
+    internal val doublesTool = WindowTool("Doubles", doubles::createTab, graphic = doubles::logo)
 
     /** The Sudoku tool of the Games menu; it has no key binding. */
-    internal val sudokuTool = WindowTool("Sudoku", sudoku::createTab)
+    internal val sudokuTool = WindowTool("Sudoku", sudoku::createTab, graphic = sudoku::logo)
 
     /** The Solitaire tool of the Games menu; it has no key binding. */
-    internal val solitaireTool = WindowTool("Solitaire", solitaire::createTab)
+    internal val solitaireTool = WindowTool("Solitaire", solitaire::createTab, graphic = solitaire::logo)
 
     /** The Orbit Guard tool of the Games menu; it has no key binding. */
-    internal val orbitGuardTool = WindowTool("Orbit Guard", orbitGuard::createTab)
+    internal val orbitGuardTool = WindowTool("Orbit Guard", orbitGuard::createTab, graphic = orbitGuard::logo)
 
     /** The Block Breaker tool of the Games menu; it has no key binding. */
-    internal val blockBreakerTool = WindowTool("Block Breaker", blockBreaker::createTab)
+    internal val blockBreakerTool = WindowTool("Block Breaker", blockBreaker::createTab, graphic = blockBreaker::logo)
 
     /** The Mini Golf tool of the Games menu; it has no key binding. */
-    internal val miniGolfTool = WindowTool("Mini Golf", miniGolf::createTab)
+    internal val miniGolfTool = WindowTool("Mini Golf", miniGolf::createTab, graphic = miniGolf::logo)
 
     /** The Pipe Puzzle tool of the Games menu; it has no key binding. */
-    internal val pipePuzzleTool = WindowTool("Pipe Puzzle", pipePuzzle::createTab)
+    internal val pipePuzzleTool = WindowTool("Pipe Puzzle", pipePuzzle::createTab, graphic = pipePuzzle::logo)
 
     /** The Games menu logic; tests choose tools through it. */
     internal val gamesMenu =

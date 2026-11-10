@@ -6,6 +6,8 @@ import dev.sluide.games.doubles.DoublesModel
 import dev.sluide.games.doubles.DoublesPreferences
 import dev.sluide.games.doubles.ui.DoublesTab
 import dev.sluide.games.doubles.ui.DoublesView
+import dev.sluide.games.doubles.ui.doublesLogo
+import javafx.scene.Node
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -35,4 +37,7 @@ class Doubles internal constructor(
 
     /** A new Doubles tab on the window's game, which outlives the tab. */
     fun createTab(): EditorTab = tabFactory(model)
+
+    /** A new logo node for the Games menu item and the tab header: a 16 by 16 vector drawing. */
+    fun logo(): Node = doublesLogo()
 }

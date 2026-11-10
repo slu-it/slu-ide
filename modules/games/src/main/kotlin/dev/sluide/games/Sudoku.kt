@@ -8,7 +8,9 @@ import dev.sluide.games.sudoku.SudokuModel
 import dev.sluide.games.sudoku.SudokuPreferences
 import dev.sluide.games.sudoku.ui.SudokuTab
 import dev.sluide.games.sudoku.ui.SudokuView
+import dev.sluide.games.sudoku.ui.sudokuLogo
 import javafx.application.Platform
+import javafx.scene.Node
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -44,4 +46,7 @@ class Sudoku internal constructor(
 
     /** A new Sudoku tab on the window's game, which outlives the tab. */
     fun createTab(): EditorTab = tabFactory(model)
+
+    /** A new logo node for the Games menu item and the tab header: a 16 by 16 vector drawing. */
+    fun logo(): Node = sudokuLogo()
 }

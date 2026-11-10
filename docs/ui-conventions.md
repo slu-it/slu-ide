@@ -52,8 +52,9 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   the Python project of a file (ADR 0151).
 
 ## Tool and service tabs
-- Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate), Services menu (Docker, Databases) and Games menu
-  (Minesweeper, Word Guess, Doubles, Sudoku, Solitaire, Orbit Guard, Block Breaker, Mini Golf, Pipe Puzzle) after Docker Sandbox in the menu bar (ADR 0110, 0118, 0121, 0131, 0132, 0136, 0137, 0138, 0139, 0140, 0152, 0153), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
+- Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate), Services menu (Databases, Docker) and Games menu
+  (Block Breaker, Doubles, Minesweeper, Mini Golf, Orbit Guard, Pipe Puzzle, Solitaire, Sudoku, Word Guess; the Services and Games lists are sorted by title, so a new entry lands in place) after Docker Sandbox in the menu bar (ADR 0110, 0118, 0121, 0131, 0132, 0136, 0137, 0138, 0139, 0140, 0152, 0153), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
+- A game shows a self-drawn, coloured 16 px logo on its Games menu item and its tab header (`<Game>Logo.kt` in the game's `ui` package, fixed colours, vector shapes; `WindowTool.graphic` and `EditorTab.icon()`, a fresh node per call); a new game adds its logo.
 - One tab per window: the menu selects the open tab or creates one. Closes with Shortcut+W without a question and is
   not restored after a restart. Tools have no key binding; a service may get an Alt+N panel key (Docker: Alt+8,
   Databases: Alt+7).

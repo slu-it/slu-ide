@@ -5,7 +5,9 @@ import dev.sluide.games.blockbreaker.BlockBreakerModel
 import dev.sluide.games.blockbreaker.BlockBreakerPreferences
 import dev.sluide.games.blockbreaker.ui.BlockBreakerTab
 import dev.sluide.games.blockbreaker.ui.BlockBreakerView
+import dev.sluide.games.blockbreaker.ui.blockBreakerLogo
 import dev.sluide.games.common.GameZoomPreferences
+import javafx.scene.Node
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -35,4 +37,7 @@ class BlockBreaker internal constructor(
 
     /** A new Block Breaker tab on the window's game, which outlives the tab. */
     fun createTab(): EditorTab = tabFactory(model)
+
+    /** A new logo node for the Games menu item and the tab header: a 16 by 16 vector drawing. */
+    fun logo(): Node = blockBreakerLogo()
 }

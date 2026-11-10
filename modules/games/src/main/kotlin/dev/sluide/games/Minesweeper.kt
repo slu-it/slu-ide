@@ -6,6 +6,8 @@ import dev.sluide.games.minesweeper.MinesweeperModel
 import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.games.minesweeper.ui.MinesweeperTab
 import dev.sluide.games.minesweeper.ui.MinesweeperView
+import dev.sluide.games.minesweeper.ui.minesweeperLogo
+import javafx.scene.Node
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -35,4 +37,7 @@ class Minesweeper internal constructor(
 
     /** A new Minesweeper tab on the window's game, which outlives the tab. */
     fun createTab(): EditorTab = tabFactory(model)
+
+    /** A new logo node for the Games menu item and the tab header: a 16 by 16 vector drawing. */
+    fun logo(): Node = minesweeperLogo()
 }

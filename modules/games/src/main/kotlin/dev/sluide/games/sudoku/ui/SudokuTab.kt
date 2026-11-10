@@ -17,5 +17,7 @@ internal class SudokuTab(
     override val focusOnShow: Boolean = true
     override val content: Node get() = view.node
 
+    override fun icon(): Node? = sudokuLogo()
+
     override fun dispose() = view.dispose()
 }

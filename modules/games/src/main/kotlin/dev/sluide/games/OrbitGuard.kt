@@ -6,6 +6,8 @@ import dev.sluide.games.orbitguard.OrbitGuardModel
 import dev.sluide.games.orbitguard.OrbitGuardPreferences
 import dev.sluide.games.orbitguard.ui.OrbitGuardTab
 import dev.sluide.games.orbitguard.ui.OrbitGuardView
+import dev.sluide.games.orbitguard.ui.orbitGuardLogo
+import javafx.scene.Node
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -35,4 +37,7 @@ class OrbitGuard internal constructor(
 
     /** A new Orbit Guard tab on the window's game, which outlives the tab. */
     fun createTab(): EditorTab = tabFactory(model)
+
+    /** A new logo node for the Games menu item and the tab header: a 16 by 16 vector drawing. */
+    fun logo(): Node = orbitGuardLogo()
 }

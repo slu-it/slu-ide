@@ -8,7 +8,9 @@ import dev.sluide.games.pipepuzzle.PipePuzzleModel
 import dev.sluide.games.pipepuzzle.PipePuzzlePreferences
 import dev.sluide.games.pipepuzzle.ui.PipePuzzleTab
 import dev.sluide.games.pipepuzzle.ui.PipePuzzleView
+import dev.sluide.games.pipepuzzle.ui.pipePuzzleLogo
 import javafx.application.Platform
+import javafx.scene.Node
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -45,4 +47,7 @@ class PipePuzzle internal constructor(
 
     /** A new Pipe Puzzle tab on the window's game, which outlives the tab. */
     fun createTab(): EditorTab = tabFactory(model)
+
+    /** A new logo node for the Games menu item and the tab header: a 16 by 16 vector drawing. */
+    fun logo(): Node = pipePuzzleLogo()
 }

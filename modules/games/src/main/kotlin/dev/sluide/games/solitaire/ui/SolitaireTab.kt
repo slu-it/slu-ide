@@ -17,5 +17,7 @@ internal class SolitaireTab(
     override val focusOnShow: Boolean = true
     override val content: Node get() = view.node
 
+    override fun icon(): Node? = solitaireLogo()
+
     override fun dispose() = view.dispose()
 }

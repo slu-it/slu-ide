@@ -17,5 +17,7 @@ internal class DoublesTab(
     override val focusOnShow: Boolean = true
     override val content: Node get() = view.node
 
+    override fun icon(): Node? = doublesLogo()
+
     override fun dispose() = view.dispose()
 }

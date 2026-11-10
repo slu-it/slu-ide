@@ -330,6 +330,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
             menu(robot, "Games").items.map { it.text },
         )
         val gameItems = menu(robot, "Games").items
+        assertTrue(gameItems.all { it.graphic != null })
         val byText = gameItems.associateBy { it.text }
         val item = byText.getValue("Minesweeper")
         val wordGuessItem = byText.getValue("Word Guess")

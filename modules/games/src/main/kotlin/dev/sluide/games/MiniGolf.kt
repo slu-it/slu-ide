@@ -6,6 +6,8 @@ import dev.sluide.games.minigolf.MiniGolfModel
 import dev.sluide.games.minigolf.MiniGolfPreferences
 import dev.sluide.games.minigolf.ui.MiniGolfTab
 import dev.sluide.games.minigolf.ui.MiniGolfView
+import dev.sluide.games.minigolf.ui.miniGolfLogo
+import javafx.scene.Node
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -35,4 +37,7 @@ class MiniGolf internal constructor(
 
     /** A new Mini Golf tab on the window's round, which outlives the tab. */
     fun createTab(): EditorTab = tabFactory(model)
+
+    /** A new logo node for the Games menu item and the tab header: a 16 by 16 vector drawing. */
+    fun logo(): Node = miniGolfLogo()
 }
