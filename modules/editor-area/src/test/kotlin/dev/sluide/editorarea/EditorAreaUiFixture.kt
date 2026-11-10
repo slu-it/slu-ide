@@ -356,6 +356,8 @@ abstract class EditorAreaUiFixture {
         override var closeWarning: String? = null
         override val activity = SimpleObjectProperty(ViewActivity.NONE)
         override val readOnlyMarked = SimpleBooleanProperty(false)
+        override var tabMenuItems: List<javafx.scene.control.MenuItem> = emptyList()
+        override var lockMarkerText = "Library code, read-only"
 
         override fun reload() {}
     }

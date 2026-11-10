@@ -10,17 +10,17 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignL
 
 internal const val TAB_LOCK_STYLE_CLASS = "tab-lock"
 
-internal const val TAB_LOCK_TEXT = "Library code, read-only"
-
 /**
  * Shows a lock icon in [header] right before [title] while [locked] is true (a view's
- * [dev.sluide.fileviewers.FileView.readOnlyMarked]), and removes it when it turns false. The returned subscription
+ * [dev.sluide.fileviewers.FileView.readOnlyMarked]), and removes it when it turns false. The tooltip is [text],
+ * asked each time the icon is shown. The returned subscription
  * ends the following and removes the icon.
  */
 internal fun bindTabLock(
     header: HBox,
     title: Node,
     locked: ObservableBooleanValue,
+    text: () -> String,
     relayout: () -> Unit,
 ): Subscription {
     var icon: Node? = null
@@ -31,7 +31,7 @@ internal fun bindTabLock(
             val lock =
                 FontIcon(MaterialDesignL.LOCK).apply {
                     styleClass += TAB_LOCK_STYLE_CLASS
-                    Tooltip.install(this, Tooltip(TAB_LOCK_TEXT))
+                    Tooltip.install(this, Tooltip(text()))
                 }
             header.children.add(header.children.indexOf(title).coerceAtLeast(0), lock)
             icon = lock

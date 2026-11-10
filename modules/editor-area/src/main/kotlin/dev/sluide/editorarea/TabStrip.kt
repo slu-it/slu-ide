@@ -422,7 +422,9 @@ internal class TabStrip(
             subscriptions += tab.activity.subscribe(::showActivity)
             if (tab is OpenFile) {
                 subscriptions +=
-                    bindTabLock(this, title, tab.editor.readOnlyMarked, this@TabStrip::requestLayout)
+                    bindTabLock(this, title, tab.editor.readOnlyMarked, { tab.editor.lockMarkerText }) {
+                        this@TabStrip.requestLayout()
+                    }
             }
             // Pressing the close button must not select the tab first. Consuming the press on the button instead
             // would keep the button from arming, so it would never fire.
@@ -495,6 +497,8 @@ internal class TabStrip(
             val history = item("Show History") { file?.let { menuHooks.showHistory?.invoke(it.path) } }
             val select = item("Select in Explorer") { file?.let { menuHooks.selectInExplorer?.invoke(it.path) } }
             val fileItems = listOf(SeparatorMenuItem(), history, select)
+            // The view's own items with their separator, read again on each showing.
+            var viewItems = emptyList<MenuItem>()
             return ContextMenu(
                 item("Close") { close(listOf(tab)) { editorTabs.close(tab) } },
                 SeparatorMenuItem(),
@@ -516,6 +520,8 @@ internal class TabStrip(
                     closeRight.isDisable = index >= sideTabs.lastIndex
                     // Only for files, and only while the window offers it.
                     items.removeAll(fileItems)
+                    items.removeAll(viewItems)
+                    viewItems = emptyList()
                     if (file != null) {
                         val offered =
                             listOfNotNull(
@@ -525,6 +531,11 @@ internal class TabStrip(
                         if (offered.isNotEmpty()) items.addAll(listOf(fileItems.first()) + offered)
                         history.isDisable = !menuHooks.canShowHistory(file.path)
                         select.isDisable = !menuHooks.canSelectInExplorer(file.path)
+                        val own = file.editor.tabMenuItems
+                        if (own.isNotEmpty()) {
+                            viewItems = listOf(SeparatorMenuItem()) + own
+                            items.addAll(viewItems)
+                        }
                     }
                 }
             }

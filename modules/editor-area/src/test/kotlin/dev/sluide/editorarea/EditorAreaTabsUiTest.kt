@@ -24,6 +24,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -649,6 +650,46 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         assertEquals(10, items("a.txt").size)
         editor.tabMenu.selectInExplorer = null
         assertEquals(8, items("a.txt").size)
+    }
+
+    @Test
+    fun `the menu of a file tab ends with the items of its view behind one separator, read on each showing`(
+        robot: FxRobot,
+    ) {
+        val viewer = BusyViewer()
+        val area = areaWith(robot, viewer)
+        robot.interact {
+            area.open(textFile("with.busy"))
+            area.open(textFile("without.busy"))
+        }
+        val (with, without) = viewer.views
+        val extra = MenuItem("Lock Now")
+        with.tabMenuItems = listOf(extra)
+
+        fun items(title: String): List<MenuItem> {
+            robot.interact { requestContextMenu(tabLabel(robot, title)) }
+            return WaitForAsyncUtils
+                .asyncFx<List<MenuItem>> {
+                    val menu = area.tabStrip.contextMenuOf(area.tabs.single { it.title.value == title })
+                    menu.hide()
+                    menu.items.toList()
+                }.get()
+        }
+
+        val before = items("without.busy")
+        val shown = items("with.busy")
+        assertEquals(before.size + 2, shown.size)
+        assertSame(extra, shown.last())
+        assertIs<SeparatorMenuItem>(shown[shown.lastIndex - 1])
+        assertEquals(before.count { it is SeparatorMenuItem } + 1, shown.count { it is SeparatorMenuItem })
+
+        with.tabMenuItems = listOf(MenuItem("Other"), MenuItem("Third"))
+        assertEquals(listOf("Other", "Third"), items("with.busy").takeLast(2).map { it.text }, "read again")
+        assertFalse(extra in items("with.busy"))
+        assertEquals(before.size + 3, items("with.busy").size, "the separator is not added twice")
+        with.tabMenuItems = emptyList()
+        assertEquals(before.size, items("with.busy").size, "none when the view has no items")
+        assertEquals(before.size, items("without.busy").size)
     }
 
     @Test

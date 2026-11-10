@@ -83,12 +83,22 @@ class TabHeaderMarkersUiTest : EditorAreaUiFixture() {
         fun locks() = header.childrenUnmodifiable.filter { TAB_LOCK_STYLE_CLASS in it.styleClass }
         assertEquals(0, locks().size)
 
+        view.lockMarkerText = "Encrypted, locked"
         robot.interact { view.readOnlyMarked.set(true) }
         assertEquals(1, locks().size)
         assertEquals(0, header.childrenUnmodifiable.indexOf(locks().single()))
         assertSame(header.childrenUnmodifiable[1], tabLabel(robot, "lib.busy"))
         val tooltip = locks().single().properties["javafx.scene.control.Tooltip"] as javafx.scene.control.Tooltip
-        assertEquals(TAB_LOCK_TEXT, tooltip.text)
+        assertEquals("Encrypted, locked", tooltip.text)
+
+        // Read again whenever the icon is shown, so a view can word it per state.
+        view.lockMarkerText = "Unlocked"
+        robot.interact { view.readOnlyMarked.set(false) }
+        robot.interact { view.readOnlyMarked.set(true) }
+        val second = locks().single().properties["javafx.scene.control.Tooltip"] as javafx.scene.control.Tooltip
+        assertEquals("Unlocked", second.text)
+        robot.interact { view.readOnlyMarked.set(false) }
+        robot.interact { view.readOnlyMarked.set(true) }
 
         robot.interact { view.activity.set(ViewActivity.RUNNING) }
         assertEquals(1, locks().size, "the lock stays beside the activity marker")
