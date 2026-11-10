@@ -10,6 +10,7 @@ import java.nio.file.LinkOption
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import java.nio.file.attribute.PosixFilePermissions
 
 private val log = System.getLogger(ScratchFiles::class.java.name)
 
@@ -67,8 +68,8 @@ val SCRATCH_TYPES: List<ScratchType> =
     )
 
 /**
- * The encrypted types, not yet in [SCRATCH_TYPES]: they are offered in the picker once the app wires the password
- * flow; a later package appends them.
+ * The encrypted types, not in [SCRATCH_TYPES]: the picker lists them after the plain ones, and the app asks for a
+ * password to create one.
  */
 val ENCRYPTED_SCRATCH_TYPES: List<ScratchType> =
     listOf(
@@ -131,13 +132,22 @@ class ScratchFiles(
     ): Path = create(baseName, extension, content.toByteArray(Charsets.UTF_8))
 
     /**
-     * Like the String version, but writes [bytes] as they are (an encrypted scratch). Does not touch [lastType].
+     * Like the String version, but writes [bytes] as they are (an encrypted scratch). Does not touch [lastType]. With
+     * [ownerOnly] the file is created readable and writable by its owner only (`rw-------`) where the file system has
+     * POSIX permissions; elsewhere as usual.
      */
     fun create(
         baseName: String,
         extension: String,
         bytes: ByteArray,
+        ownerOnly: Boolean = false,
     ): Path {
+        val attributes =
+            if (ownerOnly && folder.fileSystem.supportedFileAttributeViews().contains("posix")) {
+                arrayOf(PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")))
+            } else {
+                emptyArray()
+            }
         ensureFolder()
         var number = 0
         while (true) {
@@ -145,7 +155,11 @@ class ScratchFiles(
             val path = folder.resolve(name)
             val channel =
                 try {
-                    Files.newByteChannel(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
+                    Files.newByteChannel(
+                        path,
+                        setOf(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE),
+                        *attributes,
+                    )
                 } catch (_: FileAlreadyExistsException) {
                     number++
                     continue

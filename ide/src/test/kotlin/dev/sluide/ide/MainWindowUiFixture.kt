@@ -21,6 +21,9 @@ import dev.sluide.docker.run.DockerRunStore
 import dev.sluide.docker.settings.DockerSettings
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
+import dev.sluide.encryptedfiles.EncryptedFiles
+import dev.sluide.encryptedfiles.settings.EncryptedFilesSettings
+import dev.sluide.encryptedfiles.ui.EncryptedFileViewer
 import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.ExplorerSettings
 import dev.sluide.fileexplorer.FileExplorerView
@@ -118,6 +121,7 @@ import javafx.stage.WindowEvent
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.support.DefaultListableBeanFactory
 import org.testfx.api.FxRobot
 import org.testfx.util.WaitForAsyncUtils
@@ -359,7 +363,28 @@ abstract class MainWindowUiFixture {
         mainWindow.show(stage)
     }
 
-    internal val fileViewers = DefaultTextFileViewer().let { FileViewers(listOf(it, BinaryFileViewer()), it) }
+    /** The registry of the encrypted files' tabs, shared by the window and the viewer of `.sluenc` files. */
+    internal val encryptedFiles = EncryptedFiles()
+
+    internal val fileViewers: FileViewers by lazy {
+        val fallback = DefaultTextFileViewer()
+        val settings = EncryptedFilesSettings(SettingsStore(settingsDir.resolve("settings.properties")))
+        lateinit var all: FileViewers
+        // The viewer takes the viewers lazily, as it is one of them.
+        val provider =
+            object : ObjectProvider<FileViewers> {
+                override fun getObject(vararg args: Any?) = all
+
+                override fun getObject() = all
+
+                override fun getIfAvailable() = all
+
+                override fun getIfUnique() = all
+            }
+        val encrypted = EncryptedFileViewer(encryptedFiles, settings, provider)
+        all = FileViewers(listOf(fallback, BinaryFileViewer(), encrypted), fallback)
+        all
+    }
 
     internal fun editorArea(): EditorArea = EditorArea(fileViewers, watcher, fontSettings)
 
@@ -402,6 +427,7 @@ abstract class MainWindowUiFixture {
             projectTrust,
             tasks,
             scratchFiles,
+            encryptedFiles,
             SystemBrowser(),
             remoteSourceCache,
             GitRemotes(git),

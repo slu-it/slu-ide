@@ -76,7 +76,12 @@ class ScratchTypePickerUiTest {
         assertTrue(picker.field.isFocused)
         // The popup keeps its width; the field spans it inside the padding.
         assertTrue(picker.field.width > 300, "field width ${picker.field.width}")
-        assertEquals(SCRATCH_TYPES.size, picker.list.items.size)
+        assertEquals<List<Any?>>(
+            SCRATCH_TYPES + ENCRYPTED_SCRATCH_TYPES,
+            picker.list.items.map {
+                (it as PickerRow.Entry).item
+            },
+        )
         assertEquals(markdown, picker.selected)
         val icons = robot.lookup(".ikonli-font-icon").queryAllAs(FontIcon::class.java)
         assertTrue(icons.isNotEmpty())
@@ -123,9 +128,9 @@ class ScratchTypePickerUiTest {
         open(robot, SCRATCH_TYPES.first())
         key(robot, KeyCode.UP)
         assertEquals(0, picker.list.selectionModel.selectedIndex)
-        open(robot, SCRATCH_TYPES.last())
+        open(robot, ENCRYPTED_SCRATCH_TYPES.last())
         key(robot, KeyCode.DOWN)
-        assertEquals(SCRATCH_TYPES.lastIndex, picker.list.selectionModel.selectedIndex)
+        assertEquals(SCRATCH_TYPES.size + ENCRYPTED_SCRATCH_TYPES.lastIndex, picker.list.selectionModel.selectedIndex)
     }
 
     @Test

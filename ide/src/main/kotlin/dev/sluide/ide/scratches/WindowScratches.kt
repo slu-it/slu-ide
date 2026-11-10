@@ -1,6 +1,9 @@
 package dev.sluide.ide.scratches
 
 import dev.sluide.editorarea.EditorArea
+import dev.sluide.encryptedfiles.EncryptedFiles
+import dev.sluide.encryptedfiles.Sluenc
+import dev.sluide.encryptedfiles.newPasswordDialog
 import dev.sluide.fileexplorer.ExplorerRoot
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileexplorer.FolderIcons
@@ -17,6 +20,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.stage.Stage
+import javafx.stage.Window
 import java.io.IOException
 import java.nio.file.AccessDeniedException
 import java.nio.file.FileAlreadyExistsException
@@ -33,12 +37,14 @@ internal const val SCRATCHES_LABEL = "Scratches"
  * The scratch files in one window (ADR 0066): the shared scratches folder as a second top-level node of the
  * [fileExplorer], File → New Scratch File… with its type picker, File → New Generated Scratch File… with its generator
  * picker (ADR 0114), and the deletion of empty scratch files when their last tab closes, unless another window has
- * them open ([isOpenElsewhere]). Used on the JavaFX thread.
+ * them open ([isOpenElsewhere]). The encrypted types ask for a password and open unlocked (ADR 0162); an encrypted
+ * scratch is deleted only when its tab closes unlocked and empty. Used on the JavaFX thread.
  */
 internal class WindowScratches(
     private val scratchFiles: ScratchFiles,
     private val fileExplorer: FileExplorerView,
     private val editorArea: EditorArea,
+    private val encryptedFiles: EncryptedFiles,
     private val isOpenElsewhere: (Path) -> Boolean,
     private val showError: (Stage, String) -> Unit,
 ) {
@@ -62,6 +68,17 @@ internal class WindowScratches(
      */
     internal var askGenerator: (Stage, (ScratchGenerator) -> Unit) -> Unit = { stage, onPick ->
         generatorPicker.show(stage, scratchFiles.lastGenerator, onPick)
+    }
+
+    /**
+     * Asks for the password of a new encrypted scratch file and runs the work with it, see [newPasswordDialog]; tests
+     * replace it.
+     */
+    internal var askNewPassword: (Window?, String, (CharArray) -> Unit) -> Boolean = ::newPasswordDialog
+
+    init {
+        // An empty scratch file is deleted when its last tab in any window closes (ADR 0066).
+        editorArea.onFileClosed = ::fileClosed
     }
 
     /** The extra top-level nodes of the explorer: the scratches folder, created if missing; none if that fails. */
@@ -95,7 +112,40 @@ internal class WindowScratches(
 
     /** Asks for the type, creates the file, shows it in the explorer and opens it in the editor with the focus. */
     fun newScratchFile(stage: Stage) {
-        askType(stage) { type -> createAndOpen(stage) { scratchFiles.create(type) } }
+        askType(stage) { type ->
+            if (type.encrypted) createEncrypted(stage, type) else createAndOpen(stage) { scratchFiles.create(type) }
+        }
+    }
+
+    /** The two New Scratch File items, for the File menu. */
+    fun menuItems(stage: Stage): List<MenuItem> = listOf(menuItem(stage), generatedMenuItem(stage))
+
+    /**
+     * Asks for a password, creates an empty encrypted scratch file, owner-only, with it on the dialog's background
+     * thread and hands the key over there, so the registry's timeout owns it on every path; the tab then opens
+     * unlocked. Nothing on Cancel. A failure shows in the dialog.
+     */
+    private fun createEncrypted(
+        stage: Stage,
+        type: ScratchType,
+    ) {
+        var created: Path? = null
+        val done =
+            askNewPassword(stage, "New Encrypted Scratch File") { password ->
+                val made = Sluenc.create(password, ByteArray(0))
+                try {
+                    val file = scratchFiles.create("scratch", type.extension, made.bytes, ownerOnly = true)
+                    encryptedFiles.handOver(file, made.key)
+                    created = file
+                } catch (e: Throwable) {
+                    made.key.close()
+                    throw e
+                }
+            }
+        val path = created?.takeIf { done } ?: return
+        scratchFiles.lastType = type
+        fileExplorer.reveal(path)
+        editorArea.open(path)
     }
 
     /** File → New Generated Scratch File… on Shortcut+Shift+G (ADR 0114); like [menuItem], it works from a terminal. */
@@ -162,12 +212,18 @@ internal class WindowScratches(
     /**
      * For [EditorArea.onFileClosed]: deletes [path] if it is an empty scratch file that no tab shows, here or in
      * another window, also not under another name for the same file (another case after a case-only rename on a
-     * case-insensitive file system, a symbolic link).
+     * case-insensitive file system, a symbolic link). An encrypted scratch is deleted only if its tab closed unlocked
+     * and empty ([EncryptedFiles.takeClosedEmpty]) and the file still holds the bytes it was closed with.
      */
     fun fileClosed(path: Path) {
+        val emptyBytes = encryptedFiles.takeClosedEmpty(path)
         if (!scratchFiles.contains(path)) return
         if (editorArea.openPaths.any { isSameFile(it, path) } || isOpenElsewhere(path)) return
-        scratchFiles.deleteIfEmpty(path)
+        if (emptyBytes == null) {
+            scratchFiles.deleteIfEmpty(path)
+        } else {
+            scratchFiles.deleteIfEncryptedEmpty(path, emptyBytes)
+        }
     }
 }
 

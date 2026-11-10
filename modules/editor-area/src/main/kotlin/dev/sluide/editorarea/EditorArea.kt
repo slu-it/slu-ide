@@ -97,7 +97,7 @@ class EditorArea(
      * Called on the FX thread with the path of each file tab removed from the tabs in any way (closed from the UI,
      * [closeAll], [closeUnder], after a delete, or a move its tab cannot follow) when no tab of that path is open in this
      * area anymore, e.g. not when a tab is replaced by a new view of the same file; a move followed in place reports
-     * nothing. Called once the change of the tabs is processed; set by the window.
+     * nothing. Called after the views are disposed; set by the window.
      */
     var onFileClosed: (Path) -> Unit = {}
 
@@ -120,18 +120,24 @@ class EditorArea(
     /** The editor font as CSS; file views and diffs inherit it from their tab's node. */
     private val editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss)
 
+    /** The files whose tabs the last operation removed, reported by [onFileClosed] once their views are disposed. */
+    private val closedPaths = mutableSetOf<Path>()
+
     init {
+        editorTabs.afterDispose = {
+            val closed = closedPaths.toList().also { closedPaths.clear() }
+            closed.filter { editorTabs.find(it) == null }.forEach(onFileClosed)
+        }
         // Every way of opening or closing a tab changes the list: file views and diffs get the editor font, closed
         // tabs lose their watch and font binding.
         editorTabs.tabs.addListener(
             ListChangeListener { change ->
-                val closed = mutableSetOf<Path>()
                 while (change.next()) {
                     change.removed.forEach { tab ->
                         watches.remove(tab)?.close()
                         // Unbinding also lets the shared font binding forget the closed view.
                         if (tab.usesEditorFont) tab.content.styleProperty().unbind()
-                        if (tab is OpenFile) closed.add(tab.path)
+                        if (tab is OpenFile) closedPaths.add(tab.path)
                     }
                     change.addedSubList.filter { it.usesEditorFont }.forEach {
                         it.content.styleProperty().bind(
@@ -139,7 +145,6 @@ class EditorArea(
                         )
                     }
                 }
-                closed.filter { editorTabs.find(it) == null }.forEach(onFileClosed)
             },
         )
         styleClass += "editor-area"

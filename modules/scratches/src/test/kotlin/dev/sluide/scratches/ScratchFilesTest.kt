@@ -27,6 +27,17 @@ class ScratchFilesTest {
 
     private fun scratches() = ScratchFiles(temp.resolve("scratches"))
 
+    @Test
+    fun `a file created owner-only has rw------- permissions`() {
+        Assumptions.assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"))
+        val scratches = scratches()
+
+        val ownerOnly = scratches.create("secret", "txt.sluenc", byteArrayOf(1, 2), ownerOnly = true)
+
+        assertEquals(PosixFilePermissions.fromString("rw-------"), Files.getPosixFilePermissions(ownerOnly))
+        assertContentEquals(byteArrayOf(1, 2), Files.readAllBytes(ownerOnly))
+    }
+
     @ParameterizedTest
     @CsvSource(
         "orders, orders",

@@ -87,6 +87,12 @@ internal class EditorTabs {
     private val chosen = mutableMapOf<Side, EditorTab?>()
     private var chosenSide = Side.LEFT
 
+    /**
+     * Called after an operation has disposed the tabs it removed: the list change is reported before the disposal, so
+     * what depends on both (the editor area reporting closed files) waits for this.
+     */
+    var afterDispose: () -> Unit = {}
+
     /** Whether [publish] is notifying the listeners; [makeCurrent] is ignored meanwhile. */
     private var publishing = false
 
@@ -167,6 +173,7 @@ internal class EditorTabs {
         if (chosen[side] === tab) chosen[side] = replacement
         publish()
         tab.dispose()
+        afterDispose()
     }
 
     /**
@@ -252,6 +259,7 @@ internal class EditorTabs {
         if (chosen[side] === tab) chosen[side] = neighbour(list, index)
         publish()
         tab.dispose()
+        afterDispose()
     }
 
     /** Closes every tab of both sides, e.g. with the window. */
@@ -313,6 +321,7 @@ internal class EditorTabs {
         }
         publish()
         closing.forEach { it.dispose() }
+        afterDispose()
     }
 
     /**

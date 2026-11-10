@@ -1,6 +1,7 @@
 package dev.sluide.editorarea
 
 import dev.sluide.fileviewers.DefaultTextFileViewer
+import dev.sluide.fileviewers.FileView
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -99,5 +100,33 @@ class EditorAreaFileClosedUiTest : EditorAreaUiFixture() {
 
         assertEquals(emptyList(), closed)
         assertEquals(listOf(a), editor.openPaths)
+    }
+
+    @Test
+    fun `the report of a closed file comes after its view is disposed, for every way of closing`(robot: FxRobot) {
+        val events = mutableListOf<String>()
+        editor.onFileClosed = { events += "closed ${it.fileName}" }
+        val files = listOf("a.txt", "b.txt", "c.txt").map { textFile(it) }
+        robot.interact {
+            for (file in files) {
+                val inner = DefaultTextFileViewer().open(file)
+                val view =
+                    object : FileView by inner {
+                        override fun dispose() {
+                            events += "disposed ${file.fileName}"
+                            inner.dispose()
+                        }
+                    }
+                editor.editorTabs.open(OpenFile(file, view), select = true)
+            }
+        }
+
+        robot.interact { editor.editorTabs.close(checkNotNull(editor.editorTabs.find(files[0]))) }
+        robot.interact { editor.closeAll() }
+
+        assertEquals(listOf("disposed a.txt", "closed a.txt"), events.take(2))
+        // Several tabs closed by one operation are all disposed before the first report.
+        assertEquals(setOf("disposed b.txt", "disposed c.txt"), events.subList(2, 4).toSet())
+        assertEquals(setOf("closed b.txt", "closed c.txt"), events.subList(4, 6).toSet())
     }
 }

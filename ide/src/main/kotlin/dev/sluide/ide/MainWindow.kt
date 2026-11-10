@@ -12,6 +12,7 @@ import dev.sluide.docker.DockerSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.editorarea.askToClose
+import dev.sluide.encryptedfiles.EncryptedFiles
 import dev.sluide.fileexplorer.ExplorerBar
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileexplorer.FolderAction
@@ -19,7 +20,6 @@ import dev.sluide.fileexplorer.FolderActionResult
 import dev.sluide.fileviewers.CodeEditorExtensions
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewers
-import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.fileviewers.library.LibraryCodeExtension
 import dev.sluide.games.BlockBreaker
@@ -36,7 +36,6 @@ import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
 import dev.sluide.git.RemoteSourceCache
-import dev.sluide.githubactions.RemoteSources
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
@@ -45,6 +44,7 @@ import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
 import dev.sluide.ide.codeintelligence.navigateMenu
 import dev.sluide.ide.compare.WindowFileComparison
 import dev.sluide.ide.conversions.WindowConversions
+import dev.sluide.ide.encryptedfiles.WindowEncryptedFiles
 import dev.sluide.ide.explorer.WindowExplorer
 import dev.sluide.ide.files.TextToolLabels
 import dev.sluide.ide.files.UnsavedChoice
@@ -124,6 +124,7 @@ class MainWindow(
     private val projectTrust: ProjectTrust,
     private val backgroundTasks: BackgroundTasks,
     scratchFiles: ScratchFiles,
+    encryptedFiles: EncryptedFiles,
     systemBrowser: SystemBrowser,
     remoteSourceCache: RemoteSourceCache,
     gitRemotes: GitRemotes,
@@ -227,9 +228,13 @@ class MainWindow(
             scratchFiles,
             fileExplorer,
             editorArea,
+            encryptedFiles,
             isOpenElsewhere = { projectWindows.isOpenElsewhere(it, this) },
             showError = { stage, message -> showError(stage, message) },
         )
+
+    /** Lock Encrypted File and Lock All Encrypted Files in the File menu (ADR 0162). */
+    private val encrypted = WindowEncryptedFiles(encryptedFiles, editorArea)
 
     /** The trust bar and the questions behind it (ADR 0053). */
     internal val trust = WindowTrust(projectTrust, folder = { folder })
@@ -352,7 +357,7 @@ class MainWindow(
                         MenuBar(
                             fileMenu(
                                 editorArea,
-                                listOf(scratches.menuItem(stage), scratches.generatedMenuItem(stage)),
+                                scratches.menuItems(stage) + encrypted.menuItems(stage),
                                 chooseFolder = { chooseFolder(stage) },
                                 pickProject = projectWindows::pickProject,
                                 showSettings = { showSettings(stage) },
@@ -438,26 +443,19 @@ class MainWindow(
         // HTML previews are served with the project's files, and only those (ADR 0018).
         editorArea.projectFolder = { folder }
         editorArea.showError = { showError(stage, it) }
-        // An empty scratch file is deleted when its last tab in any window closes (ADR 0066).
-        editorArea.onFileClosed = scratches::fileClosed
-        // Views of .http files share the window's cookies, tokens and chosen environments (ADR 0026); file views may
-        // register their work as background tasks (ADR 0061); workflow graphs read remote references (ADR 0076);
-        // .gitignore views show which of their lines have an effect (ADR 0080).
-        editorArea.windowServices.register(HttpClientSession::class.java, httpSession)
-        editorArea.windowServices.register(BackgroundTasks::class.java, backgroundTasks)
-        editorArea.windowServices.register(RemoteSources::class.java, workflowSources)
-        editorArea.windowServices.register(IgnoreRuleEffects::class.java, ignoreRuleEffects)
-        // Views of build files share the task lists of their builds; a saved build file marks its build's list stale,
-        // and Review… of a view whose Gradle is off asks about the folder's trust (ADR 0085).
-        editorArea.windowServices.register(GradleSession::class.java, gradleSession)
+        // Sessions that file views share within the window (ADR 0026, 0061, 0076, 0080, 0085, 0088, 0089, 0117, 0119).
+        editorArea.windowServices.registerSessions(
+            httpSession,
+            backgroundTasks,
+            workflowSources,
+            ignoreRuleEffects,
+            gradleSession,
+            commandRuns,
+            dockerSession,
+            docker,
+        )
+        // A saved build file marks its build's task list stale (ADR 0085).
         editorArea.onFileSaved = gradleSession::fileSaved
-        // Views that run commands (shell scripts) run them in the window's terminals and list them among its
-        // background tasks (ADR 0088, ADR 0089).
-        editorArea.windowServices.register(CommandRunSession::class.java, commandRuns)
-        // Views of Compose files and Dockerfiles share the window's engine state, lists and events stream (ADR 0117);
-        // Compose views show a service's logs in the Docker tab and open shells in its containers (ADR 0119).
-        editorArea.windowServices.register(DockerSession::class.java, dockerSession)
-        editorArea.windowServices.register(Docker::class.java, docker)
         // Code editors show the colors of style, markup and script files as swatches and open them in Coloring (ADR 0108,
         // ADR 0109), open a selection in Codecs (ADR 0112) and a selection or a whole file in Converting (ADR 0115);
         // they wrap long lines by one switch for all editors of all windows (ADR 0130); Python files get code

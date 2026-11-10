@@ -20,6 +20,7 @@ import dev.sluide.docker.run.DockerRunStore
 import dev.sluide.docker.settings.DockerSettings
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
+import dev.sluide.encryptedfiles.EncryptedFiles
 import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.ExplorerSettings
 import dev.sluide.fileexplorer.FileExplorerView
@@ -170,6 +171,7 @@ class ProjectWindowsUiTest {
                 registerBean(ProjectDataStore::class.java, Supplier { projectData })
                 registerBean(RecentProjects::class.java, Supplier { recentProjects })
                 registerBean(ScratchFiles::class.java, Supplier { ScratchFiles(dir.resolve("scratches")) })
+                registerBean(EncryptedFiles::class.java, Supplier { EncryptedFiles() })
                 registerBean(ProjectPicker::class.java, Supplier { ProjectPicker(recentProjects) })
                 registerBean(FontSettings::class.java, Supplier { FontSettings(store) })
                 registerBean(TerminalScrollSettings::class.java, Supplier { TerminalScrollSettings(store) })

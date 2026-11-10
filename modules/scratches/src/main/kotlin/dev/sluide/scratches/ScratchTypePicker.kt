@@ -10,12 +10,13 @@ import javafx.stage.Window
 import org.kordamp.ikonli.javafx.FontIcon
 
 /**
- * The popup of File > New Scratch File, as in IntelliJ: a filter field above the list of [types]. Typing filters by name
- * or extension (ignoring case); Enter picks the selected type, Up and Down move the selection while the focus stays in
- * the field, a click picks a row, Escape or a click elsewhere closes.
+ * The popup of File > New Scratch File, as in IntelliJ: a filter field above the list of [types] (by default the plain
+ * ones, then the encrypted ones). Typing filters by name or extension (ignoring case); Enter picks the selected type,
+ * Up and Down move the selection while the focus stays in the field, a click picks a row, Escape or a click elsewhere
+ * closes.
  */
 class ScratchTypePicker(
-    types: List<ScratchType> = SCRATCH_TYPES,
+    types: List<ScratchType> = SCRATCH_TYPES + ENCRYPTED_SCRATCH_TYPES,
 ) {
     private val picker =
         FilterPicker(
