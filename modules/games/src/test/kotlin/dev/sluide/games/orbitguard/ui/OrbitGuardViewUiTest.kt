@@ -1,7 +1,9 @@
 package dev.sluide.games.orbitguard.ui
 
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.common.PauseReason
 import dev.sluide.games.common.SessionState
+import dev.sluide.games.common.ZoomRange
 import dev.sluide.games.common.ui.firePress
 import dev.sluide.games.orbitguard.Difficulty
 import dev.sluide.games.orbitguard.OrbitGuardGame
@@ -54,6 +56,7 @@ class OrbitGuardViewUiTest {
     lateinit var dir: Path
 
     private lateinit var model: OrbitGuardModel
+    private lateinit var zoomPreferences: GameZoomPreferences
     private lateinit var view: OrbitGuardView
     private lateinit var stage: Stage
     private lateinit var other: TextField
@@ -71,7 +74,8 @@ class OrbitGuardViewUiTest {
                 // Quiet enemies, so that the ship survives the test.
                 OrbitGuardGame(difficulty, ScriptedRandom()).also { if (withScore) it.addScore(100) }
             }
-        view = OrbitGuardView(model)
+        zoomPreferences = GameZoomPreferences(store, java.time.Duration.ZERO) { it.run() }
+        view = OrbitGuardView(model, zoomPreferences)
         view.confirmAbandon = { title, verb, score ->
             asked += Triple(title, verb, score)
             answer
@@ -246,6 +250,20 @@ class OrbitGuardViewUiTest {
         robot.interact { view.difficultyMenu.hide() }
     }
 
+    @Test
+    fun `zooming out shrinks the field, is saved and zoom in is disabled at Fit`(robot: FxRobot) {
+        fun width() = fx { view.canvas.placement.width }
+        val fit = width()
+        assertTrue(fx { view.zoomControls.zoomInButton.isDisable })
+
+        robot.interact { view.zoomControls.zoomTo(0.5) }
+
+        assertEquals(fit / 2, width(), 2.0)
+        assertEquals(0.5, fx { view.canvas.zoom })
+        assertEquals(0.5, fx { zoomPreferences.zoom("orbitGuard", ZoomRange.UP_TO_FIT) })
+        assertFalse(fx { view.zoomControls.zoomInButton.isDisable })
+    }
+
     private fun showMenu(robot: FxRobot): ContextMenu {
         val menu = ContextMenu(MenuItem("Item"))
         robot.interact { menu.show(stage, 100.0, 100.0) }
@@ -302,7 +320,7 @@ class OrbitGuardViewUiTest {
     @Test
     fun `a disposed view leaves the model to the view that took it over`(robot: FxRobot) {
         startCountdown(robot)
-        val second = fx { OrbitGuardView(model) }
+        val second = fx { OrbitGuardView(model, zoomPreferences) }
 
         robot.interact { view.dispose() }
 
@@ -318,7 +336,7 @@ class OrbitGuardViewUiTest {
     @Test
     fun `a disposed view's board no longer reaches the session`(robot: FxRobot) {
         startCountdown(robot)
-        val second = fx { OrbitGuardView(model) }
+        val second = fx { OrbitGuardView(model, zoomPreferences) }
         robot.interact { view.dispose() }
 
         // The scene listener is gone: leaving the scene does not pause ...

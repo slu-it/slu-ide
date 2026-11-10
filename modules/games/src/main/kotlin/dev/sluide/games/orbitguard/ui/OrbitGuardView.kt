@@ -2,7 +2,10 @@ package dev.sluide.games.orbitguard.ui
 
 import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.WrappingToolbar
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.common.SessionState
+import dev.sluide.games.common.ZoomRange
+import dev.sluide.games.common.ui.GameZoomControls
 import dev.sluide.games.common.ui.PauseOverlay
 import dev.sluide.games.common.ui.RealtimeLoop
 import dev.sluide.games.common.ui.focusBoardOnPress
@@ -34,6 +37,7 @@ import java.util.Locale
  */
 internal class OrbitGuardView(
     private val model: OrbitGuardModel,
+    zoomPreferences: GameZoomPreferences,
 ) {
     val canvas = FieldCanvas(model)
     val newGameButton = Button("New Game")
@@ -65,6 +69,11 @@ internal class OrbitGuardView(
             }
         }
 
+    internal val zoomControls =
+        GameZoomControls(ZoomRange.UP_TO_FIT, zoomPreferences.zoom(GAME_ID, ZoomRange.UP_TO_FIT)) {
+            zoomPreferences.setZoom(GAME_ID, it)
+        }
+
     val node: Node =
         BorderPane().apply {
             styleClass += "orbit-guard"
@@ -91,6 +100,8 @@ internal class OrbitGuardView(
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
         focusBoardOnPress(node, board)
+        zoomControls.zoom.subscribe { zoom -> canvas.zoom = zoom.toDouble() }
+        zoomControls.install(node)
         model.onChange = installedChange
         refresh()
     }
@@ -117,6 +128,7 @@ internal class OrbitGuardView(
         return WrappingToolbar().apply {
             hgap = 6.0
             leading.setAll(newGameButton, difficultyMenu, pauseButton)
+            trailing.setAll(zoomControls.node)
             styleClass += "og-toolbar"
         }
     }
@@ -206,6 +218,7 @@ internal class OrbitGuardView(
     }
 
     private companion object {
+        const val GAME_ID = "orbitGuard"
         const val ICON_SIZE = 16
     }
 }

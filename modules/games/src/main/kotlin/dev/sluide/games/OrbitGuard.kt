@@ -1,6 +1,7 @@
 package dev.sluide.games
 
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.games.common.GameZoomPreferences
 import dev.sluide.games.orbitguard.OrbitGuardModel
 import dev.sluide.games.orbitguard.OrbitGuardPreferences
 import dev.sluide.games.orbitguard.ui.OrbitGuardTab
@@ -21,7 +22,10 @@ class OrbitGuard internal constructor(
     private val tabFactory: (OrbitGuardModel) -> EditorTab,
 ) {
     @Autowired
-    constructor(preferences: OrbitGuardPreferences) : this(preferences, { OrbitGuardTab(OrbitGuardView(it)) })
+    constructor(
+        preferences: OrbitGuardPreferences,
+        zoomPreferences: GameZoomPreferences,
+    ) : this(preferences, { OrbitGuardTab(OrbitGuardView(it, zoomPreferences)) })
 
     /** Shows the Orbit Guard tab of the window (opening it if needed); set by ide. */
     var showTab: () -> Unit = {}

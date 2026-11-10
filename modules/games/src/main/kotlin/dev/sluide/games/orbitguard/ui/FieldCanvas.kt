@@ -2,6 +2,7 @@ package dev.sluide.games.orbitguard.ui
 
 import dev.sluide.games.common.SessionState
 import dev.sluide.games.common.ui.FieldLayout
+import dev.sluide.games.common.ui.FieldPlacement
 import dev.sluide.games.orbitguard.OrbitGuardGame
 import dev.sluide.games.orbitguard.OrbitGuardModel
 import javafx.scene.canvas.Canvas
@@ -20,6 +21,13 @@ internal class FieldCanvas(
     internal val deviceScale: Double? get() = images?.deviceScale
     private var small: SpriteImages? = null
 
+    /** The game zoom (ADR 0155), at most 1.0; setting it redraws. */
+    var zoom: Double = 1.0
+        set(value) {
+            field = value
+            redraw()
+        }
+
     private val scaleSubscription: Subscription =
         sceneProperty()
             .flatMap { it.windowProperty() }
@@ -31,13 +39,17 @@ internal class FieldCanvas(
         heightProperty().addListener { _ -> redraw() }
     }
 
+    /** Where the field lies in the canvas at the current zoom. */
+    internal val placement: FieldPlacement
+        get() = layout.fit(width, height, scene?.window?.renderScaleX ?: 1.0, zoom)
+
     /** Stops following the window's render scale. */
     fun dispose() = scaleSubscription.unsubscribe()
 
     fun redraw() {
         if (width <= 0 || height <= 0) return
         val outputScale = scene?.window?.renderScaleX ?: 1.0
-        val place = layout.fit(width, height, outputScale)
+        val place = placement
         val device = place.scale * outputScale
         val full = images?.takeIf { it.deviceScale == device } ?: SpriteImages(device).also { images = it }
         val half = small?.takeIf { it.deviceScale == device / 2 } ?: SpriteImages(device / 2).also { small = it }

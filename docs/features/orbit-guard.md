@@ -76,9 +76,12 @@ over, so a held Space does not restart by accident.
 - The status line shows "← → move · Space fire · P pause · F2 new game" and " · Best: 12,340" when the level has a best.
 
 ## Scaling
-The field keeps its 4:3 ratio, is centred in the tab and scaled to fill it, at least scale 1 (one view pixel per field pixel; below 320 × 240 the field is cropped); the
-edges of each logical pixel are snapped to device pixels, so it stays sharp at fractional scales. The toolbar wraps when
-the tab is narrow.
+The field keeps its 4:3 ratio, is centred in the tab and scaled to fill it, at least scale 1 at Fit (one view pixel per
+field pixel; below 320 × 240 the field is cropped; the zoom goes below it); the edges of each logical pixel are
+snapped to device pixels, so it stays sharp at fractional scales. The toolbar wraps when the tab is narrow.
+
+Zoom: 25%–Fit, see [game-zoom.md](game-zoom.md); the field then gets smaller than the tab, centred, with the board
+background around it.
 
 ## Stored
 User-wide in `~/.sluide/shared.json`, field `orbitGuard` ([ADR 0101](../adr/0101-shared-data-file.md)): the last

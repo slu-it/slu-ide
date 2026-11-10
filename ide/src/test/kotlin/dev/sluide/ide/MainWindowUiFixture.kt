@@ -448,7 +448,7 @@ abstract class MainWindowUiFixture {
             Doubles(DoublesPreferences(projectData), GameZoomPreferences(projectData)).also(doublesGames::add),
             Sudoku(SudokuPreferences(projectData), GameZoomPreferences(projectData)).also(sudokuGames::add),
             Solitaire(SolitairePreferences(projectData)).also(solitaireGames::add),
-            OrbitGuard(OrbitGuardPreferences(projectData)).also(orbitGuardGames::add),
+            OrbitGuard(OrbitGuardPreferences(projectData), GameZoomPreferences(projectData)).also(orbitGuardGames::add),
             BlockBreaker(BlockBreakerPreferences(projectData)).also(blockBreakerGames::add),
             MiniGolf(MiniGolfPreferences(projectData)).also(miniGolfGames::add),
             PipePuzzle(PipePuzzlePreferences(projectData)).also(pipePuzzleGames::add),
