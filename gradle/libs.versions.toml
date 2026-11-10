@@ -18,6 +18,7 @@ ec4j = "1.1.1"
 onnxruntime = "1.31.1"
 lingua = "1.2.2"
 lsp4j = "1.0.0"
+bouncycastle = "1.86"
 
 [libraries]
 spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
@@ -51,6 +52,8 @@ lingua = { module = "com.github.pemistahl:lingua", version.ref = "lingua" }
 # The Language Server Protocol client of language-servers (ADR 0142); brings Gson, whose version the Spring Boot BOM
 # manages within lsp4j's range.
 lsp4j = { module = "org.eclipse.lsp4j:org.eclipse.lsp4j", version.ref = "lsp4j" }
+# Argon2id for the keys of encrypted files (ADR 0162); only the lightweight API, no JCE provider.
+bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 # Version from the Spring Boot BOM (Jackson 3).
 jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 # Versions from the Spring Boot BOM (Jackson 3).
