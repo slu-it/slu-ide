@@ -20,6 +20,7 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.net.URI
+import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import kotlin.io.path.readText
@@ -266,6 +267,56 @@ class CodeEditorUiTest {
         assertEquals(text.length, display.text.length)
         assertTrue(area.getStyleSpans(0, area.length).all { it.style.isEmpty() })
         assertEquals(0, area.caretPosition)
+    }
+
+    /** Content held in memory, as a decrypted file's; records what is written. */
+    private class MemoryContent(
+        var bytes: ByteArray,
+    ) : FileContent {
+        val written = mutableListOf<String>()
+
+        override fun read(): ByteArray = bytes
+
+        override fun write(bytes: ByteArray) {
+            written += String(bytes)
+            this.bytes = bytes
+        }
+    }
+
+    @Test
+    fun `an editor of content reads, saves and reloads through it and never touches its virtual path`(robot: FxRobot) {
+        val virtual = dir.resolve("missing/notes.txt")
+        val content = MemoryContent("a\r\nb\r\n".toByteArray())
+        val editor =
+            WaitForAsyncUtils.asyncFx<CodeEditor> { CodeEditors.open(virtual, null, content = content) }.get()
+        robot.interact { container.children.setAll(editor.node) }
+        assertEquals("a\nb\n", editor.text)
+
+        robot.interact { editor.area().insertText(0, "x") }
+        assertTrue(editor.dirty.get())
+        robot.interact { editor.save() }
+        assertEquals(listOf("xa\r\nb\r\n"), content.written)
+        assertFalse(editor.dirty.get())
+
+        content.bytes = "changed\r\n".toByteArray()
+        robot.interact { editor.reload() }
+        assertEquals("changed\n", editor.text)
+        assertFalse(editor.dirty.get())
+
+        robot.interact { editor.area().insertText(0, "mine ") }
+        content.bytes = "theirs\n".toByteArray()
+        robot.interact { editor.reload() }
+        assertEquals("mine changed\n", editor.text, "unsaved changes meet a change of the content")
+        assertTrue(editor.dirty.get())
+
+        val moved = dir.resolve("elsewhere/notes.txt")
+        robot.interact {
+            editor.moved(moved)
+            editor.save()
+        }
+        assertEquals("mine changed\r\n", content.written.last(), "a moved editor keeps its content")
+        assertFalse(Files.exists(virtual.parent))
+        assertFalse(Files.exists(moved.parent))
     }
 
     @Test

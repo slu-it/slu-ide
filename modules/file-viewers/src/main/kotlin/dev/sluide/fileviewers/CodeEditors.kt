@@ -220,14 +220,17 @@ object CodeEditors {
     /**
      * An editor of [file] highlighted by [highlighter] (plain text without one), whose Shortcut+/ comments lines with
      * [lineComment] (e.g. `#`), or wraps them in [blockComment] (e.g. `/*` and `*/`) without one; with neither, lines
-     * cannot be commented. Call on the FX thread.
+     * cannot be commented. It reads and saves [content], the file on disk by default; other content makes [file] a
+     * virtual path, never read, written or checked for existence ([ContentFileViewer]). Call on the FX thread.
      */
     fun open(
         file: Path,
         highlighter: SyntaxHighlighter?,
         lineComment: String? = null,
         blockComment: Pair<String, String>? = null,
-    ): CodeEditor = CodeViewEditor(CodeView(file, highlighter, CommentSyntax(lineComment, blockComment)))
+        content: FileContent = DiskContent(file),
+    ): CodeEditor =
+        CodeViewEditor(CodeView(file, highlighter, CommentSyntax(lineComment, blockComment), content = content))
 
     /** An editor of [text], highlighted by [highlighter] (plain without one). Call on the FX thread. */
     fun text(

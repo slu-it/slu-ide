@@ -7,8 +7,6 @@ import javafx.beans.property.ReadOnlyBooleanWrapper
 import java.io.IOException
 import java.nio.CharBuffer
 import java.nio.charset.CharacterCodingException
-import java.nio.file.Files
-import java.nio.file.Path
 
 /**
  * The encoding a [CodeView] saves its file in (ADR 0098): the one the file was read in, until the user chooses to
@@ -98,16 +96,15 @@ internal fun firstUnencodable(
  * A file's content as read, [raw] with its line endings, and the [encoding] it was decoded from; not [valid] (no
  * encoding) if it shows replacement characters.
  */
-internal class FileContent(
+internal class DecodedContent(
     val raw: String,
     val encoding: TextEncoding?,
 ) {
     val valid: Boolean get() = encoding != null
 }
 
-/** The content of [file]: decoded ([decodeText]), or as UTF-8 with replacement characters if it does not decode. */
-internal fun readContent(file: Path): FileContent {
-    val bytes = Files.readAllBytes(file)
+/** [bytes] of a file decoded ([decodeText]), or as UTF-8 with replacement characters if they do not decode. */
+internal fun decodeContent(bytes: ByteArray): DecodedContent {
     val decoded = decodeText(bytes)
-    return FileContent(decoded?.text ?: String(bytes, Charsets.UTF_8), decoded?.encoding)
+    return DecodedContent(decoded?.text ?: String(bytes, Charsets.UTF_8), decoded?.encoding)
 }

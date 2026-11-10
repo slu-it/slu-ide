@@ -1,6 +1,8 @@
 package dev.sluide.fileviewers.code
 
+import dev.sluide.fileviewers.DiskContent
 import dev.sluide.fileviewers.EditableFileView
+import dev.sluide.fileviewers.FileContent
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.GutterColumns
@@ -32,7 +34,6 @@ import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.util.UndoUtils
 import org.fxmisc.wellbehaved.event.Nodes
-import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.time.Duration
@@ -49,6 +50,9 @@ import java.time.Duration
  * file that is neither is shown read-only, with a banner, and never saved: its invalid bytes show as replacement
  * characters, which saving would write back. The encoding follows the file on disk when it is read again, and stays
  * when the file is [moved].
+ *
+ * The file's bytes are read and saved only through [content] (the file on disk by default); content from elsewhere
+ * (e.g. decrypted) makes [file] a virtual path, used for its name and folder only.
  *
  * Edited text is highlighted again once typing pauses, on a background thread; the result is handed to the FX thread
  * through [dispatch] (`Platform.runLater`, replaced in tests), and dropped if the text changed meanwhile. Only the
@@ -83,12 +87,16 @@ internal class CodeView(
     followPause: Duration = FOLLOW_PAUSE,
     ownToolbar: Boolean = false,
     macKeys: Boolean = onMac,
+    content: FileContent = DiskContent(initialFile),
     private val dispatch: (Runnable) -> Unit = Platform::runLater,
 ) : EditableFileView,
     TextEditableView,
     GutterColumns {
-    /** The file shown; it changes when the file is [moved]. */
+    /** The file shown; it changes when the file is [moved]. Read and written only through [content]. */
     private var file = initialFile
+
+    /** Where the file's bytes are read from and saved to; follows the file when it is [moved] if it is on disk. */
+    private var content = content
 
     /** The name of [file], for the banners. */
     private val fileName = SimpleStringProperty(file.fileName.toString())
@@ -175,7 +183,7 @@ internal class CodeView(
     private var lineEnding: LineEnding
 
     /** The file's content on disk when it last changed while the view had unsaved changes. */
-    private var conflict: FileContent? = null
+    private var conflict: DecodedContent? = null
 
     /** Whether the user kept the unsaved text over a change on disk ([keepMine]), which only a save writes. */
     private val keptMine = SimpleBooleanProperty(false)
@@ -235,12 +243,12 @@ internal class CodeView(
         private set
 
     init {
-        val content = readContent(file)
-        lineEnding = LineEnding.of(content.raw)
-        savedText = LineEnding.normalize(content.raw)
+        val read = decodeContent(content.read())
+        lineEnding = LineEnding.of(read.raw)
+        savedText = LineEnding.normalize(read.raw)
         show(savedText)
-        showReadOnly(!content.valid)
-        encoding.read(content.encoding)
+        showReadOnly(!read.valid)
+        encoding.read(read.encoding)
         showEncoding()
         generatedBanner.show(file)
         undoManager.forgetHistory()
@@ -301,8 +309,7 @@ internal class CodeView(
         if (readOnly || additions.locks.readOnlyHeld) return
         val text = area.text
         val bytes = encoding.encode(lineEnding.restore(text))
-        // In place, so the file keeps its permissions and symbolic links stay links.
-        Files.write(file, bytes)
+        content.write(bytes)
         savedText = text
         keptMine.set(false)
         encoding.saved()
@@ -329,42 +336,42 @@ internal class CodeView(
     override fun refreshGutter() = gutter.refresh()
 
     override fun reload() {
-        val content =
+        val read =
             try {
-                readContent(file)
+                decodeContent(content.read())
             } catch (_: NoSuchFileException) {
                 hideConflict()
                 if (!deletedShown) banners.children += deletedBanner
                 return
             }
         banners.children -= deletedBanner
-        when (DiskChange.decide(content.raw, savedText, area.text, dirty.get())) {
+        when (DiskChange.decide(read.raw, savedText, area.text, dirty.get())) {
             DiskChange.IGNORE -> {
-                adoptLineEnding(content.raw)
+                adoptLineEnding(read.raw)
                 // Kept mine: the next save writes the view's text in the view's encoding over the file.
-                if (!keptMine.get()) encoding.unchanged(content.encoding)
+                if (!keptMine.get()) encoding.unchanged(read.encoding)
                 showEncoding()
                 hideConflict()
             }
 
             DiskChange.RELOAD -> {
-                load(content)
+                load(read)
             }
 
             DiskChange.CONFLICT -> {
-                conflict = content
+                conflict = read
                 if (!conflictShown) banners.children += conflictBanner
             }
         }
     }
 
     /** Shows [content] as the saved text, keeping caret, scroll position and undo history. */
-    private fun load(content: FileContent) {
-        val text = LineEnding.normalize(content.raw)
+    private fun load(read: DecodedContent) {
+        val text = LineEnding.normalize(read.raw)
         hideConflict()
-        adoptLineEnding(content.raw)
-        showReadOnly(!content.valid)
-        encoding.read(content.encoding)
+        adoptLineEnding(read.raw)
+        showReadOnly(!read.valid)
+        encoding.read(read.encoding)
         showEncoding()
         // The reload is an undo step of its own.
         replaceMinimally(text)
@@ -459,6 +466,8 @@ internal class CodeView(
      * is taken again for the new path, whose `.editorconfig` sections may differ.
      */
     override fun moved(to: Path): Boolean {
+        // Content from elsewhere stays: its owner follows its own file.
+        if ((content as? DiskContent)?.file == file) content = DiskContent(to)
         file = to
         fileName.set(to.fileName.toString())
         indentStyle = IndentStyle.forFile(to, savedText, defaultIndent)
