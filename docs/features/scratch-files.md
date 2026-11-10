@@ -8,7 +8,9 @@ Files for notes and experiments outside the project, shared by all project windo
 - **Create:** File → New Scratch File… (Ctrl+Shift+N, Cmd+Shift+N on macOS; also from a terminal tab) shows the type
   picker near the top of the window: a filter field above the types, each with its file-type icon, name and
   extension (Plain Text, Markdown, JSON, YAML, XML, HTML, CSS, JavaScript, TypeScript, Kotlin, Kotlin Script, Java,
-  Python, Shell Script, SQL, HTTP Request, TOML, Properties, CSV, Mermaid, KQL, Bicep).
+  Python, Shell Script, SQL, HTTP Request, TOML, Properties, CSV, Mermaid, KQL, Bicep), then four encrypted ones
+  (Plain Text, Markdown, JSON and YAML "(encrypted)", `.sluenc` files that ask for a password;
+  [encrypted-files.md](encrypted-files.md#creating-encrypted-scratch-files)).
   - Typing filters by name or extension, ignoring case; a leading dot is ignored (`.kt` finds Kotlin). Up and Down
     move the selection while the focus stays in the field; Enter or a click picks a type. Escape or a click elsewhere
     closes the picker without creating anything. At most 12 rows are shown, the rest scroll.
@@ -33,7 +35,8 @@ Files for notes and experiments outside the project, shared by all project windo
   moved out is no scratch any more and stays when empty.
 - **Empty scratches are deleted** when their last tab closes, in any window (closing the tab, Close Others/All,
   closing the window): only if the file is empty and no other window has it open. A scratch with content stays until
-  you delete it in the explorer.
+  you delete it in the explorer. An encrypted scratch is deleted only when its tab closes unlocked with empty content
+  (and the file is unchanged); closed locked it stays, as its content cannot be told.
 - **What does not apply to scratches:** they are normally in no repository, so no git status colours, change markers,
   diffs or history, and changes in the folder do not refresh the project's git status. A scratch `.http` file sees only
   the environment files in the scratches folder; the HTML preview of a scratch serves the scratches folder;

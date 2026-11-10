@@ -60,7 +60,11 @@ The password is stored nowhere: **if it is forgotten, the content is lost**; not
     with the warning.
   - Time spent in another tab or window counts as idle; the Change Password dialog does too, so an idle lock can end
     it ("The file was locked meanwhile.").
-- Lock All and the File menu items with their keys follow with the next steps of this work.
+- **File → Lock Encrypted File** (Ctrl+Shift+L, Cmd+Shift+L on macOS) locks the current tab like Lock in the strip
+  (with the unsaved question); it is enabled only while the current tab is an unlocked encrypted file.
+  **File → Lock All Encrypted Files** (Ctrl+Alt+Shift+L, Cmd+Option+Shift+L) locks every unlocked tab of all windows
+  and is enabled while one is unlocked (one question for the tabs with unsaved changes, see `EncryptedFiles.lockAll`).
+  Both keys also work from a terminal tab. Locking drops the content as described above.
 
 ## Several windows or tabs on one file
 - Each tab locks and unlocks on its own.
@@ -118,5 +122,13 @@ lost."). Create is disabled until it is long enough and both fields match; then 
 shows its message and the dialog stays; Cancel returns `false`.
 
 ## Creating encrypted scratch files
-Follows with the next steps of this work: four encrypted types in the scratch type picker that use the New Password
-dialog (above), and the new file opening unlocked without deriving the key twice (`EncryptedFiles.handOver`).
+File → New Scratch File… ([scratch-files.md](scratch-files.md)) lists four encrypted types after the plain ones:
+Plain Text, Markdown, JSON and YAML "(encrypted)", files `scratch.txt.sluenc`, `scratch.md.sluenc`,
+`scratch.json.sluenc` and `scratch.yaml.sluenc` (numbered like other scratches).
+- Picking one opens the New Password dialog above ("New Encrypted Scratch File"); the file is created, empty,
+  encrypted and readable by its owner only (`rw-------` on POSIX), on the dialog's background thread (the key
+  derivation takes a moment). Cancel creates nothing. If the folder
+  is not writable the dialog shows why and stays.
+- The new tab opens unlocked: the key derived for the file is handed over to the tab (`EncryptedFiles.handOver`, closed
+  and zeroed if no tab takes it within a minute), so the password is not derived twice. The type is remembered as the
+  last one picked.

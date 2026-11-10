@@ -17,6 +17,8 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 |---|---|
 | Shortcut+Shift+N | File → New Scratch File… |
 | Shortcut+Shift+G | File → New Generated Scratch File… |
+| Shortcut+Shift+L | File → Lock Encrypted File (the current tab, while it is an unlocked encrypted file; also from a terminal; [encrypted-files.md](encrypted-files.md)) |
+| Shortcut+Alt+Shift+L (Cmd+Option+Shift+L on macOS) | File → Lock All Encrypted Files (while a tab is unlocked, in any window; also from a terminal) |
 | Shortcut+O | File → Open Folder… |
 | Shortcut+Shift+O | File → Open Project… (project picker) |
 | Shortcut+S | File → Save |
