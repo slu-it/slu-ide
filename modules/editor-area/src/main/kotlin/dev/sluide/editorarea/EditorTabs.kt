@@ -52,6 +52,12 @@ interface EditorTab {
     /** What the tab is doing, shown as a marker on its header (a reading running, ...); none by default. */
     val activity: ObservableValue<ViewActivity> get() = NO_ACTIVITY
 
+    /**
+     * The icon shown before the title in the tab header and in the overflow menu, or `null` for none. Returns a fresh
+     * node on every call, as a node can have one parent only.
+     */
+    fun icon(): Node? = null
+
     /** Releases the tab's resources. Called once, when the tab is closed. */
     fun dispose() {}
 }

@@ -42,6 +42,9 @@ private val AUTO_SCROLL_INTERVAL: Duration = Duration.millis(300.0)
 /** The style class of the marker a tab header shows for its view's [ViewActivity]. */
 private const val ACTIVITY_MARKER = "tab-activity"
 
+/** The style class of the icon a tab header shows before its title. */
+internal const val TAB_ICON_STYLE_CLASS = "tab-icon"
+
 private const val ACTIVITY_DOT_RADIUS = 3.5
 
 /**
@@ -181,6 +184,7 @@ internal class TabStrip(
 
     private fun menuItem(tab: EditorTab) =
         MenuItem(tab.title.value).apply {
+            graphic = tab.icon()
             setOnAction { choose(tab) }
         }
 
@@ -406,6 +410,8 @@ internal class TabStrip(
             val title = Label().apply { textProperty().bind(tab.title) }
             // Headers are unmanaged, so a longer or shorter title does not lay out the strip again by itself.
             title.textProperty().subscribe { _ -> this@TabStrip.requestLayout() }
+            val icon = tab.icon()?.apply { styleClass += TAB_ICON_STYLE_CLASS }
+            if (icon != null) children.add(icon)
             children.addAll(title, close)
             tooltip = Tooltip(tab.tooltip)
             Tooltip.install(this, tooltip)

@@ -14,6 +14,7 @@ import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.TextField
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.shape.Rectangle
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -495,9 +496,14 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
     }
 
     /** A tab that is no file but shows an activity, like a Read Aloud reading. */
-    private class BusyTab : EditorTab {
-        override val title = SimpleStringProperty("Busy tool")
-        override val tooltip = "Busy tool"
+    private class BusyTab(
+        name: String = "Busy tool",
+        private val iconFactory: (() -> Node)? = null,
+    ) : EditorTab {
+        override fun icon(): Node? = iconFactory?.invoke()
+
+        override val title = SimpleStringProperty(name)
+        override val tooltip = name
         override val content = TextField()
         override val activity = SimpleObjectProperty(ViewActivity.NONE)
     }
@@ -610,6 +616,31 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
 
         robot.interact { busy.activity.set(ViewActivity.RUNNING) }
         assertEquals(listOf("tab-activity-running"), markers())
+    }
+
+    @Test
+    fun `a tab with an icon shows it before its title and in the overflow menu, one without shows none`(
+        robot: FxRobot,
+    ) {
+        robot.interact { editor.open(BusyTab("Plain")) }
+        robot.interact { editor.open(BusyTab("Iconic") { Rectangle(16.0, 16.0) }) }
+        val plainHeader = tabLabel(robot, "Plain").parent
+        val iconicHeader = tabLabel(robot, "Iconic").parent
+
+        assertEquals(emptyList(), plainHeader.childrenUnmodifiable.filter { TAB_ICON_STYLE_CLASS in it.styleClass })
+        val children = iconicHeader.childrenUnmodifiable
+        val icon = children.single { TAB_ICON_STYLE_CLASS in it.styleClass }
+        assertTrue(icon is Rectangle)
+        assertEquals(children.indexOf(icon) + 1, children.indexOf(tabLabel(robot, "Iconic")))
+
+        robot.interact { editor.closeAll() }
+        robot.interact { stage.width = 300.0 }
+        robot.interact { editor.open(BusyTab("Iconic") { Rectangle(16.0, 16.0) }) }
+        openTabs(robot)
+        val strip = editor.tabStrip
+        robot.interact { strip.overflowMenu.show() }
+        val graphics = strip.overflowMenu.items.associate { it.text to it.graphic }
+        assertTrue(graphics["Iconic"] is Rectangle, "the overflow item of the tab with an icon shows it")
     }
 
     @Test
