@@ -251,8 +251,7 @@ class TypeScriptProjectsTest {
 
         assertEquals("^7.0.0", source.resolvedRange)
         assertEquals(dir.resolve("packages/package.json"), source.catalogFile)
-        assertEquals(listOf(dir.resolve("packages/app"), dir.resolve("packages")), source.consulted.takeLast(2))
-        assertEquals(dir.resolve("packages/app"), source.consulted.first())
+        assertEquals(listOf(dir.resolve("packages/app"), dir.resolve("packages"), dir), source.consulted)
     }
 
     @Test
@@ -308,4 +307,62 @@ class TypeScriptProjectsTest {
             source.consulted,
         )
     }
+
+    @Test
+    fun `a hoisted install above a declaring package wins`() {
+        declare("apps/a", "^7.0.0")
+        installed(".", "7.0.2")
+
+        val source = assertIs<TypeScriptSource.Installed>(resolve("apps/a/src/a.ts"))
+
+        assertEquals("7.0.2", source.version)
+        assertEquals(
+            listOf(dir.resolve("apps/a/src"), dir.resolve("apps/a"), dir.resolve("apps"), dir),
+            source.consulted,
+        )
+    }
+
+    @Test
+    fun `an installed 5 at the root wins over a nearer declaration of 7`() {
+        declare("apps/a", "^7.0.0")
+        installed(".", "5.4.5")
+
+        val source = assertIs<TypeScriptSource.Installed>(resolve("apps/a/a.ts"))
+
+        assertEquals(Verdict.TOO_OLD, verdictOf(source))
+    }
+
+    @Test
+    fun `the first declaration is kept when an outer one follows`() {
+        declare("apps/a", "^7.0.0")
+        declare(".", "^5.0.0")
+
+        val source = assertIs<TypeScriptSource.Declared>(resolve("apps/a/a.ts"))
+
+        assertEquals("^7.0.0", source.range)
+        assertEquals(dir, source.consulted.last())
+    }
+
+    @Test
+    fun `a nearer deno json beats an outer declaration`() {
+        write("apps/d/deno.json", "{}")
+        declare(".", "^7.0.0")
+
+        assertIs<TypeScriptSource.Deno>(resolve("apps/d/a.ts"))
+    }
+
+    @Test
+    fun `a deno json above a declaration is ignored`() {
+        write("deno.json", "{}")
+        declare("apps/a", "^7.0.0")
+
+        val source = assertIs<TypeScriptSource.Declared>(resolve("apps/a/a.ts"))
+
+        assertEquals("^7.0.0", source.range)
+    }
+
+    private fun declare(
+        folder: String,
+        range: String,
+    ) = write("$folder/package.json", """{"devDependencies":{"typescript":"$range"}}""")
 }

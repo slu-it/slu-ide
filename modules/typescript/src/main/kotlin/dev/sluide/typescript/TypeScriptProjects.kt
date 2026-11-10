@@ -29,8 +29,9 @@ sealed interface TypeScriptSource {
 
     /**
      * A package.json declares `typescript`; [range] as written (`catalog:`...), [resolvedRange] what it resolves to
-     * (null: unresolvable), [catalogFile] the catalog source consulted (also when it has no entry). [consulted] then also lists the folders up
-     * to the catalog's.
+     * (null: unresolvable), [catalogFile] the catalog source consulted (also when it has no entry). The first
+     * declaration on the way up; the walk went on to the end (no installed typescript above it), so [consulted] lists
+     * every folder up to there, the catalog's included.
      */
     data class Declared(
         val range: String,
@@ -76,8 +77,13 @@ fun verdictOf(source: TypeScriptSource): Verdict =
  * Which TypeScript governs [file]. The walk starts at the file's folder, or for a file inside `node_modules` (go to
  * definition into a dependency) at the folder that contains the outermost `node_modules` segment, the consuming
  * project, so a dependency's own package.json or nested `node_modules` never decide. It goes up to the filesystem
- * root; [stopAt] (normalized here, inclusive) ends it earlier, for tests. In each folder the first hit wins:
- * installed typescript, a package.json declaring it, a deno.json(c).
+ * root; [stopAt] (normalized here, inclusive) ends it earlier, for tests. Like Node, which finds a hoisted install
+ * above a package that only declares it, an installed typescript anywhere on the way wins. In each folder:
+ * 1. `node_modules/typescript` with a version: [TypeScriptSource.Installed], the walk ends;
+ * 2. else a package.json declaring typescript: remembered if it is the first one, the walk goes on;
+ * 3. else a deno.json(c): [TypeScriptSource.Deno], the walk ends, unless a declaration was remembered (the nearest
+ *    config wins; a Deno config above a declaring package is ignored).
+ * At the end the remembered declaration, else [TypeScriptSource.Loose]. `consulted` lists every folder walked.
  */
 fun resolveTypeScript(
     file: Path,
@@ -85,21 +91,29 @@ fun resolveTypeScript(
 ): TypeScriptSource {
     val stop = stopAt?.toAbsolutePath()?.normalize()
     val consulted = mutableListOf<Path>()
+    var declared: Triple<Path, String, CatalogResult?>? = null
     var folder = startFolder(file.toAbsolutePath().normalize())
     while (folder != null) {
         consulted.add(folder)
-        val seen = consulted.toList()
-        installedVersion(folder)?.let { (json, version) -> return TypeScriptSource.Installed(version, json, seen) }
-        declaredRange(folder)?.let { (json, range) ->
-            val catalog = resolveCatalog(range, folder, stop)
-            val folders = seen + (catalog?.folders.orEmpty().filter { it !in seen })
-            return TypeScriptSource.Declared(range, json, catalog?.value, catalog?.file, folders)
+        installedVersion(folder)?.let { (json, version) ->
+            return TypeScriptSource.Installed(version, json, consulted.toList())
         }
-        listOf("deno.json", "deno.jsonc").map { folder.resolve(it) }.firstOrNull { isFile(it) }?.let {
-            return TypeScriptSource.Deno(it, seen)
+        if (declared == null) {
+            declaredRange(folder)?.let { (json, range) ->
+                declared =
+                    Triple(json, range, resolveCatalog(range, folder, stop))
+            }
+        }
+        if (declared == null) {
+            listOf("deno.json", "deno.jsonc").map { folder.resolve(it) }.firstOrNull { isFile(it) }?.let {
+                return TypeScriptSource.Deno(it, consulted.toList())
+            }
         }
         if (folder == stop) break
         folder = folder.parent
+    }
+    declared?.let { (json, range, catalog) ->
+        return TypeScriptSource.Declared(range, json, catalog?.value, catalog?.file, consulted.toList())
     }
     return TypeScriptSource.Loose(consulted)
 }
@@ -132,11 +146,10 @@ private fun declaredRange(folder: Path): Pair<Path, String>? {
     return null
 }
 
-/** [value] null: no entry; [file] is the catalog source; [folders] the folders looked at, from the declaring one up. */
+/** [value] null: no entry; [file] is the catalog source. */
 private class CatalogResult(
     val value: String?,
     val file: Path?,
-    val folders: List<Path>,
 )
 
 /**
@@ -150,12 +163,10 @@ private fun resolveCatalog(
     stop: Path?,
 ): CatalogResult? {
     val spec = range.trim()
-    if (!spec.startsWith("catalog:")) return CatalogResult(range, null, emptyList())
+    if (!spec.startsWith("catalog:")) return CatalogResult(range, null)
     val name = spec.removePrefix("catalog:").trim().ifEmpty { "default" }
-    val visited = mutableListOf<Path>()
     var folder: Path? = from
     while (folder != null) {
-        visited.add(folder)
         val yaml = folder.resolve("pnpm-workspace.yaml").takeIf { isFile(it) }
         val json = folder.resolve("package.json")
         val root = readJson(json)?.takeIf { hasCatalog(it) }
@@ -164,12 +175,12 @@ private fun resolveCatalog(
             val fromJson = root?.let { jsonCatalogEntry(it, name) }
             val value = fromYaml ?: fromJson
             val source = if (fromYaml != null || root == null) yaml else json
-            return CatalogResult(value, source, visited)
+            return CatalogResult(value, source)
         }
         if (folder == stop) break
         folder = folder.parent
     }
-    return CatalogResult(null, null, visited)
+    return CatalogResult(null, null)
 }
 
 private fun hasCatalog(root: JsonNode): Boolean =
