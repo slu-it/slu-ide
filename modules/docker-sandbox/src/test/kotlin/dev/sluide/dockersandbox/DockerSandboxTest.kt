@@ -10,6 +10,7 @@ import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
+import kotlin.io.path.deleteExisting
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -91,6 +92,19 @@ class DockerSandboxTest {
         check.complete(true)
 
         assertNull(sandbox(check).problem(SandboxAction.ENVIRONMENT, project))
+    }
+
+    @Test
+    fun `the menu action follows a regular sbxenv yaml in the folder`() {
+        assertEquals(SandboxAction.CLAUDE_CODE, SandboxAction.forFolder(null))
+        assertEquals(SandboxAction.CLAUDE_CODE, SandboxAction.forFolder(project))
+
+        project.resolve("sbxenv.yaml").createDirectories()
+        assertEquals(SandboxAction.CLAUDE_CODE, SandboxAction.forFolder(project))
+
+        project.resolve("sbxenv.yaml").deleteExisting()
+        project.resolve("sbxenv.yaml").createFile()
+        assertEquals(SandboxAction.ENVIRONMENT, SandboxAction.forFolder(project))
     }
 
     @Test
