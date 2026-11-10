@@ -11,6 +11,7 @@ import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
+import java.util.Base64
 import java.util.HexFormat
 import java.util.concurrent.CancellationException
 import java.util.concurrent.CountDownLatch
@@ -122,6 +123,35 @@ class ModelDownloaderTest {
         val e = assertFailsWith<ModelDownloadException> { run() }
         assertEquals("Download of m.onnx failed: checksum mismatch", e.message)
         assertEquals(emptyList(), entries())
+    }
+
+    private fun sri(bytes: ByteArray) =
+        Checksum.Sri(
+            DigestAlgorithm.SHA512,
+            Base64.getEncoder().encodeToString(MessageDigest.getInstance("SHA-512").digest(bytes)),
+        )
+
+    @Test
+    fun `a file pinned by a SHA-512 integrity downloads when its digest matches`() {
+        val pinned = modelFile.copy(checksum = sri(model))
+
+        downloader.download(listOf(pinned), folder, {}, { false })
+
+        assertEquals(model.toList(), bytesOf("m.onnx"))
+    }
+
+    @Test
+    fun `a file pinned by a SHA-512 integrity fails on a mismatch, also with the right SHA-256 as base64`() {
+        // The SHA-256 of the right bytes as the value: only the digest by the named algorithm can refuse it.
+        val sha256 = Base64.getEncoder().encodeToString(MessageDigest.getInstance("SHA-256").digest(model))
+        for (checksum in listOf(sri(other), Checksum.Sri(DigestAlgorithm.SHA512, sha256))) {
+            val e =
+                assertFailsWith<ModelDownloadException> {
+                    downloader.download(listOf(modelFile.copy(checksum = checksum)), folder, {}, { false })
+                }
+            assertEquals("Download of m.onnx failed: checksum mismatch", e.message)
+            assertEquals(emptyList(), entries())
+        }
     }
 
     @Test

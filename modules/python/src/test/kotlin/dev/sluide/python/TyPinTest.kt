@@ -1,6 +1,7 @@
 package dev.sluide.python
 
 import dev.sluide.localmodels.ArchiveFormat
+import dev.sluide.localmodels.Checksum
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.net.URI
@@ -37,7 +38,10 @@ class TyPinTest {
             release.url,
         )
         assertEquals(13_659_057, release.bytes)
-        assertEquals("1aeb90425e934914f437f30ec7de6f5a55352aa858628903adb08a24a852191e", release.sha256)
+        assertEquals(
+            Checksum.Sha256("1aeb90425e934914f437f30ec7de6f5a55352aa858628903adb08a24a852191e"),
+            release.checksum,
+        )
         assertEquals(ArchiveFormat.TAR_GZ, release.format)
         assertEquals("ty-aarch64-unknown-linux-musl/ty", release.executable)
     }

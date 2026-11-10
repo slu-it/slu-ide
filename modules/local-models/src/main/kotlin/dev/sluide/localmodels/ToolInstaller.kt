@@ -10,7 +10,6 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
-import java.util.Locale
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicBoolean
@@ -20,7 +19,6 @@ private val log = System.getLogger(ToolInstaller::class.java.name)
 /** The row of a running download changes its name in steps of this many percent. */
 private const val ROW_STEP = 5
 
-private val SHA256 = Regex("[0-9a-f]{64}")
 private val ASSET_NAME = Regex("[A-Za-z0-9][A-Za-z0-9._+-]{0,127}")
 
 /** The folder in an install's staging folder that the archive unpacks to. */
@@ -31,7 +29,7 @@ private const val CONTENT = ".content"
  * pointers `current` and `previous`; older versions and leftovers of installs are deleted after each switch, anything
  * else in the root stays. Use one installer per root, app-wide.
  *
- * [install] downloads a release with [downloader] (part file, size and SHA-256 check, stall watchdog), unpacks it into
+ * [install] downloads a release with [downloader] (part file, size and checksum check, stall watchdog), unpacks it into
  * a staging folder in the root, makes the executable executable, runs [smokeTest] on it there (null: it works, else
  * why not), marks the folder installed, moves it into place and switches the pointers. Until the switch, a failure or
  * a cancel leaves `current`, `previous` and their folders as they were and removes what the install wrote.
@@ -147,7 +145,7 @@ class ToolInstaller(
         val asset = assetName(release)
         val staging = store.staging()
         try {
-            val file = ModelFile(asset, release.url, release.bytes, release.sha256.lowercase(Locale.ROOT))
+            val file = ModelFile(asset, release.url, release.bytes, release.checksum)
             downloader.download(
                 listOf(file),
                 staging,
@@ -214,8 +212,10 @@ class ToolInstaller(
     /** The executable's path inside the archive, after checking what the caller supplied; readable failures. */
     private fun checked(release: ToolRelease): String {
         if (!validVersion(release.version)) throw ToolInstallException("${release.version} is not a valid version")
-        if (!SHA256.matches(release.sha256.lowercase(Locale.ROOT))) {
-            throw ToolInstallException("The checksum of version ${release.version} is not a SHA-256 value")
+        if (!release.checksum.wellFormed) {
+            throw ToolInstallException(
+                "The checksum of version ${release.version} is not a ${release.checksum.algorithm.javaName} value",
+            )
         }
         if (release.bytes !in 1..maxBytes) {
             throw ToolInstallException("The download of version ${release.version} is too large")

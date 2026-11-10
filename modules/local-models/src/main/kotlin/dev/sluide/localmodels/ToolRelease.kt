@@ -18,18 +18,28 @@ enum class ArchiveFormat {
 
 /**
  * One release of a command-line tool, for one platform: its [version] (also the name of its folder, so letters,
- * digits and `.`, `_`, `+`, `-` only), where its file comes from, the file's size and SHA-256 (hex, from a pin or
- * the release's published digest), its [format], and the [executable]'s path inside the archive (`/`-separated; for
+ * digits and `.`, `_`, `+`, `-` only), where its file comes from, the file's size and [checksum] (from a pin or the
+ * release's published digest), its [format], and the [executable]'s path inside the archive (`/`-separated; for
  * [ArchiveFormat.PLAIN] the name the file gets).
  */
 data class ToolRelease(
     val version: String,
     val url: URI,
     val bytes: Long,
-    val sha256: String,
+    val checksum: Checksum,
     val format: ArchiveFormat,
     val executable: String,
-)
+) {
+    /** A release pinned by its SHA-256 in hex. */
+    constructor(
+        version: String,
+        url: URI,
+        bytes: Long,
+        sha256: String,
+        format: ArchiveFormat,
+        executable: String,
+    ) : this(version, url, bytes, Checksum.Sha256(sha256), format, executable)
+}
 
 /** The tool a pointer of [ToolInstaller] names: its version and the absolute path of its executable. */
 data class InstalledTool(

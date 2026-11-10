@@ -11,6 +11,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 import java.security.MessageDigest
+import java.util.Base64
 import java.util.HexFormat
 import java.util.Properties
 import java.util.concurrent.CancellationException
@@ -39,7 +40,7 @@ class ToolInstallerTest {
     private var work: (ModelFile, Path, (Double) -> Unit, () -> Boolean) -> Unit = { file, folder, progress, _ ->
         val bytes = served.getValue(file.url)
         progress(0.5)
-        if (bytes.size.toLong() != file.bytes || sha(bytes) != file.sha256) {
+        if (bytes.size.toLong() != file.bytes || !file.checksum.matches(digest(bytes, file.checksum.algorithm))) {
             throw ModelDownloadException("Download of ${file.path} failed: checksum mismatch")
         }
         folder.resolve(file.path).writeBytes(bytes)
@@ -83,7 +84,12 @@ class ToolInstallerTest {
         while (queued.isNotEmpty()) queued.removeFirst().run()
     }
 
-    private fun sha(bytes: ByteArray) = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))
+    private fun digest(
+        bytes: ByteArray,
+        algorithm: DigestAlgorithm,
+    ) = MessageDigest.getInstance(algorithm.javaName).digest(bytes)
+
+    private fun sha(bytes: ByteArray) = HexFormat.of().formatHex(digest(bytes, DigestAlgorithm.SHA256))
 
     private fun release(
         version: String,
@@ -135,7 +141,7 @@ class ToolInstallerTest {
             ),
             states,
         )
-        assertEquals(listOf(ModelFile("ty-aarch64.tar.gz", release.url, release.bytes, release.sha256)), requested)
+        assertEquals(listOf(ModelFile("ty-aarch64.tar.gz", release.url, release.bytes, release.checksum)), requested)
         val checked = smoked.single()
         val staging = root.toAbsolutePath().resolve(".install-").toString()
         assertTrue(checked.toString().startsWith(staging), "in the staging folder: $checked")
@@ -338,6 +344,26 @@ class ToolInstallerTest {
         assertEquals(InstallState.Failed(message), installer.state.get())
         assertTrue(requested.isEmpty())
         assertTrue(!root.exists())
+    }
+
+    @Test
+    fun `a SHA-512 integrity installs, one that is no SHA-512 value fails before the download`() {
+        val plain = release("0.0.1")
+        val archive = served.getValue(plain.url)
+        val integrity = Base64.getEncoder().encodeToString(digest(archive, DigestAlgorithm.SHA512))
+
+        installer.install(plain.copy(checksum = Checksum.Sri(DigestAlgorithm.SHA512, integrity)), null)
+        runQueued()
+        assertEquals(tool("0.0.1"), installer.current.get())
+
+        requested.clear()
+        installer.install(release("0.0.2").copy(checksum = Checksum.Sri(DigestAlgorithm.SHA512, "YWJj")), null)
+        runQueued()
+        assertEquals(
+            InstallState.Failed("The checksum of version 0.0.2 is not a SHA-512 value"),
+            installer.state.get(),
+        )
+        assertTrue(requested.isEmpty())
     }
 
     @Test

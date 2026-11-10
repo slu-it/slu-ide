@@ -6,14 +6,17 @@ import java.nio.file.Path
 
 /**
  * A file to download: [path] relative to the folder of its key (`/`-separated, may name subfolders), where it comes
- * from, its size and its SHA-256 (lower-case hex).
+ * from, its size and its [checksum].
  */
 data class ModelFile(
     val path: String,
     val url: URI,
     val bytes: Long,
-    val sha256: String,
-)
+    val checksum: Checksum,
+) {
+    /** A file pinned by its SHA-256 in hex. */
+    constructor(path: String, url: URI, bytes: Long, sha256: String) : this(path, url, bytes, Checksum.Sha256(sha256))
+}
 
 /** A download failed (network, status, checksum, stall); the message is readable for the user. */
 class ModelDownloadException(

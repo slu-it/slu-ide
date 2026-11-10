@@ -15,7 +15,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
-import java.util.HexFormat
 import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
@@ -120,7 +119,7 @@ open class ModelDownloader private constructor(
                         "Download of ${file.path} failed: the server answered ${response.statusCode()}",
                     )
                 }
-                val digest = MessageDigest.getInstance("SHA-256")
+                val digest = MessageDigest.getInstance(file.checksum.algorithm.javaName)
                 var written = 0L
                 Files.newOutputStream(part).use { out ->
                     val buffer = ByteArray(BUFFER_SIZE)
@@ -135,7 +134,7 @@ open class ModelDownloader private constructor(
                         read(n.toLong())
                     }
                 }
-                if (written != file.bytes || HexFormat.of().formatHex(digest.digest()) != file.sha256) {
+                if (written != file.bytes || !file.checksum.matches(digest.digest())) {
                     throw ModelDownloadException("Download of ${file.path} failed: checksum mismatch")
                 }
             }

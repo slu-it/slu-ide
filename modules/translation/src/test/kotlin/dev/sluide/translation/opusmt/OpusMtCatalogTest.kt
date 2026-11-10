@@ -1,5 +1,6 @@
 package dev.sluide.translation.opusmt
 
+import dev.sluide.localmodels.Checksum
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -24,7 +25,8 @@ class OpusMtCatalogTest {
             )
             assertEquals(listOf("high/decoder.onnx", "high/encoder.onnx"), files.high.map { it.path }.sorted(), pair)
             for (file in files.shared + files.medium + files.high) {
-                assertTrue(file.sha256.matches(Regex("[0-9a-f]{64}")), "$pair ${file.path}: ${file.sha256}")
+                val sha256 = (file.checksum as? Checksum.Sha256)?.hex
+                assertTrue(sha256?.matches(Regex("[0-9a-f]{64}")) == true, "$pair ${file.path}: ${file.checksum}")
                 assertTrue(file.bytes > 0, "$pair ${file.path}")
                 assertTrue(file.url.toString().matches(pinned), "$pair ${file.path}: ${file.url}")
                 assertTrue("/opus-mt-$pair/" in file.url.toString(), "$pair ${file.path}: ${file.url}")

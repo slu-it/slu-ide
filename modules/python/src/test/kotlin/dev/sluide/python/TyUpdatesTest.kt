@@ -2,6 +2,7 @@ package dev.sluide.python
 
 import com.sun.net.httpserver.HttpServer
 import dev.sluide.localmodels.ArchiveFormat
+import dev.sluide.localmodels.Checksum
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -52,7 +53,10 @@ class TyUpdatesTest {
             release.url,
         )
         assertEquals(13_659_057, release.bytes)
-        assertEquals("1aeb90425e934914f437f30ec7de6f5a55352aa858628903adb08a24a852191e", release.sha256)
+        assertEquals(
+            Checksum.Sha256("1aeb90425e934914f437f30ec7de6f5a55352aa858628903adb08a24a852191e"),
+            release.checksum,
+        )
         assertEquals(ArchiveFormat.TAR_GZ, release.format)
         assertEquals("ty-aarch64-unknown-linux-musl/ty", release.executable)
     }
@@ -150,7 +154,7 @@ class TyUpdatesTest {
         val answer = ok.copy(body = latest.replace(digest, digest.uppercase()))
 
         val available = assertIs<TyUpdateCheck.Available>(updates().interpret(answer, "0.0.98"))
-        assertEquals(digest, available.release.sha256)
+        assertEquals(Checksum.Sha256(digest), available.release.checksum)
     }
 
     @Test
