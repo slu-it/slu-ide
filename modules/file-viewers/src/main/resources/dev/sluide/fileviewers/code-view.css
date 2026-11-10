@@ -93,10 +93,20 @@
     -rtfx-background-color: #f0b44c;
 }
 
+/* Links in a banner (the configuration problems of code intelligence): the theme's link blue is too dark on the
+   dark banner fill, so dark gets a light blue; the light rule is its counterpart, a blue readable on the light fill. */
+.banner-link, .banner-link:visited {
+    -fx-text-fill: #1d4ea8;
+}
+
 @media (prefers-color-scheme: dark) {
     .editor-banner {
         -fx-background-color: #4a4128;
         -fx-border-color: transparent transparent #6b5d33 transparent;
+    }
+
+    .banner-link, .banner-link:visited {
+        -fx-text-fill: #9cc2ff;
     }
 
     .generated-banner, .encoding-banner {

@@ -48,6 +48,7 @@ internal class ConfigProblemsBanner(
         problems.listed.forEach { problem ->
             lines.children +=
                 Hyperlink(problem.text).apply {
+                    styleClass += "banner-link"
                     isFocusTraversable = false
                     setOnAction {
                         isVisited = false
