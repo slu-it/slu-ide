@@ -331,6 +331,16 @@ File does not react to it while a terminal has the focus.
 | F5 in the object tree | Refresh the tree (expansion is kept) |
 | Enter or double-click in the object tree | Open the data of a table or view; expand or collapse other nodes |
 
+## Game zoom
+[game-zoom.md](game-zoom.md), [ADR 0155](../adr/0155-zooming-games.md). In every game tab, wherever the focus is in
+it; Shortcut+9 is not bound there (Git Log on macOS).
+
+| Keys | Action |
+|---|---|
+| Shortcut+Plus (or =, numpad +) / Shortcut+Minus (or numpad −) | Zoom in / out to the next level |
+| Shortcut+0 (or numpad 0) | Fit |
+| Shortcut+mouse wheel, pinch | Zoom continuously (the wheel does not scroll then) |
+
 ## Minesweeper
 [minesweeper.md](minesweeper.md). No menu key; the keys work while the board has the focus, and not with Shortcut, Alt or Ctrl.
 

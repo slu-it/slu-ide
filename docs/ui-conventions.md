@@ -61,7 +61,10 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   `openScratch`, ...) in `WindowTools` or `MainWindow`; a callback left unset fails silently, so the wiring gets a
   test.
 - State lives in the window and outlives the tab; anything stored is opt-in per tool and never holds pasted secrets
-  (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, Translate the last source, target and quality; neither the text; Word Guess the last language; Doubles the last size and best scores; Sudoku the last size and level and the best times; Solitaire the last game, draw and suits and the high scores; Orbit Guard and Block Breaker the last difficulty and the best score per difficulty; Mini Golf the best total and the best per hole; Pipe Puzzle the last mode, size and look and the best time per mode and size).
+  (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, Translate the last source, target and quality; neither the text; Word Guess the last language; Doubles the last size and best scores; Sudoku the last size and level and the best times; Solitaire the last game, draw and suits and the high scores; Orbit Guard and Block Breaker the last difficulty and the best score per difficulty; Mini Golf the best total and the best per hole; Pipe Puzzle the last mode, size and look and the best time per mode and size; every game its zoom, in `gameZoom`).
+- A game tab has the zoom group (zoom out, level menu, zoom in, Fit) at the far right of its toolbar, after its own
+  trailing controls, and zooms with Shortcut+Plus/Minus/0, Shortcut+wheel and pinch anywhere in the tab
+  (`GameZoomControls` in `games/common/ui`, ADR 0155).
 - A game tab sets `EditorTab.focusOnShow`: the editor area focuses its content when it is opened or chosen (ADR 0050),
   and the view passes the focus on to its board or grid with `FocusWhenShown`, as that is in a scene only after the
   first layout. A press anywhere in the tab that no child consumes returns the focus to the board via

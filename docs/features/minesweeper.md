@@ -81,6 +81,8 @@ invalid values read as defaults and stored sizes are clamped to the limits.
 ## Scaling
 The cells are square and sized to fill the tab, between 16 and 40 px, and the board is centred. Below the minimum the
 board scrolls.
+The zoom group at the right of the toolbar shows the board from 25% to 200% of that size, stored as `minesweeper` in
+`gameZoom` ([game-zoom.md](game-zoom.md)); above Fit the board can grow larger than the tab and then scrolls.
 
 ## Not included
 Statistics, no-guess boards, resuming after a restart and further games: [ideas/games.md](../ideas/games.md).

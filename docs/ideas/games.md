@@ -41,6 +41,7 @@ nothing decided or built. Each needs a decision of its own before it is built.
   edges**, **tile locking**, **undo and redo**, a **rotation counter** compared with the minimum, a **coloured
   multi-pair mode**, a **timed flow countdown**, a **move limit**, a **daily puzzle**, **hexagonal tiles** and
   **resuming after a restart**.
+- **Previews and images could get the same zoom dropdown as the games** ([ADR 0155](../adr/0155-zooming-games.md)).
 - **Further games** in the `games` module, one package each, as items of the Games menu (Minesweeper, Word Guess,
   Doubles, Sudoku, Solitaire, Orbit Guard, Block Breaker, Mini Golf and Pipe Puzzle exist; for example Pyramid or Mahjong solitaire).
 - **The WebView variant**: a self-contained HTML, CSS and JS page in a WebView, portable to any web server and freer
