@@ -12,7 +12,8 @@ import dev.sluide.fileviewers.TokenStyle
  *
  * Fences follow CommonMark: up to 3 spaces of indent, then at least 3 backticks or tildes, then an info string whose
  * first word is the language. A fence ends at a line with at least as many of the same character and nothing else;
- * an unclosed fence runs to the end of the text. Every block and every stretch of Markdown is highlighted on its own.
+ * an unclosed fence runs to the end of the text. Front matter at offset 0 ([frontMatter]) is highlighted as YAML or
+ * TOML, its marker lines as annotations. Every block and every stretch of Markdown is highlighted on its own.
  */
 internal class FencedCodeHighlighter(
     private val markdown: SyntaxHighlighter,
@@ -21,7 +22,19 @@ internal class FencedCodeHighlighter(
     override fun highlight(text: String): List<HighlightSpan> {
         val spans = mutableListOf<HighlightSpan>()
         var prose = 0
-        for (block in codeBlocks(text)) {
+        frontMatter(text)?.let {
+            spans +=
+                CodeBlock(
+                    0,
+                    it.contentStart,
+                    it.contentEnd,
+                    it.end,
+                    languages(it.language),
+                    TokenStyle.ANNOTATION,
+                ).spans(text)
+            prose = it.end
+        }
+        for (block in codeBlocks(text, prose)) {
             spans += markdown.highlight(text.substring(prose, block.start)).shiftedBy(prose)
             spans += block.spans(text)
             prose = block.end
@@ -43,6 +56,7 @@ internal class FencedCodeHighlighter(
         val contentEnd: Int,
         val end: Int,
         val highlighter: SyntaxHighlighter?,
+        val fenceStyle: TokenStyle = TokenStyle.STRING,
     ) {
         fun spans(text: String): List<HighlightSpan> {
             val content =
@@ -72,7 +86,7 @@ internal class FencedCodeHighlighter(
             if (lineStart >= end) return null
             val lineEnd = text.indexOf('\n', lineStart).let { if (it < 0 || it > end) end else it }
             val trimmedEnd = if (lineEnd > lineStart && text[lineEnd - 1] == '\r') lineEnd - 1 else lineEnd
-            return if (trimmedEnd > lineStart) HighlightSpan(lineStart, trimmedEnd, TokenStyle.STRING) else null
+            return if (trimmedEnd > lineStart) HighlightSpan(lineStart, trimmedEnd, fenceStyle) else null
         }
     }
 
@@ -90,10 +104,13 @@ internal class FencedCodeHighlighter(
         }
     }
 
-    private fun codeBlocks(text: String): List<CodeBlock> {
+    private fun codeBlocks(
+        text: String,
+        from: Int,
+    ): List<CodeBlock> {
         val blocks = mutableListOf<CodeBlock>()
         var open: Fence? = null
-        var lineStart = 0
+        var lineStart = from
         while (lineStart < text.length) {
             val newline = text.indexOf('\n', lineStart).let { if (it < 0) text.length else it }
             val lineEnd = minOf(newline + 1, text.length)

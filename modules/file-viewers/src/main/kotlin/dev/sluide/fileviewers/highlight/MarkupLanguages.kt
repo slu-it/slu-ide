@@ -14,7 +14,8 @@ internal object MarkupLanguages {
      * Markdown: headings and bold as keywords, emphasis as type, inline HTML as markup with component names made
      * tags by [WebLanguages.markupTags]. The lexer reports inline and fenced code as preprocessor, shown as string
      * here, and a link's or image's text and target as regex and annotation, both shown as `attribute`. Fenced code
-     * with a language that [forLanguage] knows is highlighted as that language ([FencedCodeHighlighter]).
+     * with a language that [forLanguage] knows is highlighted as that language ([FencedCodeHighlighter]), and so is
+     * front matter at the very start (YAML or TOML, its marker lines as annotations).
      */
     private fun markdown(lineRules: List<Regex>): SyntaxHighlighter =
         FencedCodeHighlighter(

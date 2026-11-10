@@ -24,7 +24,7 @@ class FencedCodeHighlighterTest {
                     )
                 }
             },
-        ) { if (it == "kt") wholeText else null }
+        ) { if (it == "kt" || it == "yaml") wholeText else null }
 
     private fun styled(
         text: String,
@@ -84,5 +84,21 @@ class FencedCodeHighlighterTest {
             listOf(6 until 8, 23 until 26),
             highlighter.highlight(text).filter { it.style == TokenStyle.TYPE }.map { it.start until it.end },
         )
+    }
+
+    @Test
+    fun `front matter is a block of annotation markers and highlighted content`() {
+        val text = "---\nname: x\n---\n# Title\n```kt\na\n```\n"
+        assertEquals(listOf("---", "---"), styled(text, TokenStyle.ANNOTATION))
+        assertEquals(listOf("name: x\n", "a\n"), code(text))
+        assertEquals(listOf("# Title\n"), styled(text, TokenStyle.COMMENT))
+        assertEquals(listOf("```kt", "```"), styled(text, TokenStyle.STRING))
+    }
+
+    @Test
+    fun `front matter markers are annotations without their line break`() {
+        assertEquals(listOf("---", "---"), styled("---\nname: x\n---\nbody", TokenStyle.ANNOTATION))
+        assertEquals(listOf("+++", "+++"), styled("+++\na = 1\n+++\nbody", TokenStyle.ANNOTATION))
+        assertEquals(listOf("a = 1\n"), styled("+++\na = 1\n+++\nbody", TokenStyle.STRING))
     }
 }

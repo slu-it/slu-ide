@@ -3,6 +3,7 @@ package dev.sluide.fileviewers
 import dev.sluide.fileviewers.highlight.BicepHighlighter
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.fileviewers.highlight.fenceLanguage as fenceLanguageOf
+import dev.sluide.fileviewers.highlight.frontMatter as frontMatterOf
 
 /**
  * The syntax highlighters of the code views, for viewers and views of other modules: previews showing their source,
@@ -59,4 +60,10 @@ object Highlighters {
      * empty if there is none.
      */
     fun fenceLanguage(info: String): String = fenceLanguageOf(info)
+
+    /**
+     * The YAML (`---`) or TOML (`+++`) front matter at the start of the Markdown [text], or `null` if there is none.
+     * The same rule the Markdown source highlighting uses.
+     */
+    fun frontMatter(text: String): FrontMatter? = frontMatterOf(text)
 }
