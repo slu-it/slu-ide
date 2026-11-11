@@ -49,6 +49,11 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   window, so only the scene root's stylesheets reach it, not the module's. Colour them inline by appending to the
   icon's own style (a `FontIcon` keeps its glyph font there) with `-fx-icon-color: -fx-text-background-color`, which
   also follows the highlighted item (`FILE_ACTION_ICON_STYLE` in the explorer's `ExplorerMenu.kt`).
+- Fonts: a file view inherits the editor's (monospace) font. Its UI parts that are not text to edit — toolbars, side
+  panels, lists, notices, overlays — set `-fx-font-family: "System";` in the module's stylesheet, as `code-view.css`
+  does for the toolbar, banners and find bar (the ebook reader's Contents and Search panels showed in the code font
+  until they did). Plain `Text` nodes in a cell (a `TextFlow`) get no `.text` style class: give them a class of their
+  own to colour them, or they stay black in the dark theme.
 - Below the text: `CodeEditor.addStatusItem` adds items to a bar below the editor text (hidden while empty), e.g.
   the Python project of a file (ADR 0151).
 
