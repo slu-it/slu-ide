@@ -11,6 +11,8 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -19,10 +21,12 @@ import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /**
- * The idle lock counts wall-clock time, so the time a computer slept counts although the timers stood still: the view's
- * wiring of key presses and the window's focus into [IdleLock] (its rules are tested in `IdleLockTest`).
+ * The idle lock of an encrypted file's tab: the view's wiring of the setting, key presses, mouse presses, scrolling and
+ * the window's focus into [IdleLock] (its rules are tested in `IdleLockTest`). It counts wall-clock time, so the time
+ * a computer slept counts although the timers stood still.
  */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
@@ -43,15 +47,81 @@ class EncryptedFileIdleUiTest {
     @AfterEach
     fun close() = views.close()
 
+    /** An unlocked view of a new file with "one\n", whose idle time [time] drives, at [minutes] idle. */
+    private fun openUnlocked(
+        robot: FxRobot,
+        time: FakeIdleTime,
+        minutes: Int = 1,
+    ): Pair<Path, EncryptedFileView> {
+        val file = views.create(dir.resolve("notes.txt.sluenc"), "one\n")
+        views.settings.idleLockMinutes.set(minutes)
+        val view = views.open(file, robot, time)
+        views.unlock(view, robot)
+        return file to view
+    }
+
+    @ParameterizedTest
+    @EnumSource(Activity::class)
+    fun `idle time saves unsaved changes and locks, and a key press, mouse press or scroll moves the deadline`(
+        activity: Activity,
+        robot: FxRobot,
+    ) {
+        val time = FakeIdleTime()
+        val (file, view) = openUnlocked(robot, time)
+        robot.interact { views.area(view).insertText(0, "edited ") }
+
+        // 59 s idle, then the activity: at 61 s the timer finds only 2 s of idle time.
+        robot.interact { time.advance(Duration.ofSeconds(59)) }
+        robot.interact { view.node.fireEvent(activityEvent(activity)) }
+        robot.interact { time.advance(Duration.ofSeconds(2)) }
+        assertTrue(views.fx { view.isUnlocked })
+
+        robot.interact { time.advance(Duration.ofSeconds(60)) }
+        assertFalse(views.fx { view.isUnlocked })
+        assertEquals("edited one\n", views.decrypt(file))
+        robot.interact { view.dispose() }
+    }
+
+    @Test
+    fun `a changed idle setting applies to a tab that is open, and 0 turns it off`(robot: FxRobot) {
+        val time = FakeIdleTime()
+        val (_, view) = openUnlocked(robot, time, minutes = 5)
+
+        robot.interact { views.settings.idleLockMinutes.set(1) }
+        robot.interact { time.advance(Duration.ofMinutes(1)) }
+        assertFalse(views.fx { view.isUnlocked })
+
+        views.unlock(view, robot)
+        robot.interact { views.settings.idleLockMinutes.set(0) }
+        robot.interact { time.advance(Duration.ofMinutes(100)) }
+        assertTrue(views.fx { view.isUnlocked })
+        robot.interact { view.dispose() }
+    }
+
+    @Test
+    fun `the idle lock locks a clean tab although the changed-elsewhere warning is still up`(robot: FxRobot) {
+        val time = FakeIdleTime()
+        val (file, view) = openUnlocked(robot, time)
+        robot.interact { views.area(view).insertText(0, "mine ") }
+        views.changePasswordElsewhere(file, "another long password")
+        robot.interact { view.reload() }
+        assertTrue(views.fx { view.session.warningFailure != null })
+        // Undoing the edit makes the tab clean again; the warning stays until the file reads again.
+        robot.interact { views.area(view).undo() }
+        assertFalse(views.fx { view.isDirty })
+
+        robot.interact { time.advance(Duration.ofMinutes(1)) }
+
+        assertFalse(views.fx { view.isUnlocked })
+        robot.interact { view.dispose() }
+    }
+
     @Test
     fun `a key press after the computer slept past the idle time saves and locks, and the key goes nowhere`(
         robot: FxRobot,
     ) {
-        val file = views.create(dir.resolve("notes.txt.sluenc"), "one\n")
         val time = FakeIdleTime()
-        views.settings.idleLockMinutes.set(1)
-        val view = views.open(file, robot, time)
-        views.unlock(view, robot)
+        val (file, view) = openUnlocked(robot, time)
         val area = views.fx { views.area(view) }
         var reached = false
         robot.interact {
@@ -86,11 +156,8 @@ class EncryptedFileIdleUiTest {
 
     @Test
     fun `the window getting the focus back after the computer slept past the idle time locks`(robot: FxRobot) {
-        val file = views.create(dir.resolve("notes.txt.sluenc"), "one\n")
         val time = FakeIdleTime()
-        views.settings.idleLockMinutes.set(1)
-        val view = views.open(file, robot, time)
-        views.unlock(view, robot)
+        val (_, view) = openUnlocked(robot, time)
         val other = views.fx { Stage().apply { scene = Scene(Pane(), 100.0, 100.0) } }
         try {
             robot.interact {

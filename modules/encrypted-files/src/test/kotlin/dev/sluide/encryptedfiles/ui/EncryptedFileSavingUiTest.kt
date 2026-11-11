@@ -71,11 +71,11 @@ class EncryptedFileSavingUiTest {
         robot.interact { view.dispose() }
     }
 
-    enum class ChangeOnDisk { SAVED_ELSEWHERE, DELETED }
+    enum class ChangeOnDisk { SAVED_ELSEWHERE, RE_KEYED_ELSEWHERE, DELETED }
 
     @ParameterizedTest
     @EnumSource(ChangeOnDisk::class)
-    fun `the idle lock never saves over a file changed with the same key or deleted, and stays unlocked`(
+    fun `the idle lock never saves over a file changed with any password or deleted, nor asks, and stays unlocked`(
         change: ChangeOnDisk,
         robot: FxRobot,
     ) {
@@ -85,8 +85,14 @@ class EncryptedFileSavingUiTest {
         val view = views.open(file, robot, time)
         views.unlock(view, robot)
         robot.interact { views.area(view).insertText(0, "mine ") }
+        val questions = mutableListOf<String>()
+        view.askReplace = { question ->
+            questions += question
+            false
+        }
         when (change) {
             ChangeOnDisk.SAVED_ELSEWHERE -> views.saveElsewhere(file, "theirs\n")
+            ChangeOnDisk.RE_KEYED_ELSEWHERE -> views.changePasswordElsewhere(file, other)
             ChangeOnDisk.DELETED -> file.deleteExisting()
         }
 
@@ -95,8 +101,10 @@ class EncryptedFileSavingUiTest {
 
         assertTrue(views.fx { view.isUnlocked && view.isDirty })
         assertEquals(IDLE_NOT_LOCKED, views.stripMessage(view))
+        assertEquals(emptyList(), questions)
         when (change) {
             ChangeOnDisk.SAVED_ELSEWHERE -> assertEquals("theirs\n", views.decrypt(file))
+            ChangeOnDisk.RE_KEYED_ELSEWHERE -> assertEquals("theirs\n", views.decrypt(file, other))
             ChangeOnDisk.DELETED -> assertFalse(file.exists())
         }
         robot.interact { view.dispose() }
