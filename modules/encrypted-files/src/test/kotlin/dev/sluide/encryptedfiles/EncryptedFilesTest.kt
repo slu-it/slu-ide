@@ -5,7 +5,10 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 
@@ -27,6 +30,27 @@ class EncryptedFilesTest {
         assertSame(key, files.takeHandover(Path.of("/scratches/sub/../notes.md.sluenc")))
         assertNull(files.takeHandover(file))
         assertFalse(key.isZeroed())
+    }
+
+    @Test
+    fun `a handover through a linked folder is taken by the real path`(
+        @TempDir dir: Path,
+    ) {
+        val real = Files.createDirectory(dir.resolve("real"))
+        val linked =
+            try {
+                Files.createSymbolicLink(dir.resolve("linked"), real)
+            } catch (_: Exception) {
+                null
+            }
+        assumeTrue(linked != null, "symbolic links cannot be made here")
+        val name = "notes.md.sluenc"
+        Files.createFile(real.resolve(name))
+        val key = newKey()
+
+        files.handOver(checkNotNull(linked).resolve(name), key)
+
+        assertSame(key, files.takeHandover(real.resolve(name)))
     }
 
     @Test

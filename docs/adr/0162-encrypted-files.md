@@ -132,7 +132,8 @@ open on any machine with the password.
   decrypt a second time to verify. An `OutOfMemoryError` during Argon2 (a crafted file may ask for 256 MiB) shows "Not
   enough memory to unlock."; any other unexpected failure is logged by its type only.
 - A new file's key reaches its first tab through the app-wide `EncryptedFiles` registry (`handOver`, taken once by
-  path); one not taken within a minute, or replaced by a newer one for the same file, is closed.
+  path, its real path while the file exists, so a linked folder finds it too); one not taken within a minute, or
+  replaced by a newer one for the same file, is closed.
 
 **Several windows or tabs on one file**
 - Each tab locks and unlocks on its own. A change on disk is decrypted with the tab's DEK first: if it fits, the usual

@@ -13,6 +13,7 @@ import javafx.beans.value.ObservableIntegerValue
 import javafx.stage.Window
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
+import java.io.IOException
 import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
@@ -140,7 +141,18 @@ class EncryptedFiles internal constructor(
         revisionWrapper.set(revisionWrapper.get() + 1)
     }
 
-    private fun normalized(file: Path): Path = file.toAbsolutePath().normalize()
+    /**
+     * The real path of [file] while it exists, so a path through a linked folder finds the same entry; else its
+     * normalized absolute path.
+     */
+    private fun normalized(file: Path): Path {
+        val absolute = file.toAbsolutePath().normalize()
+        return try {
+            absolute.toRealPath()
+        } catch (_: IOException) {
+            absolute
+        }
+    }
 
     private companion object {
         val HANDOVER_TIMEOUT: Duration = Duration.ofMinutes(1)
