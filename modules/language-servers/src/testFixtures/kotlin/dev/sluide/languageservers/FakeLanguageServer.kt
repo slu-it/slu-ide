@@ -290,9 +290,14 @@ internal class FakeScheduler : Scheduler {
         return AutoCloseable { due.remove(entry) }
     }
 
-    /** Runs the first due task; its delay. */
+    /**
+     * Runs the first due task, waiting for one to be scheduled; its delay. The code publishes a state such as
+     * `Restarting` before it schedules the retry, so a test that saw the state may get here first.
+     */
     fun runNext(): Duration {
-        val (delay, task) = due.removeAt(0)
+        var entry: Pair<Duration, Runnable>? = null
+        awaitTrue("a task due") { due.firstOrNull()?.takeIf { due.remove(it) }?.also { entry = it } != null }
+        val (delay, task) = checkNotNull(entry)
         task.run()
         return delay
     }

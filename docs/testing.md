@@ -160,6 +160,11 @@ CI once.
   and pulled, then re-opened and pulled again by the late connection announcement). Announce what belongs together in one FX step, and reproduce by
   widening the gap with a temporary `Thread.sleep` on the background thread; a regression test drains a queued
   dispatch one step at a time (`LanguageServerRacesTest`).
+- **State before side effects:** code that publishes a state and then, still in the same step, schedules or kills
+  something (a crashed language server shows `Restarting` before its retry is scheduled and before the old process
+  is killed) lets a polling test see the state first; on the macOS runner `runNext()` found no retry due. Wait on
+  the side effect itself (`FakeScheduler.runNext` waits for a due task; `awaitTrue { destroyed }`), not on the state
+  alone. Reproduce with a temporary `Thread.sleep` right after the state is set.
 - **Media playback:** JavaFX Media on Linux plays through ALSA, and CI runners and the sandbox have no sound card:
   every `MediaPlayer` then fails with "Could not create player!" ("Could not open audio device" with
   `-Djfxmedia.loglevel=debug`). So the root `build.gradle.kts` points the test tasks of the modules that play sound

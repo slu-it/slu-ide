@@ -206,7 +206,8 @@ class LanguageServerRacesTest {
         servers.session(spec).ensureStarted()
 
         servers.awaitState(ServerState.Restarting(1))
-        assertTrue(starter.last.destroyed)
+        // The old process is killed after the state is published, outside the lifecycle's lock.
+        awaitTrue("the unanswered server destroyed") { starter.last.destroyed }
     }
 
     @Test
