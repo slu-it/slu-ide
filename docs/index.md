@@ -15,7 +15,7 @@ updated when the summary or keywords no longer fit.
 | Document | Summary | Keywords |
 |---|---|---|
 | [architecture.md](architecture.md) | Modules, their dependency rules, runtime startup, CI and releases | module table, dependencies, Gradle modules, startup, CI, release |
-| [testing.md](testing.md) | Unit vs. UI tests, running a subset, displays, portability for macOS/x64 CI, running the app headless | `uiTest`, TestFX, `@Tag("ui")`, `--tests`, `verify.sh`, `related-tests.sh`, Xvfb, display pool, portability, macOS, `run-app.sh`, screenshot, dark theme, media playback, ALSA |
+| [testing.md](testing.md) | Unit vs. UI tests, running a subset, displays, portability for macOS/x64 CI, running the app headless | `uiTest`, TestFX, `@Tag("ui")`, `--tests`, `verify.sh`, `related-tests.sh`, Xvfb, display pool, portability, macOS, `run-app.sh`, screenshot, dark theme, media playback, ALSA, heap dump, secrets in memory, `jcmd` |
 | [external-artifacts.md](external-artifacts.md) | Bundled and downloaded external artifacts: models, vendored JS, word lists, wrapper, with their pins | external artifacts, `libs.versions.toml`, vendor, Kokoro, Opus-MT, KaTeX, Mermaid, `update-external-artifacts`, ty, TypeScript server, npm |
 | [ui-conventions.md](ui-conventions.md) | Conventions new UI follows: view modes, toolbars, tool tabs, menus, run panes, dialogs, storage, background work, theming | Source/Split, `SourceSplit`, toolbar, `WindowTool`, Tools menu, Services menu, Games menu, Orbit Guard, Block Breaker, `RealtimeSession`, `FileAction`, dialog, unsaved changes, `ProjectDataStore`, `shared.json`, `BackgroundTasks`, dark theme, `theme.css` |
 

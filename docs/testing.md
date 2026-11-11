@@ -204,3 +204,10 @@ DISPLAY=:99 xdotool key ctrl+o                      # drive the UI
 - The sandbox's `xclip`/`xsel` are shims for the host clipboard, not the X clipboard: to see what the app copied,
   paste it into an editor tab of the app.
 - Never claim the UI was verified unless you actually ran it.
+- **Secrets leaving memory** (features that wipe plaintext or passwords, ADR 0162): tests can only check our own
+  fields; check the running app. Type marker strings, do what should wipe them (e.g. Lock), then
+  `jcmd <pid> GC.run` twice and `jcmd <pid> GC.heap_dump <file>` (live objects only) and count the markers as Latin-1
+  (`grep -a -c`) and UTF-16. A hit is still referenced: trace its referrers with an HPROF parser (an `explorer` can
+  write one in Python). Found this way: a node kept across Lock holds the old subtree through its render peer's
+  `parent`; `PasswordField.clear()` keeps the bytes (overwrite with an ASCII filler first: a non-Latin-1 one makes the
+  builder switch arrays); jsoup's thread-local pools keep parsed text. Delete the dumps afterwards.
