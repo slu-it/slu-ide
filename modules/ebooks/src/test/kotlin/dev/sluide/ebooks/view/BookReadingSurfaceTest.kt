@@ -1,12 +1,19 @@
 package dev.sluide.ebooks.view
 
 import dev.sluide.ebooks.BookPage
+import dev.sluide.ebooks.BookPageBuilder
 import dev.sluide.ebooks.ChapterSpan
+import dev.sluide.ebooks.EpubReader
+import dev.sluide.ebooks.EpubResult
+import dev.sluide.ebooks.TestChapter
+import dev.sluide.ebooks.TestEpub
 import dev.sluide.fileviewers.ViewActivity
 import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.value.ObservableValue
 import javafx.scene.Node
 import javafx.scene.input.KeyEvent
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -14,6 +21,9 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class BookReadingSurfaceTest {
+    @TempDir
+    lateinit var dir: Path
+
     private class FakeView(
         override var page: BookPage?,
     ) : ReaderView {
@@ -159,6 +169,36 @@ class BookReadingSurfaceTest {
         surface.readingText()
         controls.onFinished()
         assertEquals(0, controls.plays)
+    }
+
+    @Test
+    fun `a chapter without text is skipped and the reading ends after the last chapter with text`() {
+        val image = "<p><img src=\"images/a.png\" alt=\"\"/></p>"
+        val epub =
+            TestEpub(
+                listOf(
+                    TestChapter("c0.xhtml", "<p>First chapter text.</p>"),
+                    TestChapter("c1.xhtml", image),
+                    TestChapter("c2.xhtml", "<p>Third chapter text.</p>"),
+                    TestChapter("c3.xhtml", image),
+                ),
+                resources = mapOf("images/a.png" to TestEpub.PNG),
+            )
+        val book = (EpubReader.read(epub.write(dir)) as EpubResult.Book).book
+        val page = BookPageBuilder.build(book, false, false, "")
+        val empty = page.chapters.filter { it.start == it.end }
+        assertEquals(listOf(1, 3), empty.map { it.index }, "the fixture has empty chapters: ${page.chapters}")
+        val (view, controls, surface) = surface(FakeView(page))
+        view.start = 0
+        surface.readingText()
+        val started = mutableListOf<Int>()
+        controls.onPlay = { started += checkNotNull(surface.readingText()).start }
+        var rounds = 0
+        do {
+            val before = controls.plays
+            controls.onFinished()
+        } while (controls.plays > before && ++rounds < 10)
+        assertEquals(listOf(page.chapters[2].start), started)
     }
 
     @Test

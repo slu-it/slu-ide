@@ -221,7 +221,8 @@ internal class BookReadingSurface(
         val containing = chapters.getOrNull(chapterAt(chapters, (lastEnd - 1).coerceAtLeast(0)))
         // A reading cut at the size limit goes on where it ended.
         if (containing != null && lastEnd < containing.end && lastEnd < page.text.length) return lastEnd
-        return chapters.firstOrNull { it.start >= lastEnd }?.start
+        // A chapter without text (an image) ends where it starts: skip it, or the reading would come back to it.
+        return chapters.firstOrNull { it.end > lastEnd }?.start?.coerceAtLeast(lastEnd)
     }
 
     companion object {
