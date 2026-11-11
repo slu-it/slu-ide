@@ -50,7 +50,9 @@ while IFS= read -r f; do
       grep -E "^${f%%/src/*}/src/test/.*/${base}[A-Za-z0-9]*\.kt$" "$work/tests" >>"$work/related" || true
       {
         echo "$base"
-        sed -nE 's/^((public|internal|private|protected|data|sealed|enum|abstract|open|annotation|value|inline|fun|const|companion)[[:space:]]+)*(class|interface|object|typealias)[[:space:]]+`?([A-Za-z_][A-Za-z0-9_]*).*/\4/p' "$f"
+        # Private declarations are not API: other files (tests included) cannot refer to them.
+        grep -vE '^([a-z]+[[:space:]]+)*private[[:space:]]' "$f" |
+          sed -nE 's/^((public|internal|private|protected|data|sealed|enum|abstract|open|annotation|value|inline|fun|const|companion)[[:space:]]+)*(class|interface|object|typealias)[[:space:]]+`?([A-Za-z_][A-Za-z0-9_]*).*/\4/p'
       } | sort -u | while IFS= read -r name; do
         [ -s "$work/tests" ] || continue
         # NUL-separated so that paths with blanks stay intact; grep exits 1 without a match.
@@ -75,7 +77,15 @@ sort -u "$work/related" | while IFS= read -r f; do
   gpath=":$(echo "$module" | tr / :)"
   task=test
   if grep -q '^@Tag("ui")' "$f"; then task=uiTest; fi
-  printf '%s\t%s\t%s\n' "$gpath" "$task" "$(basename "$f" .kt)"
+  # The test class Gradle knows: the top-level class that holds the first test method (ShotSearch.kt declares a helper
+  # class ShotSearch and the test class ShotSearchTest), else the file's base name.
+  class="$(awk '
+    match($0, /^((internal|abstract|open|data)[ \t]+)*class[ \t]+[A-Za-z_][A-Za-z0-9_]*/) {
+      decl = substr($0, RSTART, RLENGTH); sub(/.*class[ \t]+/, "", decl); last = decl
+    }
+    /@(Test|ParameterizedTest|RepeatedTest|TestFactory)([^A-Za-z0-9_]|$)/ { if (last != "") { print last; exit } }
+  ' "$f")"
+  printf '%s\t%s\t%s\n' "$gpath" "$task" "${class:-$(basename "$f" .kt)}"
 done | sort -u >"$work/classes"
 
 if [ ! -s "$work/classes" ]; then
