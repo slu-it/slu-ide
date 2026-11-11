@@ -6,26 +6,43 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** A clock and a scheduler the test drives: [advance] moves time and runs what became due. */
+/**
+ * A wall clock ([now], milliseconds) and a scheduler the test drives: [advance] moves both and runs what became due;
+ * [sleep] moves only the wall clock, as system sleep does, during which the timers stand still.
+ */
 internal class FakeIdleTime {
     var now = 0L
+        private set
+    private var running = 0L
     private val tasks = mutableListOf<Task>()
 
     val scheduler: IdleScheduler = { delay, run ->
-        val task = Task(now + delay.toNanos(), run)
+        val task = Task(running + delay.toMillis(), run)
         tasks += task
         Pending { tasks -= task }
     }
 
     val pending: Int get() = tasks.size
 
+    /** Runs the tasks that become due in [by], each at its time. */
     fun advance(by: Duration) {
-        now += by.toNanos()
+        val end = running + by.toMillis()
         while (true) {
-            val due = tasks.filter { it.at <= now }.minByOrNull { it.at } ?: return
+            val due = tasks.filter { it.at <= end }.minByOrNull { it.at } ?: break
             tasks -= due
+            moveTo(maxOf(due.at, running))
             due.run.run()
         }
+        moveTo(end)
+    }
+
+    private fun moveTo(at: Long) {
+        now += at - running
+        running = at
+    }
+
+    fun sleep(by: Duration) {
+        now += by.toMillis()
     }
 
     class Task(
@@ -116,6 +133,44 @@ class IdleLockTest {
 
         lock.start()
         time.advance(minutes(2))
+        assertEquals(1, fired)
+    }
+
+    @Test
+    fun `time the computer slept counts, so the next tick fires, and so does activity or a check`() {
+        lock.start()
+        time.advance(Duration.ofSeconds(10))
+        time.sleep(minutes(5))
+        assertEquals(0, fired)
+
+        // The timers stood still during the sleep; the next one is at most 15 s away.
+        time.advance(Duration.ofSeconds(5))
+        assertEquals(1, fired)
+
+        time.sleep(minutes(3))
+        lock.activity()
+        assertEquals(2, fired)
+
+        time.sleep(minutes(3))
+        lock.check()
+        assertEquals(3, fired)
+        lock.check()
+        assertEquals(3, fired, "a full period counts again after firing")
+    }
+
+    @Test
+    fun `activity before the period ends only moves the deadline, and a clock set back counts from its new time`() {
+        lock.start()
+        time.advance(minutes(1))
+        lock.activity()
+        lock.check()
+        assertEquals(0, fired)
+
+        // Set back between two ticks: the next tick, 15 s later, counts from the clock's new time.
+        time.sleep(minutes(-10))
+        time.advance(minutes(2))
+        assertEquals(0, fired)
+        time.advance(minutes(1))
         assertEquals(1, fired)
     }
 

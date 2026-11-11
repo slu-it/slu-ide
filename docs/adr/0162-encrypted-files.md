@@ -164,8 +164,11 @@ open on any machine with the password.
 - Change Password derives the new key off the FX thread from the file on disk, then saves the tab's text through the
   inner view under it (so encoding and line endings stay); a save that fails or writes nothing puts the old key back.
   The idle lock reuses Lock with save first, skips the save when the file on disk is not the one the tab read or
-  wrote (changed with any password, or deleted) and counts again after a failure. Idle time is read from `encryptedFiles.idleLockMinutes` (0 = off, default
-  10, at most 240).
+  wrote (changed with any password, or deleted) and counts again after a failure. Idle time is read from
+  `encryptedFiles.idleLockMinutes` (0 = off, default 10, at most 240). It is wall-clock time
+  (`System.currentTimeMillis`), since the FX timers and `nanoTime` stop while the computer sleeps: a timer only ticks,
+  at most 15 s apart, and a tick, an activity in the tab or its window getting the focus back fires once the idle time
+  reached the period. A clock set back counts from its new time.
 - Open, explored ideas (FIDO2 slot, ML-KEM recovery slot, key file, encrypting an existing file, Save Decrypted Copy,
   blocking remote images, clipboard auto-clear, lock when the app is in the background, passkeys) go to the ideas page
   `docs/ideas/encrypted-files.md`, and the behaviour to the feature page `docs/features/encrypted-files.md`, which

@@ -14,6 +14,7 @@ import dev.sluide.fileviewers.FocusWhenShown
 import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableBooleanValue
+import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.control.MenuItem
 import javafx.scene.input.KeyEvent
@@ -21,6 +22,7 @@ import javafx.scene.input.MouseEvent
 import javafx.scene.input.ScrollEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
+import javafx.util.Subscription
 import java.io.IOException
 import java.nio.file.Path
 
@@ -57,6 +59,9 @@ internal class EncryptedFileView(
     /** Whether the field had the focus when Unlock was pressed: it gets it back if the unlock fails. */
     private var focusAfterUnlock = false
 
+    /** Whether a key press locked the tab (overdue idle lock): its typed character must not reach the field. */
+    private var swallowTyped = false
+
     /** Why the last save before a lock failed, or why the idle lock did not lock; in the strip until a save or lock. */
     private var saveError: String? = null
 
@@ -82,6 +87,14 @@ internal class EncryptedFileView(
     private val idleLock = idleLockFactory(settings::currentIdleLockMinutes, ::idleFired)
     private val idleSettingListener = ChangeListener<Number> { _, _, _ -> idleLock.settingChanged() }
     private var idleOn = false
+
+    /** The idle time is checked again when the tab's window gets the focus back, e.g. after the computer slept. */
+    private val windowFocus: Subscription =
+        root
+            .sceneProperty()
+            .flatMap { it.windowProperty() }
+            .flatMap { it.focusedProperty() }
+            .subscribe { focused -> if (focused == true) idleLock.check() }
 
     /**
      * Asked before locking with unsaved changes ("`<name>` has unsaved changes."): Save, Don't Save or Cancel. A dialog
@@ -121,9 +134,11 @@ internal class EncryptedFileView(
 
     init {
         // While unlocked, a key press, mouse press or scroll in the tab counts as activity (the idle lock).
-        root.addEventFilter(KeyEvent.KEY_PRESSED) { idleLock.activity() }
-        root.addEventFilter(MouseEvent.MOUSE_PRESSED) { idleLock.activity() }
-        root.addEventFilter(ScrollEvent.SCROLL) { idleLock.activity() }
+        root.addEventFilter(KeyEvent.KEY_PRESSED, ::activity)
+        root.addEventFilter(MouseEvent.MOUSE_PRESSED, ::activity)
+        root.addEventFilter(ScrollEvent.SCROLL, ::activity)
+        root.addEventFilter(KeyEvent.KEY_TYPED) { if (swallowTyped) it.consume() }
+        root.addEventFilter(KeyEvent.KEY_RELEASED) { swallowTyped = false }
         session.onChange = ::render
         registry.register(this)
         if (handover != null) {
@@ -214,6 +229,21 @@ internal class EncryptedFileView(
     }
 
     /**
+     * A key press, mouse press or scroll in the tab. If the idle time had already passed (the computer slept) the tab
+     * locks instead, and the event, meant for content that is gone, goes no further; nor do the characters a locking
+     * key press types until it is released, so none lands in the password field.
+     */
+    private fun activity(event: Event) {
+        if (event.eventType == KeyEvent.KEY_PRESSED) swallowTyped = false
+        val wasUnlocked = isUnlocked
+        idleLock.activity()
+        if (wasUnlocked && !isUnlocked) {
+            event.consume()
+            swallowTyped = event.eventType == KeyEvent.KEY_PRESSED
+        }
+    }
+
+    /**
      * Locks the tab without asking, saving unsaved changes first if [saveFirst] (else dropping them); also stops an
      * unlock in progress. Returns `false`, staying unlocked with the error in the strip, if the save failed.
      */
@@ -286,6 +316,7 @@ internal class EncryptedFileView(
         pendingFocus.cancel()
         dropInner()
         idleLock.stop()
+        windowFocus.unsubscribe()
         settings.idleLockMinutes.removeListener(idleSettingListener)
         idleOn = false
         val closedEmpty = session.dispose()

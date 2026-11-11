@@ -60,6 +60,9 @@ The password is stored nowhere: **if it is forgotten, the content is lost**; not
     deleted: the tab stays unlocked and the next try comes one period later. A clean tab locks even with the warning.
   - Time spent in another tab or window counts as idle; the Change Password dialog does too, so an idle lock can end
     it ("The file was locked meanwhile.").
+  - Idle time is wall-clock time, so time the computer slept counts. After waking, the tab locks at the next check
+    (every 15 s at most), at the first key press, mouse press or scroll in it (which then does not reach the content),
+    or when its window gets the focus back, whichever comes first.
 - **File → Lock Encrypted File** (Ctrl+Shift+L, Cmd+Shift+L on macOS) locks the current tab like Lock in the strip
   (with the unsaved question); it is enabled only while the current tab is an unlocked encrypted file.
   **File → Lock All Encrypted Files** (Ctrl+Alt+Shift+L, Cmd+Option+Shift+L) locks every unlocked tab of all windows
