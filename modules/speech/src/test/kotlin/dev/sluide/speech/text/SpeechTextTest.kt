@@ -45,6 +45,83 @@ class SpeechTextTest {
     }
 
     @Test
+    fun `preparePlain prepares like plain text without skip ranges`() {
+        val shown = "  # One  two\n\nthree  "
+
+        assertEquals(SpeechText.prepare(shown, markdown = false).text, SpeechText.preparePlain(shown, emptyList()).text)
+    }
+
+    @Test
+    fun `preparePlain does not speak skipped chars and maps the rest back`() {
+        val shown = "Hello [12] world.\n\nNext."
+        val spoken = SpeechText.preparePlain(shown, listOf(shown.indexOf('[')..shown.indexOf(']')))
+
+        assertEquals("Hello world.\nNext.", spoken.text)
+        assertEquals("world.", shownOf(shown, spoken, "world."))
+        assertEquals("Next.", shownOf(shown, spoken, "Next."))
+    }
+
+    @Test
+    fun `a skipped range breaks words, also without whitespace around it`() {
+        val shown = "foo12bar"
+
+        assertEquals("foo bar", SpeechText.preparePlain(shown, listOf(3..4)).text)
+    }
+
+    @Test
+    fun `skipped line breaks make no hard break`() {
+        val shown = "One\n\nTwo"
+
+        assertEquals("One Two", SpeechText.preparePlain(shown, listOf(3..4)).text)
+    }
+
+    @Test
+    fun `preparing from the paragraph start gives the sentences of preparing from 0`() {
+        // shown, skip, the expected start; each one is read from "Two".
+        val cases: List<Triple<String, List<IntRange>, Int>> =
+            listOf(
+                Triple("One.\n\nTwo. Three.", emptyList(), 4),
+                Triple("Mr.\r\n\r\nTwo.", emptyList(), 3),
+                Triple("One.\n \nTwo.", emptyList(), 4),
+                Triple("Dr.\n[1]\nTwo.", listOf(4..6), 3),
+                Triple("Dr.\n[\n]Two.", listOf(4..6), 0),
+                Triple("Ch1.\n\nOne. Two.", emptyList(), 4),
+                Triple("x\n\nOne.\n\nTwo.", emptyList(), 7),
+            )
+        for ((shown, skip, expected) in cases) {
+            val start = shown.indexOf("Two")
+            val cut = SpeechText.paragraphStart(shown, start, skip)
+            val whole = SpeechText.preparePlain(shown, skip)
+            val fromCut = SpeechText.preparePlain(shown.substring(cut), skip.map { (it.first - cut)..(it.last - cut) })
+
+            assertEquals(expected, cut, shown)
+            assertEquals(
+                Sentences.chunks(whole).filter { whole.sourceOffset(it.start) >= cut }.map { it.text },
+                Sentences.chunks(fromCut).map { it.text },
+                shown,
+            )
+        }
+    }
+
+    @Test
+    fun `a start inside a paragraph break starts at the break, and the look-back is limited`() {
+        val shown = "One.\n\nTwo."
+
+        assertEquals(4, SpeechText.paragraphStart(shown, 5, emptyList()))
+        assertEquals(0, SpeechText.paragraphStart(shown, 3, emptyList()))
+        assertEquals(90, SpeechText.paragraphStart("a".repeat(100) + " Two.", 100, emptyList(), limit = 10))
+    }
+
+    @Test
+    fun `skip ranges may be unsorted, overlapping, empty or out of bounds`() {
+        val shown = "abcdefghij"
+        val skip = listOf(8..20, 2..4, 3..5, -5..0, 7..6)
+
+        assertEquals("b gh", SpeechText.preparePlain(shown, skip).text)
+        assertEquals("", SpeechText.preparePlain(shown, listOf(-1..100)).text)
+    }
+
+    @Test
     fun `maps every spoken offset to its source char, the end one past the last`() {
         val shown = "a  b"
         val spoken = SpeechText.prepare(shown, markdown = false)
