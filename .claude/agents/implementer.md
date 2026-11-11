@@ -28,6 +28,14 @@ update and docs to read.
    keep one UI test of the wiring. For wiring, races and negative checks, break the code once and see the test fail.
    A test of a guard or filter needs an input where only that guard decides the outcome: Solitaire reviews found
    seven tests that still passed with the guard removed, because the input was refused or ended the same way anyway.
+   Report each break check you did (what you broke, which test failed); a new guard, wiring or race without one is
+   treated as untested.
+   What a WebView or a custom-styled control shows is tested by its pixels or computed style, not only its data:
+   CSS that matches no node (a plain `Text` has no `.text` class) and WebKit paint left behind by removed highlights
+   passed every data check (`docs/testing.md`, "WebView highlights").
+   Untrusted input (files from outside, HTML, archives, markup): escape every value you write into HTML, CSS or an
+   attribute, and test with hostile input (quotes and markup in each value, remote URLs in every spelling, deep
+   nesting) — an unescaped media type let an EPUB run its own script.
    Verify narrowly with one call: `.claude/scripts/verify.sh --display <N> --changed <the test classes the brief names
    and the ones you wrote>`, N being the display your brief gives you (shell state does not survive between calls, and
    without `--display` you land on `:99`, the main session's gate display). It formats, compiles all main and test
@@ -65,6 +73,11 @@ Sandbox rules:
 
 Stop and report instead of guessing when the brief leaves a design decision open or the code contradicts it
 (missing API, conflicting test, change needed outside the named files). Say what you found and what you would need.
+
+Fix by an exact rule, not a heuristic: tell the app's own events from the user's by what they are (an expected
+position, a flag set by the code that caused them), not by a time window; skip a known prefix by its pattern, not by
+searching for the text; work on the parsed document, not with a regex over raw markup. Each of these came back from
+review once. If only a heuristic seems possible, say so in the report.
 
 Each commit compiles with its tests on its own (bisecting relies on it): a moved or renamed class takes every import
 it breaks, tests included, into the same commit, and a production fix found while writing tests goes into the commit

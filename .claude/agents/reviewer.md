@@ -28,6 +28,13 @@ Check, most important first:
      files), reads of UI state off the FX thread;
    - a deleted test whose behavior no remaining test covers (open the claimed covering test); imports left behind;
      test classes over about 800 lines.
+   - rendering checked only through data: a WebView, CSS or custom control whose look is the behavior needs a
+     pixel or computed-style check (a CSS selector that matches nothing, paint left behind by WebKit);
+   - untrusted input without hostile tests: values written into HTML, CSS or attributes unescaped, remote URLs in
+     other spellings, deep nesting.
+   Also flag heuristic fixes (time windows for own vs. user events, text searches for known prefixes, regexes over
+   raw markup) and name the exact rule to use instead; and, where a package plugs into another's hooks, check the
+   interplay the plan decided: offset spaces, what counts as the user's action, key and focus ownership, dispose.
 4. Portability: CI also runs on macOS and on slower x64 runners. Check tests and OS-facing code against
    `docs/testing.md`, "Portability" (linked temp folders, 3 cores, stack depth, time limits, git encodings, file
    watcher polling).

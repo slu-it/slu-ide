@@ -47,12 +47,28 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
    `related-tests.sh <files the package will change>` while planning: more than 12 UI classes means the
    implementer must name classes instead of using `--changed`; say which. Tests that depend on the OS
    (files, processes, timing, encodings): point at `docs/testing.md`, "Portability".
+   Always demand, by name, the break check of every new guard, wiring and race: "break X once, see test Y fail, restore,
+   report it". Agents skip it unless the brief names it, and reviews then find tests that cannot fail.
+   What a WebView (or any renderer) shows is tested by its pixels, not only its data: a test that asked WebKit
+   "is the highlight set?" passed while removed highlights stayed painted and snippet text was black on dark
+   (`docs/testing.md`, "WebView highlights"). Name the snapshot check in the brief.
+   Code that handles untrusted input (files from outside, HTML, archives, user markup) gets hostile test inputs named
+   in the brief: quotes and markup in every attribute and value the code writes, oversized and nested input, remote
+   URLs in every spelling. A hand-written EPUB sanitiser wrote attribute values unescaped and ran a book's script.
 5. Docs to update: feature page, ADR, `docs/index.md`; `docs/features/keyboard-shortcuts.md` when key bindings change.
 6. Docs to read (so the agent skips the index), with sections where useful; for UI work the matching sections of
    `docs/ui-conventions.md`.
 7. Base: the master commit (for `worktree-check.sh start`) and the agent's display (`:111` upwards; the final gate's
    pool is `:99` to `:106`), or the worktree and the commit to rebase onto.
 8. For large files, the classes or line ranges that matter, so the agent reads ranges instead of whole files.
+9. The interactions the plan decided (`feature` skill, "Interactions"): offset spaces of the hooks, what counts as
+   the user's action, key and focus ownership, dispose and reload. A package that consumes another's hooks repeats
+   them in its brief, with the parts that hold only in one mode (e.g. page-local offsets in chapter mode).
+
+Take the base commit from `git rev-parse master` right before sending the brief: the user squashes and the main
+session amends, and an agent sent to a commit no longer on master stops at once. An agent whose worktree stayed
+unchanged may find it removed when it resumes; tell it to recreate it from the current master, never to work in the
+main tree.
 
 The sandbox rules every implementer needs (`worktree-check.sh` start and report, `verify.sh`, `--no-daemon`, no
 `pgrep -f` loops, MainWindow bean lists) are in `.claude/agents/implementer.md`; briefs need not repeat them, only
@@ -68,6 +84,13 @@ The reviewer labels each finding Blocker, Should or Nit (definitions in `.claude
 
 Before the main session decides a behavior change (a "bug" an agent or audit found), it checks the declared
 `@Throws`, the interface contract and every caller: what looks like a missing catch is often handled one level up.
+The same goes for a fix the main session itself suggests in a review message: read the call order first (a
+suggested "flush before the move" wrote the reading position under the old path, because `MainWindow` re-keys the
+data before the view hears of the move, and cost a round).
+Ask for exact fixes, not heuristics: a time window instead of telling own events from the user's (it swallowed real
+scrolls and was timing-dependent), a text search instead of skipping a known prefix (it found the `x` inside `[x]`),
+a regex over raw HTML instead of working on the parsed document (it removed visible words). When a review names a
+heuristic fix, say which exact one to build.
 A test an audit or brief suggests can be vacuous; ask for it to be shown failing with the code broken.
 
 ## Real-app check (done criteria for UI work)
@@ -76,6 +99,17 @@ A round that changes what the user sees is done only after the main session ran 
 changed), screenshots with `import -window root`, looked at with Read. The report says what was checked and what was
 not (macOS-only behavior, Podman, ...). Keep long outputs (logs, xdotool searches) in scratchpad files and read only
 what matters, to save the main context. `--stop <pid>` afterwards.
+Run it after each merged package that changes what the user sees, before the next wave builds on it, not only at
+the end: in the ebook round the first look (after the view package) found three UI faults at once, and the faults
+left for the final look (highlight ghosts, a squeezed toolbar, a half-width side panel) needed fix packages after
+the gate. Drive the feature end to end with real data where the sandbox allows it (a real model linked into the
+throwaway home, the null ALSA device, `docs/testing.md`), not only the opening screen.
+
+When the main session fixes something itself:
+- Read a break check's result as a pass or fail of its own. Spotless reformats code after an edit, so a marker or a
+  `sed` restore can stop matching: check the restored line with `grep` before committing.
+- Never pipe `verify.sh` into `tail` in a command chain that commits: the pipe hides the failing exit code.
+- Remove debug output in the same edit that added it, and check with `git diff` that none is left.
 
 ## Final gate
 Once the reviewer reports no Blockers and no agent runs Gradle in the main tree any more, the main session runs

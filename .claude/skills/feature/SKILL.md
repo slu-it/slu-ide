@@ -46,9 +46,17 @@ Write the plan to the plan file plan mode names:
 - **Packages**: split per the `delegate` skill (about one module and a few files each, frozen signatures between
   them); per package the model (`[opus: <reason>]` only by the delegate checklist), files, test levels, docs (feature
   page, ADR, index, keyboard shortcuts).
+- **Interactions**: frozen signatures are not enough; decide how the packages behave together, or reviews find it
+  one round at a time (the ebook round lost about six review rounds this way). For every hook between packages state:
+  the coordinate or offset space of each value (whole document or the shown part, source or rendered, local or
+  scene); which actions count as the user's (scroll, navigation, click) and which are the app's own, and who is told
+  about each; who owns which keys and the focus when two packages add controls to one view (a text field must keep
+  Space and Escape); the lifecycle (who stops background work on dispose, what survives a reload). Add the hooks
+  these need (a user-scroll list, a navigation list, `onDispose`) to the frozen signatures up front.
 - **Order**: what runs in parallel worktrees (at most three), what waits.
-- **Verification**: targeted tests per package, the final gate, the real-app check with `run-app.sh` in the dark
-  theme, what cannot be checked in the sandbox.
+- **Verification**: targeted tests per package, the final gate, a real-app check with `run-app.sh` in the dark
+  theme after EACH package that changes what the user sees (not only at the end: highlight ghosts and a squeezed
+  toolbar were found two waves late), what cannot be checked in the sandbox.
 - **Network**: a feature that downloads (models, packages) names every host the sandbox must allow, redirect targets
   included (Hugging Face files redirect to `us.aws.cdn.hf.co`), and asks the user once before the round starts. The
   real-model or real-service check runs right after the engine package, before packages build on its assumptions.
