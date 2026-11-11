@@ -111,6 +111,17 @@ class ReadAloud internal constructor(
             )
         }
 
+    /**
+     * Read Aloud over another module's [surface] (ADR 0164), on the window's voices, preferences and playback; the
+     * caller places [ReadAloudControls.toolbar] and [ReadAloudControls.notice] and disposes the controls.
+     */
+    fun controls(surface: ReadAloudSurface): ReadAloudControls {
+        val readingModel = ReadAloudModel(host, ownsText = false)
+        return ReadAloudControls(readingModel, surface) { play ->
+            ReadAloudEditorControls(readingModel, play, stylesheet)
+        }
+    }
+
     /** Puts [text] in the tab, shows it and starts reading, or shows the setup notice when something is missing. */
     fun read(
         text: String,
