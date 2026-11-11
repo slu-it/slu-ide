@@ -21,6 +21,9 @@ dependencies {
     api(project(":modules:project-data"))
     // Deliberate module dependency: parsing and the position writes run on logged threads (NamedThreads, ADR 0060).
     implementation(project(":modules:background-tasks"))
+    // Deliberate module dependency: Read Aloud in the reader, through the window's ReadAloud and its surface API
+    // (ADR 0164, ADR 0165).
+    implementation(project(":modules:speech"))
     implementation(libs.spring.context)
     // Parses the chapters (XHTML) and writes the sanitised page (ADR 0165).
     implementation(libs.jsoup)

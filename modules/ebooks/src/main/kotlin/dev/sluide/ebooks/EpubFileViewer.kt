@@ -6,6 +6,7 @@ import dev.sluide.ebooks.view.BookPosition
 import dev.sluide.ebooks.view.EpubFileView
 import dev.sluide.ebooks.view.EpubViewConfig
 import dev.sluide.ebooks.view.ProjectDataPositionStore
+import dev.sluide.ebooks.view.ReaderReadAloud
 import dev.sluide.fileviewers.ExtensionFileViewer
 import dev.sluide.fileviewers.FileView
 import dev.sluide.projectdata.ProjectDataStore
@@ -54,6 +55,6 @@ class EpubFileViewer internal constructor(
     override fun open(file: Path): FileView {
         val location = BookLocation(file)
         val position = BookPosition(ProjectDataPositionStore(data, location), positionWriter, saveDelay)
-        return EpubFileView(location, position, loaderFactory(), config)
+        return EpubFileView(location, position, loaderFactory(), config).also { ReaderReadAloud.attach(it) }
     }
 }

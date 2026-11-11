@@ -474,6 +474,8 @@ class MainWindow(
             },
         )
         editorArea.windowServices.register(SoftWrap::class.java, softWrap)
+        // The ebook reader reads aloud through the window's Read Aloud (ADR 0164, ADR 0165).
+        editorArea.windowServices.register(ReadAloud::class.java, readAloud)
         gradleSession.reviewTrust = { trust.review(stage) }
         // It warns about private environment files that git would commit.
         httpSession.wouldCommit = { gitStatus.snapshot.get().wouldCommit(it) }

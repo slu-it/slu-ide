@@ -19,6 +19,7 @@ import dev.sluide.languageservers.LanguageServers
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.SettingsStore
+import dev.sluide.speech.ReadAloud
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.control.Label
@@ -86,6 +87,8 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertSame(dockers.single(), editorArea.windowServices.get(Docker::class.java))
         // Code editors wrap by the one switch of all windows (ADR 0130).
         assertSame(softWrap, editorArea.windowServices.get(SoftWrap::class.java))
+        // The ebook reader reads aloud through the window's Read Aloud (ADR 0164, ADR 0165).
+        assertSame(readAlouds.single(), editorArea.windowServices.get(ReadAloud::class.java))
         // Python editors get code intelligence from the window's language servers (ADR 0145).
         val codeIntelligence = codeIntelligences.single()
         assertSame(codeIntelligence.languageServers, editorArea.windowServices.get(LanguageServers::class.java))
