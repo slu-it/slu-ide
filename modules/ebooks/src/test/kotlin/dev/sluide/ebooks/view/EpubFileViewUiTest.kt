@@ -447,6 +447,14 @@ class EpubFileViewUiTest {
         fx { assertFalse(view.splitPane.items.contains(view.rightPane)) }
         fx { view.rightPane.children += side }
         fx { assertEquals(view.rightPane, view.splitPane.items.last()) }
+        // It opens at its own width, not at half of the split (which squeezed the page).
+        repeat(10) {
+            Thread.sleep(200)
+            println(
+                fx { view.splitPane.dividers.map { it.position } },
+            )
+        }
+        await { view.rightPane.width in (ReaderSplit.RIGHT_WIDTH - 20)..(ReaderSplit.RIGHT_WIDTH + 20) }
         fx { view.rightPane.children -= side }
         fx { assertFalse(view.splitPane.items.contains(view.rightPane)) }
     }

@@ -85,7 +85,8 @@ starting one pauses the other. The tab shows the running marker while it reads.
 
 ## Search
 The magnify toggle in the toolbar (tooltip "Search (Shortcut+F)") or Shortcut+F anywhere in the view opens the Search
-panel on the right, with its field focused and its text selected; a query still in the field is searched again. The
+panel on the right (about 320 px wide the first time, then at the width it was left at), with its field focused and its
+text selected; a query still in the field is searched again. The
 search covers the whole book (`BookSearch`): case-insensitive, and a run of whitespace in the query matches any run of
 whitespace in the text, a paragraph break included. It needs at least two non-blank characters and runs off the FX
 thread 300 ms after typing, or at once on Enter; a newer query replaces an older one. The panel says "41 matches",
