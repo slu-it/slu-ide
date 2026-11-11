@@ -47,7 +47,7 @@ Write the plan to the plan file plan mode names:
   them); per package the model (`[opus: <reason>]` only by the delegate checklist), files, test levels, docs (feature
   page, ADR, index, keyboard shortcuts).
 - **Interactions**: frozen signatures are not enough; decide how the packages behave together, or reviews find it
-  one round at a time (the ebook round lost about six review rounds this way). For every hook between packages state:
+  one round at a time. For every hook between packages state:
   the coordinate or offset space of each value (whole document or the shown part, source or rendered, local or
   scene); which actions count as the user's (scroll, navigation, click) and which are the app's own, and who is told
   about each; who owns which keys and the focus when two packages add controls to one view (a text field must keep
@@ -67,10 +67,14 @@ After approval, write one project memory note for the round: the plan file path,
 updated after each package, so a later session can continue. A session that resumes a round first checks in
 `git log` which packages have landed (the note can lag behind), and does not ask again what the note or the plan
 file already decided. When the round is done:
-- lessons for agents go into `.claude/agents/`, `.claude/skills/` or `docs/testing.md`, not into memory;
+- lessons for agents go where the agent that needs them reads them, not into memory: a rule for code or tests as one
+  line in `.claude/rules/` (loaded with the files it governs), the story behind it once in `docs/testing.md` or the
+  ADR, a step of the workflow in `.claude/skills/`, role behavior in `.claude/agents/`; don't copy one lesson into
+  several files;
 - open or unverified items go into the `open-follow-ups` memory note;
 - delete the round note and its `MEMORY.md` line. ADRs, feature pages, the plan file and git keep the rest.
 
 ## 7. Build
-Load the `delegate` skill and run the packages. Finish with the final gate and the real-app check, and report: what
-was built, the commits, Sonnet/Opus implementer counts, review Nits dropped, and what was not verified.
+Load the `delegate` skill and run the packages, with a real-app check after each package that changes what the user
+sees. After the last wave: the cross-package review, the final gate and a last real-app check; then report what was
+built, the commits, Sonnet/Opus implementer counts, review Nits dropped, and what was not verified.

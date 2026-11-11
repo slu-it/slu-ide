@@ -132,6 +132,20 @@ A behavior is tested once, at the lowest level that can see it
   timing. Wait for each request to arrive before the next step cancels it (`CompletionModelTest`), or assert on the
   last request only.
 
+## WebView pages
+What a WebView or a stylesheet paints can be wrong while every data check passes. In the ebook round, tests that
+asked WebKit "is the highlight set?" passed while removed highlights stayed painted, search snippets were black on
+dark (a `.text` selector: a plain `Text` node has no style class) and the generic `serif` font rendered sans.
+- Test a mechanism's paint once where it lives (`TextMarksUiTest` snapshots the web view), and each page stylesheet
+  that styles it once more (`EbookPagePaintUiTest`, `PreviewHighlightUiTest`): sample pixels of a marked word, or
+  read the computed style. Wait on frames or a pulse, never a fixed sleep.
+- The WebKit of JavaFX does not invalidate the paint of a CSS Custom Highlight that is replaced or removed
+  (`CSS.highlights.set/delete`): the old range stays painted until it scrolls out of view and back. `text-marks.js`
+  sets `opacity: 0.999` on the spans the old and new range touch and takes it back in the next animation frame (a
+  repaint without layout; `outline-color` and a no-op change do not repaint).
+- A page's `<meta>` CSP is enforced with `engine.loadContent`; test the policy on a WebView once (an injected inline
+  handler must not run), not only its string.
+
 ## Portability: CI runs Linux x64 and macOS
 The sandbox is Linux on ARM with fast cores; CI (`.github/workflows/ci.yml`) runs the full `build` on slower x64 Linux
 runners and `build -x uiTest` on macOS, and the user only sees those failures after pushing. Every case below broke
@@ -150,11 +164,6 @@ CI once.
   time (`ManagementFactory.getThreadMXBean().currentThreadCpuTime`), not `System.nanoTime()`: the larger input
   triggers young GCs the smaller one misses, and their pauses grow with fewer GC threads (a linear scanner measured
   9x for 4x the text on the 3-core macOS runner). Reproduce with `-XX:ActiveProcessorCount=3` and `-Xlog:gc`.
-- **WebView highlights:** the WebKit of JavaFX does not invalidate the paint of a CSS Custom Highlight that is replaced
-  or removed (`CSS.highlights.set/delete`): the old range stays painted until it scrolls out of view and back.
-  `text-marks.js` therefore sets `opacity: 0.999` on the spans the old and new range touch and takes it back in the next
-  animation frame (a repaint without layout; `outline-color` and a no-op change do not repaint). Tests that check
-  highlights must check pixels, not only `CSS.highlights`: `TextMarksUiTest` snapshots the web view.
 - **Git encodings:** git converts commit messages to `i18n.commitEncoding` differently per OS (iconv). Tests read
   messages with `--encoding=UTF-8`, as the app does.
 - **File watching:** the macOS JDK polls (every 2 s, by path, mtime per entry): late events, no events for a folder

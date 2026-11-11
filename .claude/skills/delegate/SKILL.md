@@ -47,14 +47,11 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
    `related-tests.sh <files the package will change>` while planning: more than 12 UI classes means the
    implementer must name classes instead of using `--changed`; say which. Tests that depend on the OS
    (files, processes, timing, encodings): point at `docs/testing.md`, "Portability".
-   Always demand, by name, the break check of every new guard, wiring and race: "break X once, see test Y fail, restore,
-   report it". Agents skip it unless the brief names it, and reviews then find tests that cannot fail.
-   What a WebView (or any renderer) shows is tested by its pixels, not only its data: a test that asked WebKit
-   "is the highlight set?" passed while removed highlights stayed painted and snippet text was black on dark
-   (`docs/testing.md`, "WebView highlights"). Name the snapshot check in the brief.
-   Code that handles untrusted input (files from outside, HTML, archives, user markup) gets hostile test inputs named
-   in the brief: quotes and markup in every attribute and value the code writes, oversized and nested input, remote
-   URLs in every spelling. A hand-written EPUB sanitiser wrote attribute values unescaped and ran a book's script.
+   Name in the brief, because agents skip what it doesn't name (`.claude/rules/testing.md`, `safety.md`): the break
+   check of every new guard, wiring and race; the paint check of what the user sees (`docs/testing.md`, "WebView
+   pages"); the hostile inputs for untrusted content; fixtures built with the real builder of the output they fake.
+   `related-tests.sh` finds tests by Kotlin names: it misses tests of a changed resource (`.js`, `.css`) that do not
+   name it and consumers in other modules that use the API without naming the changed file; name those classes.
 5. Docs to update: feature page, ADR, `docs/index.md`; `docs/features/keyboard-shortcuts.md` when key bindings change.
 6. Docs to read (so the agent skips the index), with sections where useful; for UI work the matching sections of
    `docs/ui-conventions.md`.
@@ -84,13 +81,14 @@ The reviewer labels each finding Blocker, Should or Nit (definitions in `.claude
 
 Before the main session decides a behavior change (a "bug" an agent or audit found), it checks the declared
 `@Throws`, the interface contract and every caller: what looks like a missing catch is often handled one level up.
-The same goes for a fix the main session itself suggests in a review message: read the call order first (a
-suggested "flush before the move" wrote the reading position under the old path, because `MainWindow` re-keys the
-data before the view hears of the move, and cost a round).
-Ask for exact fixes, not heuristics: a time window instead of telling own events from the user's (it swallowed real
-scrolls and was timing-dependent), a text search instead of skipping a known prefix (it found the `x` inside `[x]`),
-a regex over raw HTML instead of working on the parsed document (it removed visible words). When a review names a
-heuristic fix, say which exact one to build.
+The same goes for a fix the main session itself suggests in a review message: read the call order first.
+Ask for exact fixes, not heuristics (time windows, text searches for known prefixes, regexes over raw markup each
+came back from review once); when a review names a heuristic fix, say which exact one to build. A fix that replaces
+a mechanism updates the ADR that described it.
+
+After the last wave, before the final gate, one reviewer reads the round's whole diff for what no package review could
+see: problems across packages (a search jump that Read Aloud undid, an empty chapter between two packages' fixtures).
+Give it the code and docs, not the round's conclusions.
 A test an audit or brief suggests can be vacuous; ask for it to be shown failing with the code broken.
 
 ## Real-app check (done criteria for UI work)
@@ -100,10 +98,11 @@ changed), screenshots with `import -window root`, looked at with Read. The repor
 not (macOS-only behavior, Podman, ...). Keep long outputs (logs, xdotool searches) in scratchpad files and read only
 what matters, to save the main context. `--stop <pid>` afterwards.
 Run it after each merged package that changes what the user sees, before the next wave builds on it, not only at
-the end: in the ebook round the first look (after the view package) found three UI faults at once, and the faults
-left for the final look (highlight ghosts, a squeezed toolbar, a half-width side panel) needed fix packages after
-the gate. Drive the feature end to end with real data where the sandbox allows it (a real model linked into the
-throwaway home, the null ALSA device, `docs/testing.md`), not only the opening screen.
+the end (faults left for the last look needed fix packages after the gate). `run-app.sh` builds the jar in the main
+tree and defaults to display `:99`, the gate's: never run it while the gate or another Gradle build runs there, and
+pass `--display 107` or higher. Drive the feature end to end with real data where the sandbox allows it (a real model
+linked into the throwaway home, the null ALSA device, `docs/testing.md`), plus one real-world input beyond the
+generated fixtures when the feature reads files from outside (a store or Gutenberg book, a real-life document).
 
 When the main session fixes something itself:
 - Read a break check's result as a pass or fail of its own. Spotless reformats code after an edit, so a marker or a

@@ -2,7 +2,8 @@
 # Lists the test classes that cover changed code, grouped by module and Gradle task (test or uiTest), so that a
 # change can be verified with .claude/scripts/verify.sh without reading the tests.
 # Input: the given files, or by default every .kt file changed against master (committed, uncommitted, untracked).
-# A changed file under */src/main/ stands for the types it declares at top level plus its base name; a changed test
+# A changed file under */src/main/ stands for the types it declares at top level plus its base name (a changed main
+# resource for the main .kt files of its module that name it); a changed test
 # file counts itself. A name that appears as a whole word in more than 25 test files is too common and is skipped.
 # Test helper files without @Test (fixtures) are left out. Always exits 0; prints `no related tests` when empty.
 # Usage: .claude/scripts/related-tests.sh [--names] [files...]
@@ -30,10 +31,17 @@ else
     git ls-files --others --exclude-standard
   } >"$work/input"
 fi
-# Existing .kt files, relative to the root, without duplicates.
+# Existing .kt files, relative to the root, without duplicates. A changed main resource (a script, a stylesheet)
+# stands for the main .kt files of its module that name it, since its tests rarely name the resource itself.
 while IFS= read -r f; do
   f="${f#"$root"/}"
-  case "$f" in *.kt) if [ -f "$f" ]; then echo "$f"; fi ;; esac
+  [ -f "$f" ] || continue
+  case "$f" in
+    *.kt) echo "$f" ;;
+    */src/main/resources/*)
+      grep -rlF --include='*.kt' -- "$(basename "$f")" "${f%%/src/*}/src/main" 2>/dev/null || true
+      ;;
+  esac
 done <"$work/input" | sort -u >"$work/changed"
 
 { git ls-files '*/src/test/*.kt'; git ls-files --others --exclude-standard '*/src/test/*.kt'; } | sort -u >"$work/tests.all"
@@ -51,8 +59,8 @@ while IFS= read -r f; do
       {
         echo "$base"
         # Private declarations are not API: other files (tests included) cannot refer to them.
-        grep -vE '^([a-z]+[[:space:]]+)*private[[:space:]]' "$f" |
-          sed -nE 's/^((public|internal|private|protected|data|sealed|enum|abstract|open|annotation|value|inline|fun|const|companion)[[:space:]]+)*(class|interface|object|typealias)[[:space:]]+`?([A-Za-z_][A-Za-z0-9_]*).*/\4/p'
+        { grep -vE '^([a-z]+[[:space:]]+)*private[[:space:]]' "$f" || true; } |
+          sed -nE 's/^((public|internal|protected|data|sealed|enum|abstract|open|annotation|value|inline|fun|const|companion)[[:space:]]+)*(class|interface|object|typealias)[[:space:]]+`?([A-Za-z_][A-Za-z0-9_]*).*/\4/p'
       } | sort -u | while IFS= read -r name; do
         [ -s "$work/tests" ] || continue
         # NUL-separated so that paths with blanks stay intact; grep exits 1 without a match.

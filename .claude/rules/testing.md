@@ -19,7 +19,12 @@ Details: `docs/testing.md` ("Choosing the test level"), ADR 0084.
   parameters with the real default.
 - No synthetic OS input (`clickOn`, `moveTo`, `type`, `scroll`) unless only real input can test it (`//` reason);
   `interact` already waits for FX events.
-- A test must fail without its code: for wiring, races and negative checks, break the code once and see it fail.
+- A test must fail without its code: for wiring, races, guards and negative checks, break the code once, see it
+  fail, and report what you broke and which test failed; a new guard without a reported break check counts as untested.
+- What the user sees is tested by what is painted, not only by the data behind it: a WebView page's or a stylesheet's
+  look gets a pixel or computed-style check (`docs/testing.md`, "WebView pages").
+- Fakes of another component's output keep its invariants (empty parts, gaps, order): build them with that
+  component's real builder where one exists, or a hand-made fixture hides the case (an empty chapter looped forever).
 - Deleting a test: open the test that keeps it covered first. Remove the imports a deletion leaves behind.
 - CI also runs on macOS and slower x64 runners: tests touching files, processes, timing, recursion or git
   encodings follow `docs/testing.md`, "Portability" (linked temp folders, 3 cores, stack, time limits, polling watcher).

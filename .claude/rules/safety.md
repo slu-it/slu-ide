@@ -70,6 +70,16 @@ for any of this: the named functions are patterns to copy (most are `private` or
 - Local servers bind `127.0.0.1` with a token in the path and serve only the project folder, or the file's own folder
   when it is outside any project, without hidden files (ADR 0018).
 
+## Untrusted input
+- Content from outside the project's control (archives, documents, HTML, XML, CSS, markup in user files) is parsed
+  with limits (entries, sizes, nesting depth; count what is actually read, not what headers claim) and with XML DTDs
+  and external entities off (`XmlTree`, `EpubXml`).
+- Escape every value written into HTML, CSS or an attribute, also the ones that look safe (a media type, an id): an
+  unescaped EPUB media type ran the book's own script. Rendered pages run only Thoreau's script (a CSP with its
+  hash) and load nothing remote (ADR 0165).
+- Test with hostile input in every value the code writes: quotes and markup, remote URLs in every spelling (escapes,
+  `//host`, mixed case), deep nesting, oversized and lying archives.
+
 ## Known deviations (fix when touching them, or decide in an ADR)
 - Enter confirms: `FxDockerDialogs.ask` (Remove, Kill, Prune), `ComposeView.confirm` ("Down and Remove Volumes"),
   http-client `EnvDialogs.confirm`, the Gradle stop question.

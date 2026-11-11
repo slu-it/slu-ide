@@ -28,20 +28,20 @@ Check, most important first:
      files), reads of UI state off the FX thread;
    - a deleted test whose behavior no remaining test covers (open the claimed covering test); imports left behind;
      test classes over about 800 lines.
-   - rendering checked only through data: a WebView, CSS or custom control whose look is the behavior needs a
-     pixel or computed-style check (a CSS selector that matches nothing, paint left behind by WebKit);
-   - untrusted input without hostile tests: values written into HTML, CSS or attributes unescaped, remote URLs in
-     other spellings, deep nesting.
-   Also flag heuristic fixes (time windows for own vs. user events, text searches for known prefixes, regexes over
-   raw markup) and name the exact rule to use instead; and, where a package plugs into another's hooks, check the
-   interplay the plan decided: offset spaces, what counts as the user's action, key and focus ownership, dispose.
+   - a new guard, wiring or race whose break check the report does not name; rendering checked only through data;
+     fakes that lack the real output's invariants (`.claude/rules/testing.md`);
+   - untrusted input without hostile tests (`.claude/rules/safety.md`, "Untrusted input").
+   Also flag heuristic fixes (time windows, text searches for known prefixes, regexes over raw markup) and name the
+   exact rule instead; where a package plugs into another's hooks, check the interplay the plan decided (offset
+   spaces, what counts as the user's action, key and focus ownership, dispose).
 4. Portability: CI also runs on macOS and on slower x64 runners. Check tests and OS-facing code against
    `docs/testing.md`, "Portability" (linked temp folders, 3 cores, stack depth, time limits, git encodings, file
    watcher polling).
 5. Safety and UI conventions: `.claude/rules/safety.md` (overwrites, unsaved content, confirmations with Cancel as
    default, project trust for what runs without a click, quoting, secrets in logs and UI, no network on open) and
    `docs/ui-conventions.md` for new UI.
-6. Docs: `docs/index.md`, ADRs and feature pages updated when needed. A diff that adds, changes or removes a key
+6. Docs: `docs/index.md`, ADRs and feature pages updated when needed; a fix that replaces a mechanism updates the ADR
+   that described the old one. A diff that adds, changes or removes a key
    binding (`accelerator`, `KeyCodeCombination`, `KeyCharacterCombination`, `InputMap`, a `KeyCode` handler) must
    update `docs/features/keyboard-shortcuts.md`, and the keys must not clash with another binding in the same
    context.
