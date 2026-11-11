@@ -62,7 +62,26 @@ Instead of the page, the tab shows a centred notice: "This book is DRM-protected
 valid EPUB: <reason>" (not a zip, too large, no table of contents or spine, and so on).
 
 ## Read Aloud
-(coming)
+The reader embeds the Read Aloud toolbar (play/pause, stop, voice, speed, status) after the chapter buttons, and the
+setup notice (no model, no espeak-ng) as a banner between the toolbar and the page, as in the editors
+([read-aloud.md](read-aloud.md), [ADR 0164](../adr/0164-read-aloud-surfaces.md)). One reading runs at a time, app-wide;
+starting one pauses the other. The tab shows the running marker while it reads.
+- **Start.** Play reads from the marked start sentence, else from the top of the view. It reads to the end of that
+  chapter (at most 1,000,000 chars; a longer chapter is cut at a paragraph break and goes on from there) and then reads
+  on with the next chapter, until the end of the book; it never loops. Stop or an error ends the reading.
+- **Highlight.** The sentence and the spoken word are highlighted in the page. The reading position (progress, Contents
+  panel, saved position) follows the sentence. While reading, a single click does not move the start mark;
+  a double-click on the page restarts at the sentence under it (outside the chapter being read, or far back in it,
+  it starts a new reading there) and follows again. A paused reading stays paused when the double-click lands in the
+  part being read; a new reading elsewhere starts speaking.
+- **Follow.** The page scrolls to keep the reading in view and loads the next chapter of a large book. Scrolling by
+  hand (wheel, keys, scrollbar) or moving the page yourself (a Contents entry, Previous/Next, a link) pauses the
+  following and shows a **Back to reading** button at the bottom right; the button, or scrolling the current sentence
+  out of view and back in, resumes it. Every Play follows again; reading
+  on to the next chapter keeps your choice.
+- **Not spoken.** Footnote markers, images and their alt text, tables and page breaks.
+- While the cursor is in a text field of the view (the search), Space and Escape type as usual.
+- Keys: [keyboard-shortcuts.md](keyboard-shortcuts.md#ebook-reader).
 
 ## Search
 (coming)

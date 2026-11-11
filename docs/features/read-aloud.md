@@ -131,7 +131,7 @@ menu items, which send the text to the tab. Code: `EditorReading` (one per exten
   ones last chosen anywhere, and the toolbar shows them. Starting one reading pauses the running one (see below).
 
 ## On other surfaces
-Another module's view (the coming e-book reader) reads aloud through `ReadAloud.controls(surface)`: it implements
+Another module's view (the [ebook reader](ebook-reader.md#read-aloud)) reads aloud through `ReadAloud.controls(surface)`: it implements
 `ReadAloudSurface` (its `ReadingText` with start, end and skipped ranges, the lock, the highlight, reveal), places the
 returned `ReadAloudControls`' toolbar and notice, and continues with `onFinished` (at once for an empty range). Plain
 text only (`SpeechText.preparePlain`); same keys, preferences and one playback as in the editor. See

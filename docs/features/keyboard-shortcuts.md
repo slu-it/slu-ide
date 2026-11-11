@@ -148,6 +148,9 @@ Zoom works while the page has the focus, as in the previews; the scrolling keys 
 | Shortcut+mouse wheel, pinch | Zoom |
 | Arrows, Page Up/Down, Home/End, Space | Scroll the page |
 | Arrows in the Contents panel | Select and jump to an entry |
+| Shortcut+Enter | Read Aloud: read from the start mark or the top of the view (while idle) |
+| Space / Escape | Read Aloud: pause or resume / stop (while reading; Space scrolls the page while idle) |
+| Double-click on the page | Read Aloud: restart at the sentence under it (while reading) |
 
 ## Media player
 View-local keys of an audio or video tab, while the view has the focus; ignored while the file loads or failed
