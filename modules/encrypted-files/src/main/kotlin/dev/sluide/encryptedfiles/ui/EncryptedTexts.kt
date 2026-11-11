@@ -84,8 +84,9 @@ internal fun stayedUnlockedText(count: Int): String =
     }
 
 /**
- * The strip's message after a save failed, e.g. before a lock: [e]'s reason, never its content (the exceptions here
- * carry paths and fixed texts only).
+ * The strip's message after a save failed, e.g. before a lock: [e]'s reason. For an IOException other than the file
+ * system's, that is its message: a fixed text (e.g. [REPLACE_CANCELLED]), or the inner view's encoding error, which
+ * names one character of the text and its line. Shown only while the tab is unlocked and shows the text anyway.
  */
 internal fun saveErrorText(
     name: String,
