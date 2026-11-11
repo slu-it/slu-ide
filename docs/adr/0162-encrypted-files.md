@@ -85,19 +85,32 @@ open on any machine with the password.
 - Best-effort wiping: the crypto core never keeps or zeroes the caller's password array (the caller owns and zeroes
   it), and zeroes every array it allocates for key material (KEK, DEK copies, Argon2 output, the password's UTF-8) in
   `finally` blocks. A `FileKey` holds the DEK; `close()` zeroes it, and a closed key refuses use. `SecretKeySpec` is
-  made per operation and dropped. The tab takes the password from its field, clears the
-  field at once and zeroes the array after the derivation; on lock and close the inner view is wiped (editor text,
-  undo history, saved text, find state, rendered preview, the WebView loads an empty page), disposed and dropped.
+  made per operation and dropped. The tab takes the password from its field, overwrites the field's text with
+  same-length ASCII filler (`*`) and clears it at once (JavaFX keeps the text in a `StringBuilder` that `clear()`
+  only shortens, so the typed characters stay in its array; a filler outside Latin-1 would move them to a new,
+  unzeroed one; the dialogs' fields too) and zeroes the array after the derivation; on lock and close the inner view
+  is wiped (editor text, undo history, saved text, find state, rendered preview, the WebView loads an empty page),
+  disposed and dropped.
   Plain bytes are zeroed once used: the array of encoded text a save hands to `write` (only that array: the text
   encoder's own buffers and the JDK cipher's internal buffers are not), the decryption that checks a change on disk,
   and the decrypted bytes the inner view reads, which it decodes at once on the FX thread; the session zeroes those on
-  the next read, on lock and on close. The decoded text is a `String` and stays (see below).
+  the next read, on lock and on close. The decoded text is a `String` and stays (see below). A heap dump of the real
+  app found more holders, fixed: the unlocked pane and its strip (a node outside the scene is never synced again, so
+  a removed one keeps its render peers with the last text runs, and a peer keeps its parent link) are created per
+  unlock and dropped on lock, and jsoup's thread-local pools keep the serialised HTML (`StringBuilder`s), the input
+  (the reader's char buffers) and short tokens like "pin 4711" (its string cache) of a Markdown render, so wiping a
+  confidential preview overwrites them (`scrubParserCaches`, best effort: jsoup's internal API and reflection on its
+  private pools, version pinned, a failure only skips it).
+- Locking by a key hands the focus to the password field while that key is held; JavaFX types the accelerator's
+  character into it when Ctrl+Alt counts as AltGr (Linux, Windows: Lock All, Ctrl+Alt+Shift+L), which would make a
+  correct password fail. The view tracks the keys down in its scene and drops typed characters until
+  the key is up; the next key press or release also ends it.
 - Not achievable on the JVM, and said so on the feature page: immutable `String`s (RichTextFX's text, the
-  `PasswordField`'s text, the WebView's DOM; a password with a character from U+0300 upward passes through a String
-  during normalization), the key copy inside `SecretKeySpec` (its `destroy()` throws `DestroyFailedException` on
-  JDK 25), the cipher's internal key schedule and buffers, the text encoder's buffers, the copies a moving garbage
-  collector leaves, swap, and crash or core dumps. The always-on JFR buffer ([ADR 0127](0127-in-process-diagnostics.md)) holds no heap content, and Thoreau
-  offers no heap dump.
+  `PasswordField`'s text, the WebView's DOM and native memory; a password with a character from U+0300 upward
+  passes through a String during normalization), the key copy inside `SecretKeySpec` (its `destroy()` throws
+  `DestroyFailedException` on JDK 25), the cipher's internal key schedule and buffers, the text encoder's
+  buffers, the copies a moving garbage collector leaves, swap, and crash or core dumps. The always-on JFR buffer
+  ([ADR 0127](0127-in-process-diagnostics.md)) holds no heap content, and Thoreau offers no heap dump.
 
 **Files and types**
 - The extension is `.sluenc`; the name before it gives the inner type (`notes.md.sluenc` is Markdown). The scratch type

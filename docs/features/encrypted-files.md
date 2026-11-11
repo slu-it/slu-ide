@@ -73,7 +73,8 @@ The password is stored nowhere: **if it is forgotten, the content is lost**; not
   and is enabled while one is unlocked (one question for the tabs with unsaved changes, see `EncryptedFiles.lockAll`).
   Tabs whose save fails stay unlocked, each strip says why, and one message counts them: "N encrypted files stay
   unlocked: their changes could not be saved."
-  Both keys also work from a terminal tab. Locking drops the content as described above.
+  Both keys also work from a terminal tab. Locking drops the content as described above. The key that locked does not
+  type into the password field that takes the focus (on Linux and Windows Ctrl+Alt+Shift+L would type an L).
 
 ## Several windows or tabs on one file
 - Each tab locks and unlocks on its own.
@@ -96,17 +97,21 @@ The password is stored nowhere: **if it is forgotten, the content is lost**; not
 
 ## Wiping, and its limits
 Best effort, as far as the JVM allows:
-- The password is taken from the field as a `char[]`, the field is cleared at once and the array is zeroed after the
-  key derivation, also when it fails.
+- The password is taken from the field as a `char[]`, the field's text is overwritten with filler (`*`) and cleared at
+  once (the dialogs' fields too, when they close) and the array is zeroed after the key derivation, also when it fails.
 - On Lock and close the inner view is wiped (editor text, undo history, saved text, find state, rendered preview; the
   preview's page loads an empty one), disposed and dropped, and the key's bytes are zeroed; each step runs even if
-  one before it fails (logged by its type), and closing a window closes its tabs first, each on its own.
+  one before it fails (logged by its type), and closing a window closes its tabs first, each on its own. The
+  unlocked pane and its strip are recreated on each unlock and dropped on Lock, so no render node keeps the last text;
+  after a Markdown preview is wiped, the pools of the HTML parser (jsoup) that held its text are overwritten too (best
+  effort: internal API of jsoup).
 - Plain bytes are zeroed once used: the encoded text Save hands over for encryption (that array only), the plain text
   decrypted to check a change on disk, and the decrypted bytes the view reads (on its next read, on Lock and on
   close). The text decoded from them is a String and stays in memory until the garbage collector reclaims it.
 - **Not achievable on the JVM:** Strings cannot be wiped (the editor's text, the password field's text, the preview
-  page's DOM); the text encoder's own buffers and the JDK cipher's internal buffers are not zeroed; the garbage
-  collector may leave copies, memory may be swapped to disk, and a crash or core dump holds what was in memory.
+  page's DOM, and WebView's native memory); the text encoder's own buffers and the JDK cipher's internal buffers are
+  not zeroed; the garbage collector may leave copies, memory may be swapped to disk, and a crash or core dump holds
+  what was in memory.
   Thoreau keeps no heap content in its diagnostics and offers no heap dump.
 
 ## Known limits
