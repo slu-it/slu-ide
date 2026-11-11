@@ -2,6 +2,7 @@ package dev.sluide.speech.ui
 
 import dev.sluide.fileviewers.StyledRange
 import dev.sluide.fileviewers.ViewActivity
+import dev.sluide.speech.ReadingText
 import dev.sluide.speech.engine.SetupProblem
 import dev.sluide.speech.session.ReadingPosition
 import dev.sluide.speech.session.ReadingState
@@ -577,6 +578,92 @@ class ReadAloudModelTest {
         model.playText(markdown, markdown = true, caret = 0, selection = markdown.indexOf("Bye") until markdown.length)
 
         assertEquals(listOf("Bye."), host.reading.chunks.map { it.text })
+    }
+
+    @Test
+    fun `playReading starts at the sentence of its start and stops at its end`() {
+        val shown = "One. Two three. Four. Five."
+
+        model.playReading(ReadingText(shown, shown.indexOf("three"), shown.indexOf(" Five")))
+
+        assertEquals(listOf("One.", "Two three.", "Four."), host.reading.chunks.map { it.text })
+        assertEquals(1, host.reading.startChunk)
+        assertTrue(model.reading)
+    }
+
+    @Test
+    fun `playReading prepares plain text without its skip ranges`() {
+        val shown = "# Hello [1] **world**."
+
+        model.playReading(ReadingText(shown, 0, shown.length, skip = listOf(8..10)))
+        host.reading.emit(ReadingState.SPEAKING)
+        host.reading.position = position(0, 0, 18, 8..16)
+        host.pollTick?.run()
+
+        assertEquals(listOf("# Hello **world**."), host.reading.chunks.map { it.text })
+        assertEquals(
+            shown.indexOf("**world") until shown.lastIndexOf('.'),
+            model.ui.reveal,
+            "the word in shown offsets",
+        )
+    }
+
+    @Test
+    fun `the 1 MiB limit of playReading measures its range, not the whole text`() {
+        val shown = "Word. ".repeat(180_000)
+
+        model.playReading(ReadingText(shown, 0, shown.length))
+        assertTrue(host.readings.isEmpty())
+        assertEquals("The text is larger than 1 MiB.", model.ui.status)
+
+        model.playReading(ReadingText(shown, shown.length - 6, shown.length))
+        assertEquals(host.reading.chunks.size - 1, host.reading.startChunk)
+        assertTrue(host.reading.chunks.size < 20_000, "prepared from at most 64 KiB before the start")
+    }
+
+    @Test
+    fun `playReading with nothing to speak from its start on is finished at once, not started over at the top`() {
+        model.playReading(ReadingText("One. Two. [3]", 10, 13, skip = listOf(10..12)))
+
+        assertTrue(host.readings.isEmpty())
+        assertEquals("Finished", model.ui.status)
+        assertTrue(model.finished)
+        assertTrue(model.ui.editable)
+    }
+
+    @Test
+    fun `playReading from the end of a sentence starts at the next one`() {
+        model.playReading(ReadingText("One. Two.", 4, 9))
+        assertEquals(1, host.reading.startChunk)
+        model.stop()
+
+        val chapters = "Ch1 end.\n\nChapter 2. More."
+        model.playReading(ReadingText(chapters, 8, chapters.length))
+        assertEquals("Chapter 2.", host.reading.chunks[host.reading.startChunk].text)
+    }
+
+    @Test
+    fun `playReading prepares from the paragraph of its start and maps the highlight to shown offsets`() {
+        val shown = "One.\n\nTwo three. Four."
+
+        model.playReading(ReadingText(shown, shown.indexOf("three"), shown.length))
+        host.reading.emit(ReadingState.SPEAKING)
+        host.reading.position = position(0, 0, 10, 4..8)
+        host.pollTick?.run()
+
+        assertEquals(listOf("Two three.", "Four."), host.reading.chunks.map { it.text })
+        assertEquals(0, host.reading.startChunk)
+        assertEquals(shown.indexOf("three") until shown.indexOf(". Four"), model.ui.reveal)
+        assertFalse(model.jumpTo(2), "before the prepared paragraph")
+        assertTrue(model.jumpTo(shown.indexOf("Four")))
+        assertEquals(1, host.reading.startChunk)
+    }
+
+    @Test
+    fun `playReading paused holds its start`() {
+        model.playReading(ReadingText("One. Two.", 0, 9), paused = true)
+
+        assertEquals(listOf("start", "pause"), host.reading.calls)
     }
 
     @Test

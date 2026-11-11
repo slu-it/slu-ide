@@ -3,6 +3,8 @@ package dev.sluide.speech.ui
 import dev.sluide.fileviewers.StyledRange
 import dev.sluide.fileviewers.ViewActivity
 import dev.sluide.localmodels.InstallState
+import dev.sluide.speech.MAX_READ_BYTES
+import dev.sluide.speech.ReadingText
 import dev.sluide.speech.engine.SetupProblem
 import dev.sluide.speech.engine.SpeechChunk
 import dev.sluide.speech.engine.Voice
@@ -38,8 +40,9 @@ private class Run(
  * outlives the tab: closing the tab calls [stop].
  *
  * With [ownsText] (the tool tab) the model holds the text and [play] reads it. An editor holds its own text instead and
- * calls [playText]; the model's [text] stays empty then, so [ownsText] = false makes Play enabled whenever a voice
- * exists and the caller guards an empty text (reading a blank text still ends in "Nothing to read.").
+ * calls [playText] (another module's surface calls [playReading]); the model's [text] stays empty then, so
+ * [ownsText] = false makes Play enabled whenever a voice exists and the caller guards an empty text (reading a blank
+ * text still ends in "Nothing to read.").
  *
  * While a reading is set up, running or paused the text is read-only. Only the events of the current reading count:
  * a stopped or replaced one may still report a state late.
@@ -121,6 +124,28 @@ internal class ReadAloudModel(
         begin(text, markdown, caret, selection)
     }
 
+    /**
+     * Reads the plain [text] of another module's surface from the sentence that contains its start (a sentence that
+     * ends right at it is over) up to its end, without its skip ranges; with [paused] the reading holds its start until
+     * resumed. Refuses a range over 1 MiB with a status. A range with nothing to speak from its start on is "Finished"
+     * at once, so that a reading that goes on text after text (chapters) skips it.
+     */
+    fun playReading(
+        text: ReadingText,
+        paused: Boolean = false,
+    ) {
+        if (reading || voice == null) return
+        val end = text.end.coerceIn(0, text.shown.length)
+        val start = text.start.coerceIn(0, end)
+        if (end - start > MAX_READ_BYTES) return refuse("The text is larger than 1 MiB.")
+        // Prepared from the paragraph of the start on: the sentences from the start come out as with the whole text.
+        val cut = SpeechText.paragraphStart(text.shown, start, text.skip)
+        val skip = text.skip.map { (it.first.coerceAtLeast(cut) - cut)..(it.last.coerceAtMost(end - 1) - cut) }
+        begin(text.shown.substring(cut, end), cut, start - cut, fromRangeStart = true, paused) {
+            SpeechText.preparePlain(it, skip)
+        }
+    }
+
     /** Shows [message] as a failed status without reading (an editor's text is too large); ignored while reading. */
     fun refuse(message: String) {
         if (reading) return
@@ -150,12 +175,13 @@ internal class ReadAloudModel(
 
     /**
      * Restarts the reading at the sentence of the shown offset [offset]; nothing when no reading runs or [offset] is
-     * outside the text being read.
+     * outside the text being read (prepared). Returns whether it restarted.
      */
-    fun jumpTo(offset: Int) {
-        val run = run ?: return
-        if (offset < run.base || offset >= run.base + run.length) return
+    fun jumpTo(offset: Int): Boolean {
+        val run = run ?: return false
+        if (offset < run.base || offset >= run.base + run.length) return false
         restart(run, chunkAt(run.spoken, run.chunks, offset - run.base))
+        return true
     }
 
     private fun preferredVoice() = voices.firstOrNull { it.id == host.preferredVoiceId } ?: voices.firstOrNull()
@@ -226,14 +252,16 @@ internal class ReadAloudModel(
     val reading: Boolean
         get() = phase == Phase.PREPARING || phase == Phase.SPEAKING || phase == Phase.PAUSED
 
+    /** Whether the last reading reached its end on its own ("Finished"), not after a stop or an error. */
+    val finished: Boolean
+        get() = phase == Phase.FINISHED
+
     private fun begin(
         source: String,
         markdown: Boolean,
         caret: Int,
         selection: IntRange?,
     ) {
-        takePreferences()
-        val voice = voice ?: return
         val selected =
             selection
                 ?.let { it.first.coerceAtLeast(0)..it.last.coerceAtMost(source.length - 1) }
@@ -242,6 +270,25 @@ internal class ReadAloudModel(
         val slice = if (selected == null) source else source.substring(selected)
         // The whole selection is read, from its start; without one the reading starts at the caret's sentence.
         val shownOffset = if (selected == null) caret else 0
+        begin(slice, base, shownOffset, fromRangeStart = false) { SpeechText.prepare(it, markdown) }
+    }
+
+    /**
+     * Checks the setup, then reads [slice] (the shown text from [base] on, prepared by [prepare]) from the sentence of
+     * [shownOffset] (relative to [base]); with [paused] the reading holds its start. A caret ([fromRangeStart] false)
+     * at the end of a sentence reads it, and one with nothing to speak from it on starts at the first sentence. A
+     * range start skips a sentence that ends at it, and with nothing to speak from it on the reading is finished.
+     */
+    private fun begin(
+        slice: String,
+        base: Int,
+        shownOffset: Int,
+        fromRangeStart: Boolean,
+        paused: Boolean = false,
+        prepare: (String) -> SpokenText,
+    ) {
+        takePreferences()
+        val voice = voice ?: return
         stopRun()
         val request = ++requests
         starting = true
@@ -253,7 +300,7 @@ internal class ReadAloudModel(
             starting = false
             notice = problems
             if (problems.isEmpty()) {
-                launchAt(slice, markdown, base, shownOffset)
+                launchAt(prepare(slice), base, slice.length, shownOffset, fromRangeStart, paused)
             } else {
                 phase = Phase.IDLE
                 publish()
@@ -262,20 +309,40 @@ internal class ReadAloudModel(
     }
 
     private fun launchAt(
-        slice: String,
-        markdown: Boolean,
+        spoken: SpokenText,
         base: Int,
+        length: Int,
         shownOffset: Int,
+        fromRangeStart: Boolean,
+        paused: Boolean,
     ) {
-        val spoken = SpeechText.prepare(slice, markdown)
         val chunks = Sentences.chunks(spoken)
-        if (chunks.isEmpty()) {
-            phase = Phase.FAILED
-            failure = "Nothing to read."
+        val first =
+            when {
+                chunks.isEmpty() -> null
+                fromRangeStart -> rangeChunk(spoken, chunks, shownOffset)
+                else -> chunkAt(spoken, chunks, shownOffset)
+            }
+        if (first == null) {
+            phase = if (fromRangeStart) Phase.FINISHED else Phase.FAILED
+            failure = if (fromRangeStart) null else "Nothing to read."
             publish()
             return
         }
-        launch(Run(spoken, chunks, chunkAt(spoken, chunks, shownOffset), base, slice.length))
+        val run = Run(spoken, chunks, first, base, length)
+        launch(run)
+        // As in a restart: the new reading holds its start until resumed.
+        if (paused) run.reading.pause()
+    }
+
+    /** The chunk a range starting at [shownOffset] begins with: not one that ends there; null when none is left. */
+    private fun rangeChunk(
+        spoken: SpokenText,
+        chunks: List<SpeechChunk>,
+        shownOffset: Int,
+    ): Int? {
+        val offset = spoken.spokenOffset(shownOffset.coerceAtLeast(0))
+        return chunks.indexOfFirst { it.end > offset }.takeIf { it >= 0 }
     }
 
     private fun launch(run: Run) {
