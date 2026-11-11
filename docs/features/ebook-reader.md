@@ -19,8 +19,9 @@ the left and a toolbar above. Nothing is fetched from the network.
 - The whole book is one page, every chapter a section in reading order, in Thoreau's reading style: serif text in a
   column about 40 em wide, light or dark with the theme (a change of theme applies at once, without reloading).
 - **Large books.** If the page would be longer than 50 million characters (images included), the book is shown one
-  chapter at a time, with **Previous Chapter** and **Next Chapter** buttons after the Contents toggle. The whole
-  book is built once to learn its text, chapters and contents; its page is dropped, and each chapter's page is built
+  chapter at a time, with **Previous Chapter** and **Next Chapter** buttons after the Contents toggle. The book is
+  measured once by a build without embedded images, which gives its text, chapters and contents; a book that stays one
+  page is then built with its images (a text-only book only once), and in chapter mode each chapter's page is built
   when it is shown (`chapterRange`), with offsets starting at 0. The view maps them to whole-book offsets, so the
   saved position, the Contents panel, the progress and the hooks of Read Aloud and the search always use whole-book
   offsets. Jumping to a position in another chapter loads that chapter.
@@ -73,7 +74,8 @@ starting one pauses the other. The tab shows the running marker while it reads.
   chapter (at most 1,000,000 chars; a longer chapter is cut at a paragraph break and goes on from there) and then reads
   on with the next chapter (one without text, such as an image, is skipped), until the end of the book; it never
   loops. Stop or an error ends the reading. The start mark follows the sentence being spoken (hidden while reading),
-  so Play resumes at the last sentence spoken, also after the end of the book or an error.
+  so Play resumes at the last sentence spoken, also after the end of the book or an error. After the tab is reopened,
+  the start mark is the sentence around the saved position, which can begin a little earlier than the spoken one.
 - **Highlight.** The sentence and the spoken word are highlighted in the page. The reading position (progress, Contents
   panel, saved position) follows the sentence. While reading, a single click does not move the start mark;
   a double-click on the page restarts at the sentence under it (outside the chapter being read, or far back in it,

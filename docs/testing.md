@@ -197,11 +197,11 @@ CI once.
 
 ## Running and screenshotting the real app (headless Linux sandbox)
 ```bash
-.claude/scripts/run-app.sh <folder>                 # dark theme on display :99; prints pid=, display=, home=, log=
-.claude/scripts/run-app.sh --theme light --display 102 <folder>
+.claude/scripts/run-app.sh <folder>                 # dark theme on display :107 (outside the gate's :99-:106); prints pid=, display=, home=, log=
+.claude/scripts/run-app.sh --theme light --display 108 <folder>
 .claude/scripts/run-app.sh --setting python.ty.path=/path/to/ty <folder>   # extra settings.properties lines
-DISPLAY=:99 import -window root <scratchpad>/shot.png   # screenshot, then look at it with Read
-DISPLAY=:99 xdotool key ctrl+o                      # drive the UI
+DISPLAY=:107 import -window root <scratchpad>/shot.png   # screenshot, then look at it with Read
+DISPLAY=:107 xdotool key ctrl+o                      # drive the UI
 .claude/scripts/run-app.sh --stop <pid>
 ```
 - The script builds `:ide:bootJar` when the sources are newer, sets up the display (`setup-display.sh`) and openbox,

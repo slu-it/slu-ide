@@ -46,9 +46,9 @@ packages and amend it where needed.
   only as CSS highlights (`::highlight(...)` rules, `CSS.highlights`); there is no class-based fallback.
 
 ## The view (amendment)
-- **Chapter mode.** The whole book is built once, off the FX thread. If its `html` is longer than 50,000,000 characters
-  (the threshold, a constructor parameter, instead of the 20 MB first assumed: the page is a string in memory and in the
-  engine), the view keeps the whole-book `text`, `chapters`, `toc`, `skip` and `anchors` without the html and builds
+- **Chapter mode.** The book is measured once, off the FX thread, by a build without embedded images (see "Fix round"
+  below). If the page would be longer than 50,000,000 characters (the threshold, a constructor parameter, instead of the
+  20 MB first assumed: the page is a string in memory and in the engine), the view keeps the whole-book `text`, `chapters`, `toc`, `skip` and `anchors` without the html and builds
   each chapter's page on demand with `chapterRange = i..i`. `ShownPage.shift` (whole-book chapter start minus the
   local start) maps local offsets to whole-book ones; the saved position, the Contents panel, the progress and the
   hooks of Read Aloud and the search use whole-book offsets only.
@@ -70,7 +70,8 @@ packages and amend it where needed.
   reported by the script and marks the sentence (`SentenceBounds`) as `start`; named marks are shown again after
   every load of a page. Read Aloud moves the `start` mark to each sentence it speaks (exactly the spoken range, whose
   bounds differ from `SentenceBounds`) and hides it while the reading is locked, so Play resumes at the last sentence
-  spoken, whichever way the reading ended.
+  spoken, whichever way the reading ended (within the open tab: a reopened book marks `SentenceBounds` around the
+  saved position).
 
 ## Consequences
 - The view and Read Aloud need only `BookPage`; they are tested against fixtures without a toolkit.

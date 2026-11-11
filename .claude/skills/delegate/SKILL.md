@@ -99,8 +99,8 @@ not (macOS-only behavior, Podman, ...). Keep long outputs (logs, xdotool searche
 what matters, to save the main context. `--stop <pid>` afterwards.
 Run it after each merged package that changes what the user sees, before the next wave builds on it, not only at
 the end (faults left for the last look needed fix packages after the gate). `run-app.sh` builds the jar in the main
-tree and defaults to display `:99`, the gate's: never run it while the gate or another Gradle build runs there, and
-pass `--display 107` or higher. Drive the feature end to end with real data where the sandbox allows it (a real model
+tree (display `:107` by default, outside the gate's pool): never run it while the gate or another Gradle build runs
+there. Drive the feature end to end with real data where the sandbox allows it (a real model
 linked into the throwaway home, the null ALSA device, `docs/testing.md`), plus one real-world input beyond the
 generated fixtures when the feature reads files from outside (a store or Gutenberg book, a real-life document).
 

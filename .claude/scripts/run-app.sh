@@ -3,12 +3,12 @@
 # settings: the app runs with a throwaway user.home that holds only a settings.properties with the theme.
 # Usage: .claude/scripts/run-app.sh [--theme dark|light] [--display N] [--setting key=value]... <project-folder>
 #        .claude/scripts/run-app.sh --stop <pid>
-# Defaults: theme dark, display 99. --setting adds a line to the throwaway settings.properties (e.g.
-# python.ty.path=/path/to/ty), repeatable. Builds the jar with Gradle when it is missing or older than the sources.
+# Defaults: theme dark, display 107 (outside the final gate's pool :99 to :106). --setting adds a line to the
+# throwaway settings.properties (e.g. python.ty.path=/path/to/ty), repeatable. Builds the jar with Gradle when it is missing or older than the sources.
 # Prints pid=, display=, home= (the throwaway folder) and log= (app output), one per line.
 # Afterwards (see docs/testing.md):
-#   DISPLAY=:99 import -window root shot.png      # screenshot
-#   DISPLAY=:99 xdotool key ctrl+comma            # drive it with xdotool (clicks, keys, windowfocus)
+#   DISPLAY=:107 import -window root shot.png      # screenshot
+#   DISPLAY=:107 xdotool key ctrl+comma            # drive it with xdotool (clicks, keys, windowfocus)
 # --stop kills the app, waits for it to end and deletes its throwaway home; Xvfb and openbox keep running.
 set -euo pipefail
 
@@ -35,7 +35,7 @@ if [ "${1:-}" = "--stop" ]; then
 fi
 
 theme=dark
-display_number=99
+display_number=107
 settings=()
 while [ "$#" -gt 1 ]; do
   case "$1" in
