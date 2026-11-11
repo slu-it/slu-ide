@@ -10,6 +10,7 @@ import javafx.scene.control.Dialog
 import javafx.scene.control.Label
 import javafx.scene.control.PasswordField
 import javafx.scene.layout.GridPane
+import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import javafx.stage.Window
 
@@ -58,7 +59,8 @@ internal fun showPasswordDialog(
             hgap = 8.0
             vgap = 6.0
             fields.forEachIndexed { row, field ->
-                add(Label(field.promptText), 0, row)
+                // The labels keep their full width; the fields take what is left.
+                add(Label(field.promptText).apply { minWidth = Region.USE_PREF_SIZE }, 0, row)
                 add(field, 1, row)
             }
             add(hint, 1, fields.size)

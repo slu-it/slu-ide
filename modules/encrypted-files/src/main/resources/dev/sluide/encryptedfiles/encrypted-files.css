@@ -9,6 +9,11 @@
     -fx-background-color: -fx-background;
 }
 
+/* The tab inherits the editor font; the locked pane and the strip are UI and use the system font (as code-view.css). */
+.encrypted-locked, .encrypted-strip {
+    -fx-font-family: "System";
+}
+
 .encrypted-locked {
     -fx-spacing: 10;
     -fx-padding: 24;
