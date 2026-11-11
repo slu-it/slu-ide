@@ -448,6 +448,12 @@ internal class EncryptedFileView(
             } catch (_: IOException) {
                 session.lock(READ_FAILED)
                 return false
+            } catch (e: Throwable) {
+                // E.g. a viewer's bug or an OutOfMemoryError: the tab locks and zeroes its key. Only the type: a
+                // message could hold content.
+                log.log(System.Logger.Level.WARNING, "Cannot show an encrypted file: ${e.javaClass.name}")
+                session.lock(UNLOCK_FAILED)
+                return false
             }
         if (view == null) {
             session.lock()

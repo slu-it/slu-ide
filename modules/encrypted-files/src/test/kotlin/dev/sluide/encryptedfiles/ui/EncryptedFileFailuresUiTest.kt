@@ -1,5 +1,6 @@
 package dev.sluide.encryptedfiles.ui
 
+import dev.sluide.encryptedfiles.FileKey
 import dev.sluide.fileviewers.ContentFileViewer
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileContent
@@ -83,5 +84,44 @@ class EncryptedFileFailuresUiTest {
         assertTrue(second.rawDek.all { it == 0.toByte() })
         assertEquals(2, viewer.disposed)
         assertFalse(views.fx { views.registry.anyUnlocked.get() })
+    }
+
+    @Test
+    fun `a viewer that throws while opening the content locks the tab and zeroes the key`(robot: FxRobot) {
+        val file = views.create(dir.resolve("notes.txt.sluenc"), "one\n")
+        val viewer =
+            object : ContentFileViewer {
+                override fun opensContent(name: String) = true
+
+                override fun open(
+                    file: Path,
+                    content: FileContent,
+                ): FileView {
+                    content.read()
+                    throw IllegalStateException("cannot show")
+                }
+            }
+        val view = views.open(file, robot, viewerFor = { viewer })
+        val keys = mutableListOf<FileKey>()
+        robot.interact {
+            val render = view.session.onChange
+            view.session.onChange = {
+                view.session.key?.let(keys::add)
+                render()
+            }
+        }
+
+        views.unlock(view, robot)
+
+        assertFalse(views.fx { view.isUnlocked })
+        assertEquals("Cannot unlock the file.", views.lockedMessage(view))
+        assertTrue(
+            keys
+                .distinct()
+                .single()
+                .rawDek
+                .all { it == 0.toByte() },
+        )
+        robot.interact { view.dispose() }
     }
 }
