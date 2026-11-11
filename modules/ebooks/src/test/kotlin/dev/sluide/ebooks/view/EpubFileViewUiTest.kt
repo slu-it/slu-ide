@@ -212,14 +212,29 @@ class EpubFileViewUiTest {
     private fun entryCell(
         tree: TreeView<TocItem>,
         title: String,
-    ): TreeCell<TocItem> {
+    ): TreeCell<TocItem> = checkNotNull(entryCellOrNull(tree, title)) { "no cell for $title" }
+
+    private fun entryCellOrNull(
+        tree: TreeView<TocItem>,
+        title: String,
+    ): TreeCell<TocItem>? {
         tree.applyCss()
         tree.layout()
-        return tree.lookupAll(".tree-cell").filterIsInstance<TreeCell<TocItem>>().first {
-            it.item?.title ==
-                title
-        }
+        return tree
+            .lookupAll(
+                ".tree-cell",
+            ).filterIsInstance<TreeCell<TocItem>>()
+            .firstOrNull { it.item?.title == title }
     }
+
+    /** Waits until the tree has laid out a cell for [title]: under load the first layout pass can come later. */
+    private fun awaitEntry(
+        tree: () -> TreeView<TocItem>,
+        title: String,
+    ) = await { entryCellOrNull(tree(), title) != null }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun contentsTree(view: EpubFileView) = view.contents.node as TreeView<TocItem>
 
     private fun click(count: Int = 1) =
         MouseEvent(
@@ -253,6 +268,7 @@ class EpubFileViewUiTest {
             )
         val view = open(TestEpub(chapters, toc = toc))
         view.loadedPage()
+        awaitEntry({ contentsTree(view) }, "Parent")
         fx {
             val tree = view.contents.node as TreeView<TocItem>
             val cell = entryCell(tree, "Parent")
@@ -277,6 +293,7 @@ class EpubFileViewUiTest {
             panel.show(items)
             stage.scene.root = tree
         }
+        awaitEntry({ tree }, "Two")
         fx {
             // What the arrow keys do: they move the selection.
             tree.selectionModel.select(1)
@@ -390,6 +407,7 @@ class EpubFileViewUiTest {
         view.loadedPage()
         scrollPage(view, 3000) { store.saved?.let { it > 0 } == true }
         val gamma = fx { assertNotNull(view.page).chapters[2].start }
+        awaitEntry({ contentsTree(view) }, "Gamma")
         fx {
             val tree = view.contents.node as TreeView<TocItem>
             val cell = entryCell(tree, "Gamma")
