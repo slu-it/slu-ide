@@ -14,21 +14,16 @@ import javafx.application.Platform
 import javafx.beans.property.SimpleObjectProperty
 import javafx.concurrent.Worker
 import javafx.scene.Node
-import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.SplitPane
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
-import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 import javafx.scene.web.WebView
 import javafx.util.Duration
 import netscape.javascript.JSObject
-import org.kordamp.ikonli.javafx.FontIcon
-import org.kordamp.ikonli.materialdesign2.MaterialDesignC
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -40,6 +35,9 @@ import kotlin.io.path.fileSize
 internal class EpubViewConfig(
     val scrollDelay: Duration = Duration.millis(150.0),
     val largeBookChars: Int = BookLoading.LARGE_BOOK_CHARS,
+    /** Builds the page of a chapter or style change; tests replace it to make it fail. */
+    val render: (BookLoading, LoadedBook, Int?, Boolean, Boolean) -> ShownPage =
+        { loading, book, chapter, ownStyle, dark -> loading.render(book, chapter, ownStyle, dark) },
 )
 
 /**
@@ -66,7 +64,7 @@ internal class EpubFileView(
     private val zoom = DocumentZoom(webView).also { it.install() }
     private val toolbar = EbookToolbar(zoom.node)
     private val contentsPanel = ContentsPanel { offset -> jumpFromContents(offset) }
-    private val noticeBar = HBox()
+    private val noticeBar = NoticeBar()
     private val reader = BorderPane()
     private val overlayText = Label().apply { styleClass += "ebook-overlay-text" }
     private val overlay = StackPane(overlayText).apply { styleClass += "ebook-overlay" }
@@ -104,6 +102,12 @@ internal class EpubFileView(
     private var pageReady = false
     private var disposed = false
 
+    /** Set while the Book Style toggle is put back to the style of the shown page. */
+    private var syncingStyle = false
+
+    /** Whether the shown page is built in the book's own style. */
+    private var shownOwnStyle = false
+
     /** Counts loads of the book; a result of an older one is dropped. */
     private var loadGeneration = 0
 
@@ -118,7 +122,7 @@ internal class EpubFileView(
     private var stamp: Pair<Long, Any?>? = stampOf()
 
     /** Named marks (whole-book offsets, end exclusive), shown again after every load of a page. */
-    private val named = linkedMapOf<String, Pair<Int, Int>>()
+    private val named = NamedMarks(textMarks, { shown }, { loaded?.page }, { pageReady })
 
     private val bridge = PageBridge(::openLink, ::anchorFollowed, ::anchorElsewhere, ::textClicked)
 
@@ -156,20 +160,6 @@ internal class EpubFileView(
     }
 
     private fun buildLayout() {
-        val close =
-            Button(null, FontIcon(MaterialDesignC.CLOSE)).apply {
-                isFocusTraversable = false
-                styleClass += "ebook-button"
-                setOnAction {
-                    noticeBar.isVisible = false
-                    noticeBar.isManaged = false
-                }
-            }
-        val spacer = Region().also { HBox.setHgrow(it, Priority.ALWAYS) }
-        noticeBar.children.setAll(Label("Fixed-layout book, shown as flowing text."), spacer, close)
-        noticeBar.styleClass += "ebook-notice-bar"
-        noticeBar.isVisible = false
-        noticeBar.isManaged = false
         reader.top = VBox(noticeBar, toolbar.node, bannerSlot)
         reader.center = split.node
     }
@@ -177,7 +167,7 @@ internal class EpubFileView(
     private fun wire() {
         toolbar.contents.selectedProperty().subscribe { _ -> split.sync() }
         rightPane.children.subscribe { split.sync() }
-        toolbar.bookStyle.selectedProperty().subscribe { _ -> restyle() }
+        toolbar.bookStyle.selectedProperty().subscribe { _ -> if (!syncingStyle) restyle() }
         toolbar.previous.setOnAction {
             navigated()
             showChapter(current - 1)
@@ -238,7 +228,7 @@ internal class EpubFileView(
             Platform.runLater {
                 if (id == loadGeneration && !disposed) {
                     loadPending = false
-                    loadedResult(result, target ?: saved, saved != null, firstOpen)
+                    loadedResult(result, target ?: saved, saved != null, firstOpen, ownStyle)
                     // The style was toggled while the book was loading: build the page again in the new one.
                     if (result is BookLoad.Ready && toolbar.bookStyle.isSelected != ownStyle) restyle()
                 }
@@ -251,6 +241,7 @@ internal class EpubFileView(
         target: Int?,
         fromSaved: Boolean,
         firstOpen: Boolean,
+        ownStyle: Boolean,
     ) {
         when (result) {
             is BookLoad.Notice -> {
@@ -272,16 +263,13 @@ internal class EpubFileView(
                 reader.isVisible = true
                 contentsPanel.show(contentsItems(book.page))
                 toolbar.showChapterButtons(book.chapterMode)
-                if (firstOpen && book.book.fixedLayout) {
-                    noticeBar.isVisible = true
-                    noticeBar.isManaged = true
-                }
+                if (firstOpen && book.book.fixedLayout) noticeBar.show("Fixed-layout book, shown as flowing text.")
                 val start = target ?: 0
-                if (fromSaved) setNamedStart(start)
+                if (fromSaved) named.markSentence(start)
                 if (target != null) setPosition(start, save = false)
                 val first = result.first
                 if (first != null) {
-                    display(first, target)
+                    display(first, target, ownStyle)
                 } else {
                     showChapter(chapterAt(book.page.chapters, start), target, save = false)
                 }
@@ -292,8 +280,10 @@ internal class EpubFileView(
     private fun display(
         next: ShownPage,
         reveal: Int?,
+        ownStyle: Boolean,
     ) {
         shown = next
+        shownOwnStyle = ownStyle
         pageReady = false
         pendingReveal = reveal
         updateChapterButtons()
@@ -307,7 +297,7 @@ internal class EpubFileView(
         pageReady = true
         overlay.isVisible = false
         applyDark()
-        for (name in named.keys.toList()) applyMark(name)
+        named.applyAll()
         val reveal = pendingReveal
         pendingReveal = null
         if (reveal != null) {
@@ -341,10 +331,32 @@ internal class EpubFileView(
         val ownStyle = toolbar.bookStyle.isSelected
         val isDark = dark
         loadExecutor.execute {
-            val next = loading.render(book, index, ownStyle, isDark)
-            Platform.runLater { if (id == pageGeneration && !disposed) display(next, reveal) }
+            val next = renderSafely { config.render(loading, book, index, ownStyle, isDark) }
+            Platform.runLater { if (id == pageGeneration && !disposed) shownOrFailed(next, reveal, ownStyle) }
         }
         if (reveal == null) setPosition(book.page.chapters[index].start, save = save)
+    }
+
+    /** Shows a built page; a failed build keeps what is shown, says why, and puts the Book Style toggle back. */
+    private fun shownOrFailed(
+        rendered: Rendered,
+        reveal: Int?,
+        ownStyle: Boolean,
+    ) {
+        when (rendered) {
+            is Rendered.Page -> {
+                display(rendered.page, reveal, ownStyle)
+            }
+
+            is Rendered.Failed -> {
+                if (shown == null) return showOverlay(rendered.notice)
+                noticeBar.show(rendered.notice)
+                syncingStyle = true
+                toolbar.bookStyle.isSelected = shownOwnStyle
+                syncingStyle = false
+                recompute(follow = true)
+            }
+        }
     }
 
     private fun updateChapterButtons() {
@@ -367,12 +379,12 @@ internal class EpubFileView(
         val isDark = dark
         val chapter = shown?.chapter
         loadExecutor.execute {
-            val next = loading.render(book, chapter, ownStyle, isDark)
+            val next = renderSafely { config.render(loading, book, chapter, ownStyle, isDark) }
             Platform.runLater {
                 if (id == pageGeneration && !disposed) {
                     val at = restyleAt ?: readingPosition
                     restyleAt = null
-                    display(next, at)
+                    shownOrFailed(next, at, ownStyle)
                 }
             }
         }
@@ -454,39 +466,24 @@ internal class EpubFileView(
         externalLink(address)?.let { uri -> host?.openWebPage(uri) }
         val back = shown ?: return
         val id = pageGeneration
-        Platform.runLater { if (!disposed && id == pageGeneration) display(back, readingPosition) }
+        Platform.runLater { if (!disposed && id == pageGeneration) display(back, readingPosition, shownOwnStyle) }
     }
 
     private fun textClicked(local: Int) {
         if (!startClicks) return
         val whole = shown?.toWhole(local) ?: return
-        setNamedStart(whole)
-        applyMark(START)
-    }
-
-    private fun setNamedStart(offset: Int) {
-        val text = loaded?.page?.text ?: return
-        val sentence = SentenceBounds.around(text, offset)
-        if (sentence.isEmpty()) return
-        named[START] = sentence.first to sentence.last + 1
+        named.markSentence(whole)
+        named.apply(NamedMarks.START)
     }
 
     private fun applyDark() {
         if (pageReady) engine.executeScript("document.body.classList.toggle('dark', $dark)")
     }
 
-    private fun applyMark(name: String) {
-        val range = named[name]
-        val local = shown
-        if (!pageReady || local == null) return
-        val clipped = range?.let { local.localRange(loaded?.page?.chapters.orEmpty(), it.first, it.second) }
-        if (clipped == null) textMarks.clear(name) else textMarks.mark(name, clipped.first, clipped.second)
-    }
-
     // --- Hooks ------------------------------------------------------------------------------------------------
 
     /** The marked start if any, else the offset at the top of the view, else 0; whole-book. */
-    internal fun startOffset(): Int = named[START]?.first ?: (if (pageReady) topWhole() else null) ?: 0
+    internal fun startOffset(): Int = named.start ?: (if (pageReady) topWhole() else null) ?: 0
 
     /** Scrolls to the whole-book [offset], loading its chapter if needed, and updates position, contents, progress. */
     internal fun jumpTo(offset: Int) = jump(offset, follow = true)
@@ -497,12 +494,14 @@ internal class EpubFileView(
         jumpTo(offset)
     }
 
-    /** The marked start of Read Aloud (whole-book offset of its sentence), null without; set marks a sentence. */
-    internal var startMark: Int?
-        get() = named[START]?.first
+    /** Marks the sentence Read Aloud speaks, exactly its whole-book range, as the start of the next reading. */
+    internal fun markStart(sentence: IntRange) = named.setStart(sentence)
+
+    /** Whether the start mark is painted (Read Aloud hides it while it reads and moves it with the sentence). */
+    internal var startMarkShown: Boolean
+        get() = !named.startHidden
         set(value) {
-            if (value == null) named.remove(START) else setNamedStart(value)
-            applyMark(START)
+            named.startHidden = !value
         }
 
     /** The local offset on the shown page of the whole-book [offset]; null if the page does not show it. */
@@ -518,14 +517,10 @@ internal class EpubFileView(
         start: Int,
         end: Int,
     ) {
-        named[name] = start to end
-        applyMark(name)
+        named.set(name, start, end)
     }
 
-    internal fun clearMark(name: String) {
-        named.remove(name)
-        applyMark(name)
-    }
+    internal fun clearMark(name: String) = named.clear(name)
 
     /** Tells the view the reading position (whole-book), e.g. while speaking: contents, progress, saved position. */
     internal fun showPosition(offset: Int) = setPosition(offset)
@@ -590,9 +585,5 @@ internal class EpubFileView(
         loadExecutor.shutdownNow()
         position.close()
         engine.loadContent("")
-    }
-
-    private companion object {
-        const val START = "start"
     }
 }

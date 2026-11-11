@@ -292,6 +292,33 @@ class EbookReadAloudUiTest {
         }
         await { view.startOffset() != before }
         assertTrue(fx { checkNotNull(view.page).text.substring(view.startOffset()).startsWith("Alpha paragraph 1.") })
+
+        // While reading, the start mark follows the sentence spoken and is hidden; after the unlock it is painted there.
+        val text = checkNotNull(view.page).text
+        val third = text.indexOf("Alpha paragraph 3.")
+        fx {
+            opened.surface.lock(true)
+            opened.surface.highlight(third until third + "Alpha paragraph 3.".length, null)
+        }
+        await { highlighted(view, "start") == null }
+        fx {
+            opened.surface.highlight(null, null)
+            opened.surface.lock(false)
+        }
+        assertEquals(third, fx { view.startOffset() })
+        await { highlighted(view, "start") == "Alpha paragraph 3." }
+
+        // The mark is the range the speech gave, not the sentence SentenceBounds finds around its start.
+        val inner = "paragraph 4. Another"
+        val at = text.indexOf(inner)
+        fx {
+            opened.surface.lock(true)
+            opened.surface.highlight(at until at + inner.length, null)
+            opened.surface.highlight(null, null)
+            opened.surface.lock(false)
+        }
+        assertEquals(at, fx { view.startOffset() })
+        await { highlighted(view, "start") == inner }
     }
 
     @Test

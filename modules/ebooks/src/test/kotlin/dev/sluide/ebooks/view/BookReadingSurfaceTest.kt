@@ -36,7 +36,18 @@ class BookReadingSurfaceTest {
         var visible = true
         override var startClicks = true
         var backButton = false
-        override var startMark: Int? = null
+        var startMark: Int? = null
+        var startRange: IntRange? = null
+        var startMarkShown = true
+
+        override fun markStart(sentence: IntRange) {
+            startMark = sentence.first
+            startRange = sentence
+        }
+
+        override fun showStartMark(show: Boolean) {
+            startMarkShown = show
+        }
 
         override fun startOffset() = start
 
@@ -203,37 +214,50 @@ class BookReadingSurfaceTest {
     }
 
     @Test
-    fun `Stop moves the start mark to the last sentence spoken, the end of the reading does not`() {
-        val (view, controls, surface) = surface()
-        view.startMark = 10
+    fun `the start mark follows the sentences read and is not painted while locked`() {
+        val (view, _, surface) = surface()
         surface.readingText()
         surface.lock(true)
+        assertFalse(view.startMarkShown)
         surface.highlight(20..29, 20..24)
+        assertEquals(20, view.startMark)
+        surface.highlight(20..29, 25..29)
         surface.highlight(40..49, 40..44)
-        surface.highlight(null, null)
-        surface.lock(false)
         assertEquals(40, view.startMark)
-
-        // The same unlock at the end of a reading is followed by onFinished: the mark stays where it was.
-        view.startMark = 10
-        surface.readingText()
-        surface.lock(true)
-        surface.highlight(80..89, null)
         surface.highlight(null, null)
         surface.lock(false)
-        assertEquals(80, view.startMark)
-        controls.onFinished()
-        assertEquals(10, view.startMark)
+        assertTrue(view.startMarkShown)
+        assertEquals(40, view.startMark)
     }
 
     @Test
-    fun `a Stop before any sentence was spoken leaves the start mark`() {
-        val (view, _, surface) = surface()
-        view.startMark = 10
+    fun `the start mark is exactly the spoken sentence, also after a closing quote`() {
+        val text = "He said \"Stop.\" Then he left."
+        val (view, _, surface) = surface(FakeView(oneChapter(text)))
         surface.readingText()
         surface.lock(true)
+        // Speech ends a sentence after the closing quote; SentenceBounds would walk back to "He".
+        val spoken = text.indexOf("Then") until text.length
+        surface.highlight(spoken, null)
+        assertEquals(spoken, view.startRange)
+    }
+
+    @Test
+    fun `a Stop while the next chapter is prepared keeps the mark at the last sentence of the chapter before`() {
+        val (view, controls, surface) = surface()
+        surface.readingText()
+        surface.lock(true)
+        surface.highlight(80..89, null)
+        // The chapter ends: unlock, finished, the next chapter's reading locks again and is stopped before a sentence.
+        surface.highlight(null, null)
         surface.lock(false)
-        assertEquals(10, view.startMark)
+        controls.onPlay = {
+            surface.readingText()
+            surface.lock(true)
+        }
+        controls.onFinished()
+        surface.lock(false)
+        assertEquals(80, view.startMark)
     }
 
     @Test

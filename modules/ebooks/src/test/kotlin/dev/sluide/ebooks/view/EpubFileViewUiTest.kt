@@ -373,6 +373,68 @@ class EpubFileViewUiTest {
         await { view.topOffsetWhole?.let { it in (gamma + 150)..(gamma + 450) } == true }
     }
 
+    /** A render that fails with [failure] while [failing] is set, else builds the page as usual. */
+    private class FailingRender(
+        val failure: Throwable,
+    ) {
+        @Volatile var failing = false
+        val calls = AtomicInteger()
+
+        val config =
+            EpubViewConfig(
+                scrollDelay = Duration.millis(20.0),
+                largeBookChars = 100,
+                render = { loading, book, chapter, ownStyle, dark ->
+                    calls.incrementAndGet()
+                    if (failing) throw failure
+                    loading.render(book, chapter, ownStyle, dark)
+                },
+            )
+    }
+
+    private fun noticeText(view: EpubFileView) =
+        (view.fixedLayoutBar as javafx.scene.layout.HBox).children.first() as Label
+
+    @Test
+    fun `a chapter that cannot be built keeps the page and the position and says why`() {
+        val render = FailingRender(IllegalStateException("boom"))
+        val view = open(config = render.config)
+        view.loadedPage()
+        val before = fx { view.bar.progress.text }
+        render.failing = true
+        fx { view.bar.next.fire() }
+        await { view.fixedLayoutBar.isVisible }
+        fx {
+            assertEquals("Could not show this chapter: boom", noticeText(view).text)
+            assertEquals(before, view.bar.progress.text)
+            assertNotNull(view.page)
+        }
+        render.failing = false
+        fx { view.bar.next.fire() }
+        await { fx { view.bar.progress.text }.startsWith("Beta · ") }
+    }
+
+    @Test
+    fun `a Book Style change that runs out of memory keeps the page and puts the toggle back`() {
+        val render = FailingRender(OutOfMemoryError())
+        val view = open(config = render.config)
+        view.loadedPage()
+        val calls = render.calls.get()
+        render.failing = true
+        fx { view.bar.bookStyle.isSelected = true }
+        await { view.fixedLayoutBar.isVisible }
+        // A retry would be queued on the single loader thread: wait until everything queued before this has run.
+        lastLoader.submit {}.get(20, TimeUnit.SECONDS)
+        fx { }
+        fx {
+            assertEquals("This chapter is too large to show.", noticeText(view).text)
+            assertFalse(view.bar.bookStyle.isSelected)
+            assertNotNull(view.page)
+        }
+        // Putting the toggle back is not a new request: one failed build, no retry.
+        assertEquals(calls + 1, render.calls.get())
+    }
+
     @Test
     fun `a changed file is read again and the position kept, a broken one leaves the book as it is`() {
         val view = open()

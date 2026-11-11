@@ -39,8 +39,11 @@ internal interface ReaderView {
 
     fun showBackButton(show: Boolean)
 
-    /** The offset of the marked start, null without a mark; set to mark the sentence at an offset, null clears it. */
-    var startMark: Int?
+    /** Marks the spoken [sentence] (whole-book range) as the start of the next reading. */
+    fun markStart(sentence: IntRange)
+
+    /** Paints the start mark or not (it is not painted while a reading is locked); the mark itself stays. */
+    fun showStartMark(show: Boolean)
 }
 
 /**
@@ -68,22 +71,10 @@ internal class BookReadingSurface(
     private var continuing = false
     private var jumpedChapter: Int? = null
 
-    /** The last sentence of the reading, whole-book. */
-    private var lastSpoken: IntRange? = null
-
-    /** The start mark as it was before a stop moved it; [finished] puts it back (the end of the book is no stop). */
-    private var markBeforeStop: Mark? = null
-
-    private class Mark(
-        val offset: Int?,
-    )
-
     override fun readingText(): ReadingText? {
         val page = view.page ?: return null
         val start = (pendingStart ?: view.startOffset()).coerceIn(0, page.text.length)
         pendingStart = null
-        lastSpoken = null
-        markBeforeStop = null
         val end = readingEnd(page, start)
         lastEnd = end
         return ReadingText(page.text, start, end, page.skip)
@@ -103,19 +94,13 @@ internal class BookReadingSurface(
 
     override fun lock(locked: Boolean) {
         view.startClicks = !locked
+        view.showStartMark(!locked)
         if (locked) {
             // A reading on from the previous chapter keeps a user's scrolling away.
             if (!continuing) following = true
             view.showBackButton(!following)
         } else {
             view.showBackButton(false)
-            // Play after a Stop resumes at the last sentence spoken. Reaching the end of a reading unlocks too, and
-            // calls [finished] right after, which puts the mark back.
-            lastSpoken?.let { spoken ->
-                markBeforeStop = Mark(view.startMark)
-                view.startMark = spoken.first
-            }
-            lastSpoken = null
         }
     }
 
@@ -125,7 +110,8 @@ internal class BookReadingSurface(
     ) {
         if (sentence != this.sentence) {
             this.sentence = sentence
-            if (sentence != null) lastSpoken = sentence
+            // The start mark follows the reading, so every way a reading ends leaves Play to resume at its last sentence.
+            if (sentence != null) view.markStart(sentence)
             if (sentence == null) view.clearMark(SENTENCE) else view.showPosition(sentence.first)
             if (sentence != null) view.markRange(SENTENCE, sentence.first, sentence.last + 1)
         }
@@ -227,8 +213,6 @@ internal class BookReadingSurface(
     }
 
     private fun finished() {
-        markBeforeStop?.let { view.startMark = it.offset }
-        markBeforeStop = null
         val page = view.page ?: return
         val next = nextStart(page) ?: return
         pendingStart = next
