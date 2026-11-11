@@ -237,3 +237,6 @@ text is shorter than the source range it stands for is marked up to its end. The
 which this JavaFX WebView supports: the page styles `::highlight(mark-<name>)`, not `.mark-<name>`; marks of
 different names may overlap. `TextMarks` takes the web view's zoom as a function (`{ webView.zoom }`), so that
 `offsetAt` accepts web view coordinates. Scrolls caused by a zoom or a resize are not user scrolls.
+
+The Markdown preview uses it too, with source offsets as N (gaps between runs are allowed), to show Read Aloud's
+highlight ([markdown-preview.md](markdown-preview.md), [ADR 0166](../adr/0166-read-aloud-highlight-in-markdown-preview.md)).

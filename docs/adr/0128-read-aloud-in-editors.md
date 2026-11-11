@@ -1,6 +1,6 @@
 # 0128. Read Aloud inside the plain-text and Markdown editors
 
-- Status: accepted; amends [0108](0108-code-editor-extensions-and-context-menu.md), [0124](0124-read-aloud-speech.md); amended by [0130](0130-soft-wrap.md); see [0110](0110-tools-menu.md), [0084](0084-testability-logic-out-of-controls.md), [0083](0083-zooming-document-previews.md)
+- Status: accepted; amends [0108](0108-code-editor-extensions-and-context-menu.md), [0124](0124-read-aloud-speech.md); amended by [0130](0130-soft-wrap.md), [0166](0166-read-aloud-highlight-in-markdown-preview.md); see [0110](0110-tools-menu.md), [0084](0084-testability-logic-out-of-controls.md), [0083](0083-zooming-document-previews.md)
 - Date: 2026-11-05
 
 ## Context
@@ -64,6 +64,7 @@ Read Aloud in the editors:
 - **Reload:** a change on disk while reading stops the reading, then the usual reload runs. Closing the tab or window
   stops it without a question. A renamed file keeps reading.
 - **Highlight:** the source only. In Split the preview follows through the scroll sync, as `reveal` scrolls the source.
+  (The rendered Markdown preview highlights too since [ADR 0166](0166-read-aloud-highlight-in-markdown-preview.md).)
 - **Export moves right** in every preview that has it (before the zoom and the mode toggles) and is hidden in Source,
   to make room for the items on the left ([ADR 0083](0083-zooming-document-previews.md); [ui-conventions](../ui-conventions.md)).
 
@@ -76,4 +77,5 @@ Read Aloud in the editors:
 - Interface defaults keep fakes compiling but hide a missing override in the real view, so the real view's members are
   tested in `CodeEditorExtensionsUiTest`; the decisions live in plain classes ([ADR 0084](0084-testability-logic-out-of-controls.md)).
 - Any feature can use the capabilities (toolbar items, banner, lock, overlay layer, activity) without a module edge.
-- The highlight is in the source only; the rendered preview is not highlighted ([ideas](../ideas/speech.md)).
+- The highlight is in the source only; the rendered preview is not highlighted (until
+  [ADR 0166](0166-read-aloud-highlight-in-markdown-preview.md)).

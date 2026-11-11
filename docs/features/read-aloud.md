@@ -113,7 +113,10 @@ menu items, which send the text to the tab. Code: `EditorReading` (one per exten
   "The text is larger than 1 MiB."
 - While a reading is preparing, speaking or paused the editor is read-only (a lock: caret, selection, copy, find and
   scrolling work). The sentence and word are highlighted in the source text and scrolled into view, and the editor's
-  tab shows the running marker. In Split view only the source is highlighted; the preview follows by scroll sync.
+  tab shows the running marker. A Markdown file's rendered preview highlights them too, in Split and Preview mode; in
+  Split it follows the source by scroll sync, in Preview mode it scrolls the word into view itself. Not while the
+  file has unsaved changes: the preview shows the saved text ([markdown-preview.md](markdown-preview.md),
+  [ADR 0166](../adr/0166-read-aloud-highlight-in-markdown-preview.md)).
 - Keys: Shortcut+Enter plays while the text is editable; Space pauses or resumes and Escape stops while reading; a
   double-click on the text while reading jumps to that sentence (as in the tab,
   [keyboard-shortcuts.md](keyboard-shortcuts.md)).

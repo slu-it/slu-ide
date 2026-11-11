@@ -1,7 +1,7 @@
 # Markdown preview
 
 **Module:** `previews` — `MarkdownFileViewer` (a `PreviewFileViewer`), `PreviewFileView`, `MarkdownRenderer`, `TableOfContents`,
-`MarkdownOutline`; decision in
+`MarkdownOutline`, `PreviewHighlightMirror`; decision in
 [ADR 0016](../adr/0016-markdown-preview.md)
 
 - Markdown files (`.md`, `.markdown`) open as highlighted source (left, like every code view) beside a rendered
@@ -59,6 +59,14 @@
   Read Aloud; shown in every mode), Export and the zoom and mode toggles on the right. Export is hidden while
   only the source shows. In a narrow view the toolbar wraps: the right group stays at the top right and the left
   controls continue on rows below ([ADR 0135](../adr/0135-wrapping-toolbars.md)).
+- Read Aloud ([read-aloud.md](read-aloud.md#in-the-editor)) highlights the spoken sentence and word in the rendered
+  preview as in the source, in the colours of the source, in Split and Preview mode. Side by side the preview follows
+  the source by the scroll sync; shown alone it scrolls the word into view when it leaves the view. The page's texts
+  carry their source offsets (`<span data-o>`, the page contract of `TextMarks`, [previews.md](previews.md#web-kit-for-other-modules));
+  fenced code, math, diagrams, image alt texts and HTML written in the file (whose own `data-o` attributes are
+  removed) have none and are not marked, even where they are read aloud. As the preview shows the saved text, nothing is
+  marked while the file has unsaved changes. After the preview renders again, the marks come back. The source's
+  other overlay layers are not mirrored. Decision: [ADR 0166](../adr/0166-read-aloud-highlight-in-markdown-preview.md).
 - Export: the toolbar's export menu (on the right, before the zoom) writes the document as a self-contained
   HTML file beside it: [markdown-export.md](markdown-export.md).
 - Known gaps: the diff of a modified file ([git-diff.md](git-diff.md)) has no preview, it is highlighted as Markdown.
