@@ -28,7 +28,9 @@ the left and a toolbar above. Nothing is fetched from the network.
   sanitised) instead of Thoreau's reading style. The page is built again and loaded, the top of the view kept.
 - **Zoom** of the page: Shortcut+Plus/Minus/0 and Shortcut+wheel while the page has the focus, and the zoom group in
   the toolbar, as in the previews ([previews.md](previews.md)).
-- A fixed-layout book is shown as flowing text, with a notice bar on top (close button) saying so.
+- A fixed-layout book is shown as flowing text, with a notice bar on top (close button) saying so. The same bar says
+  "Could not show this chapter: <reason>" (or "This chapter is too large to show.") when a chapter or a Book Style
+  change cannot be built; the page stays as it was and the Book Style toggle goes back.
 
 ## Contents
 - The left panel (**Contents** toggle, on by default; the divider position survives hiding it) shows the book's table
@@ -69,17 +71,19 @@ setup notice (no model, no espeak-ng) as a banner between the toolbar and the pa
 starting one pauses the other. The tab shows the running marker while it reads.
 - **Start.** Play reads from the marked start sentence, else from the top of the view. It reads to the end of that
   chapter (at most 1,000,000 chars; a longer chapter is cut at a paragraph break and goes on from there) and then reads
-  on with the next chapter, until the end of the book; it never loops. Stop or an error ends the reading.
+  on with the next chapter (one without text, such as an image, is skipped), until the end of the book; it never
+  loops. Stop or an error ends the reading. The start mark follows the sentence being spoken (hidden while reading),
+  so Play resumes at the last sentence spoken, also after the end of the book or an error.
 - **Highlight.** The sentence and the spoken word are highlighted in the page. The reading position (progress, Contents
   panel, saved position) follows the sentence. While reading, a single click does not move the start mark;
   a double-click on the page restarts at the sentence under it (outside the chapter being read, or far back in it,
   it starts a new reading there) and follows again. A paused reading stays paused when the double-click lands in the
   part being read; a new reading elsewhere starts speaking.
 - **Follow.** The page scrolls to keep the reading in view and loads the next chapter of a large book. Scrolling by
-  hand (wheel, keys, scrollbar) or moving the page yourself (a Contents entry, Previous/Next, a link) pauses the
-  following and shows a **Back to reading** button at the bottom right; the button, or scrolling the current sentence
-  out of view and back in, resumes it. Every Play follows again; reading
-  on to the next chapter keeps your choice.
+  hand (wheel, keys, scrollbar) or moving the page yourself (a Contents entry, Previous/Next, a link, a search hit)
+  pauses the following and shows a **Back to reading** button at the bottom right; the button, or scrolling the
+  current sentence out of view and back in, resumes it. Every Play follows again; reading on to the next chapter keeps
+  your choice.
 - **Not spoken.** Footnote markers, images and their alt text, tables and page breaks.
 - While the cursor is in a text field of the view (the search), Space and Escape type as usual.
 - Keys: [keyboard-shortcuts.md](keyboard-shortcuts.md#ebook-reader).

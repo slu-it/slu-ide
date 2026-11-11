@@ -68,7 +68,9 @@ packages and amend it where needed.
   sets the target itself, so that the follow logic cannot undo it.
   The saved offset (per-file project data, field `ebook`) is debounced and flushed on dispose. A click on text is
   reported by the script and marks the sentence (`SentenceBounds`) as `start`; named marks are shown again after
-  every load of a page.
+  every load of a page. Read Aloud moves the `start` mark to each sentence it speaks (exactly the spoken range, whose
+  bounds differ from `SentenceBounds`) and hides it while the reading is locked, so Play resumes at the last sentence
+  spoken, whichever way the reading ended.
 
 ## Consequences
 - The view and Read Aloud need only `BookPage`; they are tested against fixtures without a toolkit.
