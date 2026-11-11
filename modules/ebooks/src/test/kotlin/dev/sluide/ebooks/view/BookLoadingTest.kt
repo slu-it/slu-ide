@@ -91,6 +91,21 @@ class BookLoadingTest {
     }
 
     @Test
+    fun `a builder that overflows the stack or runs out of memory gives a notice instead of ending the load`() {
+        val file = TestEpub(chapters).write(dir)
+        val deep = BookLoading("/*js*/") { _, _, _, _, _, _ -> throw StackOverflowError() }
+        assertEquals(
+            "This book is too deeply nested to open.",
+            assertIs<BookLoad.Notice>(deep.load(file, ownStyle = false, dark = false)).text,
+        )
+        val large = BookLoading("/*js*/") { _, _, _, _, _, _ -> throw OutOfMemoryError() }
+        assertEquals(
+            "This book is too large to open.",
+            assertIs<BookLoad.Notice>(large.load(file, ownStyle = false, dark = false)).text,
+        )
+    }
+
+    @Test
     fun `an image-heavy book goes into chapter mode by an estimate, without building the inline page`() {
         val builds = mutableListOf<Boolean>()
         val loading =

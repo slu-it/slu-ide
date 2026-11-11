@@ -23,7 +23,10 @@ internal typealias PageBuild = (EpubBook, Boolean, Boolean, String, IntRange?, B
 internal sealed interface BookLoad {
     class Ready(
         val loaded: LoadedBook,
-        /** The page to show first, for the view to display and not to keep; null in chapter mode. */
+        /**
+         * The page to show first (null in chapter mode). The view keeps it as its shown page; [LoadedBook] holds no
+         * second copy of the html.
+         */
         val first: ShownPage?,
     ) : BookLoad
 
@@ -58,6 +61,8 @@ internal class BookLoading(
             }
         } catch (_: RuntimeException) {
             BookLoad.Notice("Not a valid EPUB: cannot read the book")
+        } catch (_: StackOverflowError) {
+            BookLoad.Notice("This book is too deeply nested to open.")
         } catch (_: OutOfMemoryError) {
             BookLoad.Notice("This book is too large to open.")
         }
@@ -100,7 +105,17 @@ internal class BookLoading(
         dark: Boolean,
     ): Measured {
         val built = builder(book, ownStyle, dark, script, null, false)
-        val light = BookPage("", built.text, built.skip, built.chapters, built.toc, built.anchors, built.resourceRefs)
+        val light =
+            BookPage(
+                "",
+                built.text,
+                built.skip,
+                built.chapters,
+                built.toc,
+                built.anchors,
+                built.anchorChapters,
+                built.resourceRefs,
+            )
         return Measured(light, built.estimatedInlineLength(), built.html)
     }
 
