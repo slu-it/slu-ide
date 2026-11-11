@@ -301,6 +301,7 @@ enum class FileIcon(
 
     // Documents and data
     PDF(MaterialDesignF.FILE_PDF_BOX, "file-icon-pdf", setOf("pdf")),
+    EBOOK(MaterialDesignB.BOOK_OPEN_PAGE_VARIANT, "file-icon-ebook", setOf("epub")),
     WORD(
         MaterialDesignF.FILE_WORD_BOX,
         "file-icon-word",

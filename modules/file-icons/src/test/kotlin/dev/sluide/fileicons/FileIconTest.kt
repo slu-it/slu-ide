@@ -45,6 +45,7 @@ class FileIconTest {
                 "photo.jpeg" to FileIcon.JPG,
                 "icon.webp" to FileIcon.IMAGE,
                 "report.pdf" to FileIcon.PDF,
+                "book.epub" to FileIcon.EBOOK,
                 "budget.xlsx" to FileIcon.EXCEL,
                 "data.csv" to FileIcon.DELIMITED,
                 "dist.tar.gz" to FileIcon.ARCHIVE,

@@ -70,6 +70,7 @@
 .file-icon-security   { -fx-icon-color: #00897b; }
 .file-icon-license    { -fx-icon-color: #6d4c41; }
 .file-icon-pdf        { -fx-icon-color: #d32f2f; }
+.file-icon-ebook      { -fx-icon-color: #8e5a2b; }
 .file-icon-word       { -fx-icon-color: #2b579a; }
 .file-icon-excel      { -fx-icon-color: #217346; }
 .file-icon-powerpoint { -fx-icon-color: #d24726; }
@@ -151,6 +152,7 @@
     .file-icon-security   { -fx-icon-color: #4db6ac; }
     .file-icon-license    { -fx-icon-color: #bcaaa4; }
     .file-icon-pdf        { -fx-icon-color: #ef6b6b; }
+    .file-icon-ebook      { -fx-icon-color: #c9925c; }
     .file-icon-word       { -fx-icon-color: #5a8ad6; }
     .file-icon-excel      { -fx-icon-color: #4caf74; }
     .file-icon-powerpoint { -fx-icon-color: #ef7a5c; }
