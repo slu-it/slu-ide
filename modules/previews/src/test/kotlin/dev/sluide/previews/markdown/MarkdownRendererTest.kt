@@ -1,8 +1,11 @@
 package dev.sluide.previews.markdown
 
 import dev.sluide.previews.preview.Vendor
+import dev.sluide.previews.web.TextMarks
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.io.RandomAccessFile
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -97,8 +100,8 @@ class MarkdownRendererTest {
             )
 
         val body = page.body()
-        // Only our own script is left: the one that PreviewFileView calls.
-        assertEquals(1, body.select("script").size)
+        // Only our own scripts are left: the one that PreviewFileView calls and the text marks.
+        assertEquals(2, body.select("script").size)
         assertFalse("alert(1)" in body.select("script").html())
         assertNotNull(page.selectFirst("details[open] > summary"))
         val image = assertNotNull(page.selectFirst("img"))
@@ -194,10 +197,97 @@ class MarkdownRendererTest {
     }
 
     @Test
-    fun `the page brings its stylesheet and script`() {
+    fun `the page brings its stylesheet and script, then the text marks`() {
         val page = render("text")
 
         assertTrue("body.dark" in page.select("style").html())
-        assertTrue("scrollToLine" in page.select("script").html())
+        val scripts = page.select("script").map { it.data() }
+        assertTrue("scrollToLine" in scripts.first())
+        assertEquals(TextMarks.SCRIPT.trim(), scripts.last().trim(), "after ours, which sets window.sluide anew")
+    }
+
+    /** The source offsets and texts of the text runs of the preview of [markdown]. */
+    private fun runs(markdown: String) =
+        render(markdown).select("span[data-o]").map { it.attr("data-o").toInt() to it.wholeText() }
+
+    @Test
+    fun `texts and inline code carry the source offset of their first char, through the sanitiser`() {
+        val markdown = "# Title\n\nSome *em* [link](x.md) and `code`.\n\n- item\n"
+
+        assertEquals(
+            listOf(2 to "Title", 9 to "Some ", 15 to "em", 18 to " ", 20 to "link", 31 to " and ", 37 to "code") +
+                listOf(42 to ".", 47 to "item"),
+            runs(markdown),
+        )
+        assertEquals("code", render(markdown).selectFirst("code > span[data-o]")?.text(), "inside the code element")
+    }
+
+    @Test
+    fun `escapes and entities start new runs, so that the chars after them keep their offsets`() {
+        // a \*b\* &amp; c &eacute;t
+        val markdown = "a \\*b\\* &amp; c &eacute;t"
+
+        assertEquals(
+            listOf(0 to "a ", 3 to "*b", 6 to "* ", 8 to "&", 13 to " c ", 16 to "\u00e9", 24 to "t"),
+            runs(markdown),
+        )
+        assertEquals(listOf(2 to "&amp;"), runs("``&amp;``"), "an entity in code stays as written")
+    }
+
+    @Test
+    fun `fenced code, math, diagrams and front matter have no runs, texts after front matter keep their offsets`() {
+        val markdown =
+            "---\na: b\n---\n\nText\n\n```kotlin\nval x = 1\n```\n\n\$x^2\$ and\n\n\$\$\ny\n\$\$\n\n" +
+                "```math\nz\n```\n\n```mermaid\ngraph TD; A-->B\n```\n"
+        val page = render(markdown)
+
+        assertTrue(page.select("pre [data-o], .math [data-o]").isEmpty())
+        assertEquals(listOf(markdown.indexOf("Text") to "Text", markdown.indexOf(" and") to " and"), runs(markdown))
+        assertEquals(1, page.select("pre.mermaid").size)
+        assertEquals("val x = 1\n", page.selectFirst("code.language-kotlin")?.wholeText())
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        delimiter = '|',
+        value = [
+            "- [ ] foo bar|6|foo bar",
+            "- [x] done|6|done",
+            "- top\\n  - [X] sub task|14|sub task",
+            "- [x] x|6|x",
+            "- [x] x-ray results|6|x-ray results",
+            "- [X] X: done|6|X: done",
+            "- [ ]   ] spaced|8|] spaced",
+            "- [x] done\\n\\n  [ ] later|14|[ ] later",
+        ],
+    )
+    fun `the text of a task item starts after its box`(
+        written: String,
+        offset: Int,
+        text: String,
+    ) {
+        val markdown = written.replace("\\n", "\n")
+
+        assertEquals(offset to text, runs(markdown).last())
+    }
+
+    @Test
+    fun `offsets written in the file's HTML are dropped, so that only the runs carry offsets`() {
+        val markdown =
+            "Text <span data-o=\"0\">one</span> <span DATA-O=7 class=\"x\">two</span>\n\n" +
+                "<div data-o='3'>\nThe data-o attribute <span/data-o=5>three</span>" +
+                " <span class=\"y\"data-o=5>four</span>\n</div>\n"
+        val page = render(markdown)
+
+        assertEquals(listOf(0 to "Text ", 22 to "one", 32 to " ", 58 to "two"), runs(markdown))
+        assertEquals("The data-o attribute three four", page.selectFirst("div")?.text(), "the file's text as written")
+        assertEquals(listOf("x", "y"), page.select("span.x, span.y").map { it.className() })
+    }
+
+    @Test
+    fun `only the preview of a file has runs, not the content of other pages`() {
+        val body = MarkdownRenderer.body("Some *text*", dir)
+
+        assertTrue(body.select("[data-o]").isEmpty())
     }
 }

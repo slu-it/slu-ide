@@ -156,8 +156,8 @@ class MarkdownHtmlExportTest {
     }
 
     @Test
-    fun `the page has no script but the theme script and references nothing`() {
-        val html = page("Inline \$x\$.\n\n```mermaid\ngraph TD; A-->B\n```\n").html
+    fun `the page has no script but the theme script, references nothing and has no source offsets`() {
+        val html = page("Inline \$x\$ and `code`.\n\n```mermaid\ngraph TD; A-->B\n```\n").html
         val doc = Jsoup.parse(html)
         assertTrue(
             doc
@@ -169,6 +169,7 @@ class MarkdownHtmlExportTest {
         assertTrue(doc.select("[src]:not(img), link").isEmpty())
         assertFalse(html.contains(Vendor.mermaidJs.take(SAMPLE)))
         assertFalse(html.contains(Vendor.katexJs.take(SAMPLE)))
+        assertFalse("data-o" in html, "the preview's text runs are not exported")
     }
 
     @Test

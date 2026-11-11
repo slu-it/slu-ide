@@ -7,6 +7,7 @@ import dev.sluide.previews.preview.LinkTarget
 import dev.sluide.previews.preview.Vendor
 import dev.sluide.previews.preview.resolveLink
 import dev.sluide.previews.preview.writeHighlighted
+import dev.sluide.previews.web.TextMarks
 import org.commonmark.ext.autolink.AutolinkExtension
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
 import org.commonmark.ext.gfm.tables.TablesExtension
@@ -25,10 +26,12 @@ import org.commonmark.renderer.html.HtmlRenderer
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import org.jsoup.safety.Cleaner
 import org.jsoup.safety.Safelist
 import java.io.IOException
 import java.nio.file.Path
 import java.util.Base64
+import java.util.UUID
 import kotlin.io.path.extension
 import kotlin.io.path.fileSize
 import kotlin.io.path.isRegularFile
@@ -43,6 +46,8 @@ import kotlin.io.path.readBytes
  * - math ([MarkdownMath]) is typeset by KaTeX, bundled in `vendor/katex` and only added to pages that have math;
  * - ` ```mermaid ` fences are drawn by Mermaid (`vendor/mermaid`, only on pages with diagrams), from the source kept in
  *   `data-source`, so that they can be drawn again in the other colour scheme;
+ * - for the preview of a file, texts and inline code are `<span data-o>` runs carrying their source offsets
+ *   ([SourceOffsetRenderer]), so that the page's text marks (`TextMarks`) can highlight source ranges (ADR 0166);
  * - the HTML is sanitised: Markdown files may contain HTML, and scripts or event handlers must not run;
  * - local images (relative or `file:`) are embedded as `data:` URIs, since a page loaded from a string may not read
  *   files; links keep their `href` as written and are resolved by `PreviewFileView` when clicked;
@@ -59,20 +64,26 @@ internal object MarkdownRenderer {
             MarkdownMath,
         )
 
-    private val parser =
+    private val parser = parser(IncludeSourceSpans.BLOCKS)
+
+    /** With the source spans of inlines too, for [SourceOffsetRenderer]; they cost a little, so only there. */
+    private val inlineParser = parser(IncludeSourceSpans.BLOCKS_AND_INLINES)
+
+    private fun parser(spans: IncludeSourceSpans) =
         Parser
             .builder()
             .extensions(extensions)
-            .includeSourceSpans(IncludeSourceSpans.BLOCKS)
+            .includeSourceSpans(spans)
             .build()
 
-    private val renderer =
+    private val renderer = rendererBuilder().build()
+
+    private fun rendererBuilder() =
         HtmlRenderer
             .builder()
             .extensions(extensions)
             .attributeProviderFactory { AttributeProvider { node, _, attributes -> sourceLine(node, attributes) } }
             .nodeRendererFactory(::FencedCodeRenderer)
-            .build()
 
     private val safelist =
         Safelist
@@ -80,6 +91,7 @@ internal object MarkdownRenderer {
             .addTags("del", "s", "hr", "input", "details", "summary", "kbd", "mark")
             .addAttributes(":all", "data-line", "class", "id", "align")
             .addAttributes("pre", "data-source")
+            .addAttributes("span", "data-o")
             .addAttributes("input", "type", "checked", "disabled")
             .addAttributes("details", "open")
             .addProtocols("a", "href", "file")
@@ -91,26 +103,28 @@ internal object MarkdownRenderer {
     private val stylesheet = HtmlPage.resource("preview.css")
     private val script = HtmlPage.resource("preview.js")
 
-    /** The preview page of [markdown], a file in [folder]. */
+    /** The preview page of [markdown], a file in [folder], with source offsets on its texts and text marks. */
     fun render(
         markdown: String,
         folder: Path,
         dark: Boolean = false,
-    ): String = page(body(markdown, folder, frontMatter = true), dark)
+    ): String = page(body(markdown, folder, frontMatter = true, sourceOffsets = true), dark, textMarks = true)
 
     /**
-     * The syntax tree of [markdown], with source spans on its blocks; see [MarkdownOutline]. With [frontMatter] (a
-     * Markdown file, not a notebook cell), front matter at the start becomes a [FrontMatterBlock]; then only the line
-     * indexes of the source spans are reliable, not their input indexes.
+     * The syntax tree of [markdown], with source spans on its blocks, and on its inlines with [inlines]; see
+     * [MarkdownOutline]. With [frontMatter] (a Markdown file, not a notebook cell), front matter at the start becomes
+     * a [FrontMatterBlock].
      */
     internal fun parse(
         markdown: String,
         frontMatter: Boolean = false,
+        inlines: Boolean = false,
     ): Node {
+        val parser = if (inlines) inlineParser else parser
         val found = (if (frontMatter) Highlighters.frontMatter(markdown) else null) ?: return parser.parse(markdown)
-        // Its lines become empty lines, so that the lines of everything after it keep their index.
-        val lineBreaks = markdown.substring(0, found.end).count { it == '\n' }
-        val document = parser.parse("\n".repeat(lineBreaks) + markdown.substring(found.end))
+        // Its lines become blank lines of the same length, so that everything after it keeps its line and offset.
+        val blank = markdown.substring(0, found.end).replace(NOT_LINE_BREAK, " ")
+        val document = parser.parse(blank + markdown.substring(found.end))
         val block =
             FrontMatterBlock(found.language, markdown.substring(found.contentStart, found.contentEnd))
         block.addSourceSpan(SourceSpan.of(0, 0, 0, 0))
@@ -118,20 +132,48 @@ internal object MarkdownRenderer {
         return document
     }
 
-    /** The rendered, sanitised content of [markdown], a file in [folder], with local images embedded. */
+    /**
+     * The rendered, sanitised content of [markdown], a file in [folder], with local images embedded; with
+     * [sourceOffsets], its texts are `<span data-o>` runs ([SourceOffsetRenderer]).
+     */
     fun body(
         markdown: String,
         folder: Path,
         frontMatter: Boolean = false,
-    ): Element = sanitized(renderer.render(parse(markdown, frontMatter)), folder)
+        sourceOffsets: Boolean = false,
+    ): Element {
+        if (!sourceOffsets) return sanitized(renderer.render(parse(markdown, frontMatter)), folder)
+        // A name the file's HTML cannot know, so that only the runs end up with `data-o`.
+        val attribute = "data-o-" + UUID.randomUUID().toString().replace("-", "")
+        val rendering = rendererBuilder().nodeRendererFactory { SourceOffsetRenderer(it, markdown, attribute) }.build()
+        return sanitized(rendering.render(parse(markdown, frontMatter, inlines = true)), folder, attribute)
+    }
 
-    /** [html] from a file in [folder], sanitised like rendered Markdown, with local images embedded. */
+    /**
+     * [html] from a file in [folder], sanitised like rendered Markdown, with local images embedded. Its `data-o`
+     * attributes are dropped: only the attribute [offsets] (a name of one rendering, [SourceOffsetRenderer]) becomes
+     * `data-o`.
+     */
     fun sanitized(
         html: String,
         folder: Path,
+        offsets: String? = null,
     ): Element {
         // The base URI only lets jsoup keep relative links; the page itself has no base, so `#part` stays on the page.
-        val clean = Jsoup.clean(html, folder.toUri().toString(), safelist, outputSettings)
+        val dirty = Jsoup.parseBodyFragment(html, folder.toUri().toString())
+        dirty.select("[data-o]").removeAttr("data-o")
+        if (offsets != null) {
+            for (run in dirty.select("[$offsets]")) {
+                run.attr("data-o", run.attr(offsets))
+                run.removeAttr(offsets)
+            }
+        }
+        val clean =
+            Cleaner(safelist)
+                .clean(dirty)
+                .apply { outputSettings(outputSettings) }
+                .body()
+                .html()
         val body = Jsoup.parseBodyFragment(clean).apply { outputSettings(outputSettings) }.body()
         // `input` is allowed for task-list checkboxes; any other input would be a working control.
         body.select("input:not([type=checkbox])").remove()
@@ -146,7 +188,8 @@ internal object MarkdownRenderer {
      * math or diagrams. A [standalone] page is for a browser, with its math typeset and its diagrams drawn already
      * ([MarkdownHtmlExport]): its only script follows the reader's colour scheme and adds a button to switch it
      * ([dark] is ignored), and it has KaTeX's stylesheet only if it has typeset math (`.math-rendered`). It has a
-     * [title] and [extraStyles] after all other styles.
+     * [title] and [extraStyles] after all other styles. A page that is not [standalone] gets the script of `TextMarks`
+     * with [textMarks].
      */
     fun page(
         body: Element,
@@ -154,6 +197,7 @@ internal object MarkdownRenderer {
         standalone: Boolean = false,
         title: String? = null,
         extraStyles: List<String> = emptyList(),
+        textMarks: Boolean = false,
     ): String {
         val classes = (if (standalone) listOf("standalone") else emptyList()) + body.classNames()
         if (standalone) {
@@ -167,7 +211,9 @@ internal object MarkdownRenderer {
         val scripts =
             listOf(script) +
                 (if (math) listOf(Vendor.katexJs, "sluide.renderMath();") else emptyList()) +
-                (if (diagrams) listOf(Vendor.mermaidJs, "sluide.renderDiagrams();") else emptyList())
+                (if (diagrams) listOf(Vendor.mermaidJs, "sluide.renderDiagrams();") else emptyList()) +
+                // After our script, which sets `window.sluide` anew.
+                (if (textMarks) listOf(TextMarks.SCRIPT) else emptyList())
         val styles = (if (math) listOf(stylesheet, Vendor.katexCss) else listOf(stylesheet)) + extraStyles
         return HtmlPage.render(dark, styles, scripts, classes, title) { append(body.html()) }
     }
@@ -186,6 +232,8 @@ internal object MarkdownRenderer {
             null
         }
     }
+
+    private val NOT_LINE_BREAK = Regex("[^\n]")
 
     /** The largest image that is embedded in a page. */
     internal const val MAX_IMAGE_BYTES = 10L * 1024 * 1024
