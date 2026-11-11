@@ -37,6 +37,7 @@
     -fx-border-color: transparent transparent #a9c4ec transparent;
 }
 
+/* The sentence and word colours, light and dark: keep in sync with previews' preview.css (::highlight(mark-speech-*)). */
 .speech-sentence {
     -rtfx-background-color: #dbe8fb;
 }

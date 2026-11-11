@@ -30,6 +30,8 @@ internal object MarkdownPreview : Preview {
 
     override val syncsScroll get() = true
 
+    override val mirrorsHighlights get() = true
+
     override val hasOutline get() = true
 
     override fun outline(text: String) = MarkdownOutline.headings(text)

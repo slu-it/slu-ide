@@ -432,3 +432,10 @@ body.dark.notebook .output {
 body.dark.notebook .output.stderr pre {
     background: #3b2e2e;
 }
+
+/* Read Aloud's sentence and word, mirrored from the source by PreviewHighlightMirror (ADR 0166). Keep in sync with
+   speech.css (module speech) and MIRRORED_STYLES. */
+::highlight(mark-speech-sentence) { background-color: #dbe8fb; }
+::highlight(mark-speech-word) { background-color: #9cc2f5; }
+body.dark ::highlight(mark-speech-sentence) { background-color: #2f4361; }
+body.dark ::highlight(mark-speech-word) { background-color: #3f6aa8; }

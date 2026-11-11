@@ -151,6 +151,9 @@ internal class PreviewFileView(
         }
     private val engine = webView.engine
 
+    /** Shows the source's highlight (Read Aloud's) in the page, if the preview [can][Preview.mirrorsHighlights]. */
+    private val highlights = PreviewHighlightMirror.attach(preview, source, webView, mode)
+
     /** The zoom of the image or diagram in the page if the preview [zooms][Preview.zooms], else of the document. */
     val zoom =
         if (preview.zooms) {
@@ -377,6 +380,7 @@ internal class PreviewFileView(
         pendingFocus.cancel()
         copyFormatted?.clear()
         toc?.close()
+        highlights?.dispose()
         engine.load("")
         source.dispose()
         preview.detach()
@@ -508,6 +512,7 @@ internal class PreviewFileView(
         } else {
             syncScroll()
         }
+        highlights?.loaded()
     }
 
     private fun applyTheme() {

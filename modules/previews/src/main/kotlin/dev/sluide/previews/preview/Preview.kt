@@ -45,6 +45,12 @@ internal interface Preview {
     val syncsScroll: Boolean get() = false
 
     /**
+     * Whether the page's texts carry their source offsets and it has the text marks (`TextMarks`), so that it can show
+     * the source's highlight ([PreviewHighlightMirror]).
+     */
+    val mirrorsHighlights: Boolean get() = false
+
+    /**
      * Whether the page brings our script (`preview.js`): it follows the colour scheme (`sluide.setDark`) and hands
      * link clicks to the view.
      */
