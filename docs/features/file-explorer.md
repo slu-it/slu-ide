@@ -11,9 +11,9 @@
   icons, and the project tree is unaffected. The window uses it to colour the scratches (teal, `folder-edit` root).
   An extra root's folder must exist when `open` runs. Extra roots show their label instead of the folder name, with the full path as tooltip, and are
   loaded and watched once expanded.
-- Generated folders ([ADR 0158](../adr/0158-hide-generated-folders.md)) shown while the option is off or revealed:
+- Generated folders and files ([ADR 0158](../adr/0158-hide-generated-folders.md), [0163](../adr/0163-hide-generated-files.md)) shown while the option is off or revealed:
   Material `folder-cog` (`folder-cog-outline` while expanded, muted grey) and the tooltip "Generated folder: <reason>.
-  Hidden while Hide Generated Folders is on". A library folder that is also generated keeps the lock and gets both
+  Hidden while Hide Generated Files is on" (a generated file such as `.DS_Store`: `file-cog`, "Generated file: ..."). A library folder that is also generated keeps the lock and gets both
   tooltip lines while "Open library code read-only" is on; with it off the folder shows the cog.
 - Library folders ([ADR 0150](../adr/0150-library-code-read-only.md)): below a top-level node, a folder holding a
   `pyvenv.cfg` or named `__pypackages__` shows Material `folder-lock` (`folder-lock-open` while expanded, muted amber)
@@ -38,7 +38,7 @@
   (its first level visible), extra roots such as Scratches collapse; a selected row that becomes hidden moves to its
   nearest ancestor still shown, the focus stays. **Refresh (F5)** is the context menu's Refresh.
   **Compact Middle Folders** is a toggle button (shown pressed while on) for the setting of the same name, below.
-  **Hide Generated Folders** (eye-off, right after it) is the toggle of `explorer.hideGeneratedFolders`, see
+  **Hide Generated Files** (eye-off, right after it) is the toggle of `explorer.hideGeneratedFolders`, see
   [generated-folders.md](generated-folders.md).
   [ADR 0095](../adr/0095-explorer-button-bar-and-select-opened-file.md). **Collapse** (chevron, at the right end of the
   bar) collapses the explorer column, below.
@@ -57,7 +57,7 @@
   unless the window gets so narrow that the editor area cannot shrink any further. Later changes (expanding folders,
   another font) do not change it. A collapse keeps it until the column expands again.
 - Shows everything: hidden files, dot-folders, nested folders. Only `.git` (folder, or file in worktrees and
-  submodules) is left out, and generated folders such as `node_modules` and `build` while Hide Generated Folders is on
+  submodules) is left out, and generated folders such as `node_modules` and `build` and files such as `.DS_Store` while Hide Generated Files is on
   (the default; [generated-folders.md](generated-folders.md)).
 - Folders are listed before files; each group is sorted by name, case-insensitively (`listDirectory`).
 - Children are loaded lazily when a folder is first expanded (`FileTreeItem`), so large trees and symlink cycles

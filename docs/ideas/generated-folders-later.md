@@ -8,6 +8,8 @@ Follow-ups of [ADR 0158](../adr/0158-hide-generated-folders.md) ([generated-fold
 - **Gradle `layout.buildDirectory`.** Read a changed build directory from the Gradle model instead of guessing
   `build`.
 - **Git status for nested projects.** A project nested in a larger repository gets no git status snapshot, so the
-  rules alone decide there.
+  rules alone decide there (generated files in a nested repository are already handled, ADR 0163).
 - **Other uses of the classifier.** Language-server watch exclusions (`ProjectWatchOptions`) and library code of other
   ecosystems ([library-code-later.md](library-code-later.md)) could reuse the same rules.
+- **More generated files.** AppleDouble `._*`, `Thumbs.db`, `desktop.ini`, tool caches such as `*.tsbuildinfo` and
+  `.eslintcache`; only `.DS_Store` is in the catalogue for now ([ADR 0163](../adr/0163-hide-generated-files.md)).
