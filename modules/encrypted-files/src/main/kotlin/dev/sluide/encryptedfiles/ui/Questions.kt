@@ -13,6 +13,7 @@ private val DONT_SAVE = ButtonType("Don't Save", ButtonData.NO)
 private val SAVE_ALL_AND_LOCK = ButtonType("Save All and Lock", ButtonData.YES)
 private val DISCARD_AND_LOCK = ButtonType("Discard and Lock", ButtonData.NO)
 private val REPLACE = ButtonType("Replace", ButtonData.OK_DONE)
+private const val LOCK_ALL_TITLE = "Lock All Encrypted Files"
 
 /** Asks [question] before locking one tab: Save, Don't Save or Cancel (the default; also when dismissed). */
 internal fun showUnsavedQuestion(
@@ -30,7 +31,7 @@ internal fun showLockAllQuestion(
     owner: Window?,
     question: String,
 ): LockChoice =
-    when (ask(owner, "Lock All Encrypted Files", question, SAVE_ALL_AND_LOCK, DISCARD_AND_LOCK)) {
+    when (ask(owner, LOCK_ALL_TITLE, question, SAVE_ALL_AND_LOCK, DISCARD_AND_LOCK)) {
         SAVE_ALL_AND_LOCK -> LockChoice.SAVE
         DISCARD_AND_LOCK -> LockChoice.DISCARD
         else -> LockChoice.CANCEL
@@ -41,6 +42,18 @@ internal fun showReplaceQuestion(
     owner: Window?,
     question: String,
 ): Boolean = ask(owner, "Save", question, REPLACE) == REPLACE
+
+/** Says [message] after Lock All, e.g. that tabs stayed unlocked; OK closes it. */
+internal fun showLockAllMessage(
+    owner: Window?,
+    message: String,
+) {
+    val alert = Alert(Alert.AlertType.WARNING)
+    alert.title = LOCK_ALL_TITLE
+    alert.headerText = message
+    owner?.let(alert::initOwner)
+    alert.showAndWait()
+}
 
 /** A question with [answers] and Cancel, which is the default button and has the focus; `null` when dismissed. */
 private fun ask(

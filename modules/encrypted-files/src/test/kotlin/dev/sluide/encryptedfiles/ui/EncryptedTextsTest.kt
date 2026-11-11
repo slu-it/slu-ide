@@ -38,4 +38,16 @@ class EncryptedTextsTest {
     ) {
         assertEquals(text, lockAllQuestion(count))
     }
+
+    @ParameterizedTest
+    @CsvSource(
+        "1, '1 encrypted file stays unlocked: its changes could not be saved.'",
+        "2, '2 encrypted files stay unlocked: their changes could not be saved.'",
+    )
+    fun `Lock All says how many tabs stay unlocked`(
+        count: Int,
+        text: String,
+    ) {
+        assertEquals(text, stayedUnlockedText(count))
+    }
 }

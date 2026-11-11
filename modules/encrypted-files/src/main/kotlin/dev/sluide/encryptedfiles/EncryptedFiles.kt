@@ -2,7 +2,9 @@ package dev.sluide.encryptedfiles
 
 import dev.sluide.encryptedfiles.ui.EncryptedFileView
 import dev.sluide.encryptedfiles.ui.lockAllQuestion
+import dev.sluide.encryptedfiles.ui.showLockAllMessage
 import dev.sluide.encryptedfiles.ui.showLockAllQuestion
+import dev.sluide.encryptedfiles.ui.stayedUnlockedText
 import dev.sluide.fileviewers.FileView
 import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.property.ReadOnlyIntegerWrapper
@@ -55,6 +57,14 @@ class EncryptedFiles internal constructor(
     }
 
     /**
+     * Told after [lockAll] when `count` tabs stayed unlocked because saving their changes failed (each strip says
+     * why): one message owned by `owner`; tests replace it.
+     */
+    var showStayedUnlocked: (owner: Window?, count: Int) -> Unit = { owner, count ->
+        showLockAllMessage(owner, stayedUnlockedText(count))
+    }
+
+    /**
      * Gives [key], derived for [file] (a file just created with it), to the next tab that opens [file], which then
      * starts unlocked without deriving it again. The registry owns the key until then; one not taken within a minute
      * is closed (zeroed), and so is one replaced by a newer handover for the same file. Any thread.
@@ -73,8 +83,8 @@ class EncryptedFiles internal constructor(
 
     /**
      * Locks every unlocked encrypted tab of all windows. If some have unsaved changes, asks once ([askLockAll], owned
-     * by [owner]): save them and lock (a tab whose save fails stays unlocked and shows why), discard the changes and
-     * lock, or lock nothing.
+     * by [owner]): save them and lock (a tab whose save fails stays unlocked and shows why, and one message
+     * ([showStayedUnlocked]) counts those tabs), discard the changes and lock, or lock nothing.
      */
     fun lockAll(owner: Window?) {
         val unlocked = views.filter { it.isUnlocked || it.isUnlocking }
@@ -89,7 +99,8 @@ class EncryptedFiles internal constructor(
                     LockChoice.CANCEL -> return
                 }
             }
-        for (view in unlocked) view.lockNow(saveFirst)
+        val stayed = unlocked.count { !it.lockNow(saveFirst) }
+        if (stayed > 0) showStayedUnlocked(owner, stayed)
     }
 
     /**

@@ -507,10 +507,13 @@ class EncryptedFileViewUiTest {
         assertEquals(reason, stripMessage(failingView))
 
         registry.askLockAll = { _, _ -> LockChoice.SAVE }
+        val stayed = mutableListOf<Int>()
+        registry.showStayedUnlocked = { _, count -> stayed += count }
         robot.interact { registry.lockAll(null) }
 
         assertTrue(fx { failingView.isUnlocked })
         assertEquals(reason, stripMessage(failingView))
+        assertEquals(listOf(1), stayed)
         assertFalse(fx { savingView.isUnlocked })
         assertEquals("mine two\n", decrypt(dir.resolve("saving.txt.sluenc")))
         robot.interact {
@@ -532,6 +535,7 @@ class EncryptedFileViewUiTest {
             counts += count
             choice
         }
+        registry.showStayedUnlocked = { _, count -> fail("$count tabs reported as staying unlocked") }
 
         robot.interact { registry.lockAll(null) }
         assertTrue(fx { dirtyView.isUnlocked && cleanView.isUnlocked })

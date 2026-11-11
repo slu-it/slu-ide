@@ -75,6 +75,14 @@ internal fun unsavedQuestion(name: String): String = "$name has unsaved changes.
 internal fun lockAllQuestion(count: Int): String =
     if (count == 1) "1 encrypted file has unsaved changes." else "$count encrypted files have unsaved changes."
 
+/** Said after Lock All when [count] tabs stayed unlocked because saving their changes failed. */
+internal fun stayedUnlockedText(count: Int): String =
+    if (count == 1) {
+        "1 encrypted file stays unlocked: its changes could not be saved."
+    } else {
+        "$count encrypted files stay unlocked: their changes could not be saved."
+    }
+
 /**
  * The strip's message after a save failed, e.g. before a lock: [e]'s reason, never its content (the exceptions here
  * carry paths and fixed texts only).

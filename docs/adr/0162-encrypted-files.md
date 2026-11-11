@@ -108,7 +108,8 @@ open on any machine with the password.
 - An unlocked tab shows a strip (Encrypted · unlocked, Lock, Change Password…) above the inner type's normal view
   (plain-text code view, or the Markdown, JSON or YAML preview); dirty marker and Save behave as usual.
 - **Lock** asks first when there are unsaved changes (Save, Don't Save, Cancel; Cancel is the default). **Lock All
-  Encrypted Files** locks every unlocked encrypted tab in all windows, asking once for the unsaved ones. **Idle lock**
+  Encrypted Files** locks every unlocked encrypted tab in all windows, asking once for the unsaved ones; tabs whose
+  save fails stay unlocked, and one message says how many. **Idle lock**
   saves and locks after N minutes without a key press, mouse press or scroll in the tab (Settings → Editor → Encrypted
   Files, default 10, 0 = off); if that save fails the tab stays unlocked and shows the error. Closing a tab or a window
   asks the usual question, then wipes.

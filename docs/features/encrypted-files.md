@@ -67,6 +67,8 @@ The password is stored nowhere: **if it is forgotten, the content is lost**; not
   (with the unsaved question); it is enabled only while the current tab is an unlocked encrypted file.
   **File → Lock All Encrypted Files** (Ctrl+Alt+Shift+L, Cmd+Option+Shift+L) locks every unlocked tab of all windows
   and is enabled while one is unlocked (one question for the tabs with unsaved changes, see `EncryptedFiles.lockAll`).
+  Tabs whose save fails stay unlocked, each strip says why, and one message counts them: "N encrypted files stay
+  unlocked: their changes could not be saved."
   Both keys also work from a terminal tab. Locking drops the content as described above.
 
 ## Several windows or tabs on one file
