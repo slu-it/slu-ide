@@ -491,6 +491,14 @@ internal class EpubFileView(
     /** Scrolls to the whole-book [offset], loading its chapter if needed, and updates position, contents, progress. */
     internal fun jumpTo(offset: Int) = jump(offset, follow = true)
 
+    /** The marked start of Read Aloud (whole-book offset of its sentence), null without; set marks a sentence. */
+    internal var startMark: Int?
+        get() = named[START]?.first
+        set(value) {
+            if (value == null) named.remove(START) else setNamedStart(value)
+            applyMark(START)
+        }
+
     /** The local offset on the shown page of the whole-book [offset]; null if the page does not show it. */
     internal fun toLocal(offset: Int): Int? =
         if (pageReady) shown?.localOffset(loaded?.page?.chapters.orEmpty(), offset) else null

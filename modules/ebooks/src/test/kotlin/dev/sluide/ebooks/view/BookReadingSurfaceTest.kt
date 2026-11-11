@@ -36,6 +36,7 @@ class BookReadingSurfaceTest {
         var visible = true
         override var startClicks = true
         var backButton = false
+        override var startMark: Int? = null
 
         override fun startOffset() = start
 
@@ -199,6 +200,40 @@ class BookReadingSurfaceTest {
             controls.onFinished()
         } while (controls.plays > before && ++rounds < 10)
         assertEquals(listOf(page.chapters[2].start), started)
+    }
+
+    @Test
+    fun `Stop moves the start mark to the last sentence spoken, the end of the reading does not`() {
+        val (view, controls, surface) = surface()
+        view.startMark = 10
+        surface.readingText()
+        surface.lock(true)
+        surface.highlight(20..29, 20..24)
+        surface.highlight(40..49, 40..44)
+        surface.highlight(null, null)
+        surface.lock(false)
+        assertEquals(40, view.startMark)
+
+        // The same unlock at the end of a reading is followed by onFinished: the mark stays where it was.
+        view.startMark = 10
+        surface.readingText()
+        surface.lock(true)
+        surface.highlight(80..89, null)
+        surface.highlight(null, null)
+        surface.lock(false)
+        assertEquals(80, view.startMark)
+        controls.onFinished()
+        assertEquals(10, view.startMark)
+    }
+
+    @Test
+    fun `a Stop before any sentence was spoken leaves the start mark`() {
+        val (view, _, surface) = surface()
+        view.startMark = 10
+        surface.readingText()
+        surface.lock(true)
+        surface.lock(false)
+        assertEquals(10, view.startMark)
     }
 
     @Test

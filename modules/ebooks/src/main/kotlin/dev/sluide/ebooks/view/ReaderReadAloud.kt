@@ -122,6 +122,12 @@ internal object ReaderReadAloud {
                 view.startClicks = value
             }
 
+        override var startMark: Int?
+            get() = view.startMark
+            set(value) {
+                view.startMark = value
+            }
+
         override fun showBackButton(show: Boolean) {
             backButton.isVisible = show
             backButton.isManaged = show
