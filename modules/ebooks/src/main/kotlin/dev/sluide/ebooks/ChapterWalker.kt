@@ -17,7 +17,7 @@ internal class WalkContext(
     val styles: MutableMap<String, String>,
     /** The ids already in the page. */
     val usedIds: MutableSet<String>,
-    val uris: ResourceUris = ResourceUris(book.resources),
+    val uris: ResourceUris,
 )
 
 /**
@@ -196,12 +196,54 @@ internal class ChapterWalker(
             dropPreNewline = true
         }
         if (emit != null) out.append("<$emit$attributes>")
-        el.childNodes().forEach { node(it, depth + 1) }
+        if (emit != null && tag in tableParents) {
+            el.childNodes().forEach { tableChild(it, tag, depth + 1) }
+        } else {
+            el.childNodes().forEach { node(it, depth + 1) }
+        }
         if (emit != null) out.append("</$emit>")
         if (tag == "pre") flow.preDepth--
         if (skip) flow.endSkip()
         if (block) flow.block()
     }
+
+    /**
+     * A child of a table part. Text or other markup that is not part of the table's structure is moved before the
+     * table by HTML parsers (foster parenting), which would break the order of the offsets; it gets a cell of its
+     * own at its position, so that nothing moves.
+     */
+    private fun tableChild(
+        child: Node,
+        parent: String,
+        depth: Int,
+    ) {
+        val stray =
+            when (child) {
+                is TextNode -> {
+                    makesSpan(child.wholeText)
+                }
+
+                is Element -> {
+                    child.normalName().let { it !in tableStructure && it !in HtmlTags.dropped } &&
+                        makesSpan(child.wholeText())
+                }
+
+                else -> {
+                    false
+                }
+            }
+        if (!stray) return node(child, depth)
+        val cell = if (parent == "tr") "<td>" else "<tr><td>"
+        out.append(cell)
+        node(child, depth)
+        out.append(if (parent == "tr") "</td>" else "</td></tr>")
+    }
+
+    /**
+     * Whether [text] would get a `data-o` span, which is the parser's rule for text that is moved out of a table: any
+     * character but the five ASCII whitespace characters (not `&nbsp;`), or anything at all inside `pre`.
+     */
+    private fun makesSpan(text: String) = text.isNotEmpty() && (flow.preDepth > 0 || text.any { it !in HTML_SPACE })
 
     private fun copyAttributes(
         el: Element,
@@ -267,11 +309,9 @@ internal class ChapterWalker(
     private fun image(el: Element) {
         registerId(el)
         val data = imageData(el.attr("src").ifBlank { el.attr("xlink:href") }) ?: return
-        out
-            .append("<img")
-            .attr("src", data)
-            .attr("alt", el.attr("alt"))
-            .append('>')
+        out.append("<img")
+        if (context.uris.inline) out.attr("src", data)
+        out.attr("alt", el.attr("alt")).append('>')
     }
 
     /** Inline SVG is kept only as far as its `image` elements (cover pages); the rest of it is not text of the book. */
@@ -287,7 +327,8 @@ internal class ChapterWalker(
         }
         out.append('>')
         for ((image, data) in images) {
-            out.append("<image").attr("href", data)
+            out.append("<image")
+            if (context.uris.inline) out.attr("href", data)
             for (name in listOf("x", "y", "width", "height", "preserveAspectRatio")) {
                 image.attr(name).takeIf { it.isNotBlank() }?.let { out.attr(name, it) }
             }
@@ -315,6 +356,10 @@ internal class ChapterWalker(
     companion object {
         /** Deeper elements are flattened to their text; previews' pages cap at the same order of magnitude. */
         const val MAX_DEPTH = 200
+
+        private const val HTML_SPACE = " \t\n\u000C\r"
+        private val tableParents = setOf("table", "thead", "tbody", "tfoot", "tr")
+        private val tableStructure = setOf("caption", "colgroup", "col", "thead", "tbody", "tfoot", "tr", "td", "th")
 
         private val numberMark = Regex("\\[?\\d+]?")
     }

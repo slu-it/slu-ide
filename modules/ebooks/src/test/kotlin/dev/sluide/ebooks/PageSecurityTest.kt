@@ -94,7 +94,14 @@ class PageSecurityTest {
         assertEquals("'none'", directives["default-src"])
         assertTrue("<script>$seen</script>" in page.html)
         // Live links must find the handler before a large body has been parsed.
-        assertEquals(listOf(seen), Jsoup.parse(page.html).head().select("script").map { it.data() })
+        assertEquals(
+            listOf(seen),
+            Jsoup
+                .parse(page.html)
+                .head()
+                .select("script")
+                .map { it.data() },
+        )
         assertTrue(page.html.indexOf("<script>") < page.html.indexOf("<body"))
     }
 

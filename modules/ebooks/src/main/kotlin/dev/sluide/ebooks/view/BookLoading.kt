@@ -16,13 +16,15 @@ internal class LoadedBook(
     val page: BookPage,
     /** Chapter mode: the page is too large and one chapter is built at a time. */
     val chapterMode: Boolean,
-    /** The page to show first; null in chapter mode, where the view picks the chapter. */
-    val first: ShownPage?,
 )
+
+internal typealias PageBuild = (EpubBook, Boolean, Boolean, String, IntRange?, Boolean) -> BookPage
 
 internal sealed interface BookLoad {
     class Ready(
         val loaded: LoadedBook,
+        /** The page to show first, for the view to display and not to keep; null in chapter mode. */
+        val first: ShownPage?,
     ) : BookLoad
 
     /** The book cannot be shown; [text] is what the tab says instead. */
@@ -40,6 +42,8 @@ internal sealed interface BookLoad {
 internal class BookLoading(
     private val script: String,
     private val largeBookChars: Int = LARGE_BOOK_CHARS,
+    /** [BookPageBuilder.build]; a parameter so that a test can see which builds happen. */
+    private val builder: PageBuild = BookPageBuilder::build,
 ) {
     fun load(
         file: Path,
@@ -63,11 +67,41 @@ internal class BookLoading(
         ownStyle: Boolean,
         dark: Boolean,
     ): BookLoad {
-        val page = BookPageBuilder.build(book, ownStyle, dark, script)
-        val chapterMode = page.html.length > largeBookChars
-        val shown = if (chapterMode) null else ShownPage(page.html, null, 0)
-        val light = BookPage("", page.text, page.skip, page.chapters, page.toc, page.anchors)
-        return BookLoad.Ready(LoadedBook(book, light, chapterMode, shown))
+        // Measured without base64 of the images: an image-heavy book must not run out of memory before chapter mode.
+        val light = measure(book, ownStyle, dark)
+        val chapterMode = light.estimate > largeBookChars
+        // Nothing left out: the measured html is the inline one. Else it is dropped before the inline build.
+        val html =
+            when {
+                light.page.resourceRefs == 0 && !chapterMode -> {
+                    light.takeHtml()
+                }
+
+                else -> {
+                    light.takeHtml()
+                    if (chapterMode) null else builder(book, ownStyle, dark, script, null, true).html
+                }
+            }
+        return BookLoad.Ready(LoadedBook(book, light.page, chapterMode), html?.let { ShownPage(it, null, 0) })
+    }
+
+    private class Measured(
+        val page: BookPage,
+        val estimate: Long,
+        private var html: String?,
+    ) {
+        fun takeHtml(): String? = html.also { html = null }
+    }
+
+    /** The whole book without images; its html is dropped from [Measured.page] so only one copy is alive. */
+    private fun measure(
+        book: EpubBook,
+        ownStyle: Boolean,
+        dark: Boolean,
+    ): Measured {
+        val built = builder(book, ownStyle, dark, script, null, false)
+        val light = BookPage("", built.text, built.skip, built.chapters, built.toc, built.anchors, built.resourceRefs)
+        return Measured(light, built.estimatedInlineLength(), built.html)
     }
 
     /** Builds the page to show for [loaded]: the whole book, or in chapter mode the chapter at [chapter]. */
@@ -78,11 +112,11 @@ internal class BookLoading(
         dark: Boolean,
     ): ShownPage {
         if (!loaded.chapterMode) {
-            return ShownPage(BookPageBuilder.build(loaded.book, ownStyle, dark, script).html, null, 0)
+            return ShownPage(builder(loaded.book, ownStyle, dark, script, null, true).html, null, 0)
         }
         val index = (chapter ?: 0).coerceIn(0, loaded.page.chapters.size - 1)
         val span = loaded.page.chapters[index]
-        val local = BookPageBuilder.build(loaded.book, ownStyle, dark, script, span.index..span.index)
+        val local = builder(loaded.book, ownStyle, dark, script, span.index..span.index, true)
         val localStart = local.chapters.firstOrNull()?.start ?: 0
         return ShownPage(local.html, index, span.start - localStart)
     }

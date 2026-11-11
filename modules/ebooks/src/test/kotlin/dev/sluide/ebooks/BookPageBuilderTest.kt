@@ -297,4 +297,66 @@ class BookPageBuilderTest {
         assertFalse("http" in html.substringAfter("<body"), "no remote reference in the body")
         assertFalse(Regex("(?i)(src=|url\\(|@import)[^;>]*http").containsMatchIn(html))
     }
+
+    @Test
+    fun `a build without inlining has the same text, skips, chapters, toc and anchors and embeds nothing`() {
+        val bodies =
+            arrayOf(
+                "<h1 id=\"top\">One</h1><p>Hi <a href=\"#top\">x</a></p><img src=\"images/a.png\" alt=\"A\"/>" +
+                    "<svg viewBox=\"0 0 1 1\"><image xlink:href=\"images/a.png\"/></svg><p class=\"big\">end</p>",
+                "<table><tr><td>cell</td></tr></table><p>two</p>",
+            )
+        val css = "@font-face{src:url(fonts/f.woff)}\n.big{background:url(images/a.png)}"
+        val resources =
+            mapOf(
+                "style.css" to css.toByteArray(),
+                "fonts/f.woff" to ByteArray(300),
+                "images/a.png" to TestEpub.PNG,
+            )
+        val chapters =
+            bodies.mapIndexed { i, body ->
+                TestChapter("c$i.xhtml", body, "<link rel=\"stylesheet\" href=\"style.css\"/>", title = "T$i")
+            }
+        val loaded = book(TestEpub(chapters, resources = resources))
+        val full = BookPageBuilder.build(loaded, true, false, "/*js*/")
+        val light = BookPageBuilder.build(loaded, true, false, "/*js*/", inline = false)
+        assertEquals(full.text, light.text)
+        assertEquals(full.skip, light.skip)
+        assertEquals(full.chapters, light.chapters)
+        assertEquals(full.toc, light.toc)
+        assertEquals(full.anchors, light.anchors)
+        assertFalse("base64" in light.html)
+        assertTrue("base64" in full.html)
+        val img = Jsoup.parse(light.html).selectFirst("img")
+        assertTrue(img != null && !img.hasAttr("src") && img.attr("alt") == "A")
+        assertTrue(Jsoup.parse(light.html).selectFirst("image")?.hasAttr("href") == false)
+        // The font once, the png in the img, the svg image and the css background: each reference counts.
+        assertEquals(4, light.resourceRefs)
+        // The estimate is never below the inline page and above it by less than the 8 characters a reference may add.
+        val gap = light.estimatedInlineLength() - full.html.length
+        assertTrue(gap in 0..8 * 4, "gap $gap")
+    }
+
+    @Test
+    fun `text directly in a table part keeps its place when an HTML parser foster-parents it`() {
+        val tables =
+            listOf(
+                "<table>stray<tr><td>a</td></tr>more</table>",
+                "<table><tr>stray<td>a</td>more<td>b</td></tr></table>",
+                "<table><tbody>x<tr>y<td>a</td></tr>z</tbody><tfoot>f</tfoot><thead>h</thead></table>",
+                "<table><b>bold <i>it</i></b><tr><td>a</td></tr><p>para</p></table>",
+                "<table><tr><td>a</td></tr><tr><td><table>inner<tr>deep<td>d</td></tr></table></td></tr></table>",
+                // A no-break space is not whitespace to the parser; in a pre every character is text.
+                "<table>&#160;<tr>&#160;<td>a</td></tr></table>",
+                "<pre><table>  <tr> <td>a</td> </tr> </table></pre>",
+            )
+        for (table in tables) {
+            val page = page("<p>before</p>$table<p>tail</p>")
+            // assertOffsetContract parses with jsoup's HTML parser, which moves stray table content like a browser.
+            assertOffsetContract(page)
+            val words = Regex("[a-z]+").findAll(table.replace(Regex("<[^>]*>"), " ")).map { it.value }.toList()
+            val inHtml = Jsoup.parse(page.html).select("table span[data-o]").map { it.wholeText().trim() }
+            assertEquals(words, inHtml.filter { it.isNotEmpty() }, table)
+        }
+    }
 }

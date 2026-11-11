@@ -17,6 +17,8 @@ internal object BookPageBuilder {
     /**
      * [script] is put verbatim into the head. With [chapterRange] only those spine indices are included and
      * the offsets start at 0 for the first of them. [ownStyle] keeps the book's CSS (sanitised) instead of Thoreau's.
+     * With [inline] false no image or font is embedded (an `img` without `src`, CSS `url()` becomes `none`) and
+     * [BookPage.resourceRefs] and [BookPage.resourceChars] say what was left out; text, skip ranges, chapters, contents and anchors stay the same.
      */
     fun build(
         book: EpubBook,
@@ -24,6 +26,7 @@ internal object BookPageBuilder {
         dark: Boolean,
         script: String,
         chapterRange: IntRange? = null,
+        inline: Boolean = true,
     ): BookPage {
         val indices = (chapterRange ?: book.chapters.indices).filter { it in book.chapters.indices }
         val flow = PageText()
@@ -35,6 +38,7 @@ internal object BookPageBuilder {
                 spineIndex = book.chapters.withIndex().associate { it.value.href to it.index },
                 styles = linkedMapOf(),
                 usedIds = hashSetOf(),
+                uris = ResourceUris(book.resources, inline),
             )
         val body = StringBuilder()
         val spans = mutableListOf<ChapterSpan>()
@@ -60,7 +64,16 @@ internal object BookPageBuilder {
                 body,
             )
         val toc = resolveToc(book.toc, context.spineIndex, indices.toSet(), flow.anchors)
-        return BookPage(html, flow.text, flow.skip, spans, toc, flow.anchors.toMap())
+        return BookPage(
+            html,
+            flow.text,
+            flow.skip,
+            spans,
+            toc,
+            flow.anchors.toMap(),
+            context.uris.references,
+            context.uris.referencedChars,
+        )
     }
 
     private fun document(

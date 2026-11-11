@@ -1,5 +1,6 @@
 package dev.sluide.ebooks.view
 
+import dev.sluide.ebooks.BookPageBuilder
 import dev.sluide.ebooks.TestChapter
 import dev.sluide.ebooks.TestEpub
 import org.junit.jupiter.api.io.TempDir
@@ -24,16 +25,23 @@ class BookLoadingTest {
             TestChapter("c.xhtml", "<h1>Gamma</h1><p>Third chapter text.</p>"),
         )
 
+    private fun readyLoad(
+        threshold: Int,
+        loading: BookLoading = BookLoading("/*js*/", threshold),
+        epub: TestEpub = TestEpub(chapters),
+    ) = assertIs<BookLoad.Ready>(loading.load(epub.write(dir), ownStyle = false, dark = false))
+
     private fun ready(
         threshold: Int,
         loading: BookLoading = BookLoading("/*js*/", threshold),
-    ) = assertIs<BookLoad.Ready>(loading.load(TestEpub(chapters).write(dir), ownStyle = false, dark = false)).loaded
+    ) = readyLoad(threshold, loading).loaded
 
     @Test
     fun `a small book is one page with whole-book offsets`() {
-        val book = ready(BookLoading.LARGE_BOOK_CHARS)
+        val load = readyLoad(BookLoading.LARGE_BOOK_CHARS)
+        val book = load.loaded
         assertFalse(book.chapterMode)
-        val first = assertNotNull(book.first)
+        val first = assertNotNull(load.first)
         assertNull(first.chapter)
         assertEquals("", book.page.html)
         assertEquals(0, first.shift)
@@ -43,9 +51,10 @@ class BookLoadingTest {
     @Test
     fun `a page above the threshold switches to one chapter at a time keeping the whole text`() {
         val whole = ready(BookLoading.LARGE_BOOK_CHARS)
-        val book = ready(100)
+        val load = readyLoad(100)
+        val book = load.loaded
         assertTrue(book.chapterMode)
-        assertNull(book.first)
+        assertNull(load.first)
         assertEquals("", book.page.html)
         assertEquals(whole.page.text, book.page.text)
         assertEquals(whole.page.chapters, book.page.chapters)
@@ -79,5 +88,42 @@ class BookLoadingTest {
         )
         val broken = Files.writeString(dir.resolve("broken.epub"), "not a zip")
         assertTrue(assertIs<BookLoad.Notice>(loading.load(broken, false, false)).text.startsWith("Not a valid EPUB: "))
+    }
+
+    @Test
+    fun `an image-heavy book goes into chapter mode by an estimate, without building the inline page`() {
+        val builds = mutableListOf<Boolean>()
+        val loading =
+            BookLoading("/*js*/", 100_000) { book, ownStyle, dark, script, range, inline ->
+                builds += inline
+                BookPageBuilder.build(book, ownStyle, dark, script, range, inline)
+            }
+        val epub =
+            TestEpub(
+                listOf(TestChapter("a.xhtml", "<p>Text</p><img src=\"images/big.png\" alt=\"\"/>")),
+                resources = mapOf("images/big.png" to ByteArray(200_000)),
+            )
+        val load = readyLoad(100_000, loading, epub)
+        assertTrue(load.loaded.chapterMode)
+        assertEquals(listOf(false), builds)
+        // A small book with images is built twice: measured without them, then inline for the view.
+        builds.clear()
+        val small =
+            readyLoad(
+                100_000,
+                loading,
+                TestEpub(
+                    listOf(TestChapter("a.xhtml", "<p>Text</p><img src=\"images/a.png\" alt=\"\"/>")),
+                    resources = mapOf("images/a.png" to TestEpub.PNG),
+                ),
+            )
+        assertFalse(small.loaded.chapterMode)
+        assertTrue(assertNotNull(small.first).html.contains("data:image/png;base64,"))
+        assertEquals(listOf(false, true), builds)
+        // Without any image the measured page is the page: no second build.
+        builds.clear()
+        val text = readyLoad(100_000, loading, TestEpub(chapters))
+        assertTrue(assertNotNull(text.first).html.contains("Second chapter text."))
+        assertEquals(listOf(false), builds)
     }
 }

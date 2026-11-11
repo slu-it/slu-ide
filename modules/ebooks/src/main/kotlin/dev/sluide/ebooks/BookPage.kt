@@ -12,7 +12,14 @@ internal class BookPage(
     val chapters: List<ChapterSpan>,
     val toc: List<TocItem>,
     val anchors: Map<String, Int>,
-)
+    /** References to images and fonts a build with `inline = false` left out; with 0 its html is the inline one. */
+    val resourceRefs: Int = 0,
+    /** What those references add when inlined (never less), counted by a build with `inline = false`. */
+    val resourceChars: Long = 0,
+) {
+    /** The length of [html] with its resources inlined, or a little more. */
+    fun estimatedInlineLength(): Long = html.length + resourceChars
+}
 
 /** A chapter in [BookPage.text]: [index] is the spine index, [end] is exclusive. */
 internal data class ChapterSpan(

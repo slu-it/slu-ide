@@ -8,8 +8,18 @@ import java.util.Base64
  */
 internal class ResourceUris(
     private val resources: Map<String, Resource>,
+    /** False: no base64 is built; a URI is a stub (`data:<type>;base64,`) and the bytes it stands for are counted. */
+    val inline: Boolean = true,
 ) {
     private val cache = HashMap<String, String?>()
+
+    /** With `inline = false`: how many references to images and fonts were stubbed. */
+    var references = 0
+        private set
+
+    /** With `inline = false`: the characters the stubbed references would add when inlined, at least, per reference. */
+    var referencedChars = 0L
+        private set
 
     /** The data URI of the resource [href] (relative to the folder [base]) refers to; null if remote or unusable. */
     fun dataUri(
@@ -20,9 +30,18 @@ internal class ResourceUris(
         if (trimmed.startsWith("data:", ignoreCase = true)) return ownDataUri(trimmed)
         if (EpubPaths.schemeOf(href) != null || trimmed.startsWith("//")) return null
         val path = EpubPaths.resolve(base, href).path
+        val resource = resources[path]
+        if (!inline) {
+            if (resource == null || !isMediaType(resource.mediaType) || !isInlinable(resource.mediaType)) return null
+            references++
+            referencedChars += stub(resource.mediaType).length + OVERHEAD + 4L * ((resource.bytes.size + 2) / 3)
+            return stub(resource.mediaType)
+        }
         if (path in cache) return cache[path]
-        return encode(resources[path]).also { cache[path] = it }
+        return encode(resource).also { cache[path] = it }
     }
+
+    private fun stub(type: String) = "data:$type;base64,"
 
     private fun encode(resource: Resource?): String? {
         if (resource == null || !isMediaType(resource.mediaType) || !isInlinable(resource.mediaType)) return null
@@ -32,10 +51,18 @@ internal class ResourceUris(
     /** A `data:` URI the book wrote itself: only base64 images and fonts, rebuilt from its validated parts. */
     private fun ownDataUri(href: String): String? {
         val match = ownData.matchEntire(href.filter { !it.isWhitespace() }) ?: return null
-        return "data:${match.groupValues[1].lowercase()};base64,${match.groupValues[2]}"
+        val type = match.groupValues[1].lowercase()
+        if (!inline) {
+            references++
+            referencedChars += stub(type).length + OVERHEAD + match.groupValues[2].length
+            return stub(type)
+        }
+        return "data:$type;base64,${match.groupValues[2]}"
     }
 
     companion object {
+        /** The most a reference adds around its URI: ` src=""` and ` href=""` against nothing, `url("")` against `none`. */
+        private const val OVERHEAD = 8
         private val mediaType = Regex("[a-z]+/[a-z0-9.+-]+")
         private val ownData = Regex("(?i)data:((?:image|font)/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]*)")
 

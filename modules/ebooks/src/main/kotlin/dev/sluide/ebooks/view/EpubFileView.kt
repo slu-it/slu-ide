@@ -279,7 +279,7 @@ internal class EpubFileView(
                 val start = target ?: 0
                 if (fromSaved) setNamedStart(start)
                 if (target != null) setPosition(start, save = false)
-                val first = book.first
+                val first = result.first
                 if (first != null) {
                     display(first, target)
                 } else {

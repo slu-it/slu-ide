@@ -257,7 +257,7 @@ internal object CssSanitizer {
             }
         }
         val data = target?.let { uris.dataUri(it, base) }
-        out.append(if (data == null) "none" else "url(\"$data\")")
+        out.append(if (data == null || !uris.inline) "none" else "url(\"$data\")")
         return end
     }
 
