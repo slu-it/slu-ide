@@ -9,6 +9,7 @@ import dev.sluide.fileviewers.WindowServices
 import dev.sluide.githubactions.RemoteSources
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.speech.ReadAloud
 
 /**
  * Registers the sessions that file views share within one window:
@@ -20,7 +21,8 @@ import dev.sluide.httpclient.HttpClientSession
  * - views that run commands (shell scripts) run them in the window's terminals and list them among its background
  *   tasks (ADR 0088, ADR 0089);
  * - views of Compose files and Dockerfiles share the window's engine state, lists and events stream (ADR 0117); Compose
- *   views show a service's logs in the Docker tab and open shells in its containers (ADR 0119).
+ *   views show a service's logs in the Docker tab and open shells in its containers (ADR 0119);
+ * - the ebook reader reads aloud through the window's Read Aloud (ADR 0164, ADR 0165).
  */
 internal fun WindowServices.registerSessions(
     httpSession: HttpClientSession,
@@ -31,6 +33,7 @@ internal fun WindowServices.registerSessions(
     commandRuns: CommandRunSession,
     dockerSession: DockerSession,
     docker: Docker,
+    readAloud: ReadAloud,
 ) {
     register(HttpClientSession::class.java, httpSession)
     register(BackgroundTasks::class.java, backgroundTasks)
@@ -40,4 +43,5 @@ internal fun WindowServices.registerSessions(
     register(CommandRunSession::class.java, commandRuns)
     register(DockerSession::class.java, dockerSession)
     register(Docker::class.java, docker)
+    register(ReadAloud::class.java, readAloud)
 }
