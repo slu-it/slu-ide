@@ -35,10 +35,8 @@ object AtomicFileWrite {
             }
             keepPermissions(absolute, temp)
             Files.move(temp, absolute, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-        } catch (e: IOException) {
-            removeQuietly(temp, e)
-            throw e
-        } catch (e: RuntimeException) {
+        } catch (e: Throwable) {
+            // Also an Error (e.g. out of memory): the temp file holds ciphertext only, but must not stay behind.
             removeQuietly(temp, e)
             throw e
         }
@@ -65,7 +63,7 @@ object AtomicFileWrite {
 
     private fun removeQuietly(
         temp: Path,
-        cause: Exception,
+        cause: Throwable,
     ) {
         try {
             Files.deleteIfExists(temp)
