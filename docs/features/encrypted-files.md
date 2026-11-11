@@ -33,7 +33,8 @@ The password is stored nowhere: **if it is forgotten, the content is lost**; not
   tooltip "Lock (Shortcut+Shift+L)"). Below it the inner type's normal view: the plain-text code view, or the Markdown,
   JSON or YAML preview with its modes. The header shows no lock icon.
 - The dirty marker and Save work as usual; Save encrypts and writes the file atomically (a temp file moved over it),
-  so a crash never leaves a half-written file.
+  so a crash never leaves a half-written file. A symbolic link at the file is replaced by a regular file then, not
+  written through.
 - The tab's context menu has Lock and Change Password…, both disabled while the tab is locked.
 - **Blocked while unlocked:** the previews' Export menu; every code-editor extension (Read Aloud, Translate, Open in
   Codecs or Converting, code intelligence), which do not attach to confidential content; and the text is not offered
@@ -57,7 +58,10 @@ The password is stored nowhere: **if it is forgotten, the content is lost**; not
   - If the save fails, the tab stays unlocked, the strip says why, and the next try comes one period later.
   - With unsaved changes the idle lock first reads the file and never saves over one that changed since the tab read
     or saved it (another tab or program saved it, with this password or another; the inner view's conflict) or that was
-    deleted: the tab stays unlocked and the next try comes one period later. A clean tab locks even with the warning.
+    deleted: the tab stays unlocked, the strip says "Not locked: the file changed on disk. Save to lock." (until a save
+    or a lock), and the next try comes one period later. Taking the change over counts as reading it: the conflict
+    banner's Reload, or a change whose text the tab already has; Keep mine does not. A clean tab locks even with the
+    warning.
   - Time spent in another tab or window counts as idle; the Change Password dialog does too, so an idle lock can end
     it ("The file was locked meanwhile.").
   - Idle time is wall-clock time, so time the computer slept counts. After waking, the tab locks at the next check
@@ -81,9 +85,9 @@ The password is stored nowhere: **if it is forgotten, the content is lost**; not
     "Replace `<name>`? It was changed elsewhere with another password; saving writes your version under the password
     you unlocked it with." with Replace and Cancel (the default).
   - A damaged file is handled the same way, with "The file is damaged.".
-- Every save (Save, Lock and Lock All with Save, the idle lock, Change Password) reads the file first, since the change
-  event may come late (macOS polls) or not at all: a file the key no longer reads sets the warning, so the save asks
-  the Replace question above even when no change was reported.
+- Every save (Save, Lock and Lock All with Save, the idle lock) and Change Password read the file first, since the
+  change event may come late (macOS polls) or not at all: a file the key no longer reads sets the warning, so the save
+  asks the Replace question above even when no change was reported.
 
 ## Empty encrypted scratches
 - A tab closed unlocked whose saved content is empty is recorded (`EncryptedFiles.takeClosedEmpty`, with the file's
@@ -97,24 +101,37 @@ Best effort, as far as the JVM allows:
 - On Lock and close the inner view is wiped (editor text, undo history, saved text, find state, rendered preview; the
   preview's page loads an empty one), disposed and dropped, and the key's bytes are zeroed; each step runs even if
   one before it fails (logged by its type), and closing a window closes its tabs first, each on its own.
-- Plain bytes are zeroed once used: the encoded text Save encrypts, the plain text decrypted to check a change on
-  disk, and the decrypted bytes the view reads (on its next read, on Lock and on close). The text decoded from them is
-  a String and stays in memory until the garbage collector reclaims it.
+- Plain bytes are zeroed once used: the encoded text Save hands over for encryption (that array only), the plain text
+  decrypted to check a change on disk, and the decrypted bytes the view reads (on its next read, on Lock and on
+  close). The text decoded from them is a String and stays in memory until the garbage collector reclaims it.
 - **Not achievable on the JVM:** Strings cannot be wiped (the editor's text, the password field's text, the preview
-  page's DOM), the garbage collector may leave copies, memory may be swapped to disk, and a crash or core dump holds
-  what was in memory. Thoreau keeps no heap content in its diagnostics and offers no heap dump.
+  page's DOM); the text encoder's own buffers and the JDK cipher's internal buffers are not zeroed; the garbage
+  collector may leave copies, memory may be swapped to disk, and a crash or core dump holds what was in memory.
+  Thoreau keeps no heap content in its diagnostics and offers no heap dump.
+
+## Known limits
+- **No rollback protection:** an older version of the file, encrypted with the same key (e.g. restored from a backup
+  or put back by another program), decrypts like any other; a clean unlocked tab reloads it without a word.
+- **The length shows:** the file is as long as the encrypted text plus a fixed header, so its size reveals about how
+  long the text is.
+- **The name shows:** the file name is not encrypted, and it holds the inner type (`notes.md.sluenc` is Markdown).
+- A file whose encryption parameters ask for more than 256 MiB of memory, 10 passes or 16 lanes is refused
+  ("Unsupported encryption parameters.") before any key is derived, so a crafted file cannot make Thoreau allocate
+  gigabytes; at the caps one unlock takes about 1.5 s on a fast machine and up to about 10 s on a slow one.
 
 ## Change Password
 - **Change Password…** (strip, before Lock, or the tab menu) opens a dialog with Current password, New password and
   Repeat, the strength hint (Weak, OK, Strong), the reason the button is disabled ("At least 12 characters", "The
   passwords differ", "Enter the current password", "The new password is the same as the current one.") and the note
   "The current text, including unsaved changes, is saved under the new password.".
-- If the file changed elsewhere with another password and the tab has unsaved changes (the strip's warning), Change
-  Password first asks the Replace question of Save (Replace or Cancel, Cancel the default); Cancel opens no dialog and
-  changes nothing.
-- Change Password checks the current password against the file on disk and derives the new key off the FX thread
-  ("Changing…", the buttons disabled). A wrong current password shows "The current password is wrong." and the dialog
-  stays, with only the current password field cleared.
+- Before the dialog opens, Change Password reads the file: if the tab's key no longer reads it (changed elsewhere with
+  another password, or damaged), it first asks the Replace question of Save (Replace or Cancel, Cancel the default);
+  Cancel opens no dialog and changes nothing.
+- On confirm it reads the file again and checks the current password against it, then derives the new key, off the FX
+  thread ("Changing…", the buttons disabled). A wrong current password shows "The current password is wrong." and the
+  dialog stays, with only the current password field cleared. So a file re-keyed elsewhere (also one whose
+  replacement was just confirmed) fails this way unless the password typed as current is the one it was re-keyed
+  with.
 - Then the tab's text, unsaved changes included, is saved through the inner view (its encoding and line endings stay)
   under a new data key and salt; the tab stays unlocked and is clean, the old key is zeroed, and a warning about a
   change elsewhere goes. If that save fails before the file is written, the dialog shows why and nothing changes (the

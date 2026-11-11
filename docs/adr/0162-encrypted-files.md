@@ -88,14 +88,15 @@ open on any machine with the password.
   made per operation and dropped. The tab takes the password from its field, clears the
   field at once and zeroes the array after the derivation; on lock and close the inner view is wiped (editor text,
   undo history, saved text, find state, rendered preview, the WebView loads an empty page), disposed and dropped.
-  Plain bytes are zeroed once used: the encoded text a save encrypts, the decryption that checks a change on disk,
+  Plain bytes are zeroed once used: the array of encoded text a save hands to `write` (only that array: the text
+  encoder's own buffers and the JDK cipher's internal buffers are not), the decryption that checks a change on disk,
   and the decrypted bytes the inner view reads, which it decodes at once on the FX thread; the session zeroes those on
   the next read, on lock and on close. The decoded text is a `String` and stays (see below).
 - Not achievable on the JVM, and said so on the feature page: immutable `String`s (RichTextFX's text, the
   `PasswordField`'s text, the WebView's DOM; a password with a character from U+0300 upward passes through a String
   during normalization), the key copy inside `SecretKeySpec` (its `destroy()` throws `DestroyFailedException` on
-  JDK 25), the cipher's internal key schedule, the copies a moving garbage collector leaves, swap, and crash or core
-  dumps. The always-on JFR buffer ([ADR 0127](0127-in-process-diagnostics.md)) holds no heap content, and Thoreau
+  JDK 25), the cipher's internal key schedule and buffers, the text encoder's buffers, the copies a moving garbage
+  collector leaves, swap, and crash or core dumps. The always-on JFR buffer ([ADR 0127](0127-in-process-diagnostics.md)) holds no heap content, and Thoreau
   offers no heap dump.
 
 **Files and types**
@@ -147,9 +148,12 @@ open on any machine with the password.
   replaces the file ends the warning, and so does a later change on disk that the key reads again.
 - Change events can come late (macOS polls) or never, so every save reads the file first
   (`EncryptedSession.checkDisk`): bytes the key cannot read set the warning and the save asks Replace. The session
-  also keeps the bytes the tab's saved state stands for (written, or read while clean; a read with unsaved changes is
-  the inner view's conflict and does not count). With unsaved changes the idle lock saves only while the file still
-  holds those bytes: never over a change from another tab or program, with any password, nor over a deleted file.
+  also keeps the bytes the tab's saved state stands for: written, read while clean, or taken over by the inner view
+  without a write (`FileContent.adopted`, called by `CodeView` for a reload, the conflict banner's Reload and a change
+  whose text it already counts as saved). A read with unsaved changes that ends in the conflict banner, or Keep mine,
+  does not count. With unsaved changes the idle lock saves only while the file still holds those bytes: never over a
+  change from another tab or program, with any password, nor over a deleted file; the strip then says "Not locked:
+  the file changed on disk. Save to lock." until a save or a lock.
 
 **Empty encrypted scratches**
 - An encrypted scratch closed unlocked with empty saved content is deleted like an empty scratch (ADR 0066), without
@@ -166,6 +170,9 @@ open on any machine with the password.
   only.
 - Wiping is best effort; the honest limits are documented, and a memory dump of the running process can still hold
   fragments of decrypted text.
+- Known limits, stated on the feature page: no rollback protection (an older ciphertext under the same key, e.g. from a
+  backup, decrypts like any other and a clean tab reloads it silently); the file's length reveals the text's length;
+  the file name is not encrypted and shows the inner type.
 - Change Password derives the new key off the FX thread from the file on disk, then saves the tab's text through the
   inner view under it (so encoding and line endings stay); a save that fails or writes nothing puts the old key back.
   The idle lock reuses Lock with save first, skips the save when the file on disk is not the one the tab read or
