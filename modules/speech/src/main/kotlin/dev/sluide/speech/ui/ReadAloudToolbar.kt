@@ -90,6 +90,9 @@ internal class ReadAloudToolbar(
             HBox(6.0, playButton, stop, accent, gender, speed, status).apply {
                 styleClass += "speech-controls"
                 alignment = Pos.CENTER_LEFT
+                // When the row is short of room only the status gives way (ellipsis); the controls keep their width.
+                listOf(playButton, stop, accent, gender, speed).forEach { it.minWidth = Region.USE_PREF_SIZE }
+                status.minWidth = 0.0
             }
         } else {
             WrappingToolbar().apply {
