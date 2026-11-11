@@ -1,5 +1,6 @@
 package dev.sluide.previews.preview
 
+import dev.sluide.fileviewers.FileViewHost
 import java.net.URI
 import java.net.URISyntaxException
 import java.nio.file.Path
@@ -42,5 +43,20 @@ internal fun resolveLink(
     } catch (_: IllegalArgumentException) {
         // Also InvalidPathException: e.g. `file://server/share` or a NUL character.
         null
+    }
+}
+
+/** Opens what this link [target] leads to, if there is one. */
+internal fun FileViewHost.open(target: LinkTarget?) {
+    when (target) {
+        is LinkTarget.WebPage -> {
+            openWebPage(target.uri)
+        }
+
+        is LinkTarget.File -> {
+            openFile(target.path)
+        }
+
+        null -> {}
     }
 }

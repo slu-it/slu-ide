@@ -109,10 +109,12 @@ class PreviewContentViewUiTest {
     fun `wipe empties the source, the table of contents and the rendered preview, also before and after dispose`(
         robot: FxRobot,
     ) {
-        val content = MemoryContent("# Secret\n", confidential = true)
+        val content = MemoryContent("# Secret\n\nSECRET-BODY pin 4711\n", confidential = true)
         val (_, view) = showContent(robot, content)
         val toc = checkNotNull(view.toc)
         assertEquals("Secret", view.script("document.querySelector('h1').textContent"))
+        // The pools of the FX thread, where the view rendered.
+        assertTrue(fx { parserCacheContents() }.any { "SECRET-BODY" in it }, "the parser's pools hold the text")
         robot.interact { toc.open() }
         assertEquals(1, fx { toc.list.items.size })
 
@@ -122,6 +124,7 @@ class PreviewContentViewUiTest {
         assertEquals("", fx { view.source.savedText })
         assertEquals(0, fx { toc.list.items.size })
         assertFalse(fx { toc.isOpen })
+        assertTrue(fx { parserCacheContents() }.none { "SECRET-BODY" in it || "4711" in it }, "the pools are scrubbed")
         awaitNoHeading(view)
 
         // A wiped view neither reads the content again nor saves.

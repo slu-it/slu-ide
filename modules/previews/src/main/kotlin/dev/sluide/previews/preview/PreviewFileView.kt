@@ -77,7 +77,7 @@ internal class PreviewFileView(
     highlighter: SyntaxHighlighter,
     private val preview: Preview,
     comment: CommentSyntax = CommentSyntax.NONE,
-    content: FileContent = DiskContent(file),
+    private val content: FileContent = DiskContent(file),
 ) : EditableFileView {
     init {
         // They would share the left of the toolbar, and pages that run their own scripts have no in-page zoom of ours.
@@ -396,6 +396,7 @@ internal class PreviewFileView(
         copyFormatted?.clear()
         toc?.clear()
         engine.load("")
+        if (content.confidential) scrubParserCaches()
     }
 
     private fun show(mode: PreviewMode) {
@@ -515,17 +516,7 @@ internal class PreviewFileView(
 
     /** Opens what [href] leads to (see [resolveLink]) through the [host]. */
     private fun openLink(href: String) {
-        when (val target = preview.linkTarget(href, file)) {
-            is LinkTarget.WebPage -> {
-                host?.openWebPage(target.uri)
-            }
-
-            is LinkTarget.File -> {
-                host?.openFile(target.path)
-            }
-
-            null -> {}
-        }
+        host?.open(preview.linkTarget(href, file))
     }
 
     /** The source line the table of contents starts from: the caret's, or the preview's top line if the source is hidden. */
