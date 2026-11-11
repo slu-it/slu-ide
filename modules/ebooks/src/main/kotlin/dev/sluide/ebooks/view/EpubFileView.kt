@@ -4,12 +4,14 @@ import dev.sluide.ebooks.BookPage
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FocusWhenShown
+import dev.sluide.fileviewers.ViewActivity
 import dev.sluide.previews.web.DocumentZoom
 import dev.sluide.previews.web.TextMarks
 import javafx.animation.Animation
 import javafx.animation.PauseTransition
 import javafx.application.ColorScheme
 import javafx.application.Platform
+import javafx.beans.property.SimpleObjectProperty
 import javafx.concurrent.Worker
 import javafx.scene.Node
 import javafx.scene.control.Button
@@ -64,7 +66,6 @@ internal class EpubFileView(
     private val zoom = DocumentZoom(webView).also { it.install() }
     private val toolbar = EbookToolbar(zoom.node)
     private val contentsPanel = ContentsPanel { offset -> jumpFromContents(offset) }
-    private val split = SplitPane()
     private val noticeBar = HBox()
     private val reader = BorderPane()
     private val overlayText = Label().apply { styleClass += "ebook-overlay-text" }
@@ -76,10 +77,27 @@ internal class EpubFileView(
     internal val readAloudSlot: HBox get() = toolbar.readAloudSlot
     internal val searchSlot: HBox get() = toolbar.searchSlot
     internal val rightPane = StackPane()
+    private val split =
+        ReaderSplit(contentsPanel.node, webView, rightPane, { toolbar.contents.isSelected }, { !disposed })
     internal val onPageLoaded = mutableListOf<() -> Unit>()
+
+    /** The slot between the toolbar and the page (Read Aloud's setup notice). */
+    internal val bannerSlot = VBox()
+
+    /** Called once by [dispose], before the page is dropped. */
+    internal val onDispose = mutableListOf<() -> Unit>()
+
+    /** Whether a single click on text marks the start; Read Aloud switches it off while it reads. */
+    internal var startClicks = true
+
+    /** The tab's activity marker; Read Aloud binds it to its own. */
+    override val activity = SimpleObjectProperty(ViewActivity.NONE)
 
     /** Called on the FX thread for genuine user scrolls only (wheel, keys, touch, scrollbar), not for jumps. */
     internal val onUserScroll = mutableListOf<() -> Unit>()
+
+    /** Called for navigations of the user that move the page without a scroll: Contents, chapter buttons, links. */
+    internal val onUserNavigate = mutableListOf<() -> Unit>()
 
     private var loaded: LoadedBook? = null
     private var shown: ShownPage? = null
@@ -95,7 +113,6 @@ internal class EpubFileView(
     private var restyleAt: Int? = null
     private var dark = false
     private var current = 0
-    private var leftDivider = 0.22
     private var pendingReveal: Int? = null
     private var readingPosition = 0
     private var stamp: Pair<Long, Any?>? = stampOf()
@@ -110,6 +127,9 @@ internal class EpubFileView(
      * Its `html` is empty; the markup is only in the shown page.
      */
     internal val page: BookPage? get() = loaded?.page.takeIf { pageReady }
+
+    /** The whole book as soon as it is loaded, also while a page (re)loads (unlike [page]); null before. */
+    internal val loadedBook: BookPage? get() = loaded?.page
 
     /**
      * The marks of the shown page, which takes LOCAL offsets in chapter mode (see [toLocal]); null until loaded. Its
@@ -150,19 +170,22 @@ internal class EpubFileView(
         noticeBar.styleClass += "ebook-notice-bar"
         noticeBar.isVisible = false
         noticeBar.isManaged = false
-        reader.top = VBox(noticeBar, toolbar.node)
-        reader.center = split
-        SplitPane.setResizableWithParent(contentsPanel.node, false)
-        SplitPane.setResizableWithParent(rightPane, false)
-        syncItems()
+        reader.top = VBox(noticeBar, toolbar.node, bannerSlot)
+        reader.center = split.node
     }
 
     private fun wire() {
-        toolbar.contents.selectedProperty().subscribe { _ -> syncItems() }
-        rightPane.children.subscribe { syncItems() }
+        toolbar.contents.selectedProperty().subscribe { _ -> split.sync() }
+        rightPane.children.subscribe { split.sync() }
         toolbar.bookStyle.selectedProperty().subscribe { _ -> restyle() }
-        toolbar.previous.setOnAction { showChapter(current - 1) }
-        toolbar.next.setOnAction { showChapter(current + 1) }
+        toolbar.previous.setOnAction {
+            navigated()
+            showChapter(current - 1)
+        }
+        toolbar.next.setOnAction {
+            navigated()
+            showChapter(current + 1)
+        }
         textMarks.onUserScroll = {
             scrollTimer.playFromStart()
             onUserScroll.toList().forEach { it() }
@@ -190,25 +213,6 @@ internal class EpubFileView(
         }
 
     // --- Layout ---------------------------------------------------------------------------------------------
-
-    private fun syncItems() {
-        val showContents = toolbar.contents.isSelected
-        if (split.items.contains(contentsPanel.node) && split.dividers.isNotEmpty()) {
-            leftDivider = split.dividers[0].position
-        }
-        val items = mutableListOf<Node>()
-        if (showContents) items += contentsPanel.node
-        items += webView
-        if (rightPane.children.isNotEmpty()) items += rightPane
-        if (items == split.items.toList()) return
-        split.items.setAll(items)
-        if (showContents) {
-            split.setDividerPosition(0, leftDivider)
-            Platform.runLater {
-                if (!disposed && split.items.contains(contentsPanel.node)) split.setDividerPosition(0, leftDivider)
-            }
-        }
-    }
 
     private fun showOverlay(text: String) {
         overlayText.text = text
@@ -401,7 +405,10 @@ internal class EpubFileView(
         if (save) position.changed(readingPosition)
     }
 
+    private fun navigated() = onUserNavigate.toList().forEach { it() }
+
     private fun jumpFromContents(offset: Int) {
+        navigated()
         jump(offset, follow = false)
         webView.requestFocus()
     }
@@ -425,12 +432,14 @@ internal class EpubFileView(
     }
 
     private fun anchorFollowed() {
+        navigated()
         Platform.runLater { if (!disposed) recompute(follow = true) }
     }
 
     /** A link to an id that the shown page does not have: the whole book knows where it is (another chapter). */
     private fun anchorElsewhere(id: String) {
         val target = loaded?.page?.anchors?.get(id) ?: return
+        navigated()
         jump(target, follow = true)
     }
 
@@ -449,6 +458,7 @@ internal class EpubFileView(
     }
 
     private fun textClicked(local: Int) {
+        if (!startClicks) return
         val whole = shown?.toWhole(local) ?: return
         setNamedStart(whole)
         applyMark(START)
@@ -506,6 +516,9 @@ internal class EpubFileView(
     /** Tells the view the reading position (whole-book), e.g. while speaking: contents, progress, saved position. */
     internal fun showPosition(offset: Int) = setPosition(offset)
 
+    /** Puts [node] over the page, below the loading text; the caller sets alignment and margin. */
+    internal fun addPageOverlay(node: Node) = root.children.add(root.children.size - 1, node)
+
     /** Adds a filter for the key events of the whole view; [handler] returns true to consume the event. */
     internal fun addKeyFilter(handler: (KeyEvent) -> Boolean) {
         root.addEventFilter(KeyEvent.ANY) { event -> if (handler(event)) event.consume() }
@@ -519,7 +532,7 @@ internal class EpubFileView(
     internal val fixedLayoutBar: Node get() = noticeBar
     internal val overlayLabel: Label get() = overlayText
     internal val overlayShown: Boolean get() = overlay.isVisible
-    internal val splitPane: SplitPane get() = split
+    internal val splitPane: SplitPane get() = split.node
     internal val topOffsetWhole: Int? get() = if (pageReady) topWhole() else null
     internal val currentPosition: Int get() = readingPosition
 
@@ -553,6 +566,7 @@ internal class EpubFileView(
 
     override fun dispose() {
         if (disposed) return
+        onDispose.toList().forEach { it() }
         if (scrollTimer.status == Animation.Status.RUNNING) recompute(follow = false)
         disposed = true
         loadGeneration++

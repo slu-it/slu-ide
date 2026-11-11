@@ -27,8 +27,8 @@ internal object ReadingCss {
     val reading: String =
         """
         html { background: #ffffff; }
-        body { background: #ffffff; color: #1f1f1f; font-family: Georgia, "Times New Roman", serif; font-size: 18px;
-               line-height: 1.6; max-width: 40em; margin: 0 auto; padding: 1.5em 1em 4em; }
+        body { background: #ffffff; color: #1f1f1f; font-family: Georgia, "Times New Roman", "DejaVu Serif",
+               "Liberation Serif", "Noto Serif", serif; font-size: 18px; line-height: 1.6; max-width: 40em; margin: 0 auto; padding: 1.5em 1em 4em; }
         body.dark, html:has(body.dark) { background: #1e1f22; color: #d4d4d4; }
         h1, h2, h3, h4, h5, h6 { line-height: 1.25; margin: 1.6em 0 0.6em; }
         h1 { font-size: 1.8em; } h2 { font-size: 1.5em; } h3 { font-size: 1.25em; } h4, h5, h6 { font-size: 1.05em; }

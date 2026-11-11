@@ -27,6 +27,7 @@ internal class ContentsPanel(
         tree.isShowRoot = false
         tree.isFocusTraversable = true
         tree.styleClass += "ebook-contents"
+        tree.minWidth = MIN_WIDTH
         tree.setCellFactory {
             object : TreeCell<TocItem>() {
                 override fun updateItem(
@@ -107,5 +108,9 @@ internal class ContentsPanel(
         from ?: return null
         if (from.value === wanted) return from
         return from.children.firstNotNullOfOrNull { find(it, wanted) }
+    }
+
+    private companion object {
+        const val MIN_WIDTH = 140.0
     }
 }

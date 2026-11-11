@@ -1,0 +1,58 @@
+package dev.sluide.ebooks.view
+
+import javafx.application.Platform
+import javafx.scene.Node
+import javafx.scene.control.SplitPane
+import javafx.scene.layout.StackPane
+
+/**
+ * The reader's split: Contents panel (when [contentsShown]), the page, and the right pane when it has children. The
+ * divider position survives hiding the panel; it starts at [CONTENTS_WIDTH] (less in a narrow window) once the split
+ * has a width. FX thread only; [alive] says whether the view still exists (for deferred work).
+ */
+internal class ReaderSplit(
+    private val contents: Node,
+    private val page: Node,
+    private val right: StackPane,
+    private val contentsShown: () -> Boolean,
+    private val alive: () -> Boolean,
+) {
+    val node = SplitPane()
+    private var leftDivider = 0.22
+    private var sized = false
+
+    init {
+        SplitPane.setResizableWithParent(contents, false)
+        SplitPane.setResizableWithParent(right, false)
+        node.widthProperty().subscribe { width -> sizeFirst(width.toDouble()) }
+        sync()
+    }
+
+    private fun sizeFirst(width: Double) {
+        if (sized || width <= 0 || node.dividers.isEmpty() || node.items.firstOrNull() !== contents) return
+        sized = true
+        leftDivider = minOf(CONTENTS_WIDTH, width * NARROW_SHARE) / width
+        node.setDividerPosition(0, leftDivider)
+    }
+
+    /** Shows the items that are due now. */
+    fun sync() {
+        val showContents = contentsShown()
+        if (node.items.contains(contents) && node.dividers.isNotEmpty()) leftDivider = node.dividers[0].position
+        val items = mutableListOf<Node>()
+        if (showContents) items += contents
+        items += page
+        if (right.children.isNotEmpty()) items += right
+        if (items == node.items.toList()) return
+        node.items.setAll(items)
+        if (showContents) {
+            node.setDividerPosition(0, leftDivider)
+            Platform.runLater { if (alive() && node.items.contains(contents)) node.setDividerPosition(0, leftDivider) }
+        }
+    }
+
+    companion object {
+        const val CONTENTS_WIDTH = 240.0
+        private const val NARROW_SHARE = 0.3
+    }
+}

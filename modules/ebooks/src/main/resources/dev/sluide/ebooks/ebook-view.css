@@ -37,3 +37,19 @@
     -fx-wrap-text: true;
     -fx-text-alignment: center;
 }
+
+.ebook-back-to-reading {
+    -fx-background-radius: 12;
+    -fx-padding: 4 12 4 12;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 6, 0, 0, 1);
+}
+
+/* UI parts use the system font, not the editor's monospace font; the page in the WebView has its own CSS. */
+.ebook-toolbar,
+.ebook-notice-bar,
+.ebook-overlay,
+.ebook-back-to-reading,
+.ebook-contents,
+.ebook-contents .tree-cell {
+    -fx-font-family: "System";
+}
