@@ -491,6 +491,12 @@ internal class EpubFileView(
     /** Scrolls to the whole-book [offset], loading its chapter if needed, and updates position, contents, progress. */
     internal fun jumpTo(offset: Int) = jump(offset, follow = true)
 
+    /** A jump of the user (a search hit): [jumpTo], and Read Aloud stops following like for Contents or links. */
+    internal fun userJumpTo(offset: Int) {
+        navigated()
+        jumpTo(offset)
+    }
+
     /** The marked start of Read Aloud (whole-book offset of its sentence), null without; set marks a sentence. */
     internal var startMark: Int?
         get() = named[START]?.first

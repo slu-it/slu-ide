@@ -162,7 +162,7 @@ internal class SearchPanel(
     private fun activate() {
         val hit = list.selectionModel.selectedItem as? SearchRow.Hit ?: return
         view.markRange(MARK, hit.match.start, hit.match.end)
-        view.jumpTo(hit.match.start)
+        view.userJumpTo(hit.match.start)
     }
 
     private class Cell : ListCell<SearchRow>() {

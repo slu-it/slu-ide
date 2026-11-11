@@ -2,6 +2,10 @@ package dev.sluide.ebooks.view
 
 import dev.sluide.ebooks.TestChapter
 import dev.sluide.ebooks.TestEpub
+import dev.sluide.fileviewers.ViewActivity
+import dev.sluide.speech.ReadAloudSurface
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.value.ObservableValue
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Scene
@@ -26,6 +30,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -62,7 +67,7 @@ class EbookSearchUiTest {
     private fun chapter(word: String) =
         "<h1>$word</h1>" + (1..40).joinToString("") { "<p>$word paragraph $it. A second sentence of $it.</p>" }
 
-    private fun open(): Pair<EpubFileView, SearchPanel> {
+    private fun open(readAloud: ((ReadAloudSurface) -> ReaderControls?)? = null): Pair<EpubFileView, SearchPanel> {
         val chapters = listOf("Alpha", "Beta", "Gamma").map { TestChapter("$it.xhtml", chapter(it), title = it) }
         val file = TestEpub(chapters).write(dir, "book.epub")
         val loader = Executors.newSingleThreadExecutor { Thread(it).apply { isDaemon = true } }
@@ -75,6 +80,7 @@ class EbookSearchUiTest {
                 val v = EpubFileView(BookLocation(file), position, loader, config)
                 view = v
                 stage.scene.root = v.node as javafx.scene.Parent
+                readAloud?.let { ReaderReadAloud.attach(v, it) }
                 ReaderSearch.attach(v, Duration.millis(50.0))
             }
         await { view?.page != null }
@@ -205,6 +211,53 @@ class EbookSearchUiTest {
         fx { keyPressed(panel.field, KeyCode.ESCAPE) }
         assertTrue(fx { !toggle.isSelected && v.rightPane.children.isEmpty() })
         assertNotNull(fx { v.page })
+    }
+
+    private class ReadingControls : ReaderControls {
+        override val toolbar: Node = javafx.scene.control.Label("toolbar")
+        override val notice: Node = javafx.scene.control.Label("notice")
+        override val activity: ObservableValue<ViewActivity> = SimpleObjectProperty(ViewActivity.RUNNING)
+        override var reading = true
+        override var onFinished: () -> Unit = {}
+
+        override fun play() {}
+
+        override fun stop() {}
+
+        override fun jumpTo(offset: Int) {}
+
+        override fun handleKey(event: KeyEvent) = false
+
+        override fun dispose() {}
+    }
+
+    @Test
+    fun `a hit activated while Read Aloud follows stops the following, offers Back to reading and stays at the hit`() {
+        var surface: ReadAloudSurface? = null
+        val (v, panel) = open { s -> ReadingControls().also { surface = s } }
+        await { v.readAloudSlot.children.isNotEmpty() }
+        val reading = surface as BookReadingSurface
+        fx {
+            reading.lock(true)
+            reading.highlight(0..5, null)
+            toggleOf(v).isSelected = true
+        }
+        search(panel, "paragraph 30.")
+        await { panel.status.text == "3 matches" }
+        val gamma =
+            fx {
+                panel.list.items
+                    .filterIsInstance<SearchRow.Hit>()
+                    .last()
+                    .match
+            }
+        click(panel, 5)
+        await { v.topOffsetWhole?.let { kotlin.math.abs(it - gamma.start) < 400 } == true }
+        assertFalse(fx { reading.following })
+        assertTrue(fx { (v.node.lookup(".ebook-back-to-reading") as javafx.scene.control.Button).isVisible })
+        // The next word of the reading, in chapter Alpha, must not take the page away from the hit.
+        fx { reading.reveal(0, 5) }
+        assertTrue(fx { v.topOffsetWhole!! } >= gamma.start - 400)
     }
 
     @Test
