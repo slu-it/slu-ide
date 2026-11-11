@@ -68,6 +68,8 @@ dependencies {
     // Audio and video files play in a file view with JavaFX Media; MediaPreferences and PlaybackCoordinator are
     // singletons (ADR 0123).
     implementation(project(":modules:media"))
+    // EPUB files open in a reader tab with a Contents panel (ADR 0165).
+    implementation(project(":modules:ebooks"))
     // The Read Aloud tool: a tab opened from the Tools menu, one per window; KokoroEngine and its settings page are found
     // by component scan (ADR 0124).
     implementation(project(":modules:speech"))

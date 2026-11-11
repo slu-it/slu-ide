@@ -24,6 +24,7 @@ import dev.sluide.docker.dockerfile.DockerfileBuildViewer
 import dev.sluide.docker.settings.DockerSettings
 import dev.sluide.docker.settings.DockerSettingsPage
 import dev.sluide.dockersandbox.DockerSandbox
+import dev.sluide.ebooks.EpubFileViewer
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.encryptedfiles.EncryptedFiles
 import dev.sluide.encryptedfiles.settings.EncryptedFilesSettings
@@ -239,6 +240,7 @@ class SpringWiringTest {
                         SoftWrap::class.java,
                         PlaybackCoordinator::class.java,
                         MediaFileViewer::class.java,
+                        EpubFileViewer::class.java,
                         SpeechEngines::class.java,
                         KokoroEngine::class.java,
                         SpeechPreferences::class.java,
@@ -407,6 +409,9 @@ class SpringWiringTest {
                 dir.resolve("notes.md.sluenc").writeBytes(byteArrayOf(0, 1, 2, -1))
                 assertIs<EncryptedFileViewer>(fileViewers.viewerFor(dir.resolve("notes.md.sluenc")))
                 assertIs<MarkdownFileViewer>(fileViewers.contentViewerFor("notes.md"))
+                // An EPUB is a zip: only the ebook reader may take it, not the text viewer.
+                dir.resolve("book.epub").writeBytes(byteArrayOf(80, 75, 3, 4, 0))
+                assertIs<EpubFileViewer>(fileViewers.viewerFor(dir.resolve("book.epub")))
             }
     }
 }
