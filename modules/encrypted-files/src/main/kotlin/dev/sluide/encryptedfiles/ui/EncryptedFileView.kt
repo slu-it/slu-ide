@@ -75,8 +75,19 @@ internal class EncryptedFileView(
     private val pendingFocus = FocusWhenShown()
 
     private val lockedPane = LockedPane(::unlock)
-    private val strip = UnlockedStrip(::lock, ::changePassword)
-    private val unlockedPane = BorderPane().apply { top = strip.node }
+
+    /**
+     * The strip and the pane are created per unlock and dropped on lock: a node outside the scene is never synced
+     * again, so a removed pane keeps its render peers, and with them the last plaintext text runs, reachable; a node
+     * that was inside the pane keeps its peer's parent link to it, so the strip is dropped with it.
+     */
+    private var unlockedPane: BorderPane? = null
+    internal var strip: UnlockedStrip? = null
+        private set
+
+    /** Whether the view holds an unlocked pane; false while locked. */
+    internal val hasUnlockedPane: Boolean get() = unlockedPane != null
+
     private val root =
         StackPane(lockedPane.node).apply {
             styleClass += "encrypted-file-view"
@@ -427,11 +438,12 @@ internal class EncryptedFileView(
 
     private fun showUnlocked() {
         if (inner == null && !createInner()) return
-        strip.show(saveError ?: session.warning)
-        if (root.children.singleOrNull() !== unlockedPane) {
+        strip?.show(saveError ?: session.warning)
+        val pane = unlockedPane ?: return
+        if (root.children.singleOrNull() !== pane) {
             val hadFocus = focusInside() || focusAfterUnlock
             focusAfterUnlock = false
-            root.children.setAll(unlockedPane)
+            root.children.setAll(pane)
             if (hadFocus) inner?.focus()
         }
     }
@@ -461,7 +473,9 @@ internal class EncryptedFileView(
         }
         view.host = hostValue
         inner = view
-        unlockedPane.center = view.node
+        val newStrip = UnlockedStrip(::lock, ::changePassword)
+        strip = newStrip
+        unlockedPane = BorderPane(view.node).apply { top = newStrip.node }
         (view as? EditableFileView)?.let { dirtyWrapper.bind(it.dirty) }
         return true
     }
@@ -487,7 +501,13 @@ internal class EncryptedFileView(
         inner = null
         dirtyWrapper.unbind()
         dirtyWrapper.set(false)
-        unlockedPane.center = null
+        unlockedPane?.let {
+            it.center = null
+            it.top = null
+            root.children.remove(it)
+        }
+        unlockedPane = null
+        strip = null
         quietly("wipe") { view.wipe() }
         quietly("dispose") { view.dispose() }
         quietly("detach") { view.host = null }

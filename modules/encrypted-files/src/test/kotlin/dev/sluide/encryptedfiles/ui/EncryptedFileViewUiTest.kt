@@ -358,12 +358,21 @@ class EncryptedFileViewUiTest {
         unlock(view, robot)
         assertTrue(texts().any { "MARKER-4" in it })
         val source = fx { area(view) }
+        val oldPane = fx { (view.node as javafx.scene.layout.Pane).children.single() as javafx.scene.layout.BorderPane }
+        assertTrue(fx { view.hasUnlockedPane })
+        val oldStrip = fx { view.strip }
 
         robot.interact { stripButton(view, "Lock").fire() }
 
         assertNull(innerClass(view))
+        assertFalse(fx { view.hasUnlockedPane }, "the unlocked pane, with its render peers, is dropped")
+        assertNull(fx { oldPane.center })
+        assertNull(fx { oldPane.top })
+        assertNull(fx { view.strip }, "the strip's render peer links to the old pane, so it is dropped too")
         assertEquals("", fx { source.text }, "the dropped view is wiped")
         assertTrue(texts().none { "MARKER-4" in it })
+        unlock(view, robot)
+        assertTrue(fx { view.strip != null && view.strip !== oldStrip }, "each unlock builds a new strip")
         robot.interact { view.dispose() }
     }
 
