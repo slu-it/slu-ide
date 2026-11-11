@@ -15,8 +15,10 @@ import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableBooleanValue
 import javafx.event.Event
+import javafx.event.EventHandler
 import javafx.scene.Node
 import javafx.scene.control.MenuItem
+import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseEvent
 import javafx.scene.input.ScrollEvent
@@ -61,8 +63,16 @@ internal class EncryptedFileView(
     /** Whether the field had the focus when Unlock was pressed: it gets it back if the unlock fails. */
     private var focusAfterUnlock = false
 
-    /** Whether a key press locked the tab (overdue idle lock): its typed character must not reach the field. */
+    /**
+     * Whether a key press locked the tab (idle lock, Lock All): its typed character must not reach the field. Ends
+     * when a key is released or the next key is pressed.
+     */
     private var swallowTyped = false
+
+    /** The keys of the scene that are down: a lock by a key hands the focus over while its key is still held. */
+    private val keysDown = mutableSetOf<KeyCode>()
+    private val keyDownFilter = EventHandler<KeyEvent> { keysDown += it.code }
+    private val keyUpFilter = EventHandler<KeyEvent> { keysDown -= it.code }
 
     /** Why the last save before a lock failed, or why the idle lock did not lock; in the strip until a save or lock. */
     private var saveError: String? = null
@@ -152,6 +162,13 @@ internal class EncryptedFileView(
         root.addEventFilter(ScrollEvent.SCROLL, ::activity)
         root.addEventFilter(KeyEvent.KEY_TYPED) { if (swallowTyped) it.consume() }
         root.addEventFilter(KeyEvent.KEY_RELEASED) { swallowTyped = false }
+        root.sceneProperty().subscribe { old, new ->
+            old?.removeEventFilter(KeyEvent.KEY_PRESSED, keyDownFilter)
+            old?.removeEventFilter(KeyEvent.KEY_RELEASED, keyUpFilter)
+            new?.addEventFilter(KeyEvent.KEY_PRESSED, keyDownFilter)
+            new?.addEventFilter(KeyEvent.KEY_RELEASED, keyUpFilter)
+            keysDown.clear()
+        }
         session.onChange = ::render
         registry.register(this)
         if (handover != null) {
@@ -489,7 +506,11 @@ internal class EncryptedFileView(
             saveError = null
             session.lock(message)
         }
-        if (hadFocus) lockedPane.field.requestFocus()
+        if (hadFocus) {
+            // Lock All's Ctrl+Alt+Shift+L types an 'L' (an AltGr character on Linux and Windows) into the new focus.
+            swallowTyped = keysDown.isNotEmpty()
+            lockedPane.field.requestFocus()
+        }
     }
 
     /**
