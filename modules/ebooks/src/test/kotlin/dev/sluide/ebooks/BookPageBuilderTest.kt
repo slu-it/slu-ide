@@ -208,12 +208,14 @@ class BookPageBuilderTest {
     }
 
     @Test
-    fun `the page is a document with the dark class and the script at the end of the body`() {
+    fun `the page is a document with the dark class and the script in the head`() {
         val dark = page("<p>x</p>", dark = true, script = "window.thoreau = 1;")
         assertTrue(dark.html.startsWith("<!DOCTYPE html>"))
         assertTrue("<meta charset=\"utf-8\">" in dark.html)
         assertEquals("dark", Jsoup.parse(dark.html).body().className())
-        assertTrue(dark.html.endsWith("<script>window.thoreau = 1;</script></body></html>"))
+        val doc = Jsoup.parse(dark.html)
+        assertEquals(listOf("window.thoreau = 1;"), doc.head().select("script").map { it.data() })
+        assertTrue(doc.body().select("script").isEmpty())
         assertEquals("", Jsoup.parse(page("<p>x</p>").html).body().className())
     }
 
@@ -274,17 +276,13 @@ class BookPageBuilderTest {
 
     private fun assertMarkCss(page: BookPage) {
         for (name in listOf("sentence", "word", "start", "search")) {
-            val rules =
-                listOf(
-                    ".mark-$name",
-                    "::highlight(mark-$name)",
-                    "body.dark .mark-$name",
-                    "body.dark ::highlight(mark-$name)",
-                )
-            for (rule in rules) {
+            for (rule in listOf("::highlight(mark-$name)", "body.dark ::highlight(mark-$name)")) {
                 assertTrue(rule in page.html, rule)
             }
         }
+        // A book's own class="mark-word" must not paint: only the highlights, which no markup can create, style marks.
+        assertFalse(Regex("\\.mark-").containsMatchIn(ReadingCss.marks))
+        assertFalse(Regex("\\.mark-").containsMatchIn(page.html.substringAfter("<style>").substringBefore("</style>")))
     }
 
     @Test

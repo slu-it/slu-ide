@@ -176,6 +176,27 @@ class TextMarksUiTest {
         )
 
     @Test
+    fun `the script in the head observes the document only after it was parsed, and marks still work`() {
+        script("window.__old = 1")
+        val html =
+            """<html><head><script>window.__obs = 0; (function (O) {
+                window.MutationObserver = function (cb) { window.__obs++; return new O(cb); };
+            })(window.MutationObserver);</script><script>${TextMarks.SCRIPT}</script></head><body>
+            <p><span data-o="0">Hello</span></p>
+            <script>window.__obsAtBody = window.__obs</script></body></html>"""
+        fx { webView.engine.loadContent(html) }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+            fx { webView.engine.loadWorker.state == Worker.State.SUCCEEDED } &&
+                script("typeof window.__old") == "undefined" &&
+                script("window.__obs") == 1
+        }
+        // A recorder over the whole body parse is what a huge book would pay for.
+        assertEquals(0, script("window.__obsAtBody"))
+        fx { marks.mark("word", 1, 4) }
+        assertEquals("ell", highlighted("word"))
+    }
+
+    @Test
     fun `a replaced or cleared mark is repainted without the old highlight`() {
         load()
         fx { marks.mark("word", 0, 5) }

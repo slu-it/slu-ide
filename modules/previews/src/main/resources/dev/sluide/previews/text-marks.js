@@ -4,8 +4,14 @@
   var sluide = (window.sluide = window.sluide || {});
   var spans = null; // { el, o, len, nodes }, in document order, built on first use
 
-  // Any change of the DOM may replace spans: the index is built again on next use.
-  new MutationObserver(function () { spans = null; }).observe(document, { childList: true, subtree: true, characterData: true });
+  // Any change of the DOM may replace spans: the index is built again on next use. A page that runs this script in
+  // its head would otherwise record every node of its body parse, so the observer starts when parsing is done.
+  function observe() {
+    spans = null;
+    new MutationObserver(function () { spans = null; }).observe(document, { childList: true, subtree: true, characterData: true });
+  }
+  if (document.readyState !== 'loading') observe();
+  else document.addEventListener('DOMContentLoaded', observe);
 
   function index() {
     if (spans) return spans;

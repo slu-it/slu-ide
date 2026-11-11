@@ -15,7 +15,7 @@ internal object BookPageBuilder {
     }
 
     /**
-     * [script] is put verbatim at the end of the body. With [chapterRange] only those spine indices are included and
+     * [script] is put verbatim into the head. With [chapterRange] only those spine indices are included and
      * the offsets start at 0 for the first of them. [ownStyle] keeps the book's CSS (sanitised) instead of Thoreau's.
      */
     fun build(
@@ -88,10 +88,12 @@ internal object BookPageBuilder {
             append("><head><meta charset=\"utf-8\">")
             append("<meta http-equiv=\"Content-Security-Policy\" content=\"${policy(script)}\">")
             append("<title>").append(escapeText(book.title)).append("</title>")
-            append("<style>").append(css.joinToString("\n")).append("</style></head>")
+            append("<style>").append(css.joinToString("\n")).append("</style>")
+            // In the head, so that its click handler is there before a large body has been parsed.
+            append("<script>").append(script).append("</script></head>")
             append(if (dark) "<body class=\"dark\">" else "<body>")
             append(body)
-            append("<script>").append(script).append("</script></body></html>")
+            append("</body></html>")
         }
     }
 

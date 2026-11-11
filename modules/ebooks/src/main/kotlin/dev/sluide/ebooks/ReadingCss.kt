@@ -2,21 +2,16 @@ package dev.sluide.ebooks
 
 /** Thoreau's own CSS of the page: the reading style and the marks of Read Aloud and search. */
 internal object ReadingCss {
-    /** The highlight CSS, in both mechanisms (classes and the CSS Custom Highlight API), light and dark. */
+    /**
+     * The highlight CSS as CSS Custom Highlight API rules, light and dark. Never as classes: with the book's style
+     * a book's own `class="mark-word"` would paint.
+     */
     val marks: String =
         """
-        .mark-sentence { background: rgba(255, 214, 102, 0.35); }
-        .mark-word { background: rgba(255, 176, 0, 0.75); color: #000; }
-        .mark-start { box-shadow: -3px 0 0 #2f7de1; text-decoration: underline 2px #2f7de1; }
-        .mark-search { background: rgba(255, 235, 59, 0.7); color: #000; }
         ::highlight(mark-sentence) { background-color: rgba(255, 214, 102, 0.35); }
         ::highlight(mark-word) { background-color: rgba(255, 176, 0, 0.75); color: #000; }
         ::highlight(mark-start) { text-decoration: underline 2px #2f7de1; }
         ::highlight(mark-search) { background-color: rgba(255, 235, 59, 0.7); color: #000; }
-        body.dark .mark-sentence { background: rgba(90, 120, 190, 0.35); }
-        body.dark .mark-word { background: rgba(110, 150, 230, 0.7); color: #fff; }
-        body.dark .mark-start { box-shadow: -3px 0 0 #6aa5ff; text-decoration-color: #6aa5ff; }
-        body.dark .mark-search { background: rgba(190, 160, 30, 0.75); color: #fff; }
         body.dark ::highlight(mark-sentence) { background-color: rgba(90, 120, 190, 0.35); }
         body.dark ::highlight(mark-word) { background-color: rgba(110, 150, 230, 0.7); color: #fff; }
         body.dark ::highlight(mark-start) { text-decoration-color: #6aa5ff; }
