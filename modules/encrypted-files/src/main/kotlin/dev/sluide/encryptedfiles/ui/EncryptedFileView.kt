@@ -26,6 +26,8 @@ import javafx.util.Subscription
 import java.io.IOException
 import java.nio.file.Path
 
+private val log = System.getLogger(EncryptedFileView::class.java.name)
+
 /**
  * The tab of an encrypted file (ADR 0162). Locked, it shows the [LockedPane]; unlocked, the [UnlockedStrip] above the
  * view of the inner type (`notes.md` for `notes.md.sluenc`), which reads and saves through [EncryptedContent] and is
@@ -314,15 +316,18 @@ internal class EncryptedFileView(
     override fun dispose() {
         if (disposed) return
         pendingFocus.cancel()
-        dropInner()
-        idleLock.stop()
-        windowFocus.unsubscribe()
-        settings.idleLockMinutes.removeListener(idleSettingListener)
-        idleOn = false
-        val closedEmpty = session.dispose()
-        disposed = true
-        lockedPane.field.clear()
-        registry.closed(this, path, closedEmpty)
+        try {
+            dropInner()
+        } finally {
+            val closedEmpty = session.dispose()
+            disposed = true
+            idleLock.stop()
+            windowFocus.unsubscribe()
+            settings.idleLockMinutes.removeListener(idleSettingListener)
+            idleOn = false
+            lockedPane.field.clear()
+            registry.closed(this, path, closedEmpty)
+        }
     }
 
     override fun focusText() {
@@ -458,22 +463,40 @@ internal class EncryptedFileView(
     /** Locks the session after wiping the inner view; the field gets the focus if the tab had it. */
     private fun lockAndWipe(message: String?) {
         val hadFocus = focusInside()
-        dropInner()
-        saveError = null
-        session.lock(message)
+        try {
+            dropInner()
+        } finally {
+            saveError = null
+            session.lock(message)
+        }
         if (hadFocus) lockedPane.field.requestFocus()
     }
 
-    /** Wipes, disposes and forgets the inner view; the tab is clean afterwards. */
+    /**
+     * Wipes, disposes and forgets the inner view; the tab is clean afterwards. Each step runs even if one before it
+     * failed, which is logged by its type only.
+     */
     private fun dropInner() {
         val view = inner ?: return
         inner = null
         dirtyWrapper.unbind()
         dirtyWrapper.set(false)
         unlockedPane.center = null
-        view.wipe()
-        view.dispose()
-        view.host = null
+        quietly("wipe") { view.wipe() }
+        quietly("dispose") { view.dispose() }
+        quietly("detach") { view.host = null }
+    }
+
+    private inline fun quietly(
+        step: String,
+        action: () -> Unit,
+    ) {
+        try {
+            action()
+        } catch (e: Exception) {
+            // Only the type: a message could hold content.
+            log.log(System.Logger.Level.WARNING, "Cannot $step the view of an encrypted file: ${e.javaClass.name}")
+        }
     }
 
     /** Whether the focus is on a node of this view. */

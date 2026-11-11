@@ -13,6 +13,8 @@ import javafx.collections.ObservableList
 import javafx.scene.Node
 import java.nio.file.Path
 
+private val log = System.getLogger(EditorTabs::class.java.name)
+
 /** Something shown in a tab of the editor area: an open file, a terminal, … */
 interface EditorTab {
     /** The text on the tab header; it may change while the tab is open. */
@@ -173,7 +175,7 @@ internal class EditorTabs {
         if (chosen[side] === tab) chosen[side] = replacement
         publish()
         try {
-            tab.dispose()
+            disposeQuietly(tab)
         } finally {
             afterDispose()
         }
@@ -262,7 +264,7 @@ internal class EditorTabs {
         if (chosen[side] === tab) chosen[side] = neighbour(list, index)
         publish()
         try {
-            tab.dispose()
+            disposeQuietly(tab)
         } finally {
             afterDispose()
         }
@@ -327,9 +329,23 @@ internal class EditorTabs {
         }
         publish()
         try {
-            closing.forEach { it.dispose() }
+            closing.forEach(::disposeQuietly)
         } finally {
             afterDispose()
+        }
+    }
+
+    /**
+     * Disposes [tab]; a failure is logged by its type and stack frames, without its message or causes (they could hold
+     * a tab's content), so the other tabs of the same operation are still disposed, e.g. an encrypted file's key still
+     * zeroed.
+     */
+    private fun disposeQuietly(tab: EditorTab) {
+        try {
+            tab.dispose()
+        } catch (e: Exception) {
+            val frames = Throwable(e.javaClass.name).apply { stackTrace = e.stackTrace }
+            log.log(System.Logger.Level.WARNING, "Cannot dispose an editor tab", frames)
         }
     }
 

@@ -93,7 +93,8 @@ Best effort, as far as the JVM allows:
 - The password is taken from the field as a `char[]`, the field is cleared at once and the array is zeroed after the
   key derivation, also when it fails.
 - On Lock and close the inner view is wiped (editor text, undo history, saved text, find state, rendered preview; the
-  preview's page loads an empty one), disposed and dropped, and the key's bytes are zeroed.
+  preview's page loads an empty one), disposed and dropped, and the key's bytes are zeroed; each step runs even if
+  one before it fails (logged by its type), and closing a window closes its tabs first, each on its own.
 - Plain bytes are zeroed once used: the encoded text Save encrypts, the plain text decrypted to check a change on
   disk, and the decrypted bytes the view reads (on its next read, on Lock and on close). The text decoded from them is
   a String and stays in memory until the garbage collector reclaims it.

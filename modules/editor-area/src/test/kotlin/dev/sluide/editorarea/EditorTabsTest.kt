@@ -311,6 +311,29 @@ class EditorTabsTest {
         assertTrue(listOf(one, two, three, four).all { it.disposed == 1 })
     }
 
+    @Test
+    fun `a tab whose dispose throws does not keep the others of the same close from being disposed`() {
+        val failing =
+            object : EditorTab {
+                override val title = SimpleStringProperty("failing")
+                override val tooltip = "failing"
+                override val content = Group()
+
+                override fun dispose() = throw IllegalStateException("cannot dispose")
+            }
+        val before = DisposableTab("before").also(tabs::open)
+        tabs.open(failing)
+        val after = DisposableTab("after").also(tabs::open)
+        var afterDispose = 0
+        tabs.afterDispose = { afterDispose++ }
+
+        tabs.closeAll()
+
+        assertEquals(listOf(1, 1), listOf(before, after).map { it.disposed })
+        assertEquals(1, afterDispose)
+        assertTrue(tabs.tabs.isEmpty())
+    }
+
     private class CountingDiff : DiffFileView {
         var disposed = 0
 

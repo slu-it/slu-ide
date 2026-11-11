@@ -26,12 +26,13 @@
   change), once it is written; the window passes it on to the Gradle session ([gradle.md](gradle.md)).
 - Tabs do not have to show files: `open(tab: EditorTab)` adds any tab (title, which may change, tooltip and content
   node) and selects it, e.g. a terminal ([terminal.md](terminal.md)). Every way of closing a tab calls its
-  `EditorTab.dispose()` once. `openPaths` and `selectedPath` only report file tabs. Tool tabs come from the Tools menu
+  `EditorTab.dispose()` once; a `dispose()` that throws is logged by its exception type and stack frames (no message)
+  and the other tabs closed with it are still disposed. `openPaths` and `selectedPath` only report file tabs. Tool tabs come from the Tools menu
   ([coloring.md](coloring.md), [ADR 0110](../adr/0110-tools-menu.md)): one per window, a second choice selects the
   open tab, Shortcut+W closes it.
 - `onFileClosed(path)`, set by the window, is called for each file whose last tab in the area closed, in whatever way
   (×, the context menu, `closeAll()` when the window closes, after a delete, or a move its tab cannot follow), after
-  the closed views are disposed (also when a `dispose()` throws); not for other tabs, not when a tab is replaced by a
+  the closed views are disposed; not for other tabs, not when a tab is replaced by a
   new view of the same file, and not for a move its tab follows in place. The window deletes empty scratch files with it
   ([scratch-files.md](scratch-files.md)).
 - Closing file tabs with unsaved changes from the UI (×, middle click, any context menu entry) first asks once, listing

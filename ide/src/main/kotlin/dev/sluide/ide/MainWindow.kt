@@ -585,10 +585,11 @@ class MainWindow(
 
     /** Closes all tabs (ending their terminals) and stops watching the folder; called when the window is closed. */
     fun dispose() {
+        // First: the tabs' content (an encrypted file's key) is wiped even if a later step throws.
+        editorArea.closeAll()
         comparisons.dispose()
         conversions.dispose()
         help.dispose()
-        editorArea.closeAll()
         fileExplorer.open(null)
         gitStatus.open(null)
         gitLog.dispose()
