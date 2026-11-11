@@ -53,3 +53,30 @@
 .ebook-contents .tree-cell {
     -fx-font-family: "System";
 }
+
+.ebook-search {
+    -fx-padding: 6;
+    -fx-font-family: "System";
+}
+
+.ebook-search-status {
+    -fx-opacity: 0.8;
+    -fx-font-size: 0.9em;
+}
+
+.ebook-search-heading {
+    -fx-font-weight: bold;
+    -fx-opacity: 0.8;
+}
+
+.ebook-search-snippet .ebook-search-text {
+    -fx-fill: -fx-text-inner-color;
+}
+
+.ebook-search-snippet .ebook-search-match {
+    -fx-font-weight: bold;
+}
+
+.list-cell:filled:selected .ebook-search-snippet .ebook-search-text {
+    -fx-fill: -fx-selection-bar-text;
+}

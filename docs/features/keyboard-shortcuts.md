@@ -146,6 +146,9 @@ Zoom works while the page has the focus, as in the previews; the scrolling keys 
 |---|---|
 | Shortcut+Plus (or =) / Shortcut+Minus / Shortcut+0 | Zoom in / out / 100 % |
 | Shortcut+mouse wheel, pinch | Zoom |
+| Shortcut+F | Open the Search panel and focus its field |
+| Enter / Escape in the search field | Search now / clear the text, on an empty field close the panel |
+| Enter in the result list | Mark and jump to the selected match |
 | Arrows, Page Up/Down, Home/End, Space | Scroll the page |
 | Arrows in the Contents panel | Select and jump to an entry |
 | Shortcut+Enter | Read Aloud: read from the start mark or the top of the view (while idle) |

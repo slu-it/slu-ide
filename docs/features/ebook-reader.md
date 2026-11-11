@@ -84,4 +84,13 @@ starting one pauses the other. The tab shows the running marker while it reads.
 - Keys: [keyboard-shortcuts.md](keyboard-shortcuts.md#ebook-reader).
 
 ## Search
-(coming)
+The magnify toggle in the toolbar (tooltip "Search (Shortcut+F)") or Shortcut+F anywhere in the view opens the Search
+panel on the right, with its field focused and its text selected; a query still in the field is searched again. The
+search covers the whole book (`BookSearch`): case-insensitive, and a run of whitespace in the query matches any run of
+whitespace in the text, a paragraph break included. It needs at least two non-blank characters and runs off the FX
+thread 300 ms after typing, or at once on Enter; a newer query replaces an older one. The panel says "41 matches",
+"1000+ matches" (the list stops at 1000) or "No matches", and lists the hits grouped under their chapter, each as a
+snippet of about 40 characters either side with the match in bold. A click, or Enter on the selected hit, marks the
+match (the `search` mark) and jumps there, in chapter mode loading that chapter; the focus stays in the list. Changing
+or clearing the query, or closing the panel, removes the mark, and closing clears the results. Escape in the field
+clears the text, and on an empty field closes the panel and gives the focus to the page.
