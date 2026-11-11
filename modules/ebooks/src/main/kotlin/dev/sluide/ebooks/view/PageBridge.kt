@@ -1,6 +1,6 @@
 package dev.sluide.ebooks.view
 
-import dev.sluide.previews.web.TextMarks
+import dev.sluide.previews.TextMarks
 import java.net.URI
 import java.net.URISyntaxException
 

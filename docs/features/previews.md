@@ -222,7 +222,8 @@ notebooks, PEM) zooms as a document: the whole page scales and reflows, as in a 
 
 ## Web kit for other modules
 
-Package `dev.sluide.previews.web` offers two pieces for modules that show their own WebView page.
+The `previews` module's root package (`dev.sluide.previews`, its API, ADR 0055) offers two pieces for modules that
+show their own WebView page.
 
 - `DocumentZoom(webView)`: the document zoom of the HTML and Markdown previews (ADR 0083). `node` is the toolbar group
   (zoom out, level, zoom in, 100%); `install()` adds Shortcut+Plus/Minus/0 and Shortcut+wheel or pinch on the web view.
@@ -233,15 +234,15 @@ Package `dev.sluide.previews.web` offers two pieces for modules that show their 
   after is still reported).
 
 The page contract: every text run is `<span data-o="N">text</span>`, N being the offset of its first char in the flat
-text of the page. A span covers `[N, N + text length)`; positions inside it are clamped to it, so a span whose rendered
-text is shorter than the source range it stands for is marked up to its end. The page embeds `TextMarks.SCRIPT` in a
+text of the page, and N rises in document order (the lookups are binary searches: a span out of order, e.g. text the
+browser moves out of a table, marks the wrong text). A span covers `[N, N + text length)`; positions inside it are
+clamped to it, so a span whose rendered text is shorter than the source range it stands for is marked up to its end. The page embeds `TextMarks.SCRIPT` in a
 `<script>` element (it attaches `sluide.marks`, keeping an existing `window.sluide`). Marks are CSS Custom Highlights,
 which this JavaFX WebView supports: the page styles `::highlight(mark-<name>)`, not `.mark-<name>`; marks of
 different names may overlap. The WebKit here does not repaint a replaced or removed highlight by itself, so `mark` and
 `clear` also repaint the spans the old and new range touch; code that changes highlights outside `TextMarks` must do
-the same (see `docs/testing.md`, "Portability"). `TextMarks` takes the web view's zoom as a function
-(`{ webView.zoom }`), so that
-`offsetAt` accepts web view coordinates. Scrolls caused by a zoom or a resize are not user scrolls.
+the same (see `docs/testing.md`, "WebView pages"). `TextMarks` takes the web view's zoom as a function
+(`{ webView.zoom }`), so that `offsetAt` accepts web view coordinates. Scrolls caused by a zoom or a resize are not user scrolls.
 
 The Markdown preview uses it too, with source offsets as N (gaps between runs are allowed), to show Read Aloud's
 highlight ([markdown-preview.md](markdown-preview.md), [ADR 0166](../adr/0166-read-aloud-highlight-in-markdown-preview.md)).

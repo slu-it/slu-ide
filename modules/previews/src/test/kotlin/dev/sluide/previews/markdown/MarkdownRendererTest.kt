@@ -1,7 +1,7 @@
 package dev.sluide.previews.markdown
 
+import dev.sluide.previews.TextMarks
 import dev.sluide.previews.preview.Vendor
-import dev.sluide.previews.web.TextMarks
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest

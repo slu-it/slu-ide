@@ -76,7 +76,7 @@ internal fun zoomKeyAction(
  * The zoom of a [target] (ADR 0033, ADR 0083): a toolbar [node] with zoom out, the [level], zoom in, 100% and, if the
  * target [fits][ZoomTarget.fits], Fit ([fitButton]), and the keys, Shortcut+wheel and pinch on the web view
  * ([install]). An image's or diagram's page ([PageZoom]) reports every change ([zoomed]), also its own; a document
- * ([DocumentZoom]) is shown at the scale asked for. Views that fit open fitted, others at 100%; the zoom is applied
+ * ([WebViewZoomTarget]) is shown at the scale asked for. Views that fit open fitted, others at 100%; the zoom is applied
  * again to every page loaded ([applyTo]). [onZoomed] is called after every change of [scale] or [fit].
  *
  * Everything runs on the FX thread.

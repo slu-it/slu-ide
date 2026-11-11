@@ -3,7 +3,7 @@ package dev.sluide.previews.preview
 import javafx.scene.web.WebEngine
 import javafx.scene.web.WebView
 
-/** What [ZoomControls] scale: an image or diagram in its page ([PageZoom]) or a whole document ([DocumentZoom]). */
+/** What [ZoomControls] scale: an image or diagram in its page ([PageZoom]) or a whole document ([WebViewZoomTarget]). */
 internal sealed interface ZoomTarget {
     /** Whether the content can be fitted to the view (Fit, Shortcut+9); views that fit open fitted. */
     val fits: Boolean
@@ -86,7 +86,7 @@ internal class PageZoom(
  * belongs to the [webView], so it outlasts every page loaded, also one whose scripts are off. It does not fit, and
  * wheel and pinch zoom without keeping the point under the pointer in place.
  */
-internal class DocumentZoom(
+internal class WebViewZoomTarget(
     private val webView: WebView,
 ) : ZoomTarget {
     override val fits get() = false

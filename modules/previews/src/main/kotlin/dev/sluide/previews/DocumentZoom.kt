@@ -1,9 +1,9 @@
-package dev.sluide.previews.web
+package dev.sluide.previews
 
+import dev.sluide.previews.preview.WebViewZoomTarget
 import dev.sluide.previews.preview.ZoomControls
 import javafx.scene.Node
 import javafx.scene.web.WebView
-import dev.sluide.previews.preview.DocumentZoom as WebViewZoom
 
 /**
  * The document zoom of the HTML and Markdown previews (ADR 0083) for other modules' web views: [WebView.zoom] scales
@@ -15,7 +15,7 @@ import dev.sluide.previews.preview.DocumentZoom as WebViewZoom
 class DocumentZoom(
     private val webView: WebView,
 ) {
-    private val controls = ZoomControls(WebViewZoom(webView))
+    private val controls = ZoomControls(WebViewZoomTarget(webView))
 
     val node: Node get() = controls.node
 

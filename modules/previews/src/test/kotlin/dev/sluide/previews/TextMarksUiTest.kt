@@ -1,4 +1,4 @@
-package dev.sluide.previews.web
+package dev.sluide.previews
 
 import dev.sluide.previews.keyPress
 import javafx.concurrent.Worker

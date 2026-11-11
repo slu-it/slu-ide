@@ -1,13 +1,13 @@
 package dev.sluide.previews.markdown
 
 import dev.sluide.fileviewers.Highlighters
+import dev.sluide.previews.TextMarks
 import dev.sluide.previews.image.imageTypes
 import dev.sluide.previews.preview.HtmlPage
 import dev.sluide.previews.preview.LinkTarget
 import dev.sluide.previews.preview.Vendor
 import dev.sluide.previews.preview.resolveLink
 import dev.sluide.previews.preview.writeHighlighted
-import dev.sluide.previews.web.TextMarks
 import org.commonmark.ext.autolink.AutolinkExtension
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
 import org.commonmark.ext.gfm.tables.TablesExtension

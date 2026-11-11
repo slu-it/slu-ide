@@ -5,8 +5,8 @@ import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.ViewActivity
-import dev.sluide.previews.web.DocumentZoom
-import dev.sluide.previews.web.TextMarks
+import dev.sluide.previews.DocumentZoom
+import dev.sluide.previews.TextMarks
 import javafx.animation.Animation
 import javafx.animation.PauseTransition
 import javafx.application.ColorScheme

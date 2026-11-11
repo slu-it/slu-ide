@@ -28,7 +28,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The input handling of [ZoomControls] over a [DocumentZoom], without a page or a preview view: keys, buttons, wheel,
+ * The input handling of [ZoomControls] over a [WebViewZoomTarget], without a page or a preview view: keys, buttons, wheel,
  * pinch, clamps. `DocumentZoomUiTest` checks that the previews wire it up. Needs a display, see the `uiTest` task.
  */
 @Tag("ui")
@@ -46,7 +46,7 @@ class ZoomControlsUiTest {
     fun start(stage: Stage) {
         webView = WebView()
         source = TextField()
-        zoom = ZoomControls(DocumentZoom(webView)) { changes++ }.also { it.install(webView) }
+        zoom = ZoomControls(WebViewZoomTarget(webView)) { changes++ }.also { it.install(webView) }
         container.children.setAll(VBox(zoom.node, webView, source))
         stage.scene = Scene(container, 600.0, 400.0)
         stage.show()

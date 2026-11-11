@@ -62,7 +62,7 @@ import java.nio.file.Path
  *
  * Every preview has [zoom] controls while the preview shows, kept when the page is rendered again. Images and diagrams
  * that [zoom][Preview.zooms] have them on the left of the toolbar, with Fit, and scale in the page ([PageZoom]);
- * every other preview zooms as a document ([DocumentZoom], ADR 0083), with the controls before the mode toggles.
+ * every other preview zooms as a document ([WebViewZoomTarget], ADR 0083), with the controls before the mode toggles.
  * Side by side, a preview that [syncs its scroll][Preview.syncsScroll] lines up with the source's top line again after
  * a zoom.
  *
@@ -160,7 +160,7 @@ internal class PreviewFileView(
             ZoomControls(PageZoom(engine) { isLoaded })
         } else {
             // The page reflows: side by side, it lines up with the source again.
-            ZoomControls(DocumentZoom(webView)) { syncScroll() }
+            ZoomControls(WebViewZoomTarget(webView)) { syncScroll() }
         }
 
     /** The Collapse All and Expand All buttons, if the preview [folds][Preview.folds]. */

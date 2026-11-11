@@ -1,4 +1,4 @@
-package dev.sluide.previews.web
+package dev.sluide.previews
 
 import javafx.concurrent.Worker
 import javafx.scene.web.WebEngine

@@ -2,7 +2,7 @@ package dev.sluide.previews.preview
 
 import dev.sluide.fileviewers.CodeEditor
 import dev.sluide.fileviewers.StyledRange
-import dev.sluide.previews.web.TextMarks
+import dev.sluide.previews.TextMarks
 import javafx.beans.value.ObservableValue
 import javafx.scene.web.WebView
 import javafx.util.Subscription
