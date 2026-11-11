@@ -13,8 +13,8 @@ data class KdfParams(
         /** RFC 9106's second recommendation: 64 MiB, 3 passes, 4 lanes. */
         val DEFAULT = KdfParams(65_536, 3, 4)
 
-        internal const val MAX_MEMORY_KIB = 1_048_576L
-        internal const val MAX_PASSES = 20L
+        internal const val MAX_MEMORY_KIB = 262_144L
+        internal const val MAX_PASSES = 10L
         internal const val MAX_PARALLELISM = 16
 
         /** Whether readers accept these values; memory and passes are unsigned 32-bit numbers in the file. */

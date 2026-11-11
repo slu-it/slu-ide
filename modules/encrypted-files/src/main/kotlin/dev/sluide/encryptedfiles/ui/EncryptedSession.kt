@@ -504,7 +504,7 @@ internal class EncryptedSession(
         } catch (e: SluencException) {
             UnlockResult.Failed(failureMessage(e.failure, e.formatVersion))
         } catch (_: OutOfMemoryError) {
-            // A crafted file may ask Argon2 for up to 1 GiB; what it allocated is garbage now.
+            // A crafted file may ask Argon2 for up to 256 MiB; what it allocated is garbage now.
             UnlockResult.Failed(OUT_OF_MEMORY)
         } catch (_: IOException) {
             UnlockResult.Failed(READ_FAILED)

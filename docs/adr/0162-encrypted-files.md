@@ -34,9 +34,12 @@ open on any machine with the password.
 - **Parameters are stored per slot and capped.** The default is RFC 9106's second recommendation: 64 MiB, 3 passes,
   parallelism 4 (about 0.2 s on an M-class machine, up to about 1 s on slower ones; all crypto calls block and run off
   the FX thread). A reader
-  refuses, before running Argon2, memory above 1 GiB or below 8 KiB per lane, passes 0 or above 20, parallelism 0 or
-  above 16 ("unsupported parameters"), so a crafted file cannot make Thoreau allocate gigabytes or spin for minutes.
-  Stronger defaults later need no new format.
+  refuses, before running Argon2, memory above 256 MiB or below 8 KiB per lane, passes 0 or above 10, parallelism 0 or
+  above 16 ("unsupported parameters"), so a crafted file cannot make Thoreau allocate gigabytes or spin for minutes:
+  one run at the caps took about 1.5 s on the 12-core Linux machine where the defaults took about 0.1 s (BouncyCastle
+  computes the lanes one after another, so the time grows with memory times passes, about 13 times the default's), so
+  a few seconds up to about 10 s on slow machines. The caps leave room for four times the default memory and more than
+  three times its passes. Stronger defaults later need no new format.
 
 **Format v1** (`.sluenc`, binary, big-endian; `SluencFormat`)
 - `SLUENC` (6 ASCII bytes) | version u8 = 1 | slot count u8 | slots | body nonce (12) | body ciphertext and tag.
@@ -126,7 +129,7 @@ open on any machine with the password.
 - The decisions live in the FX-free `EncryptedSession` (ADR 0084): locked, unlocking, unlocked; the key it owns; the
   failure and warning texts; what a change on disk means. An unlock result that arrives after a lock, a newer unlock or
   the close is dropped and its key closed. `Sluenc.unlock` already checks that the body decrypts, so the tab does not
-  decrypt a second time to verify. An `OutOfMemoryError` during Argon2 (a crafted file may ask for 1 GiB) shows "Not
+  decrypt a second time to verify. An `OutOfMemoryError` during Argon2 (a crafted file may ask for 256 MiB) shows "Not
   enough memory to unlock."; any other unexpected failure is logged by its type only.
 - A new file's key reaches its first tab through the app-wide `EncryptedFiles` registry (`handOver`, taken once by
   path); one not taken within a minute, or replaced by a newer one for the same file, is closed.

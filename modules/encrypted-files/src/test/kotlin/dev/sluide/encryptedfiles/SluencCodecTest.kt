@@ -61,13 +61,13 @@ class SluencCodecTest {
     // and then fails its tag, since the parameters are part of the wrap's associated data.
     @ParameterizedTest(name = "memory {0}, passes {1}, parallelism {2} -> {3}")
     @CsvSource(
-        "1048576, 1, 1, WRONG_PASSWORD",
-        "1048577, 1, 1, UNSUPPORTED_PARAMETERS",
+        "262144, 1, 1, WRONG_PASSWORD",
+        "262145, 1, 1, UNSUPPORTED_PARAMETERS",
         "4294967295, 1, 1, UNSUPPORTED_PARAMETERS",
         "32, 1, 4, WRONG_PASSWORD",
         "31, 1, 4, UNSUPPORTED_PARAMETERS",
-        "64, 20, 1, WRONG_PASSWORD",
-        "64, 21, 1, UNSUPPORTED_PARAMETERS",
+        "64, 10, 1, WRONG_PASSWORD",
+        "64, 11, 1, UNSUPPORTED_PARAMETERS",
         "64, 4294967295, 1, UNSUPPORTED_PARAMETERS",
         "64, 0, 1, UNSUPPORTED_PARAMETERS",
         "128, 1, 16, WRONG_PASSWORD",

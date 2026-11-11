@@ -256,7 +256,7 @@ class SluencTest {
 
     @Test
     fun `parameters above the caps are refused when creating`() {
-        assertThrows<IllegalArgumentException> { Sluenc.create(password, ByteArray(0), KdfParams(64, 21, 1)) }
+        assertThrows<IllegalArgumentException> { Sluenc.create(password, ByteArray(0), KdfParams(64, 11, 1)) }
     }
 
     @Test
