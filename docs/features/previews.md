@@ -237,7 +237,10 @@ text of the page. A span covers `[N, N + text length)`; positions inside it are 
 text is shorter than the source range it stands for is marked up to its end. The page embeds `TextMarks.SCRIPT` in a
 `<script>` element (it attaches `sluide.marks`, keeping an existing `window.sluide`). Marks are CSS Custom Highlights,
 which this JavaFX WebView supports: the page styles `::highlight(mark-<name>)`, not `.mark-<name>`; marks of
-different names may overlap. `TextMarks` takes the web view's zoom as a function (`{ webView.zoom }`), so that
+different names may overlap. The WebKit here does not repaint a replaced or removed highlight by itself, so `mark` and
+`clear` also repaint the spans the old and new range touch; code that changes highlights outside `TextMarks` must do
+the same (see `docs/testing.md`, "Portability"). `TextMarks` takes the web view's zoom as a function
+(`{ webView.zoom }`), so that
 `offsetAt` accepts web view coordinates. Scrolls caused by a zoom or a resize are not user scrolls.
 
 The Markdown preview uses it too, with source offsets as N (gaps between runs are allowed), to show Read Aloud's

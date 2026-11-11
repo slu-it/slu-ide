@@ -150,6 +150,11 @@ CI once.
   time (`ManagementFactory.getThreadMXBean().currentThreadCpuTime`), not `System.nanoTime()`: the larger input
   triggers young GCs the smaller one misses, and their pauses grow with fewer GC threads (a linear scanner measured
   9x for 4x the text on the 3-core macOS runner). Reproduce with `-XX:ActiveProcessorCount=3` and `-Xlog:gc`.
+- **WebView highlights:** the WebKit of JavaFX does not invalidate the paint of a CSS Custom Highlight that is replaced
+  or removed (`CSS.highlights.set/delete`): the old range stays painted until it scrolls out of view and back.
+  `text-marks.js` therefore sets `opacity: 0.999` on the spans the old and new range touch and takes it back in the next
+  animation frame (a repaint without layout; `outline-color` and a no-op change do not repaint). Tests that check
+  highlights must check pixels, not only `CSS.highlights`: `TextMarksUiTest` snapshots the web view.
 - **Git encodings:** git converts commit messages to `i18n.commitEncoding` differently per OS (iconv). Tests read
   messages with `--encoding=UTF-8`, as the app does.
 - **File watching:** the macOS JDK polls (every 2 s, by path, mtime per entry): late events, no events for a folder

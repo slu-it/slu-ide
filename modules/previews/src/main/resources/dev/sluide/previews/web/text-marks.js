@@ -117,12 +117,52 @@
     if (!own) { interrupts++; userScrolled(); }
   });
 
+  // The WebKit of the WebView does not invalidate the paint of a highlight that was replaced or removed: the old one
+  // stays painted (a ghost) until the area scrolls out of view and back. The elements the old and the new range touch
+  // get opacity 0.999 (a repaint but no layout; outline-color does not repaint), taken back a frame later.
+  var touched = {}; // mark name -> the span elements its current range touches
+  var pending = [];
+  // The spans covering [start, end), found by the same binary search as rangeFor: a mark costs its own length, not the
+  // page's (a whole book is one page, and Read Aloud marks every spoken word).
+  function spansOf(start, end) {
+    var list = index();
+    var first = firstWhere(list, function (s) { return s.o + s.len > start; });
+    var last = firstWhere(list, function (s) { return s.o >= end; }) - 1;
+    return list.slice(first, Math.max(first, last + 1)).map(function (s) { return s.el; });
+  }
+  function repaint(els) {
+    if (els.length === 0) return;
+    var fresh = els.filter(function (el) { return pending.indexOf(el) < 0; });
+    fresh.forEach(function (el) { el.style.opacity = '0.999'; });
+    var again = pending.length === 0;
+    pending = pending.concat(fresh);
+    if (!again) return;
+    requestAnimationFrame(function () {
+      var done = pending;
+      pending = [];
+      done.forEach(function (el) { el.style.opacity = ''; });
+    });
+  }
+
   sluide.marks = {
     mark: function (name, start, end) {
       var range = rangeFor(start, end);
-      if (range) CSS.highlights.set('mark-' + name, new Highlight(range)); else CSS.highlights.delete('mark-' + name);
+      var previous = touched[name];
+      if (range) {
+        CSS.highlights.set('mark-' + name, new Highlight(range));
+        touched[name] = spansOf(start, end);
+      } else {
+        CSS.highlights.delete('mark-' + name);
+        delete touched[name];
+      }
+      repaint((previous || []).concat(touched[name] || []));
     },
-    clear: function (name) { CSS.highlights.delete('mark-' + name); },
+    clear: function (name) {
+      CSS.highlights.delete('mark-' + name);
+      var previous = touched[name];
+      delete touched[name];
+      repaint(previous || []);
+    },
     reveal: function (start) {
       // A gap between spans reveals the next span
       var list = index();

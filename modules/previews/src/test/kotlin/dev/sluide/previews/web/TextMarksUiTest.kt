@@ -6,6 +6,7 @@ import javafx.event.Event
 import javafx.scene.Scene
 import javafx.scene.control.Label
 import javafx.scene.input.KeyCode
+import javafx.scene.paint.Color
 import javafx.scene.web.WebEngine
 import javafx.scene.web.WebView
 import javafx.stage.Stage
@@ -138,6 +139,78 @@ class TextMarksUiTest {
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { pixel(left + 1, top + 3).green < 0.2 }
         assertTrue(pixel(left + 1, top + 3).red > 0.9)
         assertTrue(pixel(2, 2).green > 0.9)
+    }
+
+    /** The pixel a little inside the box of the span with `data-o` [offset], taken from a snapshot after the page settled. */
+    private fun pixelOfSpan(offset: Int): Color {
+        val left =
+            (
+                script(
+                    "document.querySelector('[data-o=\"$offset\"]').getBoundingClientRect().left",
+                ) as Number
+            ).toInt()
+        val top =
+            (
+                script(
+                    "document.querySelector('[data-o=\"$offset\"]').getBoundingClientRect().top",
+                ) as Number
+            ).toInt()
+        settle()
+        WaitForAsyncUtils.waitForFxEvents()
+        return fx { webView.snapshot(null, null).pixelReader.getColor(left + 1, top + 3) }
+    }
+
+    private fun assertPainted(offset: Int) =
+        assertTrue(
+            pixelOfSpan(offset).let {
+                it.red > 0.9 && it.green < 0.2
+            },
+            "span $offset is highlighted",
+        )
+
+    private fun assertBackground(offset: Int) =
+        assertTrue(
+            // Not red: the pixel may be one of the dark, antialiased glyph
+            pixelOfSpan(offset).let { !(it.red > 0.9 && it.green < 0.2) },
+            "span $offset is back to the page background",
+        )
+
+    @Test
+    fun `a replaced or cleared mark is repainted without the old highlight`() {
+        load()
+        fx { marks.mark("word", 0, 5) }
+        assertPainted(0)
+        fx { marks.mark("word", 6, 11) }
+        assertPainted(6)
+        assertBackground(0)
+        fx { marks.clear("word") }
+        assertBackground(6)
+    }
+
+    @Test
+    fun `a mark across two paragraphs is repainted when replaced by one elsewhere`() {
+        load()
+        fx { marks.mark("word", 1000, FILLER + 5) }
+        assertPainted(1000)
+        assertPainted(FILLER)
+        fx { marks.mark("word", 6, 11) }
+        assertPainted(6)
+        assertBackground(1000)
+        assertBackground(FILLER)
+    }
+
+    @Test
+    fun `many quick mark changes leave only the last one painted`() {
+        load()
+        fx { marks.mark("word", 0, 5) }
+        assertPainted(0)
+        fx {
+            marks.mark("word", 6, 11)
+            marks.mark("word", 12, 17)
+        }
+        assertPainted(12)
+        assertBackground(0)
+        assertBackground(6)
     }
 
     @Test
