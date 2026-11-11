@@ -6,7 +6,7 @@ import dev.sluide.encryptedfiles.Strength
 /**
  * What the password dialogs decide while typing, without JavaFX (ADR 0084): the strength hint of the new password, why
  * the confirming button is disabled, and whether it is enabled. The fields' texts are only read, never copied;
- * [requireCurrent] adds the current password of Change Password, which must not be empty.
+ * [requireCurrent] adds the current password of Change Password, which must not be empty nor equal the new one.
  */
 internal class PasswordEntryModel(
     private val requireCurrent: Boolean = false,
@@ -46,6 +46,7 @@ internal class PasswordEntryModel(
                 requireCurrent && current.isEmpty() -> ENTER_CURRENT
                 !PasswordRules.acceptable(new) -> TOO_SHORT
                 !new.contentEquals(repeat) -> DIFFER
+                requireCurrent && new.contentEquals(current) -> SAME_AS_CURRENT
                 else -> null
             }
 
@@ -55,5 +56,6 @@ internal class PasswordEntryModel(
         const val TOO_SHORT = "At least 12 characters"
         const val DIFFER = "The passwords differ"
         const val ENTER_CURRENT = "Enter the current password"
+        const val SAME_AS_CURRENT = "The new password is the same as the current one."
     }
 }

@@ -107,8 +107,8 @@ Best effort, as far as the JVM allows:
 ## Change Password
 - **Change Password…** (strip, before Lock, or the tab menu) opens a dialog with Current password, New password and
   Repeat, the strength hint (Weak, OK, Strong), the reason the button is disabled ("At least 12 characters", "The
-  passwords differ", "Enter the current password") and the note "The current text, including unsaved changes, is saved
-  under the new password.".
+  passwords differ", "Enter the current password", "The new password is the same as the current one.") and the note
+  "The current text, including unsaved changes, is saved under the new password.".
 - If the file changed elsewhere with another password and the tab has unsaved changes (the strip's warning), Change
   Password first asks the Replace question of Save (Replace or Cancel, Cancel the default); Cancel opens no dialog and
   changes nothing.

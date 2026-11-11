@@ -43,10 +43,17 @@ class PasswordEntryModelTest {
     }
 
     @Test
-    fun `Change Password also needs a current password`() {
+    fun `Change Password also needs a current password, which the new one must not repeat`() {
         val change = PasswordEntryModel(requireCurrent = true)
         change.update("correct horse battery", "correct horse battery")
         assertEquals(PasswordEntryModel.ENTER_CURRENT, change.problem)
+        change.update(
+            "correct horse battery",
+            "correct horse battery",
+            current = StringBuilder("correct horse battery"),
+        )
+        assertEquals(PasswordEntryModel.SAME_AS_CURRENT, change.problem)
+        assertFalse(change.valid)
         change.update("correct horse battery", "correct horse battery", current = "old")
         assertTrue(change.valid)
     }
