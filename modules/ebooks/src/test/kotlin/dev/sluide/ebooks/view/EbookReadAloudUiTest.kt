@@ -134,9 +134,9 @@ class EbookReadAloudUiTest {
     }
 
     private class MemoryPositions : PositionStore {
-        override fun read(): Int? = null
+        override fun read(): SavedPosition? = null
 
-        override fun write(offset: Int) {}
+        override fun write(position: SavedPosition) {}
     }
 
     private fun highlighted(
@@ -146,7 +146,12 @@ class EbookReadAloudUiTest {
         "(CSS.highlights.get('mark-$name') ? Array.from(CSS.highlights.get('mark-$name')).map(String).join('|') : null)",
     )
 
-    private fun backButton(view: EpubFileView) = view.node.lookup(".ebook-back-to-reading") as Button
+    // The button sits in a SplitPane item: before the skin exists a lookup finds nothing, so style and lay out first.
+    private fun backButton(view: EpubFileView): Button {
+        (view.node as javafx.scene.Parent).applyCss()
+        (view.node as javafx.scene.Parent).layout()
+        return view.node.lookup(".ebook-back-to-reading") as Button
+    }
 
     @Test
     fun `the controls sit in the toolbar and the page shows what they highlight`() {

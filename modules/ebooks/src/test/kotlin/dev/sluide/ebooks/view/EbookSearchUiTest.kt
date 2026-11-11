@@ -88,12 +88,12 @@ class EbookSearchUiTest {
     }
 
     private class MemoryStore : PositionStore {
-        var saved: Int? = null
+        var saved: SavedPosition? = null
 
         override fun read() = saved
 
-        override fun write(offset: Int) {
-            saved = offset
+        override fun write(position: SavedPosition) {
+            saved = position
         }
     }
 
@@ -254,7 +254,14 @@ class EbookSearchUiTest {
         click(panel, 5)
         await { v.topOffsetWhole?.let { kotlin.math.abs(it - gamma.start) < 400 } == true }
         assertFalse(fx { reading.following })
-        assertTrue(fx { (v.node.lookup(".ebook-back-to-reading") as javafx.scene.control.Button).isVisible })
+        assertTrue(
+            fx {
+                // The button sits in a SplitPane item: before the skin exists a lookup finds nothing.
+                (v.node as javafx.scene.Parent).applyCss()
+                (v.node as javafx.scene.Parent).layout()
+                (v.node.lookup(".ebook-back-to-reading") as javafx.scene.control.Button).isVisible
+            },
+        )
         // The next word of the reading, in chapter Alpha, must not take the page away from the hit.
         fx { reading.reveal(0, 5) }
         assertTrue(fx { v.topOffsetWhole!! } >= gamma.start - 400)
