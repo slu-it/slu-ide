@@ -1,0 +1,39 @@
+/* Ebook reader (EpubFileView): toolbar, notices, loading placeholder. Only looked-up colours. */
+.ebook-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-hgap: 2;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.ebook-button {
+    -fx-padding: 2 8 2 8;
+    -fx-background-radius: 0;
+}
+
+.ebook-button .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+    -fx-icon-size: 16;
+}
+
+.ebook-progress {
+    -fx-padding: 0 8 0 8;
+    -fx-font-size: 0.9em;
+    -fx-opacity: 0.8;
+}
+
+.ebook-notice-bar {
+    -fx-padding: 2 6 2 8;
+    -fx-alignment: center-left;
+    -fx-background-color: derive(-fx-background, -6%);
+}
+
+.ebook-overlay {
+    -fx-background-color: -fx-background;
+}
+
+.ebook-overlay-text {
+    -fx-opacity: 0.8;
+    -fx-wrap-text: true;
+    -fx-text-alignment: center;
+}
