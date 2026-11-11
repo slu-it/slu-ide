@@ -12,11 +12,11 @@ import javafx.scene.input.MouseEvent
 
 /**
  * The Contents side panel of the reader (ADR 0165): the book's table of contents as a tree, all expanded. A click on
- * an entry, or Enter on the selected one, calls [onJump] once with its offset; the arrow keys only move the
+ * an entry, or Enter on the selected one, calls [onJump] once with the entry; the arrow keys only move the
  * selection. [follow] moves the selection to the entry of a reading position without jumping. FX thread only.
  */
 internal class ContentsPanel(
-    private val onJump: (Int) -> Unit,
+    private val onJump: (TocItem) -> Unit,
 ) {
     private val tree = TreeView<TocItem>()
     private var items: List<TocItem> = emptyList()
@@ -64,7 +64,7 @@ internal class ContentsPanel(
     private fun jumpToSelected() {
         tree.selectionModel.selectedItem
             ?.value
-            ?.let { onJump(it.offset) }
+            ?.let(onJump)
     }
 
     fun show(entries: List<TocItem>) {
@@ -82,9 +82,15 @@ internal class ContentsPanel(
         }
     }
 
-    /** Selects the entry for [position] and scrolls it into view; clears the selection before the first entry. */
-    fun follow(position: Int) {
-        val target = contentsItemAt(items, position)
+    /**
+     * Selects the entry for [position], preferring one of [chapter] ([contentsItemAt]), and scrolls it into view;
+     * clears the selection before the first entry.
+     */
+    fun follow(
+        position: Int,
+        chapter: Int? = null,
+    ) {
+        val target = contentsItemAt(items, position, chapter)
         if (tree.selectionModel.selectedItem?.value === target) return
         val treeItem = target?.let { find(tree.root, it) }
         if (treeItem == null) {

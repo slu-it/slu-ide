@@ -31,7 +31,16 @@ the left and a toolbar above. Nothing is fetched from the network.
   the toolbar, as in the previews ([previews.md](previews.md)).
 - A fixed-layout book is shown as flowing text, with a notice bar on top (close button) saying so. The same bar says
   "Could not show this chapter: <reason>" (or "This chapter is too large to show.") when a chapter or a Book Style
-  change cannot be built; the page stays as it was and the Book Style toggle goes back.
+  change cannot be built; the page stays as it was and the Book Style toggle goes back. If the very first page cannot
+  be built (nothing is shown yet), the notice stands in the page area instead of the page: the toolbar and Contents
+  stay usable, Previous and Next and Book Style work from the failing chapter, and the failing chapter is not saved as
+  the position (the saved one stays until you choose another chapter). A book that overflows the stack while it is
+  read ("This book is too deeply nested to open.") or runs out of memory ("This book is too large to open.") shows
+  that text instead of the reader.
+- **Chapters without text** (a cover, a plate: only images) share their offset with a neighbour, so an offset alone
+  cannot name them. In chapter mode Contents entries, links and the saved position carry the chapter as well, and show
+  exactly that chapter; the progress label and the Contents selection name it too. A book without a saved position
+  opens on its first spine item, which may be the cover.
 
 ## Contents
 - The left panel (**Contents** toggle, on by default; the divider position survives hiding it) shows the book's table
@@ -46,7 +55,10 @@ the left and a toolbar above. Nothing is fetched from the network.
   scroll (150 ms), and after a jump or a link within the book. It drives the Contents selection, the progress label
   ("Chapter title · 37 %", the percentage of the whole text, rounded down) and the saved position.
 - **Stored** (plain text, like all per-file project data, [ADR 0101](../adr/0101-shared-data-file.md)): in the file's
-  entry of the project data, `"ebook": {"offset": N}`, nothing else. It is written at most once a second, off the FX
+  entry of the project data, `"ebook": {"offset": N}` and, in chapter mode, `"chapter": C` (the position of the shown
+  chapter in the book's chapter list): the offset alone cannot name a chapter without text. Data without `chapter`
+  (older versions, small books) opens the chapter the offset falls in, and a saved chapter that does not contain the
+  offset (the file changed) is ignored. Nothing else is stored. It is written at most once a second, off the FX
   thread, and at once when the tab closes. It follows the file when the explorer moves it.
 - On opening, the saved offset is clamped to the text, the page scrolls so that it is at the top of the view (as do
   Book Style, Contents jumps and chapter links) and the sentence around it is marked as

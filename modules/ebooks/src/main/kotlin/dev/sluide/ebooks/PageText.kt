@@ -15,6 +15,7 @@ internal class PageText {
     private val flat = StringBuilder()
     private val skipRanges = mutableListOf<IntRange>()
     private val anchorOffsets = linkedMapOf<String, Int>()
+    private val anchorChapterOf = linkedMapOf<String, Int>()
     private val pendingAnchors = mutableListOf<String>()
     private var pendingBreak = ""
     private var pendingSpace = false
@@ -28,6 +29,9 @@ internal class PageText {
     val length: Int get() = flat.length
     val text: String get() = flat.toString()
     val anchors: Map<String, Int> get() = anchorOffsets
+
+    /** The spine index of the chapter each anchor was set in. */
+    val anchorChapters: Map<String, Int> get() = anchorChapterOf
 
     /** Sorted skip ranges, overlapping or touching ones merged. */
     val skip: List<IntRange>
@@ -54,8 +58,12 @@ internal class PageText {
         pendingSpace = false
     }
 
-    /** [key] gets the offset of the first text at or after this point. */
-    fun anchor(key: String) {
+    /** [key] (in the chapter with spine index [chapter]) gets the offset of the first text at or after this point. */
+    fun anchor(
+        key: String,
+        chapter: Int,
+    ) {
+        anchorChapterOf.putIfAbsent(key, chapter)
         pendingAnchors += key
     }
 

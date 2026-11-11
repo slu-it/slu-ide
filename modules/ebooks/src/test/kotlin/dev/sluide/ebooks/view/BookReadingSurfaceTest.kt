@@ -124,10 +124,19 @@ class BookReadingSurfaceTest {
             listOf(ChapterSpan(0, "A", 0, 100), ChapterSpan(1, "B", 100, 200), ChapterSpan(2, "C", 200, 300)),
             emptyList(),
             emptyMap(),
+            emptyMap(),
         )
 
     private fun oneChapter(text: String) =
-        BookPage("", text, emptyList(), listOf(ChapterSpan(0, "A", 0, text.length)), emptyList(), emptyMap())
+        BookPage(
+            "",
+            text,
+            emptyList(),
+            listOf(ChapterSpan(0, "A", 0, text.length)),
+            emptyList(),
+            emptyMap(),
+            emptyMap(),
+        )
 
     private fun surface(view: FakeView = FakeView(page())): Triple<FakeView, FakeControls, BookReadingSurface> {
         val controls = FakeControls()

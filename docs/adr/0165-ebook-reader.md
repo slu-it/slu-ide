@@ -50,7 +50,8 @@ packages and amend it where needed.
   below). If the page would be longer than 50,000,000 characters (the threshold, a constructor parameter, instead of the
   20 MB first assumed: the page is a string in memory and in the engine), the view keeps the whole-book `text`, `chapters`, `toc`, `skip` and `anchors` without the html and builds
   each chapter's page on demand with `chapterRange = i..i`. `ShownPage.shift` (whole-book chapter start minus the
-  local start) maps local offsets to whole-book ones; the saved position, the Contents panel, the progress and the
+  local start) maps local offsets to whole-book ones; the saved position (offset and, in chapter mode, the chapter:
+  a chapter without text has no offset of its own), the Contents panel, the progress and the
   hooks of Read Aloud and the search use whole-book offsets only.
 - **Navigation.** The page's script (the text marks plus a click handler) cancels clicks on links itself: `#anchor`
   links scroll with `scrollIntoView` (the page's address is not a real one; an id the page does not have, a link to

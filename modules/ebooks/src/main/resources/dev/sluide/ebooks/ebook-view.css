@@ -38,6 +38,12 @@
     -fx-text-alignment: center;
 }
 
+/* The notice is a Label outside the page, so like the other UI parts it uses the system font, not the editor font. */
+.ebook-page-notice {
+    -fx-padding: 24;
+    -fx-font-family: "System";
+}
+
 .ebook-back-to-reading {
     -fx-background-radius: 12;
     -fx-padding: 4 12 4 12;

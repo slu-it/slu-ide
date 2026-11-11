@@ -71,6 +71,7 @@ internal object BookPageBuilder {
             spans,
             toc,
             flow.anchors.toMap(),
+            flow.anchorChapters.toMap(),
             context.uris.references,
             context.uris.referencedChars,
         )
@@ -124,6 +125,6 @@ internal object BookPageBuilder {
                 chapter?.let {
                     anchors["ch$it-$fragment"].takeIf { fragment.isNotEmpty() } ?: anchors["ch$it"]
                 }
-            if (offset != null) listOf(TocItem(entry.title, offset, children)) else children
+            if (offset != null && chapter != null) listOf(TocItem(entry.title, offset, children, chapter)) else children
         }
 }

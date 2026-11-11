@@ -57,12 +57,14 @@ class EpubFileViewUiTest {
     private val executors = mutableListOf<java.util.concurrent.ExecutorService>()
 
     private class MemoryStore(
-        var saved: Int? = null,
+        var saved: SavedPosition? = null,
     ) : PositionStore {
+        constructor(offset: Int) : this(SavedPosition(offset))
+
         override fun read() = saved
 
-        override fun write(offset: Int) {
-            saved = offset
+        override fun write(position: SavedPosition) {
+            saved = position
         }
     }
 
@@ -286,8 +288,8 @@ class EpubFileViewUiTest {
     @Test
     fun `the contents panel jumps once on a click or Enter, never on the arrow keys or empty space`() {
         val jumps = mutableListOf<Int>()
-        val panel = ContentsPanel { jumps += it }
-        val items = listOf(TocItem("One", 0, emptyList()), TocItem("Two", 50, emptyList()))
+        val panel = ContentsPanel { jumps += it.offset }
+        val items = listOf(TocItem("One", 0, emptyList(), 0), TocItem("Two", 50, emptyList(), 1))
         val tree = panel.node as TreeView<TocItem>
         fx {
             panel.show(items)
@@ -467,7 +469,7 @@ class EpubFileViewUiTest {
         val store = MemoryStore()
         val view = open(store = store, saveDelay = JavaDuration.ofMillis(10))
         view.loadedPage()
-        scrollPage(view, 3000) { store.saved?.let { it > 0 } == true }
+        scrollPage(view, 3000) { store.saved?.let { it.offset > 0 } == true }
         val gamma = fx { assertNotNull(view.page).chapters[2].start }
         awaitEntry({ contentsTree(view) }, "Gamma")
         fx {
@@ -476,7 +478,7 @@ class EpubFileViewUiTest {
             tree.selectionModel.select(cell.treeItem)
             Event.fireEvent(cell, click())
         }
-        await { store.saved?.let { it in gamma..(gamma + 60) } == true }
+        await { store.saved?.let { it.offset in gamma..(gamma + 60) } == true }
 
         fx { view.dispose() }
         val closing = MemoryStore()
@@ -485,7 +487,7 @@ class EpubFileViewUiTest {
         scrollPage(second, 3000) { second.currentPosition > 0 }
         assertNull(closing.saved)
         val shownAt = fx { second.currentPosition.also { second.dispose() } }
-        assertEquals(shownAt, closing.saved)
+        assertEquals(shownAt, closing.saved?.offset)
     }
 
     @Test

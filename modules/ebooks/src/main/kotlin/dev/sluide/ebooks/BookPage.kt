@@ -12,6 +12,8 @@ internal class BookPage(
     val chapters: List<ChapterSpan>,
     val toc: List<TocItem>,
     val anchors: Map<String, Int>,
+    /** The spine index of the chapter each id of [anchors] is in: an offset alone cannot name a chapter without text. */
+    val anchorChapters: Map<String, Int>,
     /** References to images and fonts a build with `inline = false` left out; with 0 its html is the inline one. */
     val resourceRefs: Int = 0,
     /** What those references add when inlined (never less), counted by a build with `inline = false`. */
@@ -29,9 +31,10 @@ internal data class ChapterSpan(
     val end: Int,
 )
 
-/** A table of contents entry resolved to an offset in [BookPage.text]. */
+/** A table of contents entry resolved to an offset in [BookPage.text] and the spine index of its [chapter]. */
 internal data class TocItem(
     val title: String,
     val offset: Int,
     val children: List<TocItem>,
+    val chapter: Int,
 )

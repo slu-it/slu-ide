@@ -179,6 +179,23 @@ class BookPageBuilderTest {
     }
 
     @Test
+    fun `anchors and contents entries know their chapter, also when it has no text`() {
+        val toc = listOf(TestToc("Plate", "c1.xhtml"), TestToc("Plate 2", "c2.xhtml"), TestToc("Next", "c3.xhtml#t"))
+        val plate = "<img src=\"x.png\" alt=\"\"/>"
+        val page = page("<p>zero</p>", plate + "<span id=\"p\"></span>", plate, "<p id=\"t\">three</p>", toc = toc)
+        // Two plates in a row have no text: the same offset, so only the chapter tells them apart.
+        assertEquals(page.chapters[1].start, page.chapters[1].end)
+        assertEquals(page.chapters[1].start, page.chapters[2].start)
+        assertEquals(page.toc[0].offset, page.toc[1].offset)
+        assertEquals(listOf(1, 2, 3), page.toc.map { it.chapter })
+        assertEquals(1, page.anchorChapters["ch1"])
+        assertEquals(1, page.anchorChapters["ch1-p"])
+        assertEquals(2, page.anchorChapters["ch2"])
+        assertEquals(3, page.anchorChapters["ch3-t"])
+        assertEquals(page.anchors.keys, page.anchorChapters.keys)
+    }
+
+    @Test
     fun `a chapter range includes only those chapters and starts its offsets at 0`() {
         val page = page("<p>zero</p>", "<p>one</p>", "<p>two</p>", range = 1..2)
         assertEquals("one\n\ntwo", page.text)
@@ -200,11 +217,11 @@ class BookPageBuilderTest {
         val bodies = arrayOf("<p>zero</p>", "<p>one</p><h2 id=\"s\">Sec</h2><p>tail</p>")
         val full = page(*bodies, toc = toc)
         assertEquals(
-            listOf(TocItem("Part", 0, listOf(TocItem("Section", full.text.indexOf("Sec"), emptyList())))),
+            listOf(TocItem("Part", 0, listOf(TocItem("Section", full.text.indexOf("Sec"), emptyList(), 1)), 0)),
             full.toc,
         )
         val partial = page(*bodies, toc = toc, range = 1..1)
-        assertEquals(listOf(TocItem("Section", partial.text.indexOf("Sec"), emptyList())), partial.toc)
+        assertEquals(listOf(TocItem("Section", partial.text.indexOf("Sec"), emptyList(), 1)), partial.toc)
     }
 
     @Test

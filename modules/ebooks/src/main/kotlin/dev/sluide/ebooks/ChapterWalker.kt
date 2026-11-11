@@ -47,7 +47,7 @@ internal class ChapterWalker(
         val sectionId = "ch$index"
         context.usedIds += sectionId
         flow.block()
-        flow.anchor(sectionId)
+        flow.anchor(sectionId, index)
         out.append("<section").attr("id", sectionId)
         if (context.ownStyle) body?.attr("class")?.takeIf { it.isNotBlank() }?.let { out.attr("class", it) }
         out.append('>')
@@ -282,7 +282,7 @@ internal class ChapterWalker(
         if (raw.isBlank() || raw.any { it.isWhitespace() }) return null
         val id = "ch$index-$raw"
         if (!context.usedIds.add(id)) return null
-        flow.anchor(id)
+        flow.anchor(id, index)
         return id
     }
 
