@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import java.nio.file.Path
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -75,5 +76,18 @@ class GitStatusSnapshotTest {
         assertNotEquals(onMaster, GitStatusSnapshot(root, entries, GitHead("other", "abc")))
         assertNotEquals(onMaster, GitStatusSnapshot(root, entries))
         assertEquals(onMaster, GitStatusSnapshot(root, entries, GitHead("master", "abc")))
+    }
+
+    @Test
+    fun `the start time of the run is kept but does not make snapshots differ`() {
+        val entries = mapOf("a.kt" to GitStatus.ADDED)
+        val early = GitStatusSnapshot(root, entries, startedAt = Instant.EPOCH)
+        val late = GitStatusSnapshot(root, entries, startedAt = Instant.EPOCH.plusSeconds(60))
+
+        assertEquals(early, late)
+        assertEquals(early.hashCode(), late.hashCode())
+        assertEquals(Instant.EPOCH, early.startedAt)
+        assertEquals(Instant.EPOCH, GitStatusSnapshot.parse(root, "", Instant.EPOCH).startedAt)
+        assertNull(GitStatusSnapshot.EMPTY.startedAt)
     }
 }

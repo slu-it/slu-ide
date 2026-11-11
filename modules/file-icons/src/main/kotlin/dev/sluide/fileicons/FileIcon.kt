@@ -53,6 +53,9 @@ enum class FileIcon(
     GENERATED_FOLDER(MaterialDesignF.FOLDER_COG, "file-icon-generated-folder"),
     GENERATED_FOLDER_OPEN(MaterialDesignF.FOLDER_COG_OUTLINE, "file-icon-generated-folder"),
 
+    /** A generated file shown in the explorer (ADR 0163): a cog on the file, in the muted grey of the folders. */
+    GENERATED_FILE(MaterialDesignF.FILE_COG, "file-icon-generated-folder"),
+
     /** Readable file of no known type. */
     TEXT(MaterialDesignF.FILE_DOCUMENT_OUTLINE, "file-icon-text", setOf("txt", "text", "log")),
 

@@ -280,9 +280,12 @@ class FileExplorerView(
      */
     var ignoredByGit: (Path) -> Boolean? by generated::ignoredByGit
 
+    /** Whether git tracks a file: true when tracked, false when untracked or ignored, null when git has no say. FX thread. */
+    var trackedByGit: (Path) -> Boolean? by generated::trackedByGit
+
     /**
-     * Re-checks the generated folders of every loaded folder against [ignoredByGit] after the git status changed;
-     * re-lists only folders where one becomes shown or hidden. FX thread.
+     * Re-checks the generated folders and files of every loaded folder against [ignoredByGit] and [trackedByGit] after
+     * the git status changed; re-lists only folders where one becomes shown or hidden. FX thread.
      */
     fun gitIgnoresChanged() =
         keepSelection(ancestorFallback = true) {

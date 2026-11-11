@@ -31,11 +31,11 @@ class ExplorerSettings(
     }
 
     /**
-     * Whether generated folders (`node_modules`, `build`, ADR 0158) are left out of the tree; stored as
+     * Whether generated folders and files (`node_modules`, `build`, `.DS_Store`, ADR 0158, 0163) are left out of the tree; stored as
      * `explorer.hideGeneratedFolders` (default true), read and stored like [compactFolders].
      */
     val hideGeneratedFolders: BooleanProperty by lazy {
-        flag(HIDE_GENERATED_FOLDERS_KEY, "Cannot store whether the explorer hides generated folders")
+        flag(HIDE_GENERATED_FOLDERS_KEY, "Cannot store whether the explorer hides generated files")
     }
 
     private fun flag(

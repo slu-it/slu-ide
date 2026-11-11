@@ -46,7 +46,7 @@ class ExplorerBarUiTest : FileExplorerViewUiFixture() {
                     "Collapse All",
                     "Refresh (F5)",
                     "Compact Middle Folders",
-                    "Hide Generated Folders",
+                    "Hide Generated Files",
                     "Collapse",
                 ),
                 bar.children.filterIsInstance<Control>().map { it.tooltip.text },

@@ -43,7 +43,10 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.FileTime
+import java.time.Instant
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
@@ -388,6 +391,12 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         project.resolve("tools/build/x.txt").writeText("x\n")
         runGit("add", ".gitignore", "package.json", "tools/build.gradle.kts")
         runGit("add", "-f", "tools/build/x.txt")
+        // Finder's metadata: one committed (shown, like a normal file), one untracked at the root (hidden). The old
+        // modification time keeps the committed one from counting as newer than the status run.
+        project.resolve("tools/.DS_Store").writeText("1\n")
+        Files.setLastModifiedTime(project.resolve("tools/.DS_Store"), FileTime.from(Instant.now().minusSeconds(3600)))
+        project.resolve(".DS_Store").writeText("2\n")
+        runGit("add", "-f", "tools/.DS_Store")
         runGit(*commit, "-m", "Initial commit")
 
         robot.interact { projectService.open(project) }
@@ -410,6 +419,8 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
             assertTrue("build" in shown(), shown().toString())
         }
         assertFalse("node_modules" in shown(), shown().toString())
+        // Only the tracked .DS_Store (in tools) is shown, not the untracked one in the project folder.
+        assertEquals(1, shown().count { it == ".DS_Store" }, shown().toString())
 
         // Git's view changes while the listing of tools does not: only gitIgnoresChanged can hide build again.
         runGit("rm", "-r", "-q", "--cached", "tools/build")

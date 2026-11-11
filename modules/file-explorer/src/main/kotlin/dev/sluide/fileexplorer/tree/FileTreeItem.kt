@@ -64,15 +64,15 @@ internal class FileTreeItem(
     private val reason = ReadOnlyObjectWrapper<GeneratedReason?>(null)
 
     /**
-     * Why this row is a generated folder, shown although it is one (the setting is off, or it was revealed); `null` for
-     * files, top-level rows and folders that are not generated. Updated when the parent lists again and on
+     * Why this row is a generated folder or file, shown although it is one (the setting is off, or it was revealed);
+     * `null` for top-level rows and entries that are not generated. Updated when the parent lists again and on
      * [gitIgnoresChanged].
      */
     val generatedReasonProperty: ReadOnlyObjectProperty<GeneratedReason?> get() = reason.readOnlyProperty
 
     val generatedReason: GeneratedReason? get() = reason.value
 
-    /** The generated folders among the entries of this folder at its last listing, with their structural reason. */
+    /** The generated folders and files among the entries of this folder at its last listing, with their structural reason. */
     private var candidates: Map<Path, GeneratedReason> = emptyMap()
 
     private var childrenLoaded = false
@@ -248,8 +248,15 @@ internal class FileTreeItem(
         }
     }
 
-    /** Whether [entry], an entry of this folder, was a generated folder at the last listing (shown or hidden). */
+    /** Whether [entry], an entry of this folder, was a generated folder or file at the last listing (shown or hidden). */
     fun isGeneratedCandidate(entry: Path): Boolean = entry in candidates
+
+    /**
+     * Whether [entry] is a catalogue file directly inside a middle folder of this compacted row (not its last folder):
+     * hidden files do not stop compacting, so the row has no child for it until it is revealed (ADR 0163).
+     */
+    fun hasHiddenFileInMiddle(entry: Path): Boolean =
+        isCompacted && generated?.isCatalogueFile(entry) == true && entry.parent in chain.dropLast(1)
 
     /** Sets the reason; a folder that became or stopped being generated classifies its loaded content again. */
     private fun setReason(why: GeneratedReason?) {
@@ -259,9 +266,9 @@ internal class FileTreeItem(
     }
 
     /**
-     * Checks the generated folders of this folder and the loaded folders below it against git again, after its status
-     * changed: lists a folder again if one of its generated folders becomes shown or hidden, else only updates the
-     * reasons of the shown ones.
+     * Checks the generated folders and files of this folder and the loaded folders below it against git again, after
+     * its status changed: lists a folder again if one of its generated entries becomes shown or hidden, else only
+     * updates the reasons of the shown ones.
      */
     fun gitIgnoresChanged() {
         if (!childrenLoaded) return
@@ -280,16 +287,22 @@ internal class FileTreeItem(
 
     /** Lists again every loaded folder below this one that has one of [entries] as a row or candidate, to hide them. */
     fun refreshParentsOf(entries: Set<Path>) {
-        if (!childrenLoaded) return
+        if (!childrenLoaded || entries.isEmpty()) return
         val rows = super.getChildren().filterIsInstance<FileTreeItem>()
-        if (rows.any { it.sourcePath in entries } || candidates.keys.any { it in entries }) refresh()
+        // A compacted row that was split to show a revealed file joins again.
+        if (rows.any { it.sourcePath in entries || it.isChainStale() } ||
+            candidates.keys.any { it in entries }
+        ) {
+            refresh()
+        }
         super.getChildren().filterIsInstance<FileTreeItem>().forEach { it.refreshParentsOf(entries) }
     }
 
     private fun chainOf(
         path: Path,
         compacting: Boolean,
-    ): List<Path> = if (compacting) compactChain(path) else listOf(path)
+    ): List<Path> =
+        if (compacting) compactChain(path) { generated?.hidesFileForCompacting(it) == true } else listOf(path)
 
     private fun child(
         chain: List<Path>,

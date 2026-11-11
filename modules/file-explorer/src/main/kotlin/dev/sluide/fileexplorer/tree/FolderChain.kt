@@ -13,23 +13,35 @@ internal const val MAX_CHAIN = 64
  * The folders one row stands for when middle folders are compacted (ADR 0096): [first] and, as long as the last one is
  * a real folder (no link) whose only entry is a real folder other than `.git` (a nested repository ends the chain),
  * that folder; at most [MAX_CHAIN]. Just [first] for a file, a link, an unreadable folder, or one with no or several
- * entries.
+ * entries. Entries for which [ignoring] is true do not count as entries (hidden generated files, ADR 0163).
  */
-internal fun compactChain(first: Path): List<Path> {
+internal fun compactChain(
+    first: Path,
+    ignoring: (Path) -> Boolean = { false },
+): List<Path> {
     val chain = mutableListOf(first)
     while (chain.size < MAX_CHAIN) {
-        val next = onlySubfolder(chain.last()) ?: break
+        val next = onlySubfolder(chain.last(), ignoring) ?: break
         chain.add(next)
     }
     return chain
 }
 
 /** The only entry of [folder] if it is a real folder (not a link, not `.git`) and [folder] is one too; else `null`. */
-private fun onlySubfolder(folder: Path): Path? {
+private fun onlySubfolder(
+    folder: Path,
+    ignoring: (Path) -> Boolean,
+): Path? {
     if (!Files.isDirectory(folder, LinkOption.NOFOLLOW_LINKS)) return null
     val entries =
         try {
-            Files.newDirectoryStream(folder).use { stream -> stream.asSequence().take(2).toList() }
+            Files.newDirectoryStream(folder).use { stream ->
+                stream
+                    .asSequence()
+                    .filterNot(ignoring)
+                    .take(2)
+                    .toList()
+            }
         } catch (_: IOException) {
             return null
         } catch (_: DirectoryIteratorException) {

@@ -21,7 +21,7 @@ import java.nio.file.Path
 
 /**
  * The slim row of icon buttons above the explorer's tree: Select Opened File, Collapse All, Refresh and the Compact
- * Middle Folders and Hide Generated Folders toggles, which follow and set the explorer's settings (shared by all
+ * Middle Folders and Hide Generated Files toggles, which follow and set the explorer's settings (shared by all
  * windows), and at the right end Collapse, which hides the window's explorer column ([collapse], ADR 0104). The window tells it which file is opened
  * ([openedFile]) and what selecting it means ([selectOpened]); the explorer module does not know the editor.
  * [selectOpenedKey] is the platform's text of the shortcut, shown in the tooltip.
@@ -72,12 +72,15 @@ class ExplorerBar(
             selectedProperty().bindBidirectional(explorer.compactFolders)
         }
 
-    /** Hides generated folders such as `node_modules` and `build` (ADR 0158); on while the setting is. */
+    /**
+     * Hides generated folders such as `node_modules` and `build` and files such as `.DS_Store` (ADR 0158, 0163); on
+     * while the setting is.
+     */
     val generatedToggle: ToggleButton =
         ToggleButton(null, FontIcon(MaterialDesignE.EYE_OFF_OUTLINE)).apply {
             id = "explorer-hide-generated"
             styleClass += "explorer-bar-button"
-            tooltip = Tooltip("Hide Generated Folders")
+            tooltip = Tooltip("Hide Generated Files")
             isFocusTraversable = false
             selectedProperty().bindBidirectional(explorer.hideGeneratedFolders)
         }

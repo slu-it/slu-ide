@@ -46,16 +46,24 @@ class TreeItemIconTest {
     fun `a shown generated folder shows the muted cog, closed or open, and none without a reason`() {
         val reason = GeneratedReason("node_modules for package.json")
 
-        assertEquals(FileIcon.GENERATED_FOLDER, generatedFolderIcon(reason, expanded = false))
-        assertEquals(FileIcon.GENERATED_FOLDER_OPEN, generatedFolderIcon(reason, expanded = true))
-        assertNull(generatedFolderIcon(null, expanded = true))
+        assertEquals(FileIcon.GENERATED_FOLDER, generatedIcon(reason, expanded = false))
+        assertEquals(FileIcon.GENERATED_FOLDER_OPEN, generatedIcon(reason, expanded = true))
+        assertNull(generatedIcon(null, expanded = true))
+        assertEquals(
+            FileIcon.GENERATED_FILE,
+            generatedIcon(GeneratedReason("macOS folder metadata", file = true), false),
+        )
     }
 
     @Test
     fun `the generated tooltip names the reason and the setting`() {
         assertEquals(
-            "Generated folder: node_modules for package.json. Hidden while Hide Generated Folders is on",
+            "Generated folder: node_modules for package.json. Hidden while Hide Generated Files is on",
             generatedTooltip(GeneratedReason("node_modules for package.json")),
+        )
+        assertEquals(
+            "Generated file: macOS folder metadata. Hidden while Hide Generated Files is on",
+            generatedTooltip(GeneratedReason("macOS folder metadata", file = true)),
         )
         assertNull(generatedTooltip(null))
     }

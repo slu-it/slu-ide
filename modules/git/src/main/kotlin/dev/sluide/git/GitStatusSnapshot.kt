@@ -2,6 +2,7 @@ package dev.sluide.git
 
 import dev.sluide.git.parse.GitStatusParser
 import java.nio.file.Path
+import java.time.Instant
 import java.util.EnumSet
 
 /**
@@ -15,6 +16,12 @@ class GitStatusSnapshot internal constructor(
     private val entries: Map<String, GitStatus>,
     /** The checked-out branch or commit, or `null` if unknown (no repository, or [EMPTY]). */
     val head: GitHead? = null,
+    /**
+     * When the `git status` run that made this snapshot started (taken before git ran), or `null` for [EMPTY]. Files
+     * changed after it are not reflected in the snapshot. Not part of [equals]: every run has a new time, and a run
+     * with an unchanged result must not count as a change.
+     */
+    val startedAt: Instant? = null,
 ) {
     private val files = HashMap<Path, GitStatus>()
 
@@ -78,6 +85,7 @@ class GitStatusSnapshot internal constructor(
         internal fun parse(
             root: Path,
             output: String,
-        ) = GitStatusSnapshot(root, GitStatusParser.parse(output), GitStatusParser.parseHead(output))
+            startedAt: Instant? = null,
+        ) = GitStatusSnapshot(root, GitStatusParser.parse(output), GitStatusParser.parseHead(output), startedAt)
     }
 }

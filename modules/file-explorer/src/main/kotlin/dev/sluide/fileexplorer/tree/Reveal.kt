@@ -11,7 +11,8 @@ import java.nio.file.Path
  * on the way no longer stands for its folders (ADR 0096). Returns the folders from the top-level one down to the parent
  * of the item, and the item (the top-level folder itself, with no folders, for its own path; the compacted row for one
  * of its middle folders); `null` if no top-level folder holds [path] or it does not exist. Expands nothing. An entry
- * on the way that has no row but is a generated folder (so hidden) is passed to [unhide] and the folder read again.
+ * on the way that has no row but is a generated folder (so hidden) is passed to [unhide] and the folder read again; so
+ * is a hidden generated file in a middle folder of a compacted row, which splits the row.
  */
 internal fun findForReveal(
     topLevel: List<FileTreeItem>,
@@ -32,6 +33,7 @@ internal fun findForReveal(
         item = folder.step(next, target)
             ?: folder.also(FileTreeItem::refresh).step(next, target)
             ?: folder.unhidden(next, unhide)?.step(next, target)
+            ?: folder.splitForHiddenFile(next, target, unhide)?.step(next, target)
             ?: return null
     }
     return folders to item
@@ -44,6 +46,22 @@ private fun FileTreeItem.unhidden(
 ): FileTreeItem? {
     if (!isGeneratedCandidate(next)) return null
     unhide(next)
+    refresh()
+    return this
+}
+
+/**
+ * This folder after [unhide] was called for [target] and it was read again, if the row for [next] is compacted and
+ * [target] is a hidden generated file in one of its middle folders (the revealed file splits the row); else `null`.
+ */
+private fun FileTreeItem.splitForHiddenFile(
+    next: Path,
+    target: Path,
+    unhide: (Path) -> Unit,
+): FileTreeItem? {
+    val row = children.firstOrNull { (it as? FileTreeItem)?.sourcePath == next } as? FileTreeItem ?: return null
+    if (!row.hasHiddenFileInMiddle(target)) return null
+    unhide(target)
     refresh()
     return this
 }

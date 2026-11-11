@@ -2,6 +2,7 @@ package dev.sluide.fileexplorer.tree
 
 import dev.sluide.fileexplorer.FolderIcons
 import dev.sluide.fileexplorer.generated.GeneratedFolderFilter
+import dev.sluide.fileexplorer.generated.GeneratedReason
 import dev.sluide.fileicons.FileIcon
 import javafx.scene.control.TreeItem
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -262,6 +263,41 @@ class FileTreeItemTest {
         assertEquals(listOf(root.resolve("x.txt")), compactChain(root.resolve("x.txt").createFile()))
         assertEquals(MAX_CHAIN, compactChain(root.resolve("e")).size)
         assertTrue(deep.startsWith(compactChain(root.resolve("e")).last()))
+    }
+
+    @Test
+    fun `entries that the ignoring callback names do not count for the chain`() {
+        root.resolve("a/b").createDirectories()
+        root.resolve("a/.DS_Store").createFile()
+        root.resolve("c/d").createDirectories()
+        root.resolve("c/note.txt").createFile()
+
+        assertEquals(listOf(root.resolve("a")), compactChain(root.resolve("a")))
+        assertEquals(
+            listOf(root.resolve("a"), root.resolve("a/b")),
+            compactChain(root.resolve("a")) { it.name == ".DS_Store" },
+        )
+        assertEquals(listOf(root.resolve("c")), compactChain(root.resolve("c")) { it.name == ".DS_Store" })
+    }
+
+    @Test
+    fun `a hidden DS_Store does not stop compacting, and turning the setting off makes the row stale`() {
+        root.resolve("a/b").createDirectories()
+        root.resolve("a/.DS_Store").createFile()
+        root.resolve("a/b/.DS_Store").createFile()
+        root.resolve("x/.DS_Store/inner").createDirectories()
+        val hide = booleanArrayOf(true)
+        val top = FileTreeItem(root, compact = { true }, generated = GeneratedFolderFilter { hide[0] })
+
+        val rows = top.children.filterIsInstance<FileTreeItem>().associateBy { it.sourcePath.name }
+        val row = rows.getValue("a")
+        assertEquals(listOf(root.resolve("a"), root.resolve("a/b")), row.chain)
+        assertFalse(row.isChainStale())
+        // A folder named .DS_Store is a real folder and counts.
+        assertEquals(listOf("x", "x/.DS_Store", "x/.DS_Store/inner").map(root::resolve), rows.getValue("x").chain)
+
+        hide[0] = false
+        assertTrue(row.isChainStale())
     }
 
     @Test
@@ -555,5 +591,35 @@ class FileTreeItemTest {
         filter.ignoredByGit = { true }
         item.gitIgnoresChanged()
         assertEquals("node_modules for package.json", modules.generatedReason?.text)
+    }
+
+    @Test
+    fun `a DS_Store file is hidden, or shown with a file reason when the setting is off`() {
+        root.resolve(".DS_Store").createFile()
+        root.resolve("a.txt").createFile()
+        assertEquals(listOf("a.txt"), names(FileTreeItem(root, generated = filter())))
+
+        val item = FileTreeItem(root, generated = filter(hide = false))
+
+        assertEquals(listOf(".DS_Store", "a.txt"), names(item))
+        val row = item.children.filterIsInstance<FileTreeItem>().first { it.value.name == ".DS_Store" }
+        assertEquals(GeneratedReason("macOS folder metadata", file = true), row.generatedReason)
+    }
+
+    @Test
+    fun `a tracked DS_Store is shown without reason and follows git status changes`() {
+        root.resolve(".DS_Store").createFile()
+        val filter = filter()
+        val item = FileTreeItem(root, generated = filter)
+        assertEquals(emptyList(), names(item))
+
+        filter.trackedByGit = { true }
+        item.gitIgnoresChanged()
+        assertEquals(listOf(".DS_Store"), names(item))
+        assertNull((item.children.first() as FileTreeItem).generatedReason)
+
+        filter.trackedByGit = { false }
+        item.gitIgnoresChanged()
+        assertEquals(emptyList(), names(item))
     }
 }

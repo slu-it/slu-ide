@@ -118,7 +118,7 @@ class FileExplorerViewFolderIconsUiTest : FileExplorerViewUiFixture() {
         val cell = robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).first { it.text == ".venv" }
         assertEquals(
             "Library code (virtual environment): opens read-only\n" +
-                "Generated folder: virtual environment (pyvenv.cfg). Hidden while Hide Generated Folders is on",
+                "Generated folder: virtual environment (pyvenv.cfg). Hidden while Hide Generated Files is on",
             cell.tooltip.text,
         )
         assertIcon(robot, project.name, FileIcon.FOLDER_OPEN)
@@ -131,7 +131,7 @@ class FileExplorerViewFolderIconsUiTest : FileExplorerViewUiFixture() {
         assertIcon(robot, ".venv", FileIcon.GENERATED_FOLDER_OPEN)
         val shown = robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).first { it.text == ".venv" }
         assertEquals(
-            "Generated folder: virtual environment (pyvenv.cfg). Hidden while Hide Generated Folders is on",
+            "Generated folder: virtual environment (pyvenv.cfg). Hidden while Hide Generated Files is on",
             shown.tooltip.text,
         )
     }
@@ -191,7 +191,7 @@ class FileExplorerViewFolderIconsUiTest : FileExplorerViewUiFixture() {
 
         assertIcon(robot, "node_modules", FileIcon.GENERATED_FOLDER)
         assertEquals(
-            "Generated folder: node_modules for package.json. Hidden while Hide Generated Folders is on",
+            "Generated folder: node_modules for package.json. Hidden while Hide Generated Files is on",
             cellOf(robot, "node_modules").tooltip.text,
         )
         expand(robot, "node_modules")

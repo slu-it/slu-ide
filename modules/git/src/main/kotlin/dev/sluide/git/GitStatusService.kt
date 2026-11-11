@@ -21,6 +21,7 @@ import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
@@ -380,6 +381,8 @@ class GitStatusService(
         trustText: String,
     ) {
         val statusStart = System.nanoTime()
+        // Taken before git runs: a file written while it runs may be missing from its output (GitStatusSnapshot).
+        val startedAt = Instant.now()
         val task = tasks.start(REFRESHING)
         val (snapshot, statusMillis) =
             try {
@@ -391,7 +394,7 @@ class GitStatusService(
                     task.close("git status failed")
                     return
                 }
-                GitStatusSnapshot.parse(current.root, output) to statusMillis
+                GitStatusSnapshot.parse(current.root, output, startedAt) to statusMillis
             } catch (t: Throwable) {
                 task.failed(t)
                 throw t

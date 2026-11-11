@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.stream.Stream
@@ -146,6 +148,39 @@ class GeneratedFoldersTest {
     fun `two-segment rule needs the right parent name`() {
         root.resolve("Gemfile").createFile()
         assertNull(reason(root.resolve("other/bundle").createDirectories()))
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = [".ds_store", "x.DS_Store", ".DS_Store.bak", "DS_Store"])
+    fun `only the exact name DS_Store is a generated file`(name: String) {
+        assertNull(generatedFileReason(root.resolve(name)))
+    }
+
+    @Test
+    fun `the filter classifies a DS_Store file but not a folder of that name`() {
+        val filter = GeneratedFolderFilter { true }
+        val file = root.resolve(".DS_Store").createFile()
+        val folder = root.resolve("sub/.DS_Store").also { it.createDirectories() }
+
+        assertEquals(GeneratedReason("macOS folder metadata", file = true), filter.structural(file, setOf(".DS_Store")))
+        assertNull(filter.structural(folder, setOf(".DS_Store")))
+        assertNull(filter.structural(root.resolve("missing"), emptySet()))
+    }
+
+    @ParameterizedTest(name = "file={0} tracked={1} ignored={2}")
+    @CsvSource("true,true,", "true,false,", "true,,", "false,,true", "false,,false", "false,,")
+    fun `git decides a file by tracked and a folder by ignored`(
+        file: Boolean,
+        tracked: Boolean?,
+        ignored: Boolean?,
+    ) {
+        val filter = GeneratedFolderFilter { true }
+        filter.trackedByGit = { tracked }
+        filter.ignoredByGit = { ignored }
+        val reason = GeneratedReason("x", file = file)
+
+        val expectedGenerated = if (file) tracked != true else ignored != false
+        assertEquals(if (expectedGenerated) reason else null, filter.effective(root, reason))
     }
 
     @Test

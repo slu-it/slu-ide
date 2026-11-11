@@ -10,7 +10,11 @@ import dev.sluide.git.cli.GitCli
 import dev.sluide.ide.trustingTrust
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.FileTime
+import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
@@ -139,5 +143,69 @@ class GitMarkersTest {
         assertEquals(false, snapshot.ignoresFolder(path("tools")), "ignored files do not make the folder ignored")
         assertNull(snapshot.ignoresFolder(root.resolveSibling("elsewhere")))
         assertNull(GitStatusSnapshot.EMPTY.ignoresFolder(path("node_modules")))
+    }
+
+    /** Creates [relative] below [root] with the modification time [age] before [startedAt] (negative: after). */
+    private fun file(
+        relative: String,
+        startedAt: Instant,
+        age: Duration,
+    ): Path =
+        path(relative).also {
+            it.parent.createDirectories()
+            it.writeText("")
+            Files.setLastModifiedTime(it, FileTime.from(startedAt.minus(age)))
+        }
+
+    @Test
+    fun `git tracks a file unless it is untracked or ignored, also inside such folders`() {
+        val snapshot =
+            snapshotOf(
+                "1 .M N... 100644 100644 100644 e69de29 e69de29 modified/.DS_Store",
+                "1 A. N... 000000 100644 100644 0000000 e69de29 added/.DS_Store",
+                "? untracked/.DS_Store",
+                "? newdir/",
+                "! ignored/.DS_Store",
+                "! outdir/",
+            )
+        val started = snapshot.startedAt ?: fail("no start time")
+        val old = Duration.ofHours(1)
+
+        assertEquals(
+            true,
+            snapshot.tracksFile(file("clean/.DS_Store", started, old)),
+            "no entry means tracked and clean",
+        )
+        assertEquals(true, snapshot.tracksFile(file("modified/.DS_Store", started, old)))
+        assertEquals(true, snapshot.tracksFile(file("added/.DS_Store", started, old)))
+        assertEquals(false, snapshot.tracksFile(path("untracked/.DS_Store")))
+        assertEquals(false, snapshot.tracksFile(path("ignored/.DS_Store")))
+        assertEquals(false, snapshot.tracksFile(path("newdir/deep/.DS_Store")))
+        assertEquals(false, snapshot.tracksFile(path("outdir/deep/.DS_Store")))
+        assertNull(snapshot.tracksFile(root.resolveSibling("elsewhere/.DS_Store")))
+        assertNull(GitStatusSnapshot.EMPTY.tracksFile(path(".DS_Store")))
+    }
+
+    @Test
+    fun `a file the status cannot know yet is not tracked as far as git says`() {
+        val snapshot = snapshotOf("? other.txt")
+        val started = snapshot.startedAt ?: fail("no start time")
+
+        assertEquals(true, snapshot.tracksFile(file("old/.DS_Store", started, Duration.ofSeconds(3))))
+        assertNull(snapshot.tracksFile(file("margin/.DS_Store", started, Duration.ofSeconds(1))), "within the margin")
+        assertNull(snapshot.tracksFile(file("new/.DS_Store", started, Duration.ofMinutes(-1))), "after the run began")
+        assertNull(snapshot.tracksFile(path("missing/.DS_Store")), "no modification time counts as new")
+    }
+
+    @Test
+    fun `git has no say about a file inside a nested repository`() {
+        val snapshot = snapshotOf("? other.txt")
+        val started = snapshot.startedAt ?: fail("no start time")
+        val old = Duration.ofHours(1)
+        val inSubmodule = file("sub/deep/.DS_Store", started, old)
+        path("sub/.git").writeText("gitdir: ../.git/modules/sub")
+
+        assertNull(snapshot.tracksFile(inSubmodule))
+        assertEquals(true, snapshot.tracksFile(file("plain/.DS_Store", started, old)))
     }
 }

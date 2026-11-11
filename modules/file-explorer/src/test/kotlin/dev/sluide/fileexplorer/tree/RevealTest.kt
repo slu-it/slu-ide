@@ -219,6 +219,38 @@ class RevealTest {
     }
 
     @Test
+    fun `a hidden generated file as the target itself is unhidden and found`() {
+        val file = project.resolve("src/.DS_Store").also { it.parent.createDirectories() }.createFile()
+        val filter = GeneratedFolderFilter { true }
+        val top = FileTreeItem(project, generated = filter)
+
+        assertNull(findForReveal(listOf(top), file))
+        val (_, item) = assertNotNull(findForReveal(listOf(top), file, filter::unhide))
+
+        assertEquals(file, item.value)
+    }
+
+    @Test
+    fun `a hidden generated file in a middle folder of a compacted row splits the row, and hiding joins it again`() {
+        val folder = project.resolve("a/b").createDirectories()
+        folder.resolve("x.txt").createFile()
+        val file = project.resolve("a/.DS_Store").createFile()
+        val filter = GeneratedFolderFilter { true }
+        val top = FileTreeItem(project, compact = { true }, generated = filter)
+        assertEquals(listOf(project.resolve("a"), folder), (top.children.single() as FileTreeItem).chain)
+
+        val (folders, item) = assertNotNull(findForReveal(listOf(top), file, filter::unhide))
+
+        assertEquals(file, item.value)
+        assertEquals(listOf(top, top.children.single()), folders)
+        assertEquals(listOf(project.resolve("a")), (top.children.single() as FileTreeItem).chain)
+
+        top.refreshParentsOf(filter.clearRevealed())
+
+        assertEquals(listOf(project.resolve("a"), folder), (top.children.single() as FileTreeItem).chain)
+    }
+
+    @Test
     fun `a revealed folder keeps its row when the parent is read again`() {
         project.resolve("package.json").createFile()
         val file = project.resolve("node_modules/x/index.js").also { it.parent.createDirectories() }.createFile()
