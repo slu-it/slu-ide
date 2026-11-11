@@ -1,6 +1,7 @@
 package dev.sluide.ebooks.view
 
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -21,6 +22,26 @@ class PageBridgeTest {
     )
     fun `everything else is a navigation away`(location: String) {
         assertFalse(isOwnPage(location))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        delimiter = '|',
+        value = [
+            "https://example.com/a b.html|https://example.com/a%20b.html",
+            "https://example.com/Käse?q=ü ö#ab c|https://example.com/K%C3%A4se?q=%C3%BC%20%C3%B6#ab%20c",
+            "http://example.com/a%20b|http://example.com/a%20b",
+            "mailto:Jörg Müller <j@example.com>?subject=Hallo Welt|" +
+                "mailto:J%C3%B6rg%20M%C3%BCller%20%3Cj@example.com%3E?subject=Hallo%20Welt",
+            "https://example.com/\"x\"|https://example.com/%22x%22",
+            "https://example.com/a\uD83D\uDE00b|https://example.com/a%F0%9F%98%80b",
+        ],
+    )
+    fun `a link with spaces or non-ASCII characters is percent-encoded instead of dropped`(
+        href: String,
+        expected: String,
+    ) {
+        assertEquals(expected, externalLink(href)?.toString())
     }
 
     @Test

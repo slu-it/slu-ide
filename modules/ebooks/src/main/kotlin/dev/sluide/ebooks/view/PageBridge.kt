@@ -54,7 +54,8 @@ internal class PageBridge(
         } else {
           bridge.anchorNotHere(id);
         }
-      } else {
+      } else if (e.detail <= 1) {
+        // The second click of a double-click does not open the link again.
         bridge.openLink(href);
       }
       return;
@@ -74,10 +75,29 @@ internal class PageBridge(
 internal fun isOwnPage(location: String?): Boolean =
     location.isNullOrEmpty() || location == "about:blank" || location.startsWith("about:blank#")
 
-/** The URI of [href] if it is a link for the system browser (http, https, mailto), else null. */
+/**
+ * The URI of [href] if it is a link for the system browser (http, https, mailto), else null. Characters a URI cannot
+ * hold (spaces, umlauts, quotes) are percent-encoded as UTF-8; existing `%XX` escapes stay.
+ */
 internal fun externalLink(href: String): URI? =
     try {
-        URI(href.trim()).takeIf { it.scheme?.lowercase() in setOf("http", "https", "mailto") }
+        URI(percentEncoded(href.trim())).takeIf { it.scheme?.lowercase() in setOf("http", "https", "mailto") }
     } catch (_: URISyntaxException) {
         null
     }
+
+private const val ILLEGAL_IN_URI = "\"<>\\^`{|}"
+
+private fun percentEncoded(text: String): String {
+    val out = StringBuilder()
+    // By code point: an emoji is a surrogate pair, which UTF-8 encodes as one four-byte sequence.
+    for (codePoint in text.codePoints().toArray()) {
+        if (codePoint in 0x21..0x7e && codePoint.toChar() !in ILLEGAL_IN_URI) {
+            out.append(codePoint.toChar())
+        } else {
+            val bytes = String(Character.toChars(codePoint)).toByteArray(Charsets.UTF_8)
+            for (byte in bytes) out.append('%').append("%02X".format(byte))
+        }
+    }
+    return out.toString()
+}

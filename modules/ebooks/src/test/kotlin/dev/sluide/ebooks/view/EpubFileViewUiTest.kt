@@ -528,10 +528,18 @@ class EpubFileViewUiTest {
         }
         await { host.webPages.isNotEmpty() }
         assertEquals("https://example.com/out", host.webPages.single().toString())
+        // The second click of a double-click reaches the page with detail 2: it must not open the link again.
+        fx {
+            view.webView.engine.executeScript(
+                "document.querySelector('a[href^=\"https\"]').dispatchEvent(" +
+                    "new MouseEvent('click', {bubbles: true, cancelable: true, detail: 2}))",
+            )
+        }
         Thread.sleep(300) // negative check: a navigation would show up as a changed location or a reload
         fx {
             assertEquals(before, view.webView.engine.location)
             assertEquals(0, loads.get())
+            assertEquals(1, host.webPages.size)
         }
     }
 
