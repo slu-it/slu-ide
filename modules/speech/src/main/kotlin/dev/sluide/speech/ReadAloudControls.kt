@@ -46,7 +46,8 @@ class ReadAloudControls internal constructor(
     /**
      * Called once when a reading reached [ReadingText.end] on its own, and at once for a [ReadingText] with nothing to
      * speak from its start on (an empty chapter); not after [stop] or an error. The reading is over when it is called,
-     * so it may [play] the next text (the next chapter).
+     * so it may [play] the next text (the next chapter). Play only while there is a next text: a caller that always
+     * plays again at the end of the book loops on setup checks.
      */
     var onFinished: () -> Unit = {}
 
