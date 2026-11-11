@@ -230,6 +230,20 @@ class EncryptedFileViewUiTest {
     }
 
     @Test
+    fun `Unlock overwrites the password field with filler before it clears it`(robot: FxRobot) {
+        val view = open(create("notes.txt.sluenc", "one\n"), robot)
+        val field = fx { view.node.lookup(".encrypted-password") as TextInputControl }
+        val seen = mutableListOf<String>()
+        fx { field.textProperty().addListener { _, _, new -> seen += new } }
+
+        unlock(view, robot)
+
+        // The first change is the typed password; then Unlock overwrites it with filler and clears the field.
+        assertEquals(listOf("*".repeat(password.length), ""), fx { seen.takeLast(2) })
+        robot.interact { view.dispose() }
+    }
+
+    @Test
     fun `a wrong password shows why and keeps the field, the right one shows the Markdown view`(robot: FxRobot) {
         val file = create("notes.md.sluenc", "# MARKER-1\n")
         // The unlocks wait until the test lets them run.

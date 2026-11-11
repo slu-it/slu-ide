@@ -48,6 +48,19 @@ class PasswordDialogsUiTest {
         WaitForAsyncUtils.waitForFxEvents()
     }
 
+    @Test
+    fun `wipeField overwrites the typed characters in the builder's own array before clearing`(robot: FxRobot) {
+        val field = fx { PasswordField().apply { text = "secret-pw" } }
+        val array = fx { backingArray(field) }
+        assertTrue(String(array, Charsets.ISO_8859_1).startsWith("secret-pw"))
+
+        fx { wipeField(field) }
+
+        assertEquals("", fx { field.text })
+        assertTrue(fx { backingArray(field) } === array, "the characters stay in the same array")
+        assertTrue(array.none { it != '*'.code.toByte() && it != 0.toByte() }, "only filler or zeros remain")
+    }
+
     private fun field(
         robot: FxRobot,
         id: String,
@@ -100,11 +113,14 @@ class PasswordDialogsUiTest {
         assertTrue(fx { button(robot, "Create").isDisable })
         type(robot)
         assertFalse(fx { button(robot, "Create").isDisable })
+        val seenInField = mutableListOf<String>()
+        fx { field(robot, "#password-new").textProperty().addListener { _, _, new -> seenInField += new } }
         robot.interact { button(robot, "Create").fire() }
         awaitFx { result.get() != null }
 
         assertEquals(true, result.get())
         assertEquals(password, seen.get())
+        assertEquals(listOf("*".repeat(password.length), ""), seenInField, "Create overwrites the field, then clears")
         assertTrue(received.get().all { it == '\u0000' }, "the password array is zeroed after the work")
     }
 

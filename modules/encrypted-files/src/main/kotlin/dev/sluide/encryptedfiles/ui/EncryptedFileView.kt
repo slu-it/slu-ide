@@ -336,7 +336,7 @@ internal class EncryptedFileView(
             windowFocus.unsubscribe()
             settings.idleLockMinutes.removeListener(idleSettingListener)
             idleOn = false
-            lockedPane.field.clear()
+            wipeField(lockedPane.field)
             registry.closed(this, path, closedEmpty)
         }
     }
@@ -384,7 +384,7 @@ internal class EncryptedFileView(
     private fun unlock() {
         if (session.state != SessionState.LOCKED || innerViewer == null) return
         val password = lockedPane.field.text.toCharArray()
-        lockedPane.field.clear()
+        wipeField(lockedPane.field)
         if (password.isEmpty()) return
         // Disabling the field may move the focus away; a failed unlock gives it back.
         focusAfterUnlock = focusInside()

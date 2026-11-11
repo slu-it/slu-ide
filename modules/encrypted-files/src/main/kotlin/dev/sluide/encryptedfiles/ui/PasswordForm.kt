@@ -106,7 +106,7 @@ internal fun showPasswordDialog(
         if (busy || !model.valid) return
         val current = currentField.text.toCharArray()
         val new = newField.text.toCharArray()
-        (if (withCurrent) listOf(currentField) else fields).forEach { it.clear() }
+        (if (withCurrent) listOf(currentField) else fields).forEach(::wipeField)
         busy = true
         status.text = busyText
         refresh()
@@ -119,7 +119,7 @@ internal fun showPasswordDialog(
         submit()
     }
     dialog.setOnCloseRequest { event -> if (busy) event.consume() }
-    dialog.setOnHidden { fields.forEach { it.clear() } }
+    dialog.setOnHidden { fields.forEach(::wipeField) }
     dialog.setResultConverter { succeeded }
     dialog.setOnShown { Platform.runLater { fields.first().requestFocus() } }
     refresh()
@@ -133,4 +133,14 @@ private fun passwordField(
     promptText = prompt
     id = fieldId
     prefColumnCount = 22
+}
+
+/**
+ * Clears [field] after overwriting its text with same-length filler. JavaFX keeps the text in a StringBuilder that
+ * `clear()` only shortens, so the typed password would stay in its backing array; `setText` replaces the characters
+ * in place first.
+ */
+internal fun wipeField(field: PasswordField) {
+    field.text = "*".repeat(field.length)
+    field.clear()
 }
