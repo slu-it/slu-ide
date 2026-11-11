@@ -225,7 +225,7 @@ updated when the summary or keywords no longer fit.
 ### Previews
 | Feature | Summary | Keywords |
 |---|---|---|
-| [previews.md](features/previews.md) | Rendered previews beside the source and how they zoom | HTML, SVG, CSV, notebooks, Mermaid, PEM, Bicep graph, zoom |
+| [previews.md](features/previews.md) | Rendered previews beside the source and how they zoom | HTML, SVG, CSV, notebooks, Mermaid, PEM, Bicep graph, zoom, TextMarks, DocumentZoom |
 | [markdown-preview.md](features/markdown-preview.md) | Markdown source beside a sanitised rendered preview | Markdown, KaTeX, Mermaid, Source/Split/Preview, table of contents, scroll sync, Read Aloud, Export on the right |
 | [markdown-export.md](features/markdown-export.md) | Markdown exported as self-contained HTML | Export → HTML, self-contained, `<name>.css`, light/dark, confidential content |
 | [media-player.md](features/media-player.md) | Audio and video files play in a tab with controls, one at a time, in the background | `MediaFileViewer`, mp3, wav, mp4, volume, mute, `PlaybackCoordinator`, ffmpeg |

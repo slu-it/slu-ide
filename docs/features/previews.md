@@ -219,3 +219,21 @@ notebooks, PEM) zooms as a document: the whole page scales and reflows, as in a 
   "Not shown in detail"; a block that cannot be read shows its label and the error; a note counts BEGIN lines
   without an END line.
 - All text is HTML-escaped. Styles in `pem.css`, after `preview.css`, with `body.dark` rules.
+
+## Web kit for other modules
+
+Package `dev.sluide.previews.web` offers two pieces for modules that show their own WebView page.
+
+- `DocumentZoom(webView)`: the document zoom of the HTML and Markdown previews (ADR 0083). `node` is the toolbar group
+  (zoom out, level, zoom in, 100%); `install()` adds Shortcut+Plus/Minus/0 and Shortcut+wheel or pinch on the web view.
+- `TextMarks(engine)`: marks ranges of the page's text by offset, scrolls to an offset, and finds the offset at the top
+  of the viewport or under a point. Calls do nothing (or answer null or false) until a page has loaded; `onUserScroll`
+  is called for wheel, scroll keys, touch and scrollbar scrolling, not for `reveal`.
+
+The page contract: every text run is `<span data-o="N">text</span>`, N being the offset of its first char in the flat
+text of the page. A span covers `[N, N + text length)`; positions inside it are clamped to it, so a span whose rendered
+text is shorter than the source range it stands for is marked up to its end. The page embeds `TextMarks.SCRIPT` in a
+`<script>` element (it attaches `sluide.marks`, keeping an existing `window.sluide`). Marks are CSS Custom Highlights,
+which this JavaFX WebView supports: the page styles `::highlight(mark-<name>)`, not `.mark-<name>`; marks of
+different names may overlap. `TextMarks` takes the web view's zoom as a function (`{ webView.zoom }`), so that
+`offsetAt` accepts web view coordinates. Scrolls caused by a zoom or a resize are not user scrolls.
