@@ -266,6 +266,31 @@ class TextMarksUiTest {
     }
 
     @Test
+    fun `scrollToTop puts the line at the top without a user scroll, a wheel right after is reported`() {
+        load()
+        val offset = FILLER + 45 * 20
+        fx { marks.scrollToTop(offset) }
+        settle()
+        assertTrue(fx { marks.topOffset() } in offset..(offset + 2), "top ${fx { marks.topOffset() }}")
+        assertEquals(0, userScrolls)
+        script("window.dispatchEvent(new WheelEvent('wheel', { deltaY: 100 }))")
+        assertEquals(1, userScrolls)
+    }
+
+    @Test
+    fun `a scrollToTop and a reveal in the same frame are both told apart from the user`() {
+        load()
+        fx {
+            marks.scrollToTop(FILLER + 45 * 20)
+            marks.reveal(FILLER + 5 * 20)
+        }
+        settle()
+        assertEquals(0, userScrolls)
+        // The reveal came last: the second scroll of scrollToTop does not take the page away from it.
+        assertTrue(fx { marks.isVisible(FILLER + 5 * 20, FILLER + 5 * 20 + 5) })
+    }
+
+    @Test
     fun `a wheel or a scroll by the user is reported`() {
         load()
         script("window.dispatchEvent(new WheelEvent('wheel', { deltaY: 100 }))")

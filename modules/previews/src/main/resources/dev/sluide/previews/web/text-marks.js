@@ -81,16 +81,19 @@
     return Array.prototype.filter.call(range.getClientRects(), function (r) { return r.width > 0 || r.height > 0; });
   }
 
-  // User scrolling: wheel, scroll keys, touch, scrollbar. Scrolls by reveal() are told apart by their position.
-  var expected = null;
+  // User scrolling: wheel, scroll keys, touch, scrollbar. Scrolls by reveal() and scrollToTop() are told apart by their
+  // position: the scrollY values the page scrolled to itself (several, when it scrolled twice in one frame).
+  var expected = [];
+  // Counts what scrolled the page other than scrollToTop (the user, a reveal): it cancels a pending second scroll.
+  var interrupts = 0;
   function userScrolled() {
     var bridge = window.sluideMarksBridge;
     if (bridge) bridge.userScrolled();
   }
-  window.addEventListener('wheel', function (e) { if (!e.ctrlKey && !e.metaKey) { expected = null; userScrolled(); } }, { passive: true });
-  window.addEventListener('touchmove', function () { expected = null; userScrolled(); }, { passive: true });
+  window.addEventListener('wheel', function (e) { if (!e.ctrlKey && !e.metaKey) { expected = []; interrupts++; userScrolled(); } }, { passive: true });
+  window.addEventListener('touchmove', function () { expected = []; interrupts++; userScrolled(); }, { passive: true });
   window.addEventListener('keydown', function (e) {
-    if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].indexOf(e.key) >= 0) { expected = null; userScrolled(); }
+    if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].indexOf(e.key) >= 0) { expected = []; interrupts++; userScrolled(); }
   });
   // A zoom or a resize changes the viewport size, and may scroll the page: not the user's doing.
   var viewW = window.innerWidth, viewH = window.innerHeight;
@@ -108,10 +111,10 @@
     requestAnimationFrame(function () { requestAnimationFrame(function () { resizing--; }); });
   });
   window.addEventListener('scroll', function () {
-    if (viewChanged() || resizing > 0) { expected = null; return; }
-    if (expected !== null && Math.abs(window.scrollY - expected) < 1) { expected = null; return; }
-    expected = null;
-    userScrolled();
+    if (viewChanged() || resizing > 0) { expected = []; return; }
+    var own = expected.some(function (y) { return Math.abs(window.scrollY - y) < 1; });
+    expected = [];
+    if (!own) { interrupts++; userScrolled(); }
   });
 
   sluide.marks = {
@@ -132,7 +135,29 @@
       if (r.top >= h * 0.15 && r.bottom <= h * 0.85) return;
       var before = window.scrollY;
       window.scrollTo(window.scrollX, Math.max(0, before + r.top - (h - r.height) / 2));
-      expected = window.scrollY !== before ? window.scrollY : null;
+      if (window.scrollY !== before) { expected.push(window.scrollY); interrupts++; }
+    },
+    // Scrolls so that the line of the char at start is at the top of the viewport. The layout may not be complete right
+    // after a load: it is done again two frames later, unless the page was scrolled meanwhile.
+    scrollToTop: function (start) {
+      function once() {
+        var list = index();
+        var next = list[firstWhere(list, function (s) { return s.o + s.len > start; })];
+        var at = next ? Math.max(start, next.o) : 0;
+        var range = next && rangeFor(at, at + 1);
+        var r = range && rects(range)[0];
+        if (!r) return null;
+        var before = window.scrollY;
+        window.scrollTo(window.scrollX, Math.max(0, before + r.top));
+        if (window.scrollY !== before) expected.push(window.scrollY);
+        return window.scrollY;
+      }
+      // Two frames later only if nothing else (the user, a reveal) has moved the page since.
+      var seen = interrupts;
+      once();
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { if (interrupts === seen) once(); });
+      });
     },
     isVisible: function (start, end) {
       var range = rangeFor(start, end);

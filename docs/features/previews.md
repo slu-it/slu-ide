@@ -228,7 +228,9 @@ Package `dev.sluide.previews.web` offers two pieces for modules that show their 
   (zoom out, level, zoom in, 100%); `install()` adds Shortcut+Plus/Minus/0 and Shortcut+wheel or pinch on the web view.
 - `TextMarks(engine)`: marks ranges of the page's text by offset, scrolls to an offset, and finds the offset at the top
   of the viewport or under a point. Calls do nothing (or answer null or false) until a page has loaded; `onUserScroll`
-  is called for wheel, scroll keys, touch and scrollbar scrolling, not for `reveal`.
+  is called for wheel, scroll keys, touch and scrollbar scrolling, not for `reveal` or `scrollToTop` (which puts the
+  line of an offset at the top of the viewport; both register the scroll position they cause, so a wheel or key right
+  after is still reported).
 
 The page contract: every text run is `<span data-o="N">text</span>`, N being the offset of its first char in the flat
 text of the page. A span covers `[N, N + text length)`; positions inside it are clamped to it, so a span whose rendered

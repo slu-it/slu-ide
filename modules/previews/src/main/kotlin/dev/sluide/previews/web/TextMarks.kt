@@ -20,7 +20,7 @@ class TextMarks(
     private val engine: WebEngine,
     private val zoom: () -> Double = { 1.0 },
 ) {
-    /** Called when the user scrolls (wheel, keys, touch, scrollbar), not for [reveal]; may be called repeatedly. */
+    /** Called when the user scrolls (wheel, keys, touch, scrollbar), not for [reveal] or [scrollToTop]; may be called repeatedly. */
     var onUserScroll: () -> Unit = {}
 
     /** Held here: the web engine keeps bridge objects weakly. */
@@ -46,6 +46,15 @@ class TextMarks(
     /** Scrolls so that [start] is vertically centred, unless it is in view comfortably already. */
     fun reveal(start: Int) {
         call("reveal($start)")
+    }
+
+    /**
+     * Scrolls so that the line of the char at [start] is at the top of the viewport (a gap between spans takes the next
+     * span), and again two frames later, when the layout of a fresh page is complete, unless the page was scrolled meanwhile. Like [reveal] it is no user
+     * scroll: the scroll positions it caused are told apart, a wheel or key right after still counts.
+     */
+    fun scrollToTop(start: Int) {
+        call("scrollToTop($start)")
     }
 
     /** Whether any part of `[start, end)` is inside the viewport. */
