@@ -179,6 +179,13 @@ class EbookReadAloudUiTest {
             backButton(view).isVisible
         }
         assertEquals("Back to reading", fx { backButton(view).text })
+        // It floats over the page, not over a side panel (it once sat on the Search panel's list).
+        fx { view.rightPane.children += Label("side") }
+        await {
+            val page = view.webView.localToScene(view.webView.boundsInLocal)
+            val button = backButton(view).let { it.localToScene(it.boundsInLocal) }
+            backButton(view).width > 0 && page.contains(button)
+        }
         fx { backButton(view).fire() }
         assertFalse(fx { backButton(view).isVisible })
         assertTrue(fx { opened.surface.following })

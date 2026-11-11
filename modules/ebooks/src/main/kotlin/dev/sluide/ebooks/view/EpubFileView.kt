@@ -75,8 +75,11 @@ internal class EpubFileView(
     internal val readAloudSlot: HBox get() = toolbar.readAloudSlot
     internal val searchSlot: HBox get() = toolbar.searchSlot
     internal val rightPane = StackPane()
+
+    /** The page and what floats over it (Back to reading), apart from the side panels. */
+    private val pageArea = StackPane(webView)
     private val split =
-        ReaderSplit(contentsPanel.node, webView, rightPane, { toolbar.contents.isSelected }, { !disposed })
+        ReaderSplit(contentsPanel.node, pageArea, rightPane, { toolbar.contents.isSelected }, { !disposed })
     internal val onPageLoaded = mutableListOf<() -> Unit>()
 
     /** The slot between the toolbar and the page (Read Aloud's setup notice). */
@@ -526,7 +529,7 @@ internal class EpubFileView(
     internal fun showPosition(offset: Int) = setPosition(offset)
 
     /** Puts [node] over the page, below the loading text; the caller sets alignment and margin. */
-    internal fun addPageOverlay(node: Node) = root.children.add(root.children.size - 1, node)
+    internal fun addPageOverlay(node: Node) = pageArea.children.add(node)
 
     /** Adds a filter for the key events of the whole view; [handler] returns true to consume the event. */
     internal fun addKeyFilter(handler: (KeyEvent) -> Boolean) {
