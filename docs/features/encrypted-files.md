@@ -55,9 +55,9 @@ The password is stored nowhere: **if it is forgotten, the content is lost**; not
   and the tab locks. N is Settings → Editor → Encrypted Files, "Lock after N minutes idle (0 = never)" (0 to 240,
   default 10, stored as `encryptedFiles.idleLockMinutes`); it applies on OK or Apply, also to tabs that are open.
   - If the save fails, the tab stays unlocked, the strip says why, and the next try comes one period later.
-  - If the file changed elsewhere with another password and the tab has unsaved changes, the idle lock does not save
-    (that would ask Replace): the tab stays unlocked and the next try comes one period later. A clean tab locks even
-    with the warning.
+  - With unsaved changes the idle lock first reads the file and never saves over one that changed since the tab read
+    or saved it (another tab or program saved it, with this password or another; the inner view's conflict) or that was
+    deleted: the tab stays unlocked and the next try comes one period later. A clean tab locks even with the warning.
   - Time spent in another tab or window counts as idle; the Change Password dialog does too, so an idle lock can end
     it ("The file was locked meanwhile.").
 - **File → Lock Encrypted File** (Ctrl+Shift+L, Cmd+Shift+L on macOS) locks the current tab like Lock in the strip
@@ -76,6 +76,9 @@ The password is stored nowhere: **if it is forgotten, the content is lost**; not
     "Replace `<name>`? It was changed elsewhere with another password; saving writes your version under the password
     you unlocked it with." with Replace and Cancel (the default).
   - A damaged file is handled the same way, with "The file is damaged.".
+- Every save (Save, Lock and Lock All with Save, the idle lock, Change Password) reads the file first, since the change
+  event may come late (macOS polls) or not at all: a file the key no longer reads sets the warning, so the save asks
+  the Replace question above even when no change was reported.
 
 ## Empty encrypted scratches
 - A tab closed unlocked whose saved content is empty is recorded (`EncryptedFiles.takeClosedEmpty`, with the file's

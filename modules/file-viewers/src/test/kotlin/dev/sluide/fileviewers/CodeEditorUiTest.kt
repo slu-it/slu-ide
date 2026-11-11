@@ -271,17 +271,22 @@ class CodeEditorUiTest {
         assertEquals(0, area.caretPosition)
     }
 
-    /** Content held in memory, as a decrypted file's; records what is written. */
+    /** Content held in memory, as a decrypted file's; records what is written and counts the adopted reads. */
     private class MemoryContent(
         var bytes: ByteArray,
     ) : FileContent {
         val written = mutableListOf<String>()
+        var adopted = 0
 
         override fun read(): ByteArray = bytes
 
         override fun write(bytes: ByteArray) {
             written += String(bytes)
             this.bytes = bytes
+        }
+
+        override fun adopted() {
+            adopted++
         }
     }
 
@@ -304,12 +309,14 @@ class CodeEditorUiTest {
         robot.interact { editor.reload() }
         assertEquals("changed\n", editor.text)
         assertFalse(editor.dirty.get())
+        assertEquals(1, content.adopted, "a reload takes the content over")
 
         robot.interact { editor.area().insertText(0, "mine ") }
         content.bytes = "theirs\n".toByteArray()
         robot.interact { editor.reload() }
         assertEquals("mine changed\n", editor.text, "unsaved changes meet a change of the content")
         assertTrue(editor.dirty.get())
+        assertEquals(1, content.adopted, "the conflict takes nothing over")
 
         val moved = dir.resolve("elsewhere/notes.txt")
         robot.interact {
@@ -319,6 +326,16 @@ class CodeEditorUiTest {
         assertEquals("mine changed\r\n", content.written.last(), "a moved editor keeps its content")
         assertFalse(Files.exists(virtual.parent))
         assertFalse(Files.exists(moved.parent))
+
+        // With unsaved changes: the saved text again (other bytes), then the unsaved text, are both taken over.
+        robot.interact { editor.area().insertText(0, "x") }
+        content.bytes = "mine changed\n".toByteArray()
+        robot.interact { editor.reload() }
+        assertEquals(2, content.adopted)
+        content.bytes = "xmine changed\n".toByteArray()
+        robot.interact { editor.reload() }
+        assertEquals(3, content.adopted)
+        assertFalse(editor.dirty.get())
     }
 
     @Test

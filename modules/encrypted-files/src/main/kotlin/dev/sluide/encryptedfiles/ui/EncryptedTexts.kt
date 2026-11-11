@@ -99,6 +99,9 @@ private fun ioReason(e: IOException): String =
 /** The message of the IOException a save throws when the Replace question was cancelled. */
 internal const val REPLACE_CANCELLED = "Replacing the changed file was cancelled."
 
+/** The strip's message when the idle lock did not save over a file that changed on disk (or is gone). */
+internal const val IDLE_NOT_LOCKED = "Not locked: the file changed on disk. Save to lock."
+
 internal const val CHANGED_ELSEWHERE = "Changed elsewhere with another password. Unlock again."
 internal const val READ_FAILED = "Cannot read the file."
 internal const val OUT_OF_MEMORY = "Not enough memory to unlock."

@@ -236,7 +236,9 @@ the Bicep graph and `BicepParamFileViewer`.
     (`opensContent(name)`, `open(file, content)`) take content from elsewhere, e.g. a decrypted file: the `file` given
     is then a virtual path that decides type, highlighting and `.editorconfig` (its folder's), and is never read,
     written, watched or checked for existence; a moved view keeps that content. Encoding, line endings and changes
-    (`DiskChange`, on `reload()`) work on the content's bytes as on a file's. `DefaultTextFileViewer` is the
+    (`DiskChange`, on `reload()`) work on the content's bytes as on a file's; `adopted()` tells the content when the
+    view takes its last read as the saved state without writing (a reload, the conflict banner's Reload, a change
+    whose text it already counts as saved; not Keep mine). `DefaultTextFileViewer` is the
     `ContentFileViewer` for `.txt` names; of the previews, only the Markdown, JSON and YAML viewers are one (by
     extension; the others, e.g. HTML, read the shown path themselves). `FileViewers.contentViewerFor(name)` picks the
     one for a name, by the name alone: of the content viewers that `opensContent(name)` (a `PathFileViewer` only if its

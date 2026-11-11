@@ -46,7 +46,6 @@ internal class EncryptedFileView(
     private var path: Path = file
     private val name: String get() = path.fileName.toString()
     private var innerViewer: ContentFileViewer? = viewerFor(innerName(name))
-    private val content = EncryptedContent(session)
 
     /** The inner type's view while unlocked, else `null`. */
     internal var inner: FileView? = null
@@ -58,10 +57,13 @@ internal class EncryptedFileView(
     /** Whether the field had the focus when Unlock was pressed: it gets it back if the unlock fails. */
     private var focusAfterUnlock = false
 
-    /** Why the last save from the strip's side (before a lock) failed; shown in the strip until the next save. */
+    /** Why the last save before a lock failed, or why the idle lock did not lock; in the strip until a save or lock. */
     private var saveError: String? = null
 
     private val dirtyWrapper = ReadOnlyBooleanWrapper(false)
+
+    /** A read while the tab has unsaved changes is not the inner view's saved state ([EncryptedSession.checkDisk]). */
+    private val content = EncryptedContent(session) { dirtyWrapper.get() }
     private val markedWrapper = ReadOnlyBooleanWrapper(true)
     private val pendingFocus = FocusWhenShown()
 
@@ -158,6 +160,11 @@ internal class EncryptedFileView(
     fun changePassword() {
         if (!isUnlocked) return
         // Saving under the new password replaces a file changed elsewhere, as any save does.
+        try {
+            session.checkDisk()
+        } catch (_: IOException) {
+            // Checking the current password reads the file again and says why it cannot.
+        }
         session.replaceQuestion(name)?.let { question -> if (!askReplace(question)) return }
         showPasswordDialog(
             root.scene?.window,
@@ -180,12 +187,29 @@ internal class EncryptedFileView(
     }
 
     /**
-     * The idle time passed: saves and locks, unless the file changed elsewhere with another password and the tab has
-     * unsaved changes (saving would ask Replace); it then stays unlocked and the next period tries again, as after a
-     * failed save. A clean tab locks with or without the warning.
+     * The idle time passed: saves and locks. With unsaved changes it first reads the file and never saves over one
+     * that changed since the tab read or wrote it (with any password) or that is gone: the tab then stays unlocked and
+     * the next period tries again, as after a failed save, and the strip says so. A clean tab locks with or without the
+     * warning.
      */
     private fun idleFired() {
-        if (!isUnlocked || (session.warningFailure != null && isDirty)) return
+        if (!isUnlocked) return
+        if (isDirty) {
+            val disk =
+                try {
+                    session.checkDisk()
+                } catch (e: IOException) {
+                    saveError = saveErrorText(name, e)
+                    render()
+                    return
+                }
+            if (disk != DiskCheck.UNCHANGED) {
+                // Until a save or a lock, the strip says why the tab stays unlocked.
+                saveError = IDLE_NOT_LOCKED
+                render()
+                return
+            }
+        }
         lockNow(saveFirst = true)
     }
 
@@ -214,9 +238,13 @@ internal class EncryptedFileView(
         return true
     }
 
-    /** Nothing while locked; otherwise saves through the inner view, asking first if the file changed elsewhere. */
+    /**
+     * Nothing while locked; otherwise reads the file first (its change event may come late or not at all) and saves
+     * through the inner view, asking first if the file changed elsewhere with another password or is damaged.
+     */
     override fun save() {
         val view = inner as? EditableFileView ?: return
+        session.checkDisk()
         session.replaceQuestion(name)?.let { question ->
             if (!askReplace(question)) throw IOException(REPLACE_CANCELLED)
         }
@@ -435,8 +463,11 @@ internal class EncryptedFileView(
 /** The content of an unlocked encrypted file: decrypted on read, encrypted and written atomically on write. */
 internal class EncryptedContent(
     private val session: EncryptedSession,
+    private val dirty: () -> Boolean,
 ) : FileContent {
-    override fun read(): ByteArray = session.read()
+    override fun read(): ByteArray = session.read(adopted = !dirty())
+
+    override fun adopted() = session.adopt()
 
     /** Zeroes [bytes] afterwards. */
     override fun write(bytes: ByteArray) = session.write(bytes)

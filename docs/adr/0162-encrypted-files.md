@@ -140,6 +140,11 @@ open on any machine with the password.
   the same way, with that failure's text. Cancel on the Replace question fails the save ("Replacing the changed file
   was cancelled."), so closing the tab with Save keeps it open with its changes instead of dropping them; a save that
   replaces the file ends the warning, and so does a later change on disk that the key reads again.
+- Change events can come late (macOS polls) or never, so every save reads the file first
+  (`EncryptedSession.checkDisk`): bytes the key cannot read set the warning and the save asks Replace. The session
+  also keeps the bytes the tab's saved state stands for (written, or read while clean; a read with unsaved changes is
+  the inner view's conflict and does not count). With unsaved changes the idle lock saves only while the file still
+  holds those bytes: never over a change from another tab or program, with any password, nor over a deleted file.
 
 **Empty encrypted scratches**
 - An encrypted scratch closed unlocked with empty saved content is deleted like an empty scratch (ADR 0066), without
@@ -158,8 +163,8 @@ open on any machine with the password.
   fragments of decrypted text.
 - Change Password derives the new key off the FX thread from the file on disk, then saves the tab's text through the
   inner view under it (so encoding and line endings stay); a save that fails or writes nothing puts the old key back.
-  The idle lock reuses Lock with save first, skips the save while a changed-elsewhere warning is up (it would ask
-  Replace) and counts again after a failure. Idle time is read from `encryptedFiles.idleLockMinutes` (0 = off, default
+  The idle lock reuses Lock with save first, skips the save when the file on disk is not the one the tab read or
+  wrote (changed with any password, or deleted) and counts again after a failure. Idle time is read from `encryptedFiles.idleLockMinutes` (0 = off, default
   10, at most 240).
 - Open, explored ideas (FIDO2 slot, ML-KEM recovery slot, key file, encrypting an existing file, Save Decrypted Copy,
   blocking remote images, clipboard auto-clear, lock when the app is in the background, passkeys) go to the ideas page

@@ -37,6 +37,21 @@ internal sealed interface DiskDecision {
     ) : DiskDecision
 }
 
+/** What is on disk before a save, compared with what the tab's saved state was read from or written as. */
+internal enum class DiskCheck {
+    /** The bytes the tab last adopted or wrote. */
+    UNCHANGED,
+
+    /** Other bytes the key reads: a save from another tab or process. */
+    CHANGED,
+
+    /** Other bytes the key cannot read (another password, damaged): the warning is up and a save asks Replace. */
+    FOREIGN,
+
+    /** No file. */
+    GONE,
+}
+
 /**
  * The state of one encrypted file's tab, without JavaFX (ADR 0084): the key while unlocked, the message of a failed
  * unlock, the warning after the file changed elsewhere, and what the content last read or written was. Used on the FX
@@ -92,6 +107,12 @@ internal class EncryptedSession(
     /** The file's bytes as last read or written through the key, and whether their plain text was empty. */
     private var lastCiphertext: ByteArray? = null
     private var lastPlainEmpty = false
+
+    /**
+     * The file's bytes the tab's saved state stands for: those written last, or read while the tab was clean. A read
+     * with unsaved changes (the inner view's conflict) does not move it, so [checkDisk] still sees the change.
+     */
+    private var baseCiphertext: ByteArray? = null
 
     /**
      * The plain bytes [read] handed out last; zeroed on the next read, on lock and on dispose. The inner view decodes
@@ -318,6 +339,7 @@ internal class EncryptedSession(
         warningVersion = null
         lastCiphertext = null
         lastPlainEmpty = false
+        baseCiphertext = null
         zeroHandedOut()
         onChange()
     }
@@ -337,16 +359,18 @@ internal class EncryptedSession(
         key = null
         state = SessionState.LOCKED
         lastCiphertext = null
+        baseCiphertext = null
         zeroHandedOut()
         return closedEmpty
     }
 
     /**
      * The plain bytes of the file, decrypted with the key; for the inner view's content, which must use them before
-     * the next read, lock or dispose, when they are zeroed.
+     * the next read, lock or dispose, when they are zeroed. [adopted] is `false` for a read while the tab has unsaved
+     * changes, whose result the inner view may keep apart from its saved state (its conflict; see [checkDisk]).
      */
     @Throws(IOException::class)
-    fun read(): ByteArray {
+    fun read(adopted: Boolean = true): ByteArray {
         val unlocked = key ?: throw IOException("The file is locked.")
         val bytes = readFile(path)
         val plain = Sluenc.decrypt(bytes, unlocked)
@@ -354,7 +378,16 @@ internal class EncryptedSession(
         handedOut = plain
         lastCiphertext = bytes
         lastPlainEmpty = plain.isEmpty()
+        if (adopted) baseCiphertext = bytes
         return plain
+    }
+
+    /**
+     * The inner view took the bytes of the last [read] as its saved state without writing (a reload with unsaved
+     * changes whose text it already had, or the conflict's Reload): [checkDisk] compares with those from now on.
+     */
+    fun adopt() {
+        if (state == SessionState.UNLOCKED) lastCiphertext?.let { baseCiphertext = it }
     }
 
     private fun zeroHandedOut() {
@@ -379,6 +412,7 @@ internal class EncryptedSession(
         writeFile(path, bytes)
         writes++
         lastCiphertext = bytes
+        baseCiphertext = bytes
         lastPlainEmpty = empty
         if (warningFailure != null) {
             warningFailure = null
@@ -416,6 +450,40 @@ internal class EncryptedSession(
             onChange()
         }
         return DiskDecision.Reload
+    }
+
+    /**
+     * Reads the file before a save, since a change event may come late or not at all: bytes the key cannot read set
+     * the warning, as [diskChanged] does for a dirty tab, so [replaceQuestion] asks; other bytes it reads clear it.
+     * Says how the file compares with what the tab's saved state stands for; [DiskCheck.UNCHANGED] while not
+     * unlocked. Throws an IOException if the file cannot be read.
+     */
+    @Throws(IOException::class)
+    fun checkDisk(): DiskCheck {
+        val unlocked = key?.takeIf { state == SessionState.UNLOCKED } ?: return DiskCheck.UNCHANGED
+        val bytes =
+            try {
+                readFile(path)
+            } catch (_: NoSuchFileException) {
+                return DiskCheck.GONE
+            }
+        val unchanged = baseCiphertext?.contentEquals(bytes) == true
+        if (!unchanged) {
+            try {
+                Sluenc.decrypt(bytes, unlocked).fill(0)
+            } catch (e: SluencException) {
+                warningFailure = e.failure
+                warningVersion = e.formatVersion
+                onChange()
+                return DiskCheck.FOREIGN
+            }
+        }
+        if (warningFailure != null) {
+            warningFailure = null
+            warningVersion = null
+            onChange()
+        }
+        return if (unchanged) DiskCheck.UNCHANGED else DiskCheck.CHANGED
     }
 
     /** The question before saving over the changed file, or `null` if saving needs none. */

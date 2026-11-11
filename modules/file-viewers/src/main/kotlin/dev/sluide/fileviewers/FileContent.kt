@@ -18,6 +18,14 @@ interface FileContent {
     @Throws(IOException::class)
     fun write(bytes: ByteArray)
 
+    /**
+     * Called when the view takes the bytes of the last [read] as its saved state without writing them: a reload, the
+     * conflict banner's Reload, or a change on disk whose text the view already counts as saved. Not called for the
+     * first read, nor when the view keeps its own text over a change (Keep mine). Nothing by default; encrypted files
+     * follow it to see whether the file still holds what the view stands for.
+     */
+    fun adopted() {}
+
     /** Whether the content must stay in the view: code-editor extensions do not attach to it unless they opt in. */
     val confidential: Boolean get() = false
 }

@@ -384,6 +384,49 @@ class EncryptedSessionTest {
     }
 
     @Test
+    fun `the check before a save finds a password changed elsewhere without a change event, so the save asks`() {
+        session.unlockedWith(create("one"))
+        session.read()
+        val read = checkNotNull(disk)
+        disk = changedPassword("one")
+
+        assertEquals(DiskCheck.FOREIGN, session.checkDisk())
+        assertEquals(SluencFailure.KEY_MISMATCH, session.warningFailure)
+        assertNotNull(session.replaceQuestion("notes.md.sluenc"))
+
+        disk = read
+        assertEquals(DiskCheck.UNCHANGED, session.checkDisk())
+        assertNull(session.replaceQuestion("notes.md.sluenc"))
+    }
+
+    @Test
+    fun `the check before a save tells a same-key change, also after a conflicting read, and a deleted file`() {
+        val key = create("one")
+        session.unlockedWith(key)
+        session.read()
+        assertEquals(DiskCheck.UNCHANGED, session.checkDisk())
+
+        disk = Sluenc.encrypt("two".toByteArray(), key)
+        assertEquals(DiskCheck.CHANGED, session.checkDisk())
+        // The inner view read it with unsaved changes (its conflict): the tab's saved state is still the old file.
+        session.read(adopted = false)
+        assertEquals(DiskCheck.CHANGED, session.checkDisk())
+        // ... until the view takes it over (the conflict's Reload), or reads it while clean.
+        session.adopt()
+        assertEquals(DiskCheck.UNCHANGED, session.checkDisk())
+        disk = Sluenc.encrypt("two again".toByteArray(), key)
+        session.read()
+        assertEquals(DiskCheck.UNCHANGED, session.checkDisk())
+
+        disk = Sluenc.encrypt("three".toByteArray(), key)
+        session.write("mine".toByteArray())
+        assertEquals(DiskCheck.UNCHANGED, session.checkDisk())
+
+        disk = null
+        assertEquals(DiskCheck.GONE, session.checkDisk())
+    }
+
+    @Test
     fun `reading or writing while locked fails`() {
         create("one").close()
 

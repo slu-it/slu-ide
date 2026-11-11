@@ -353,7 +353,10 @@ internal class CodeView(
             DiskChange.IGNORE -> {
                 adoptLineEnding(read.raw)
                 // Kept mine: the next save writes the view's text in the view's encoding over the file.
-                if (!keptMine.get()) encoding.unchanged(read.encoding)
+                if (!keptMine.get()) {
+                    encoding.unchanged(read.encoding)
+                    content.adopted()
+                }
                 showEncoding()
                 hideConflict()
             }
@@ -369,7 +372,10 @@ internal class CodeView(
         }
     }
 
-    /** Shows [content] as the saved text, keeping caret, scroll position and undo history. */
+    /**
+     * Shows [read] as the saved text, keeping caret, scroll position and undo history. [read] is always the content's
+     * last read (a reload, or the conflict's, which every later reload replaces or hides), so the content is told.
+     */
     private fun load(read: DecodedContent) {
         val text = LineEnding.normalize(read.raw)
         hideConflict()
@@ -383,6 +389,7 @@ internal class CodeView(
         keptMine.set(false)
         undoManager.mark()
         undoManager.preventMerge()
+        content.adopted()
     }
 
     /**
