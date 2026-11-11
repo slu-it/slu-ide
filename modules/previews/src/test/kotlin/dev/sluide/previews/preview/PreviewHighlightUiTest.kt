@@ -10,6 +10,7 @@ import dev.sluide.previews.markdown.MarkdownFileViewer
 import javafx.concurrent.Worker
 import javafx.scene.Scene
 import javafx.scene.layout.StackPane
+import javafx.scene.paint.Color
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -22,6 +23,7 @@ import java.net.URI
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.writeText
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -61,6 +63,36 @@ class PreviewHighlightUiTest {
             "(function () { var h = CSS.highlights.get('mark-$name'), text = null;" +
                 " if (h) h.forEach(function (r) { text = r.toString(); }); return text; })()",
         )
+
+    /** The page paints the highlight [name] with its colour: a snapshot row inside the top of the range's first box. */
+    private fun assertPaints(
+        view: PreviewFileView,
+        name: String,
+        light: String,
+        dark: String,
+    ) {
+        fun rect(side: String) =
+            (
+                view.script(
+                    "(function () { var r = null; CSS.highlights.get('mark-$name').forEach(function (x) { r = x; });" +
+                        " return r.getClientRects()[0].$side; })()",
+                ) as Number
+            ).toInt()
+        val expected = Color.web(if (view.script("document.body.classList.contains('dark')") == true) dark else light)
+        val left = rect("left")
+        val top = rect("top")
+
+        fun matches(): Int {
+            val image = fx { view.webView.snapshot(null, null) }
+            return (left + 1..left + 12).count {
+                val c = image.pixelReader.getColor(it, top + 1)
+                abs(c.red - expected.red) < 0.05 && abs(c.green - expected.green) < 0.05 &&
+                    abs(c.blue - expected.blue) < 0.05
+            }
+        }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { matches() >= 6 }
+        assertTrue(matches() >= 6, "$name is painted in $expected")
+    }
 
     /** A host whose window has code editor extensions that collect the editors they extend into [editors]. */
     private fun extending(editors: MutableList<ExtensibleCodeEditor>) =
@@ -104,6 +136,8 @@ class PreviewHighlightUiTest {
 
         assertEquals("spoken", view.marked("speech-word"))
         assertEquals("Some spoken words.", view.marked("speech-sentence"))
+        assertPaints(view, "speech-word", "#9cc2f5", "#3f6aa8")
+        assertPaints(view, "speech-sentence", "#dbe8fb", "#2f4361")
 
         // Stopped and shown again: a new page.
         val other = dir.resolve("other.html").apply { writeText("x") }

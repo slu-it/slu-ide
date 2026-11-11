@@ -10,7 +10,7 @@ internal object ReadingCss {
         """
         ::highlight(mark-sentence) { background-color: rgba(255, 214, 102, 0.35); }
         ::highlight(mark-word) { background-color: rgba(255, 176, 0, 0.75); color: #000; }
-        ::highlight(mark-start) { text-decoration: underline 2px #2f7de1; }
+        ::highlight(mark-start) { text-decoration-line: underline; text-decoration-color: #2f7de1; text-decoration-thickness: 2px; }
         ::highlight(mark-search) { background-color: rgba(255, 235, 59, 0.7); color: #000; }
         body.dark ::highlight(mark-sentence) { background-color: rgba(90, 120, 190, 0.35); }
         body.dark ::highlight(mark-word) { background-color: rgba(110, 150, 230, 0.7); color: #fff; }

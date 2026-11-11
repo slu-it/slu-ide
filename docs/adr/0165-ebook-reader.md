@@ -75,3 +75,17 @@ packages and amend it where needed.
 - Reading a book is reading project files, not running them: no trust check ([ADR 0053](0053-project-trust.md) applies
   to what the project configures).
 - Further ideas are in [../ideas/ebooks.md](../ideas/ebooks.md).
+
+## Fix round (amendment)
+- The page's one script is in the `<head>` (its hash is over the emitted text, unchanged in principle), so the click
+  handler exists before a large body has been parsed and no link navigates early. Marks are only `::highlight(mark-*)`
+  rules, no `.mark-*` classes: with Book Style a book's own `class="mark-word"` would paint. `mark-start` uses the
+  longhands (`text-decoration-line`, `-color`, `-thickness`): the shorthand with a thickness is dropped by this WebKit
+  and the underline did not show (found by a pixel test, `EbookPagePaintUiTest`).
+- Chapter mode is decided from an estimate: `BookPageBuilder.build(inline = false)` embeds no images or fonts (an `img`
+  without `src`, CSS `url()` as `none`) with the same text, skip ranges, chapters, contents and anchors; the estimate is
+  its `html.length` plus 4/3 of the bytes of the referenced resources (per reference). The inline page is built only for
+  a book that stays one page, and its html lives in `BookLoad.Ready.first` for the view to show, not in `LoadedBook`.
+- Text directly inside `table`, `thead`, `tbody`, `tfoot` and `tr` (or other markup that is not table structure) gets a
+  row and cell (`<tr><td>`, in a `tr` a `<td>`) of its own, because HTML parsers move it before the table and the
+  offsets would stop rising in document order.
