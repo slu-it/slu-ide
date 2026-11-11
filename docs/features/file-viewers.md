@@ -286,7 +286,11 @@ the Bicep graph and `BicepParamFileViewer`.
       replacing that layer's previous ranges (an empty list clears it); layers stay through background highlighting
       and find updates, and any change of the text (an edit, a reload) clears them, unless they follow edits (below).
       Ranges are clamped to the text and overlapping ones add both classes; the class names must differ from the
-      highlighter's and the find bar's.
+      highlighter's and the find bar's. The view that embeds an editor (`CodeEditors.open`) can follow the layers with
+      `CodeEditor.addOverlayListener { layer, ranges -> }`: it is called on the FX thread after every change of a
+      layer's ranges, with the clamped ranges, none when the layer was cleared (also by an edit or a reload), and a
+      following layer's moved ranges; the Markdown preview mirrors them into the rendered page
+      ([ADR 0166](../adr/0166-read-aloud-highlight-in-markdown-preview.md)).
     - `reveal(start, end)` scrolls a range into view without moving the caret or the selection and without focusing
       (as `TextEditor.reveal`), `addEventFilter(type, filter)` adds an event filter on the text area until
       unsubscribed.

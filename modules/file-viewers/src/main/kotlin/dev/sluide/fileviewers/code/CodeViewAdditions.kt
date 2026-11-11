@@ -18,6 +18,8 @@ import javafx.util.Subscription
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.model.StyleSpans
 
+private val log = System.getLogger(OverlayLayers::class.java.name)
+
 /**
  * What the extensions of a code view (ADR 0108) add to it beside gutter columns and menu items: [toolbar] items,
  * [banners], [statusBar] items, edit [locks], [overlay layers][layers] over the styles of [area], [textChanges] for
@@ -229,12 +231,25 @@ internal fun combinedActivity(activities: List<ViewActivity>): ViewActivity =
 /**
  * Named layers of style classes over the styles of [area]: [set] replaces a layer's ranges, [applyTo] adds all layers
  * to styles the view sets anew (after highlighting, masks and find matches). A change of the text ([edited]) clears
- * every layer but those that follow edits, whose ranges move with the text ([followChanges], ADR 0141).
+ * every layer but those that follow edits, whose ranges move with the text ([followChanges], ADR 0141). Listeners
+ * ([addListener]) are told every layer whose ranges changed.
  */
 internal class OverlayLayers(
     private val area: CodeArea,
 ) {
     private val layers = LinkedHashMap<String, LayerRanges>()
+    private val listeners = mutableListOf<(String, List<StyledRange>) -> Unit>()
+
+    /**
+     * Calls [listener] after every change of a layer's ranges, with the layer and its ranges (clamped to the text; none
+     * when it was cleared, also by an edit), until unsubscribed.
+     */
+    fun addListener(listener: (layer: String, ranges: List<StyledRange>) -> Unit): Subscription {
+        // A wrapper of its own, so that the same listener added twice is removed once per subscription.
+        val added: (String, List<StyledRange>) -> Unit = { layer, ranges -> listener(layer, ranges) }
+        listeners += added
+        return Subscription { listeners.remove(added) }
+    }
 
     /** The ranges of all layers, in the order the layers were set. */
     private val ranges: List<StyledRange> get() = layers.values.flatMap { it.ranges }
@@ -269,6 +284,7 @@ internal class OverlayLayers(
         val touched = old + wanted
         if (touched.isEmpty()) return
         restyle(touched.minOf { it.start }, touched.maxOf { it.end }, stripped)
+        if (old != wanted) tell(layer, wanted)
     }
 
     /**
@@ -280,10 +296,28 @@ internal class OverlayLayers(
     fun edited(changes: List<TextChange>) {
         if (layers.isEmpty()) return
         val stripped = classes
+        val before = LinkedHashMap(layers)
         val followed = followChanges(layers, changes)
         layers.clear()
         layers.putAll(followed.layers)
         followed.restyle?.let { restyle(it.first, it.last + 1, stripped) }
+        for ((layer, old) in before) {
+            val now = layers[layer]?.ranges.orEmpty()
+            if (now != old.ranges) tell(layer, now)
+        }
+    }
+
+    private fun tell(
+        layer: String,
+        ranges: List<StyledRange>,
+    ) {
+        for (listener in listeners.toList()) {
+            try {
+                listener(layer, ranges)
+            } catch (e: Exception) {
+                log.log(System.Logger.Level.ERROR, "A listener of a code editor's overlay layers failed", e)
+            }
+        }
     }
 
     /** Sets the styles of [start, end) (clamped to the text) anew: without the classes [stripped], with the layers'. */

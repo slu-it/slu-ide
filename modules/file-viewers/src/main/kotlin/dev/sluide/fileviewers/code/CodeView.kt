@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.FileContent
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.GutterColumns
+import dev.sluide.fileviewers.StyledRange
 import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.TextEditableView
@@ -30,6 +31,7 @@ import javafx.scene.control.Button
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
+import javafx.util.Subscription
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.util.UndoUtils
@@ -286,6 +288,10 @@ internal class CodeView(
     val softWrapButton: Node get() = softWrap.button
 
     override val activity: ObservableValue<ViewActivity> get() = additions.activities.activity
+
+    /** Tells [listener] every change of an extension's overlay layer (`CodeEditor.addOverlayListener`). */
+    fun addOverlayListener(listener: (layer: String, ranges: List<StyledRange>) -> Unit): Subscription =
+        additions.layers.addListener(listener)
 
     override val readOnlyMarked: ObservableBooleanValue get() = additions.locks.readOnlyMarked
 

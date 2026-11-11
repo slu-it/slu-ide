@@ -97,6 +97,14 @@ interface CodeEditor :
     val softWrapButton: Node
 
     /**
+     * Calls [listener] on the FX thread after every change of the ranges of an overlay layer that the window's
+     * [CodeEditorExtensions] set ([ExtensibleCodeEditor.overlay]): with the layer's name and its new ranges (clamped to
+     * the text), none when it was cleared, also by an edit or a reload; a following layer's moved ranges too. The
+     * embedding view can show the layers elsewhere, e.g. in a rendered preview of the text. Unsubscribing stops it.
+     */
+    fun addOverlayListener(listener: (layer: String, ranges: List<StyledRange>) -> Unit): Subscription
+
+    /**
      * Replaces the text with an empty one, forgets the undo history, makes the saved text empty (so the editor is clean
      * and change markers have nothing to show) and clears the find bar's query and matches. FX thread; doing it again
      * changes nothing.
@@ -366,6 +374,9 @@ private class CodeViewEditor(
     override val toolbarItems: ObservableList<Node> get() = view.toolbarItems
 
     override val softWrapButton: Node get() = view.softWrapButton
+
+    override fun addOverlayListener(listener: (layer: String, ranges: List<StyledRange>) -> Unit): Subscription =
+        view.addOverlayListener(listener)
 
     override fun replaceText(text: String): Boolean = view.replaceText(text)
 

@@ -250,6 +250,80 @@ class CodeEditorExtensionsUiTest {
     }
 
     @Test
+    fun `the embedding view is told every change of a layer, also the clearing by an edit and a reload`(
+        robot: FxRobot,
+    ) {
+        val file = file("notes.py", "one two three\n")
+        val extended = mutableListOf<ExtensibleCodeEditor>()
+        val editor = WaitForAsyncUtils.asyncFx<CodeEditor> { CodeEditors.open(file, null) }.get()
+        val told = mutableListOf<Pair<String, List<StyledRange>>>()
+        val subscription =
+            WaitForAsyncUtils
+                .asyncFx<Subscription> { editor.addOverlayListener { layer, ranges -> told += layer to ranges } }
+                .get()
+        robot.interact {
+            container.children.setAll(editor.node)
+            editor.host = host(recording(extended, mutableListOf()))
+        }
+        val extensible = extended.single()
+        val word = StyledRange(4, 7, "layer-word")
+        val sentence = StyledRange(0, 99, "layer-sentence")
+
+        robot.interact {
+            extensible.overlay("word", listOf(word))
+            extensible.overlay("word", listOf(word))
+            extensible.overlay("sentence", listOf(sentence))
+            extensible.overlay("word", emptyList())
+        }
+        assertEquals(
+            listOf(
+                "word" to listOf(word),
+                "sentence" to listOf(StyledRange(0, 14, "layer-sentence")),
+                "word" to emptyList(),
+            ),
+            told,
+            "set, clamped to the text and cleared; setting the same ranges again tells nothing",
+        )
+
+        told.clear()
+        robot.interact {
+            extensible.overlay("word", listOf(word))
+            extensible.overlay("kept", listOf(StyledRange(8, 13, "layer-kept")), followEdits = true)
+            told.clear()
+            extensible.applyEdits(listOf(OffsetEdit(0, 0, "x")))
+        }
+        assertEquals(
+            listOf(
+                "sentence" to emptyList(),
+                "word" to emptyList(),
+                "kept" to listOf(StyledRange(9, 14, "layer-kept")),
+            ),
+            told,
+            "an edit clears the layers that do not follow it and moves those that do",
+        )
+
+        told.clear()
+        robot.interact {
+            // Unsaved changes would keep the text through the reload.
+            editor.save()
+            extensible.overlay("word", listOf(word))
+        }
+        file.writeText("zero one two three\n")
+        robot.interact {
+            editor.reload()
+            told.remove("word" to listOf(word))
+        }
+        assertEquals("word" to emptyList(), told.first { it.first == "word" }, "a reload clears the layer")
+
+        robot.interact {
+            subscription.unsubscribe()
+            told.clear()
+            extensible.overlay("word", listOf(word))
+        }
+        assertTrue(told.isEmpty(), "unsubscribed")
+    }
+
+    @Test
     fun `locks keep the text read-only until all are closed`(robot: FxRobot) {
         val file = file("notes.txt", "x = 1\n")
         val view = shown(robot, DefaultTextFileViewer(), file)
