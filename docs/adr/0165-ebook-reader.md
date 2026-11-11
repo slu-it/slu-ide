@@ -45,6 +45,29 @@ packages and amend it where needed.
   CSS, sanitised as above, plus the same mark rules. The marks for the sentence, word, start and search are emitted both
   as classes and as `::highlight(...)` rules; the view's script picks the mechanism.
 
+## The view (amendment)
+- **Chapter mode.** The whole book is built once, off the FX thread. If its `html` is longer than 50,000,000 characters
+  (the threshold, a constructor parameter, instead of the 20 MB first assumed: the page is a string in memory and in the
+  engine), the view keeps the whole-book `text`, `chapters`, `toc`, `skip` and `anchors` without the html and builds
+  each chapter's page on demand with `chapterRange = i..i`. `ShownPage.shift` (whole-book chapter start minus the
+  local start) maps local offsets to whole-book ones; the saved position, the Contents panel, the progress and the
+  hooks of Read Aloud and the search use whole-book offsets only.
+- **Navigation.** The page's script (the text marks plus a click handler) cancels clicks on links itself: `#anchor`
+  links scroll with `scrollIntoView` (the page's address is not a real one; an id the page does not have, a link to
+  another chapter of a large book, is looked up in the whole book's `anchors` and loads that chapter), `http`, `https` and `mailto` links go to
+  the host (`openWebPage`), the web view never navigates. As a second line, a change of the engine's location to
+  anything but the page itself (empty, `about:blank` and its anchors) is cancelled by loading the page again at the
+  same position; a link target is opened as well.
+- **Page and hooks.** Only the shown page holds html: `LoadedBook.page` is the whole book without it (text, skip, chapters,
+  contents, anchors). `marks` and `webView` belong to the shown page, whose offsets are local in chapter mode; the view
+  offers `toLocal` and `toWhole`, and `markRange` clips and maps whole-book ranges to it.
+- **Position and start mark.** The position is the top offset of the view, recomputed after scrolling (debounced), a
+  jump or an anchor; the page's script puts an offset at the top of the view (`sluide.book.scrollToOffset`; `reveal`
+  centres it), and the scroll events it causes within half a second are not the user's; a jump from the Contents panel sets the target itself, so that the follow logic cannot undo it.
+  The saved offset (per-file project data, field `ebook`) is debounced and flushed on dispose. A click on text is
+  reported by the script and marks the sentence (`SentenceBounds`) as `start`; named marks are shown again after
+  every load of a page.
+
 ## Consequences
 - The view and Read Aloud need only `BookPage`; they are tested against fixtures without a toolkit.
 - Books that depend on scripts, remote fonts or media lose them. Fixed-layout books read as text.

@@ -138,6 +138,17 @@ All previews and images zoom, only while the rendered view has the focus, not in
 | Shortcut+mouse wheel, pinch | Zoom |
 | Enter / Escape in the table of contents | Jump to the heading / close it |
 
+## Ebook reader
+Zoom works while the page has the focus, as in the previews; the scrolling keys are the web view's own
+([ebook-reader.md](ebook-reader.md), [ADR 0165](../adr/0165-ebook-reader.md)).
+
+| Keys | Action |
+|---|---|
+| Shortcut+Plus (or =) / Shortcut+Minus / Shortcut+0 | Zoom in / out / 100 % |
+| Shortcut+mouse wheel, pinch | Zoom |
+| Arrows, Page Up/Down, Home/End, Space | Scroll the page |
+| Arrows in the Contents panel | Select and jump to an entry |
+
 ## Media player
 View-local keys of an audio or video tab, while the view has the focus; ignored while the file loads or failed
 ([media-player.md](media-player.md), [ADR 0123](../adr/0123-media-playback.md)).

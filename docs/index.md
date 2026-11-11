@@ -232,6 +232,7 @@ updated when the summary or keywords no longer fit.
 | [markdown-preview.md](features/markdown-preview.md) | Markdown source beside a sanitised rendered preview | Markdown, KaTeX, Mermaid, Source/Split/Preview, table of contents, scroll sync, Read Aloud, highlight in the preview, source offsets, Export on the right |
 | [markdown-export.md](features/markdown-export.md) | Markdown exported as self-contained HTML | Export → HTML, self-contained, `<name>.css`, light/dark, confidential content |
 | [media-player.md](features/media-player.md) | Audio and video files play in a tab with controls, one at a time, in the background | `MediaFileViewer`, mp3, wav, mp4, volume, mute, `PlaybackCoordinator`, ffmpeg |
+| [ebook-reader.md](features/ebook-reader.md) | EPUB files open in a reader tab: the book as one page, a Contents panel, progress, remembered position, start mark, links and bad-book notices | `EpubFileViewer`, `EpubFileView`, EPUB, Contents, Book Style, large books, chapter at a time, position, `ebook` field, start mark, DRM |
 | [json-preview.md](features/json-preview.md) | Formatted, foldable view of JSON | `.json`, `.jsonc`, folds, Collapse All, Copy Formatted |
 | [xml-preview.md](features/xml-preview.md) | Formatted, foldable view of XML | `.xml`, `.xsd`, `.fxml`, folds, Copy Formatted |
 | [yaml-preview.md](features/yaml-preview.md) | Formatted, foldable view of YAML | `.yml`, `.yaml`, anchors, `---` documents, Copy Formatted |
