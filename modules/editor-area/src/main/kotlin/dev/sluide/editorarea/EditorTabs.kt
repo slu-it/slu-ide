@@ -172,8 +172,11 @@ internal class EditorTabs {
         sides.getValue(side).let { it[it.indexOf(tab)] = replacement }
         if (chosen[side] === tab) chosen[side] = replacement
         publish()
-        tab.dispose()
-        afterDispose()
+        try {
+            tab.dispose()
+        } finally {
+            afterDispose()
+        }
     }
 
     /**
@@ -258,8 +261,11 @@ internal class EditorTabs {
         list.removeAt(index)
         if (chosen[side] === tab) chosen[side] = neighbour(list, index)
         publish()
-        tab.dispose()
-        afterDispose()
+        try {
+            tab.dispose()
+        } finally {
+            afterDispose()
+        }
     }
 
     /** Closes every tab of both sides, e.g. with the window. */
@@ -320,8 +326,11 @@ internal class EditorTabs {
             Side.entries.filter { chosen[it] in closing }.forEach { chosen[it] = keep }
         }
         publish()
-        closing.forEach { it.dispose() }
-        afterDispose()
+        try {
+            closing.forEach { it.dispose() }
+        } finally {
+            afterDispose()
+        }
     }
 
     /**

@@ -30,9 +30,9 @@
   ([coloring.md](coloring.md), [ADR 0110](../adr/0110-tools-menu.md)): one per window, a second choice selects the
   open tab, Shortcut+W closes it.
 - `onFileClosed(path)`, set by the window, is called for each file whose last tab in the area closed, in whatever way
-  (×, the context menu, `closeAll()` when the window closes, after a delete, or a move its tab cannot follow), once
-  the change of the tab list is processed; not for other tabs, not when a tab is replaced by a new view of the same
-  file, and not for a move its tab follows in place. The window deletes empty scratch files with it
+  (×, the context menu, `closeAll()` when the window closes, after a delete, or a move its tab cannot follow), after
+  the closed views are disposed (also when a `dispose()` throws); not for other tabs, not when a tab is replaced by a
+  new view of the same file, and not for a move its tab follows in place. The window deletes empty scratch files with it
   ([scratch-files.md](scratch-files.md)).
 - Closing file tabs with unsaved changes from the UI (×, middle click, any context menu entry) first asks once, listing
   them: Save, Don't Save or Cancel (`askToSave`, replaced in tests via `EditorArea.confirmSave`). Save saves them and
