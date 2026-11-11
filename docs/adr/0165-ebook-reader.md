@@ -42,8 +42,8 @@ packages and amend it where needed.
   hardened XML parser (no external DTDs or entities, nothing fetched).
 - **Thoreau style or book style.** By default the book's CSS, `style` attributes and classes are dropped and Thoreau's
   reading style applies (serif, a 40em column, light and dark palettes, footnotes smaller). "Book style" keeps the book's
-  CSS, sanitised as above, plus the same mark rules. The marks for the sentence, word, start and search are emitted both
-  as classes and as `::highlight(...)` rules; the view's script picks the mechanism.
+  CSS, sanitised as above, plus the same mark rules. The marks for the sentence, word, start and search are drawn
+  only as CSS highlights (`::highlight(...)` rules, `CSS.highlights`); there is no class-based fallback.
 
 ## The view (amendment)
 - **Chapter mode.** The whole book is built once, off the FX thread. If its `html` is longer than 50,000,000 characters
@@ -62,8 +62,10 @@ packages and amend it where needed.
   contents, anchors). `marks` and `webView` belong to the shown page, whose offsets are local in chapter mode; the view
   offers `toLocal` and `toWhole`, and `markRange` clips and maps whole-book ranges to it.
 - **Position and start mark.** The position is the top offset of the view, recomputed after scrolling (debounced), a
-  jump or an anchor; the page's script puts an offset at the top of the view (`sluide.book.scrollToOffset`; `reveal`
-  centres it), and the scroll events it causes within half a second are not the user's; a jump from the Contents panel sets the target itself, so that the follow logic cannot undo it.
+  jump or an anchor; `TextMarks.scrollToTop` puts an offset at the top of the view (`reveal` centres it). The scroll
+  positions the app's own scrolls cause are told apart from the user's by the position the script expects (the echo
+  of its own scroll), not by a time window, so a wheel or key right after still counts; a jump from the Contents panel
+  sets the target itself, so that the follow logic cannot undo it.
   The saved offset (per-file project data, field `ebook`) is debounced and flushed on dispose. A click on text is
   reported by the script and marks the sentence (`SentenceBounds`) as `start`; named marks are shown again after
   every load of a page.

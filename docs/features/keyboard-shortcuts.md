@@ -150,7 +150,8 @@ Zoom works while the page has the focus, as in the previews; the scrolling keys 
 | Enter / Escape in the search field | Search now / clear the text, on an empty field close the panel |
 | Enter in the result list | Mark and jump to the selected match |
 | Arrows, Page Up/Down, Home/End, Space | Scroll the page |
-| Arrows in the Contents panel | Select and jump to an entry |
+| Arrows in the Contents panel | Move the selection |
+| Enter in the Contents panel | Jump to the selected entry |
 | Shortcut+Enter | Read Aloud: read from the start mark or the top of the view (while idle) |
 | Space / Escape | Read Aloud: pause or resume / stop (while reading; Space scrolls the page while idle) |
 | Double-click on the page | Read Aloud: restart at the sentence under it (while reading) |

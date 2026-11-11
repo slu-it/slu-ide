@@ -33,7 +33,8 @@ the left and a toolbar above. Nothing is fetched from the network.
 ## Contents
 - The left panel (**Contents** toggle, on by default; the divider position survives hiding it) shows the book's table
   of contents as a tree, all expanded; a book without one gets one entry per chapter.
-- Selecting an entry (click or arrow keys) jumps there, and the focus goes back to the page. The selection follows the
+- Clicking an entry or pressing Enter on the selected one jumps there, and the focus goes back to the page. The
+  arrow keys only move the selection. The selection follows the
   reading position: the deepest entry that starts at or before it, scrolled into view. A jump keeps the entry you
   picked until you scroll.
 

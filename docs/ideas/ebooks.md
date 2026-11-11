@@ -8,7 +8,7 @@ Explored, not decided or built. The core of the reader: [ADR 0165](../adr/0165-e
 - **DRM**: protected books are refused; removing DRM is not planned.
 
 ## Reading
-- **Bookmarks** and a place to resume; remembering **font size, zoom or the book-style choice** per book or globally.
+- **Bookmarks**; remembering **font size, zoom or the book-style choice** per book or globally.
 - **Sleep timer** for Read Aloud: stop after a time or at the end of the chapter.
 - **Prefetching the next chapter's audio** so a chapter change does not pause.
 - **Reading TOC entries aloud** as announcements between chapters.
