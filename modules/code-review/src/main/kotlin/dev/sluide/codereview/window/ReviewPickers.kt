@@ -52,7 +52,7 @@ internal class ReviewPickers(
             setOnAction { showCommitPopup() }
         }
 
-    private val entries =
+    internal val entries =
         ListView<PickerEntry>().apply {
             styleClass += "review-commit-list"
             fixedCellSize = CELL_HEIGHT
@@ -231,6 +231,9 @@ internal class ReviewPickers(
 
     private inner class EntryCell : ListCell<PickerEntry>() {
         init {
+            // A long subject is cut off with an ellipsis instead of widening the cells: a horizontal scroll bar would
+            // cover the last entry of a list sized to its entries.
+            prefWidth = 0.0
             setOnMouseClicked { event ->
                 val entry = item
                 if (event.button == MouseButton.PRIMARY && entry != null) {

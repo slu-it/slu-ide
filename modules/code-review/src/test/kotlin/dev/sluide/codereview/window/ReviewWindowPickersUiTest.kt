@@ -19,11 +19,13 @@ import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.collections.ObservableList
 import javafx.event.Event
+import javafx.geometry.Orientation
 import javafx.geometry.Rectangle2D
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.ListCell
+import javafx.scene.control.ScrollBar
 import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.TreeCell
 import javafx.scene.control.skin.VirtualFlow
@@ -72,7 +74,10 @@ private class TopDiffView : ReviewDiffView {
 
     override fun firstVisible() = 0 to 0.0
 
-    override fun rowCell(index: Int): Node? = null
+    /** The rows the test says are on screen. */
+    val shown = mutableSetOf<Int>()
+
+    override fun rowCell(index: Int): Node? = if (index in shown) Region() else null
 }
 
 /** What needs a scene: the toolbar pickers and the files pane wired to the window, the loader and the diff view. */
@@ -300,6 +305,39 @@ class ReviewWindowPickersUiTest {
     }
 
     @Test
+    fun `the commit list shows every entry without a horizontal scroll bar, also for a long subject`(robot: FxRobot) {
+        val long = "A subject that is much longer than the commit list is wide ".repeat(4)
+        source.resolved = {
+            review(
+                commits =
+                    listOf(
+                        ReviewCommit("c3", "c3", long, "me", Instant.EPOCH, "c2"),
+                        ReviewCommit("c2", "c2", "two", "me", Instant.EPOCH, "c1"),
+                    ),
+            )
+        }
+        val window = window(robot)
+
+        robot.interact { window.pickers.showCommitPopup() }
+
+        robot.interact {
+            val list = window.pickers.entries
+            val horizontal =
+                list.lookupAll(".scroll-bar").filterIsInstance<ScrollBar>().filter {
+                    it.orientation == Orientation.HORIZONTAL && it.isVisible
+                }
+            assertTrue(horizontal.isEmpty(), "no horizontal scroll bar")
+            val last =
+                list.lookupAll(".list-cell").filterIsInstance<ListCell<*>>().first {
+                    it.index ==
+                        list.items.lastIndex
+                }
+            val cellBottom = last.localToScene(last.layoutBounds).maxY
+            assertTrue(cellBottom <= list.localToScene(list.layoutBounds).maxY + 1.0, "the last entry is shown")
+        }
+    }
+
+    @Test
     fun `the commit picker is hidden for a single commit and shown for several`(robot: FxRobot) {
         source.resolved = { review(commits = listOf(commit("c1", "c0"))) }
         val single = window(robot, ReviewScope.Commits("c1", "c1"))
@@ -348,6 +386,19 @@ class ReviewWindowPickersUiTest {
             assertEquals("src/c.kt", window.files.tree.selectionModel.selectedItem.value.path)
             assertEquals(before, window.top().scrolls.size)
         }
+    }
+
+    @Test
+    fun `the selected file stays selected while its header is on screen, even when another file is at the top`(
+        robot: FxRobot,
+    ) {
+        val window = window(robot)
+        robot.interact { click(fileCell(window, "src/c.kt")) }
+        robot.interact { window.top().shown += window.document.headerRow("src/c.kt") }
+
+        robot.interact { window.top().top.set("src/b.kt") }
+
+        robot.interact { assertEquals("src/c.kt", window.files.tree.selectionModel.selectedItem.value.path) }
     }
 
     @Test

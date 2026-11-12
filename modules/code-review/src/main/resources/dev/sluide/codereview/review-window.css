@@ -18,6 +18,10 @@
     -fx-wrap-text: true;
 }
 
+.review-toolbar {
+    -fx-padding: 4 8 4 8;
+}
+
 .review-title {
     -fx-font-weight: bold;
 }

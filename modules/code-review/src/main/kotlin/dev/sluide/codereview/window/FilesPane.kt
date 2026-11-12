@@ -132,7 +132,7 @@ internal class FilesPane(
             updateCounter()
             tree.refresh()
         }
-        diffView.topFile.subscribe { path -> if (path != null) showFile(path) }
+        diffView.topFile.subscribe { path -> if (path != null && !selectedHeaderShown()) showFile(path) }
         rebuild()
     }
 
@@ -196,6 +196,21 @@ internal class FilesPane(
         val visible = fullyVisibleRows()
         val target = if (visible == null) row else treeScrollTarget(row, visible.first, visible.last)
         if (target != null) tree.scrollTo(target.coerceAtLeast(0))
+    }
+
+    /**
+     * Whether the header of the file selected in the tree is on screen in the diff. The selection then stays: a click
+     * on one of the last files, which the diff cannot scroll to its top, keeps that file selected instead of the one
+     * at the diff's top.
+     */
+    private fun selectedHeaderShown(): Boolean {
+        val selected =
+            tree.selectionModel.selectedItem
+                ?.value
+                ?.file
+                ?.path ?: return false
+        val header = document.headerRow(selected)
+        return header >= 0 && diffView.rowCell(header) != null
     }
 
     /** The rows of the tree's flow that show completely; `null` while there are none laid out. */
