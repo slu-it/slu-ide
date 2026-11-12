@@ -5,14 +5,19 @@
 # build/verify/verify.log. Never run the unfiltered build with it; the main session does that after the last review.
 # Targets:
 #   :modules:todos   the unit `test` task of that module, unfiltered (`:ide` for the app)
-#   DeleteConfirmationTest, 'MainWindow*'   a test class simple name or a glob over the test file base names; it
-#                    goes to uiTest when the file contains @Tag("ui"), else to test
+#   DeleteConfirmationTest, 'MainWindow*'   a test class simple name or a glob over the names; a name matches the
+#                    test file's base name or its test class (the class that holds the first test method, as in
+#                    related-tests.sh --test-classes: ShotSearch.kt declares ShotSearch and ShotSearchTest, both
+#                    targets run ShotSearchTest); it goes to uiTest when the file contains @Tag("ui"), else to test
 # An unknown target, or a file without @Test, ends with exit 2 before Gradle starts.
 # --changed adds the unit tests of every module with changed files (against master, uncommitted, untracked) and the
 # classes `related-tests.sh --names` finds; more than 12 UI test classes stop the run (name classes instead).
+# --list resolves the targets (--changed included), prints one line per test class as
+# `<gradle module path> <task> <fully qualified class or *>` and exits 0, before the format step, the display setup
+# and Gradle (the check for another Gradle build does not apply to it).
 # UI test classes on Linux get a virtual display from setup-display.sh (:N from --display, else $DISPLAY, else :99);
 # if that fails they are reported as NOT RUN and the run ends INCOMPLETE (exit 1).
-# Usage: .claude/scripts/verify.sh [--no-format] [--changed] [--display N] [target...] [-- gradle-args]
+# Usage: .claude/scripts/verify.sh [--no-format] [--changed] [--list] [--display N] [target...] [-- gradle-args]
 # Gradle arguments that skip tasks (`-- -x uiTest`) let old passing results of the skipped classes count: don't.
 # The check for another Gradle build reads /proc, so it works on Linux only (like full-build.sh).
 # Exit: Gradle's status; 2 for usage errors and refusals (another Gradle build running, unknown target).
@@ -23,6 +28,7 @@ cd "$root"
 
 format=1
 changed=0
+list=0
 display_number=""
 targets=()
 gradle_args=()
@@ -30,33 +36,26 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --no-format) format=0 ;;
     --changed) changed=1 ;;
+    --list) list=1 ;;
     --display)
       [ "$#" -ge 2 ] || { echo "--display needs a number" >&2; exit 2; }
       display_number="$2"
       shift
       ;;
     --) shift; gradle_args=("$@"); break ;;
-    -*) echo "Unknown option $1. Usage: $0 [--no-format] [--changed] [--display N] [target...] [-- gradle-args]" >&2; exit 2 ;;
+    -*) echo "Unknown option $1. Usage: $0 [--no-format] [--changed] [--list] [--display N] [target...] [-- gradle-args]" >&2; exit 2 ;;
     *) targets+=("$1") ;;
   esac
   shift
 done
 if [ "${#targets[@]}" -eq 0 ] && [ "$changed" -eq 0 ]; then
-  echo "No target. Usage: $0 [--no-format] [--changed] [--display N] [target...] [-- gradle-args]" >&2
+  echo "No target. Usage: $0 [--no-format] [--changed] [--list] [--display N] [target...] [-- gradle-args]" >&2
   exit 2
 fi
 if [ -n "$display_number" ] && ! [[ "$display_number" =~ ^[0-9]+$ ]]; then
   echo "--display needs a number, not $display_number" >&2
   exit 2
 fi
-
-# 1. Another Gradle client in this tree would share build/ with us (see full-build.sh).
-for pid in $(ps -eo pid=,args= | awk '$2 ~ /(^|\/)java$/ && /gradle-wrapper[.]jar|GradleWrapperMain/ { print $1 }'); do
-  if [ "$(readlink "/proc/$pid/cwd" 2>/dev/null)" = "$root" ]; then
-    echo "Another Gradle build runs in $root (pid $pid); wait for it to finish first." >&2
-    exit 2
-  fi
-done
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -82,12 +81,19 @@ changed_files() {
 { git ls-files '*/src/test/*.kt'; git ls-files --others --exclude-standard '*/src/test/*.kt'; } | sort -u |
   while IFS= read -r f; do if [ -f "$f" ]; then echo "$f"; fi; done >"$work/tests"
 
-has_test() { grep -qE '@(Test|ParameterizedTest|RepeatedTest|TestFactory)\b' "$1"; }
+# Per test file: path, its test class, 1 if it has a test method (one definition, in related-tests.sh). Built on first
+# use: one awk pass over all test files, so that matching a target costs no process per file.
+test_index_built=0
+build_test_index() {
+  [ "$test_index_built" -eq 0 ] || return 0
+  test_index_built=1
+  "$root/.claude/scripts/related-tests.sh" --test-classes <"$work/tests" >"$work/test-index"
+}
 
 # Spec lines: module dir <TAB> task <TAB> fully qualified class, or * for the whole task.
 : >"$work/specs"
 add_target() {
-  local target="$1" dir found=0 test_found=0 f base pkg task
+  local target="$1" dir found=0 test_found=0 f base cls hastest pkg task
   case "$target" in
     :*)
       dir="$(echo "${target#:}" | tr : /)"
@@ -99,18 +105,19 @@ add_target() {
       return
       ;;
   esac
-  while IFS= read -r f; do
-    base="$(basename "$f" .kt)"
+  build_test_index
+  while IFS=$'\t' read -r f cls hastest; do
+    base="${f##*/}"; base="${base%.kt}"
     # shellcheck disable=SC2053
-    [[ "$base" == $target ]] || continue
+    [[ "$base" == $target || "$cls" == $target ]] || continue
     found=1
-    has_test "$f" || continue
+    [ "$hastest" = 1 ] || continue
     test_found=1
     pkg="$(sed -nE 's/^package[[:space:]]+([A-Za-z0-9_.]+).*/\1/p' "$f" | head -n 1)"
     task=test
     if grep -q '^@Tag("ui")' "$f"; then task=uiTest; fi
-    printf '%s\t%s\t%s\n' "${f%%/src/*}" "$task" "${pkg:+$pkg.}$base" >>"$work/specs"
-  done <"$work/tests"
+    printf '%s\t%s\t%s\n' "${f%%/src/*}" "$task" "${pkg:+$pkg.}$cls" >>"$work/specs"
+  done <"$work/test-index"
   if [ "$found" -eq 0 ]; then
     echo "Unknown target $target: no test file with that name" >&2
     exit 2
@@ -141,6 +148,18 @@ if [ "$changed" -eq 1 ]; then
   fi
 fi
 sort -u "$work/specs" -o "$work/specs"
+if [ "$list" -eq 1 ]; then
+  awk -F'\t' '{ gsub("/", ":", $1); print ":" $1 " " $2 " " $3 }' "$work/specs"
+  exit 0
+fi
+
+# 1. Another Gradle client in this tree would share build/ with us (see full-build.sh).
+for pid in $(ps -eo pid=,args= | awk '$2 ~ /(^|\/)java$/ && /gradle-wrapper[.]jar|GradleWrapperMain/ { print $1 }'); do
+  if [ "$(readlink "/proc/$pid/cwd" 2>/dev/null)" = "$root" ]; then
+    echo "Another Gradle build runs in $root (pid $pid); wait for it to finish first." >&2
+    exit 2
+  fi
+done
 no_tests=0
 if [ ! -s "$work/specs" ]; then
   no_tests=1

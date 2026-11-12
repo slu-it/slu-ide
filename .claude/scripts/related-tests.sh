@@ -5,13 +5,50 @@
 # A changed file under */src/main/ stands for the types it declares at top level plus its base name (a changed main
 # resource for the main .kt files of its module that name it); a changed test
 # file counts itself. A name that appears as a whole word in more than 25 test files is too common and is skipped.
-# Test helper files without @Test (fixtures) are left out. Always exits 0; prints `no related tests` when empty.
+# Test helper files without @Test (fixtures) are left out. Always exits 0 (also --test-classes); prints
+# `no related tests` when empty.
 # Usage: .claude/scripts/related-tests.sh [--names] [files...]
+#        .claude/scripts/related-tests.sh --test-classes   (file paths on stdin)
 #   --names   print only the class names, one per line (the input of verify.sh)
+#   --test-classes   for verify.sh: prints `path<TAB>test class<TAB>1 or 0 (has a test method)` for each existing path
+#             read from stdin. The test class is the one Gradle knows: the top-level class or object that holds the
+#             first test annotation (ShotSearch.kt declares a helper class ShotSearch and the test class ShotSearchTest; a
+#             KDoc that mentions @Test, not at the start of its line, does not count), else the file's base name. This
+#             is the one definition of it; verify.sh uses it to match targets against class names.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd -P)"
 cd "$root"
+
+# One awk pass over many files (NUL-separated on stdin): path, test class, 1 if the file has a test method else 0.
+# A test annotation counts only as the first thing on its line (so a KDoc or comment that mentions @Test does not); one
+# seen before any class waits for the next class; a file with a test annotation but no recognizable class falls back
+# to its base name.
+test_class_index() {
+  xargs -0 awk '
+    function finish() {
+      if (file != "") print file "\t" (cls != "" ? cls : base) "\t" (seen ? 1 : 0)
+    }
+    FNR == 1 {
+      finish()
+      file = FILENAME; base = FILENAME; sub(/.*\//, "", base); sub(/\.kt$/, "", base)
+      last = ""; cls = ""; seen = 0
+    }
+    cls != "" { next }
+    match($0, /^(@[A-Za-z]+(\([^)]*\))?[ \t]+)*((public|internal|abstract|open|data|final)[ \t]+)*(class|object)[ \t]+[A-Za-z_][A-Za-z0-9_]*/) {
+      decl = substr($0, RSTART, RLENGTH); sub(/^.*[ \t]*(class|object)[ \t]+/, "", decl); last = decl
+      if (seen) cls = last
+    }
+    /^[ \t]*@(Test|ParameterizedTest|RepeatedTest|TestFactory)([^A-Za-z0-9_(]|\(|$)/ { seen = 1; if (last != "") cls = last }
+    END { finish() }
+  '
+}
+
+if [ "${1:-}" = "--test-classes" ]; then
+  # Paths that do not exist are left out.
+  while IFS= read -r f; do if [ -f "$f" ]; then echo "$f"; fi; done | tr '\n' '\0' | test_class_index
+  exit 0
+fi
 
 names_only=0
 if [ "${1:-}" = "--names" ]; then
@@ -79,21 +116,13 @@ done <"$work/changed"
 sort -u "$work/skipped" -o "$work/skipped"
 
 # module path <TAB> task <TAB> class, only files with a test method.
-sort -u "$work/related" | while IFS= read -r f; do
-  grep -qE '@(Test|ParameterizedTest|RepeatedTest|TestFactory)\b' "$f" || continue
+sort -u "$work/related" | tr '\n' '\0' | test_class_index | while IFS=$'\t' read -r f class hastest; do
+  [ "$hastest" = 1 ] || continue
   module="${f%%/src/*}"
   gpath=":$(echo "$module" | tr / :)"
   task=test
   if grep -q '^@Tag("ui")' "$f"; then task=uiTest; fi
-  # The test class Gradle knows: the top-level class that holds the first test method (ShotSearch.kt declares a helper
-  # class ShotSearch and the test class ShotSearchTest), else the file's base name.
-  class="$(awk '
-    match($0, /^((internal|abstract|open|data)[ \t]+)*class[ \t]+[A-Za-z_][A-Za-z0-9_]*/) {
-      decl = substr($0, RSTART, RLENGTH); sub(/.*class[ \t]+/, "", decl); last = decl
-    }
-    /@(Test|ParameterizedTest|RepeatedTest|TestFactory)([^A-Za-z0-9_]|$)/ { if (last != "") { print last; exit } }
-  ' "$f")"
-  printf '%s\t%s\t%s\n' "$gpath" "$task" "${class:-$(basename "$f" .kt)}"
+  printf '%s\t%s\t%s\n' "$gpath" "$task" "$class"
 done | sort -u >"$work/classes"
 
 if [ ! -s "$work/classes" ]; then
