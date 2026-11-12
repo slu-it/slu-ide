@@ -141,12 +141,17 @@ the gate again. Hand back to the implementer only when the failure turns out to 
 When the main session fixes something itself:
 - Read a break check's result as a pass or fail of its own. Spotless reformats code after an edit, so a marker or a
   `sed` restore can stop matching: check the restored line with `grep` before committing.
+- Restore a break check from a copy of the file (`cp` before breaking), never with `git checkout -- <file>`: while
+  the fix is uncommitted that throws the fix away too.
 - Never pipe `verify.sh` into `tail` in a command chain that commits: the pipe hides the failing exit code.
 - Remove debug output in the same edit that added it, and check with `git diff` that none is left.
 
 Only after the gate is green: `merge-package.sh --remove <worktree>` for each package (it refuses unmerged
 branches). An agent whose worktree is gone cannot be resumed with SendMessage, so removing it early turns a small
 fix into a new agent with a new brief.
+A gate fix autosquashed into an already merged package commit rewrites master, so `--remove` then refuses every
+branch: check with `git cherry master <branch>` that the only `+` is that amended commit, then `git worktree remove`
+and `git branch -D`.
 
 ## Parallel packages
 - At most three worktree agents at a time. Count every implementer still running, including one applying review
