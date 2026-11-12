@@ -3,6 +3,7 @@ package dev.sluide.codereview.window
 import dev.sluide.codereview.ReviewException
 import dev.sluide.codereview.ReviewScope
 import dev.sluide.codereview.Reviews
+import dev.sluide.codereview.list.LineActions
 import dev.sluide.codereview.list.ReviewDiffView
 import dev.sluide.codereview.model.ExpandDirection
 import dev.sluide.codereview.model.ReviewLayout
@@ -38,6 +39,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -48,6 +50,7 @@ private class FakeDiffView : ReviewDiffView {
     override var onViewedChanged: (String, Boolean) -> Unit = { _, _ -> }
     override var onCollapsedChanged: (String, Boolean) -> Unit = { _, _ -> }
     override var onLoadDiff: (String) -> Unit = {}
+    override var lineActions: LineActions? = null
     override val topFile: ReadOnlyObjectProperty<String?> = ReadOnlyObjectWrapper<String?>(null).readOnlyProperty
 
     var place = 0 to 0.0
@@ -89,7 +92,10 @@ class ReviewWindowUiTest {
         stage.show()
     }
 
-    private fun window(robot: FxRobot): ReviewWindow {
+    private fun window(
+        robot: FxRobot,
+        actions: ReviewActions = ReviewActions({ _, _ -> }, {}),
+    ): ReviewWindow {
         var window: ReviewWindow? = null
         robot.interact {
             window =
@@ -102,7 +108,7 @@ class ReviewWindowUiTest {
                     fonts,
                     ReviewPrefs(store),
                     { _, _ -> null },
-                    ReviewActions({ _, _ -> }, {}),
+                    actions,
                     diffViewFactory = { _, _ -> FakeDiffView() },
                 ).also(ReviewWindow::show)
         }
@@ -297,5 +303,23 @@ class ReviewWindowUiTest {
         robot.interact { window.stage.requestFocus() }
 
         eventually { robot.interact { assertTrue(window.noticeBar.isVisible) } }
+    }
+
+    @Test
+    fun `the diff view's context menus reach the actions of the window with the project's root`(robot: FxRobot) {
+        val opened = CopyOnWriteArrayList<Pair<Path, Int?>>()
+        val histories = CopyOnWriteArrayList<Path>()
+        val window = window(robot, ReviewActions({ path, line -> opened += path to line }, { histories.add(it) }))
+        loaded(window)
+
+        val lineActions = assertNotNull(fx { window.fake().lineActions })
+        fx {
+            lineActions.openFile(lineActions.root.resolve("a.txt"), 4)
+            lineActions.showHistory(lineActions.root.resolve("a.txt"))
+        }
+
+        assertEquals(window.root, lineActions.root)
+        assertEquals(listOf<Pair<Path, Int?>>(window.root.resolve("a.txt") to 4), opened)
+        assertEquals(listOf(window.root.resolve("a.txt")), histories)
     }
 }
