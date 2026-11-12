@@ -39,12 +39,12 @@ private fun commit(
     parent: String?,
 ) = ReviewCommit(hash, hash, "subject $hash", "me", Instant.EPOCH, parent)
 
-private fun review(
+internal fun review(
     base: ReviewBase? = ReviewBase("refs/heads/main", "main", true),
     commits: List<ReviewCommit> = listOf(commit("c3", "c2"), commit("c2", "c1"), commit("c1", "c0")),
 ) = ResolvedReview("main..feature", base, "c0", "c3", commits, false)
 
-private class FakeSource(
+internal class FakeSource(
     var files: List<ReviewFile> = emptyList(),
 ) : ReviewSource {
     var resolved: () -> ResolvedReview = { review() }
@@ -117,7 +117,7 @@ private class FakeViewport : ReviewViewport {
     }
 }
 
-private fun file(path: String) = ReviewFile(ReviewChange.MODIFIED, path)
+internal fun file(path: String) = ReviewFile(ReviewChange.MODIFIED, path)
 
 class ReviewLoaderTest {
     private val source = FakeSource()

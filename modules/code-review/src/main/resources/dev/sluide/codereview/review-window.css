@@ -1,0 +1,19 @@
+/*
+ * The review window's shell (ADR 0168): notice bar and the overlay for empty and error states. No colours of its own:
+ * Modena's looked-up colours follow the theme, so there are no dark rules.
+ */
+.review-notice-bar {
+    -fx-background-color: derive(-fx-background, -6%);
+    -fx-border-color: transparent transparent -fx-box-border transparent;
+    -fx-padding: 4 8 4 8;
+    -fx-spacing: 8;
+    -fx-alignment: center-left;
+}
+
+.review-overlay {
+    -fx-opacity: 0.7;
+    -fx-font-size: 1.1em;
+    -fx-padding: 16;
+    -fx-text-alignment: center;
+    -fx-wrap-text: true;
+}
