@@ -28,6 +28,11 @@
     -fx-opacity: 0.45;
 }
 
+/* Selected lines: a tint over the diff colours, so the text stays readable (the dark one is in the media block). */
+.review-selected {
+    -fx-background-color: rgba(30, 99, 200, 0.28);
+}
+
 .review-line-text {
     -fx-padding: 0 6 0 6;
 }
@@ -105,6 +110,10 @@
 
     .review-changed-words {
         -fx-fill: #35598c;
+    }
+
+    .review-selected {
+        -fx-background-color: rgba(90, 154, 230, 0.35);
     }
 
     .review-sticky {

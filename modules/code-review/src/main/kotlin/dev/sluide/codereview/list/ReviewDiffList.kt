@@ -12,6 +12,8 @@ import javafx.collections.ObservableList
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.ScrollPane
+import javafx.scene.input.ContextMenuEvent
+import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
@@ -32,6 +34,7 @@ internal class ReviewDiffList(
     override var onViewedChanged: (path: String, viewed: Boolean) -> Unit = { _, _ -> }
     override var onCollapsedChanged: (path: String, collapsed: Boolean) -> Unit = { _, _ -> }
     override var onLoadDiff: (path: String) -> Unit = {}
+    override var lineActions: LineActions? = null
 
     private val top = ReadOnlyObjectWrapper<String?>(rows.firstOrNull()?.path)
     override val topFile: ReadOnlyObjectProperty<String?> = top.readOnlyProperty
@@ -47,7 +50,48 @@ internal class ReviewDiffList(
         )
 
     private val flow: VirtualFlow<ReviewRow, Cell<ReviewRow, Node>> =
-        VirtualFlow.createVertical(rows) { row -> Cell.wrapNode(createRowCell(row, lines, actions)) }
+        VirtualFlow.createVertical(rows) { row ->
+            Cell.wrapNode(createRowCell(row, lines, actions).also { interactions.paint(row, it) })
+        }
+
+    private val interactions =
+        DiffInteractions(
+            rows,
+            lines,
+            object : InteractionHost {
+                override val owner: Node get() = this@ReviewDiffList
+
+                override fun visibleIndices() =
+                    if (flow.visibleCells().isEmpty()) IntRange.EMPTY else flow.firstVisibleIndex..flow.lastVisibleIndex
+
+                override fun cell(index: Int) = rowCell(index)
+
+                override fun indexOfCell(node: Node): Int {
+                    if (node === sticky) return stickyIndex.takeIf { rows.getOrNull(it) == stickyRow } ?: -1
+                    return visibleIndices().firstOrNull { rowCell(it) === node } ?: -1
+                }
+
+                override fun viewportRow(): Int {
+                    val below = if (sticky.isVisible) sticky.prefHeight(-1.0) else 0.0
+                    return visibleIndices().firstOrNull { i ->
+                        flow
+                            .getCellIfVisible(
+                                i,
+                            ).map { flow.cellToViewport(it, 0.0, 0.0).y >= below - 1.0 }
+                            .orElse(false)
+                    } ?: firstVisible().first
+                }
+
+                override fun firstVisibleRow() = firstVisible().first
+
+                override fun reveal(index: Int) = this@ReviewDiffList.reveal(index)
+
+                override fun setViewed(
+                    path: String,
+                    viewed: Boolean,
+                ) = onViewedChanged(path, viewed)
+            },
+        ) { lineActions }
 
     private var stickyRow: ReviewRow.FileHeader? = null
     private val sticky =
@@ -84,6 +128,9 @@ internal class ReviewDiffList(
             )
         isFocusTraversable = true
         addEventHandler(MouseEvent.MOUSE_PRESSED) { requestFocus() }
+        addEventFilter(MouseEvent.MOUSE_PRESSED, interactions::onMousePressed)
+        addEventHandler(ContextMenuEvent.CONTEXT_MENU_REQUESTED, interactions::onContextMenu)
+        addEventHandler(KeyEvent.KEY_PRESSED, interactions::onKey)
         children +=
             listOf(
                 VirtualizedScrollPane(flow, ScrollPane.ScrollBarPolicy.NEVER, ScrollPane.ScrollBarPolicy.AS_NEEDED),
@@ -93,6 +140,7 @@ internal class ReviewDiffList(
         flow.needsLayoutProperty().addListener { _, _, needs -> if (!needs) updateTop() }
         // After Flowless's own listener, so that its change of the position is the one to correct.
         rows.addListener(ListChangeListener { change -> followChange(change) })
+        rows.addListener(ListChangeListener { interactions.rowsChanged() })
         updateTop()
     }
 

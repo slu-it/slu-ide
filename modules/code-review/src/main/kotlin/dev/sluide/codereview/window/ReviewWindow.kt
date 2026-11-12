@@ -5,6 +5,7 @@ import dev.sluide.codereview.ResolvedReview
 import dev.sluide.codereview.ReviewBase
 import dev.sluide.codereview.ReviewScope
 import dev.sluide.codereview.ReviewSource
+import dev.sluide.codereview.list.LineActions
 import dev.sluide.codereview.list.ReviewDiffView
 import dev.sluide.codereview.list.createDiffView
 import dev.sluide.codereview.model.ReviewDocument
@@ -179,6 +180,7 @@ internal class ReviewWindow(
         diffView.onViewedChanged = document::setViewed
         diffView.onCollapsedChanged = document::setCollapsed
         diffView.onLoadDiff = document::loadDiff
+        diffView.lineActions = LineActions(root, actions.openFile, actions.showHistory)
         diffView.node.styleProperty().bind(fonts.font(FontArea.EDITOR).map(FontSpec::toCss))
         diffView.node.visibleProperty().bind(loader.message.isNull)
         overlay.textProperty().bind(loader.message)

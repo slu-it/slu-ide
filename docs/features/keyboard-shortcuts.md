@@ -315,6 +315,11 @@ File does not react to it while a terminal has the focus.
 | Shift+Up / Shift+Down in the commit picker's list | Extend a range of commits |
 | Shift+click in the commit picker's list | Pick the range from the last clicked or arrowed-to commit |
 | Escape in the commit picker's list | Close it |
+| F7 / Shift+F7 in the diff | Next / previous change |
+| Alt+Down / Alt+Up in the diff (Option on macOS) | Next / previous file header |
+| Click / Shift+click on a line number | Select the line / extend the selection within the file (and side, in the split view) |
+| Shortcut+C in the diff | Copy the selected lines (text only, without signs and numbers) |
+| Escape in the diff | Clear the line selection |
 
 ## TODO panel
 [todos.md](todos.md)

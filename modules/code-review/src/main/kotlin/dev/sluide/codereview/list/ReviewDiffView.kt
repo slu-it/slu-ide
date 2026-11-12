@@ -28,6 +28,11 @@ internal interface ReviewDiffView {
     /** The user asked to show the diff of the file at [path] that started behind Load diff. */
     var onLoadDiff: (path: String) -> Unit
 
+    /** What the context menus open and show; set by the window. */
+    var lineActions: LineActions?
+        get() = null
+        set(_) {}
+
     /** The path of the file the first visible row belongs to; `null` without rows. Follows every scroll. */
     val topFile: ReadOnlyObjectProperty<String?>
 
