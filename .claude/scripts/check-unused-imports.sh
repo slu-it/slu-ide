@@ -5,15 +5,31 @@
 # whole word anywhere outside the import lines and the text of string literals, KDoc and comments included (string
 # templates, `$name` and `${...}`, count as code). Star imports and imports that Kotlin resolves by convention
 # (operators, delegates, destructuring) are skipped, as they are used without their name.
+# A file that does not exist is skipped (silently for the default list, `not found: <path>` on stderr for a given path).
 # Usage: .claude/scripts/check-unused-imports.sh [files...]   (default: every tracked *.kt file)
+# Exit: 0 without findings (or without any file left), 1 with findings.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
+explicit=$#
 if [ "$#" -eq 0 ]; then
   files=()
   while IFS= read -r file; do files+=("$file"); done < <(git ls-files '*.kt')
-  set -- "${files[@]}"
+  set -- ${files[@]+"${files[@]}"}
 fi
+
+# Files that do not exist (a tracked file deleted but not yet staged) are skipped: silently for the default list,
+# with a note for given paths. Without a file left there is nothing to report.
+existing=()
+for file in "$@"; do
+  if [ -f "$file" ]; then
+    existing+=("$file")
+  elif [ "$explicit" -gt 0 ]; then
+    echo "not found: $file" >&2
+  fi
+done
+[ "${#existing[@]}" -gt 0 ] || exit 0
+set -- "${existing[@]}"
 
 # One awk process for all files: each file is read once, its words go into a set, every import is looked up in it.
 awk '
