@@ -181,7 +181,7 @@ private fun GitCli.limitingOptions(filter: GitLogFilter): List<String> =
     }
 
 /** The format of the commits [GitLogParser] reads, each record started by [prefix] (ADR 0046). */
-private fun GitCli.logOutputOptions(prefix: String = "") =
+internal fun GitCli.logOutputOptions(prefix: String = "") =
     listOf(
         // Authors as mapped by .mailmap, for --author too, whatever log.mailmap says.
         "--use-mailmap",

@@ -23,14 +23,17 @@ internal fun isBinary(bytes: ByteArray): Boolean {
 /**
  * Git's hunks from [original] to [current]: both written to temporary files with plain names and compared as they
  * are with `git diff --no-index` (ADR 0044), so no repository path goes on the command line, with the diff
- * [algorithm] (`null`: git's own default or the user's configuration); `null` on failure. The temporary folder, below
- * [temporaryFolder] or the system's, is deleted afterwards.
+ * [algorithm] (`null`: git's own default or the user's configuration), ignoring all whitespace if [ignoreWhitespace];
+ * `null` on failure or if [cancellation] stops git. The temporary folder, below [temporaryFolder] or the system's, is
+ * deleted afterwards.
  */
 internal fun GitCli.diffTexts(
     original: ByteArray,
     current: ByteArray,
     algorithm: String?,
     temporaryFolder: Path?,
+    ignoreWhitespace: Boolean = false,
+    cancellation: GitCancellation? = null,
 ): List<GitHunk>? {
     val folder =
         try {
@@ -43,7 +46,7 @@ internal fun GitCli.diffTexts(
     return try {
         files[0].writeBytes(original)
         files[1].writeBytes(current)
-        diffFiles(folder, "original", "current", algorithm)?.let(GitDiffParser::parse)
+        diffFiles(folder, "original", "current", algorithm, ignoreWhitespace, cancellation)?.let(GitDiffParser::parse)
     } catch (_: IOException) {
         null
     } finally {

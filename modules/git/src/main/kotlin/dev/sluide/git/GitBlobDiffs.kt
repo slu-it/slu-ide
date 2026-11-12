@@ -11,8 +11,9 @@ import java.nio.file.Path
  * [currentObject] after, `null` for a side where the file is missing (added or deleted): [GitFileDiff.Submodule] if
  * either side is one, [GitFileDiff.TooLarge] if either is above [maxSize] bytes, [GitFileDiff.Binary] if either has a
  * NUL byte in its first 8000 bytes; else both texts, decoded as the editor decodes them, with git's hunks: the whole
- * file for an added or deleted one, none for the same blob (a rename or a mode change), else `git diff` of the blobs.
- * [read] gives a blob's raw content. `null` if a blob cannot be read or git fails.
+ * file for an added or deleted one, none for the same blob (a rename or a mode change), else `git diff` of the blobs,
+ * ignoring all whitespace if [ignoreWhitespace]. [read] gives a blob's raw content. `null` if a blob cannot be read or
+ * git fails.
  */
 internal fun GitCli.blobDiff(
     root: Path,
@@ -20,6 +21,7 @@ internal fun GitCli.blobDiff(
     currentObject: GitObject?,
     maxSize: Long,
     cancellation: GitCancellation? = null,
+    ignoreWhitespace: Boolean = false,
     read: (GitObject) -> ByteArray?,
 ): GitFileDiff? {
     val objects = listOfNotNull(originalObject, currentObject)
@@ -52,7 +54,7 @@ internal fun GitCli.blobDiff(
             }
 
             else -> {
-                diffBlobs(root, originalObject.name, currentObject.name, cancellation)
+                diffBlobs(root, originalObject.name, currentObject.name, cancellation, ignoreWhitespace)
                     ?.let(GitDiffParser::parse)
                     ?: return null
             }

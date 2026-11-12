@@ -342,12 +342,14 @@ class GitLog(
         file: GitChangedFile,
     ): GitFileDiff? = workingTreeFileDiff(root, commit, file, MAX_BLOB_SIZE)
 
-    /** [workingTreeFileDiff] with files above [maxSize] bytes too large. */
+    /** [workingTreeFileDiff] with files above [maxSize] bytes too large, [ignoreWhitespace], a [cancellation]. */
     internal fun workingTreeFileDiff(
         root: Path,
         commit: String,
         file: GitChangedFile,
         maxSize: Long,
+        ignoreWhitespace: Boolean = false,
+        cancellation: GitCancellation? = null,
     ): GitFileDiff? {
         requireHash(commit)
         val added = file.change == GitChange.ADDED
@@ -357,7 +359,7 @@ class GitLog(
         val index = if (deleted) null else ":${file.path}"
         val names = listOfNotNull(original, index)
         if (names.any { '\n' in it }) return null
-        val lines = git.objectInfo(root, names)?.lines()?.take(names.size) ?: return null
+        val lines = git.objectInfo(root, names, cancellation)?.lines()?.take(names.size) ?: return null
         if (lines.size != names.size) return null
         val originalObject = if (original != null) GitObject.of(lines.first()) ?: return null else null
         // Not in the index (e.g. unmerged): no submodule there.
@@ -404,7 +406,8 @@ class GitLog(
 
                 else -> {
                     val algorithm = git.configValues(root, "diff.algorithm")?.lastOrNull()
-                    git.diffTexts(originalBytes, current, algorithm, temporaryFolder) ?: return null
+                    git.diffTexts(originalBytes, current, algorithm, temporaryFolder, ignoreWhitespace, cancellation)
+                        ?: return null
                 }
             }
         return GitFileDiff.Text(originalText, currentText, hunks)

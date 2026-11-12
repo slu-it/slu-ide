@@ -14,7 +14,7 @@ import kotlin.time.Duration.Companion.seconds
 private val HASH_PREFIX = Regex("[0-9a-fA-F]{4,64}")
 
 /** Room for the header line of `cat-file --batch` besides the object name, and the line break at the end. */
-private const val BLOB_HEADER_SLACK = 64L
+internal const val BLOB_HEADER_SLACK = 64L
 
 /**
  * The full object name of the one commit [prefix] (4 to 64 hexadecimal characters) names in the repository at
@@ -204,26 +204,21 @@ internal fun GitCli.blob(
 
 /**
  * The output of `git diff -U0` from the blob [original] to the blob [current] (full object names, see
- * [GitDiffParser]), or `null` if git is not available, fails or takes longer than 10 s.
+ * [GitDiffParser]), ignoring all whitespace (`-w`) if [ignoreWhitespace], or `null` if git is not available, fails or
+ * takes longer than 10 s.
  */
 internal fun GitCli.diffBlobs(
     root: Path,
     original: String,
     current: String,
     cancellation: GitCancellation? = null,
+    ignoreWhitespace: Boolean = false,
 ): String? {
     if (!available) return null
     val arguments =
-        listOf(
-            "--no-optional-locks",
-            "diff",
-            "--no-color",
-            "--no-ext-diff",
-            "--no-textconv",
-            "-U0",
-            original,
-            current,
-        )
+        listOf("--no-optional-locks", "diff", "--no-color", "--no-ext-diff", "--no-textconv", "-U0") +
+            (if (ignoreWhitespace) listOf("-w") else emptyList()) +
+            listOf(original, current)
     return run(arguments, root, 10.seconds, cancellation = cancellation)
 }
 
@@ -263,12 +258,13 @@ internal fun GitCli.filteredBlob(
 
 /**
  * The output of `git diff -z --name-status -M` between [commit] (a full object name) and the working tree at [root]
- * (ADR 0044), for the tracked files (see [GitNameStatusParser]); `null` if git is not available, fails or takes
- * longer than 10 s.
+ * (ADR 0044), for the tracked files (see [GitNameStatusParser]); `null` if git is not available, fails, takes longer
+ * than 10 s or is stopped by [cancellation].
  */
 internal fun GitCli.workingTreeChanges(
     root: Path,
     commit: String,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available) return null
     val arguments =
@@ -283,7 +279,7 @@ internal fun GitCli.workingTreeChanges(
             commit,
             "--",
         )
-    return run(arguments, root, 10.seconds)
+    return run(arguments, root, 10.seconds, cancellation)
 }
 
 /**
@@ -301,14 +297,17 @@ internal fun GitCli.emptyTree(root: Path): String? {
  * names relative to it; see [GitDiffParser]), the texts compared as they are (ADR 0044): run in [folder], with the
  * parent folders not searched for a repository, no attributes (an empty `core.attributesFile`, no system ones) and
  * no line-ending conversion, as the texts are both in their checkout form already. [algorithm] is the
- * `diff.algorithm` to use, e.g. the repository's. `null` if git is not available, fails (also exit value 1 without a
- * hunk, which is how it fails to read a file) or takes longer than 10 s.
+ * `diff.algorithm` to use, e.g. the repository's; [ignoreWhitespace] ignores all whitespace (`-w`). A [cancellation]
+ * stops git. `null` if git is not available, fails (also exit value 1 without a hunk, which is how it fails to read a
+ * file), takes longer than 10 s or is cancelled.
  */
 internal fun GitCli.diffFiles(
     folder: Path,
     original: String,
     current: String,
     algorithm: String?,
+    ignoreWhitespace: Boolean = false,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available) return null
     val noAttributes = folder.resolve("attributes")
@@ -323,6 +322,7 @@ internal fun GitCli.diffFiles(
             addAll(listOf("-c", "core.attributesFile=attributes"))
             if (algorithm != null) addAll(listOf("-c", "diff.algorithm=$algorithm"))
             addAll(listOf("diff", "--no-index", "--text", "--no-color", "--no-ext-diff", "--no-textconv", "-U0"))
+            if (ignoreWhitespace) add("-w")
             addAll(listOf("--", original, current))
         }
     val outside =
@@ -336,8 +336,9 @@ internal fun GitCli.diffFiles(
         ).toMap()
     // Without an index there is no fsmonitor to guard against, and the folder is a new one every time.
     val execution =
-        execute(arguments, folder, 10.seconds, null, write = false, outside, guardFsmonitor = false) ?: return null
-    if (!execution.complete) return null
+        execute(arguments, folder, 10.seconds, null, false, outside, cancellation, guardFsmonitor = false)
+            ?: return null
+    if (!execution.complete || execution.cancelled) return null
     val output = execution.output.toString(Charsets.UTF_8)
     // Without an index, git exits with 1 when the files differ, but also when it cannot read one.
     return when (execution.exitValue) {

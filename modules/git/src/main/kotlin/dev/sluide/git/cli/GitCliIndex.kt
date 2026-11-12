@@ -20,17 +20,24 @@ import kotlin.time.Duration.Companion.seconds
 private fun GitCli.listFiles(
     root: Path,
     vararg option: String,
+    cancellation: GitCancellation? = null,
 ): List<String>? {
     if (!available) return null
     val arguments = listOf("--no-optional-locks", "ls-files", "-z") + option
-    return run(arguments, root, 10.seconds)?.split('\u0000')?.filter(String::isNotEmpty)
+    return run(arguments, root, 10.seconds, cancellation)?.split('\u0000')?.filter(String::isNotEmpty)
 }
 
 /** The paths in the index of the repository at [root] (ADR 0048); `null` on failure. */
 internal fun GitCli.indexedPaths(root: Path): List<String>? = listFiles(root)
 
-/** The untracked files, not ignored, one by one also inside untracked folders (ADR 0048); `null` on failure. */
-internal fun GitCli.untrackedPaths(root: Path): List<String>? = listFiles(root, "--others", "--exclude-standard")
+/**
+ * The untracked files, not ignored, one by one also inside untracked folders (ADR 0048); `null` on failure or if
+ * [cancellation] stops git.
+ */
+internal fun GitCli.untrackedPaths(
+    root: Path,
+    cancellation: GitCancellation? = null,
+): List<String>? = listFiles(root, "--others", "--exclude-standard", cancellation = cancellation)
 
 /**
  * Every file on disk that is not in the index, the ignored ones too, one by one also inside untracked and ignored
