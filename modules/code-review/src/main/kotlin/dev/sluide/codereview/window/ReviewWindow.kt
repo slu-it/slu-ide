@@ -19,6 +19,7 @@ import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
 import javafx.application.Platform
 import javafx.beans.property.ObjectProperty
+import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.collections.ObservableList
 import javafx.geometry.Rectangle2D
@@ -39,6 +40,7 @@ import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import javafx.stage.Window
 import java.nio.file.Path
+import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.RejectedExecutionException
 
@@ -47,7 +49,7 @@ import java.util.concurrent.RejectedExecutionException
  * review, a slot for the find bar, and the files pane beside the diff (ADR 0168). [show] opens it and starts loading.
  * The window only builds the shell and wires the [ReviewLoader]; the toolbar's leading nodes, the files pane and the
  * find bar's slot are filled by other parts. [bounds] is where the window starts, [onClosed] tells whoever keeps it.
- * Its executor runs the loads and the writing of the settings, and ends with the window.
+ * Its executor runs the loads and ends with the window; the settings are written by [prefsWriter].
  */
 internal class ReviewWindow(
     val root: Path,
@@ -62,6 +64,7 @@ internal class ReviewWindow(
     private val onClosed: (ReviewWindow) -> Unit = {},
     diffViewFactory: (ObservableList<ReviewRow>, ReviewLineSource) -> ReviewDiffView = ::createDiffView,
     private val executor: ExecutorService = NamedThreads.single("sluide-review"),
+    private val prefsWriter: Executor = NamedThreads.single("sluide-review-prefs"),
     dispatch: (() -> Unit) -> Unit = { Platform.runLater(it) },
 ) {
     val document = ReviewDocument()
@@ -153,6 +156,9 @@ internal class ReviewWindow(
         loader.open(scope)
     }
 
+    /** Whether a load is running. */
+    val loading: ReadOnlyBooleanProperty get() = loader.loading
+
     /** Resolves `Branch(head, ref)` again; only for a branch scope. */
     fun changeBase(ref: String) = loader.changeBase(ref)
 
@@ -190,9 +196,9 @@ internal class ReviewWindow(
         }
         document.layout.addListener { _, _, layout ->
             layoutToggles.selectToggle(layoutButtons.getValue(layout))
-            savePrefs()
+            savePrefs { prefs.write(layout = layout) }
         }
-        document.ignoreWhitespace.addListener { _, _, _ -> savePrefs() }
+        document.ignoreWhitespace.addListener { _, _, hide -> savePrefs { prefs.write(hideWhitespace = hide) } }
         toolbar.trailing.setAll(hideWhitespace, *layoutButtons.values.toTypedArray())
 
         reloadButton.setOnAction { loader.reload() }
@@ -201,12 +207,12 @@ internal class ReviewWindow(
         noticeBar.managedProperty().bind(noticeBar.visibleProperty())
     }
 
-    private fun savePrefs() {
-        val value = ReviewPrefsValue(document.layout.get(), document.ignoreWhitespace.get())
+    /** Writes a changed setting off the FX thread, on the writer of all windows, not behind a running load. */
+    private fun savePrefs(write: () -> Unit) {
         try {
-            executor.execute { prefs.write(value) }
+            prefsWriter.execute(write)
         } catch (_: RejectedExecutionException) {
-            // The window is closed already.
+            // The writer is shut down already.
         }
     }
 

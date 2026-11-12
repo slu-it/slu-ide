@@ -31,10 +31,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-private val ROOT = Path.of("/repo")
-private val DIRECT = Executor { it.run() }
+internal val ROOT = Path.of("/repo")
+internal val DIRECT = Executor { it.run() }
 
-private fun commit(
+internal fun commit(
     hash: String,
     parent: String?,
 ) = ReviewCommit(hash, hash, "subject $hash", "me", Instant.EPOCH, parent)
@@ -42,12 +42,15 @@ private fun commit(
 internal fun review(
     base: ReviewBase? = ReviewBase("refs/heads/main", "main", true),
     commits: List<ReviewCommit> = listOf(commit("c3", "c2"), commit("c2", "c1"), commit("c1", "c0")),
-) = ResolvedReview("main..feature", base, "c0", "c3", commits, false)
+    title: String = "main..feature",
+    uncommitted: Boolean = false,
+) = ResolvedReview(title, base, "c0", "c3", commits, uncommitted)
 
 internal class FakeSource(
     var files: List<ReviewFile> = emptyList(),
 ) : ReviewSource {
     var resolved: () -> ResolvedReview = { review() }
+    var resolveHook: (ReviewCancellation) -> Unit = {}
     var fileDiffsHook: (List<ReviewFile>, Boolean, ReviewCancellation) -> Unit = { _, _, _ -> }
     var missing = emptySet<String>()
     var print: String? = "fp1"
@@ -66,6 +69,7 @@ internal class FakeSource(
         cancellation: ReviewCancellation,
     ): ResolvedReview {
         scopes += scope
+        resolveHook(cancellation)
         return resolved()
     }
 
@@ -102,9 +106,16 @@ internal class FakeSource(
     }
 }
 
-private class FakeViewport : ReviewViewport {
+/**
+ * A viewport like the real list's: with [async] a scroll is applied only at the next [layout], and [firstVisible] is
+ * the place until then.
+ */
+internal class FakeViewport(
+    private val async: Boolean = false,
+) : ReviewViewport {
     var place = 0 to 0.0
     val scrolls = mutableListOf<Pair<Int, Double>>()
+    private var pending: Pair<Int, Double>? = null
 
     override fun firstVisible() = place
 
@@ -113,7 +124,13 @@ private class FakeViewport : ReviewViewport {
         offset: Double,
     ) {
         scrolls += index to offset
-        place = index to offset
+        if (async) pending = index to offset else place = index to offset
+    }
+
+    /** The list's layout pass: applies the last scroll asked for. */
+    fun layout() {
+        pending?.let { place = it }
+        pending = null
     }
 }
 
@@ -253,17 +270,26 @@ class ReviewLoaderTest {
     }
 
     @Test
-    fun `a review exception is shown, a cancellation is not`() {
+    fun `a review exception is shown, the cancellation of the load is not, any other is`() {
         val loader = loader()
         source.resolved = { throw ReviewException("bad ref") }
         loader.openBranch()
         assertEquals("Could not read the review: bad ref", loader.message.get())
         assertFalse(loader.loading.get())
 
-        source.resolved = { throw CancellationException() }
-        val second = loader()
-        second.openBranch()
-        assertNull(second.message.get())
+        source.resolveHook = {
+            it.cancel()
+            throw CancellationException()
+        }
+        val cancelled = loader()
+        cancelled.openBranch()
+        assertNull(cancelled.message.get())
+
+        // Nobody cancelled this load: the exception is a failure like any other.
+        source.resolveHook = { throw CancellationException("stray") }
+        val stray = loader()
+        stray.openBranch()
+        assertEquals("Could not read the review: stray", stray.message.get())
     }
 
     @Test
@@ -329,12 +355,16 @@ class ReviewLoaderTest {
     fun `the fingerprint is not checked while loading`() {
         source.files = listOf(file("a.kt"))
         val release = CountDownLatch(1)
-        source.fileDiffsHook = { _, _, _ -> release.await(10, TimeUnit.SECONDS) }
+        val started = CountDownLatch(1)
+        source.fileDiffsHook = { _, _, _ ->
+            started.countDown()
+            release.await(10, TimeUnit.SECONDS)
+        }
         val executor = Executors.newSingleThreadExecutor()
         try {
             val loader = loader(executor)
             loader.openBranch()
-            while (!loader.loading.get() || source.diffCalls.isEmpty()) Thread.onSpinWait()
+            assertTrue(started.await(10, TimeUnit.SECONDS), "the load is in its diffs")
 
             source.print = "other"
             loader.checkStale()
@@ -380,7 +410,7 @@ class ReviewLoaderTest {
     }
 
     @Test
-    fun `reload scrolls to the line when its content arrives`() {
+    fun `reload scrolls straight to the line when the file's content was kept`() {
         source.files = listOf(file("a.kt"), file("b.kt"))
         val loader = loader()
         loader.openBranch()
@@ -388,26 +418,10 @@ class ReviewLoaderTest {
         val line = document.rows.indexOfFirst { it.path == "b.kt" && it is ReviewRow.SplitLine }
         viewport.place = line to 3.0
         val anchor = document.anchorAt(line)
-        // The scroll after setFiles goes to the header; the content then moves it to the line.
-        loader.reload()
-
-        assertEquals(document.rowOf(anchor), viewport.scrolls.last().first)
-        assertEquals(3.0, viewport.scrolls.last().second)
-        assertTrue(viewport.scrolls.size >= 2)
-    }
-
-    @Test
-    fun `reload does not jump when the user scrolled meanwhile`() {
-        source.files = listOf(file("a.kt"), file("b.kt"))
-        val loader = loader()
-        loader.openBranch()
-        viewport.place = document.headerRow("b.kt") to 0.0
-        // The user scrolls to a.kt while the diffs load.
-        source.fileDiffsHook = { _, _, _ -> viewport.place = 0 to 0.0 }
 
         loader.reload()
 
-        assertEquals(1, viewport.scrolls.size, "only the scroll to the header, none to the anchor")
+        assertEquals(listOf(document.rowOf(anchor) to 3.0), viewport.scrolls, "one scroll, no stop at the header")
     }
 
     @Test

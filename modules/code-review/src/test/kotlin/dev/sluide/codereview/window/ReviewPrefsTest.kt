@@ -26,7 +26,7 @@ class ReviewPrefsTest {
 
     @Test
     fun `written values are read back by another store`() {
-        prefs().write(ReviewPrefsValue(ReviewLayout.UNIFIED, true))
+        prefs().write(layout = ReviewLayout.UNIFIED, hideWhitespace = true)
 
         assertEquals(ReviewPrefsValue(ReviewLayout.UNIFIED, true), prefs().read())
         assertTrue(shared.readText().contains("UNIFIED"))
@@ -34,11 +34,11 @@ class ReviewPrefsTest {
 
     @Test
     fun `only values that differ from the defaults are written, and an empty field goes`() {
-        prefs().write(ReviewPrefsValue(ReviewLayout.SPLIT, true))
+        prefs().write(layout = ReviewLayout.SPLIT, hideWhitespace = true)
         assertFalse(shared.readText().contains("layout"))
         assertTrue(shared.readText().contains("hideWhitespace"))
 
-        prefs().write(ReviewPrefsValue())
+        prefs().write(layout = ReviewLayout.SPLIT, hideWhitespace = false)
         assertFalse(shared.readText().contains("review"))
     }
 
@@ -49,9 +49,21 @@ class ReviewPrefsTest {
         )
         assertEquals(ReviewPrefsValue(), prefs().read())
 
-        prefs().write(ReviewPrefsValue(ReviewLayout.UNIFIED, false))
+        prefs().write(layout = ReviewLayout.UNIFIED)
 
         assertTrue(shared.readText().contains("softWrap"))
         assertEquals(ReviewPrefsValue(ReviewLayout.UNIFIED, false), prefs().read())
+    }
+
+    @Test
+    fun `a write changes only the field it is given`() {
+        prefs().write(layout = ReviewLayout.UNIFIED, hideWhitespace = true)
+
+        prefs().write(hideWhitespace = false)
+        assertEquals(ReviewPrefsValue(ReviewLayout.UNIFIED, false), prefs().read())
+
+        prefs().write(hideWhitespace = true)
+        prefs().write(layout = ReviewLayout.SPLIT)
+        assertEquals(ReviewPrefsValue(ReviewLayout.SPLIT, true), prefs().read())
     }
 }

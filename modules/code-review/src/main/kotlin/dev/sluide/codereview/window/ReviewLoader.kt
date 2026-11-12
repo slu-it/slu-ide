@@ -88,19 +88,31 @@ internal class ReviewLoader(
     private var scope: ReviewScope? = null
     private var cancellation: ReviewCancellation? = null
     private var loads = 0
+
+    /** What the review looked like when it was last loaded; `null` while a full load runs or after an error. */
     private var fingerprint: String? = null
+
+    /** The fingerprint taken right after the running load resolved, published when a load finishes. */
+    private var pendingFingerprint: String? = null
+
+    /** Restarts the running load's first step (resolve, or reading the files) with the current settings. */
+    private var firstStep: (() -> Unit)? = null
+
+    /** The selection the user picked while a resolve ran; wins over the restored one when it fits the review. */
+    private var pickedMeanwhile: ReviewSelection? = null
     private var settingSelection = false
     private var closed = false
     private var scrollRestore: ScrollRestore? = null
 
     init {
-        selection.addListener { _, _, _ -> if (!settingSelection) loadSelection() }
-        document.ignoreWhitespace.addListener { _, _, _ -> reloadDiffs() }
+        selection.addListener { _, _, _ -> if (!settingSelection) selectionChanged() }
+        document.ignoreWhitespace.addListener { _, _, _ -> whitespaceChanged() }
     }
 
     /** Resolves [scope] and shows it. */
     fun open(scope: ReviewScope) {
         this.scope = scope
+        pickedMeanwhile = null
         resolve(null)
     }
 
@@ -108,6 +120,7 @@ internal class ReviewLoader(
     fun changeBase(ref: String) {
         val branch = scope as? ReviewScope.Branch ?: return
         scope = branch.copy(base = ref)
+        pickedMeanwhile = null
         resolve(null)
     }
 
@@ -117,7 +130,8 @@ internal class ReviewLoader(
      */
     fun reload() {
         val place = currentAnchor()
-        resolve(Restore(selectedHashes(), place?.first, place?.second ?: 0.0))
+        pickedMeanwhile = null
+        resolve(Restore(selectedCommits(), place?.first, place?.second ?: 0.0))
     }
 
     /** Computes the fingerprint again and marks the review stale when it differs; not while loading. */
@@ -149,15 +163,37 @@ internal class ReviewLoader(
         cancelRunning()
     }
 
+    /** A selection made while the first step runs: the whole step starts again with it. */
+    private fun selectionChanged() {
+        val restart = firstStep
+        if (restart == null) {
+            loadSelection()
+        } else {
+            pickedMeanwhile = selection.get()
+            restart()
+        }
+    }
+
+    /** The whitespace flag changed: before the file list is in the document, the whole first step starts again. */
+    private fun whitespaceChanged() {
+        val restart = firstStep
+        if (restart == null) reloadDiffs() else restart()
+    }
+
     private fun resolve(restore: Restore?) {
         val scope = scope ?: return
         val whitespace = document.ignoreWhitespace.get()
-        val cancellation = begin()
+        val meanwhile = pickedMeanwhile
+        val cancellation = begin(full = true)
+        firstStep = { resolve(restore) }
         executor.execute {
             guarded(cancellation) {
                 val review = source.resolve(root, scope, cancellation)
                 val bases = if (scope is ReviewScope.Branch) source.bases(root) else null
-                val picked = restore?.selectionIn(review) ?: ReviewSelection.All
+                // Before the files are read: what changes while they are read makes the review stale afterwards.
+                val print = source.fingerprint(root, review)
+                val picked =
+                    meanwhile?.takeIf { it.fits(review) } ?: restore?.selectionIn(review) ?: ReviewSelection.All
                 dispatch {
                     if (!cancellation.isCancelled) {
                         resolvedProperty.set(review)
@@ -169,14 +205,17 @@ internal class ReviewLoader(
                             settingSelection = false
                         }
                         messageProperty.set(null)
+                        pendingFingerprint = print
                     }
                 }
                 if (scope is ReviewScope.Branch && review.base == null) {
                     dispatch {
                         if (!cancellation.isCancelled) {
+                            firstStep = null
+                            pickedMeanwhile = null
                             document.setFiles(emptyList())
                             messageProperty.set(NO_BASE)
-                            loadingProperty.set(false)
+                            finish()
                         }
                     }
                 } else {
@@ -190,21 +229,22 @@ internal class ReviewLoader(
         val review = resolved.get() ?: return
         val whitespace = document.ignoreWhitespace.get()
         val picked = selection.get()
-        val cancellation = begin()
+        val cancellation = begin(full = false)
+        firstStep = { loadSelection() }
         executor.execute { guarded(cancellation) { loadFiles(review, picked, null, whitespace, cancellation) } }
     }
 
-    /** The whitespace flag changed: the document dropped the contents; read only the diffs again. */
+    /** The whitespace flag changed with the files in the document, which dropped the contents: read the diffs again. */
     private fun reloadDiffs() {
         val review = resolved.get() ?: return
         val whitespace = document.ignoreWhitespace.get()
         val picked = selection.get()
         val files = document.files
-        val cancellation = begin()
+        val cancellation = begin(full = false)
         executor.execute {
             guarded(cancellation) {
                 val (from, to) = review.range(picked)
-                loadDiffs(review, from, to, files, whitespace, cancellation)
+                loadDiffs(from, to, files, whitespace, cancellation)
             }
         }
     }
@@ -221,17 +261,17 @@ internal class ReviewLoader(
         val files = treeOrder(source.changedFiles(root, from, to, cancellation))
         dispatch {
             if (!cancellation.isCancelled) {
+                firstStep = null
+                pickedMeanwhile = null
                 document.setFiles(files)
                 messageProperty.set(if (files.isEmpty()) "No changes in ${review.title}." else null)
-                scrollRestore = restore?.anchor?.let { ScrollRestore(it, restore.offset) }
-                scrollRestore?.let(::scrollToHeader)
+                restore?.anchor?.let { restoreScroll(it, restore.offset) }
             }
         }
-        loadDiffs(review, from, to, files, whitespace, cancellation)
+        loadDiffs(from, to, files, whitespace, cancellation)
     }
 
     private fun loadDiffs(
-        review: ResolvedReview,
         from: String?,
         to: ReviewRevision,
         files: List<ReviewFile>,
@@ -248,12 +288,10 @@ internal class ReviewLoader(
                 }
             dispatch { if (!cancellation.isCancelled) showChunk(prepared) }
         }
-        val fingerprint = source.fingerprint(root, review)
         dispatch {
             if (!cancellation.isCancelled) {
-                this.fingerprint = fingerprint
                 scrollRestore = null
-                loadingProperty.set(false)
+                finish()
             }
         }
     }
@@ -283,18 +321,18 @@ internal class ReviewLoader(
         }
     }
 
-    /** Runs a load on the review thread: a failure becomes the message, a cancellation nothing. */
+    /** Runs a load on the review thread: a failure becomes the message, a cancellation of this load nothing. */
     private fun guarded(
         cancellation: ReviewCancellation,
         load: () -> Unit,
     ) {
         try {
             if (!cancellation.isCancelled) load()
-        } catch (_: CancellationException) {
-            // A newer load or the window's closing cancelled this one.
         } catch (e: ReviewException) {
             fail(cancellation, e.message)
         } catch (e: Exception) {
+            // A CancellationException of a load that was not cancelled is a failure like any other.
+            if (e is CancellationException && cancellation.isCancelled) return
             log.log(System.Logger.Level.ERROR, "Reading the review failed", e)
             fail(cancellation, e.message ?: e.toString())
         }
@@ -307,20 +345,36 @@ internal class ReviewLoader(
         dispatch {
             if (!cancellation.isCancelled) {
                 messageProperty.set("Could not read the review: ${reason.orEmpty()}")
+                pendingFingerprint = null
                 loadingProperty.set(false)
             }
         }
     }
 
-    /** Cancels the running load and starts the bookkeeping of the next one. */
-    private fun begin(): ReviewCancellation {
+    /** A load ran to its end: what the review looked like at its resolve is now what the window shows. */
+    private fun finish() {
+        pendingFingerprint?.let { fingerprint = it }
+        pendingFingerprint = null
+        loadingProperty.set(false)
+    }
+
+    /**
+     * Cancels the running load and starts the bookkeeping of the next one. A [full] load (resolve) forgets the
+     * fingerprint and the stale notice; a partial one (selection, whitespace) keeps both.
+     */
+    private fun begin(full: Boolean): ReviewCancellation {
         cancelRunning()
         val next = ReviewCancellation()
         cancellation = next
         loads++
         scrollRestore = null
+        firstStep = null
         loadingProperty.set(true)
-        staleProperty.set(false)
+        if (full) {
+            staleProperty.set(false)
+            fingerprint = null
+            pendingFingerprint = null
+        }
         return next
     }
 
@@ -338,14 +392,23 @@ internal class ReviewLoader(
         return if (row in document.rows.indices) document.anchorAt(row) to offset else null
     }
 
-    private fun scrollToHeader(restore: ScrollRestore) {
-        val header = document.headerRow(restore.anchor.path)
-        if (header < 0) {
-            scrollRestore = null
-            return
+    /**
+     * Puts the diff back at [anchor] after a reload. The line is there when the file's content was kept: scroll to
+     * it and be done. Else scroll to the file's header and wait for the content ([showChunk]); a path that is gone
+     * is not scrolled to.
+     */
+    private fun restoreScroll(
+        anchor: ReviewAnchor,
+        offset: Double,
+    ) {
+        val row = document.rowOf(anchor)
+        if (row < 0) return
+        if (document.anchorAt(row) == anchor) {
+            viewport.scrollToRow(row, offset)
+        } else {
+            viewport.scrollToRow(row, 0.0)
+            scrollRestore = ScrollRestore(anchor, offset, ReviewAnchor(anchor.path, null, null) to 0.0)
         }
-        viewport.scrollToRow(header, 0.0)
-        restore.set = currentAnchor()
     }
 
     private fun scrollToAnchor(restore: ScrollRestore) {
@@ -353,24 +416,49 @@ internal class ReviewLoader(
         if (row >= 0) viewport.scrollToRow(row, restore.offset)
     }
 
-    /** The commits of the current selection, newest and oldest hash; `null` for All and Uncommitted. */
-    private fun selectedHashes(): Pair<String, String>? {
-        val commits = resolved.get()?.commits ?: return null
-        val picked = selection.get() as? ReviewSelection.Commits ?: return null
-        val newest = commits.getOrNull(picked.newest) ?: return null
-        val oldest = commits.getOrNull(picked.oldest) ?: return null
-        return newest.hash to oldest.hash
+    /** The commits of the current selection, by hash; for a reload to find them again. */
+    private fun selectedCommits(): PickedCommits {
+        val commits = resolved.get()?.commits.orEmpty()
+        return when (val picked = selection.get()) {
+            ReviewSelection.All -> {
+                PickedCommits(null, false)
+            }
+
+            ReviewSelection.Uncommitted -> {
+                PickedCommits(null, true)
+            }
+
+            is ReviewSelection.Commits -> {
+                val newest = commits.getOrNull(picked.newest)
+                val oldest = commits.getOrNull(picked.oldest)
+                PickedCommits(if (newest != null && oldest != null) newest.hash to oldest.hash else null, false)
+            }
+        }
     }
 
-    /** What a reload keeps: the selected commits by hash, and the place in the diff. */
-    private class Restore(
+    private fun ReviewSelection.fits(review: ResolvedReview): Boolean =
+        when (this) {
+            ReviewSelection.All -> true
+            ReviewSelection.Uncommitted -> review.uncommitted
+            is ReviewSelection.Commits -> newest in 0..oldest && oldest < review.commits.size
+        }
+
+    /** The picked commits of a review: newest and oldest hash of a range, or the uncommitted changes. */
+    private class PickedCommits(
         val hashes: Pair<String, String>?,
+        val uncommitted: Boolean,
+    )
+
+    /** What a reload keeps: the selected commits, and the place in the diff. */
+    private class Restore(
+        val picked: PickedCommits,
         val anchor: ReviewAnchor?,
         val offset: Double,
     ) {
         /** The selection again, when its commits are still in [review]; else All. */
         fun selectionIn(review: ResolvedReview): ReviewSelection {
-            val (newest, oldest) = hashes ?: return ReviewSelection.All
+            if (picked.uncommitted) return if (review.uncommitted) ReviewSelection.Uncommitted else ReviewSelection.All
+            val (newest, oldest) = picked.hashes ?: return ReviewSelection.All
             val newestIndex = review.commits.indexOfFirst { it.hash == newest }
             val oldestIndex = review.commits.indexOfFirst { it.hash == oldest }
             return if (newestIndex in 0..oldestIndex) {
@@ -381,15 +469,19 @@ internal class ReviewLoader(
         }
     }
 
-    /** A scroll the loader made towards [anchor]; [set] is where the list stood after it. */
+    /**
+     * A scroll towards [anchor] that waits for the file's content. The list applies a scroll at its next layout, so
+     * the loader never reads the place back: [expected] is what it asked for. The user has not scrolled while the
+     * list still stands where it did before the reload ([before]) or at [expected].
+     */
     private inner class ScrollRestore(
         val anchor: ReviewAnchor,
         val offset: Double,
+        val expected: Pair<ReviewAnchor, Double>,
     ) {
-        var set: Pair<ReviewAnchor, Double>? = null
+        val before: Pair<ReviewAnchor, Double> = anchor to offset
 
-        /** The user scrolled since: the list does not stand where the loader put it. */
-        fun moved(): Boolean = currentAnchor() != set
+        fun moved(): Boolean = currentAnchor().let { it != expected && it != before }
     }
 
     companion object {

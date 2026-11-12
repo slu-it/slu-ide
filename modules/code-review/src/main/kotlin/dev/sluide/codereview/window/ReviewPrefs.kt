@@ -28,12 +28,29 @@ internal class ReviewPrefs(
         )
     }
 
-    fun write(value: ReviewPrefsValue) {
+    fun write(
+        layout: ReviewLayout? = null,
+        hideWhitespace: Boolean? = null,
+    ) {
         val written =
             store.updateShared { root ->
                 val review = (root.get(FIELD) as? ObjectNode) ?: root.objectNode()
-                if (value.layout == ReviewLayout.SPLIT) review.remove(LAYOUT) else review.put(LAYOUT, value.layout.name)
-                if (value.hideWhitespace) review.put(HIDE_WHITESPACE, true) else review.remove(HIDE_WHITESPACE)
+                if (layout ==
+                    ReviewLayout.SPLIT
+                ) {
+                    review.remove(LAYOUT)
+                } else if (layout != null) {
+                    review.put(LAYOUT, layout.name)
+                }
+                if (hideWhitespace ==
+                    true
+                ) {
+                    review.put(HIDE_WHITESPACE, true)
+                } else if (hideWhitespace ==
+                    false
+                ) {
+                    review.remove(HIDE_WHITESPACE)
+                }
                 if (review.isEmpty) root.remove(FIELD) else root.set(FIELD, review)
             }
         if (!written) {

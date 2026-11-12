@@ -1,5 +1,6 @@
 package dev.sluide.codereview
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.codereview.window.ReviewActions
 import dev.sluide.codereview.window.ReviewPrefs
 import dev.sluide.codereview.window.ReviewWindow
@@ -37,6 +38,7 @@ class Reviews(
     private val prefs = ReviewPrefs(store)
     private val actions = ReviewActions({ path, line -> openFile(path, line) }, { path -> showHistory(path) })
     private val open = mutableListOf<ReviewWindow>()
+    private val prefsWriter = NamedThreads.single("sluide-review-prefs")
 
     /** The windows that are open, oldest first. */
     internal val windows: List<ReviewWindow> get() = open
@@ -64,6 +66,7 @@ class Reviews(
                 viewers::highlighterFor,
                 actions,
                 onClosed = { open.remove(it) },
+                prefsWriter = prefsWriter,
             )
         open += window
         window.show()

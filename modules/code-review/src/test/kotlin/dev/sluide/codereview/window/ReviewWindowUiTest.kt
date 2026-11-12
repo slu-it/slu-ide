@@ -1,13 +1,16 @@
 package dev.sluide.codereview.window
 
+import dev.sluide.codereview.ReviewException
 import dev.sluide.codereview.ReviewScope
 import dev.sluide.codereview.Reviews
 import dev.sluide.codereview.list.ReviewDiffView
 import dev.sluide.codereview.model.ExpandDirection
 import dev.sluide.codereview.model.ReviewLayout
+import dev.sluide.codereview.model.ReviewRow
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.projectdata.ProjectDataStore
+import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsStore
 import javafx.beans.property.ReadOnlyObjectProperty
@@ -29,6 +32,7 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
@@ -37,7 +41,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** A diff view that only records what the window asks of it. */
+/** A diff view that records what the window asks of it and stands where the test puts it. */
 private class FakeDiffView : ReviewDiffView {
     override val node: Node = Region()
     override var onExpand: (String, Int, ExpandDirection) -> Unit = { _, _, _ -> }
@@ -46,17 +50,22 @@ private class FakeDiffView : ReviewDiffView {
     override var onLoadDiff: (String) -> Unit = {}
     override val topFile: ReadOnlyObjectProperty<String?> = ReadOnlyObjectWrapper<String?>(null).readOnlyProperty
 
+    var place = 0 to 0.0
+    val scrolls = CopyOnWriteArrayList<Pair<Int, Double>>()
+
     override fun scrollToRow(
         index: Int,
         offset: Double,
-    ) {}
+    ) {
+        scrolls += index to offset
+    }
 
-    override fun firstVisible() = 0 to 0.0
+    override fun firstVisible() = place
 
     override fun rowCell(index: Int): Node? = null
 }
 
-/** What needs a scene: the window's stage, its toggles and notice bar wired to the loader and the stored settings. */
+/** What needs a scene: the window's stage, its toggles, bars and overlay wired to the loader and the stored settings. */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class ReviewWindowUiTest {
@@ -100,6 +109,9 @@ class ReviewWindowUiTest {
         return checkNotNull(window)
     }
 
+    /** [read] on the FX thread, where the window's state lives. */
+    private fun <T> fx(read: () -> T): T = WaitForAsyncUtils.asyncFx<T>(read).get()
+
     private fun eventually(assertion: () -> Unit) {
         val deadline = System.nanoTime() + 10_000_000_000L
         while (true) {
@@ -110,6 +122,10 @@ class ReviewWindowUiTest {
         }
     }
 
+    private fun loaded(window: ReviewWindow) = eventually { assertFalse(fx { window.loading.get() }, "loaded") }
+
+    private fun ReviewWindow.fake() = diffView as FakeDiffView
+
     @Test
     fun `a window opens without an owner, with its title, 80 percent of the screen, and the next one 30 px off`(
         robot: FxRobot,
@@ -118,10 +134,10 @@ class ReviewWindowUiTest {
             reviews.open(project, ReviewScope.Branch("HEAD"), ide)
             reviews.open(project, ReviewScope.Branch("HEAD"), ide)
         }
-        val (first, second) = reviews.windows.map { it.stage }
-        val area = Screen.getScreensForRectangle(ide.x, ide.y, ide.width, ide.height).first().visualBounds
+        val (first, second) = fx { reviews.windows.map { it.stage } }
+        val area = fx { Screen.getScreensForRectangle(ide.x, ide.y, ide.width, ide.height).first().visualBounds }
 
-        eventually { assertEquals("Review – main..feature – project", first.title) }
+        eventually { assertEquals("Review – main..feature – project", fx { first.title }) }
         robot.interact {
             assertNull(first.owner)
             assertEquals(area.width * 0.8, first.width, 1.0)
@@ -139,7 +155,7 @@ class ReviewWindowUiTest {
             reviews.open(project, ReviewScope.Branch("HEAD"), ide)
             reviews.open(project, ReviewScope.Branch("HEAD"), ide)
         }
-        val stages = reviews.windows.map { it.stage }
+        val stages = fx { reviews.windows.map { it.stage } }
 
         robot.interact { reviews.closeAll() }
 
@@ -189,9 +205,26 @@ class ReviewWindowUiTest {
     }
 
     @Test
+    fun `the layout toggle keeps the line at the top of the diff`(robot: FxRobot) {
+        val window = window(robot)
+        loaded(window)
+        val fake = window.fake()
+        val anchor =
+            fx {
+                val row = window.document.rows.indexOfFirst { it is ReviewRow.SplitLine }
+                fake.place = row to 4.0
+                window.document.anchorAt(row)
+            }
+
+        robot.interact { window.layoutButtons.getValue(ReviewLayout.UNIFIED).fire() }
+
+        assertEquals(fx { window.document.rowOf(anchor) } to 4.0, fake.scrolls.last())
+    }
+
+    @Test
     fun `the whitespace toggle reloads the diffs with the flag and is remembered`(robot: FxRobot) {
         val window = window(robot)
-        eventually { assertEquals(1, source.diffCalls.size) }
+        loaded(window)
 
         robot.interact { window.hideWhitespace.fire() }
 
@@ -201,11 +234,48 @@ class ReviewWindowUiTest {
     }
 
     @Test
+    fun `the diff is in the editor font`(robot: FxRobot) {
+        val window = window(robot)
+
+        val css = fonts.font(FontArea.EDITOR).get().toCss()
+
+        eventually { assertEquals(css, fx { window.diffView.node.style }) }
+    }
+
+    @Test
+    fun `an empty or failed review shows its message over the diff, a review with files does not`(robot: FxRobot) {
+        source.files = emptyList()
+        val empty = window(robot)
+        eventually { assertEquals("No changes in main..feature.", fx { empty.overlay.text }) }
+        robot.interact {
+            assertTrue(empty.overlay.isVisible)
+            assertFalse(empty.diffView.node.isVisible)
+        }
+
+        source.resolved = { throw ReviewException("bad ref") }
+        val failed = window(robot)
+        eventually { assertEquals("Could not read the review: bad ref", fx { failed.overlay.text }) }
+        robot.interact {
+            assertTrue(failed.overlay.isVisible)
+            assertFalse(failed.diffView.node.isVisible)
+        }
+
+        source.resolved = { review() }
+        source.files = listOf(file("a.kt"))
+        val shown = window(robot)
+        loaded(shown)
+        robot.interact {
+            assertFalse(shown.overlay.isVisible)
+            assertTrue(shown.diffView.node.isVisible)
+        }
+    }
+
+    @Test
     fun `a changed fingerprint shows the notice bar after repositoryChanged, and Reload hides it`(robot: FxRobot) {
         robot.interact { reviews.open(project, ReviewScope.Branch("HEAD"), ide) }
-        val window = reviews.windows.single()
-        eventually { assertEquals(1, source.fingerprints.size) }
-        eventually { robot.interact { assertFalse(window.noticeBar.isVisible) } }
+        val window = fx { reviews.windows.single() }
+        loaded(window)
+        robot.interact { assertFalse(window.noticeBar.isVisible) }
 
         source.print = "changed"
         robot.interact { reviews.repositoryChanged() }
@@ -214,5 +284,18 @@ class ReviewWindowUiTest {
         robot.interact { window.reloadButton.fire() }
         eventually { assertEquals(2, source.scopes.size) }
         eventually { robot.interact { assertFalse(window.noticeBar.isVisible) } }
+    }
+
+    @Test
+    fun `the window gaining the focus checks whether the review changed`(robot: FxRobot) {
+        val window = window(robot)
+        loaded(window)
+        source.print = "changed"
+
+        // The IDE window has the focus, then the review window gets it back.
+        robot.interact { ide.requestFocus() }
+        robot.interact { window.stage.requestFocus() }
+
+        eventually { robot.interact { assertTrue(window.noticeBar.isVisible) } }
     }
 }
