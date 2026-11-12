@@ -164,7 +164,7 @@ internal class FilesPane(
         tree.root.children.setAll(reviewTree(document.files, document.filter.get()).map { item(it, collapsed) })
         selected?.let(fileItems::get)?.let(tree.selectionModel::select)
         updateCounter()
-        diffView.topFile.value?.let(::showFile)
+        if (!pinShown()) diffView.topFile.value?.let(::showFile)
     }
 
     /** The paths of the closed folders below [item]. */
