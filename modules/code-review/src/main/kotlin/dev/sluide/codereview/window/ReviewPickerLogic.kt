@@ -41,14 +41,19 @@ internal fun selectionLabel(
         }
     }
 
+/** The most commits a review lists (the limit of `GitReviews.commits`); a list this long may be cut off. */
+internal const val COMMIT_LIST_LIMIT = 1000
+
 /** The rows of the commit picker: all changes, the uncommitted ones when there are, then the commits newest first. */
 internal fun pickerEntries(
     review: ResolvedReview,
     clock: Clock = Clock.systemDefaultZone(),
 ): List<PickerEntry> {
     val count = review.commits.size
+    // The source lists at most COMMIT_LIST_LIMIT commits: a full list may be cut off.
+    val number = if (count >= COMMIT_LIST_LIMIT) "$count+" else "$count"
     val noun = if (count == 1) "commit" else "commits"
-    val all = "All changes ($count $noun${if (review.uncommitted) " + uncommitted" else ""})"
+    val all = "All changes ($number $noun${if (review.uncommitted) " + uncommitted" else ""})"
     val head =
         listOfNotNull(
             PickerEntry(all, ReviewSelection.All),

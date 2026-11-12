@@ -86,6 +86,15 @@ class ReviewPickersTest {
     }
 
     @Test
+    fun `a full commit list says it may be longer`() {
+        val full = review.copy(commits = (0 until COMMIT_LIST_LIMIT).map { commit(it) })
+        val almost = review.copy(commits = (0 until COMMIT_LIST_LIMIT - 1).map { commit(it) })
+
+        assertEquals("All changes (1000+ commits)", pickerEntries(full, clock)[0].text)
+        assertEquals("All changes (999 commits)", pickerEntries(almost, clock)[0].text)
+    }
+
+    @Test
     fun `a range runs from the anchor to the target whichever is newer`() {
         assertEquals(ReviewSelection.Commits(1, 3), commitRange(1, 3))
         assertEquals(ReviewSelection.Commits(1, 3), commitRange(3, 1))
