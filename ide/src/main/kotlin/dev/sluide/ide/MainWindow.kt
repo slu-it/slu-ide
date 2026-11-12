@@ -45,6 +45,7 @@ import dev.sluide.ide.codeintelligence.navigateMenu
 import dev.sluide.ide.compare.WindowFileComparison
 import dev.sluide.ide.conversions.WindowConversions
 import dev.sluide.ide.encryptedfiles.WindowEncryptedFiles
+import dev.sluide.ide.explorer.ExplorerProjectData
 import dev.sluide.ide.explorer.WindowExplorer
 import dev.sluide.ide.files.TextToolLabels
 import dev.sluide.ide.files.UnsavedChoice
@@ -130,7 +131,7 @@ class MainWindow(
     gitRemotes: GitRemotes,
     private val gradleSession: GradleSession,
     private val commandRuns: CommandRunSession,
-    private val projectData: ProjectDataStore,
+    projectData: ProjectDataStore,
     todoPanel: TodoPanel,
     fontSettings: FontSettings,
     private val coloring: Coloring,
@@ -244,6 +245,9 @@ class MainWindow(
 
     /** The explorer column at the left of the window and the View menu's Explorer item (ADR 0104). */
     internal val explorer = WindowExplorer(fileExplorer, backgroundTasks, editorArea)
+
+    /** What the explorer's moves and deletions do to the per-file project data and the tabs (ADR 0091). */
+    private val explorerProjectData = ExplorerProjectData(fileExplorer, editorArea, projectData) { folder }
 
     /** The TODO panel at the right of the window and the View menu's TODOs item (ADR 0102). */
     private val todos = WindowTodos(todoPanel, editorArea, fontSettings) { openWebPage(it) }
@@ -391,20 +395,8 @@ class MainWindow(
         }
         editorArea.tabMenu.canSelectInExplorer = fileExplorer::canReveal
         fileExplorer.canOpenFile = editorArea::canOpen
-        // Per-file project data (run-argument histories, ADR 0091) follows files and folders renamed or moved in the
-        // explorer, also of files not open; re-keyed first, so a view that follows reads its data under the new path.
-        // Tabs follow instead of closing as if they were deleted.
-        fileExplorer.onMoved = { from, to ->
-            projectData.moved(from, to, folder)
-            editorArea.moved(from, to)
-        }
-        // Deleting warns about unsaved changes and, once done, forgets the per-file project data below the path and
-        // closes the tabs without asking again: clean ones and those it warned about.
-        fileExplorer.unsavedUnder = editorArea::dirtyUnder
-        fileExplorer.onDeleted = { path, unsaved ->
-            projectData.deleted(path, folder)
-            editorArea.closeUnder(path, unsaved)
-        }
+        // Per-file project data follows what the explorer moves and deletes (ADR 0091).
+        explorerProjectData.wire()
         // A folder's context menu creates the files to start with the HTTP client there (ADR 0056).
         fileExplorer.folderActions =
             listOf(
