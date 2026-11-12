@@ -29,8 +29,8 @@ all changed files in one long scroll beside a filterable file tree, without push
 - The **commit picker** offers "All changes", the single commits (newest first) and, while the reviewed branch is
   checked out and has them, **Uncommitted changes** (untracked files included) on top. A click picks one entry,
   Shift+click a range. A merge commit alone is shown against its first parent. A single-commit review has no picker.
-- Empty scopes say so ("No changes in origin/main..feature-x." with the scope's title); git failures show "Could not read the
-  review: …".
+- Empty scopes say so ("No changes in origin/main..feature-x." with the scope's title); git failures show "Could
+  not read the review: …".
 
 ## Files
 - The tree on the left lists the changed files, folders first, single-child folder chains compacted

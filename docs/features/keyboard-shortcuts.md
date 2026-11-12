@@ -298,6 +298,13 @@ File does not react to it while a terminal has the focus.
 | Escape in the Push dialog | Close it |
 | Shortcut+Enter in the Edit Commit Message dialog | Change the message (when it differs; Enter is a newline) |
 
+## Review window
+[code-review.md](code-review.md)
+
+| Keys | Action |
+|---|---|
+| Shortcut+W | Close the review window (cancels the running load) |
+
 ## TODO panel
 [todos.md](todos.md)
 
