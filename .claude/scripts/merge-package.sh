@@ -85,12 +85,17 @@ fi
 
 [ "$(git -C "$main" rev-parse --abbrev-ref HEAD)" = "master" ] || die "The main tree $main is not on master."
 
-# Gradle clients (not daemons) whose working directory is the worktree (read from /proc, so Linux only).
-for pid in $(ps -eo pid=,args= | awk '$2 ~ /(^|\/)java$/ && /gradle-wrapper[.]jar|GradleWrapperMain/ { print $1 }'); do
-  if [ "$(readlink "/proc/$pid/cwd" 2>/dev/null)" = "$wt" ] || [[ "$(readlink "/proc/$pid/cwd" 2>/dev/null)" == "$wt"/* ]]; then
-    die "A Gradle build runs in $wt (pid $pid); the agent may still be working. Wait for it to finish."
-  fi
-done
+# Gradle clients (not daemons) in the worktree (the agent may still work) or in the main tree (the fast-forward changes
+# its files), found by gradle-running.sh (reads /proc, so Linux only). Before anything is changed.
+if found="$("$(dirname "$0")/gradle-running.sh" "$wt")"; then
+  die "A Gradle build runs in $wt (pid ${found%% *}); the agent may still be working. Wait for it to finish."
+fi
+# Package worktrees live below the main tree (.claude/worktrees); builds there are not builds in the main tree.
+found="$("$(dirname "$0")/gradle-running.sh" "$main" | grep -vF " $main/.claude/worktrees/" || true)"
+if [ -n "$found" ]; then
+  found="$(head -n 1 <<<"$found")"
+  die "A Gradle build runs in the main tree $main (pid ${found%% *}); wait for it to finish first."
+fi
 
 changes="$(git -C "$wt" status --porcelain --untracked-files=no)"
 if [ -n "$changes" ]; then

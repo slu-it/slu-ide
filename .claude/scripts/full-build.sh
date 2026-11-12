@@ -4,8 +4,8 @@
 # On Linux it first runs setup-display.sh for a pool of virtual displays (:99 upwards, SLUIDE_UI_DISPLAYS of them,
 # default 8), which repairs left-over or hung ones, so UI tests never fail with "Unable to open DISPLAY" because of a
 # stale one. Gradle hands each module's uiTest a display of its own, so that many modules test in parallel (ADR 0081).
-# It refuses to start while another Gradle build runs in this working tree (both would share build/, and classes would
-# vanish under the running tests).
+# It refuses to start while another Gradle build runs in this working tree or a folder below it, not counting linked
+# worktrees (both would share build/, and classes would vanish under the running tests).
 # Usage: .claude/scripts/full-build.sh [extra Gradle arguments]; exits with the build's status, or 1 when only a check
 # failed.
 set -euo pipefail
@@ -13,14 +13,11 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd -P)"
 cd "$root"
 
-# Gradle clients (not daemons) whose working directory is this tree (read from /proc, so Linux only): `java -jar gradle/wrapper/gradle-wrapper.jar`, or
-# the wrapper's main class with older wrappers.
-for pid in $(ps -eo pid=,args= | awk '$2 ~ /(^|\/)java$/ && /gradle-wrapper[.]jar|GradleWrapperMain/ { print $1 }'); do
-  if [ "$(readlink "/proc/$pid/cwd" 2>/dev/null)" = "$root" ]; then
-    echo "Another Gradle build runs in $root (pid $pid); wait for it to finish first." >&2
-    exit 1
-  fi
-done
+# Gradle clients (not daemons) in this tree or below it, found by gradle-running.sh (reads /proc, so Linux only).
+if found="$("$root/.claude/scripts/gradle-running.sh" "$root")"; then
+  echo "Another Gradle build runs in $root (pid ${found%% *}); wait for it to finish first." >&2
+  exit 1
+fi
 
 if [ "$(uname -s)" = "Linux" ]; then
   count="${SLUIDE_UI_DISPLAYS:-8}"

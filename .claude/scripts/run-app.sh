@@ -55,20 +55,10 @@ stale() {
   [ -n "$(find "$root"/*.gradle.kts "$root"/ide/*.gradle.kts "$root"/modules/*/*.gradle.kts -newer "$jar" -print -quit 2>/dev/null)" ] && return 0
   [ "$root/gradle/libs.versions.toml" -nt "$jar" ]
 }
-# Pid of a Gradle client (not a daemon) whose working directory is this tree, as in full-build.sh (reads /proc): `java
-# -jar gradle/wrapper/gradle-wrapper.jar`, or the wrapper's main class with older wrappers. Prints "none" otherwise.
-gradle_client_in_tree() {
-  local tree pid
-  tree="$(cd "$root" && pwd -P)"
-  for pid in $(ps -eo pid=,args= | awk '$2 ~ /(^|\/)java$/ && /gradle-wrapper[.]jar|GradleWrapperMain/ { print $1 }'); do
-    if [ "$(readlink "/proc/$pid/cwd" 2>/dev/null)" = "$tree" ]; then echo "$pid"; return 0; fi
-  done
-  echo none
-}
 if stale; then
-  client="$(gradle_client_in_tree)"
-  if [ "$client" != none ]; then
-    echo "The jar must be built, but another Gradle build runs in $root (pid $client); wait for it to finish first." >&2
+  # A Gradle client (not a daemon) in this tree or below it, found by gradle-running.sh (reads /proc).
+  if found="$("$root/.claude/scripts/gradle-running.sh" "$root")"; then
+    echo "The jar must be built, but another Gradle build runs in $root (pid ${found%% *}); wait for it to finish first." >&2
     exit 1
   fi
   echo "Building the jar" >&2
