@@ -117,14 +117,14 @@ internal fun GitCli.changedFiles(
  * The output of `git cat-file --batch-check` for the [objects] (such as `<commit>:<path>`), one line each:
  * `<name> <type> <size>`, or `<object> missing`; `null` if git is not available, fails or takes longer than 10 s.
  * The names are given on the standard input, so paths reach git as UTF-8 whatever the JVM's locale; `null` for
- * a name with a line break, which git would read as two.
+ * a name with a line break, which git would read as two, or a carriage return, which it may drop ([refusedName]).
  */
 internal fun GitCli.objectInfo(
     root: Path,
     objects: List<String>,
     cancellation: GitCancellation? = null,
 ): String? {
-    if (!available || objects.any { '\n' in it }) return null
+    if (!available || objects.any(::refusedName)) return null
     val input = objects.joinToString("") { "$it\n" }.toByteArray(Charsets.UTF_8)
     return runBytes(
         listOf("--no-optional-locks", "cat-file", "--batch-check"),
