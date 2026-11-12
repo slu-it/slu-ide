@@ -10,7 +10,6 @@ import dev.sluide.git.cli.commitOf
 import dev.sluide.git.cli.comparisonCounts
 import dev.sluide.git.cli.configValues
 import dev.sluide.git.cli.currentBranch
-import dev.sluide.git.cli.diffBlobs
 import dev.sluide.git.cli.fileHistory
 import dev.sluide.git.cli.filteredBlob
 import dev.sluide.git.cli.headCommit
@@ -27,7 +26,6 @@ import dev.sluide.git.cli.treePaths
 import dev.sluide.git.cli.userName
 import dev.sluide.git.cli.workingTreeChanges
 import dev.sluide.git.parse.GitCommitDetailsParser
-import dev.sluide.git.parse.GitDiffParser
 import dev.sluide.git.parse.GitFileHistoryParser
 import dev.sluide.git.parse.GitLogParser
 import dev.sluide.git.parse.GitNameStatusParser
@@ -287,48 +285,9 @@ class GitLog(
         if (objects.size != names.size) return null
         val originalObject = if (original != null) objects.first() else null
         val currentObject = if (current != null) objects.last() else null
-        if (objects.any { it.submodule }) {
-            return GitFileDiff.Submodule(
-                originalObject?.takeIf { it.submodule }?.name,
-                currentObject?.takeIf { it.submodule }?.name,
-            )
+        return git.blobDiff(root, originalObject, currentObject, maxSize, cancellation) {
+            git.blob(root, it.name, cancellation = cancellation)
         }
-        if (objects.any { it.size > maxSize }) return GitFileDiff.TooLarge
-        val originalBytes =
-            originalObject?.let { git.blob(root, it.name, cancellation = cancellation) ?: return null } ?: ByteArray(0)
-        val currentBytes =
-            currentObject?.let { git.blob(root, it.name, cancellation = cancellation) ?: return null } ?: ByteArray(0)
-        if (isBinary(originalBytes) || isBinary(currentBytes)) return GitFileDiff.Binary
-        // As the editor decodes files: UTF-8 or Windows-1252 (ADR 0098).
-        val originalText = decodeTextLeniently(originalBytes)
-        val currentText = decodeTextLeniently(currentBytes)
-        val hunks =
-            when {
-                originalObject == null -> {
-                    wholeFile(lineCount(currentText), added = true)
-                }
-
-                currentObject == null -> {
-                    wholeFile(lineCount(originalText), added = false)
-                }
-
-                // The same content: renamed or only its mode changed.
-                originalObject.name == currentObject.name -> {
-                    emptyList()
-                }
-
-                else -> {
-                    git
-                        .diffBlobs(
-                            root,
-                            originalObject.name,
-                            currentObject.name,
-                            cancellation = cancellation,
-                        )?.let(GitDiffParser::parse)
-                        ?: return null
-                }
-            }
-        return GitFileDiff.Text(originalText, currentText, hunks)
     }
 
     /**
@@ -502,21 +461,6 @@ class GitLog(
 
     private fun requireHash(hash: String) = require(HASH.matches(hash)) { "not a commit hash: $hash" }
 
-    /** One hunk of all [lines] of a file added or deleted as a whole; none for an empty file. */
-    private fun wholeFile(
-        lines: Int,
-        added: Boolean,
-    ): List<GitHunk> {
-        if (lines == 0) return emptyList()
-        val none = 0 until 0
-        val all = 0 until lines
-        return listOf(if (added) GitHunk(none, all) else GitHunk(all, none))
-    }
-
-    /** The lines of [text] as git counts them: a final line break does not start another line. */
-    private fun lineCount(text: String): Int =
-        if (text.isEmpty()) 0 else text.count { it == '\n' } + if (text.endsWith('\n')) 0 else 1
-
     private companion object {
         val HASH = Regex("[0-9a-fA-F]{40}|[0-9a-fA-F]{64}")
 
@@ -527,28 +471,5 @@ class GitLog(
 
         /** Stands for a working-tree file above the size limit; compared by identity. */
         val TOO_LARGE = ByteArray(0)
-    }
-}
-
-/**
- * A line of `git cat-file --batch-check`: a blob (`<name> blob <size>`) or a submodule's commit (`<name> submodule`,
- * a gitlink, whose object is not in the repository).
- */
-private class GitObject(
-    val name: String,
-    val size: Long,
-    val submodule: Boolean,
-) {
-    companion object {
-        private val BLOB = Regex("([0-9a-f]{40}|[0-9a-f]{64}) blob (\\d+)")
-        private val SUBMODULE = Regex("([0-9a-f]{40}|[0-9a-f]{64}) submodule")
-
-        fun of(line: String): GitObject? {
-            BLOB.matchEntire(line)?.let { match ->
-                val size = match.groupValues[2].toLongOrNull() ?: return null
-                return GitObject(match.groupValues[1], size, submodule = false)
-            }
-            return SUBMODULE.matchEntire(line)?.let { GitObject(it.groupValues[1], 0, submodule = true) }
-        }
     }
 }
