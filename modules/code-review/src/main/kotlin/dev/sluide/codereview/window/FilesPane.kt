@@ -124,6 +124,9 @@ internal class FilesPane(
 
     private val fileItems = HashMap<String, TreeItem<ReviewTreeNode>>()
 
+    /** The file the user last scrolled the diff to from the tree or the filter; see [pinShown]. */
+    private var pinned: String? = null
+
     init {
         filter.textProperty().bindBidirectional(document.filter)
         document.filesVersion.subscribe { _ -> rebuild() }
@@ -132,7 +135,11 @@ internal class FilesPane(
             updateCounter()
             tree.refresh()
         }
-        diffView.topFile.subscribe { path -> if (path != null && !selectedHeaderShown()) showFile(path) }
+        diffView.topFile.subscribe { path ->
+            if (path == null || pinShown()) return@subscribe
+            pinned = null
+            showFile(path)
+        }
         rebuild()
     }
 
@@ -199,18 +206,16 @@ internal class FilesPane(
     }
 
     /**
-     * Whether the header of the file selected in the tree is on screen in the diff. The selection then stays: a click
-     * on one of the last files, which the diff cannot scroll to its top, keeps that file selected instead of the one
-     * at the diff's top.
+     * Whether the file the user last went to from the tree or the filter ([pinned]) keeps the selection: a file too near
+     * the end to reach the diff's top stays selected while the diff shows its header and its last row (it is scrolled to
+     * its end); any other scroll lets the selection follow the diff's top file again.
      */
-    private fun selectedHeaderShown(): Boolean {
-        val selected =
-            tree.selectionModel.selectedItem
-                ?.value
-                ?.file
-                ?.path ?: return false
-        val header = document.headerRow(selected)
-        return header >= 0 && diffView.rowCell(header) != null
+    private fun pinShown(): Boolean {
+        val path = pinned ?: return false
+        val header = document.headerRow(path)
+        return header >= 0 &&
+            diffView.rowCell(header) != null &&
+            diffView.rowCell(document.rows.lastIndex) != null
     }
 
     /** The rows of the tree's flow that show completely; `null` while there are none laid out. */
@@ -230,6 +235,7 @@ internal class FilesPane(
     }
 
     private fun scrollDiffTo(path: String) {
+        pinned = path
         val header = document.headerRow(path)
         if (header >= 0) diffView.scrollToRow(header, 0.0)
     }

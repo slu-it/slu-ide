@@ -52,7 +52,7 @@ internal class ReviewPickers(
             setOnAction { showCommitPopup() }
         }
 
-    internal val entries =
+    private val entries =
         ListView<PickerEntry>().apply {
             styleClass += "review-commit-list"
             fixedCellSize = CELL_HEIGHT

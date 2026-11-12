@@ -321,7 +321,7 @@ class ReviewWindowPickersUiTest {
         robot.interact { window.pickers.showCommitPopup() }
 
         robot.interact {
-            val list = window.pickers.entries
+            val list = window.pickers.commitList
             val horizontal =
                 list.lookupAll(".scroll-bar").filterIsInstance<ScrollBar>().filter {
                     it.orientation == Orientation.HORIZONTAL && it.isVisible
@@ -389,7 +389,35 @@ class ReviewWindowPickersUiTest {
     }
 
     @Test
-    fun `the selected file stays selected while its header is on screen, even when another file is at the top`(
+    fun `a clicked file stays selected while the diff shows its header and its end, and the tree follows again after`(
+        robot: FxRobot,
+    ) {
+        val window = window(robot)
+        val last = fx { window.document.rows.lastIndex }
+        robot.interact { click(fileCell(window, "src/c.kt")) }
+        robot.interact { window.top().shown += setOf(window.document.headerRow("src/c.kt"), last) }
+
+        robot.interact { window.top().top.set("src/b.kt") }
+        robot.interact { assertEquals("src/c.kt", selectedPath(window), "pinned while scrolled to the end") }
+
+        robot.interact { window.top().shown -= last }
+        robot.interact { window.top().top.set("a.kt") }
+        robot.interact { assertEquals("a.kt", selectedPath(window), "follows once the end is no longer shown") }
+    }
+
+    @Test
+    fun `scrolling up selects the file at the top although the selected file's header is still shown`(robot: FxRobot) {
+        val window = window(robot)
+        robot.interact { window.top().top.set("src/c.kt") }
+        robot.interact { window.top().shown += window.document.headerRow("src/c.kt") }
+
+        robot.interact { window.top().top.set("src/b.kt") }
+
+        robot.interact { assertEquals("src/b.kt", selectedPath(window)) }
+    }
+
+    @Test
+    fun `a clicked file whose header is shown does not keep the selection while the diff's end is not shown`(
         robot: FxRobot,
     ) {
         val window = window(robot)
@@ -398,8 +426,10 @@ class ReviewWindowPickersUiTest {
 
         robot.interact { window.top().top.set("src/b.kt") }
 
-        robot.interact { assertEquals("src/c.kt", window.files.tree.selectionModel.selectedItem.value.path) }
+        robot.interact { assertEquals("src/b.kt", selectedPath(window)) }
     }
+
+    private fun selectedPath(window: ReviewWindow) = window.files.tree.selectionModel.selectedItem.value.path
 
     @Test
     fun `Shortcut+P focuses the filter`(robot: FxRobot) {
