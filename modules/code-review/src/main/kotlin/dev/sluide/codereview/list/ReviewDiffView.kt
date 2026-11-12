@@ -37,6 +37,12 @@ internal interface ReviewDiffView {
         offset: Double = 0.0,
     )
 
+    /**
+     * Scrolls so that row [index] is fully visible below the sticky file header (for jumps to a change, a file or a
+     * find match).
+     */
+    fun reveal(index: Int) = scrollToRow(index, 0.0)
+
     /** The first visible row and how far its top is below the viewport's top (negative when cut off). */
     fun firstVisible(): Pair<Int, Double>
 
@@ -44,7 +50,7 @@ internal interface ReviewDiffView {
     fun rowCell(index: Int): Node?
 }
 
-/** The diff view of the review window.  */
+/** The diff view of the review window. */
 internal fun createDiffView(
     rows: ObservableList<ReviewRow>,
     lines: ReviewLineSource,

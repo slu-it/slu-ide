@@ -65,8 +65,6 @@ private fun flatButton(
 
 private fun grow(label: Label) = label.apply { HBox.setHgrow(this, Priority.ALWAYS) }.also { it.minWidth = 0.0 }
 
-fun spacer(): Region = Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }
-
 internal fun createHeaderCell(
     row: ReviewRow.FileHeader,
     actions: RowActions,
@@ -76,7 +74,9 @@ internal fun createHeaderCell(
             styleClass += "review-chevron"
             isFocusTraversable = false
             graphic = FontIcon(if (row.collapsed) MaterialDesignC.CHEVRON_RIGHT else MaterialDesignC.CHEVRON_DOWN)
-            tooltip = Tooltip(if (row.collapsed) "Expand the file" else "Collapse the file")
+            val label = if (row.collapsed) "Expand the file" else "Collapse the file"
+            tooltip = Tooltip(label)
+            accessibleText = label
             setOnAction { actions.collapsed(row.path, !row.collapsed) }
         }
     val icon =
@@ -163,10 +163,21 @@ internal class GutterLabel(
         alignment = Pos.TOP_RIGHT
     }
 
+    private var cachedWidth = -1.0
+
+    init {
+        fontProperty().addListener { _ -> cachedWidth = -1.0 }
+    }
+
     override fun computePrefWidth(height: Double): Double {
-        if (scene != null) applyCss()
-        val measure = Text("0".repeat(digits)).apply { font = this@GutterLabel.font }
-        return measure.layoutBounds.width + snappedLeftInset() + snappedRightInset()
+        if (cachedWidth >= 0) return cachedWidth
+        // The padding and the font come from the stylesheet, which a node outside a scene has not had applied.
+        val styled = scene != null
+        if (styled) applyCss()
+        val digitWidth = Text("0").apply { font = this@GutterLabel.font }.layoutBounds.width
+        val result = digitWidth * digits + snappedLeftInset() + snappedRightInset()
+        if (styled) cachedWidth = result
+        return result
     }
 
     override fun computeMinWidth(height: Double): Double = computePrefWidth(height)

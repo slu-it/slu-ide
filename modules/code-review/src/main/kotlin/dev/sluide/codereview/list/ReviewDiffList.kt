@@ -9,7 +9,6 @@ import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.collections.ListChangeListener
 import javafx.collections.ObservableList
-import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.ScrollPane
@@ -57,12 +56,19 @@ internal class ReviewDiffList(
             isVisible = false
             maxHeight = Region.USE_PREF_SIZE
             StackPane.setAlignment(this, Pos.TOP_LEFT)
-            // Leaves the scroll bar free.
-            StackPane.setMargin(this, Insets(0.0, SCROLL_BAR_WIDTH, 0.0, 0.0))
         }
+
+    /** The row of [stickyRow] in [rows] as last found, so that the next lookup starts there. */
+    private var stickyIndex = -1
+
+    /** Whether the last layout showed the first row at the very top. */
+    private var atTop = true
 
     init {
         styleClass += "review-diff"
+        // As wide as the list, with or without a scroll bar.
+        sticky.prefWidthProperty().bind(flow.widthProperty())
+        sticky.maxWidth = Region.USE_PREF_SIZE
         stylesheets +=
             listOf(
                 checkNotNull(FileViewers::class.java.getResource("syntax.css")).toExternalForm(),
@@ -77,10 +83,14 @@ internal class ReviewDiffList(
                 VirtualizedScrollPane(flow, ScrollPane.ScrollBarPolicy.NEVER, ScrollPane.ScrollBarPolicy.AS_NEEDED),
                 sticky,
             )
-        flow.visibleCells().addListener(ListChangeListener { updateTop() })
+        // Flowless keeps visibleCells (read by firstVisible and rowCell) up to date only while it is observed. The
+        // top file is not updated from it: while the flow follows a change of the rows it shows half-updated cells.
+        flow.visibleCells().addListener(ListChangeListener { })
         // A scroll lays the flow out; the cells may stay the same ones.
         flow.needsLayoutProperty().addListener { _, _, needs -> if (!needs) updateTop() }
-        rows.addListener(ListChangeListener { updateTop() })
+        // Rows that arrive while the list shows its very top (a file's content replacing its Loading notice) would
+        // leave Flowless anchored to the end of what fitted before: stay at the top.
+        rows.addListener(ListChangeListener { if (atTop) flow.showAtOffset(0, 0.0) })
         updateTop()
     }
 
@@ -90,7 +100,16 @@ internal class ReviewDiffList(
     ) {
         if (index !in rows.indices) return
         flow.showAtOffset(index, offset)
-        updateTop()
+    }
+
+    override fun reveal(index: Int) {
+        val row = rows.getOrNull(index) ?: return
+        if (row is ReviewRow.FileHeader) return scrollToRow(index, 0.0)
+        // The header of the file is the sticky one once the row is at the top.
+        val header = headerOf(index, row.path) ?: return scrollToRow(index, 0.0)
+        showSticky(header)
+        sticky.applyCss()
+        scrollToRow(index, sticky.prefHeight(-1.0))
     }
 
     override fun firstVisible(): Pair<Int, Double> = position() ?: (0 to 0.0)
@@ -107,8 +126,11 @@ internal class ReviewDiffList(
 
     private fun updateTop() {
         val position = position()
+        // While the flow is between two states it knows no first row: keep what was shown.
+        if (position == null && rows.isNotEmpty()) return
+        atTop = position == null || position == (0 to 0.0)
         val row = position?.let { rows.getOrNull(it.first) }
-        top.set(row?.path ?: rows.firstOrNull()?.path)
+        top.set(row?.path)
         val header =
             if (position != null && row != null && (row !is ReviewRow.FileHeader || position.second < 0)) {
                 headerOf(position.first, row.path)
@@ -119,27 +141,33 @@ internal class ReviewDiffList(
             sticky.isVisible = false
             stickyRow = null
         } else {
-            if (header != stickyRow) {
-                stickyRow = header
-                sticky.children.setAll(createHeaderCell(header, actions))
-            }
+            showSticky(header)
             sticky.isVisible = true
         }
     }
 
+    private fun showSticky(header: ReviewRow.FileHeader) {
+        if (header == stickyRow) return
+        stickyRow = header
+        sticky.children.setAll(createHeaderCell(header, actions))
+    }
+
+    /** The header row of the file of row [index] at [path]: the current sticky one while it still is that. */
     private fun headerOf(
         index: Int,
         path: String,
     ): ReviewRow.FileHeader? {
+        val known = rows.getOrNull(stickyIndex)
+        if (stickyIndex in 0..index && known is ReviewRow.FileHeader && known.path == path) return known
         var i = index
         while (i >= 0 && rows[i].path == path) {
-            (rows[i] as? ReviewRow.FileHeader)?.let { return it }
+            val row = rows[i]
+            if (row is ReviewRow.FileHeader) {
+                stickyIndex = i
+                return row
+            }
             i--
         }
         return null
-    }
-
-    private companion object {
-        const val SCROLL_BAR_WIDTH = 14.0
     }
 }

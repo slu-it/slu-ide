@@ -12,6 +12,7 @@ import dev.sluide.codereview.model.textDiff
 import dev.sluide.fileviewers.HighlightSpan
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TokenStyle
+import javafx.event.Event
 import javafx.geometry.Orientation
 import javafx.scene.Node
 import javafx.scene.Parent
@@ -19,6 +20,8 @@ import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.CheckBox
 import javafx.scene.control.ScrollBar
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.scene.shape.Path
 import javafx.scene.text.Text
 import javafx.stage.Stage
@@ -26,7 +29,7 @@ import org.fxmisc.flowless.VirtualFlow
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.ValueSource
+import org.junit.jupiter.params.provider.CsvSource
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -65,6 +68,7 @@ class ReviewDiffListUiTest {
     private fun load(
         vararg files: Pair<String, ReviewFileContent>,
         highlight: Boolean = false,
+        layout: ReviewLayout = ReviewLayout.SPLIT,
     ) {
         val highlighter =
             if (highlight) {
@@ -72,7 +76,7 @@ class ReviewDiffListUiTest {
             } else {
                 null
             }
-        document.layout.set(ReviewLayout.SPLIT)
+        document.layout.set(layout)
         document.setFiles(files.map { modified(it.first) })
         for ((path, content) in files) {
             document.setContent(
@@ -111,27 +115,39 @@ class ReviewDiffListUiTest {
     private fun Node.texts(styleClass: String): List<Text> = lookupAll(".$styleClass").filterIsInstance<Text>()
 
     private fun settle(robot: FxRobot) {
-        robot.interact { view.requestLayout() }
+        robot.interact {
+            view.applyCss()
+            view.layout()
+        }
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["word ", "x"])
-    fun `a long line wraps, makes its row taller and adds no horizontal scroll`(
-        piece: String,
+    @CsvSource("words,SPLIT", "unbroken,SPLIT", "words,UNIFIED", "unbroken,UNIFIED")
+    internal fun `a long line wraps, makes its row taller and adds no horizontal scroll`(
+        kind: String,
+        layout: ReviewLayout,
         robot: FxRobot,
     ) {
-        val long = piece.repeat(if (piece == "x") 2000 else 400)
+        val long = if (kind == "words") "word ".repeat(400) else "x".repeat(2000)
         robot.interact {
-            load("a.txt" to ReviewFileContent.Text("a\nb\nc\n", "a\n$long\nc\n", listOf(LineChange(1..1, 1..1))))
+            load(
+                "a.txt" to ReviewFileContent.Text("a\nb\nc\n", "a\n$long\nc\n", listOf(LineChange(1..1, 1..1))),
+                layout = layout,
+            )
         }
         settle(robot)
+        val longRow =
+            document.rows.indexOfFirst {
+                (it is ReviewRow.SplitLine && it.current == 1) ||
+                    (it is ReviewRow.UnifiedLine && it.current == 1 && it.original == null)
+            }
 
         val short = cell(1).layoutBounds.height
-        val wrapped = cell(2).layoutBounds.height
+        val wrapped = cell(longRow).layoutBounds.height
         assertTrue(wrapped > short * 2, "wrapped row $wrapped, short row $short")
-        assertTrue(cell(2).layoutBounds.width <= scene.width, "the row is wider than the viewport")
+        assertTrue(cell(longRow).layoutBounds.width <= scene.width, "the row is wider than the viewport")
         assertEquals(emptyList(), horizontalBars())
-        assertTrue(cell(2).texts("review-plain").isNotEmpty())
+        assertTrue(cell(longRow).texts("review-plain").isNotEmpty())
     }
 
     @Test
@@ -246,6 +262,101 @@ class ReviewDiffListUiTest {
         robot.interact { document.expand("b.txt", gap, ExpandDirection.ALL) }
 
         assertEquals(before, view.firstVisible())
+    }
+
+    @Test
+    fun `an update of the file with the first visible row keeps the viewport`(robot: FxRobot) {
+        robot.interact { load("a.txt" to bigFile(), "b.txt" to bigFile()) }
+        settle(robot)
+        robot.interact { view.scrollToRow(60, -5.0) }
+        val before = view.firstVisible()
+        val anchor = document.anchorAt(before.first)
+        val gap =
+            document.rows
+                .filterIndexed { index, row -> index > 70 && row is ReviewRow.Gap && row.hidden > 20 }
+                .first() as ReviewRow.Gap
+
+        robot.interact { document.expand(gap.path, gap.gap, ExpandDirection.ALL) }
+
+        assertEquals(before, view.firstVisible())
+        assertEquals(anchor, document.anchorAt(view.firstVisible().first))
+    }
+
+    @Test
+    fun `an update above does not move the top file`(robot: FxRobot) {
+        robot.interact { load("a.txt" to bigFile(), "b.txt" to bigFile()) }
+        settle(robot)
+        robot.interact { view.scrollToRow(document.headerRow("b.txt") + 10) }
+        val seen = mutableListOf<String?>()
+        view.topFile.addListener { _, _, value -> seen += value }
+        val gap = document.rows.filterIsInstance<ReviewRow.Gap>().first { it.path == "a.txt" && it.hidden > 20 }
+
+        robot.interact { document.expand("a.txt", gap.gap, ExpandDirection.ALL) }
+
+        assertEquals("b.txt", view.topFile.value)
+        assertEquals(emptyList(), seen)
+    }
+
+    @Test
+    fun `reveal leaves a row fully below the sticky header`(robot: FxRobot) {
+        robot.interact { load("a.txt" to bigFile(), "b.txt" to bigFile()) }
+        settle(robot)
+        val row = 30
+
+        robot.interact { view.reveal(row) }
+
+        assertTrue(sticky().isVisible)
+        val stickyBottom = sticky().localToScene(sticky().layoutBounds).maxY
+        val rowTop = cell(row).localToScene(cell(row).layoutBounds).minY
+        assertTrue(rowTop >= stickyBottom - 0.01, "row top $rowTop is under the sticky header ending at $stickyBottom")
+
+        val header = document.headerRow("b.txt")
+        robot.interact { view.reveal(header) }
+        assertEquals(header to 0.0, view.firstVisible())
+    }
+
+    @Test
+    fun `the sticky header is as wide as the list`(robot: FxRobot) {
+        robot.interact { load("a.txt" to bigFile()) }
+        settle(robot)
+        robot.interact { view.scrollToRow(10) }
+
+        assertEquals(flow().width, sticky().layoutBounds.width, 0.5)
+    }
+
+    @Test
+    fun `a click in the list focuses it`(robot: FxRobot) {
+        robot.interact { load("a.txt" to bigFile()) }
+        settle(robot)
+        assertFalse(scene.focusOwner === view)
+
+        robot.interact {
+            Event.fireEvent(
+                view,
+                MouseEvent(
+                    MouseEvent.MOUSE_PRESSED,
+                    5.0,
+                    5.0,
+                    5.0,
+                    5.0,
+                    MouseButton.PRIMARY,
+                    1,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    null,
+                ),
+            )
+        }
+
+        assertTrue(scene.focusOwner === view)
     }
 
     @Test

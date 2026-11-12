@@ -20,6 +20,7 @@ internal class LineText(
     private val flow = TextFlow()
     private val layers = LinkedHashMap<String, List<IntRange>>()
     private val paths = HashMap<String, Path>()
+    private var styled = false
 
     init {
         styleClass += "review-line-text"
@@ -56,7 +57,11 @@ internal class LineText(
         val left = snappedLeftInset()
         val inner = maxOf(1.0, width - left - snappedRightInset())
         flow.resizeRelocate(left, snappedTopInset(), inner, flow.prefHeight(inner))
-        flow.applyCss()
+        // The fonts the wrapping depends on come from the stylesheet; once is enough, later changes re-apply it.
+        if (!styled && scene != null) {
+            flow.applyCss()
+            styled = true
+        }
         flow.layout()
         updateLayers()
     }
