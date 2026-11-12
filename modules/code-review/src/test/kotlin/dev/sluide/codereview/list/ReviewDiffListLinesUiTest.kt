@@ -131,10 +131,17 @@ class ReviewDiffListLinesUiTest {
         shift: Boolean = false,
         alt: Boolean = false,
         shortcut: Boolean = false,
-    ) = fx {
-        val event = KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, shift, shortcut && !mac, alt, shortcut && mac)
-        Event.fireEvent(view, event)
-    }
+    ) = fx { fireKey(code, shift, alt, shortcut) }
+
+    private fun fireKey(
+        code: KeyCode,
+        shift: Boolean = false,
+        alt: Boolean = false,
+        shortcut: Boolean = false,
+    ) = Event.fireEvent(
+        view,
+        KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, shift, shortcut && !mac, alt, shortcut && mac),
+    )
 
     private fun contextMenu(
         node: Node,
@@ -345,27 +352,21 @@ class ReviewDiffListLinesUiTest {
     }
 
     @Test
-    fun `F7 goes on from the last jump also when the row cannot reach the top, not back to the selection`() {
-        load("a.txt" to bigFile())
+    fun `F7 goes on from the last jump while the selection is still shown, not back from the selection`() {
+        // Everything is shown: C is too near the end to stand at the top, and the selection stays on screen.
+        load("a.txt" to textDiff(18, 18, LineChange(2..2, 2..2), LineChange(8..8, 8..8), LineChange(14..14, 14..14)))
         settle()
         val rows = document.rows
         val changes = rows.indices.filter { (rows[it] as? ReviewRow.SplitLine)?.kind == DiffKind.MODIFIED }
-        assertEquals(50, changes.size)
-        fx { view.scrollToRow(changes[43]) }
-        settle()
-        press(column(changes[43], 2))
+        assertNotNull(view.rowCell(rows.lastIndex), "the whole file is shown")
+        press(column(changes[0], 2))
 
-        // Six jumps from change 44 reach the last one, which has too little below it to stand at the top.
-        repeat(6) {
-            key(KeyCode.F7)
-            settle()
-        }
-        val atTheEnd = fx { view.firstVisible() }
-        assertNotNull(view.rowCell(changes.last()))
-        key(KeyCode.F7)
-        settle()
+        // Read in the same pulse: reveal answers with the row it was asked for before any layout.
+        val first = fx { fireKey(KeyCode.F7).let { view.firstVisible().first } }
+        val second = fx { fireKey(KeyCode.F7).let { view.firstVisible().first } }
 
-        assertEquals(atTheEnd, fx { view.firstVisible() })
+        assertEquals(changes[1], first)
+        assertEquals(changes[2], second)
     }
 
     @Test
