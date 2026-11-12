@@ -28,8 +28,9 @@ private const val REVIEW_GAP = 12.0
 /**
  * The header bar of the git log area (ADRs 0035, 0046): a chevron that follows [expanded], the tabs' [titles], the
  * [status] message, Cancel (only while the operation going on is [cancellable], ADR 0043) and, on the right, Review
- * Branch (ADR 0168; off with [noRepository], it calls [review]), Push, Pull, Fetch All Remotes and Refresh. Fetch and Pull are off while an
- * operation is [running] or there are [noRemotes], Push without a remote. Clicking the bar (but not its buttons) expands or collapses the area.
+ * Branch (ADR 0168; off with [noRepository], it calls [review]), Push, Pull, Fetch All Remotes and Refresh. Fetch and
+ * Pull are off while an operation is [running] or there are [noRemotes], Push without a remote. Clicking the bar (but
+ * not its buttons) expands or collapses the area.
  */
 internal class HeaderBar(
     titles: Node,
