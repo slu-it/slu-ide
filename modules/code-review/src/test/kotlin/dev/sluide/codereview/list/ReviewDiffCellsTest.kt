@@ -1,6 +1,7 @@
 package dev.sluide.codereview.list
 
 import dev.sluide.codereview.ReviewChange
+import dev.sluide.codereview.ReviewFile
 import dev.sluide.codereview.model.ExpandDirection
 import dev.sluide.codereview.model.NoticeKind
 import dev.sluide.codereview.model.ReviewRow
@@ -78,5 +79,35 @@ class ReviewDiffCellsTest {
         assertEquals("review-change-added", changeStyleClass(ReviewChange.ADDED))
         assertEquals("review-change-deleted", changeStyleClass(ReviewChange.DELETED))
         assertEquals("review-change-modified", changeStyleClass(ReviewChange.RENAMED))
+    }
+
+    @Test
+    fun `a row key tells rows apart and survives a change of the row's content`() {
+        val rows =
+            listOf(
+                ReviewRow.FileHeader(
+                    "a",
+                    ReviewFile(ReviewChange.MODIFIED, "a"),
+                    1,
+                    1,
+                    collapsed = false,
+                    viewed = false,
+                ),
+                ReviewRow.Gap("a", 0, 30, up = true, down = true, hunkHeader = "@@ -1 +1 @@"),
+                ReviewRow.UnifiedLine("a", 3, null, DiffKind.REMOVED),
+                ReviewRow.UnifiedLine("a", null, 3, DiffKind.ADDED),
+                ReviewRow.SplitLine("a", 3, 3, DiffKind.MODIFIED),
+                ReviewRow.Notice("a", NoticeKind.BINARY),
+                ReviewRow.Spacer("a"),
+                ReviewRow.Spacer("b"),
+            )
+
+        assertEquals(rows.size, rows.map { rowKey(it) }.toSet().size)
+        // The same gap with fewer hidden lines and another hunk header is still that gap; a viewed header too.
+        assertEquals(
+            rowKey(rows[1]),
+            rowKey(ReviewRow.Gap("a", 0, 10, up = false, down = true, hunkHeader = "@@ -2 +2 @@")),
+        )
+        assertEquals(rowKey(rows[0]), rowKey((rows[0] as ReviewRow.FileHeader).copy(viewed = true, collapsed = true)))
     }
 }

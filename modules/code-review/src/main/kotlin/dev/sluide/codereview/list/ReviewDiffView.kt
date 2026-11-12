@@ -43,7 +43,11 @@ internal interface ReviewDiffView {
      */
     fun reveal(index: Int) = scrollToRow(index, 0.0)
 
-    /** The first visible row and how far its top is below the viewport's top (negative when cut off). */
+    /**
+     * The first visible row and how far its top is below the viewport's top (negative when cut off). Right after
+     * [scrollToRow] or [reveal] this is the requested position, before it is laid out; once the layout has settled
+     * or the user scrolls it is the real one (a row too near the end to reach its offset reports where it is).
+     */
     fun firstVisible(): Pair<Int, Double>
 
     /** The node showing row [index], `null` while it is not shown. */

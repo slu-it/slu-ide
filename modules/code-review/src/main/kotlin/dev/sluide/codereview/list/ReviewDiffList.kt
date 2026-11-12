@@ -61,8 +61,14 @@ internal class ReviewDiffList(
     /** The row of [stickyRow] in [rows] as last found, so that the next lookup starts there. */
     private var stickyIndex = -1
 
-    /** Whether the last layout showed the first row at the very top. */
-    private var atTop = true
+    /** Where the list is scrolled to as far as the app knows: kept across changes of the rows, see [followChange]. */
+    private class Remembered(
+        val index: Int,
+        val offset: Double,
+        val key: RowKey,
+    )
+
+    private var remembered: Remembered? = null
 
     init {
         styleClass += "review-diff"
@@ -83,14 +89,10 @@ internal class ReviewDiffList(
                 VirtualizedScrollPane(flow, ScrollPane.ScrollBarPolicy.NEVER, ScrollPane.ScrollBarPolicy.AS_NEEDED),
                 sticky,
             )
-        // Flowless keeps visibleCells (read by firstVisible and rowCell) up to date only while it is observed. The
-        // top file is not updated from it: while the flow follows a change of the rows it shows half-updated cells.
-        flow.visibleCells().addListener(ListChangeListener { })
-        // A scroll lays the flow out; the cells may stay the same ones.
+        // A layout shows where the list is now.
         flow.needsLayoutProperty().addListener { _, _, needs -> if (!needs) updateTop() }
-        // Rows that arrive while the list shows its very top (a file's content replacing its Loading notice) would
-        // leave Flowless anchored to the end of what fitted before: stay at the top.
-        rows.addListener(ListChangeListener { if (atTop) flow.showAtOffset(0, 0.0) })
+        // After Flowless's own listener, so that its change of the position is the one to correct.
+        rows.addListener(ListChangeListener { change -> followChange(change) })
         updateTop()
     }
 
@@ -100,6 +102,8 @@ internal class ReviewDiffList(
     ) {
         if (index !in rows.indices) return
         flow.showAtOffset(index, offset)
+        // The app's own scroll is the position to keep, also when rows change before the next layout.
+        remembered = Remembered(index, offset, rowKey(rows[index]))
     }
 
     override fun reveal(index: Int) {
@@ -112,9 +116,15 @@ internal class ReviewDiffList(
         scrollToRow(index, sticky.prefHeight(-1.0))
     }
 
-    override fun firstVisible(): Pair<Int, Double> = position() ?: (0 to 0.0)
+    override fun firstVisible(): Pair<Int, Double> =
+        remembered?.let { it.index to it.offset } ?: position() ?: (0 to 0.0)
 
     override fun rowCell(index: Int): Node? = flow.getCellIfVisible(index).map { it.node }.orElse(null)
+
+    init {
+        // Flowless computes visibleCells (read by position and rowCell) only while it is observed.
+        flow.visibleCells().addListener(ListChangeListener { })
+    }
 
     /** The first visible row and its top below the viewport's top; `null` while nothing is laid out. */
     private fun position(): Pair<Int, Double>? {
@@ -128,7 +138,7 @@ internal class ReviewDiffList(
         val position = position()
         // While the flow is between two states it knows no first row: keep what was shown.
         if (position == null && rows.isNotEmpty()) return
-        atTop = position == null || position == (0 to 0.0)
+        remember(position)
         val row = position?.let { rows.getOrNull(it.first) }
         top.set(row?.path)
         val header =
@@ -144,6 +154,47 @@ internal class ReviewDiffList(
             showSticky(header)
             sticky.isVisible = true
         }
+    }
+
+    private fun remember(position: Pair<Int, Double>?) {
+        val index = position?.first ?: return
+        val row = rows.getOrNull(index) ?: return
+        remembered = Remembered(index, position.second, rowKey(row))
+    }
+
+    /**
+     * Keeps the scroll position when rows change at or above the first visible row: Flowless puts a position inside a
+     * replaced range at the start of the change, so the row that was first is looked up again (by its [rowKey]) and
+     * shown where it was. A change below does not move it; without the row (it was expanded away) the row at the start
+     * of the change takes its place.
+     */
+    private fun followChange(change: ListChangeListener.Change<out ReviewRow>) {
+        var from = Int.MAX_VALUE
+        while (change.next()) from = minOf(from, change.from)
+        if (rows.isEmpty()) {
+            remembered = null
+            return
+        }
+        val at = remembered
+        if (at == null) return scrollToRow(0, 0.0)
+        if (from > at.index) return
+        val index = indexOfKey(at.key, at.index) ?: from.coerceAtMost(rows.lastIndex)
+        flow.showAtOffset(index, at.offset)
+        remembered = Remembered(index, at.offset, rowKey(rows[index]))
+    }
+
+    /** The row with [key], searched outwards from [near]; keys are unique within the rows. */
+    private fun indexOfKey(
+        key: RowKey,
+        near: Int,
+    ): Int? {
+        val centre = near.coerceIn(0, rows.lastIndex)
+        for (distance in 0..rows.size) {
+            for (index in intArrayOf(centre - distance, centre + distance)) {
+                if (index in rows.indices && rowKey(rows[index]) == key) return index
+            }
+        }
+        return null
     }
 
     private fun showSticky(header: ReviewRow.FileHeader) {

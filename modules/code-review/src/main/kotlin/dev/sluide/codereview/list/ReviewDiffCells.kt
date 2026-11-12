@@ -68,3 +68,23 @@ internal fun changeStyleClass(change: ReviewChange): String =
         ReviewChange.DELETED -> "review-change-deleted"
         ReviewChange.MODIFIED, ReviewChange.RENAMED, ReviewChange.TYPE_CHANGED -> "review-change-modified"
     }
+
+/** What identifies a row across changes of the rows: unlike the row itself, it stays when its content changes. */
+internal data class RowKey(
+    val path: String,
+    val id: String,
+)
+
+/** The [RowKey] of [row]: a header, a gap (by its number), a line (by its two line numbers), a notice or a spacer. */
+internal fun rowKey(row: ReviewRow): RowKey =
+    RowKey(
+        row.path,
+        when (row) {
+            is ReviewRow.FileHeader -> "header"
+            is ReviewRow.Gap -> "gap ${row.gap}"
+            is ReviewRow.UnifiedLine -> "unified ${row.original} ${row.current}"
+            is ReviewRow.SplitLine -> "split ${row.original} ${row.current}"
+            is ReviewRow.Notice -> "notice ${row.kind}"
+            is ReviewRow.Spacer -> "spacer"
+        },
+    )

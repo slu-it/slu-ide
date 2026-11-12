@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.EnumSource
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -280,6 +281,114 @@ class ReviewDiffListUiTest {
 
         assertEquals(before, view.firstVisible())
         assertEquals(anchor, document.anchorAt(view.firstVisible().first))
+    }
+
+    @ParameterizedTest
+    @EnumSource(ExpandDirection::class, names = ["DOWN", "ALL"])
+    internal fun `expanding the gap below the first visible line keeps its row and offset`(
+        direction: ExpandDirection,
+        robot: FxRobot,
+    ) {
+        robot.interact { load("a.txt" to bigFile(), "b.txt" to bigFile()) }
+        settle(robot)
+        robot.interact { view.scrollToRow(66) }
+        val key = rowKey(document.rows[66])
+        // The hunk header of the gap before the line grows with the gap below: both rows change.
+        val gap =
+            document.rows
+                .filterIndexed { index, row -> index > 66 && row is ReviewRow.Gap && row.hidden > 20 }
+                .first() as ReviewRow.Gap
+
+        robot.interact { document.expand(gap.path, gap.gap, direction) }
+
+        val (index, offset) = view.firstVisible()
+        assertEquals(key, rowKey(document.rows[index]))
+        assertEquals(0.0, offset)
+    }
+
+    @Test
+    fun `rows arriving while the list is at the top keep the first row at offset 0`(robot: FxRobot) {
+        robot.interact { document.setFiles(listOf(modified("a.txt"), modified("b.txt"))) }
+        settle(robot)
+        assertEquals(0 to 0.0, view.firstVisible())
+
+        robot.interact {
+            for (path in listOf("a.txt", "b.txt")) {
+                document.setContent(path, prepareFile(modified(path), bigFile(), null, false))
+            }
+        }
+
+        assertEquals(0 to 0.0, view.firstVisible())
+        assertEquals("a.txt", view.topFile.value)
+    }
+
+    @Test
+    fun `a scroll of the app followed by a change of the rows before the next layout is kept`(robot: FxRobot) {
+        robot.interact { load("a.txt" to bigFile(), "b.txt" to bigFile()) }
+        settle(robot)
+        // Laid out further down, so that the change is above the position the list last saw.
+        robot.interact { view.scrollToRow(60) }
+        val key = rowKey(document.rows[40])
+
+        robot.interact {
+            view.scrollToRow(40)
+            document.expand("a.txt", 0, ExpandDirection.ALL)
+        }
+
+        val (index, offset) = view.firstVisible()
+        assertEquals(key, rowKey(document.rows[index]))
+        assertEquals(0.0, offset)
+    }
+
+    @Test
+    fun `a scroll of the user followed by a change of the rows before the next layout is kept`(robot: FxRobot) {
+        robot.interact { load("a.txt" to bigFile(), "b.txt" to bigFile()) }
+        settle(robot)
+        robot.interact { flow().scrollYBy(508.0) }
+        val middle = view.firstVisible().first
+        val key = rowKey(document.rows[middle])
+        robot.interact { view.scrollToRow(0) }
+
+        robot.interact {
+            flow().scrollYBy(508.0)
+            document.expand("a.txt", 0, ExpandDirection.ALL)
+        }
+
+        val index = view.firstVisible().first
+        assertEquals(key, rowKey(document.rows[index]))
+    }
+
+    @Test
+    fun `firstVisible reports the requested position right after scrollToRow and reveal`(robot: FxRobot) {
+        robot.interact { load("a.txt" to bigFile(), "b.txt" to bigFile()) }
+        settle(robot)
+        var scrolled: Pair<Int, Double>? = null
+        var revealed: Pair<Int, Double>? = null
+
+        robot.interact {
+            view.scrollToRow(45, 6.0)
+            scrolled = view.firstVisible()
+        }
+        robot.interact {
+            view.reveal(30)
+            revealed = view.firstVisible()
+        }
+
+        assertEquals(45 to 6.0, scrolled)
+        assertEquals(30, revealed?.first)
+        assertEquals(sticky().layoutBounds.height, revealed?.second ?: -1.0, 0.5)
+    }
+
+    @Test
+    fun `a row too near the end to reach its offset reports the real position once laid out`(robot: FxRobot) {
+        robot.interact { load("a.txt" to bigFile()) }
+        settle(robot)
+        val last = document.rows.lastIndex
+
+        robot.interact { view.scrollToRow(last, 0.0) }
+
+        assertTrue(view.firstVisible().first < last, "the last row cannot be at the top: ${view.firstVisible()}")
+        assertNotNull(view.rowCell(last))
     }
 
     @Test
