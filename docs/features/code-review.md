@@ -72,14 +72,20 @@ all changed files in one long scroll beside a filterable file tree, without push
 - F7 / Shift+F7 move to the next or previous change, Alt+Down / Alt+Up (Option on macOS) to the next or previous file.
 
 ## Lines
-- A right click on a line selects it first when it is not selected. Selected numbers and text are tinted. The unified
-  view selects a row by either number column (a removed-only row by its old line; a selection may mix sides and
-  copies each row's own text); the diff keys work while the diff has the focus.
 - Click a line number to select the line, Shift+click to extend the selection within the same file and side (split
-  view: left numbers the old side, right numbers the new side). Shortcut+C copies the lines without − and +; Escape
-  clears the selection.
-- The context menu of selected lines: Copy Lines, Open in Editor (the file in the working tree at that line, for a removed
-  line the nearest new one; disabled, with "(not in the working tree)", when the file is not there), Copy Path. A file header's (also the sticky one): Open in Editor, Show History, Copy Path, Mark as Viewed / Not Viewed.
+  view: left numbers the old side, right numbers the new side; filler halves are skipped). The unified view selects
+  a row by either number column (a removed-only row by its old line); a selection there may mix sides. Selected
+  numbers and text get a tint over the colour of the change. Shortcut+C copies the lines in the order they were
+  selected, without − and +; Escape clears the selection (and does nothing else when there is none).
+- The selection follows its lines when the layout switches; it is cleared when its file is filtered out, collapsed,
+  or read again with Hide whitespace or Reload. Expanding a gap inside it leaves the revealed lines unselected.
+- A right click on a line selects it first when it is not selected. The context menu of selected lines (also Shift+F10
+  or the menu key on the diff): Copy Lines, Open in Editor (the file in the working tree at that line, for a removed
+  line the nearest new one; disabled, with "(not in the working tree)", when it is not a file there), Copy Path.
+- A file header's menu, also on the sticky one: Open in Editor, Show History, Copy Path, Mark as Viewed / Not Viewed.
+- F7 / Shift+F7 and Alt+Down / Alt+Up go on from the row they went to last while it is shown, else from the first
+  selected row while one is shown, else from the first row below the sticky header. Keys work while the diff has
+  the focus.
 
 ## Find
 - Shortcut+F opens a find bar above the diff: literal text, ignoring case unless Match Case is on, in all rows shown

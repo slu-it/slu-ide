@@ -320,6 +320,7 @@ File does not react to it while a terminal has the focus.
 | Click / Shift+click on a line number | Select the line / extend the selection within the file (and side, in the split view) |
 | Shortcut+C in the diff | Copy the selected lines (text only, without signs and numbers) |
 | Escape in the diff | Clear the line selection |
+| Shift+F10 or the menu key in the diff | Open the context menu of the selected lines |
 
 ## TODO panel
 [todos.md](todos.md)
