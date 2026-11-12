@@ -14,20 +14,35 @@ internal class RowList : ObservableListBase<ReviewRow>() {
     override val size: Int
         get() = rows.size
 
-    /** Replaces the rows `[from, to)` with [replacement] in one change. */
+    /**
+     * Replaces the rows `[from, to)` with [replacement] in one change that covers only what differs: the rows both
+     * share at the start and the end are kept (no change at all when nothing differs). A list view that is scrolled
+     * into the replaced range loses its place when the whole range is reported, so the change must stay minimal.
+     */
     fun replace(
         from: Int,
         to: Int,
         replacement: List<ReviewRow>,
     ) {
-        if (from == to && replacement.isEmpty()) return
-        val range = rows.subList(from, to)
-        val removed = ArrayList(range)
-        range.clear()
-        rows.addAll(from, replacement)
+        val old = rows.subList(from, to)
+        var prefix = 0
+        val shared = minOf(old.size, replacement.size)
+        while (prefix < shared && old[prefix] == replacement[prefix]) prefix++
+        var suffix = 0
+        while (suffix < shared - prefix &&
+            old[old.size - 1 - suffix] == replacement[replacement.size - 1 - suffix]
+        ) {
+            suffix++
+        }
+        val start = from + prefix
+        val removed = ArrayList(old.subList(prefix, old.size - suffix))
+        val added = replacement.subList(prefix, replacement.size - suffix)
+        if (removed.isEmpty() && added.isEmpty()) return
+        rows.subList(start, start + removed.size).clear()
+        rows.addAll(start, added)
         beginChange()
-        if (removed.isNotEmpty()) nextRemove(from, removed)
-        if (replacement.isNotEmpty()) nextAdd(from, from + replacement.size)
+        if (removed.isNotEmpty()) nextRemove(start, removed)
+        if (added.isNotEmpty()) nextAdd(start, start + added.size)
         endChange()
     }
 

@@ -11,6 +11,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /** The document's files and their state: order, notices, collapse, Viewed, Load diff, filter, anchors and updates. */
@@ -332,7 +333,7 @@ class ReviewDocumentTest {
 
     @ParameterizedTest
     @ValueSource(strings = ["", ".kt"])
-    fun `updates of one file change only that file's rows, in one change each`(filter: String) {
+    fun `updates of one file change only the rows of that file that differ, in one change`(filter: String) {
         val document = updatesDocument(filter)
         for (update in updatesOf("b.kt")) {
             // Taken from the rows themselves, not from the document's own offsets.
@@ -344,7 +345,19 @@ class ReviewDocumentTest {
 
             val after = document.rows.toList()
             val newEnd = after.indexOfFirst { it.path == "c.kt" }
-            assertEquals(listOf("$bStart ${bEnd - bStart} ${newEnd - bStart}"), changes)
+            // Only what differs is reported: the file's rows the update keeps are not part of the change.
+            assertTrue(changes.size <= 1, "$changes")
+            val (from, removed, added) = changes.singleOrNull()?.split(" ")?.map { it.toInt() } ?: listOf(bStart, 0, 0)
+            assertTrue(from >= bStart && from + removed <= bEnd && from + added <= newEnd, "$changes")
+            assertEquals(
+                after,
+                before.subList(0, from) + after.subList(from, from + added) +
+                    before.subList(from + removed, before.size),
+            )
+            if (removed > 0 && added > 0) {
+                assertNotEquals(before[from], after[from])
+                assertNotEquals(before[from + removed - 1], after[from + added - 1])
+            }
             assertEquals(before.subList(0, bStart), after.subList(0, bStart))
             assertEquals(before.subList(bEnd, before.size), after.subList(newEnd, after.size))
             assertTrue(after.subList(bStart, newEnd).all { it.path == "b.kt" })
