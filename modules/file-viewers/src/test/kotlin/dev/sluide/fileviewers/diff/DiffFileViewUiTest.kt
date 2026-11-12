@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.diff
 
+import dev.sluide.fileviewers.CHANGED_WORDS_STYLE
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.DiffFileView
 import dev.sluide.fileviewers.FileViewers

@@ -113,6 +113,17 @@ class FileViewers(
         return SideBySideDiffView(CurrentText.Fixed(current), highlighterOf(viewer), diff)
     }
 
+    /**
+     * The highlighter a diff of a file named [name] with the content [text] gets, picked by the name alone as for
+     * [openDiff] of given texts, without touching the disk: `null` for names whose viewer does not show text (images)
+     * or shows it without highlighting (plain text). Other modules' diff views, e.g. the review window (ADR 0168),
+     * highlight with it.
+     */
+    fun highlighterFor(
+        name: Path,
+        text: String,
+    ): SyntaxHighlighter? = viewerByName(name, text).takeIf(::showsDiffs)?.let(::highlighterOf)
+
     internal fun highlighterOf(viewer: FileViewer): SyntaxHighlighter? =
         when (viewer) {
             is CodeFileViewer -> viewer.highlighter

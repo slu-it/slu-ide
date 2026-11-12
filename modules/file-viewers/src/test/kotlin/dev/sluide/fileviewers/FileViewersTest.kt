@@ -264,6 +264,18 @@ class FileViewersTest {
         assertSame(fallback, viewer("empty"))
     }
 
+    @Test
+    fun `the highlighter for a diff of given texts is the one of the viewer picked by the name alone`() {
+        val kotlin = KotlinFileViewer()
+        val image = ExtensionsStub(setOf("png"))
+        val viewers = FileViewers(listOf(image, kotlin, PythonFileViewer()), fallback)
+
+        assertSame(kotlin.highlighter, viewers.highlighterFor(Path.of("src/Main.kt"), ""))
+        assertSame(RSyntaxHighlighter.python, viewers.highlighterFor(Path.of("run"), "#!/usr/bin/env python3\n"))
+        assertNull(viewers.highlighterFor(Path.of("logo.png"), ""), "no text, no highlighter")
+        assertNull(viewers.highlighterFor(Path.of("notes.txt"), "plain"), "plain text has none")
+    }
+
     /** A preview-like viewer of another module that also shows content from elsewhere. */
     private class ContentStub(
         extensions: Set<String>,

@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.diff
 
+import dev.sluide.fileviewers.CHANGED_WORDS_STYLE
 import dev.sluide.fileviewers.DiffFileView
 import dev.sluide.fileviewers.DiffKind
 import dev.sluide.fileviewers.DiffRow
@@ -12,6 +13,7 @@ import dev.sluide.fileviewers.code.installMacTextKeys
 import dev.sluide.fileviewers.code.onMac
 import dev.sluide.fileviewers.code.overlayRanges
 import dev.sluide.fileviewers.textLines
+import dev.sluide.fileviewers.wordChanges
 import dev.sluide.textediting.decodeTextLeniently
 import javafx.application.Platform
 import javafx.beans.value.ChangeListener

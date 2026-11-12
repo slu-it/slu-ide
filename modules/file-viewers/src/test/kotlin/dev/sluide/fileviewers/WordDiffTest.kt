@@ -1,8 +1,8 @@
-package dev.sluide.fileviewers.diff
+package dev.sluide.fileviewers
 
-import dev.sluide.fileviewers.LineChange
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class WordDiffTest {
     private val none = WordChanges(emptyMap(), emptyMap())
@@ -104,5 +104,19 @@ class WordDiffTest {
             WordChanges(mapOf(0 to listOf(10..10)), mapOf(0 to listOf(10..10))),
             wordChanges(listOf("same same a"), listOf("same same b"), listOf(LineChange(0..0, 0..0)), maxCells = 1),
         )
+    }
+
+    @Test
+    fun `ignoring whitespace marks only the changed words, not changed runs of whitespace`() {
+        val original = listOf("if (a)  { x = 1 }")
+        val current = listOf("if (a) {\tx = 2 }")
+        val changes = listOf(LineChange(0..0, 0..0))
+
+        assertEquals(
+            WordChanges(mapOf(0 to listOf(14..14)), mapOf(0 to listOf(13..13))),
+            wordChanges(original, current, changes, ignoreWhitespace = true),
+        )
+        val plain = wordChanges(original, current, changes).original.getValue(0)
+        assertTrue(plain.any { 6 in it }, "without the flag the changed run of whitespace is marked: $plain")
     }
 }

@@ -1,20 +1,23 @@
-package dev.sluide.fileviewers.diff
-
-import dev.sluide.fileviewers.DiffKind
-import dev.sluide.fileviewers.LineChange
-import dev.sluide.fileviewers.clampTo
+package dev.sluide.fileviewers
 
 /** Style class of the changed words within modified lines, coloured in `syntax.css`. */
-internal const val CHANGED_WORDS_STYLE = "diff-changed-words"
+const val CHANGED_WORDS_STYLE = "diff-changed-words"
 
 /**
  * The changed words of modified lines (ADR 0019): for each side, a line index (0-based) to the column ranges of its
  * changed words. Lines without changed words are absent.
  */
-internal data class WordChanges(
+data class WordChanges(
     val original: Map<Int, List<IntRange>>,
     val current: Map<Int, List<IntRange>>,
 )
+
+/** Marks of the tokens at [indices] among [size] tokens, from [changed] for those tokens alone; the rest unmarked. */
+private fun spread(
+    changed: BooleanArray,
+    indices: List<Int>,
+    size: Int,
+): BooleanArray = BooleanArray(size).also { all -> indices.forEachIndexed { i, index -> all[index] = changed[i] } }
 
 /** A word, a run of whitespace, a line break, or any other single character. */
 private val token = Regex("""[\p{L}\p{N}_]+|[^\S\n]+|\n|.""")
@@ -22,13 +25,15 @@ private val token = Regex("""[\p{L}\p{N}_]+|[^\S\n]+|\n|.""")
 /**
  * Finds the changed words of each modified block of [changes]: the block's lines on both sides are compared word by
  * word as a whole, so that a line inserted into the block does not shift the comparison of the lines after it. Ranges
- * are cut off like in [dev.sluide.fileviewers.alignDiff]. A block whose comparison would take more than [maxCells]
- * steps is left out.
+ * are cut off like in [dev.sluide.fileviewers.alignDiff]. With [ignoreWhitespace] (a diff that hides whitespace
+ * changes, ADR 0168) runs of whitespace take no part in the comparison and are never marked. A block whose comparison
+ * would take more than [maxCells] steps is left out.
  */
-internal fun wordChanges(
+fun wordChanges(
     originalLines: List<String>,
     currentLines: List<String>,
     changes: List<LineChange>,
+    ignoreWhitespace: Boolean = false,
     maxCells: Int = 1_000_000,
 ): WordChanges {
     val original = HashMap<Int, MutableList<IntRange>>()
@@ -38,7 +43,19 @@ internal fun wordChanges(
         val originalBlock = Block(originalLines, change.original.clampTo(originalLines.size))
         val currentBlock = Block(currentLines, change.current.clampTo(currentLines.size))
         val (originalChanged, currentChanged) =
-            changedTokens(originalBlock.tokens, currentBlock.tokens, maxCells) ?: continue
+            if (ignoreWhitespace) {
+                val originalWords = originalBlock.tokens.indices.filterNot { originalBlock.tokens[it].isBlank() }
+                val currentWords = currentBlock.tokens.indices.filterNot { currentBlock.tokens[it].isBlank() }
+                val (a, b) =
+                    changedTokens(
+                        originalWords.map { originalBlock.tokens[it] },
+                        currentWords.map { currentBlock.tokens[it] },
+                        maxCells,
+                    ) ?: continue
+                spread(a, originalWords, originalBlock.tokens.size) to spread(b, currentWords, currentBlock.tokens.size)
+            } else {
+                changedTokens(originalBlock.tokens, currentBlock.tokens, maxCells) ?: continue
+            }
         originalBlock.addRanges(originalChanged, original)
         currentBlock.addRanges(currentChanged, current)
     }
