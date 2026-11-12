@@ -49,6 +49,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
             listOf(
                 "Copy Revision Number",
                 "Compare with Local",
+                "Review Commit",
                 null,
                 "Checkout Revision",
                 "New Branch\u2026",

@@ -170,6 +170,9 @@ class GitLogView internal constructor(
      */
     var onWriteFinished: () -> Unit = { refresh() }
 
+    /** Asks to review a branch or commits like a pull request (ADR 0168); set by the window. */
+    var onReview: (ReviewRequest) -> Unit = {}
+
     /**
      * Shows how a file differs between a commit and the working tree, e.g. side by side in an editor tab with the live
      * file on the right; `false` if it cannot be shown as text. Set by the window (ADR 0044).
@@ -231,6 +234,9 @@ class GitLogView internal constructor(
     /** Whether the last read found no remote to fetch; `false` while that is not known (ADR 0043). */
     private val noRemotes = SimpleBooleanProperty(false)
 
+    /** Whether the log shows a repository; the review window reports an unborn `HEAD` itself (ADR 0168). */
+    private val hasRepository = SimpleBooleanProperty(false)
+
     /** The bar of what git is in the middle of, below the filter bar (ADR 0042); the table's menu reads its `busy`. */
     internal val pendingBar =
         PendingBar(actions.running) { scene?.window }.apply { start = { operation -> actions.start(operation) } }
@@ -243,6 +249,7 @@ class GitLogView internal constructor(
             }
             openGoTo = { navigation.openGoTo() }
             stopComparing = compareBar::stopComparing
+            review = { hashes -> onReview(ReviewRequest.Commits(hashes)) }
         }
 
     /** Goes to commits in the table: of branches, linked ones and with Go to (ADRs 0040, 0045). */
@@ -302,7 +309,10 @@ class GitLogView internal constructor(
         SharedSplit(changesPane, detailsPane, 0.5, Orientation.VERTICAL).apply { styleClass += "git-log-side" }
 
     /** What the branch menus do (ADR 0041, 0043, 0044, 0063). */
-    internal val branchCommands = branchCommands(actions, compareBar, diffs, filterBar)
+    internal val branchCommands =
+        branchCommands(actions, compareBar, diffs, filterBar).apply {
+            review = { ref -> onReview(ReviewRequest.Branch(ref)) }
+        }
 
     /** The branches, left of the commits (ADR 0040). */
     internal val branchesPane =
@@ -378,6 +388,8 @@ class GitLogView internal constructor(
             actions.running,
             actions.cancellable,
             noRemotes,
+            hasRepository.not(),
+            { onReview(ReviewRequest.Branch("HEAD")) },
             ::refresh,
             { actions.start(Fetch()) },
             ::showPush,
@@ -525,6 +537,7 @@ class GitLogView internal constructor(
         branchesPane.reset()
         // Resets the filter and ends a comparison too, before the bar, which then tells no change.
         pages.open(root)
+        hasRepository.set(root != null)
         tabs.closeAll()
         filterBar.reset()
         compareBar.comparisonChanged()

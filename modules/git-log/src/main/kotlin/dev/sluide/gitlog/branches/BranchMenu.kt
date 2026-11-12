@@ -53,6 +53,9 @@ internal class BranchCommands {
     /** Fetches the given remote. */
     var fetch: (String) -> Unit = {}
 
+    /** Reviews the branch with the given full refname like a pull request (ADR 0168). */
+    var review: (String) -> Unit = {}
+
     /** Compares the given branch, remote branch or tag with `HEAD` in the log. */
     var compare: (GitRef) -> Unit = {}
 
@@ -131,6 +134,7 @@ internal fun menuActions(
                 null,
                 emptyList(),
                 compare = reads.compare,
+                review = reads.review,
                 workingTreeDiff = reads.workingTreeDiff,
             )
         }
@@ -253,6 +257,9 @@ internal fun branchMenu(
             SeparatorMenuItem(),
             item("branch-compare", "Compare with Current", actions.compare != null) {
                 actions.compare?.let(commands.compare)
+            },
+            item("branch-review", "Review Branch", actions.review != null) {
+                actions.review?.let { commands.review(it.name) }
             },
             item("branch-working-tree-diff", "Show Diff with Working Tree", actions.workingTreeDiff != null) {
                 actions.workingTreeDiff?.let(commands.showWorkingTreeDiff)

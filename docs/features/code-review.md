@@ -10,7 +10,7 @@ all changed files in one long scroll beside a filterable file tree, without push
 ## Opening
 - **Review Branch** for the current branch: the button left of Push, Pull, Fetch and Refresh in the git log's header
   (set apart by a gap), or Git → Review Branch (Shortcut+Shift+R, Cmd+Shift+R on macOS). Disabled without a
-  repository and while `HEAD` has no commit.
+  repository.
 - **Review Branch** in the branches pane's context menu and the per-branch submenus of the commit table, for local
   and remote branches (not tags); the branch need not be checked out.
 - **Review Commit** / **Review Commits** in the commit table's context menu. Several selected commits are reviewed

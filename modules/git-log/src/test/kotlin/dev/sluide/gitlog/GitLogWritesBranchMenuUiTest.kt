@@ -20,6 +20,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -71,6 +72,7 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
                 "branch-copy-name",
                 null,
                 "branch-compare",
+                "branch-review",
                 "branch-working-tree-diff",
                 null,
                 "branch-checkout",
@@ -208,5 +210,21 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         eventually { assertEquals("Deleted remote branch origin/fix.", status(robot)) }
         assertEquals(listOf("push --delete origin refs/heads/fix:h1"), writes.calls)
         assertEquals(setOf("sluide-git-write"), writes.threads.toSet())
+    }
+
+    @Test
+    fun `Review Branch in the submenu asks for the full refname of its branch`(robot: FxRobot) {
+        val requests = CopyOnWriteArrayList<ReviewRequest>()
+        robot.interact { view.onReview = { requests += it } }
+        openAndExpand(robot)
+        selectRows(robot, 0)
+
+        // The current branch and a remote branch: both can be reviewed, also while the checkout is off.
+        assertEquals(listOf("main", "origin/main"), menus().map { it.text })
+        menus().forEach { assertFalse(it.item("branch-review").isDisable, it.text) }
+        fire(menus()[1].item("branch-review"))
+        assertEquals(listOf<ReviewRequest>(ReviewRequest.Branch("refs/remotes/origin/main")), requests)
+        fire(menus()[0].item("branch-review"))
+        assertEquals(ReviewRequest.Branch("refs/heads/main"), requests.last())
     }
 }

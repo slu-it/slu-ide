@@ -35,7 +35,9 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
 - **Where and when:** for a folder whose git status is followed ([git-status.md](git-status.md): git is available and
   the folder has `.git`), the window shows a Git Log area under the editor area. Other folders, and a window without a
   folder, have no such area: no header, no divider.
-- **Collapsed by default:** only its header bar shows: a chevron, "Git Log" and Push (an up arrow), Pull (the
+- **Collapsed by default:** only its header bar shows: a chevron, "Git Log" and Review Branch (an
+  eye-on-a-file icon, a wider gap after it; off without a repository; it reviews `HEAD`'s branch, see
+  [code-review.md](code-review.md)), Push (an up arrow), Pull (the
   source-pull icon), Fetch (a down arrow) and Refresh buttons on the right. Clicking the header (not its buttons)
   expands or collapses it, and so does **View → Git Log** (Alt+9, Cmd+9 on macOS), which is disabled when there is no
   area. Expanding moves the focus to the commit table; collapsing while the table has the focus gives it back to the
@@ -234,15 +236,17 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
   select several).
 - **Changing the repository** ([ADR 0041](../adr/0041-git-write-operations.md)), with the git command line, so hooks
   and the user's configuration apply:
-  - **Commit table:** its context menu has, after Copy Revision Number, Compare with Local (below) and a separator,
-    Checkout Revision (`HEAD`
+  - **Commit table:** its context menu has, after Copy Revision Number, Compare with Local (below), Review Commit (Review
+    Commits with several selected, also while an operation runs; the review window opens on the selection, see
+    [code-review.md](code-review.md)) and a separator, Checkout Revision (`HEAD`
     detached at the commit), New Branch… and New Tag… (at the commit), and after another separator Cherry-Pick, Revert
     Commit, Reset Current Branch to Here… ([ADR 0042](../adr/0042-git-log-commit-operations.md), below) and Edit
     Commit Message… ([ADR 0100](../adr/0100-editing-commit-messages.md)); enabled with exactly one commit selected,
     Reset and Edit Commit Message only while the refs read show a `HEAD` commit (Edit also not while git is busy).
     Go to Hash/Branch/Tag… (above) follows after a last separator.
-  - **Branches pane:** its context menu has, after Copy Name and a separator, Compare with Current and Show Diff with
-    Working Tree (below), and after another separator Checkout, "New Branch from '<name>'…"
+  - **Branches pane:** its context menu has, after Copy Name and a separator, Compare with Current, Review Branch (local and
+    remote branches, not tags, see [code-review.md](code-review.md); the commit table's branch submenus have it too) and
+    Show Diff with Working Tree (below), and after another separator Checkout, "New Branch from '<name>'…"
     (from any one branch, tag or `HEAD`), Rename… (local branches, also the current one; also F2) and Delete (local
     branches and tags, or remote branches, several at once; also Delete, or Shortcut+Backspace as in the explorer).
     Checkout is disabled for `HEAD`, the current branch, a remote branch whose local branch of the same name is the

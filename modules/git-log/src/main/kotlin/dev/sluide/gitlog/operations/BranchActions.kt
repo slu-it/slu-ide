@@ -24,6 +24,8 @@ internal data class BranchActions(
     val fetch: String? = null,
     /** The one selected branch, remote branch or tag to compare with `HEAD`; not `HEAD` or the current branch (ADR 0044). */
     val compare: GitRef? = null,
+    /** The one selected local or remote branch, also the current one, to review like a pull request (ADR 0168). */
+    val review: GitRef? = null,
     /** The one selected ref, also `HEAD` or the current branch, to compare with the working tree (ADR 0044). */
     val workingTreeDiff: GitRef? = null,
     /** Rebases the current branch onto the one selected branch or remote branch (ADR 0063); not onto `HEAD`'s commit. */
@@ -132,6 +134,7 @@ internal fun branchActions(
         if (deletable) selected.map { (it as BranchLeaf).ref } else emptyList(),
         fetch,
         compare = ref?.takeIf { single?.current == false && it.kind != GitRefKind.HEAD },
+        review = ref?.takeIf { it.kind == GitRefKind.LOCAL_BRANCH || it.kind == GitRefKind.REMOTE_BRANCH },
         workingTreeDiff = ref,
         rebase = rebase,
         merge = ref.takeIf { rebase != null },

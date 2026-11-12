@@ -29,6 +29,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.stage.Screen
 import javafx.stage.Stage
+import javafx.stage.WindowEvent
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
@@ -526,5 +527,58 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
 
         robot.interact { view.close() }
         robot.interact { assertFalse(window.stage.isShowing) }
+    }
+
+    @Test
+    fun `Review Commits hands the selected hashes in table order to the callback`(robot: FxRobot) {
+        val requests = CopyOnWriteArrayList<ReviewRequest>()
+        robot.interact { view.onReview = { requests += it } }
+        openAndExpand(robot)
+        val menu = view.table.contextMenu
+        val review = view.table.reviewItem
+        robot.interact { view.table.selectionModel.clearSelection() }
+        robot.interact { Event.fireEvent(menu, WindowEvent(menu, WindowEvent.WINDOW_SHOWING)) }
+        robot.interact {
+            assertTrue(review.isDisable, "no selection")
+            assertEquals("Compare with Local", menu.items[menu.items.indexOf(review) - 1].text)
+        }
+
+        // Selected bottom-up: the hashes still come top row first.
+        robot.interact { view.table.selectionModel.selectIndices(2, 0) }
+        robot.interact { Event.fireEvent(menu, WindowEvent(menu, WindowEvent.WINDOW_SHOWING)) }
+        robot.interact {
+            assertEquals("Review Commits", review.text)
+            assertFalse(review.isDisable)
+            review.fire()
+        }
+        val hashes = WaitForAsyncUtils.asyncFx<List<String>> { view.table.items.map { it.commit.hash } }.get()
+        assertEquals(listOf<ReviewRequest>(ReviewRequest.Commits(listOf(hashes[0], hashes[2]))), requests)
+
+        robot.interact { view.table.selectionModel.clearAndSelect(1) }
+        robot.interact { Event.fireEvent(menu, WindowEvent(menu, WindowEvent.WINDOW_SHOWING)) }
+        robot.interact { assertEquals("Review Commit", review.text) }
+    }
+
+    @Test
+    fun `Review Branch in the branches pane asks for the full refname, and is hidden for a tag`(robot: FxRobot) {
+        val requests = CopyOnWriteArrayList<ReviewRequest>()
+        robot.interact { view.onReview = { requests += it } }
+        openAndExpand(robot)
+
+        selectBranches(robot, "$LOCAL/feature")
+        robot.interact {
+            pane.menu.update()
+            assertTrue(pane.menu.reviewItem.isVisible)
+            assertFalse(pane.menu.reviewItem.isDisable)
+            pane.menu.reviewItem.fire()
+        }
+        assertEquals(listOf<ReviewRequest>(ReviewRequest.Branch("refs/heads/feature")), requests)
+
+        selectBranches(robot, "$TAGS/v1")
+        robot.interact {
+            pane.menu.update()
+            assertFalse(pane.menu.reviewItem.isVisible)
+            assertTrue(pane.menu.reviewItem.isDisable)
+        }
     }
 }

@@ -51,6 +51,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
                 "Copy Name",
                 null,
                 "Compare with Current",
+                "Review Branch",
                 "Show Diff with Working Tree",
                 null,
                 "Checkout",

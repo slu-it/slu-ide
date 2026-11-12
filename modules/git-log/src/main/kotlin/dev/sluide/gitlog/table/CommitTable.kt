@@ -49,6 +49,9 @@ internal class CommitTable(
     /** Opens the files a commit differs in from the working tree (ADR 0044); set by the view. */
     var compareWithLocal: (GitCommit) -> Unit = {}
 
+    /** Asks to review the commits with these full hashes, top row first (ADR 0168); set by the view. */
+    var review: (List<String>) -> Unit = {}
+
     /** Opens Go to Hash/Branch/Tag (ADR 0045); set by the view. */
     var openGoTo: () -> Unit = {}
 
@@ -72,6 +75,9 @@ internal class CommitTable(
 
     internal val compareWithLocalItem =
         MenuItem("Compare with Local").apply { setOnAction { singleCommit()?.let { compareWithLocal(it) } } }
+
+    internal val reviewItem =
+        MenuItem(REVIEW_ONE).apply { setOnAction { review(selectedHashes()) } }
 
     internal val checkoutRevisionItem =
         MenuItem("Checkout Revision").apply {
@@ -143,6 +149,7 @@ internal class CommitTable(
             ContextMenu(
                 copyRevisionNumber,
                 compareWithLocalItem,
+                reviewItem,
                 SeparatorMenuItem(),
                 checkoutRevisionItem,
                 newBranchItem,
@@ -156,6 +163,7 @@ internal class CommitTable(
                 goToItem,
             )
         contextMenu.setOnShowing {
+            reviewItem.text = if (selectionModel.selectedItems.size > 1) REVIEW_MANY else REVIEW_ONE
             contextMenu.items.removeAll(branchItems)
             branchItems.clear()
             val refs =
@@ -177,6 +185,8 @@ internal class CommitTable(
         listOf(checkoutRevisionItem, newBranchItem, newTagItem).forEach { it.disableProperty().bind(notOne) }
         // Only reads: also while an operation runs.
         compareWithLocalItem.disableProperty().bind(Bindings.size(selectionModel.selectedItems).isNotEqualTo(1))
+        // Only reads, as the review window does: also while an operation runs.
+        reviewItem.disableProperty().bind(Bindings.isEmpty(selectionModel.selectedItems))
         // Not while git is in the middle of something: the bar says what.
         listOf(cherryPickItem, revertItem).forEach { it.disableProperty().bind(notOne.or(busy)) }
         resetItem.disableProperty().bind(notOne.or(hasHead.not()))
@@ -208,13 +218,19 @@ internal class CommitTable(
             .singleOrNull()
             ?.commit
 
+    /** The full hashes of the selected commits in table order. */
+    private fun selectedHashes() =
+        selectionModel.selectedIndices
+            .sorted()
+            .map { pages.rows[it].commit.hash }
+
     /** Copies the full hashes of the selected commits, one per line in table order. */
     private fun copyRevisionNumbers() {
-        val hashes =
-            selectionModel.selectedIndices
-                .sorted()
-                .map { pages.rows[it].commit.hash }
+        val hashes = selectedHashes()
         if (hashes.isEmpty()) return
         Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(hashes.joinToString("\n")) })
     }
 }
+
+private const val REVIEW_ONE = "Review Commit"
+private const val REVIEW_MANY = "Review Commits"

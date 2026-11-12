@@ -60,6 +60,8 @@ internal class BranchPaneMenu(
         MenuItem(
             "Compare with Current",
         ).apply { setOnAction { actions().compare?.let(commands().compare) } }
+    val reviewItem =
+        MenuItem("Review Branch").apply { setOnAction { actions().review?.let { commands().review(it.name) } } }
     val workingTreeItem =
         MenuItem("Show Diff with Working Tree").apply {
             setOnAction { actions().workingTreeDiff?.let(commands().showWorkingTreeDiff) }
@@ -76,6 +78,7 @@ internal class BranchPaneMenu(
             copyNameItem,
             SeparatorMenuItem(),
             compareItem,
+            reviewItem,
             workingTreeItem,
             SeparatorMenuItem(),
             checkoutItem,
@@ -118,6 +121,8 @@ internal class BranchPaneMenu(
         deleteItem.isDisable = actions.delete.isEmpty() && actions.deleteRemote.isEmpty()
         fetchItem.isDisable = actions.fetch == null
         compareItem.isDisable = actions.compare == null
+        reviewItem.isDisable = actions.review == null
+        reviewItem.isVisible = actions.review != null
         workingTreeItem.isDisable = actions.workingTreeDiff == null
     }
 

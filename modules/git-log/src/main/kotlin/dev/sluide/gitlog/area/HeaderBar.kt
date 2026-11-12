@@ -1,10 +1,12 @@
 package dev.sluide.gitlog.area
 
+import dev.sluide.gitlog.REVIEW_BRANCH_KEYS
 import dev.sluide.gitlog.push.PUSH_KEYS
 import dev.sluide.gitlog.ui.contains
 import javafx.beans.binding.Bindings
 import javafx.beans.property.BooleanProperty
 import javafx.beans.value.ObservableBooleanValue
+import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
@@ -16,14 +18,18 @@ import javafx.scene.layout.Region
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignA
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
+import org.kordamp.ikonli.materialdesign2.MaterialDesignF
 import org.kordamp.ikonli.materialdesign2.MaterialDesignR
 import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 
+/** The gap between Review Branch and Push. */
+private const val REVIEW_GAP = 12.0
+
 /**
  * The header bar of the git log area (ADRs 0035, 0046): a chevron that follows [expanded], the tabs' [titles], the
- * [status] message, Cancel (only while the operation going on is [cancellable], ADR 0043) and, on the right, Push,
- * Pull, Fetch All Remotes and Refresh. Fetch and Pull are off while an operation is [running] or there are [noRemotes],
- * Push without a remote. Clicking the bar (but not its buttons) expands or collapses the area.
+ * [status] message, Cancel (only while the operation going on is [cancellable], ADR 0043) and, on the right, Review
+ * Branch (ADR 0168; off with [noRepository], it calls [review]), Push, Pull, Fetch All Remotes and Refresh. Fetch and Pull are off while an
+ * operation is [running] or there are [noRemotes], Push without a remote. Clicking the bar (but not its buttons) expands or collapses the area.
  */
 internal class HeaderBar(
     titles: Node,
@@ -32,6 +38,8 @@ internal class HeaderBar(
     running: ObservableBooleanValue,
     cancellable: ObservableBooleanValue,
     noRemotes: ObservableBooleanValue,
+    noRepository: ObservableBooleanValue,
+    review: () -> Unit,
     refresh: () -> Unit,
     fetch: () -> Unit,
     push: () -> Unit,
@@ -59,6 +67,17 @@ internal class HeaderBar(
             minWidth = Region.USE_PREF_SIZE
             setOnAction { fetch() }
             disableProperty().bind(Bindings.or(running, noRemotes))
+        }
+
+    /** Reviews `HEAD`'s branch like a pull request (ADR 0168); only while the log shows a repository. */
+    val reviewButton =
+        Button(null, FontIcon(MaterialDesignF.FILE_EYE_OUTLINE)).apply {
+            styleClass += "git-log-review"
+            tooltip = Tooltip("Review Branch (${REVIEW_BRANCH_KEYS.displayText})")
+            isFocusTraversable = false
+            minWidth = Region.USE_PREF_SIZE
+            setOnAction { review() }
+            disableProperty().bind(noRepository)
         }
 
     /** Opens the Push dialog (ADR 0049); not without a remote, but while an operation runs. */
@@ -101,6 +120,7 @@ internal class HeaderBar(
             status,
             cancelButton,
             Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
+            reviewButton,
             pushButton,
             pullButton,
             fetchButton,
@@ -112,6 +132,7 @@ internal class HeaderBar(
                 val onButton =
                     listOf(
                         refreshButton,
+                        reviewButton,
                         pushButton,
                         pullButton,
                         fetchButton,
@@ -124,6 +145,10 @@ internal class HeaderBar(
         }
 
     init {
+        // The spacing comes from the stylesheet: the margin makes up the rest of the wider gap after Review Branch.
+        node.spacingProperty().subscribe { spacing ->
+            HBox.setMargin(reviewButton, Insets(0.0, maxOf(0.0, REVIEW_GAP - spacing.toDouble()), 0.0, 0.0))
+        }
         expanded.subscribe { isExpanded ->
             chevron.iconCode = if (isExpanded) MaterialDesignC.CHEVRON_DOWN else MaterialDesignC.CHEVRON_RIGHT
         }

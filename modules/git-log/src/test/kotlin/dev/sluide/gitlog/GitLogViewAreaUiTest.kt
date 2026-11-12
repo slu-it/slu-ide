@@ -7,6 +7,8 @@ import javafx.scene.control.skin.VirtualFlow
 import javafx.scene.input.Clipboard
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -15,6 +17,7 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import java.nio.file.Path
 import java.time.Instant
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
@@ -239,5 +242,81 @@ class GitLogViewAreaUiTest : GitLogViewUiFixture() {
         otherHistory = emptyList()
         robot.interact { view.refresh() }
         eventually { assertEquals("No commits yet.", placeholder(robot)) }
+    }
+
+    @Test
+    fun `the Review button asks to review HEAD and sits 12 px left of Push`(robot: FxRobot) {
+        refs = someRefs
+        val requests = CopyOnWriteArrayList<ReviewRequest>()
+        robot.interact {
+            view.onReview = { requests += it }
+            view.open(repo)
+        }
+        awaitReadersIdle()
+        val button = robot.lookup(".git-log-review").queryButton()
+
+        robot.interact {
+            assertFalse(button.isDisable)
+            assertEquals("Review Branch (${REVIEW_BRANCH_KEYS.displayText})", button.tooltip.text)
+            assertFalse(button.isFocusTraversable)
+            view.header.applyCss()
+            view.header.layout()
+            val gap = view.pushButton.boundsInParent.minX - button.boundsInParent.maxX
+            assertEquals(12.0, gap, 1.0)
+        }
+
+        // A click on it asks for the review.
+        click(robot, button)
+        assertEquals(listOf<ReviewRequest>(ReviewRequest.Branch("HEAD")), requests)
+    }
+
+    @Test
+    fun `the Review button is off once no repository is shown`(robot: FxRobot) {
+        refs = someRefs
+        robot.interact { view.open(repo) }
+        val button = robot.lookup(".git-log-review").queryButton()
+        robot.interact { assertFalse(button.isDisable, "on for a repository, collapsed or not") }
+
+        robot.interact { view.open(null) }
+        robot.interact { assertTrue(button.isDisable) }
+    }
+
+    @Test
+    fun `a click that reaches the header from the Review button does not expand the area`(robot: FxRobot) {
+        refs = someRefs
+        robot.interact { view.open(repo) }
+        val button = robot.lookup(".git-log-review").queryButton()
+
+        // The button consumes a real click before the bar sees it, so hand the bar the event as it bubbles up.
+        fun clickOn(target: Node) =
+            MouseEvent(
+                button,
+                target,
+                MouseEvent.MOUSE_CLICKED,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                MouseButton.PRIMARY,
+                1,
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                true,
+                false,
+                false,
+                null,
+            )
+
+        robot.interact {
+            view.header.onMouseClicked.handle(clickOn(button))
+            assertFalse(view.expanded.get())
+            view.header.onMouseClicked.handle(clickOn(view.header))
+            assertTrue(view.expanded.get(), "a click on the bar itself does")
+        }
     }
 }

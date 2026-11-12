@@ -191,4 +191,23 @@ class BranchMenuTest {
             rebaseMenuText(selected(refs, "Local/feature"), GitRefs(refs.refs, null)),
         )
     }
+
+    @Test
+    fun `a local or remote branch can be reviewed, also the current one and while writing, a tag or a group not`() {
+        val all =
+            GitRefs(
+                refs.refs +
+                    GitRef("refs/remotes/origin/x", GitRefKind.REMOTE_BRANCH, "h2") +
+                    GitRef("refs/tags/v1", GitRefKind.TAG, "h1"),
+                "refs/heads/main",
+            )
+
+        assertEquals("refs/heads/feature", actions("Local/feature", all).review?.name)
+        assertEquals("refs/heads/main", actions("Local/main", all).review?.name, "the current branch")
+        assertEquals("refs/remotes/origin/x", actions("Remote/origin/x", all).review?.name)
+        assertEquals("refs/heads/feature", actions("Local/feature", all, writing = true).review?.name)
+        assertEquals("refs/heads/feature", actions("Local/feature", all, busy = true).review?.name)
+        assertNull(actions("Tags/v1", all).review)
+        assertNull(actions("Remote/origin", all).review, "a remote, not a branch")
+    }
 }
