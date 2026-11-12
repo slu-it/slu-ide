@@ -37,6 +37,7 @@ class GitReviewSource(
     private val reviews: GitReviews,
     private val pulls: GitPulls,
 ) : ReviewSource {
+    /** The default bases of `HEAD` first (the order of [GitReviews.defaultBases]), then the other branches. */
     override fun bases(root: Path): List<ReviewBase> {
         val defaults = reviews.defaultBases(root)
         val others = reviews.branches(root).filterNot { it in defaults }
@@ -62,13 +63,26 @@ class GitReviewSource(
         git: GitCancellation,
     ): ResolvedReview {
         val head = scope.head
-        val headHash = reviews.resolveCommit(root, head) ?: throw failure(git, "The branch has no commits yet.")
         val current = pulls.currentBranch(root)
+        // Only the checked-out branch can be unborn; any other head that does not resolve is gone.
+        val headHash =
+            reviews.resolveCommit(root, head)
+                ?: throw failure(
+                    git,
+                    if (isCheckedOut(head, current)) {
+                        "The branch has no commits yet."
+                    } else {
+                        "The branch ${shortName(head)} no longer exists."
+                    },
+                )
         val headLabel = if (head == "HEAD") current ?: headHash.take(SHORT_HASH) else shortName(head)
         val defaults = reviews.defaultBases(root, head)
         val baseRef = scope.base ?: defaults.firstOrNull()
         val base = baseRef?.let { ReviewBase(it, shortName(it), it in defaults) }
         if (base == null) return ResolvedReview(headLabel, null, null, headHash, emptyList(), false, head)
+        if (reviews.resolveCommit(root, base.ref) == null) {
+            throw failure(git, "The base ${base.label} no longer exists.")
+        }
         val mergeBase =
             reviews.mergeBase(root, base.ref, headHash, git)
                 ?: throw failure(git, "$headLabel and ${base.label} have no common history.")

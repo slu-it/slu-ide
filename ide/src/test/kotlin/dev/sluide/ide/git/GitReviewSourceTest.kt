@@ -32,6 +32,10 @@ class GitReviewSourceTest {
     @TempDir
     lateinit var repo: Path
 
+    /** A second repository, cloned from [repo] and added to it as `origin`. */
+    @TempDir
+    lateinit var remote: Path
+
     private val gitEnvironment =
         System.getenv().filterKeys { !it.startsWith("GIT_") } +
             mapOf("GIT_CONFIG_GLOBAL" to "/dev/null", "GIT_CONFIG_NOSYSTEM" to "1")
@@ -48,10 +52,15 @@ class GitReviewSourceTest {
         git("config", "user.email", "test@example.com")
     }
 
-    private fun git(vararg arguments: String): String {
+    private fun git(vararg arguments: String): String = gitIn(repo, *arguments)
+
+    private fun gitIn(
+        directory: Path,
+        vararg arguments: String,
+    ): String {
         val process =
             ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
+                .directory(directory.toFile())
                 .redirectErrorStream(true)
                 .apply {
                     environment().clear()
@@ -146,10 +155,69 @@ class GitReviewSourceTest {
     }
 
     @Test
-    fun `a branch without commits says so`() {
-        val failure = assertFailsWith<ReviewException> { resolve(ReviewScope.Branch("HEAD")) }
+    fun `the checked-out branch without commits says so, by HEAD or by its name`() {
+        for (head in listOf("HEAD", "refs/heads/main")) {
+            val failure = assertFailsWith<ReviewException> { resolve(ReviewScope.Branch(head)) }
 
-        assertEquals("The branch has no commits yet.", failure.message)
+            assertEquals("The branch has no commits yet.", failure.message)
+        }
+    }
+
+    @Test
+    fun `a deleted branch no longer exists`() {
+        featureBranch()
+        git("branch", "gone")
+        git("branch", "-D", "gone")
+
+        val failure = assertFailsWith<ReviewException> { resolve(ReviewScope.Branch("refs/heads/gone")) }
+
+        assertEquals("The branch gone no longer exists.", failure.message)
+    }
+
+    @Test
+    fun `a deleted base no longer exists`() {
+        featureBranch()
+        git("branch", "gone", "main")
+        git("branch", "-D", "gone")
+
+        val failure =
+            assertFailsWith<ReviewException> { resolve(ReviewScope.Branch("HEAD", base = "refs/heads/gone")) }
+
+        assertEquals("The base gone no longer exists.", failure.message)
+    }
+
+    @Test
+    fun `a detached HEAD is titled by its short hash`() {
+        val (_, _, second) = featureBranch()
+        git("checkout", "-q", "--detach")
+
+        val review = resolve(ReviewScope.Branch("HEAD"))
+
+        assertEquals("${second.take(7)} into main", review.title)
+        assertEquals("HEAD", review.headRef)
+    }
+
+    @Test
+    fun `a remote branch is reviewed against its remote's default branch`() {
+        commit("base")
+        gitIn(repo, "clone", "-q", repo.toString(), remote.toString())
+        gitIn(remote, "config", "user.name", "Test")
+        gitIn(remote, "config", "user.email", "test@example.com")
+        gitIn(remote, "checkout", "-q", "-b", "x")
+        remote.resolve("x.txt").writeText("x\n")
+        gitIn(remote, "add", "-A")
+        gitIn(remote, "commit", "-q", "-m", "on x")
+        // The remote's HEAD, which a fetch may record as origin/HEAD, is its default branch.
+        gitIn(remote, "checkout", "-q", "main")
+        git("remote", "add", "origin", remote.toString())
+        git("fetch", "-q", "origin")
+
+        val review = resolve(ReviewScope.Branch("refs/remotes/origin/x"))
+
+        assertEquals("origin/x into origin/main", review.title)
+        assertEquals("origin/main", review.base?.label)
+        assertEquals(listOf("on x"), review.commits.map { it.subject })
+        assertFalse(review.uncommitted)
     }
 
     @Test
