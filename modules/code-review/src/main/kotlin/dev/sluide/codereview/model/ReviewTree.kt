@@ -1,10 +1,12 @@
-package dev.sluide.codereview
+package dev.sluide.codereview.model
+
+import dev.sluide.codereview.ReviewFile
 
 /**
  * A node of the files tree: a folder ([file] `null`, [path] the folder's path, [name] perhaps a compacted chain like
  * `src/main/kotlin`) or a file ([path] its path, [name] its last segment).
  */
-data class ReviewTreeNode(
+internal data class ReviewTreeNode(
     val name: String,
     val path: String,
     val children: List<ReviewTreeNode>,
@@ -12,7 +14,7 @@ data class ReviewTreeNode(
 )
 
 /** Whether [path] passes the files filter: it contains [filter], ignoring case. */
-fun matchesReviewFilter(
+internal fun matchesReviewFilter(
     path: String,
     filter: String,
 ): Boolean = path.contains(filter, ignoreCase = true)
@@ -22,7 +24,7 @@ fun matchesReviewFilter(
  * files, both by name ignoring case (then by case), and chains of folders with a single folder child compacted into
  * one node.
  */
-fun reviewTree(
+internal fun reviewTree(
     files: List<ReviewFile>,
     filter: String = "",
 ): List<ReviewTreeNode> {
@@ -41,11 +43,11 @@ fun reviewTree(
 }
 
 /** The files of [nodes] in tree order, depth first. */
-fun treeFiles(nodes: List<ReviewTreeNode>): List<ReviewFile> =
+internal fun treeFiles(nodes: List<ReviewTreeNode>): List<ReviewFile> =
     nodes.flatMap { node -> listOfNotNull(node.file) + treeFiles(node.children) }
 
 /** [files] in the order of their tree. */
-fun treeOrder(files: List<ReviewFile>): List<ReviewFile> = treeFiles(reviewTree(files))
+internal fun treeOrder(files: List<ReviewFile>): List<ReviewFile> = treeFiles(reviewTree(files))
 
 private val byName: Comparator<String> = String.CASE_INSENSITIVE_ORDER.thenComparing(naturalOrder())
 

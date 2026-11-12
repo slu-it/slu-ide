@@ -1,5 +1,6 @@
-package dev.sluide.codereview
+package dev.sluide.codereview.model
 
+import dev.sluide.codereview.ReviewFileContent
 import dev.sluide.fileviewers.LineChange
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource

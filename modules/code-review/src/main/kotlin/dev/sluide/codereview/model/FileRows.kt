@@ -1,4 +1,4 @@
-package dev.sluide.codereview
+package dev.sluide.codereview.model
 
 import dev.sluide.fileviewers.DiffKind
 import dev.sluide.fileviewers.LineChange

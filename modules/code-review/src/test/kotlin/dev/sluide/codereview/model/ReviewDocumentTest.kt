@@ -1,5 +1,8 @@
-package dev.sluide.codereview
+package dev.sluide.codereview.model
 
+import dev.sluide.codereview.ReviewChange
+import dev.sluide.codereview.ReviewFile
+import dev.sluide.codereview.ReviewFileContent
 import dev.sluide.fileviewers.LineChange
 import javafx.collections.ListChangeListener
 import org.junit.jupiter.params.ParameterizedTest

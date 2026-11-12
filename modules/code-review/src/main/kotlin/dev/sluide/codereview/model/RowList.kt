@@ -1,4 +1,4 @@
-package dev.sluide.codereview
+package dev.sluide.codereview.model
 
 import javafx.collections.ObservableListBase
 

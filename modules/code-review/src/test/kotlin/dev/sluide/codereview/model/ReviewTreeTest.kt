@@ -1,5 +1,7 @@
-package dev.sluide.codereview
+package dev.sluide.codereview.model
 
+import dev.sluide.codereview.ReviewChange
+import dev.sluide.codereview.ReviewFile
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

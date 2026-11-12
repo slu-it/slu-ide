@@ -1,7 +1,10 @@
-package dev.sluide.codereview
+package dev.sluide.codereview.model
+
+import dev.sluide.codereview.ResolvedReview
+import dev.sluide.codereview.ReviewRevision
 
 /** The entries picked in the commit picker. */
-sealed interface ReviewSelection {
+internal sealed interface ReviewSelection {
     /** The whole review. */
     data object All : ReviewSelection
 
@@ -20,7 +23,7 @@ sealed interface ReviewSelection {
  * one's first parent to the newest one. Throws [IllegalArgumentException] for indices outside [ResolvedReview.commits]
  * or a newest index after the oldest.
  */
-fun ResolvedReview.range(selection: ReviewSelection): Pair<String?, ReviewRevision> =
+internal fun ResolvedReview.range(selection: ReviewSelection): Pair<String?, ReviewRevision> =
     when (selection) {
         ReviewSelection.All -> {
             from to if (uncommitted) ReviewRevision.WorkingTree else ReviewRevision.Commit(head)

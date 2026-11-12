@@ -1,5 +1,8 @@
-package dev.sluide.codereview
+package dev.sluide.codereview.model
 
+import dev.sluide.codereview.ResolvedReview
+import dev.sluide.codereview.ReviewCommit
+import dev.sluide.codereview.ReviewRevision
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.time.Instant

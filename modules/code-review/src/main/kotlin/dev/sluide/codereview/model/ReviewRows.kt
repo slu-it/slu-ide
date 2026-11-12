@@ -1,22 +1,23 @@
-package dev.sluide.codereview
+package dev.sluide.codereview.model
 
+import dev.sluide.codereview.ReviewFile
 import dev.sluide.fileviewers.DiffKind
 import dev.sluide.fileviewers.HighlightSpan
 
 /** How the diff shows the two sides. */
-enum class ReviewLayout { UNIFIED, SPLIT }
+internal enum class ReviewLayout { UNIFIED, SPLIT }
 
 /** A side of a file's diff. */
-enum class ReviewSide { ORIGINAL, CURRENT }
+internal enum class ReviewSide { ORIGINAL, CURRENT }
 
 /** Which part of a gap to reveal: 20 lines at its bottom ([UP]), 20 at its top ([DOWN]), or all of it. */
-enum class ExpandDirection { UP, DOWN, ALL }
+internal enum class ExpandDirection { UP, DOWN, ALL }
 
 /** What a [ReviewRow.Notice] says instead of lines. */
-enum class NoticeKind { LOADING, BINARY, TOO_LARGE, SUBMODULE, NO_CONTENT_CHANGE, LOAD_DIFF }
+internal enum class NoticeKind { LOADING, BINARY, TOO_LARGE, SUBMODULE, NO_CONTENT_CHANGE, LOAD_DIFF }
 
 /** A row of the review's diff list. Line numbers are 0-based within the file's whole original or current text. */
-sealed interface ReviewRow {
+internal sealed interface ReviewRow {
     val path: String
 
     /** The header of a file; [added] and [removed] are 0 until its content is there. */
@@ -73,14 +74,14 @@ sealed interface ReviewRow {
 }
 
 /** A line to show: its [text], its syntax [tokens] and the column ranges of its changed words, all line-relative. */
-data class ReviewLine(
+internal data class ReviewLine(
     val text: String,
     val tokens: List<HighlightSpan>,
     val changedWords: List<IntRange>,
 )
 
 /** Gives the text of the lines the rows refer to. */
-interface ReviewLineSource {
+internal interface ReviewLineSource {
     fun line(
         path: String,
         side: ReviewSide,
@@ -92,7 +93,7 @@ interface ReviewLineSource {
  * A place in the review that survives filters, layout toggles and reloads: a line of a side of a file, or the file
  * itself ([side] and [line] `null`).
  */
-data class ReviewAnchor(
+internal data class ReviewAnchor(
     val path: String,
     val side: ReviewSide?,
     val line: Int?,

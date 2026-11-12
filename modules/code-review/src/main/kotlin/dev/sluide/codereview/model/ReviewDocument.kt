@@ -1,5 +1,7 @@
-package dev.sluide.codereview
+package dev.sluide.codereview.model
 
+import dev.sluide.codereview.ReviewChange
+import dev.sluide.codereview.ReviewFile
 import javafx.beans.property.BooleanProperty
 import javafx.beans.property.ObjectProperty
 import javafx.beans.property.ReadOnlyIntegerProperty
@@ -17,7 +19,7 @@ import javafx.collections.ObservableList
  * [layout], [filter] and [ignoreWhitespace] rebuild all rows; every other update replaces only the changed file's
  * range of [rows] in one change, so a list keeps its viewport.
  */
-class ReviewDocument : ReviewLineSource {
+internal class ReviewDocument : ReviewLineSource {
     private val rowList = RowList()
 
     /** The rows of the files that pass [filter]; read-only. */

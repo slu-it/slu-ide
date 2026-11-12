@@ -1,5 +1,7 @@
-package dev.sluide.codereview
+package dev.sluide.codereview.model
 
+import dev.sluide.codereview.ReviewFile
+import dev.sluide.codereview.ReviewFileContent
 import dev.sluide.fileviewers.CodeEditors
 import dev.sluide.fileviewers.HighlightSpan
 import dev.sluide.fileviewers.LineChange
@@ -13,7 +15,7 @@ import java.util.HexFormat
  * A file's content made ready for [ReviewDocument.setContent] by [prepareFile]: lines, highlighting, changed words
  * and the counts of [added] and [removed] lines.
  */
-class PreparedFile internal constructor(
+internal class PreparedFile(
     val added: Int,
     val removed: Int,
     /** Differs when either text differs; a changed key unchecks Viewed. */
@@ -57,7 +59,7 @@ internal sealed interface PreparedBody {
  * them too. [file] is not read yet; it is part of the API for rules by file (ADR 0168).
  */
 @Suppress("UNUSED_PARAMETER")
-fun prepareFile(
+internal fun prepareFile(
     file: ReviewFile,
     content: ReviewFileContent,
     highlighter: SyntaxHighlighter?,
