@@ -12,8 +12,12 @@ Amends 0092: Paste (Shortcut+V and the context menu item) also works for an imag
 - **Files win.** With files on the clipboard they are pasted as before, even if an image is also there (the Finder puts
   an icon image beside copied files). Only no files and an image paste the image. A pending cut is dropped as for any
   other content (`checkCut`). The paste target is `ExplorerCopies.pasteTarget`; no new key binding.
-- **`canPaste`** is true for files or an image. The menu item reads "Paste Image" for an image without files, "Paste"
-  otherwise (`ExplorerCopies.pasteLabel`).
+- **Paste item** (`ExplorerCopies.pasteItem`): enabled for files or an image, reading "Paste Image" for an image
+  without files, "Paste" otherwise. Both, and the cut check, come from one read of the clipboard per menu show
+  (`ExplorerClipboard.pasteContent`; the image is asked for only without files): each read is a synchronous query on
+  the JavaFX thread, on X11 a round trip to the clipboard's owner, and separate reads could disagree. With a pending
+  cut, a right-click that first focuses the explorer (or its window) checks the cut once more from the focus listener
+  (ADR 0092), a separate event.
 - **Name dialog** (`NameDialog`, title "Paste Image"): prefilled `image-yyyy-MM-dd-HHmmss.png` in local time (an
   injectable `Clock`), validated with `FileOperations.pathProblem` on the final name like New File, so `/` paths with
   missing folders work ([ADR 0094](0094-paths-in-new-file-and-folder.md)) and a taken name is refused. `.png` is

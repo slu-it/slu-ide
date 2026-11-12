@@ -145,8 +145,8 @@
     paste below. Copy is enabled for at least one target (also a top-level folder), Cut when all targets can be changed
     (as Delete), Paste when the clipboard holds files or an image and there is one folder to paste into (the item reads
     "Paste Image" for an image without files): the clicked folder, the folder of the clicked file, or the project
-    folder on the empty area; not for several entries, not into a folder being deleted (`ExplorerCopies.canPaste`, the
-    same decision as the paste).
+    folder on the empty area; not for several entries, not into a folder being deleted (`ExplorerCopies.pasteItem`, the
+    same decision as the paste, from one read of the clipboard per menu show).
   - New File… / New Folder… create an empty entry in the clicked folder or, on the empty area, in the project folder.
     They are enabled for exactly one folder (also a top-level one) or the empty area while a folder is open; disabled
     on a file and for several entries. A new file is opened. The name may be a path (`a/b/c.txt`, `/` also `\` on Windows):

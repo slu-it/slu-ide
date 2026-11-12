@@ -45,7 +45,7 @@ internal data class MenuState(
 /**
  * Enablement of the context menu for [targets] (none: the empty area, standing for the project folder if
  * [projectOpen]). [canShowHistory] is only asked for a single file. Paste is enabled if it would paste something
- * ([canPaste], decided as the paste itself decides: `ExplorerCopies.canPaste`).
+ * ([canPaste], decided as the paste itself decides: `ExplorerCopies.pasteItem`).
  */
 internal fun menuState(
     targets: List<MenuTarget>,
@@ -148,10 +148,8 @@ internal class ExplorerMenuHost(
     val runFolderAction: (FolderAction, FileTreeItem?) -> Unit,
     val rename: (FileTreeItem) -> Unit,
     val delete: (List<FileTreeItem>) -> Unit,
-    /** Whether a paste for the targets would paste something; asked when the menu opens. */
-    val canPaste: (List<FileTreeItem>) -> Boolean,
-    /** The text of the paste item for the targets, asked when the menu opens. */
-    val pasteLabel: (List<FileTreeItem>) -> String,
+    /** The paste item for the targets (enabled, text), asked once when the menu opens. */
+    val pasteItem: (List<FileTreeItem>) -> PasteItem,
     val cut: (List<FileTreeItem>) -> Unit,
     val copy: (List<FileTreeItem>) -> Unit,
     /** Pastes into the folder for the targets. */
@@ -229,11 +227,12 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
     ).apply {
         setOnShowing {
             val targets = host.targets()
+            val pasteItem = host.pasteItem(targets)
             val state =
                 menuState(
                     targets.map { MenuTarget(it.isDirectory, Files.isRegularFile(it.value), host.canChange(it)) },
                     host.projectOpen(),
-                    host.canPaste(targets),
+                    pasteItem.enabled,
                 ) { host.canShowHistory(targets.single().value) }
             items.removeAll(fileActionItems)
             fileActionItems.clear()
@@ -273,7 +272,7 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
             cut.isDisable = !state.cut
             copy.isDisable = !state.copy
             paste.isDisable = !state.paste
-            paste.text = host.pasteLabel(targets)
+            paste.text = pasteItem.label
             history.isVisible = host.historyOffered()
             historySeparator.isVisible = host.historyOffered()
             history.isDisable = !state.history

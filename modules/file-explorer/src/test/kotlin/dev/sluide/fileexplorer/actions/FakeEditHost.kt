@@ -190,14 +190,24 @@ internal class FakeClipboardFiles : ClipboardFiles {
     var image: ClipboardImage? = null
     var unreadable = false
 
-    override fun hasImage(): Boolean = image != null || unreadable
+    /** How often the files and the image were asked for, to see that a menu show reads the clipboard once. */
+    var filesReads = 0
+    var imageChecks = 0
+
+    override fun hasImage(): Boolean {
+        imageChecks++
+        return image != null || unreadable
+    }
 
     override fun image(): ClipboardImage? {
         if (unreadable) throw UnreadableClipboardImage()
         return image
     }
 
-    override fun files(): List<Path> = content.orEmpty()
+    override fun files(): List<Path> {
+        filesReads++
+        return content.orEmpty()
+    }
 
     override fun put(files: List<Path>) {
         content = files

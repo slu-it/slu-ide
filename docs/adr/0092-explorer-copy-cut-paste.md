@@ -31,7 +31,7 @@ meet taken names, include links and executable files, and come from files with u
 - **Paste target:** the single selected folder, the folder of the single selected file, the project folder when
   nothing is selected (in the menu: the empty area); nothing for several selected entries, for a folder being deleted
   or without files on the clipboard (Paste disabled; the menu asks the same resolution as the paste,
-  `ExplorerCopies.canPaste`). Pasting into Scratches works like any folder.
+  `ExplorerCopies.pasteItem`). Pasting into Scratches works like any folder.
 - **Names:** the entry's own name if free, else the first free of `-copy`, `-copy2`, `-copy3`, … before the first
   extension; a leading dot does not start one, a folder has none (`notes.txt` → `notes-copy.txt`, `archive.tar.gz` →
   `archive-copy.tar.gz`, `.env` → `.env-copy`, `.env.local` → `.env-copy.local`, `Makefile` → `Makefile-copy`, folder

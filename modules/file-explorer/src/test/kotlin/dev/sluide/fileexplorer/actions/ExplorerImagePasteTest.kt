@@ -177,20 +177,50 @@ class ExplorerImagePasteTest {
     }
 
     @Test
-    fun `paste and the label say image only for an image without files and a target`() {
+    fun `the paste item says image only for an image without files and a target`() {
         project.resolve("src").createDirectories()
         open()
-        assertFalse(fake.copies.canPaste(emptyList()))
-        assertEquals("Paste", fake.copies.pasteLabel(emptyList()))
+        assertEquals(PasteItem(false, "Paste"), fake.copies.pasteItem(emptyList()))
 
         fake.clipboardFiles.image = image
-        assertTrue(fake.copies.canPaste(emptyList()))
-        assertEquals("Paste Image", fake.copies.pasteLabel(emptyList()))
-        assertEquals("Paste", fake.copies.pasteLabel(listOf(fake.item("src"), fake.projectItem)), "no target")
+        assertEquals(PasteItem(true, "Paste Image"), fake.copies.pasteItem(emptyList()))
+        assertEquals(
+            PasteItem(false, "Paste"),
+            fake.copies.pasteItem(listOf(fake.item("src"), fake.projectItem)),
+            "no target",
+        )
 
         fake.clipboardFiles.content = listOf(project.resolve("src"))
-        assertTrue(fake.copies.canPaste(emptyList()))
-        assertEquals("Paste", fake.copies.pasteLabel(emptyList()), "files win")
+        assertEquals(PasteItem(true, "Paste"), fake.copies.pasteItem(emptyList()), "files win")
+    }
+
+    @Test
+    fun `the paste item reads the clipboard once, the image only without files, also with a pending cut`() {
+        project.resolve("a.txt").writeText("a")
+        open()
+        fake.clipboardFiles.image = image
+
+        fake.copies.pasteItem(emptyList())
+        assertEquals(1, fake.clipboardFiles.filesReads)
+        assertEquals(1, fake.clipboardFiles.imageChecks)
+
+        fake.copies.cut(listOf(fake.item("a.txt")))
+        fake.clipboardFiles.filesReads = 0
+        fake.clipboardFiles.imageChecks = 0
+        fake.copies.pasteItem(emptyList())
+        assertEquals(1, fake.clipboardFiles.filesReads, "the cut is checked against the files read")
+        assertEquals(0, fake.clipboardFiles.imageChecks, "files win, so the image is not asked for")
+        val cutFile = project.resolve("a.txt").toAbsolutePath().normalize()
+        assertTrue(fake.clipboard.isCut(cutFile), "the clipboard still holds the cut file")
+
+        fake.clipboardFiles.filesReads = 0
+        fake.copies.paste(emptyList())
+        assertEquals(1, fake.clipboardFiles.filesReads, "a paste reads once too")
+
+        fake.copies.cut(listOf(fake.item("a.txt")))
+        fake.clipboardFiles.content = null
+        fake.copies.pasteItem(emptyList())
+        assertFalse(fake.clipboard.isCut(cutFile), "the menu drops the cut when the clipboard changed elsewhere")
     }
 
     @Test

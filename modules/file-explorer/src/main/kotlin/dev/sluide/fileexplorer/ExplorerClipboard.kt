@@ -17,6 +17,12 @@ internal class ClipboardImage(
     val argb: IntArray,
 )
 
+/** What a paste would take from the clipboard: its [files], or, without files, an image if [pastesImage]. */
+internal class PasteContent(
+    val files: List<Path>,
+    val pastesImage: Boolean,
+)
+
 /** The image on the clipboard could not be read; the message is meant for the user. */
 internal class UnreadableClipboardImage : IOException("The clipboard image could not be read.")
 
@@ -100,8 +106,14 @@ class ExplorerClipboard internal constructor(
     /** The files on the clipboard, normalised; none if it holds something else. */
     internal fun files(): List<Path> = clipboard.files().map(::normal)
 
-    /** Whether there is an image to paste: one on the clipboard and no files (files win, ADR 0167). */
-    internal fun pastesImage(): Boolean = clipboard.files().isEmpty() && clipboard.hasImage()
+    /**
+     * What a paste would take, from one read of the clipboard: its files, normalised, and, only when there are none,
+     * whether it holds an image (files win, ADR 0167).
+     */
+    internal fun pasteContent(): PasteContent {
+        val files = files()
+        return PasteContent(files, files.isEmpty() && clipboard.hasImage())
+    }
 
     /** The image on the clipboard, `null` if none; fails with [UnreadableClipboardImage]. */
     internal fun image(): ClipboardImage? = clipboard.image()
@@ -122,9 +134,12 @@ class ExplorerClipboard internal constructor(
     /** Whether [path] is marked as cut; call [checkCut] first to see a clipboard changed elsewhere. */
     internal fun isCut(path: Path): Boolean = cut.isNotEmpty() && path in cut
 
-    /** The cut entries if the clipboard still holds exactly them, else none, dropping the mark. */
-    internal fun checkCut(): Set<Path> {
-        if (cut.isNotEmpty() && files().toSet() != cut) mark(emptySet())
+    /**
+     * The cut entries if the clipboard still holds exactly them, else none, dropping the mark; [files] are the
+     * clipboard's files when they were just read ([pasteContent]), so that it is not asked again.
+     */
+    internal fun checkCut(files: List<Path>? = null): Set<Path> {
+        if (cut.isNotEmpty() && (files ?: files()).toSet() != cut) mark(emptySet())
         return cut
     }
 

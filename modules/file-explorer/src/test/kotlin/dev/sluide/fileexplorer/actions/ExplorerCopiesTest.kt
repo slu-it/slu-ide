@@ -110,20 +110,20 @@ class ExplorerCopiesTest {
         project.resolve("doomed.txt").writeText("doomed")
         open()
 
-        assertFalse(fake.copies.canPaste(emptyList()))
+        assertFalse(fake.copies.pasteItem(emptyList()).enabled)
         assertFalse(fake.copies.paste(emptyList()), "nothing on the clipboard")
         fake.copies.copy(listOf(fake.item("a.txt")))
-        assertTrue(fake.copies.canPaste(emptyList()))
-        assertFalse(fake.copies.canPaste(listOf(fake.item("a.txt"), fake.item("doomed"))))
+        assertTrue(fake.copies.pasteItem(emptyList()).enabled)
+        assertFalse(fake.copies.pasteItem(listOf(fake.item("a.txt"), fake.item("doomed"))).enabled)
         assertFalse(fake.copies.paste(listOf(fake.item("a.txt"), fake.item("doomed"))))
         fake.inline = false
         fake.edits.delete(listOf(fake.item("doomed"), fake.item("doomed.txt")))
         assertNull(fake.copies.pasteTarget(listOf(fake.item("doomed"))))
-        assertFalse(fake.copies.canPaste(listOf(fake.item("doomed"))))
+        assertFalse(fake.copies.pasteItem(listOf(fake.item("doomed"))).enabled)
         assertFalse(fake.copies.paste(listOf(fake.item("doomed"))))
         // A file being deleted: the paste goes into its folder, which is not.
         assertSame(fake.projectItem, fake.copies.pasteTarget(listOf(fake.item("doomed.txt"))))
-        assertTrue(fake.copies.canPaste(listOf(fake.item("doomed.txt"))))
+        assertTrue(fake.copies.pasteItem(listOf(fake.item("doomed.txt"))).enabled)
 
         assertEquals(listOf("a.txt", "doomed", "doomed.txt"), names(project))
     }

@@ -14,6 +14,15 @@ import java.time.Clock
 
 private val log = System.getLogger(ExplorerCopies::class.java.name)
 
+private const val PASTE = "Paste"
+private const val PASTE_IMAGE = "Paste Image"
+
+/** The context menu's paste item: whether it is [enabled], and its [label]. */
+internal data class PasteItem(
+    val enabled: Boolean,
+    val label: String,
+)
+
 /**
  * Copy, cut and paste of explorer entries over [clipboard], and copying entries into a folder (ADR 0092). Copies are
  * made in the background; pasting cut entries moves them with [moves].
@@ -65,19 +74,20 @@ internal class ExplorerCopies(
     }
 
     /**
-     * Whether a paste for [targets] would paste something: files or an image on the clipboard and a folder for them
-     * ([pasteTarget]). Checks the cut against the clipboard first.
+     * The menu's paste item for [targets], from one read of the clipboard: enabled when a paste would paste something
+     * (files or an image on it and a folder for them, [pasteTarget]), and "Paste Image" when that is an image. Checks
+     * the cut against the clipboard first.
      */
-    fun canPaste(targets: List<FileTreeItem>): Boolean {
-        if (pasteTarget(targets) == null) return false
+    fun pasteItem(targets: List<FileTreeItem>): PasteItem {
+        if (pasteTarget(targets) == null) return PasteItem(false, PASTE)
         val board = clipboard()
-        board.checkCut()
-        return board.files().isNotEmpty() || board.pastesImage()
+        val content = board.pasteContent()
+        board.checkCut(content.files)
+        return PasteItem(
+            content.files.isNotEmpty() || content.pastesImage,
+            if (content.pastesImage) PASTE_IMAGE else PASTE,
+        )
     }
-
-    /** The label of the menu's paste item for [targets]: "Paste Image" when it would paste an image, else "Paste". */
-    fun pasteLabel(targets: List<FileTreeItem>): String =
-        if (pasteTarget(targets) != null && clipboard().pastesImage()) "Paste Image" else "Paste"
 
     /**
      * Pastes the files on the clipboard into the folder for [targets] ([pasteTarget]); returns whether there was
@@ -89,14 +99,14 @@ internal class ExplorerCopies(
     fun paste(targets: List<FileTreeItem>): Boolean {
         val folder = pasteTarget(targets) ?: return false
         val board = clipboard()
-        val files = board.files()
+        val content = board.pasteContent()
+        val files = content.files
+        val cut = board.checkCut(files)
         if (files.isEmpty()) {
-            board.checkCut()
-            if (!board.pastesImage()) return false
+            if (!content.pastesImage) return false
             images.paste(folder)
             return true
         }
-        val cut = board.checkCut()
         if (cut.isNotEmpty()) {
             if (moves.move(files, folder)) board.cutPasted()
             return true
