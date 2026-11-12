@@ -130,6 +130,9 @@ internal class ReviewDocument : ReviewLineSource {
         replaceRows(state)
     }
 
+    /** Whether the file at [path] is marked viewed. */
+    fun isViewed(path: String): Boolean = states[path]?.viewed == true
+
     /** Marks the file at [path] viewed and collapses it, or unmarks and expands it. */
     fun setViewed(
         path: String,

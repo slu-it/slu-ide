@@ -52,7 +52,7 @@ import java.util.concurrent.ExecutorService
  */
 internal class ReviewWindow(
     val root: Path,
-    private val scope: ReviewScope,
+    val scope: ReviewScope,
     ideWindow: Window?,
     bounds: Rectangle2D,
     source: ReviewSource,
@@ -70,6 +70,8 @@ internal class ReviewWindow(
     val diffView: ReviewDiffView = diffViewFactory(document.rows, document)
 
     private val loader: ReviewLoader
+    internal val files = FilesPane(document, diffView)
+    internal val pickers: ReviewPickers
 
     /** The resolved scope; `null` until it is there. */
     val resolved: ReadOnlyObjectProperty<ResolvedReview?>
@@ -146,6 +148,9 @@ internal class ReviewWindow(
 
         wireDiffView(fonts)
         wireToolbar()
+        pickers = ReviewPickers(scope, resolved, bases, selection, ::changeBase)
+        toolbarLeading.setAll(pickers.nodes)
+        filesPane.children += files.node
         stage = createStage(ideWindow, bounds)
     }
 
@@ -230,6 +235,7 @@ internal class ReviewWindow(
             width = bounds.width
             height = bounds.height
             scene.accelerators[CLOSE] = Runnable { close() }
+            scene.accelerators[FILTER] = Runnable { files.focusFilter() }
             resolved.addListener { _, _, review ->
                 if (review != null) title = "Review – ${review.title} – $folderName"
             }
@@ -245,6 +251,7 @@ internal class ReviewWindow(
     private companion object {
         const val FILES_SHARE = 0.25
         val CLOSE = KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN)
+        val FILTER = KeyCodeCombination(KeyCode.P, KeyCombination.SHORTCUT_DOWN)
     }
 }
 

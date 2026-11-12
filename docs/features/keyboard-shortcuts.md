@@ -304,6 +304,16 @@ File does not react to it while a terminal has the focus.
 | Keys | Action |
 |---|---|
 | Shortcut+W | Close the review window (cancels the running load) |
+| Shortcut+P | Focus the files filter and select its text |
+| Escape in the filter | Clear it |
+| Down in the filter | Select the first file and move into the tree |
+| Enter in the filter | Scroll the diff to the first matching file and focus the diff |
+| Enter on a file in the tree | Scroll the diff to the file |
+| Up / Down in the commit picker's list | Move through the entries |
+| Enter in the commit picker's list | Pick the entry, or the range built with Shift+Up/Down |
+| Shift+Up / Shift+Down in the commit picker's list | Extend a range of commits |
+| Shift+click in the commit picker's list | Pick the range from the last clicked commit |
+| Escape in the commit picker's list | Close it |
 
 ## TODO panel
 [todos.md](todos.md)

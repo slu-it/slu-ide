@@ -64,7 +64,9 @@ internal class FakeSource(
     val fingerprints = CopyOnWriteArrayList<ResolvedReview>()
     var fileCalls = 0
 
-    override fun bases(root: Path) = listOf(ReviewBase("refs/heads/main", "main", true))
+    var baseList = listOf(ReviewBase("refs/heads/main", "main", true))
+
+    override fun bases(root: Path) = baseList
 
     override fun resolve(
         root: Path,

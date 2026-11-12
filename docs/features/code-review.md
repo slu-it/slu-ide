@@ -27,8 +27,13 @@ all changed files in one long scroll beside a filterable file tree, without push
   `origin`'s), else the local `main` or `master`; **into: <base> ▾** on the toolbar picks another branch. Without any
   default branch the review asks to choose a base.
 - The **commit picker** offers "All changes", the single commits (newest first) and, while the reviewed branch is
-  checked out and has them, **Uncommitted changes** (untracked files included) on top. A click picks one entry,
-  Shift+click a range. A merge commit alone is shown against its first parent. A single-commit review has no picker.
+  checked out and has them, **Uncommitted changes** (untracked files included) below it. The button shows the pick
+  ("All changes", `abc1234 Subject`, `abc1234..def5678 (3 commits)`); it opens a list with "All changes (N commits)"
+  and the commits as `abc1234  Subject — Author, 3 days ago` (dates after 30 days as `yyyy-MM-dd`). A click picks
+  one entry, Shift+click the range from the last clicked commit; Up/Down move, Shift+Up/Down extend a range, Enter
+  picks, Escape or a click outside closes. A merge commit alone is shown against its first parent. A single-commit
+  review has no picker. The base picker is a menu button (the default bases first, marked "(default)", then the rest);
+  the toolbar starts with the review's title in bold.
 - Empty scopes say so ("No changes in origin/main..feature-x." with the scope's title); git failures show "Could
   not read the review: …".
 
@@ -38,7 +43,11 @@ all changed files in one long scroll beside a filterable file tree, without push
   their old path in the tooltip, viewed files with a check mark. "x / y viewed" stands above it.
 - The **filter** field (Shortcut+P) narrows the tree and the diff to the files whose path contains the text, ignoring
   case. Escape clears it, Down moves into the tree, Enter jumps to the first match.
-- Clicking a file scrolls the diff to it; scrolling the diff selects the file at its top in the tree.
+- Clicking a file or pressing Enter on it scrolls the diff to it (arrow keys only move the selection);
+  scrolling the diff selects the file at its top in the tree and scrolls the tree only if that row is out of view,
+  never the diff. Enter in the filter scrolls to the first match and focuses the diff; Down selects the first file
+  and moves into the tree. Known limit: a file too near the end to reach the diff's top is replaced as the tree's
+  selection by the file that is at the top.
 
 ## Diff
 - **Split** (the default) or **Unified**, toggled at the right end of the toolbar; **Hide whitespace** next to them.

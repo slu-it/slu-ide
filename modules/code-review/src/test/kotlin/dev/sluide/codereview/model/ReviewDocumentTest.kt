@@ -11,6 +11,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
@@ -133,9 +134,13 @@ class ReviewDocumentTest {
 
         assertEquals(listOf("H a.kt collapsed viewed +1 -1", "-"), document.shortRows().take(2))
         assertEquals(1, document.viewedCount.get())
+        assertTrue(document.isViewed("a.kt"))
+        assertFalse(document.isViewed("b.kt"))
+        assertFalse(document.isViewed("none.kt"))
 
         document.setViewed("a.kt", false)
 
+        assertFalse(document.isViewed("a.kt"))
         assertEquals("H a.kt +1 -1", document.shortRows()[0])
         assertEquals("S 5 5 M", document.bodyOf("a.kt")[4])
         assertEquals(0, document.viewedCount.get())

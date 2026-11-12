@@ -1,6 +1,6 @@
 /*
- * The review window's shell (ADR 0168): notice bar and the overlay for empty and error states. No colours of its own:
- * Modena's looked-up colours follow the theme, so there are no dark rules.
+ * The review window's shell (ADR 0168): notice bar, overlay for empty and error states, pickers and files pane.
+ * Modena's looked-up colours follow the theme; only the change colours are hard-coded, with dark values at the end.
  */
 .review-notice-bar {
     -fx-background-color: derive(-fx-background, -6%);
@@ -16,4 +16,75 @@
     -fx-padding: 16;
     -fx-text-alignment: center;
     -fx-wrap-text: true;
+}
+
+.review-title {
+    -fx-font-weight: bold;
+}
+
+/* The commit picker's list: the rows of a Shift range. */
+.review-pick-range:filled {
+    -fx-background-color: derive(-fx-accent, 60%);
+}
+
+/*
+ * The files pane. The change colours are those of the git log's changes (git-log.css, -git-change-*; keep in sync);
+ * the dark values are in the media block below.
+ */
+.review-window {
+    -review-change-added: #2e7d32;
+    -review-change-modified: #1e63c8;
+    -review-change-deleted: #8a8a8a;
+}
+
+.review-files-filter {
+    -fx-padding: 4 8 4 8;
+    -fx-spacing: 4;
+}
+
+.review-files-viewed {
+    -fx-opacity: 0.7;
+    -fx-padding: 0 8 4 8;
+}
+
+.review-files-tree {
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.review-file-icon {
+    /* The colour comes from the file type (file-icons.css). */
+    -fx-icon-size: 14;
+}
+
+.review-file-name,
+.review-file-folder {
+    -fx-padding: 0 0 0 4;
+}
+
+.review-change-added { -fx-text-fill: -review-change-added; }
+.review-change-modified { -fx-text-fill: -review-change-modified; }
+.review-change-deleted { -fx-text-fill: -review-change-deleted; }
+
+.review-change-deleted .text {
+    -fx-strikethrough: true;
+}
+
+.review-viewed-check {
+    -fx-icon-color: -review-change-added;
+    -fx-icon-size: 14;
+}
+
+/* Selected rows: the selection text colour, like the rest of the row. */
+.tree-cell:filled:selected .review-file-name {
+    -fx-text-fill: -fx-text-background-color;
+}
+
+/* Single-class selector only: JavaFX applies descendant selectors in @media blocks whatever the scheme (ADR 0009). */
+@media (prefers-color-scheme: dark) {
+    .review-window {
+        -review-change-added: #5cbf62;
+        -review-change-modified: #5a9ae6;
+        -review-change-deleted: #9a9a9a;
+    }
 }
