@@ -295,39 +295,52 @@ class ReviewDocumentTest {
         assertEquals(ReviewLine("o4", emptyList(), emptyList()), document.line("a.kt", ReviewSide.CURRENT, 4))
     }
 
-    @Test
-    fun `updates of one file change only that file's rows, in one change each`() {
-        val document =
-            document(
-                "a.kt" to oneModifiedLine(100, 50),
-                "b.kt" to oneModifiedLine(100, 50),
-                "c.kt" to oneModifiedLine(100, 50),
-            )
-        val updates =
-            listOf<(ReviewDocument) -> Unit>(
-                { it.expand("b.kt", 0, ExpandDirection.UP) },
-                { it.expand("b.kt", 1, ExpandDirection.ALL) },
-                { it.setViewed("b.kt", true) },
-                { it.setViewed("b.kt", false) },
-                { it.setCollapsed("b.kt", true) },
-                { it.setCollapsed("b.kt", false) },
-                { it.loadDiff("b.kt") },
-                { it.load("b.kt", oneModifiedLine(100, 20)) },
-            )
-        for (update in updates) {
+    /** The documents for the update tests: `a.txt`, before `b.kt`, is left out by the filter ".kt". */
+    private fun updatesDocument(filter: String) =
+        document(
+            "a.kt" to oneModifiedLine(100, 50),
+            "a.txt" to oneModifiedLine(100, 50),
+            "b.kt" to oneModifiedLine(100, 50),
+            "c.kt" to oneModifiedLine(100, 50),
+        ).apply { this.filter.set(filter) }
+
+    /** Every kind of update of the file at [path], one after the other. */
+    private fun updatesOf(path: String) =
+        listOf<(ReviewDocument) -> Unit>(
+            { it.expand(path, 0, ExpandDirection.UP) },
+            { it.expand(path, 1, ExpandDirection.ALL) },
+            { it.setViewed(path, true) },
+            { it.setViewed(path, false) },
+            { it.setCollapsed(path, true) },
+            { it.setCollapsed(path, false) },
+            { it.loadDiff(path) },
+            { it.load(path, oneModifiedLine(100, 20)) },
+        )
+
+    /** The changes [update] fires on the rows, as `from removed added`. */
+    private fun ReviewDocument.changesOf(update: (ReviewDocument) -> Unit): List<String> {
+        val changes = mutableListOf<String>()
+        val listener =
+            ListChangeListener<ReviewRow> { change ->
+                while (change.next()) changes += "${change.from} ${change.removedSize} ${change.addedSize}"
+            }
+        rows.addListener(listener)
+        update(this)
+        rows.removeListener(listener)
+        return changes
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["", ".kt"])
+    fun `updates of one file change only that file's rows, in one change each`(filter: String) {
+        val document = updatesDocument(filter)
+        for (update in updatesOf("b.kt")) {
             val before = document.rows.toList()
             val bStart = document.headerRow("b.kt")
             val bEnd = document.headerRow("c.kt")
-            val changes = mutableListOf<String>()
-            val listener =
-                ListChangeListener<ReviewRow> { change ->
-                    while (change.next()) changes += "${change.from} ${change.removedSize} ${change.addedSize}"
-                }
-            document.rows.addListener(listener)
 
-            update(document)
+            val changes = document.changesOf(update)
 
-            document.rows.removeListener(listener)
             val after = document.rows.toList()
             val newEnd = document.headerRow("c.kt")
             assertEquals(listOf("$bStart ${bEnd - bStart} ${newEnd - bStart}"), changes)
@@ -335,6 +348,18 @@ class ReviewDocumentTest {
             assertEquals(before.subList(bEnd, before.size), after.subList(newEnd, after.size))
             assertTrue(after.subList(bStart, newEnd).all { it.path == "b.kt" })
         }
+    }
+
+    @Test
+    fun `updates of a file the filter leaves out change no rows`() {
+        val document = updatesDocument(".kt")
+        val before = document.rows.toList()
+
+        for (update in updatesOf("a.txt")) assertEquals(emptyList(), document.changesOf(update))
+
+        assertEquals(before, document.rows.toList())
+        document.filter.set("")
+        assertEquals("S 20 20 M", document.bodyOf("a.txt")[4])
     }
 
     companion object {
