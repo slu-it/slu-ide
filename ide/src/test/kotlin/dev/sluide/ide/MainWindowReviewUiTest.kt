@@ -175,4 +175,15 @@ class MainWindowReviewUiTest : MainWindowUiFixture() {
 
         eventually(robot) { assertEquals(0, reviewStages().size) }
     }
+
+    @Test
+    fun `withdrawing git's trust closes the reviews`(robot: FxRobot) {
+        openRepository(robot)
+        openReview(robot)
+
+        // What the folder makes git run changed: git is off, see MainWindowTrustUiTest.
+        runGit("config", "filter.crypt.clean", "./clean.sh")
+
+        eventually(robot) { assertEquals(0, reviewStages().size) }
+    }
 }

@@ -128,12 +128,15 @@ internal class WindowGitLog(
 
     /**
      * Opens the repository in the git log while the folder's trust allows git, and reads its status again when it
-     * starts to; closes it in the log otherwise (ADR 0053). The status follows the trust by itself.
+     * starts to; closes it in the log otherwise (ADR 0053). The review windows of the repository that was there close
+     * too (ADR 0168). The status follows the trust by itself.
      */
     fun followTrust() {
         val root = gitStatus.root?.takeIf { projectTrust.allows(GitTrustCheck.ID) }
         if (root != gitLogRoot) {
             gitLogRoot = root
+            // The open reviews are of the repository that was there, and their checks run git on their own.
+            reviewWindows.closeAll()
             gitLogOpen.set(root != null)
             // Like another folder: the Commit tab's draft and the file histories are closed, a fetch is stopped.
             gitLogView.open(root)

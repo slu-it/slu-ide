@@ -47,6 +47,9 @@ Options considered for the diff:
 - **Staleness.** A fingerprint (base, head and merge-base hashes; for scopes reaching the working tree also the status
   and the changed files' size and modification time) is compared when `.git` changes, when the status snapshot
   changes and when the window gains focus; a difference shows a notice bar with Reload, never a reload by itself.
+  That check runs git (`git status`, working-tree diffs) without a click, so it runs only while the folder's trust
+  allows git (`docs/safety.md`, "Running what the project configures"): the review windows close when the trust is
+  withdrawn or the git log's repository changes.
 - **Anchors for comments later.** A line row is identified by path, side and 0-based line (`ReviewAnchor`); the line
   selection (click and shift-click on line numbers) is the anchor review comments will hang on
   ([ideas](../ideas/review-later.md)).

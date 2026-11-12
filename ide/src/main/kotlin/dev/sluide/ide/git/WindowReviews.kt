@@ -70,6 +70,11 @@ internal class WindowReviews(
     /** The repository's `.git` folder or status changed: each review checks whether it is outdated. */
     fun repositoryChanged() = reviews.repositoryChanged()
 
-    /** Closes the review windows with the IDE window. */
-    fun dispose() = reviews.closeAll()
+    /**
+     * Closes the review windows: with the IDE window, and when git's trust is withdrawn or the git log's repository
+     * changes, because a review runs git (the staleness check) without a click while git is trusted.
+     */
+    fun closeAll() = reviews.closeAll()
+
+    fun dispose() = closeAll()
 }
