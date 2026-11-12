@@ -36,9 +36,10 @@ If it cannot be reproduced, say so in the report and say why the fix still addre
 - Fix product bugs in the product, with a test that fails without the fix under the reproduced condition.
 - Fix test assumptions in the test (`toRealPath()`, `--encoding=UTF-8`, a growth assertion instead of a wall-clock
   limit, an `os.name` assumption with a reason). Never just raise a limit or add a retry.
-- A production change gets a reviewer pass on its diff. Then run the affected classes, and the full gate
+- Small fixes are the main session's; a bigger one goes to an `implementer` (`delegate` skill). A production change
+  gets a reviewer pass on its diff. Then run the affected classes, and the full gate
   (`.claude/scripts/full-build.sh`) when production code changed.
-- One commit per cause, imperative subject. Don't push; leave `tmp/` as it is.
+- One commit per cause. Leave `tmp/` as it is.
 
 ## 5. Record the lesson
 A new kind of cause gets a line in `docs/testing.md`, "Portability" (what differs, how to write the test, how to

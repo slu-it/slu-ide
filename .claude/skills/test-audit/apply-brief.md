@@ -9,8 +9,7 @@ unit tests (extracting small pure functions from controls where the finding says
 waits on a real signal, fix weak assertions, and add the listed missing tests.
 
 ## Rules
-- Base: your worktree starts at an old commit. First `.claude/scripts/worktree-check.sh start <master commit from
-  your prompt>`; before the report, `worktree-check.sh report`.
+- Your agent definition's worktree, verification and commit rules apply; this brief only adds to them.
 - Read `docs/testing.md` ("Choosing the test level", "Writing UI tests"), ADR 0084 and `.claude/rules/testing.md`.
 - Finding line numbers drift as you edit: Grep for the test name. Read ranges of big files, not whole files.
 - Before deleting a test as DUPLICATE, open the test said to keep it covered and confirm it does; move a missing
@@ -20,20 +19,12 @@ waits on a real signal, fix weak assertions, and add the listed missing tests.
 - Production changes only as small as the finding says (an `internal` pure function, a constructor parameter with
   the old value as default, a visibility change). Behavior must not change except for bugs your prompt explicitly
   decides to fix. Anything larger, or a finding that turns out wrong: skip it and report why.
-- Never weaken a test to get it green. A fixed sleep becomes a wait on a real condition, unless the finding says it
-  is a negative check without a signal; then a short sleep with a `//` reason.
-- Every new or changed test whose failure is not obvious (wiring, races, negative checks, suggested gap tests):
-  break the code once, see it fail, restore it. Report the ones you checked this way.
-- Files under 600 lines (production) and test topic classes under ~800 lines. Near-duplicates become
-  `@ParameterizedTest`.
-- Remove imports your deletions leave behind (`.claude/scripts/check-unused-imports.sh <files>`), and run
-  `.claude/scripts/check-tests.sh` on the test files you touched.
-- Commits: one logical step each, imperative subject, no Claude attribution; never push. `./gradlew spotlessApply`
-  before each commit.
+- Never weaken a test to get it green. Suggested gap tests also get a break check: an audit's suggestion can be
+  vacuous.
+- Production files stay under 600 lines.
 
 ## Verification
-- While working: `.claude/scripts/verify.sh --display <n> :modules:<m> <Class>...` (your display from the prompt;
-  formats, compiles, runs, short digest). Kill only processes you started.
+- While working: `.claude/scripts/verify.sh --display <n> :modules:<m> <Class>...`.
 - At the end, in your own worktree only, the full `test` and `uiTest` tasks of each module in your package (the one
   exception to the implementer's "no unfiltered `uiTest`"): `.claude/scripts/setup-display.sh <n> >/dev/null &&
   DISPLAY=:<n> ./gradlew --no-daemon testClasses :modules:<m>:test :modules:<m>:uiTest -q`. Read the output in

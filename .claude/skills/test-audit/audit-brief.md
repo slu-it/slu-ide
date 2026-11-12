@@ -36,5 +36,5 @@ Read the tests; read production code where needed to judge coverage (Grep and ra
   IDs are `<scope-prefix>-<n>` (prefix given in your prompt).
 - For DOWNGRADE items, estimated uiTest seconds saved.
 - A final line "Not worth changing:" with what you considered and rejected, in one or two sentences.
-Be concrete enough that a Sonnet implementer can act on each item without re-auditing. When asked, save the report
+Be concrete enough that a Sonnet implementer can act on each item without re-auditing. Also save the report
 verbatim to the findings file named in your prompt (Bash heredoc with a quoted delimiter).

@@ -13,8 +13,7 @@ section of the project CLAUDE.md; hosts used here: `api.github.com`, `github.com
 `registry.npmjs.org`, `huggingface.co`, `services.gradle.org`, `repo1.maven.org`, `plugins.gradle.org`,
 `packages.jetbrains.team` (JediTerm), `raw.githubusercontent.com`.
 
-Download into a fresh scratchpad directory per artifact, always `curl -L` (a 169-byte "zip" is a redirect page), and
-compute `sha256sum` yourself; never copy a hash from a page without comparing it to the file you downloaded.
+Download into a fresh scratchpad directory per artifact, always `curl -L`, and compute `sha256sum` yourself; never copy a hash from a page without comparing it to the file you downloaded.
 
 ## Part 1: runtime and vendored artifacts
 
@@ -101,8 +100,8 @@ Per bump: find latest, download and verify, change the pin, run tests, update th
      `./gradlew :ide:bootJar` still lists the swapped jar. Real-app check of Read Aloud and Translate.
    - Lingua: `ide/build.gradle.kts` drops the quadri- and fivegram models; check the file names still match.
    - RichTextFX and RSyntaxTextArea: the editor; run `:modules:text-editing` and `:modules:file-viewers`, real-app check.
-   - lsp4j (language servers, added in the current round): bump with the python and other language-server modules'
-     tests; check the version exists in `libs.versions.toml` first.
+   - lsp4j (language servers): run the tests of `language-servers` and of the language modules that use it
+     (`python`, `typescript`).
    - pty4j and jediterm: keep `jna` equal to the JNA pty4j resolves (comment in the toml).
    - Spring Boot, Kotlin, Spotless: run all unit tests of a few modules, then leave the rest to the full build.
 
