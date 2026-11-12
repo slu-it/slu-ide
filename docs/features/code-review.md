@@ -77,6 +77,7 @@ all changed files in one long scroll beside a filterable file tree, without push
 
 ## Limits
 - Text is selected by whole lines; there is no free text selection.
+- A viewed binary or too large file stays viewed after Reload even when it changed.
 - Viewed flags, review comments and image diffs are not there yet ([ideas](../ideas/review-later.md)).
 - A file removed from the index but still on disk (`git rm --cached`) shows as modified; a move that is not staged
   (`mv a b`) shows as a deletion and an addition.
