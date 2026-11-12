@@ -14,10 +14,12 @@ import org.kordamp.ikonli.javafx.FontIcon
 
 /** What the TODO cards and folders need from the panel; [folderId] is the folder that holds the TODO, null = root. */
 internal interface TodoHost {
+    /** Opens the dialog for [todo]; [startField] is the field it starts in with its text selected (null: as usual). */
     fun edit(
         todo: Todo,
         scope: TodoScope,
         folderId: String?,
+        startField: TodoField? = null,
     )
 
     fun delete(

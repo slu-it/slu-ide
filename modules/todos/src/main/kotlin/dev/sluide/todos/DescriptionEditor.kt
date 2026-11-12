@@ -12,4 +12,7 @@ interface DescriptionEditor {
 
     /** Gives the field the keyboard focus. */
     fun focus()
+
+    /** Selects the whole text. */
+    fun selectAll()
 }

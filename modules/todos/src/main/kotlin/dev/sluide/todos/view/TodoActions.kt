@@ -25,9 +25,14 @@ internal class TodoActions(
         todo: Todo,
         scope: TodoScope,
         folderId: String?,
+        startField: TodoField?,
     ) {
+        // Only the first dialog selects: after a failed save the draft is shown again as usual.
+        val show = { failed: TodoDraft? ->
+            panel.editTodo(request(todo, scope, failed, folderId, startField.takeIf { failed == null }))
+        }
         val draft =
-            ask<TodoDraft>({ panel.editTodo(request(todo, scope, it, folderId)) }, SAVE_FAILED) {
+            ask(show, SAVE_FAILED) {
                 todos.edit(todo.id, scope, it.scope, project, it.summary, it.description, it.folderId)
             } ?: return
         if (draft.scope != scope) panel.select(draft.scope)
@@ -162,6 +167,7 @@ internal class TodoActions(
         scope: TodoScope,
         draft: TodoDraft?,
         initialFolderId: String?,
+        startField: TodoField? = null,
     ) = TodoDialogRequest(
         panel.scene?.window,
         todo,
@@ -174,6 +180,7 @@ internal class TodoActions(
         draft,
         { todos.items(it, project).filterIsInstance<TodoFolder>() },
         initialFolderId,
+        startField,
     )
 
     private fun folderRequest(

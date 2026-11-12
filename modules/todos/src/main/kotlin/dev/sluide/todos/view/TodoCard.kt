@@ -3,6 +3,7 @@ package dev.sluide.todos.view
 import dev.sluide.todos.Todo
 import dev.sluide.todos.TodoScope
 import dev.sluide.todos.markdown.MarkdownRenderer
+import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.control.Tooltip
 import javafx.scene.input.MouseButton
@@ -64,7 +65,7 @@ internal class TodoCard(
             if (it.button == MouseButton.PRIMARY && it.clickCount == 2 && it.isStillSincePress &&
                 !isOnButton(it.target)
             ) {
-                host.edit(this.todo, scope, this.folderId)
+                host.edit(this.todo, scope, this.folderId, clickedField(it.target))
             }
         }
         refresh()
@@ -96,6 +97,12 @@ internal class TodoCard(
         toggle.graphic = FontIcon(if (isExpanded) MaterialDesignC.CHEVRON_DOWN else MaterialDesignC.CHEVRON_RIGHT)
         toggle.tooltip = Tooltip(if (isExpanded) "Collapse" else "Expand")
         children.setAll(if (isExpanded) listOf(header, body()) else listOf(header))
+    }
+
+    /** The description for a click in the expanded body, else the summary. */
+    private fun clickedField(target: Any?): TodoField {
+        val inBody = body?.let { shown -> generateSequence(target as? Node) { it.parent }.any { it === shown } } == true
+        return if (inBody) TodoField.DESCRIPTION else TodoField.SUMMARY
     }
 
     private fun body(): Region =

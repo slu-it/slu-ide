@@ -216,7 +216,24 @@ class TodoPanelUiTest {
         assertEquals(listOf(URI("https://example.com")), opened)
 
         listOf(card.summary, plain, card).forEach { click(robot, it, 2) }
-        assertEquals(listOf("double", "double", "double"), fixture.requests.map { it.todo?.summary })
+        robot.interact { card.edit.fire() }
+        assertEquals(List(4) { "double" }, fixture.requests.map { it.todo?.summary })
+        // The summary row and the card's edge start in the summary, the description in it; Edit as usual.
+        assertEquals(
+            listOf(TodoField.SUMMARY, TodoField.DESCRIPTION, TodoField.SUMMARY, null),
+            fixture.requests.map { it.startField },
+        )
+    }
+
+    @Test
+    fun `after a failed save the dialog shows the draft again without selecting a field`(robot: FxRobot) {
+        add(robot, TodoScope.SHARED, "double", "")
+        val card = cards(robot).single()
+        Files.writeString(fixture.dir.resolve("shared.json"), "{ not json")
+        fixture.drafts += TodoDraft(TodoScope.SHARED, "changed", "")
+        click(robot, card.summary, 2)
+        assertEquals(1, fixture.errors.size)
+        assertEquals(listOf(TodoField.SUMMARY, null), fixture.requests.map { it.startField })
     }
 
     @Test

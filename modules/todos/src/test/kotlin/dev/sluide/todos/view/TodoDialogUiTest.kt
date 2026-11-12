@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.NullSource
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -84,6 +86,37 @@ class TodoDialogUiTest {
         assertEquals("Save", dialog.confirmButton.text)
         assertEquals(TodoScope.PROJECT, dialog.scope)
         assertEquals(TodoDraft(TodoScope.PROJECT, "Old", "text"), dialog.answer())
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @EnumSource(TodoField::class)
+    internal fun `an edit starts in the requested field with its text selected, else in the description`(
+        field: TodoField?,
+        robot: FxRobot,
+    ) {
+        val todo = Todo("id", "Old", "text")
+        val request =
+            TodoDialogRequest(
+                null,
+                todo,
+                TodoScope.SHARED,
+                true,
+                Path.of("."),
+                { PlainDescriptionEditor(it) },
+                {},
+                {},
+                startField = field,
+            )
+        val dialog = dialog(robot, request)
+        robot.interact { dialog.focusStartField() }
+        robot.interact {
+            val area = dialog.editor.node as TextArea
+            val focused = if (field == TodoField.SUMMARY) dialog.summaryField else area
+            assertTrue(dialog.dialogPane.scene.focusOwner === focused)
+            assertEquals(if (field == TodoField.SUMMARY) "Old" else "", dialog.summaryField.selectedText)
+            assertEquals(if (field == TodoField.DESCRIPTION) "text" else "", area.selectedText)
+        }
     }
 
     @Test

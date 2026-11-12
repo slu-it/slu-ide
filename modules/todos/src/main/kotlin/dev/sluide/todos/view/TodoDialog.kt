@@ -36,6 +36,9 @@ internal data class TodoDraft(
     val folderId: String? = null,
 )
 
+/** A field of the TODO dialog that a double click on a card can start in. */
+internal enum class TodoField { SUMMARY, DESCRIPTION }
+
 /** What the TODO dialog needs: [todo] is null when adding. */
 internal class TodoDialogRequest(
     val owner: Window?,
@@ -52,6 +55,8 @@ internal class TodoDialogRequest(
     val folders: (TodoScope) -> List<TodoFolder> = { emptyList() },
     /** The folder preselected (the TODO's folder when editing, the folder whose + was used); null = no folder. */
     val initialFolderId: String? = null,
+    /** The field that starts focused with its whole text selected; null = the usual start (see [TodoDialog]). */
+    val startField: TodoField? = null,
 ) {
     /** The folder shown selected: that of the [draft] after a failed save, else [initialFolderId]. */
     val selectedFolderId: String? get() = if (draft != null) draft.folderId else initialFolderId
@@ -69,6 +74,8 @@ internal class PlainDescriptionEditor(
     override val text: String get() = area.text.orEmpty()
 
     override fun focus() = area.requestFocus()
+
+    override fun selectAll() = area.selectAll()
 }
 
 /** The dialog to add or edit a TODO: scope, summary and a description that can be previewed as Markdown. */
@@ -143,7 +150,30 @@ internal class TodoDialog(
         }
         setOnShown {
             // Later, since the enabled default button takes the focus once the dialog is shown.
-            Platform.runLater { if (adding) summaryField.requestFocus() else editor.focus() }
+            Platform.runLater(::focusStartField)
+        }
+    }
+
+    /**
+     * Focuses the field of [TodoDialogRequest.startField] with its whole text selected; without one the summary when
+     * adding, else the description.
+     */
+    internal fun focusStartField() {
+        when (request.startField) {
+            TodoField.SUMMARY -> {
+                summaryField.requestFocus()
+                // The field's skin selects all on gaining the focus too, but not without a skin or after a click.
+                summaryField.selectAll()
+            }
+
+            TodoField.DESCRIPTION -> {
+                editor.focus()
+                editor.selectAll()
+            }
+
+            null -> {
+                if (adding) summaryField.requestFocus() else editor.focus()
+            }
         }
     }
 

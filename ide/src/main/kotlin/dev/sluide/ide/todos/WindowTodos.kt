@@ -116,6 +116,8 @@ internal class WindowTodos(
             override val text: String get() = editor.text
 
             override fun focus() = editor.focus()
+
+            override fun selectAll() = editor.selectAll()
         }
     }
 

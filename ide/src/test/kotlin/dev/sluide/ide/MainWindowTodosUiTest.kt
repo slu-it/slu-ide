@@ -165,7 +165,9 @@ class MainWindowTodosUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `the description editor is a Markdown code editor in the editor font`(robot: FxRobot) {
+    fun `the description editor is a Markdown code editor in the editor font that selects all its text`(
+        robot: FxRobot,
+    ) {
         robot.interact {
             val editor = todoPanel.descriptionEditor("# Title")
             assertEquals("# Title", editor.text)
@@ -174,6 +176,8 @@ class MainWindowTodosUiTest : MainWindowUiFixture() {
             // The text is highlighted when the editor is made: a heading has a style, plain text would have none.
             val area = editor.node.lookup(".code-area") as CodeArea
             assertTrue(area.getStyleAtPosition(0).isNotEmpty(), "the Markdown highlighter styles the heading")
+            editor.selectAll()
+            assertEquals("# Title", area.selectedText)
         }
     }
 
