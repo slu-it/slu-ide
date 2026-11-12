@@ -4,10 +4,8 @@ import dev.sluide.codereview.model.ExpandDirection
 import dev.sluide.codereview.model.ReviewLineSource
 import dev.sluide.codereview.model.ReviewRow
 import javafx.beans.property.ReadOnlyObjectProperty
-import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.collections.ObservableList
 import javafx.scene.Node
-import javafx.scene.control.ListView
 
 /**
  * The diff of a review window (ADR 0168): [rows] of a `ReviewDocument` drawn one below the other, the lines' texts
@@ -46,35 +44,8 @@ internal interface ReviewDiffView {
     fun rowCell(index: Int): Node?
 }
 
-/** The diff view of the review window. Until the real list exists (package P4), a plain list of the rows. */
+/** The diff view of the review window.  */
 internal fun createDiffView(
     rows: ObservableList<ReviewRow>,
     lines: ReviewLineSource,
-): ReviewDiffView = PlaceholderDiffView(rows)
-
-/** Shows each row as text; replaced by the real list. */
-private class PlaceholderDiffView(
-    rows: ObservableList<ReviewRow>,
-) : ReviewDiffView {
-    private val list = ListView(rows)
-    private val top = ReadOnlyObjectWrapper<String?>(rows.firstOrNull()?.path)
-
-    override val node: Node = list
-    override var onExpand: (String, Int, ExpandDirection) -> Unit = { _, _, _ -> }
-    override var onViewedChanged: (String, Boolean) -> Unit = { _, _ -> }
-    override var onCollapsedChanged: (String, Boolean) -> Unit = { _, _ -> }
-    override var onLoadDiff: (String) -> Unit = {}
-    override val topFile: ReadOnlyObjectProperty<String?> = top.readOnlyProperty
-
-    override fun scrollToRow(
-        index: Int,
-        offset: Double,
-    ) {
-        list.scrollTo(index)
-        top.set(list.items.getOrNull(index)?.path)
-    }
-
-    override fun firstVisible(): Pair<Int, Double> = 0 to 0.0
-
-    override fun rowCell(index: Int): Node? = null
-}
+): ReviewDiffView = ReviewDiffList(rows, lines)

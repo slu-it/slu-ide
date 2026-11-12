@@ -1,0 +1,113 @@
+/*
+ * The review window's diff list (ReviewDiffList). Token colours, the diff backgrounds (.diff-removed, .diff-added,
+ * .diff-modified) and .lineno come from syntax.css, the file icons' colours from file-icons.css. Dark rules in the
+ * media block use single classes (ADR 0009).
+ */
+
+.review-diff {
+    /* Keep in sync with git-log.css (.git-log). */
+    -git-change-added: #2e7d32;
+    -git-change-modified: #1e63c8;
+    -git-change-deleted: #8a8a8a;
+    -fx-background-color: -fx-control-inner-background;
+}
+
+/* Text without a token class: the editor's base colour (keep in sync with TextExt in syntax.css). */
+.review-plain {
+    -fx-fill: #000000;
+}
+
+/* The changed words, drawn behind the text (keep in sync with .diff-changed-words in syntax.css). */
+.review-changed-words {
+    -fx-fill: #b3cdf5;
+    -fx-stroke: transparent;
+}
+
+/* Where a side has no line: the row's colour, lighter. */
+.review-filler {
+    -fx-opacity: 0.45;
+}
+
+.review-line-text {
+    -fx-padding: 0 6 0 6;
+}
+
+.review-sign {
+    -fx-padding: 0 4 0 4;
+}
+
+.review-file-header {
+    -fx-background-color: derive(-fx-control-inner-background, -6%);
+    -fx-border-color: -fx-box-border transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 4 8 4 6;
+}
+
+.review-sticky {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.25), 4, 0, 0, 1);
+}
+
+.review-chevron {
+    -fx-background-color: transparent;
+    -fx-padding: 2;
+}
+
+.review-chevron .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+    -fx-icon-size: 16;
+}
+
+.review-header-icon {
+    -fx-icon-size: 14;
+}
+
+.review-header-path {
+    -fx-font-weight: bold;
+    -fx-text-overrun: leading-ellipsis;
+}
+
+.review-change-added { -fx-text-fill: -git-change-added; }
+.review-change-modified { -fx-text-fill: -git-change-modified; }
+.review-change-deleted { -fx-text-fill: -git-change-deleted; }
+
+.review-count-added { -fx-text-fill: -git-change-added; }
+.review-count-removed { -fx-text-fill: -git-change-deleted; }
+
+.review-gap {
+    -fx-background-color: derive(-fx-control-inner-background, -3%);
+    -fx-padding: 2 8 2 8;
+}
+
+.review-gap-header {
+    -fx-opacity: 0.7;
+}
+
+.review-gap-button,
+.review-load-diff {
+    -fx-padding: 1 8 1 8;
+}
+
+.review-notice {
+    -fx-opacity: 0.75;
+    -fx-padding: 6 8 6 24;
+}
+
+@media (prefers-color-scheme: dark) {
+    .review-diff {
+        -git-change-added: #5cbf62;
+        -git-change-modified: #5a9ae6;
+        -git-change-deleted: #9a9a9a;
+    }
+
+    .review-plain {
+        -fx-fill: #a9b7c6;
+    }
+
+    .review-changed-words {
+        -fx-fill: #35598c;
+    }
+
+    .review-sticky {
+        -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.6), 4, 0, 0, 1);
+    }
+}
