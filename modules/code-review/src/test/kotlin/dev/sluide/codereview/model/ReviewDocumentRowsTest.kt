@@ -177,13 +177,23 @@ class ReviewDocumentRowsTest {
     }
 
     @Test
-    fun `new content forgets the revealed lines`() {
+    fun `the same content again keeps the revealed lines`() {
         val document = document("a.kt" to oneModifiedLine(100, 50))
         document.expand("a.kt", 0, ExpandDirection.ALL)
 
         document.load("a.kt", oneModifiedLine(100, 50))
 
-        assertEquals("G 0 47 ↑ @@ -48,7 +48,7 @@", document.bodyOf("a.kt").first())
+        assertEquals("S 0 0", document.bodyOf("a.kt").first())
+    }
+
+    @Test
+    fun `changed content forgets the revealed lines`() {
+        val document = document("a.kt" to oneModifiedLine(100, 50))
+        document.expand("a.kt", 0, ExpandDirection.ALL)
+
+        document.load("a.kt", oneModifiedLine(100, 51))
+
+        assertEquals("G 0 48 ↑ @@ -49,7 +49,7 @@", document.bodyOf("a.kt").first())
     }
 
     @Test

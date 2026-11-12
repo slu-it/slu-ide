@@ -75,8 +75,8 @@ internal class ReviewDocument : ReviewLineSource {
     }
 
     /**
-     * Sets the content of the file at [path] and forgets its revealed lines. A viewed file whose [PreparedFile.contentKey]
-     * differs from the one it was marked viewed with is unchecked and expanded.
+     * Sets the content of the file at [path]; its revealed lines stay only when the [PreparedFile.contentKey] is the
+     * one it had. A viewed file whose key differs from the one it was marked viewed with is unchecked and expanded.
      */
     fun setContent(
         path: String,
@@ -99,8 +99,9 @@ internal class ReviewDocument : ReviewLineSource {
                 }
             }
         }
+        // The same texts keep their gaps; hiding whitespace has already forgotten the revealed lines.
+        if (state.prepared?.contentKey != prepared.contentKey) state.expansions.clear()
         state.prepared = prepared
-        state.expansions.clear()
         replaceRows(state)
         countViewed()
     }
