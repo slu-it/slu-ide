@@ -23,7 +23,7 @@ internal class WindowReviews(
     /** The repository open in the git log, `null` without one. */
     private val root: () -> Path?,
 ) {
-    /** The review of the checked-out branch against its base, on Shortcut+Shift+R; [disabled] while there is no repository. */
+    /** The review of the checked-out branch against its base, on Shortcut+Shift+R; [disabled] without a repository. */
     fun menuItem(disabled: ObservableValue<Boolean>): MenuItem =
         MenuItem("Review Branch").apply {
             accelerator = REVIEW_BRANCH_KEYS

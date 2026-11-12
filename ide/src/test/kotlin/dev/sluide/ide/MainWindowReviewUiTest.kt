@@ -62,16 +62,19 @@ class MainWindowReviewUiTest : MainWindowUiFixture() {
         return review
     }
 
-    /** Waits until the fingerprint count stays the same across an idle barrier: the open review has settled. */
-    private fun settledFingerprints(robot: FxRobot): Int {
-        var settled = 0
-        eventually(robot) {
+    /**
+     * Waits, on the test thread, until the fingerprint count is the same before and after the FX thread has worked off
+     * its queue: the open review has settled. Gives the count.
+     */
+    private fun settledFingerprints(): Int {
+        val deadline = System.nanoTime() + 20_000_000_000L
+        while (true) {
             val before = reviewSource.fingerprints.get()
             WaitForAsyncUtils.waitForFxEvents()
-            assertEquals(before, reviewSource.fingerprints.get())
-            settled = before
+            val after = reviewSource.fingerprints.get()
+            if (before == after) return after
+            check(System.nanoTime() < deadline) { "the fingerprint count keeps changing: $after" }
         }
-        return settled
     }
 
     @Test
@@ -142,7 +145,7 @@ class MainWindowReviewUiTest : MainWindowUiFixture() {
     fun `the reviews check for changes when the git folder changes`(robot: FxRobot) {
         openRepository(robot)
         openReview(robot)
-        val before = settledFingerprints(robot)
+        val before = settledFingerprints()
 
         // Only `.git` changes, and not a trust input (`refs/stash` is directly below `.git/refs`, which the watch sees
         // on every platform): the status snapshot and the trust check stay as they are.
@@ -155,7 +158,7 @@ class MainWindowReviewUiTest : MainWindowUiFixture() {
     fun `the reviews check for changes when the status changes`(robot: FxRobot) {
         openRepository(robot)
         openReview(robot)
-        val before = settledFingerprints(robot)
+        val before = settledFingerprints()
 
         // An untracked file: the status changes, `.git` does not.
         project.resolve("untracked.txt").writeText("new")
