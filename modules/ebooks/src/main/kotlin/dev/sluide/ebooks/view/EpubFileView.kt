@@ -532,7 +532,7 @@ internal class EpubFileView(
 
     internal fun clearMark(name: String) = named.clear(name)
 
-    /** Tells the view the reading position (whole-book), e.g. while speaking: contents, progress, saved position. */
+    /** The reading position while speaking (whole-book); no chapter: speech is always in a chapter with text. */
     internal fun showPosition(offset: Int) = setPosition(offset)
 
     /** Puts [node] over the page, below the loading text; the caller sets alignment and margin. */
@@ -567,7 +567,7 @@ internal class EpubFileView(
         if (!changed) return
         // The chapter too: one without text has the offset of the next. A stale one is not believed (chapterFor).
         val at = if (pageReady) topWhole() ?: readingPosition else readingPosition
-        startLoad(at, firstOpen = false, chapter = shown?.chapter)
+        startLoad(at, firstOpen = false, chapter = shown?.chapter ?: requested)
     }
 
     /** Follows the book to [to] (the explorer moved it): the position is saved under the new name from now on. */
