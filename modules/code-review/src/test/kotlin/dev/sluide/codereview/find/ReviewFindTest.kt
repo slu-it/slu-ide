@@ -259,14 +259,19 @@ class ReviewFindTest {
     @Test
     fun `without a current match before, the first match at or after the row becomes current`() {
         val document = document("a.kt" to big)
-        val find = ReviewFind(document).apply { query = "o140" }
+        val find = ReviewFind(document).apply { query = "o4" }
+        // Lines 4 and 40..49 are hidden behind the gaps.
         find.search(0)
         assertNull(find.current)
 
+        document.expand("a.kt", 0, ExpandDirection.ALL)
         document.expand("a.kt", 1, ExpandDirection.ALL)
-        val row = document.rows.indexOfFirst { it is ReviewRow.SplitLine && it.current == 140 }
+        val row = document.rows.indexOfFirst { it is ReviewRow.SplitLine && it.current == 40 }
         find.rowsChanged(row)
 
-        assertEquals(row, find.matches[checkNotNull(find.current)].row)
+        val current = find.matches[checkNotNull(find.current)]
+        assertEquals(row, current.row)
+        assertEquals(ReviewSide.ORIGINAL, current.side)
+        assertTrue(find.matches.first().row < row, "there are matches before the row")
     }
 }

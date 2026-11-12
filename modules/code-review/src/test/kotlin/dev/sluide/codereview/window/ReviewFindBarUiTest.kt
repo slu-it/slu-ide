@@ -146,6 +146,23 @@ class ReviewFindBarUiTest {
     }
 
     @Test
+    fun `typing reveals a match cut off at the bottom of the viewport`() {
+        // Rows above, so that the row can be placed near the bottom edge.
+        fx { document.expand("a.kt", 1, ExpandDirection.ALL) }
+        settle()
+        val row = rowOf(150)
+        fx { list.scrollToRow(row, list.height - 6.0) }
+        settle()
+        assertFalse(fx { list.isFullyVisible(row) }, "the row is cut off at the bottom")
+        fx { bar.open() }
+
+        fx { bar.query.text = "c150" }
+        settle()
+
+        assertTrue(fx { list.isFullyVisible(row) })
+    }
+
+    @Test
     fun `typing does not move a match that is fully shown`() {
         fx { bar.open() }
         settle()
