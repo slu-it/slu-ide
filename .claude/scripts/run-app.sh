@@ -3,8 +3,12 @@
 # settings: the app runs with a throwaway user.home that holds only a settings.properties with the theme.
 # Usage: .claude/scripts/run-app.sh [--theme dark|light] [--display N] [--setting key=value]... <project-folder>
 #        .claude/scripts/run-app.sh --stop <pid>
-# Defaults: theme dark, display 107 (outside the final gate's pool :99 to :106). --setting adds a line to the
-# throwaway settings.properties (e.g. python.ty.path=/path/to/ty), repeatable. Builds the jar with Gradle when it is missing or older than the sources.
+# Defaults: theme dark, display 107 (outside the final gate's pool :99 to :106); --display must be a number, an unknown
+# option gives the usage line and exit 2. --setting adds a line to the throwaway settings.properties (e.g.
+# python.ty.path=/path/to/ty), repeatable. The jar is the newest ide/build/libs/ide-*.jar that is not -plain.jar (its
+# version comes from the Gradle property releaseVersion); Gradle builds it when there is none or it is older than the
+# sources, and the script fails (exit 1) when the build leaves none. The window counts as shown when a visible window
+# named Thoreau belongs to the app's own pid (xdotool search --all; without it, it matches either condition).
 # Prints pid=, display=, home= (the throwaway folder) and log= (app output), one per line.
 # Afterwards (see docs/testing.md):
 #   DISPLAY=:107 import -window root shot.png      # screenshot
@@ -37,18 +41,31 @@ fi
 theme=dark
 display_number=107
 settings=()
-while [ "$#" -gt 1 ]; do
+usage="Usage: run-app.sh [--theme dark|light] [--display N] [--setting key=value]... <project-folder> | --stop <pid>"
+while [ "$#" -gt 0 ]; do
   case "$1" in
-    --theme) theme="${2:?}"; shift 2 ;;
-    --display) display_number="${2:?}"; shift 2 ;;
-    --setting) settings+=("${2:?}"); shift 2 ;;
+    --theme | --display | --setting)
+      [ "$#" -ge 2 ] || { echo "$1 needs a value. $usage" >&2; exit 2; }
+      case "$1" in
+        --theme) theme="$2" ;;
+        --display) display_number="$2" ;;
+        --setting) settings+=("$2") ;;
+      esac
+      shift 2
+      ;;
+    --*) echo "Unknown option $1. $usage" >&2; exit 2 ;;
     *) break ;;
   esac
 done
 case "$theme" in dark | light) ;; *) echo "Theme must be dark or light" >&2; exit 2 ;; esac
-folder="$(cd "${1:?usage: run-app.sh [--theme dark|light] [--display N] [--setting key=value]... <project-folder>}" && pwd)"
+case "$display_number" in '' | *[!0-9]*) echo "Display must be a number, not '$display_number'" >&2; exit 2 ;; esac
+[ "$#" -eq 1 ] || { echo "$usage" >&2; exit 2; }
+folder="$(cd "$1" && pwd)"
 
-jar="$root/ide/build/libs/ide-0.1.0-SNAPSHOT.jar"
+# The jar's version comes from the Gradle property releaseVersion, so look the jar up: the newest ide-*.jar that is not
+# the -plain.jar. Prints nothing when there is none (then the jar counts as stale).
+find_jar() { ls -t "$root"/ide/build/libs/ide-*.jar 2>/dev/null | grep -v -- '-plain[.]jar$' | head -n 1 || true; }
+jar="$(find_jar)"
 stale() {
   [ -f "$jar" ] || return 0
   [ -n "$(find "$root/ide/src" "$root"/modules/*/src -type f -newer "$jar" -print -quit 2>/dev/null)" ] && return 0
@@ -65,6 +82,8 @@ if stale; then
   gradle_args=(-q :ide:bootJar)
   case "$root" in */.claude/worktrees/*) gradle_args=(--no-daemon "${gradle_args[@]}") ;; esac
   (cd "$root" && ./gradlew "${gradle_args[@]}" >&2)
+  jar="$(find_jar)"
+  [ -n "$jar" ] || { echo "The build left no ide-*.jar (other than -plain.jar) in $root/ide/build/libs" >&2; exit 1; }
   touch "$jar" # Gradle keeps the old mtime when bootJar is up to date
 fi
 
@@ -96,7 +115,7 @@ for _ in $(seq 1 240); do
     rm -rf "$home" "$state_dir/thoreau-run-$pid.home"
     exit 1
   fi
-  if xdotool search --onlyvisible --pid "$pid" --name 'Thoreau' >/dev/null 2>&1; then shown=true; break; fi
+  if xdotool search --all --onlyvisible --pid "$pid" --name 'Thoreau' >/dev/null 2>&1; then shown=true; break; fi
   sleep 0.25
 done
 if ! $shown; then
