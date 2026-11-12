@@ -321,4 +321,42 @@ class ReviewLoaderRestartTest {
 
         assertEquals(scrolls, viewport.scrolls.size)
     }
+
+    @Test
+    fun `picking commits drops the lines of the previous range at once`() {
+        val loader = loader()
+        loader.openBranch()
+        posts.drain()
+        noLoading()
+
+        loader.selection.set(ReviewSelection.Commits(0, 0))
+
+        assertTrue(document.shortRows().any { it.contains("LOADING") }, "Loading until the new range's diffs are in")
+        posts.drain()
+        noLoading()
+    }
+
+    @Test
+    fun `changing the base drops the lines of the previous base at once`() {
+        val loader = loader()
+        loader.openBranch()
+        posts.drain()
+
+        loader.changeBase("origin/main")
+
+        assertTrue(document.shortRows().any { it.contains("LOADING") })
+        posts.drain()
+        noLoading()
+    }
+
+    @Test
+    fun `reload keeps the lines of the files while the new diffs load`() {
+        val loader = loader()
+        loader.openBranch()
+        posts.drain()
+
+        loader.reload()
+
+        noLoading()
+    }
 }

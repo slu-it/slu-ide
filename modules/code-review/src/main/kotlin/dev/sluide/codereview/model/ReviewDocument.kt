@@ -26,6 +26,12 @@ internal class ReviewDocument : ReviewLineSource {
     val rows: ObservableList<ReviewRow> = rowList
 
     private var states = LinkedHashMap<String, FileState>()
+
+    /**
+     * The content keys each path was marked viewed with, for the window's lifetime: a file is viewed again when the
+     * content of its path is one of them (all changes, then one commit, then all again), not when it differs.
+     */
+    private val viewedKeys = HashMap<String, MutableSet<String>>()
     private var shown = emptyList<FileState>()
 
     /** All files in tree order, also those the filter leaves out. */
@@ -56,14 +62,20 @@ internal class ReviewDocument : ReviewLineSource {
     init {
         layout.addListener { _, _, _ -> rebuildAll() }
         filter.addListener { _, _, _ -> rebuildAll() }
-        ignoreWhitespace.addListener { _, _, _ ->
-            for (state in states.values) {
-                state.prepared = null
-                state.unreadable = false
-                state.expansions.clear()
-            }
-            rebuildAll()
+        ignoreWhitespace.addListener { _, _, _ -> clearContents() }
+    }
+
+    /**
+     * Drops the content of every file (they show Loading until [setContent]) and the revealed parts of the gaps;
+     * the Viewed and collapsed flags stay until the next content decides them. For a load of other texts.
+     */
+    fun clearContents() {
+        for (state in states.values) {
+            state.prepared = null
+            state.unreadable = false
+            state.expansions.clear()
         }
+        rebuildAll()
     }
 
     /**
@@ -83,28 +95,27 @@ internal class ReviewDocument : ReviewLineSource {
 
     /**
      * Sets the content of the file at [path]; its revealed lines stay only when the [PreparedFile.contentKey] is the
-     * one it had. A viewed file whose key differs from the one it was marked viewed with is unchecked and expanded.
+     * one it had. The file is viewed (and collapsed) exactly when it was marked viewed with this content key, or
+     * while it was loading; a viewed file with another content is unchecked and expanded.
      */
     fun setContent(
         path: String,
         prepared: PreparedFile,
     ) {
         val state = states[path] ?: return
-        if (state.viewed) {
-            when (state.viewedKey) {
-                // Marked viewed while loading: the first content is what was viewed.
-                null -> {
-                    state.viewedKey = prepared.contentKey
-                }
-
-                prepared.contentKey -> {}
-
-                else -> {
-                    state.viewed = false
-                    state.viewedKey = null
-                    state.collapsed = false
-                }
-            }
+        val key = prepared.contentKey
+        if (state.viewedWhileLoading) {
+            // What was marked viewed while loading is the first content that arrives.
+            state.viewedWhileLoading = false
+            viewedKeys.getOrPut(path) { HashSet() } += key
+        }
+        val isViewed = key in viewedKeys[path].orEmpty()
+        if (isViewed && !state.viewed) {
+            state.viewed = true
+            state.collapsed = true
+        } else if (!isViewed && state.viewed) {
+            state.viewed = false
+            state.collapsed = false
         }
         // The same texts keep their gaps; hiding whitespace has already forgotten the revealed lines.
         if (state.prepared?.contentKey != prepared.contentKey) state.expansions.clear()
@@ -146,8 +157,14 @@ internal class ReviewDocument : ReviewLineSource {
     ) {
         val state = states[path] ?: return
         state.viewed = viewed
-        state.viewedKey = if (viewed) state.prepared?.contentKey else null
         state.collapsed = viewed
+        if (viewed) {
+            val key = state.prepared?.contentKey
+            if (key == null) state.viewedWhileLoading = true else viewedKeys.getOrPut(path) { HashSet() } += key
+        } else {
+            state.viewedWhileLoading = false
+            viewedKeys.remove(path)
+        }
         replaceRows(state)
         countViewed()
     }
@@ -315,8 +332,8 @@ internal class ReviewDocument : ReviewLineSource {
         var unreadable = false
         var viewed = false
 
-        /** The content key the file had when it was marked viewed; `null` when marked while loading. */
-        var viewedKey: String? = null
+        /** Marked viewed while its content was missing: the first content that arrives is what was viewed. */
+        var viewedWhileLoading = false
         var collapsed = false
         var diffLoaded = false
         val expansions = HashMap<Int, GapExpansion>()

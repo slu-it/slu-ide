@@ -210,6 +210,60 @@ class ReviewDocumentTest {
     }
 
     @Test
+    fun `a file viewed in all changes is viewed again when its content comes back after another range`() {
+        val document = document("a.kt" to oneModifiedLine(10, 5))
+        document.setViewed("a.kt", true)
+
+        document.clearContents()
+        document.load("a.kt", oneModifiedLine(10, 6))
+        assertEquals("H a.kt +1 -1", document.shortRows()[0], "another content is not viewed")
+        assertEquals(0, document.viewedCount.get())
+
+        document.clearContents()
+        document.load("a.kt", oneModifiedLine(10, 5))
+        assertEquals("H a.kt collapsed viewed +1 -1", document.shortRows()[0])
+        assertEquals(1, document.viewedCount.get())
+    }
+
+    @Test
+    fun `unchecking forgets the contents the file was viewed with`() {
+        val document = document("a.kt" to oneModifiedLine(10, 5))
+        document.setViewed("a.kt", true)
+        document.setViewed("a.kt", false)
+
+        document.clearContents()
+        document.load("a.kt", oneModifiedLine(10, 6))
+        document.clearContents()
+        document.load("a.kt", oneModifiedLine(10, 5))
+
+        assertEquals("H a.kt +1 -1", document.shortRows()[0])
+        assertEquals(0, document.viewedCount.get())
+    }
+
+    @Test
+    fun `every content the file was viewed with counts`() {
+        val document = document("a.kt" to oneModifiedLine(10, 5))
+        document.setViewed("a.kt", true)
+        document.load("a.kt", oneModifiedLine(10, 6))
+        document.setViewed("a.kt", true)
+
+        document.load("a.kt", oneModifiedLine(10, 5))
+        assertEquals("H a.kt collapsed viewed +1 -1", document.shortRows()[0])
+        document.load("a.kt", oneModifiedLine(10, 6))
+        assertEquals("H a.kt collapsed viewed +1 -1", document.shortRows()[0])
+        assertEquals(1, document.viewedCount.get())
+    }
+
+    @Test
+    fun `clearing the contents shows every file as loading`() {
+        val document = document("a.kt" to oneModifiedLine(10, 5))
+
+        document.clearContents()
+
+        assertTrue(document.shortRows().any { it.contains("LOADING") })
+    }
+
+    @Test
     fun `a file marked viewed while loading takes its first content as viewed`() {
         val document = ReviewDocument()
         document.setFiles(listOf(modified("a.kt")))

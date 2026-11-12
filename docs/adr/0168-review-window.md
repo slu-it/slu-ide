@@ -56,4 +56,7 @@ Options considered for the diff:
   of a renderer of our own: text selection is by whole lines, and find is our own.
 - `file-viewers` gained public `FileViewers.highlighterFor` and `wordChanges`; `git` gained `GitReviews` and an
   `ignoreWhitespace` flag on its blob and file diffs.
-- Viewed flags last as long as the window; persisting them, comments, image diffs and free text selection are ideas.
+- Viewed is remembered per file path and content (a hash of both texts) as long as the window lives: a file is viewed
+  exactly when its current content was marked, so a changed file or another commit range shows it unchecked and
+  coming back to the marked content checks it again. Picking commits or a base drops all contents first, so no file
+  shows the lines of the previous range. Viewed flags are not persisted; persisting them, comments, image diffs and free text selection are ideas.

@@ -121,6 +121,8 @@ internal class ReviewLoader(
         val branch = scope as? ReviewScope.Branch ?: return
         scope = branch.copy(base = ref)
         pickedMeanwhile = null
+        // Other commits: no file shows the lines of the previous base.
+        document.clearContents()
         resolve(null)
     }
 
@@ -181,6 +183,8 @@ internal class ReviewLoader(
 
     /** A selection made while the first step runs: the whole step starts again with it. */
     private fun selectionChanged() {
+        // Other commits: no file shows the lines of the previous range under the new label.
+        document.clearContents()
         val restart = firstStep
         if (restart == null) {
             loadSelection()
