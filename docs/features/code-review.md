@@ -17,7 +17,7 @@ all changed files in one long scroll beside a filterable file tree, without push
   from the oldest one's parent to the newest one, every commit in between included; when the newest does not descend
   from the oldest, the window says "The selected commits are not on one line of history."
 - Every review opens a window of its own, large and centred on the IDE window's screen, each further one a little
-  offset by 30 px (80 % of the screen; the size is not remembered). Its title is `Review – <scope> – <project>`;
+  offset by 30 px (80 % of the screen; the size is not remembered). Its title is `Review – <scope> – <folder>`, with the repository folder's name;
   Shortcut+W closes it (the running load is cancelled), and closing the project window closes its reviews.
 - Git → Review Branch sits after Pull… in the Git menu.
 
@@ -35,8 +35,8 @@ all changed files in one long scroll beside a filterable file tree, without push
   picks, Escape or a click outside closes. A merge commit alone is shown against its first parent. A single-commit
   review has no picker. The base picker is a menu button (the default bases first, marked "(default)", then the rest);
   the toolbar starts with the review's title in bold.
-- Empty scopes say so ("No changes in origin/main..feature-x." with the scope's title); git failures show "Could
-  not read the review: …".
+- Empty scopes say so ("No changes in feature-x into origin/main." with the scope's title); git failures show "Could
+  not read the review: …" with a **Reload** button that tries again.
 
 ## Files
 - The tree on the left lists the changed files, folders first, single-child folder chains compacted
@@ -68,7 +68,7 @@ all changed files in one long scroll beside a filterable file tree, without push
 - Large files (over 500 changed lines) and lock or minified files (`package-lock.json`, `yarn.lock`,
   `pnpm-lock.yaml`, `gradle.lockfile`, `Cargo.lock`, `poetry.lock`, `go.sum`, `*.min.js`, `*.min.css`) start
   collapsed with **Load diff (N lines)**. Binary files, files over 5 MB and submodules show a notice instead of
-  lines, and so does a file without changed lines: "Renamed without changes", "Copied without changes", "Only
+  lines, and so does a file git could not read ("Could not read this file") and a file without changed lines: "Renamed without changes", "Copied without changes", "Only
   whitespace changes" (with Hide whitespace) or "No content changes" (e.g. only its mode changed).
 - F7 / Shift+F7 move to the next or previous change, Alt+Down / Alt+Up (Option on macOS) to the next or previous file.
 
@@ -102,6 +102,9 @@ all changed files in one long scroll beside a filterable file tree, without push
   while loading. The review never reloads by itself.
 
 ## Limits
+- A review keeps the prepared text of every loaded file in memory until its window closes, and very large scopes
+  (thousands of files) load slowly.
+- Commit lists stop at 1000 commits; the picker then says "All changes (1000+ commits)".
 - Text is selected by whole lines; there is no free text selection.
 - A viewed binary or too large file stays viewed after Reload even when it changed.
 - Viewed flags, review comments and image diffs are not there yet ([ideas](../ideas/review-later.md)).
