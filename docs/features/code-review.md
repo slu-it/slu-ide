@@ -75,10 +75,11 @@ all changed files in one long scroll beside a filterable file tree, without push
 - Click a line number to select the line, Shift+click to extend the selection within the same file and side (split
   view: left numbers the old side, right numbers the new side; filler halves are skipped). The unified view selects
   a row by either number column (a removed-only row by its old line); a selection there may mix sides. Selected
-  numbers and text get a tint over the colour of the change. Shortcut+C copies the lines in the order they were
-  selected, without − and +; Escape clears the selection (and does nothing else when there is none).
-- The selection follows its lines when the layout switches; it is cleared when its file is filtered out, collapsed,
-  or read again with Hide whitespace or Reload. Expanding a gap inside it leaves the revealed lines unselected.
+  numbers and text get a tint over the colour of the change. Shortcut+C copies the lines from top to bottom,
+  without − and +; Escape clears the selection (and does nothing else when there is none).
+- The selection follows its lines when the layout switches; it is cleared when its file is filtered out or collapsed,
+  by Reload, and by Hide whitespace when its lines are gone. Expanding a gap inside it leaves the revealed lines
+  unselected.
 - A right click on a line selects it first when it is not selected. The context menu of selected lines (also Shift+F10
   or the menu key on the diff): Copy Lines, Open in Editor (the file in the working tree at that line, for a removed
   line the nearest new one; disabled, with "(not in the working tree)", when it is not a file there), Copy Path.
