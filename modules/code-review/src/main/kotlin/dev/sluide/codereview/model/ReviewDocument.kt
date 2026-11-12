@@ -241,8 +241,10 @@ internal class ReviewDocument : ReviewLineSource {
         if (state !in shown) return
         val from = offset(state)
         val fileRows = fileRows(state)
-        rowList.replace(from, from + state.rowCount, fileRows)
+        val oldCount = state.rowCount
+        // Before the change fires: a listener asks for the rows' places.
         state.rowCount = fileRows.size
+        rowList.replace(from, from + oldCount, fileRows)
     }
 
     /** The index of the first row of [state], which is shown. */

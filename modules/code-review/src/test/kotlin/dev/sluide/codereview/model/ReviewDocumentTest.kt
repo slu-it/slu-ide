@@ -188,6 +188,23 @@ class ReviewDocumentTest {
     }
 
     @Test
+    fun `a rows listener finds the lines of the changed file during the change`() {
+        val document = ReviewDocument()
+        document.setFiles(listOf(modified("a.kt"), modified("b.kt")))
+        document.load("a.kt", oneModifiedLine(10, 5))
+        val anchor = ReviewAnchor("b.kt", ReviewSide.CURRENT, 5)
+        val seen = mutableListOf<Int>()
+        document.rows.addListener(ListChangeListener { seen += document.rowOf(anchor) })
+
+        document.load("b.kt", oneModifiedLine(10, 5))
+
+        val header = document.headerRow("b.kt")
+        assertEquals(1, seen.size)
+        assertEquals(document.rowOf(anchor), seen.single())
+        assertTrue(seen.single() > header, "the line, not the header")
+    }
+
+    @Test
     fun `a viewed file stays viewed when its content comes again unchanged`() {
         val document = document("a.kt" to oneModifiedLine(10, 5))
         document.setViewed("a.kt", true)
