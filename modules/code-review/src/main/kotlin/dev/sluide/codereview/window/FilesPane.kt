@@ -13,6 +13,7 @@ import dev.sluide.fileicons.show
 import javafx.beans.InvalidationListener
 import javafx.beans.WeakInvalidationListener
 import javafx.geometry.Pos
+import javafx.scene.control.IndexedCell
 import javafx.scene.control.Label
 import javafx.scene.control.TextField
 import javafx.scene.control.Tooltip
@@ -59,6 +60,7 @@ internal fun treeScrollTarget(
 ): Int? = if (row in firstVisible..lastVisible) null else (row - CONTEXT_ROWS).coerceAtLeast(0)
 
 private const val CONTEXT_ROWS = 2
+private const val TOLERANCE = 1.0
 
 /**
  * The files pane (ADR 0168): the filter field over the "x / y viewed" counter and the tree of the changed files. The
@@ -191,11 +193,25 @@ internal class FilesPane(
         val row = tree.getRow(item)
         tree.applyCss()
         tree.layout()
-        val flow = tree.lookup(".virtual-flow") as? VirtualFlow<*>
-        val first = flow?.firstVisibleCell?.index
-        val last = flow?.lastVisibleCell?.index
-        val target = if (first == null || last == null) row else treeScrollTarget(row, first, last)
+        val visible = fullyVisibleRows()
+        val target = if (visible == null) row else treeScrollTarget(row, visible.first, visible.last)
         if (target != null) tree.scrollTo(target.coerceAtLeast(0))
+    }
+
+    /** The rows of the tree's flow that show completely; `null` while there are none laid out. */
+    private fun fullyVisibleRows(): IntRange? {
+        val flow = tree.lookup(".virtual-flow") as? VirtualFlow<*> ?: return null
+        val first = flow.firstVisibleCell ?: return null
+        val last = flow.lastVisibleCell ?: return null
+        val area = flow.localToScene(flow.layoutBounds)
+
+        fun shows(cell: IndexedCell<*>): Boolean {
+            val bounds = cell.localToScene(cell.layoutBounds)
+            return bounds.minY >= area.minY - TOLERANCE && bounds.maxY <= area.maxY + TOLERANCE
+        }
+        val from = if (shows(first)) first.index else first.index + 1
+        val to = if (shows(last)) last.index else last.index - 1
+        return if (from <= to) from..to else null
     }
 
     private fun scrollDiffTo(path: String) {

@@ -521,5 +521,15 @@ class ReviewWindowPickersUiTest {
             assertTrue(flow().lastVisibleCell.index >= row, "the row is in view")
             assertTrue(flow().firstVisibleCell.index > 0, "scrolled")
         }
+        // Away from the end, where a scroll would not be clamped.
+        robot.interact { window.top().top.set("d/f050.kt") }
+        val firstBefore = fx { flow().firstVisibleCell.index }
+
+        robot.interact { window.top().top.set("d/f055.kt") }
+
+        robot.interact {
+            assertEquals("d/f055.kt", tree.selectionModel.selectedItem.value.path)
+            assertEquals(firstBefore, flow().firstVisibleCell.index, "a row in view does not scroll the tree")
+        }
     }
 }
