@@ -42,12 +42,13 @@ all changed files in one long scroll beside a filterable file tree, without push
   (`src/main/kotlin`), names coloured as added, modified or deleted (deleted ones struck through), renamed files with
   their old path in the tooltip, viewed files with a check mark. "x / y viewed" stands above it.
 - The **filter** field (Shortcut+P) narrows the tree and the diff to the files whose path contains the text, ignoring
-  case. Escape clears it, Down moves into the tree, Enter jumps to the first match.
-- Clicking a file or pressing Enter on it scrolls the diff to it (arrow keys only move the selection);
-  scrolling the diff selects the file at its top in the tree and scrolls the tree only if that row is out of view,
-  never the diff. Enter in the filter scrolls to the first match and focuses the diff; Down selects the first file
-  and moves into the tree. Known limit: a file too near the end to reach the diff's top is replaced as the tree's
-  selection by the file that is at the top.
+  case. Escape clears it, Down selects the first file and moves into the tree, Enter scrolls the diff to the first
+  match and focuses the diff.
+- Clicking a file or pressing Enter on it scrolls the diff to it (arrow keys only move the selection; Enter on a
+  folder opens or closes it). Scrolling the diff selects the file at its top in the tree, opens its folders and
+  scrolls the tree only if that row is out of view, never the diff. Folders the user closed stay closed when the
+  tree is built again (a reload, a filter keystroke). Known limit: a file too near the end to reach the diff's top is
+  replaced as the tree's selection by the file that is at the top.
 
 ## Diff
 - **Split** (the default) or **Unified**, toggled at the right end of the toolbar; **Hide whitespace** next to them.

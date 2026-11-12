@@ -24,7 +24,9 @@
 
 /* The commit picker's list: the rows of a Shift range. */
 .review-pick-range:filled {
-    -fx-background-color: derive(-fx-accent, 60%);
+    /* -fx-background lets Modena's ladder pick the text colour that is readable on it. */
+    -fx-background: derive(-fx-accent, 60%);
+    -fx-background-color: -fx-background;
 }
 
 /*

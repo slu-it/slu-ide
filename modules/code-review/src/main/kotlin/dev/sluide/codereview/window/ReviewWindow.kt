@@ -52,7 +52,7 @@ import java.util.concurrent.ExecutorService
  */
 internal class ReviewWindow(
     val root: Path,
-    val scope: ReviewScope,
+    private val scope: ReviewScope,
     ideWindow: Window?,
     bounds: Rectangle2D,
     source: ReviewSource,

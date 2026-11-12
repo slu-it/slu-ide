@@ -71,6 +71,24 @@ internal fun commitRange(
     target: Int,
 ): ReviewSelection.Commits = ReviewSelection.Commits(minOf(anchor, target), maxOf(anchor, target))
 
+/** The moving end [row] and the covered rows after Shift+Up/Down: the range from [start] to the row moved by [delta]. */
+internal data class RangeStep(
+    val row: Int,
+    val rows: IntRange,
+)
+
+/** Moves the end [row] of a keyboard range that began at [start] by [delta], within the commit rows [first]..[last]. */
+internal fun rangeStep(
+    start: Int,
+    row: Int,
+    delta: Int,
+    first: Int,
+    last: Int,
+): RangeStep {
+    val target = (row + delta).coerceIn(first, last)
+    return RangeStep(target, minOf(start, target)..maxOf(start, target))
+}
+
 /** The commit index a Shift range starts from when nothing was clicked yet: the newest picked commit, else none. */
 internal fun anchorOf(selection: ReviewSelection): Int? = (selection as? ReviewSelection.Commits)?.newest
 
@@ -82,6 +100,7 @@ internal fun relativeDate(
     val age = Duration.between(time, clock.instant())
     val days = age.toDays()
     return when {
+        age.isNegative && age.toMinutes() <= -1 -> LocalDate.ofInstant(time, clock.zone).toString()
         age.toMinutes() < 1 -> "just now"
         age.toHours() < 1 -> plural(age.toMinutes(), "minute")
         days < 1 -> plural(age.toHours(), "hour")
@@ -104,4 +123,4 @@ internal fun baseGroups(bases: List<ReviewBase>): Pair<List<ReviewBase>, List<Re
 
 /** The base picker's button text. */
 internal fun baseButtonText(review: ResolvedReview?): String =
-    review?.base?.let { "into: ${it.label}" } ?: "choose a base"
+    if (review == null) "" else review.base?.let { "into: ${it.label}" } ?: "choose a base"

@@ -127,6 +127,20 @@ class ReviewDocumentTest {
     }
 
     @Test
+    fun `filesVersion counts setFiles only`() {
+        val document = document("a.kt" to oneModifiedLine(10, 5))
+        val version = document.filesVersion.get()
+
+        document.setViewed("a.kt", true)
+        document.setCollapsed("a.kt", false)
+        document.load("a.kt", oneModifiedLine(10, 5))
+
+        assertEquals(version, document.filesVersion.get())
+        document.setFiles(listOf(modified("a.kt")))
+        assertEquals(version + 1, document.filesVersion.get())
+    }
+
+    @Test
     fun `Viewed collapses the file and counts it, unchecking expands it`() {
         val document = document("a.kt" to oneModifiedLine(10, 5), "b.kt" to oneModifiedLine(10, 5))
 

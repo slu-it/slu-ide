@@ -41,25 +41,35 @@ internal class ReviewPickers(
         MenuButton().apply {
             styleClass += "review-picker"
             isFocusTraversable = false
+            isMnemonicParsing = false
         }
 
     internal val commitButton =
         Button().apply {
             styleClass += "review-picker"
             isFocusTraversable = false
+            isMnemonicParsing = false
             setOnAction { showCommitPopup() }
         }
 
-    private val entries = ListView<PickerEntry>().apply { styleClass += "review-commit-list" }
+    private val entries =
+        ListView<PickerEntry>().apply {
+            styleClass += "review-commit-list"
+            fixedCellSize = CELL_HEIGHT
+        }
     private val popup =
         Popup().apply {
             isAutoHide = true
-            isHideOnEscape = true
+            // Escape is handled by the list's key filter, the one mechanism.
+            isHideOnEscape = false
             content += entries
         }
 
-    /** The commit last clicked or moved to; where a Shift range starts. */
+    /** The commit last picked with a plain click or reached by a plain arrow move; where a Shift+click range starts. */
     private var anchor: Int? = null
+
+    /** The row where the Shift+Up/Down range began; `null` without one. */
+    private var rangeStart: Int? = null
 
     /** The commit rows a Shift+Up/Down range covers, shown highlighted; `null` without one. */
     private var rangeRows: IntRange? = null
@@ -70,13 +80,16 @@ internal class ReviewPickers(
         entries.stylesheets += REVIEW_WINDOW_CSS
         entries.setCellFactory { EntryCell() }
         entries.addEventFilter(KeyEvent.KEY_PRESSED, ::onKey)
-        entries.setPrefSize(POPUP_WIDTH, POPUP_HEIGHT)
+        entries.prefWidth = POPUP_WIDTH
         popup.setOnHidden { rangeRows = null }
 
         baseButton.isVisible = scope is ReviewScope.Branch
         baseButton.isManaged = baseButton.isVisible
         bases.addListener(ListChangeListener { fillBases() })
-        resolved.subscribe { _ -> update() }
+        resolved.subscribe { _ ->
+            anchor = null
+            update()
+        }
         selection.subscribe { _ -> update() }
         update()
     }
@@ -90,7 +103,6 @@ internal class ReviewPickers(
         commitButton.isVisible = shown
         commitButton.isManaged = shown
         commitButton.text = review?.let { selectionLabel(it, selection.get()) + " ▾" }.orEmpty()
-        anchor = null
     }
 
     private fun fillBases() {
@@ -105,7 +117,10 @@ internal class ReviewPickers(
     private fun baseItem(
         base: ReviewBase,
         text: String,
-    ) = MenuItem(text).apply { setOnAction { changeBase(base.ref) } }
+    ) = MenuItem(text).apply {
+        isMnemonicParsing = false
+        setOnAction { changeBase(base.ref) }
+    }
 
     /** Opens the commit list under the button, on the current selection. */
     internal fun showCommitPopup() {
@@ -113,7 +128,9 @@ internal class ReviewPickers(
         val owner = commitButton.scene?.window ?: return
         val rows = pickerEntries(review, clock)
         entries.items.setAll(rows)
+        entries.prefHeight = minOf(POPUP_HEIGHT, rows.size * CELL_HEIGHT + 2)
         rangeRows = null
+        rangeStart = null
         val picked = selection.get()
         val current = rows.indexOfFirst { it.selection == picked }.coerceAtLeast(0)
         val bounds: Bounds = commitButton.localToScreen(commitButton.boundsInLocal)
@@ -139,7 +156,7 @@ internal class ReviewPickers(
         } else {
             val from = if (extend) anchor ?: anchorOf(selection.get()) else null
             selection.set(if (from == null) entry.selection else commitRange(from, index))
-            anchor = index
+            if (from == null) anchor = index
         }
         popup.hide()
     }
@@ -157,9 +174,7 @@ internal class ReviewPickers(
             }
 
             KeyCode.UP, KeyCode.DOWN -> {
-                if (event.isShiftDown) extendRange(if (event.code == KeyCode.UP) -1 else 1) else rangeRows = null
-                if (event.isShiftDown) event.consume()
-                entries.refresh()
+                if (move(if (event.code == KeyCode.UP) -1 else 1, event.isShiftDown)) event.consume()
             }
 
             else -> {}
@@ -180,16 +195,36 @@ internal class ReviewPickers(
         entries.selectionModel.selectedItem?.let { pick(it, extend = false) }
     }
 
-    /** Moves the selected row by [delta] over the commits and covers the rows from where the range started. */
-    private fun extendRange(delta: Int) {
-        val first = entries.items.indexOfFirst { it.commitIndex != null }
+    /**
+     * Moves the selected row by [delta]; with [extend] over the commits only, growing a range from where it began.
+     * `false` when the keystroke is left to the list (Shift on the rows above the commits).
+     */
+    private fun move(
+        delta: Int,
+        extend: Boolean,
+    ): Boolean {
         val row = entries.selectionModel.selectedIndex
-        if (first < 0 || row < first) return
-        val target = (row + delta).coerceIn(first, entries.items.lastIndex)
-        val start = rangeRows?.let { if (row == it.first) it.last else it.first } ?: row
-        rangeRows = minOf(start, target)..maxOf(start, target)
+        val first = entries.items.indexOfFirst { it.commitIndex != null }
+        val last = entries.items.lastIndex
+        if (row < 0) return false
+        val target: Int
+        if (extend) {
+            if (first < 0 || row < first) return false
+            val start = rangeStart ?: row
+            rangeStart = start
+            val step = rangeStep(start, row, delta, first, last)
+            rangeRows = step.rows
+            target = step.row
+        } else {
+            rangeStart = null
+            rangeRows = null
+            target = (row + delta).coerceIn(0, last)
+            entries.items[target].commitIndex?.let { anchor = it }
+        }
         entries.selectionModel.select(target)
         entries.scrollTo(target)
+        entries.refresh()
+        return true
     }
 
     internal val pickedRange: IntRange? get() = rangeRows
@@ -223,5 +258,6 @@ internal class ReviewPickers(
     private companion object {
         const val POPUP_WIDTH = 520.0
         const val POPUP_HEIGHT = 300.0
+        const val CELL_HEIGHT = 24.0
     }
 }

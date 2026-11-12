@@ -12,7 +12,6 @@ import dev.sluide.fileicons.fileIconFor
 import dev.sluide.fileicons.show
 import javafx.beans.InvalidationListener
 import javafx.beans.WeakInvalidationListener
-import javafx.collections.ListChangeListener
 import javafx.geometry.Pos
 import javafx.scene.control.Label
 import javafx.scene.control.TextField
@@ -20,6 +19,7 @@ import javafx.scene.control.Tooltip
 import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeItem
 import javafx.scene.control.TreeView
+import javafx.scene.control.skin.VirtualFlow
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
@@ -121,19 +121,17 @@ internal class FilesPane(
         }
 
     private val fileItems = HashMap<String, TreeItem<ReviewTreeNode>>()
-    private var shownFiles: List<ReviewFile>? = null
-    private var shownFilter: String? = null
 
     init {
         filter.textProperty().bindBidirectional(document.filter)
-        document.rows.addListener(ListChangeListener { rebuildIfChanged() })
-        document.filter.subscribe { _ -> rebuildIfChanged() }
+        document.filesVersion.subscribe { _ -> rebuild() }
+        document.filter.subscribe { _ -> rebuild() }
         document.viewedCount.subscribe { _ ->
             updateCounter()
             tree.refresh()
         }
         diffView.topFile.subscribe { path -> if (path != null) showFile(path) }
-        rebuildIfChanged()
+        rebuild()
     }
 
     /** Puts the cursor into the filter with its text selected. */
@@ -146,54 +144,58 @@ internal class FilesPane(
         viewed.text = "${document.viewedCount.get()} / ${document.files.size} viewed"
     }
 
-    /** Builds the tree again when the file list or the filter differs from what it shows. */
-    private fun rebuildIfChanged() {
-        val files = document.files
-        val text = document.filter.get()
-        if (files == shownFiles && text == shownFilter) return
-        shownFiles = files
-        shownFilter = text
+    /** Builds the tree again, for a new file list or filter; the folders the user closed stay closed. */
+    private fun rebuild() {
         val selected =
             tree.selectionModel.selectedItem
                 ?.value
                 ?.path
+        val collapsed = collapsedFolders(tree.root)
         fileItems.clear()
-        tree.root.children.setAll(reviewTree(files, text).map(::item))
+        tree.root.children.setAll(reviewTree(document.files, document.filter.get()).map { item(it, collapsed) })
         selected?.let(fileItems::get)?.let(tree.selectionModel::select)
         updateCounter()
         diffView.topFile.value?.let(::showFile)
     }
 
-    private fun item(node: ReviewTreeNode): TreeItem<ReviewTreeNode> =
+    /** The paths of the closed folders below [item]. */
+    private fun collapsedFolders(item: TreeItem<ReviewTreeNode>): Set<String> =
+        item.children
+            .flatMap { child ->
+                val node = child.value
+                if (node.file != null) {
+                    emptyList()
+                } else {
+                    listOfNotNull(node.path.takeIf { !child.isExpanded }) + collapsedFolders(child)
+                }
+            }.toSet()
+
+    private fun item(
+        node: ReviewTreeNode,
+        collapsed: Set<String>,
+    ): TreeItem<ReviewTreeNode> =
         TreeItem(node).apply {
-            isExpanded = true
-            children.setAll(node.children.map(::item))
+            isExpanded = node.file != null || node.path !in collapsed
+            children.setAll(node.children.map { item(it, collapsed) })
             if (node.file != null) fileItems[node.path] = this
         }
 
-    /** Selects [path]'s node (the app's own selection: it never scrolls the diff) and scrolls the tree if needed. */
+    /**
+     * Selects [path]'s node (the app's own selection: it never scrolls the diff), opens its folders and scrolls the
+     * tree if the row is out of view.
+     */
     private fun showFile(path: String) {
         val item = fileItems[path] ?: return
+        generateSequence(item.parent) { it.parent }.forEach { it.isExpanded = true }
         tree.selectionModel.select(item)
         val row = tree.getRow(item)
-        val visible = visibleRows()
-        val target = if (visible == null) row else treeScrollTarget(row, visible.first, visible.last)
+        tree.applyCss()
+        tree.layout()
+        val flow = tree.lookup(".virtual-flow") as? VirtualFlow<*>
+        val first = flow?.firstVisibleCell?.index
+        val last = flow?.lastVisibleCell?.index
+        val target = if (first == null || last == null) row else treeScrollTarget(row, first, last)
         if (target != null) tree.scrollTo(target.coerceAtLeast(0))
-    }
-
-    /** The rows of the tree that show completely; `null` while no cell is laid out. */
-    private fun visibleRows(): IntRange? {
-        val area = tree.localToScene(tree.layoutBounds)
-        val rows =
-            tree
-                .lookupAll(".tree-cell")
-                .filterIsInstance<TreeCell<*>>()
-                .filter { it.isVisible && !it.isEmpty && it.index >= 0 }
-                .filter {
-                    val bounds = it.localToScene(it.layoutBounds)
-                    bounds.minY >= area.minY && bounds.maxY <= area.maxY
-                }.map { it.index }
-        return if (rows.isEmpty()) null else rows.min()..rows.max()
     }
 
     private fun scrollDiffTo(path: String) {
@@ -201,12 +203,15 @@ internal class FilesPane(
         if (header >= 0) diffView.scrollToRow(header, 0.0)
     }
 
+    /** Enter: the selected file's diff, or a folder opens or closes. */
     private fun openSelected(): Boolean {
-        val file =
-            tree.selectionModel.selectedItem
-                ?.value
-                ?.file ?: return false
-        scrollDiffTo(file.path)
+        val item = tree.selectionModel.selectedItem ?: return false
+        val file = item.value?.file
+        if (file == null) {
+            item.isExpanded = !item.isExpanded
+        } else {
+            scrollDiffTo(file.path)
+        }
         return true
     }
 

@@ -2,6 +2,7 @@ package dev.sluide.codereview.window
 
 import dev.sluide.codereview.ReviewBase
 import dev.sluide.codereview.ReviewChange
+import dev.sluide.codereview.ReviewCommit
 import dev.sluide.codereview.ReviewFile
 import dev.sluide.codereview.ReviewScope
 import dev.sluide.codereview.list.ReviewDiffView
@@ -9,6 +10,8 @@ import dev.sluide.codereview.model.ExpandDirection
 import dev.sluide.codereview.model.ReviewRow
 import dev.sluide.codereview.model.ReviewSelection
 import dev.sluide.codereview.model.ReviewTreeNode
+import dev.sluide.codereview.model.load
+import dev.sluide.codereview.model.oneModifiedLine
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsStore
@@ -19,9 +22,11 @@ import javafx.event.Event
 import javafx.geometry.Rectangle2D
 import javafx.scene.Node
 import javafx.scene.Scene
+import javafx.scene.control.ContextMenu
 import javafx.scene.control.ListCell
 import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.TreeCell
+import javafx.scene.control.skin.VirtualFlow
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
@@ -29,6 +34,7 @@ import javafx.scene.input.MouseEvent
 import javafx.scene.layout.Region
 import javafx.scene.text.Text
 import javafx.stage.Stage
+import javafx.stage.Window
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -37,11 +43,13 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
+import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** A diff view whose top file the test sets and that records the scrolls the window asks for. */
@@ -82,6 +90,7 @@ class ReviewWindowPickersUiTest {
                 file("src/b.kt"),
                 file("src/c.kt"),
                 ReviewFile(ReviewChange.DELETED, "src/gone.kt"),
+                ReviewFile(ReviewChange.RENAMED, "src/new.kt", "src/old.kt"),
             ),
         )
     private val store by lazy { ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList()) }
@@ -255,6 +264,10 @@ class ReviewWindowPickersUiTest {
                     .removeSuffix(" ▾"),
             )
         }
+        // The anchor stays at c3: a second Shift+click runs from it again.
+        robot.interact { window.pickers.commitButton.fire() }
+        robot.interact { click(entryCell(window, "c2"), shift = true) }
+        robot.interact { assertEquals(ReviewSelection.Commits(0, 1), window.selection.get()) }
         robot.interact { window.pickers.commitButton.fire() }
         robot.interact { click(entryCell(window, "All changes")) }
         robot.interact { assertEquals(ReviewSelection.All, window.selection.get()) }
@@ -300,7 +313,10 @@ class ReviewWindowPickersUiTest {
     @Test
     fun `the filter text is the document's filter and the tree shows only the matches`(robot: FxRobot) {
         val window = window(robot)
-        assertEquals(listOf("a.kt", "src/b.kt", "src/c.kt", "src/gone.kt"), fx { treeFilePaths(window) }.sorted())
+        assertEquals(
+            listOf("a.kt", "src/b.kt", "src/c.kt", "src/gone.kt", "src/new.kt"),
+            fx { treeFilePaths(window) }.sorted(),
+        )
 
         robot.interact { window.files.filter.text = "SRC/B" }
 
@@ -368,14 +384,14 @@ class ReviewWindowPickersUiTest {
     fun `a viewed file shows a check mark and the counter counts it`(robot: FxRobot) {
         val window = window(robot)
         robot.interact {
-            assertEquals("0 / 4 viewed", window.files.viewed.text)
+            assertEquals("0 / 5 viewed", window.files.viewed.text)
             assertFalse(fileCell(window, "a.kt").lookup(".review-viewed-check").isVisible)
         }
 
         robot.interact { window.document.setViewed("a.kt", true) }
 
         robot.interact {
-            assertEquals("1 / 4 viewed", window.files.viewed.text)
+            assertEquals("1 / 5 viewed", window.files.viewed.text)
             assertTrue(fileCell(window, "a.kt").lookup(".review-viewed-check").isVisible)
             assertFalse(fileCell(window, "src/b.kt").lookup(".review-viewed-check").isVisible)
         }
@@ -391,6 +407,119 @@ class ReviewWindowPickersUiTest {
             assertTrue(deleted.isStrikethrough)
             assertFalse(modified.isStrikethrough)
             assertNotEquals(deleted.fill, modified.fill)
+            assertEquals("Renamed from src/old.kt", fileCell(window, "src/new.kt").tooltip.text)
+            assertNull(fileCell(window, "a.kt").tooltip)
+        }
+    }
+
+    private fun treeItems(window: ReviewWindow) = window.files.tree.root.children
+
+    private fun drawn(node: Node): List<String> = node.lookupAll(".text").filterIsInstance<Text>().map { it.text }
+
+    @Test
+    fun `underscores in a base and a subject are drawn, not eaten as mnemonics`(robot: FxRobot) {
+        source.baseList = listOf(ReviewBase("refs/heads/feature_login", "feature_login", true))
+        source.resolved = {
+            review(
+                base = ReviewBase("refs/heads/feature_login", "feature_login", true),
+                commits = listOf(ReviewCommit("c3", "c3", "fix_npe", "me", Instant.EPOCH, "c2")),
+            )
+        }
+        val window = window(robot)
+        robot.interact { window.selection.set(ReviewSelection.Commits(0, 0)) }
+
+        robot.interact {
+            assertTrue(
+                "into: feature_login" in drawn(window.pickers.baseButton),
+                drawn(window.pickers.baseButton).toString(),
+            )
+            assertTrue(
+                "c3 fix_npe ▾" in drawn(window.pickers.commitButton),
+                drawn(window.pickers.commitButton).toString(),
+            )
+            window.pickers.baseButton.show()
+        }
+        robot.interact {
+            val menu = Window.getWindows().filterIsInstance<ContextMenu>().first { it.isShowing }
+            assertTrue("feature_login (default)" in drawn(menu.scene.root), drawn(menu.scene.root).toString())
+            window.pickers.baseButton.hide()
+        }
+    }
+
+    @Test
+    fun `Enter on a file scrolls the diff to it, on a folder it opens or closes the folder without scrolling`(
+        robot: FxRobot,
+    ) {
+        val window = window(robot)
+        val tree = window.files.tree
+        val folder = fx { tree.root.children.first { it.value.file == null } }
+        val file = fx { folder.children.first { it.value.path == "src/c.kt" } }
+        robot.interact { tree.selectionModel.select(file) }
+        val before = window.top().scrolls.size
+
+        robot.interact { key(tree, KeyCode.ENTER) }
+
+        robot.interact {
+            assertEquals(before + 1, window.top().scrolls.size)
+            assertEquals(window.document.headerRow("src/c.kt") to 0.0, window.top().scrolls.last())
+        }
+        robot.interact { tree.selectionModel.select(folder) }
+        robot.interact { key(tree, KeyCode.ENTER) }
+        robot.interact {
+            assertFalse(folder.isExpanded)
+            key(tree, KeyCode.ENTER)
+        }
+        robot.interact {
+            assertTrue(folder.isExpanded)
+            assertEquals(before + 1, window.top().scrolls.size)
+        }
+    }
+
+    @Test
+    fun `the tree is not built again for row changes, and a closed folder stays closed when it is`(robot: FxRobot) {
+        val window = window(robot)
+        val tree = window.files.tree
+        val folder = fx { tree.root.children.first { it.value.file == null } }
+        robot.interact { folder.isExpanded = false }
+        val items = fx { treeItems(window).toList() }
+
+        robot.interact {
+            window.document.setViewed("a.kt", true)
+            window.document.load("a.kt", oneModifiedLine(10, 5))
+        }
+
+        robot.interact {
+            assertTrue(items.zip(treeItems(window)).all { (old, new) -> old === new }, "the same items")
+            assertFalse(folder.isExpanded)
+        }
+        robot.interact {
+            window.document.setFiles(listOf(file("a.kt"), file("src/b.kt"), file("src/z.kt"), file("x/y.kt")))
+        }
+        robot.interact {
+            val now = tree.root.children.first { it.value.path == "src" }
+            assertFalse(now.isExpanded, "still closed")
+            assertTrue(
+                tree.root.children
+                    .first { it.value.path == "x" }
+                    .isExpanded,
+                "a new folder is open",
+            )
+        }
+    }
+
+    @Test
+    fun `the tree scrolls to the diff's top file only when it is out of view`(robot: FxRobot) {
+        source.files = (0 until 100).map { file("d/f%03d.kt".format(it)) }
+        val window = window(robot)
+        val tree = window.files.tree
+        val flow = { tree.lookup(".virtual-flow") as VirtualFlow<*> }
+
+        robot.interact { window.top().top.set("d/f099.kt") }
+
+        robot.interact {
+            val row = tree.getRow(tree.selectionModel.selectedItem)
+            assertTrue(flow().lastVisibleCell.index >= row, "the row is in view")
+            assertTrue(flow().firstVisibleCell.index > 0, "scrolled")
         }
     }
 }

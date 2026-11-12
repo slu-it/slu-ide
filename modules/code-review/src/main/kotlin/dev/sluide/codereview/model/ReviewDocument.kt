@@ -43,6 +43,11 @@ internal class ReviewDocument : ReviewLineSource {
     /** Shows only the files whose path contains it, ignoring case ([matchesReviewFilter]). */
     val filter: StringProperty = SimpleStringProperty("")
 
+    private val version = ReadOnlyIntegerWrapper(0)
+
+    /** Counts the calls of [setFiles], so that a view of the file list can tell when to build it again. */
+    val filesVersion: ReadOnlyIntegerProperty = version.readOnlyProperty
+
     private val viewed = ReadOnlyIntegerWrapper(0)
 
     /** The number of viewed files, the filtered ones included. */
@@ -73,6 +78,7 @@ internal class ReviewDocument : ReviewLineSource {
         }
         rebuildAll()
         countViewed()
+        version.set(version.get() + 1)
     }
 
     /**

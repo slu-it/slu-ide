@@ -2,9 +2,7 @@ package dev.sluide.codereview.window
 
 import dev.sluide.codereview.ResolvedReview
 import dev.sluide.codereview.ReviewBase
-import dev.sluide.codereview.ReviewChange
 import dev.sluide.codereview.ReviewCommit
-import dev.sluide.codereview.ReviewFile
 import dev.sluide.codereview.model.ReviewSelection
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -46,7 +44,8 @@ class ReviewPickersTest {
         "172800,2 days ago",
         "2592000,30 days ago",
         "2678400,2026-10-12",
-        "-100,just now",
+        "-30,just now",
+        "-61,2026-11-12",
     )
     fun `the relative date`(
         seconds: Long,
@@ -96,6 +95,17 @@ class ReviewPickersTest {
     }
 
     @Test
+    fun `a Shift+Up or Down range grows, shrinks and reverses around its start`() {
+        assertEquals(RangeStep(4, 3..4), rangeStep(3, 3, 1, 2, 6))
+        assertEquals(RangeStep(5, 3..5), rangeStep(3, 4, 1, 2, 6))
+        assertEquals(RangeStep(4, 3..4), rangeStep(3, 5, -1, 2, 6))
+        assertEquals(RangeStep(3, 3..3), rangeStep(3, 4, -1, 2, 6))
+        assertEquals(RangeStep(2, 2..3), rangeStep(3, 3, -1, 2, 6))
+        assertEquals(RangeStep(2, 2..3), rangeStep(3, 2, -1, 2, 6))
+        assertEquals(RangeStep(6, 5..6), rangeStep(5, 6, 1, 2, 6))
+    }
+
+    @Test
     fun `the base groups and the button text`() {
         val a = ReviewBase("refs/heads/main", "main", true)
         val b = ReviewBase("refs/heads/x", "x", false)
@@ -104,25 +114,6 @@ class ReviewPickersTest {
         assertEquals(listOf(a, c) to listOf(b), baseGroups(listOf(a, b, c)))
         assertEquals("into: main", baseButtonText(review))
         assertEquals("choose a base", baseButtonText(review.copy(base = null)))
-        assertEquals("choose a base", baseButtonText(null))
-    }
-
-    @Test
-    fun `the tree names are coloured by change and renames carry a tooltip`() {
-        assertEquals("review-change-added", nameStyleClass(ReviewChange.ADDED))
-        assertEquals("review-change-deleted", nameStyleClass(ReviewChange.DELETED))
-        assertEquals("review-change-modified", nameStyleClass(ReviewChange.RENAMED))
-        assertEquals("review-change-modified", nameStyleClass(ReviewChange.COPIED))
-        assertEquals("Renamed from a.kt", changeTooltip(ReviewFile(ReviewChange.RENAMED, "b.kt", "a.kt")))
-        assertEquals("Copied from a.kt", changeTooltip(ReviewFile(ReviewChange.COPIED, "b.kt", "a.kt")))
-        assertNull(changeTooltip(ReviewFile(ReviewChange.MODIFIED, "b.kt")))
-    }
-
-    @Test
-    fun `the tree scrolls only when the row is out of view`() {
-        assertNull(treeScrollTarget(5, 0, 10))
-        assertNull(treeScrollTarget(10, 0, 10))
-        assertEquals(28, treeScrollTarget(30, 0, 10))
-        assertEquals(0, treeScrollTarget(1, 5, 10))
+        assertEquals("", baseButtonText(null))
     }
 }
