@@ -35,7 +35,8 @@
 
 /*
  * The files pane. The change colours are those of the git log's changes (git-log.css, -git-change-*; keep in sync);
- * the dark values are in the media block below.
+ * the dark values are in the media block below. The diff list (review-diff.css) repeats the colours under its own
+ * variable names: it is a control of its own that is used without this sheet, so it cannot rely on these.
  */
 .review-window {
     -review-change-added: #2e7d32;
@@ -72,7 +73,8 @@
 .review-change-modified { -fx-text-fill: -review-change-modified; }
 .review-change-deleted { -fx-text-fill: -review-change-deleted; }
 
-.review-change-deleted .text {
+/* Only the files pane's names are struck through, not the file headers of the diff. */
+.review-files-tree .review-change-deleted .text {
     -fx-strikethrough: true;
 }
 

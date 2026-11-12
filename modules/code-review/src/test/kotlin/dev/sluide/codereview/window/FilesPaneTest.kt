@@ -12,7 +12,7 @@ class FilesPaneTest {
         assertEquals("review-change-added", nameStyleClass(ReviewChange.ADDED))
         assertEquals("review-change-deleted", nameStyleClass(ReviewChange.DELETED))
         assertEquals("review-change-modified", nameStyleClass(ReviewChange.RENAMED))
-        assertEquals("review-change-modified", nameStyleClass(ReviewChange.COPIED))
+        assertEquals("review-change-added", nameStyleClass(ReviewChange.COPIED))
         assertEquals("Renamed from a.kt", changeTooltip(ReviewFile(ReviewChange.RENAMED, "b.kt", "a.kt")))
         assertEquals("Copied from a.kt", changeTooltip(ReviewFile(ReviewChange.COPIED, "b.kt", "a.kt")))
         assertNull(changeTooltip(ReviewFile(ReviewChange.MODIFIED, "b.kt")))

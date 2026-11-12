@@ -31,10 +31,13 @@ import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
 import org.kordamp.ikonli.materialdesign2.MaterialDesignM
 
-/** The style class colouring the name of a file with [change]; renamed and copied files count as modified. */
+/**
+ * The style class colouring the name of a file with [change]; a copy is a new file like an added one (as in the file
+ * headers), a renamed one counts as modified.
+ */
 internal fun nameStyleClass(change: ReviewChange): String =
     when (change) {
-        ReviewChange.ADDED -> "review-change-added"
+        ReviewChange.ADDED, ReviewChange.COPIED -> "review-change-added"
         ReviewChange.DELETED -> "review-change-deleted"
         else -> "review-change-modified"
     }
