@@ -12,7 +12,7 @@ new ones too (ADR 0032).
 
 ## Commands
 - Build and test everything: `.claude/scripts/full-build.sh` (`./gradlew build -q` on a pool of repaired displays, then the
-  docs index check; refuses while another Gradle build runs in the tree). Unit tests in `test`, TestFX UI tests in
+  docs index and unused-imports checks; refuses while another Gradle build runs in the tree). Unit tests in `test`, TestFX UI tests in
   `uiTest`, which needs a display; `-q` prints only errors and failed tests with their exception, so read the output in
   full instead of tailing
 - Subset of tests: `.claude/scripts/verify.sh <TestClass|:module|--changed>` (format, compile, run, short failure
@@ -33,7 +33,8 @@ new ones too (ADR 0032).
   (`docs/testing.md` "Choosing the test level", ADR 0084, `.claude/rules/testing.md`).
 - Significant decisions get an ADR (`docs/adr/template.md`), new features a page in `docs/features/`, explored but
   undecided ideas a page in `docs/ideas/`;
-  add every new doc to `docs/index.md` as a table row with a short summary and keywords.
+  add every new doc to `docs/index.md` as a table row with a short summary and keywords. A fix that replaces a
+  mechanism updates the ADR and the feature page that describe the old one.
 - Files over ~400 lines (big UI test classes; `.claude/scripts/check-file-sizes.sh` lists production files over 600):
   find the place with Grep, then Read only that range (`offset`/`limit`). Don't read whole test classes to add one
   test; read a neighbouring test as a pattern. Don't grow a production file past 600 lines; split it by

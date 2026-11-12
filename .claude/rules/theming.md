@@ -25,5 +25,6 @@ JavaFX stylesheet and follows this rule.
   rule where that matters.
 - Text inputs: `theme.css`'s `.text-input` fill and border; a control drawing its own input box copies the values
   with a "keep in sync" comment, as `git-log.css` does. Change both together.
-- Check the result in the real app in the dark theme (`.claude/scripts/run-app.sh`), and in light when colours
-  changed.
+- Colours are only verified in the real app, in the dark theme and in light when colours changed. The main session
+  does that (`delegate` skill, "Real-app check"); a subagent does not start the app and names in its report what
+  needs looking at.
