@@ -23,6 +23,7 @@ import javafx.beans.property.ObjectProperty
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.collections.ObservableList
+import javafx.geometry.Pos
 import javafx.geometry.Rectangle2D
 import javafx.scene.Node
 import javafx.scene.Scene
@@ -119,6 +120,9 @@ internal class ReviewWindow(
     internal val reloadButton = Button("Reload").apply { isFocusTraversable = false }
     internal val overlay = Label().apply { styleClass += "review-overlay" }
 
+    /** In the overlay of a failed load: reads the review again, which also works after a failed first resolve. */
+    internal val retryButton = Button("Reload").apply { isFocusTraversable = false }
+
     val stage: Stage
 
     init {
@@ -189,6 +193,9 @@ internal class ReviewWindow(
         diffView.node.visibleProperty().bind(loader.message.isNull)
         overlay.textProperty().bind(loader.message)
         overlay.visibleProperty().bind(loader.message.isNotNull)
+        retryButton.visibleProperty().bind(loader.failed)
+        retryButton.managedProperty().bind(retryButton.visibleProperty())
+        retryButton.setOnAction { reload() }
     }
 
     private fun wireToolbar() {
@@ -229,7 +236,12 @@ internal class ReviewWindow(
         ideWindow: Window?,
         bounds: Rectangle2D,
     ): Stage {
-        val diffArea = StackPane(diffView.node, overlay)
+        val overlayBox =
+            VBox(overlay, retryButton).apply {
+                alignment = Pos.CENTER
+                isPickOnBounds = false
+            }
+        val diffArea = StackPane(diffView.node, overlayBox)
         val split = SplitPane(filesPane, diffArea).apply { setDividerPositions(FILES_SHARE) }
         VBox.setVgrow(split, Priority.ALWAYS)
         val content = VBox(toolbar, noticeBar, findBarSlot, split).apply { styleClass += "review-window" }

@@ -64,6 +64,7 @@ internal class ReviewLoader(
 ) {
     private val resolvedProperty = ReadOnlyObjectWrapper<ResolvedReview?>(null)
     private val messageProperty = ReadOnlyStringWrapper(null)
+    private val failedProperty = ReadOnlyBooleanWrapper(false)
     private val loadingProperty = ReadOnlyBooleanWrapper(false)
     private val staleProperty = ReadOnlyBooleanWrapper(false)
 
@@ -78,6 +79,9 @@ internal class ReviewLoader(
 
     /** What replaces the diff (an empty or failed review); `null` while there are files to show. */
     val message: ReadOnlyStringProperty = messageProperty.readOnlyProperty
+
+    /** Whether the [message] is a failure to read the review, which a new load may fix. */
+    val failed: ReadOnlyBooleanProperty = failedProperty.readOnlyProperty
 
     /** Whether a load is running. */
     val loading: ReadOnlyBooleanProperty = loadingProperty.readOnlyProperty
@@ -364,6 +368,7 @@ internal class ReviewLoader(
         dispatch {
             if (!cancellation.isCancelled) {
                 messageProperty.set("Could not read the review: ${reason.orEmpty()}")
+                failedProperty.set(true)
                 pendingFingerprint = null
                 loadingProperty.set(false)
             }
@@ -389,6 +394,7 @@ internal class ReviewLoader(
         scrollRestore = null
         firstStep = null
         loadingProperty.set(true)
+        failedProperty.set(false)
         if (full) {
             staleProperty.set(false)
             fingerprint = null

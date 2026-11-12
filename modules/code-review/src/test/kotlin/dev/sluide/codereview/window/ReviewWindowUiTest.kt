@@ -245,6 +245,18 @@ class ReviewWindowUiTest {
     }
 
     @Test
+    fun `the whitespace toggle keeps the header of the file at the top`(robot: FxRobot) {
+        val window = window(robot)
+        loaded(window)
+        val fake = window.fake()
+        robot.interact { fake.place = window.document.rows.indexOfFirst { it is ReviewRow.SplitLine } to 4.0 }
+
+        robot.interact { window.hideWhitespace.fire() }
+
+        assertEquals(fx { window.document.headerRow("a.kt") } to 0.0, fake.scrolls.last())
+    }
+
+    @Test
     fun `the diff is in the editor font`(robot: FxRobot) {
         val window = window(robot)
 
@@ -268,7 +280,18 @@ class ReviewWindowUiTest {
         eventually { assertEquals("Could not read the review: bad ref", fx { failed.overlay.text }) }
         robot.interact {
             assertTrue(failed.overlay.isVisible)
+            assertTrue(failed.retryButton.isVisible)
             assertFalse(failed.diffView.node.isVisible)
+            assertFalse(empty.retryButton.isVisible, "an empty review has nothing to retry")
+        }
+        // The cause is gone: Reload reads the review again, also after a failed first resolve.
+        source.resolved = { review() }
+        source.files = listOf(file("a.kt"))
+        robot.interact { failed.retryButton.fire() }
+        loaded(failed)
+        robot.interact {
+            assertFalse(failed.overlay.isVisible)
+            assertFalse(failed.retryButton.isVisible)
         }
 
         source.resolved = { review() }
