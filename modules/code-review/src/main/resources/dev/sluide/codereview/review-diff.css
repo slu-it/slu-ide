@@ -10,6 +10,11 @@
     -git-change-modified: #1e63c8;
     -git-change-deleted: #8a8a8a;
     -fx-background-color: -fx-control-inner-background;
+    /* The diff backgrounds of syntax.css (.diff-removed, .diff-modified, .diff-added; keep in sync) and the tint. */
+    -review-removed: #e6e6e6;
+    -review-modified: #dbe7fb;
+    -review-added: #d9f2d9;
+    -review-selection: rgba(30, 99, 200, 0.28);
 }
 
 /* Text without a token class: the editor's base colour (keep in sync with TextExt in syntax.css). */
@@ -28,9 +33,25 @@
     -fx-opacity: 0.45;
 }
 
-/* Selected lines: a tint over the diff colours, so the text stays readable (the dark one is in the media block). */
+/*
+ * Selected lines: the colour of the change with a tint over it, so that the text stays readable and the change stays
+ * visible. The colours are looked up from the variables above (dark values in the media block), because a two-class
+ * rule inside the media block would also apply in light.
+ */
 .review-selected {
-    -fx-background-color: rgba(30, 99, 200, 0.28);
+    -fx-background-color: -fx-control-inner-background, -review-selection;
+}
+
+.diff-removed.review-selected {
+    -fx-background-color: -review-removed, -review-selection;
+}
+
+.diff-modified.review-selected {
+    -fx-background-color: -review-modified, -review-selection;
+}
+
+.diff-added.review-selected {
+    -fx-background-color: -review-added, -review-selection;
 }
 
 .review-line-text {
@@ -102,6 +123,10 @@
         -git-change-added: #5cbf62;
         -git-change-modified: #5a9ae6;
         -git-change-deleted: #9a9a9a;
+        -review-removed: #3c3f41;
+        -review-modified: #263a57;
+        -review-added: #2a4530;
+        -review-selection: rgba(90, 154, 230, 0.35);
     }
 
     .review-plain {
@@ -110,10 +135,6 @@
 
     .review-changed-words {
         -fx-fill: #35598c;
-    }
-
-    .review-selected {
-        -fx-background-color: rgba(90, 154, 230, 0.35);
     }
 
     .review-sticky {

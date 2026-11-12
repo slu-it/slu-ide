@@ -64,22 +64,29 @@ internal class LineSelection private constructor(
         val from = rows.indices.firstOrNull { rows[it].path == path && pivot in anchorsOf(rows[it], side) }
         if (from == null || lineAnchor(target, side) == null) return at(rows, index, clickedSide)
         val range = minOf(from, index)..maxOf(from, index)
-        val anchors = range.mapNotNull { if (rows[it].path == path) lineAnchor(rows[it], side) else null }
-        return LineSelection(path, side, pivot, anchors.toSet())
+        val anchors = range.filter { rows[it].path == path }.mapNotNull { lineAnchor(rows[it], side) }
+        return LineSelection(path, side, pivot, LinkedHashSet(anchors))
     }
 
-    /** The texts of the selected lines of [rows] joined by newlines: no signs, no numbers. */
+    /** The sides of [row] whose line is selected: in the split view the halves to paint, empty for other rows. */
+    fun sidesOf(row: ReviewRow): List<ReviewSide> =
+        if (row.path != path) emptyList() else anchorsOf(row, side).filter { it in lines }.mapNotNull { it.side }
+
+    /**
+     * The texts of the selected lines of [rows] joined by newlines: no signs, no numbers, in the order they were
+     * selected (a line that is not shown any more is left out).
+     */
     fun text(
         rows: List<ReviewRow>,
         source: ReviewLineSource,
-    ): String =
-        rows(rows)
-            .mapNotNull { lineAnchor(rows[it], side) }
-            .joinToString("\n") { anchor ->
-                val line = anchor.line
-                val anchorSide = anchor.side
-                if (line == null || anchorSide == null) "" else source.line(path, anchorSide, line).text
-            }
+    ): String {
+        val shown = rows.filter { it.path == path }.flatMap { anchorsOf(it, side) }.toSet()
+        return lines.filter { it in shown }.joinToString("\n") { anchor ->
+            val line = anchor.line
+            val anchorSide = anchor.side
+            if (line == null || anchorSide == null) "" else source.line(path, anchorSide, line).text
+        }
+    }
 
     companion object {
         /** A click on row [index] ([clickedSide] as in [extend]); `null` when the row has no line there. */

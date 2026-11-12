@@ -77,7 +77,7 @@ internal class DiffInteractions(
     private fun hit(target: Any?): Hit? {
         var child: Node? = null
         var node = target as? Node
-        while (node != null) {
+        while (node != null && node !== host.owner) {
             val index = host.indexOfCell(node)
             if (index >= 0) {
                 val part = child?.let { c -> (node as? Parent)?.childrenUnmodifiable?.indexOf(c) }
@@ -129,6 +129,7 @@ internal class DiffInteractions(
     }
 
     fun onContextMenu(event: ContextMenuEvent) {
+        if (event.isKeyboardTrigger) return keyboardMenu(event)
         val at = hit(event.target) ?: return
         val row = rows[at.index]
         menu?.hide()
@@ -143,11 +144,22 @@ internal class DiffInteractions(
                 val keep =
                     selected != null &&
                         at.index in selected.rows(rows) &&
-                        (side == null || lineAnchor(row, selected.side)?.side == side)
+                        (side == null || side in selected.sidesOf(row))
                 if (!keep) select(LineSelection.at(rows, at.index, side) ?: return)
                 lineItems()
             }
         menu = ContextMenu(*items.toTypedArray()).also { it.show(host.owner, event.screenX, event.screenY) }
+        event.consume()
+    }
+
+    /** Shift+F10 or the menu key on the focused list: the menu of the selected lines, at the first one shown. */
+    private fun keyboardMenu(event: ContextMenuEvent) {
+        val selected = selection?.rows(rows).orEmpty()
+        if (selected.isEmpty()) return
+        val anchor = selected.firstNotNullOfOrNull { host.cell(it) } ?: host.owner
+        val at = anchor.localToScreen(anchor.layoutBounds.minX, anchor.layoutBounds.minY) ?: return
+        menu?.hide()
+        menu = ContextMenu(*lineItems().toTypedArray()).also { it.show(host.owner, at.x, at.y) }
         event.consume()
     }
 
@@ -196,7 +208,8 @@ internal class DiffInteractions(
             val valid = index in rows.indices && rowKey(rows[index]) == key
             if (valid && (host.cell(index) != null || host.firstVisibleRow() == index)) return index
         }
-        return selection?.rows(rows)?.firstOrNull() ?: host.viewportRow()
+        val selected = selection?.rows(rows).orEmpty()
+        return if (selected.any { host.cell(it) != null }) selected.first() else host.viewportRow()
     }
 
     private fun select(next: LineSelection?) {
@@ -209,6 +222,7 @@ internal class DiffInteractions(
     fun rowsChanged() = refresh()
 
     private fun refresh() {
+        if (selection == null && selectedKeys.isEmpty()) return
         val indices = selection?.rows(rows).orEmpty()
         if (indices.isEmpty()) selection = null
         selectedKeys = indices.mapTo(HashSet()) { rowKey(rows[it]) }
@@ -222,9 +236,11 @@ internal class DiffInteractions(
     ) {
         val pane = cell as? LineRowPane ?: return
         val selected = rowKey(row) in selectedKeys
-        val half = if (row is ReviewRow.SplitLine) lineAnchor(row, selection?.side)?.side else null
+        val halves = if (row is ReviewRow.SplitLine) selection?.sidesOf(row).orEmpty() else emptyList()
         pane.childrenUnmodifiable.forEachIndexed { i, child ->
-            val on = selected && (half == null || (if (i < 2) ReviewSide.ORIGINAL else ReviewSide.CURRENT) == half)
+            val on =
+                selected &&
+                    (row !is ReviewRow.SplitLine || (if (i < 2) ReviewSide.ORIGINAL else ReviewSide.CURRENT) in halves)
             if (on) {
                 if (SELECTED !in child.styleClass) child.styleClass += SELECTED
             } else {
@@ -273,7 +289,7 @@ internal class DiffInteractions(
         line: Int?,
     ): MenuItem {
         val lineActions = actions()
-        val exists = lineActions != null && Files.exists(lineActions.root.resolve(path))
+        val exists = lineActions != null && Files.isRegularFile(lineActions.root.resolve(path))
         return MenuItem(if (exists) "Open in Editor" else "Open in Editor (not in the working tree)").apply {
             isDisable = !exists
             setOnAction { lineActions?.let { it.openFile(it.root.resolve(path), line) } }

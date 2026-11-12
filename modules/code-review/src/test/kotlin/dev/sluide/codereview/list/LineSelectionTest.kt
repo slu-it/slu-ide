@@ -139,6 +139,19 @@ class LineSelectionTest {
 
         assertEquals(1, inSplit.size)
         assertEquals(2, (doc.rows[inSplit.single()] as ReviewRow.SplitLine).original)
+        // The split row pairs o2 with c2, but only the old line was selected: its text and its half.
+        assertEquals("o2", selection.text(doc.rows, doc))
+        assertEquals(listOf(ReviewSide.ORIGINAL), selection.sidesOf(doc.rows[inSplit.single()]))
+
+        doc.layout.set(ReviewLayout.UNIFIED)
+        val mixed = assertNotNull(selection.extend(doc.rows, doc.indexOf("a.txt", null, 2), null))
+        doc.layout.set(ReviewLayout.SPLIT)
+        assertEquals("o2\no3\nc2", mixed.text(doc.rows, doc))
+        assertEquals(
+            listOf(ReviewSide.ORIGINAL, ReviewSide.CURRENT),
+            mixed.sidesOf(doc.rows[doc.indexOf("a.txt", 2, 2)]).sorted(),
+        )
+        doc.layout.set(ReviewLayout.UNIFIED)
 
         doc.setCollapsed("a.txt", true)
         assertEquals(emptyList(), selection.rows(doc.rows))
