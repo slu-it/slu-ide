@@ -409,4 +409,21 @@ class ReviewDocumentTest {
             )
         }
     }
+
+    @Test
+    fun `an unreadable file shows its notice until content arrives or whitespace is hidden`() {
+        val document = document("a.kt" to oneModifiedLine(10, 5), "b.kt" to oneModifiedLine(10, 5))
+
+        document.setUnreadable("a.kt")
+        document.setUnreadable("missing.kt")
+
+        assertEquals(listOf("N UNREADABLE"), document.bodyOf("a.kt"))
+        assertEquals(1, document.rows.count { it.path == "a.kt" && it is ReviewRow.Notice })
+        document.load("a.kt", oneModifiedLine(10, 5))
+        assertEquals(false, document.bodyOf("a.kt").contains("N UNREADABLE"))
+
+        document.setUnreadable("b.kt")
+        document.ignoreWhitespace.set(true)
+        assertEquals(listOf("N LOADING"), document.bodyOf("b.kt"))
+    }
 }

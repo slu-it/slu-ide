@@ -54,6 +54,7 @@ internal class ReviewDocument : ReviewLineSource {
         ignoreWhitespace.addListener { _, _, _ ->
             for (state in states.values) {
                 state.prepared = null
+                state.unreadable = false
                 state.expansions.clear()
             }
             rebuildAll()
@@ -102,8 +103,18 @@ internal class ReviewDocument : ReviewLineSource {
         // The same texts keep their gaps; hiding whitespace has already forgotten the revealed lines.
         if (state.prepared?.contentKey != prepared.contentKey) state.expansions.clear()
         state.prepared = prepared
+        state.unreadable = false
         replaceRows(state)
         countViewed()
+    }
+
+    /** Shows the file at [path] as one git could not read ([NoticeKind.UNREADABLE]) instead of its lines. */
+    fun setUnreadable(path: String) {
+        val state = states[path] ?: return
+        state.prepared = null
+        state.unreadable = true
+        state.expansions.clear()
+        replaceRows(state)
     }
 
     /** Reveals [direction] of the [gap]-th unchanged run of the file at [path]. */
@@ -241,6 +252,7 @@ internal class ReviewDocument : ReviewLineSource {
 
     private fun body(state: FileState): List<ReviewRow> {
         val path = state.file.path
+        if (state.unreadable) return listOf(ReviewRow.Notice(path, NoticeKind.UNREADABLE))
         val prepared = state.prepared ?: return listOf(ReviewRow.Notice(path, NoticeKind.LOADING))
         return when (val body = prepared.body) {
             PreparedBody.Binary -> {
@@ -291,6 +303,7 @@ internal class ReviewDocument : ReviewLineSource {
         var file: ReviewFile,
     ) {
         var prepared: PreparedFile? = null
+        var unreadable = false
         var viewed = false
 
         /** The content key the file had when it was marked viewed; `null` when marked while loading. */
