@@ -42,7 +42,8 @@ internal sealed interface PreparedBody {
         val originalTokens: List<List<HighlightSpan>>,
         val currentTokens: List<List<HighlightSpan>>,
         val words: WordChanges,
-        val ignoreWhitespace: Boolean,
+        /** Both texts are equal; else a text without changes differs only in the whitespace git was told to ignore. */
+        val identical: Boolean,
     ) : PreparedBody {
         fun lines(side: ReviewSide) = if (side == ReviewSide.ORIGINAL) originalLines else currentLines
 
@@ -56,7 +57,7 @@ internal sealed interface PreparedBody {
  * Prepares [content] of [file] for the document; pure and thread-safe, run on the review thread. Each text is
  * highlighted once as a whole with [highlighter] (not when `null` or the text is over [CodeEditors.HIGHLIGHT_LIMIT])
  * and the tokens are cut per line; [ignoreWhitespace] tells that git hid whitespace changes, so the word diff ignores
- * them too. [file] is not read yet; it is part of the API for rules by file (ADR 0168).
+ * them too. [file] is not read yet; it is in the signature the other packages of this module were planned against.
  */
 @Suppress("UNUSED_PARAMETER")
 internal fun prepareFile(
@@ -105,7 +106,7 @@ private fun prepareText(
             lineTokens(content.original, originalLines, highlighter),
             lineTokens(content.current, currentLines, highlighter),
             wordChanges(originalLines, currentLines, changes, ignoreWhitespace),
-            ignoreWhitespace,
+            content.original == content.current,
         )
     return PreparedFile(
         added = changes.sumOf { it.current.count() },

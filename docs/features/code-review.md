@@ -53,8 +53,9 @@ all changed files in one long scroll beside a filterable file tree, without push
   and the font are the editor's.
 - Large files (over 500 changed lines) and lock or minified files (`package-lock.json`, `yarn.lock`,
   `pnpm-lock.yaml`, `gradle.lockfile`, `Cargo.lock`, `poetry.lock`, `go.sum`, `*.min.js`, `*.min.css`) start
-  collapsed with **Load diff**. Binary files, files over 5 MB and submodules show a notice instead of lines; a file
-  renamed without changes says so.
+  collapsed with **Load diff (N lines)**. Binary files, files over 5 MB and submodules show a notice instead of
+  lines, and so does a file without changed lines: "Renamed without changes", "Copied without changes", "Only
+  whitespace changes" (with Hide whitespace) or "No content changes" (e.g. only its mode changed).
 - F7 / Shift+F7 move to the next or previous change, Alt+Down / Alt+Up (Option on macOS) to the next or previous file.
 
 ## Lines

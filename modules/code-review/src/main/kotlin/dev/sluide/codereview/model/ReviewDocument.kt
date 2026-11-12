@@ -262,7 +262,7 @@ internal class ReviewDocument : ReviewLineSource {
                     }
 
                     !state.diffLoaded && startsCollapsed(path, changed) -> {
-                        listOf(ReviewRow.Notice(path, NoticeKind.LOAD_DIFF, "$changed changed lines"))
+                        listOf(ReviewRow.Notice(path, NoticeKind.LOAD_DIFF, "$changed"))
                     }
 
                     else -> {
@@ -273,13 +273,15 @@ internal class ReviewDocument : ReviewLineSource {
         }
     }
 
+    /** Why a text file shows no lines: different texts differ only in ignored whitespace; equal ones by the change. */
     private fun noChangeDetail(
         file: ReviewFile,
         text: PreparedBody.Text,
     ): String =
         when {
-            file.change == ReviewChange.RENAMED || file.change == ReviewChange.COPIED -> "Renamed without changes"
-            text.ignoreWhitespace -> "Only whitespace changes"
+            !text.identical -> "Only whitespace changes"
+            file.change == ReviewChange.RENAMED -> "Renamed without changes"
+            file.change == ReviewChange.COPIED -> "Copied without changes"
             else -> "No content changes"
         }
 

@@ -91,7 +91,7 @@ class ReviewDocumentTest {
     fun `lock and minified files start behind Load diff`(path: String) {
         val document = document(path to oneModifiedLine(10, 5))
 
-        assertEquals(listOf("N LOAD_DIFF 2 changed lines"), document.bodyOf(path))
+        assertEquals(listOf("N LOAD_DIFF 2"), document.bodyOf(path))
     }
 
     @ParameterizedTest
@@ -110,7 +110,7 @@ class ReviewDocumentTest {
                 "limit.kt" to textDiff(300, 300, LineChange(0..249, 0..249)),
             )
 
-        assertEquals(listOf("N LOAD_DIFF 501 changed lines"), document.bodyOf("big.kt"))
+        assertEquals(listOf("N LOAD_DIFF 501"), document.bodyOf("big.kt"))
         assertEquals("S 0 0 M", document.bodyOf("limit.kt").first())
     }
 
@@ -342,6 +342,9 @@ class ReviewDocumentTest {
         fun notices(): List<Arguments> {
             val modified = modified("a.kt")
             val unchanged = ReviewFileContent.Text("a\n", "a\n", emptyList())
+            // What git gives with -w for a file whose only change is whitespace.
+            val whitespace = ReviewFileContent.Text("a b\n", "a  b \n", emptyList())
+            val renamed = ReviewFile(ReviewChange.RENAMED, "a.kt", "b.kt")
             return listOf(
                 Arguments.of("binary", modified, ReviewFileContent.Binary, false, "N BINARY"),
                 Arguments.of("too large", modified, ReviewFileContent.TooLarge, false, "N TOO_LARGE"),
@@ -353,20 +356,28 @@ class ReviewDocumentTest {
                     "N SUBMODULE abc1234 → none",
                 ),
                 Arguments.of("unchanged", modified, unchanged, false, "N NO_CONTENT_CHANGE No content changes"),
-                Arguments.of("whitespace", modified, unchanged, true, "N NO_CONTENT_CHANGE Only whitespace changes"),
                 Arguments.of(
-                    "renamed",
-                    ReviewFile(ReviewChange.RENAMED, "a.kt", "b.kt"),
+                    "mode change, whitespace hidden",
+                    ReviewFile(ReviewChange.TYPE_CHANGED, "a.kt"),
                     unchanged,
                     true,
-                    "N NO_CONTENT_CHANGE Renamed without changes",
+                    "N NO_CONTENT_CHANGE No content changes",
+                ),
+                Arguments.of("whitespace", modified, whitespace, true, "N NO_CONTENT_CHANGE Only whitespace changes"),
+                Arguments.of("renamed", renamed, unchanged, true, "N NO_CONTENT_CHANGE Renamed without changes"),
+                Arguments.of(
+                    "renamed, whitespace",
+                    renamed,
+                    whitespace,
+                    true,
+                    "N NO_CONTENT_CHANGE Only whitespace changes",
                 ),
                 Arguments.of(
                     "copied",
                     ReviewFile(ReviewChange.COPIED, "a.kt", "b.kt"),
                     unchanged,
                     false,
-                    "N NO_CONTENT_CHANGE Renamed without changes",
+                    "N NO_CONTENT_CHANGE Copied without changes",
                 ),
             )
         }
