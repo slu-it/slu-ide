@@ -335,18 +335,20 @@ class ReviewDocumentTest {
     fun `updates of one file change only that file's rows, in one change each`(filter: String) {
         val document = updatesDocument(filter)
         for (update in updatesOf("b.kt")) {
+            // Taken from the rows themselves, not from the document's own offsets.
             val before = document.rows.toList()
-            val bStart = document.headerRow("b.kt")
-            val bEnd = document.headerRow("c.kt")
+            val bStart = before.indexOfFirst { it.path == "b.kt" }
+            val bEnd = before.indexOfFirst { it.path == "c.kt" }
 
             val changes = document.changesOf(update)
 
             val after = document.rows.toList()
-            val newEnd = document.headerRow("c.kt")
+            val newEnd = after.indexOfFirst { it.path == "c.kt" }
             assertEquals(listOf("$bStart ${bEnd - bStart} ${newEnd - bStart}"), changes)
             assertEquals(before.subList(0, bStart), after.subList(0, bStart))
             assertEquals(before.subList(bEnd, before.size), after.subList(newEnd, after.size))
             assertTrue(after.subList(bStart, newEnd).all { it.path == "b.kt" })
+            assertEquals(bStart, document.headerRow("b.kt"))
         }
     }
 
