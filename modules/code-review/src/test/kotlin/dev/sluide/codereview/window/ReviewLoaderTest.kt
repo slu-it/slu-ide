@@ -53,6 +53,9 @@ internal class FakeSource(
     var resolveHook: (ReviewCancellation) -> Unit = {}
     var fileDiffsHook: (List<ReviewFile>, Boolean, ReviewCancellation) -> Unit = { _, _, _ -> }
     var missing = emptySet<String>()
+
+    /** The line count of every file's text. */
+    var lines = 10
     var print: String? = "fp1"
 
     val scopes = CopyOnWriteArrayList<ReviewScope>()
@@ -94,7 +97,7 @@ internal class FakeSource(
     ): Map<String, ReviewFileContent> {
         diffCalls += files.map { it.path } to ignoreWhitespace
         fileDiffsHook(files, ignoreWhitespace, cancellation)
-        return files.filter { it.path !in missing }.associate { it.path to oneModifiedLine(10, 5) }
+        return files.filter { it.path !in missing }.associate { it.path to oneModifiedLine(lines, 5) }
     }
 
     override fun fingerprint(
@@ -106,16 +109,10 @@ internal class FakeSource(
     }
 }
 
-/**
- * A viewport like the real list's: with [async] a scroll is applied only at the next [layout], and [firstVisible] is
- * the place until then.
- */
-internal class FakeViewport(
-    private val async: Boolean = false,
-) : ReviewViewport {
+/** A viewport like the real list's: [firstVisible] is the place the last scroll asked for, or where the test puts it. */
+internal class FakeViewport : ReviewViewport {
     var place = 0 to 0.0
     val scrolls = mutableListOf<Pair<Int, Double>>()
-    private var pending: Pair<Int, Double>? = null
 
     override fun firstVisible() = place
 
@@ -124,13 +121,7 @@ internal class FakeViewport(
         offset: Double,
     ) {
         scrolls += index to offset
-        if (async) pending = index to offset else place = index to offset
-    }
-
-    /** The list's layout pass: applies the last scroll asked for. */
-    fun layout() {
-        pending?.let { place = it }
-        pending = null
+        place = index to offset
     }
 }
 

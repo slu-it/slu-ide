@@ -35,21 +35,27 @@ internal class ReviewPrefs(
         val written =
             store.updateShared { root ->
                 val review = (root.get(FIELD) as? ObjectNode) ?: root.objectNode()
-                if (layout ==
-                    ReviewLayout.SPLIT
-                ) {
-                    review.remove(LAYOUT)
-                } else if (layout != null) {
-                    review.put(LAYOUT, layout.name)
+                when (layout) {
+                    null -> {}
+
+                    ReviewLayout.SPLIT -> {
+                        review.remove(LAYOUT)
+                    }
+
+                    else -> {
+                        review.put(LAYOUT, layout.name)
+                    }
                 }
-                if (hideWhitespace ==
-                    true
-                ) {
-                    review.put(HIDE_WHITESPACE, true)
-                } else if (hideWhitespace ==
-                    false
-                ) {
-                    review.remove(HIDE_WHITESPACE)
+                when (hideWhitespace) {
+                    null -> {}
+
+                    true -> {
+                        review.put(HIDE_WHITESPACE, true)
+                    }
+
+                    false -> {
+                        review.remove(HIDE_WHITESPACE)
+                    }
                 }
                 if (review.isEmpty) root.remove(FIELD) else root.set(FIELD, review)
             }

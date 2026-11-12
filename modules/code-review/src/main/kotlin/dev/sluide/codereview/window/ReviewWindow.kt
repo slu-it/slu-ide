@@ -42,7 +42,6 @@ import javafx.stage.Window
 import java.nio.file.Path
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.RejectedExecutionException
 
 /**
  * One review in a top-level window of its own, like the working-tree window: a toolbar, a notice bar for a stale
@@ -209,11 +208,7 @@ internal class ReviewWindow(
 
     /** Writes a changed setting off the FX thread, on the writer of all windows, not behind a running load. */
     private fun savePrefs(write: () -> Unit) {
-        try {
-            prefsWriter.execute(write)
-        } catch (_: RejectedExecutionException) {
-            // The writer is shut down already.
-        }
+        prefsWriter.execute(write)
     }
 
     private fun createStage(

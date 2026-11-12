@@ -7,6 +7,8 @@ import dev.sluide.codereview.model.ReviewAnchor
 import dev.sluide.codereview.model.ReviewDocument
 import dev.sluide.codereview.model.ReviewRow
 import dev.sluide.codereview.model.ReviewSelection
+import dev.sluide.codereview.model.document
+import dev.sluide.codereview.model.oneModifiedLine
 import dev.sluide.codereview.model.shortRows
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -125,6 +127,53 @@ class ReviewLoaderRestartTest {
     }
 
     @Test
+    fun `the chunk and the end of a cancelled load, posted after the new load's, change nothing`() {
+        val loader = loader()
+        loader.openBranch()
+        posts.drain()
+        val expected = document("a.kt" to oneModifiedLine(10, 5)).shortRows()
+        // The reload's file read starts a second load, which posts everything before the reload's chunk and end.
+        var armed = true
+        source.fileDiffsHook = { _, _, _ ->
+            if (armed) {
+                armed = false
+                loader.changeBase("refs/heads/other")
+                source.lines = 30
+            }
+        }
+
+        loader.reload()
+        while (posts.tasks.size > 1) posts.step()
+        assertEquals(expected, document.shortRows(), "the content of the second load, not the cancelled one's")
+
+        // A third load is running when the cancelled load's end comes: it must not end that load.
+        loader.selection.set(ReviewSelection.Commits(0, 0))
+        posts.step()
+        assertTrue(loader.loading.get())
+
+        posts.drain()
+        assertFalse(loader.loading.get())
+    }
+
+    @Test
+    fun `a selection made while the review is resolved again follows its commits, not their positions`() {
+        var resolves = 0
+        source.resolved = {
+            if (resolves++ == 0) review() else review(commits = listOf(commit("c4", "c3")) + review().commits)
+        }
+        val loader = loader()
+        loader.openBranch()
+        posts.drain()
+
+        loader.changeBase("refs/heads/other")
+        loader.selection.set(ReviewSelection.Commits(1, 2)) // c2..c1 in the review the user sees
+        posts.drain()
+
+        assertEquals(ReviewSelection.Commits(2, 3), loader.selection.get())
+        assertEquals("c0" to ReviewRevision.Commit("c2"), source.ranges.last())
+    }
+
+    @Test
     fun `a change while the files were read leaves the review stale afterwards`() {
         source.fileDiffsHook = { _, _, _ -> source.print = "later" }
         val loader = loader()
@@ -199,7 +248,6 @@ class ReviewLoaderRestartTest {
         val loader = loader(viewport)
         loader.openBranch()
         posts.drain()
-        viewport.layout()
         val line = document.rows.indexOfFirst { it.path == "b.kt" && it is ReviewRow.SplitLine }
         viewport.place = line to 3.0
         val anchor = document.anchorAt(line)
@@ -210,13 +258,12 @@ class ReviewLoaderRestartTest {
         posts.step() // the resolved review
         posts.step() // the files: the line is not there, the loader scrolls to the header
         assertEquals(document.headerRow("b.kt") to 0.0, viewport.scrolls.last())
-        viewport.layout()
         return anchor
     }
 
     @Test
-    fun `reload scrolls to the line when its content arrives, though the list shows the header only after a layout`() {
-        val viewport = FakeViewport(async = true)
+    fun `reload scrolls to the line when its content arrives after a stop at the header`() {
+        val viewport = FakeViewport()
         val anchor = reloadWithDroppedContent(viewport)
         assertEquals(document.headerRow("b.kt") to 0.0, viewport.place)
 
@@ -228,7 +275,7 @@ class ReviewLoaderRestartTest {
 
     @Test
     fun `reload does not jump to the line when the user scrolled after the header`() {
-        val viewport = FakeViewport(async = true)
+        val viewport = FakeViewport()
         reloadWithDroppedContent(viewport)
         val scrolls = viewport.scrolls.size
         // The user scrolls to the top of the first file.

@@ -98,8 +98,8 @@ internal class ReviewLoader(
     /** Restarts the running load's first step (resolve, or reading the files) with the current settings. */
     private var firstStep: (() -> Unit)? = null
 
-    /** The selection the user picked while a resolve ran; wins over the restored one when it fits the review. */
-    private var pickedMeanwhile: ReviewSelection? = null
+    /** The commits the user picked while a resolve ran, by hash; they win over the restored ones. */
+    private var pickedMeanwhile: PickedCommits? = null
     private var settingSelection = false
     private var closed = false
     private var scrollRestore: ScrollRestore? = null
@@ -169,7 +169,7 @@ internal class ReviewLoader(
         if (restart == null) {
             loadSelection()
         } else {
-            pickedMeanwhile = selection.get()
+            pickedMeanwhile = selectedCommits()
             restart()
         }
     }
@@ -192,8 +192,7 @@ internal class ReviewLoader(
                 val bases = if (scope is ReviewScope.Branch) source.bases(root) else null
                 // Before the files are read: what changes while they are read makes the review stale afterwards.
                 val print = source.fingerprint(root, review)
-                val picked =
-                    meanwhile?.takeIf { it.fits(review) } ?: restore?.selectionIn(review) ?: ReviewSelection.All
+                val picked = (meanwhile ?: restore?.picked)?.selectionIn(review) ?: ReviewSelection.All
                 dispatch {
                     if (!cancellation.isCancelled) {
                         resolvedProperty.set(review)
@@ -436,29 +435,15 @@ internal class ReviewLoader(
         }
     }
 
-    private fun ReviewSelection.fits(review: ResolvedReview): Boolean =
-        when (this) {
-            ReviewSelection.All -> true
-            ReviewSelection.Uncommitted -> review.uncommitted
-            is ReviewSelection.Commits -> newest in 0..oldest && oldest < review.commits.size
-        }
-
     /** The picked commits of a review: newest and oldest hash of a range, or the uncommitted changes. */
     private class PickedCommits(
         val hashes: Pair<String, String>?,
         val uncommitted: Boolean,
-    )
-
-    /** What a reload keeps: the selected commits, and the place in the diff. */
-    private class Restore(
-        val picked: PickedCommits,
-        val anchor: ReviewAnchor?,
-        val offset: Double,
     ) {
         /** The selection again, when its commits are still in [review]; else All. */
         fun selectionIn(review: ResolvedReview): ReviewSelection {
-            if (picked.uncommitted) return if (review.uncommitted) ReviewSelection.Uncommitted else ReviewSelection.All
-            val (newest, oldest) = picked.hashes ?: return ReviewSelection.All
+            if (uncommitted) return if (review.uncommitted) ReviewSelection.Uncommitted else ReviewSelection.All
+            val (newest, oldest) = hashes ?: return ReviewSelection.All
             val newestIndex = review.commits.indexOfFirst { it.hash == newest }
             val oldestIndex = review.commits.indexOfFirst { it.hash == oldest }
             return if (newestIndex in 0..oldestIndex) {
@@ -469,19 +454,23 @@ internal class ReviewLoader(
         }
     }
 
+    /** What a reload keeps: the selected commits, and the place in the diff. */
+    private class Restore(
+        val picked: PickedCommits,
+        val anchor: ReviewAnchor?,
+        val offset: Double,
+    )
+
     /**
-     * A scroll towards [anchor] that waits for the file's content. The list applies a scroll at its next layout, so
-     * the loader never reads the place back: [expected] is what it asked for. The user has not scrolled while the
-     * list still stands where it did before the reload ([before]) or at [expected].
+     * A scroll towards [anchor] that waits for the file's content. The list reports the position asked for by the
+     * last scroll at once, until the user scrolls: the user has not scrolled while it still stands at [expected].
      */
     private inner class ScrollRestore(
         val anchor: ReviewAnchor,
         val offset: Double,
         val expected: Pair<ReviewAnchor, Double>,
     ) {
-        val before: Pair<ReviewAnchor, Double> = anchor to offset
-
-        fun moved(): Boolean = currentAnchor().let { it != expected && it != before }
+        fun moved(): Boolean = currentAnchor() != expected
     }
 
     companion object {
