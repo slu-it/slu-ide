@@ -13,8 +13,8 @@ internal enum class ReviewSide { ORIGINAL, CURRENT }
 /** Which part of a gap to reveal: 20 lines at its bottom ([UP]), 20 at its top ([DOWN]), or all of it. */
 internal enum class ExpandDirection { UP, DOWN, ALL }
 
-/** What a [ReviewRow.Notice] says instead of lines. */
-internal enum class NoticeKind { LOADING, BINARY, TOO_LARGE, SUBMODULE, NO_CONTENT_CHANGE, LOAD_DIFF }
+/** What a [ReviewRow.Notice] says instead of lines; [UNREADABLE]: git could not read the file (set by the loader). */
+internal enum class NoticeKind { LOADING, BINARY, TOO_LARGE, SUBMODULE, NO_CONTENT_CHANGE, LOAD_DIFF, UNREADABLE }
 
 /** A row of the review's diff list. Line numbers are 0-based within the file's whole original or current text. */
 internal sealed interface ReviewRow {
