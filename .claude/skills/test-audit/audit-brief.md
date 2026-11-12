@@ -31,7 +31,7 @@ Read the tests; read production code where needed to judge coverage (Grep and ra
 
 ## Output (your final message, nothing else; it is all the main session sees)
 - One line: scope, test files read, total findings.
-- At most 40 items, ranked by value. Each item:
+- Ranked by value, most valuable first. Each item:
   `ID | CATEGORY | file:line (test) | what | proposed action | prod change? (none/small/medium) | effort S/M/L | confidence high/med/low`
   IDs are `<scope-prefix>-<n>` (prefix given in your prompt).
 - For DOWNGRADE items, estimated uiTest seconds saved.

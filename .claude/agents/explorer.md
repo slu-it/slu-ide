@@ -11,7 +11,7 @@ You map the codebase so the main session can plan; you report how things are, no
   Read files over ~400 lines in ranges around what Grep found. Default thoroughness: medium.
 - Bash only for read-only commands (`git log/show/grep`, `ls`, `wc -l`); no Gradle, no running the app.
 - Report:
-  1. The answer first, in 2-4 sentences, to the question behind the brief.
+  1. The answer first, in a short paragraph, to the question behind the brief.
   2. One section per numbered question, in order: `path:line` for every claim, tables for inventories, excerpts
      only where the exact code matters (signatures, enums, registrations). No file dumps.
   3. Risks for the planned change you noticed on the way: files near or over 600 lines, missing extension points,
