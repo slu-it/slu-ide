@@ -98,10 +98,11 @@ all changed files in one long scroll beside a filterable file tree, without push
   context behind a gap and not the files that are collapsed, Viewed or still behind Load diff. A unified row is
   searched once, a split row on its original half, then its current half. Occurrences do not overlap.
 - Typing searches at once on the FX thread (50 000 rows take about 20 ms). The first match at or after the first
-  visible row becomes the current one and is scrolled into view. The counter reads "3 of 17", "0 of 0" without
+  visible row becomes the current one; it is scrolled into view only when it is not fully visible (not shown, or
+  covered by the sticky file header), so typing never moves a match that is in view. The counter reads "3 of 17", "0 of 0" without
   matches and "10000+" as the total above the cap of 10 000 matches; it is empty while the query is.
 - Enter / Shift+Enter in the field and F3 / Shift+F3 (while the bar is open, wherever the focus is) go to the next /
-  previous match, wrapping; Escape in the field or the close button closes the bar and focuses the diff.
+  previous match and scroll to it, wrapping; Escape in the field or the close button closes the bar and focuses the diff.
 - All matches of the visible rows are marked behind the text, the current one stronger (colours of the editor's find,
   `review-diff.css`); closing the bar clears them. When the rows change (a gap expanded, a file collapsed or loaded,
   the filter) the search runs again, the current match stays where it was (same line and column) or, if it is gone,
