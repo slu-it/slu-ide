@@ -24,15 +24,19 @@ enabled by `junit-platform.properties` in file-watcher's test resources; every o
 Subagents verify with subsets; the full `./gradlew build` is the main session's final gate (delegate skill).
 `.claude/scripts/verify.sh` does a subset in one call: `spotlessApply`, compiles all main and test code, runs the
 targets and prints a short digest (compile errors, counts per task, failures with their `dev.sluide` frames,
-`check-tests.sh` findings), the full log in `build/verify/verify.log`. Targets are test class names or globs (sent to
-`test` or `uiTest` by `@Tag("ui")`; a name that exists in two modules runs in both), `:module` paths for a module's
-unit tests, and `--changed` for the unit tests of every module changed against master plus the related test classes.
+`check-tests.sh` findings), the full log in `build/verify/verify.log`. Targets are test class names or globs, matched
+against the test file's name and the class in it that holds the tests (sent to `test` or `uiTest` by `@Tag("ui")`; a
+name that exists in two modules runs in both), `:module` paths for a module's unit tests, and `--changed` for the
+unit tests of every module changed against master plus the related test classes. `--list` prints what the targets
+resolve to and stops before formatting and Gradle.
 It sets up the display (`--display N`), uses `--no-daemon` in worktrees and ends with `verify: OK`, `FAILED` (also
 when a named class has no result) or `INCOMPLETE` (UI tests not run); `OK (compiled only, no tests run)` when
 `--changed` found nothing to test. `--no-format` leaves the sources alone (reviewers). Gradle arguments after `--`
 must not skip test tasks (`-x`): old passing results of the skipped classes would count.
-`.claude/scripts/related-tests.sh [files]` lists the test classes that reference the types declared in the given (by
-default: the changed) files, per module and task.
+`.claude/scripts/related-tests.sh [files]` lists the test classes that name the types and top-level functions
+declared in the given (by default: the changed) files, per module and task: public names in every module, `internal`
+ones in the file's own module. A name used by more than 25 test files is reported as skipped; `verify.sh --changed`
+shows those lines, and tests of such a name in other modules must be named as targets.
 ```bash
 .claude/scripts/verify.sh --changed GitLogWritesRefsUiTest            # what an implementer runs
 .claude/scripts/verify.sh 'MainWindow*' :modules:git                  # a pattern and one module's unit tests
