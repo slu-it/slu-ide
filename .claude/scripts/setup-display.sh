@@ -2,7 +2,9 @@
 # Prepares a headless Linux sandbox (Ubuntu 24.04+) so the JavaFX UI can be started and screenshotted:
 # installs Xvfb, the GTK/X11 libraries JavaFX loads, and screenshot/automation tools, then starts a virtual display.
 # Safe to run repeatedly: a display that exists but does not answer (Xvfb gone, its socket and lock file left over, or
-# hung) is stopped, cleaned up and started again. Usage: .claude/scripts/setup-display.sh [display-number, default 99]
+# stopped) is stopped, cleaned up and started again. An Xvfb process that is not stopped may just be slow under load:
+# its display gets about 15 seconds to answer before it counts as hung.
+# Usage: .claude/scripts/setup-display.sh [display-number, default 99]
 #
 # Afterwards:
 #   export DISPLAY=:99
@@ -37,14 +39,32 @@ lock="/tmp/.X${display_number}-lock"
 # timeout because a hung (e.g. stopped) Xvfb accepts the connection and then never replies.
 answers() { timeout 3 xdpyinfo -display ":${display_number}" >/dev/null 2>&1; }
 
-if answers; then
+# Pids of the Xvfb processes of this display (ps + awk instead of pkill -f, which can match the calling shell), with
+# "running" only those whose state is not stopped (T).
+xvfb_pids() {
+  ps -eo pid=,stat=,args= | awk -v d=":${display_number}" -v only="${1:-all}" \
+    '$3 ~ /(^|\/)Xvfb$/ && $4 == d && (only == "all" || $2 !~ /^T/) { print $1 }'
+}
+
+# A live (not stopped) Xvfb that does not answer yet may only be slow under load (the final gate runs UI tests on 8
+# displays): retry for about 15 seconds before it is treated as hung. A stopped process never answers: no waiting.
+ok=false
+answers && ok=true
+if ! $ok && [ -n "$(xvfb_pids running)" ]; then
+  deadline=$((SECONDS + 15))
+  while [ "$SECONDS" -lt "$deadline" ] && [ -n "$(xvfb_pids running)" ]; do
+    if answers; then ok=true; break; fi
+    sleep 0.5
+  done
+fi
+
+if $ok; then
   echo "Xvfb already running on :${display_number}"
 else
   if [ -e "$socket" ] || [ -e "$lock" ]; then
     echo "Display :${display_number} does not answer; cleaning it up"
-    # A hung Xvfb on this display; ps + awk instead of pkill -f, which can match the calling shell. SIGKILL after a
-    # grace period: a stopped process never acts on SIGTERM.
-    pids="$(ps -eo pid=,args= | awk -v d=":${display_number}" '$2 ~ /(^|\/)Xvfb$/ && $3 == d { print $1 }')"
+    # A hung Xvfb on this display. SIGKILL after a grace period: a stopped process never acts on SIGTERM.
+    pids="$(xvfb_pids)"
     for pid in $pids; do kill "$pid" 2>/dev/null || true; done
     sleep 0.5
     for pid in $pids; do kill -9 "$pid" 2>/dev/null || true; done
