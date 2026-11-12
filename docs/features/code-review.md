@@ -17,8 +17,8 @@ all changed files in one long scroll beside a filterable file tree, without push
   from the oldest one's parent to the newest one, every commit in between included; when the newest does not descend
   from the oldest, the window says "The selected commits are not on one line of history."
 - Every review opens a window of its own, large and centred on the IDE window's screen, each further one a little
-  offset. Its title is `Review – <scope> – <project>`; Shortcut+W closes it, and closing the project window closes its
-  reviews.
+  offset by 30 px (80 % of the screen; the size is not remembered). Its title is `Review – <scope> – <project>`;
+  Shortcut+W closes it (the running load is cancelled), and closing the project window closes its reviews.
 
 ## Scope and pickers
 - A branch is reviewed against its base like a pull request: from where it left the base (the merge base) to its
@@ -29,7 +29,7 @@ all changed files in one long scroll beside a filterable file tree, without push
 - The **commit picker** offers "All changes", the single commits (newest first) and, while the reviewed branch is
   checked out and has them, **Uncommitted changes** (untracked files included) on top. A click picks one entry,
   Shift+click a range. A merge commit alone is shown against its first parent. A single-commit review has no picker.
-- Empty scopes say so ("No changes between origin/main and feature-x."); git failures show "Could not read the
+- Empty scopes say so ("No changes in origin/main..feature-x." with the scope's title); git failures show "Could not read the
   review: …".
 
 ## Files
@@ -42,7 +42,9 @@ all changed files in one long scroll beside a filterable file tree, without push
 
 ## Diff
 - **Split** (the default) or **Unified**, toggled at the right end of the toolbar; **Hide whitespace** next to them.
-  Both choices are remembered for the next review.
+  Both choices are remembered for the next review (`shared.json`, field `review`: only values other than Split and
+  off are written). Switching the layout keeps the line at the top of the diff; Hide whitespace reads the diffs again
+  (not the file list) and resets the revealed lines.
 - Each file starts with a header: collapse chevron, path (`old → new` for renames), the counts of added and removed
   lines, and **Viewed**, which collapses the file until unchecked (for the window's lifetime; a file that changes on
   Reload is unchecked again). The current file's header stays at the top while scrolling.
@@ -73,7 +75,9 @@ all changed files in one long scroll beside a filterable file tree, without push
 ## Refresh
 - When the reviewed commits or, for reviews reaching the working tree, the uncommitted changes change (a commit, an
   amend, a fetch moving the base, an edit), a bar says "The reviewed changes have changed." with **Reload**. Reload
-  keeps the place: the same line of the same file, else its header. The review never reloads by itself.
+  keeps the place: the same line of the same file, else its header, and the picked commits when they are still there;
+  it does not jump when you scroll while the file loads. The check also runs when the window gains the focus, and never
+  while loading. The review never reloads by itself.
 
 ## Limits
 - Text is selected by whole lines; there is no free text selection.
