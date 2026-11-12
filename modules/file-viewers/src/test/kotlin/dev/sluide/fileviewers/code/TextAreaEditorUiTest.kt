@@ -390,6 +390,18 @@ class TextAreaEditorUiTest {
     }
 
     @Test
+    fun `selectAll selects the whole text and shows its beginning`(robot: FxRobot) {
+        val editor = open(robot, (1..100).joinToString("\n") { "line $it" })
+        robot.interact { editor.area.showParagraphAtTop(90) }
+
+        robot.interact { editor.selectAll() }
+
+        assertEquals(editor.text, fx { editor.area.selectedText })
+        assertEquals(0, fx { editor.caretOffset })
+        assertEquals(0, fx { editor.area.firstVisibleParToAllParIndex() })
+    }
+
+    @Test
     fun `selectRange scrolls the range into view`(robot: FxRobot) {
         val editor = open(robot, (1..100).joinToString("\n") { "line $it" })
         val end = editor.text.length

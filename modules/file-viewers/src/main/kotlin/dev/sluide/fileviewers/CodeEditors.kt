@@ -218,6 +218,9 @@ interface TextEditor {
         start: Int,
         end: Int,
     )
+
+    /** Selects the whole text with the caret at its start (the view shows the beginning); no focus change. FX thread. */
+    fun selectAll()
 }
 
 /** A character range [start, end) to which [styleClass] is added, see [TextEditor.overlay]. */
@@ -309,6 +312,8 @@ private class AreaTextEditor(
         start: Int,
         end: Int,
     ) = editor.selectRange(start, end)
+
+    override fun selectAll() = editor.selectAll()
 }
 
 internal class AreaDisplay(

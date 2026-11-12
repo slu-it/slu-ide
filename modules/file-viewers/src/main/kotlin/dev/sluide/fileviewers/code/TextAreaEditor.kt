@@ -91,6 +91,12 @@ internal class TextAreaEditor(
         area.requestFollowCaret()
     }
 
+    /** Selects the whole text with the caret at its start, so a long text shows its beginning; no focus change. */
+    fun selectAll() {
+        area.selectRange(area.length, 0)
+        area.requestFollowCaret()
+    }
+
     /** The offset of the character marked as an error, see [markError]. */
     private var errorAt: Int? = null
 
