@@ -2,9 +2,13 @@
 # Lists the test classes that cover changed code, grouped by module and Gradle task (test or uiTest), so that a
 # change can be verified with .claude/scripts/verify.sh without reading the tests.
 # Input: the given files, or by default every .kt file changed against master (committed, uncommitted, untracked).
-# A changed file under */src/main/ stands for the types it declares at top level plus its base name (a changed main
+# A changed file under */src/main/ stands for the types it declares at top level, its non-private top-level functions
+# (extension functions included, declared at column 0; not properties) plus its base name (a changed main
 # resource for the main .kt files of its module that name it); a changed test
-# file counts itself. A name that appears as a whole word in more than 25 test files is too common and is skipped.
+# file counts itself. Kotlin's visibility decides where a name is searched: a name declared `internal` only in the
+# test files of the changed file's own module (<module>/src/test/), any other name (and the base name) in the test
+# files of all modules; private declarations are skipped. A name that appears as a whole word in more than 25 of the
+# test files searched is too common and is skipped.
 # Test helper files without @Test (fixtures) are left out. Always exits 0 (also --test-classes); prints
 # `no related tests` when empty.
 # Usage: .claude/scripts/related-tests.sh [--names] [files...]
@@ -93,15 +97,25 @@ while IFS= read -r f; do
       # Convention: Foo.kt is tested by FooTest.kt, FooUiTest.kt; the word search cannot see those names.
       base="$(basename "$f" .kt)"
       grep -E "^${f%%/src/*}/src/test/.*/${base}[A-Za-z0-9]*\.kt$" "$work/tests" >>"$work/related" || true
+      # Private declarations are not API: other files (tests included) cannot refer to them.
+      { grep -vE '^([a-z]+[[:space:]]+)*private[[:space:]]' "$f" || true; } >"$work/decls"
+      declared='s/^((public|internal|protected|data|sealed|enum|abstract|open|annotation|value|inline|fun|const|companion)[[:space:]]+)*(class|interface|object|typealias)[[:space:]]+`?([A-Za-z_][A-Za-z0-9_]*).*/\4/p'
+      functions='s/^((public|internal|protected|inline|suspend|operator|infix|tailrec|external|expect|actual)[[:space:]]+)*fun[[:space:]]+(<[^()]*>[[:space:]]+)?([^(]*\.)?`?([A-Za-z_][A-Za-z0-9_]*)`?[[:space:]]*\(.*/\5/p'
+      internal_re='^([a-z]+[[:space:]]+)*internal[[:space:]]'
+      module_tests="$(grep "^${f%%/src/*}/src/test/" "$work/tests" || true)"
       {
-        echo "$base"
-        # Private declarations are not API: other files (tests included) cannot refer to them.
-        { grep -vE '^([a-z]+[[:space:]]+)*private[[:space:]]' "$f" || true; } |
-          sed -nE 's/^((public|internal|protected|data|sealed|enum|abstract|open|annotation|value|inline|fun|const|companion)[[:space:]]+)*(class|interface|object|typealias)[[:space:]]+`?([A-Za-z_][A-Za-z0-9_]*).*/\4/p'
-      } | sort -u | while IFS= read -r name; do
-        [ -s "$work/tests" ] || continue
+        printf 'public\t%s\n' "$base"
+        { grep -vE "$internal_re" "$work/decls" || true; } | sed -nE -e "$declared" -e "$functions" | sed 's/^/public\t/'
+        { grep -E "$internal_re" "$work/decls" || true; } | sed -nE -e "$declared" -e "$functions" | sed 's/^/internal\t/'
+      } | sort -u | while IFS=$'\t' read -r scope name; do
+        searched="$work/tests"
+        if [ "$scope" = internal ]; then
+          printf '%s\n' "$module_tests" >"$work/tests.module"
+          searched="$work/tests.module"
+        fi
+        [ -s "$searched" ] || continue
         # NUL-separated so that paths with blanks stay intact; grep exits 1 without a match.
-        matches="$(tr '\n' '\0' <"$work/tests" | xargs -0 grep -lwF -- "$name" 2>/dev/null || true)"
+        matches="$(tr '\n' '\0' <"$searched" | xargs -0 grep -lwF -- "$name" 2>/dev/null || true)"
         [ -n "$matches" ] || continue
         count="$(printf '%s\n' "$matches" | wc -l | tr -d ' ')"
         if [ "$count" -gt 25 ]; then
