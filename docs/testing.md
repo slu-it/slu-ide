@@ -227,7 +227,14 @@ DISPLAY=:107 xdotool key ctrl+o                      # drive the UI
   (Xvfb gone with its `/tmp/.X99-lock` and `/tmp/.X11-unix/X99` left over, or hung) is stopped, cleaned up and started
   again, so rerunning the script is the fix whenever UI tests fail with "Unable to open DISPLAY".
 - The sandbox's `xclip`/`xsel` are shims for the host clipboard, not the X clipboard: to see what the app copied,
-  paste it into an editor tab of the app.
+  paste it into an editor tab of the app. Never write with them (it lands on the user's clipboard). To put an image
+  (or other content) on the X clipboard, run a small JavaFX program on the app's display that sets it and stays alive
+  (`--module-path` with the `javafx-base`/`javafx-graphics` linux jars from `~/.gradle/caches`; the sandbox JDK is
+  headless, so AWT's clipboard is not available).
+- The sandbox JDK is headless (no `libawt_xawt`), and the app runs with `.headless(false)`: anything that touches
+  `BufferedImage`/`ImageIO` (pasted images, SVG → PNG) fails with an `UnsatisfiedLinkError` while `DISPLAY` is set.
+  Start the app with `JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -Djava.awt.headless=true" run-app.sh …` for such checks
+  (Spring keeps a value that is already set).
 - Never claim the UI was verified unless you actually ran it.
 - **Secrets leaving memory** (features that wipe plaintext or passwords, ADR 0162): tests can only check our own
   fields; check the running app. Type marker strings, do what should wipe them (e.g. Lock), then
