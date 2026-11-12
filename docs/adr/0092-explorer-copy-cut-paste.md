@@ -1,6 +1,6 @@
 # 0092. Copy, cut and paste in the explorer
 
-- Status: accepted
+- Status: accepted (amended by [0167](0167-paste-clipboard-image-in-the-explorer.md): an image on the clipboard is pasted too)
 - Date: 2026-10-25
 
 ## Context

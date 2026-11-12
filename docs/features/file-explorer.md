@@ -143,9 +143,10 @@
     ([converting.md](converting.md), [ADR 0115](../adr/0115-converting-tool.md)).
   - Cut, Copy and Paste follow, in a group of their own, showing their keys (Shortcut+X / C / V); see Copy, cut and
     paste below. Copy is enabled for at least one target (also a top-level folder), Cut when all targets can be changed
-    (as Delete), Paste when the clipboard holds files and there is one folder to paste into: the clicked folder, the
-    folder of the clicked file, or the project folder on the empty area; not for several entries, not into a folder
-    being deleted (`ExplorerCopies.canPaste`, the same decision as the paste).
+    (as Delete), Paste when the clipboard holds files or an image and there is one folder to paste into (the item reads
+    "Paste Image" for an image without files): the clicked folder, the folder of the clicked file, or the project
+    folder on the empty area; not for several entries, not into a folder being deleted (`ExplorerCopies.canPaste`, the
+    same decision as the paste).
   - New File… / New Folder… create an empty entry in the clicked folder or, on the empty area, in the project folder.
     They are enabled for exactly one folder (also a top-level one) or the empty area while a folder is open; disabled
     on a file and for several entries. A new file is opened. The name may be a path (`a/b/c.txt`, `/` also `\` on Windows):
@@ -280,6 +281,16 @@
     `my.dir-copy`. A copy of a copy counts on: `notes-copy.txt` → `notes-copy2.txt`. Names count as taken in any case,
     so no copy differs from an entry only in case. Pasting into the entry's own folder makes such a copy; entries of
     the same name from several folders get suffixes in order.
+  - An image on the clipboard (a screenshot, a copied image region) without files is pasted as a PNG file
+    ([ADR 0167](../adr/0167-paste-clipboard-image-in-the-explorer.md), `actions/ExplorerImagePaste.kt`,
+    `actions/ClipboardImages.kt`): same keys, menu item ("Paste Image") and target folder. Files win: with files on
+    the clipboard (Finder puts an icon image beside copied files) the files are pasted. A "Paste Image" dialog asks for
+    the name, prefilled `image-yyyy-MM-dd-HHmmss.png` in local time, checked like New File (a `/` path creates missing
+    folders, a taken name is refused). `.png` is appended unless the name ends with it in any case, and the dialog says
+    `Saved as “diagram.png”.` below the field. The pixels are read before the dialog, the PNG (lossless, transparency
+    kept, the image's own pixel size) is encoded and written in the background with `CREATE_NEW`; a name taken
+    meanwhile is an error and the file stays. Afterwards the file is selected and opened. An unreadable image shows
+    "The clipboard image could not be read." and asks nothing. Cancel writes nothing.
   - No question for a paste, unless files with unsaved changes are among the copied entries (also inside a copied
     folder): then one dialog names them and says the copies get what is saved (Copy / Cancel, Cancel the default).
   - Copies are made in the background, so a large folder does not block the IDE: folders with everything in them,

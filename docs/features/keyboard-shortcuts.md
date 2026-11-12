@@ -249,7 +249,7 @@ focus ([ADR 0126](../adr/0126-translate-tool.md)). Typing filters the list.
 | Delete or Shortcut+Backspace | Delete the selected entries (one confirmation) |
 | Shortcut+C | Copy the selected entries to the clipboard (files and their paths as text) |
 | Shortcut+X | Cut the selected entries (dimmed until pasted) |
-| Shortcut+V | Paste into the selected folder, the folder of the selected file, or the project folder: copies, or moves cut entries |
+| Shortcut+V | Paste into the selected folder, the folder of the selected file, or the project folder: copies, or moves cut entries; an image on the clipboard is pasted as a PNG |
 | Escape | Cancel a cut (when no drag runs) |
 | Shortcut+Shift+D | Compare the two selected files side by side (exactly two files; otherwise View → Show Changes) |
 | Drag entries onto a folder or the empty area | Move them (after a confirmation) |
