@@ -144,6 +144,8 @@ internal class ReviewDiffList(
         updateTop()
     }
 
+    override fun clearSelection() = interactions.clearSelection()
+
     override fun scrollToRow(
         index: Int,
         offset: Double,

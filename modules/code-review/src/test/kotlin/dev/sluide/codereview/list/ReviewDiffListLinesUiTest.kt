@@ -11,6 +11,7 @@ import dev.sluide.fileviewers.DiffKind
 import dev.sluide.fileviewers.LineChange
 import javafx.event.Event
 import javafx.scene.Node
+import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.MenuItem
@@ -32,6 +33,7 @@ import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -64,7 +66,7 @@ class ReviewDiffListLinesUiTest {
     }
 
     /** [block] on the FX thread, where the list's state lives. */
-    private fun <T> fx(block: () -> T): T = WaitForAsyncUtils.asyncFx<T>(block).get()
+    private fun <T> fx(block: () -> T): T = WaitForAsyncUtils.asyncFx<T>(block).get(5, TimeUnit.SECONDS)
 
     private fun load(
         vararg files: Pair<String, ReviewFileContent>,
@@ -89,7 +91,7 @@ class ReviewDiffListLinesUiTest {
     private fun cell(index: Int): Node = assertNotNull(view.rowCell(index), "row $index is not shown")
 
     private fun splitRow(current: Int) =
-        document.rows.indexOfFirst { it is ReviewRow.SplitLine && it.current == current }
+        fx { document.rows.indexOfFirst { it is ReviewRow.SplitLine && it.current == current } }
 
     /** The column [part] of the line row [index]: split 0 and 1 the original side, 2 and 3 the current one. */
     private fun column(
@@ -97,12 +99,14 @@ class ReviewDiffListLinesUiTest {
         part: Int,
     ): Node = (cell(index) as LineRowPane).childrenUnmodifiable[part]
 
+    /** Presses the primary button on the column [part] of row [index] (resolved on the FX thread). */
     private fun press(
-        node: Node,
+        index: Int,
+        part: Int,
         shift: Boolean = false,
     ) = fx {
         Event.fireEvent(
-            node,
+            column(index, part),
             MouseEvent(
                 MouseEvent.MOUSE_PRESSED,
                 1.0,
@@ -143,12 +147,12 @@ class ReviewDiffListLinesUiTest {
         KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, shift, shortcut && !mac, alt, shortcut && mac),
     )
 
-    private fun contextMenu(
-        node: Node,
+    private fun contextMenuOn(
         keyboard: Boolean = false,
+        node: () -> Node,
     ) = fx {
         Event.fireEvent(
-            node,
+            node(),
             ContextMenuEvent(
                 ContextMenuEvent.CONTEXT_MENU_REQUESTED,
                 5.0,
@@ -160,6 +164,11 @@ class ReviewDiffListLinesUiTest {
             ),
         )
     }
+
+    private fun contextMenu(
+        index: Int,
+        part: Int,
+    ) = contextMenuOn { column(index, part) }
 
     private fun shownMenu(): ContextMenu =
         fx { assertNotNull(Window.getWindows().filterIsInstance<ContextMenu>().firstOrNull { it.isShowing }) }
@@ -183,7 +192,7 @@ class ReviewDiffListLinesUiTest {
     /** Row [index] is shown right below the sticky header (a file header at the very top). */
     private fun assertAtTop(index: Int) {
         settle()
-        val isHeader = document.rows[index] is ReviewRow.FileHeader
+        val isHeader = fx { document.rows[index] is ReviewRow.FileHeader }
         val sticky = if (isHeader) 0.0 else fx { view.lookup(".review-sticky").layoutBounds.height }
         val top = fx { cell(index).localToScene(0.0, 0.0).y - view.localToScene(0.0, 0.0).y }
         assertTrue(abs(top - sticky) < 2.0, "row $index is at $top, expected $sticky")
@@ -196,8 +205,8 @@ class ReviewDiffListLinesUiTest {
         val first = splitRow(2)
         val last = splitRow(3)
 
-        press(column(first, 2))
-        press(column(last, 2), shift = true)
+        press(first, 2)
+        press(last, 2, shift = true)
         key(KeyCode.C, shortcut = true)
 
         assertEquals("c2\nc3", clipboardText())
@@ -217,7 +226,7 @@ class ReviewDiffListLinesUiTest {
 
         key(KeyCode.ESCAPE)
         val withoutSelection = fx { reached }
-        press(column(row, 2))
+        press(row, 2)
         key(KeyCode.ESCAPE)
 
         assertEquals(1, withoutSelection)
@@ -232,8 +241,8 @@ class ReviewDiffListLinesUiTest {
         settle()
         val row = splitRow(3)
 
-        press(column(row, 2))
-        contextMenu(column(row, 3))
+        press(row, 2)
+        contextMenu(row, 3)
         val menu = shownMenu()
         assertEquals(listOf("Copy Lines", "Open in Editor", "Copy Path"), fx { menu.items.map { it.text } })
         fx { menu.item("Open in Editor").fire() }
@@ -241,9 +250,9 @@ class ReviewDiffListLinesUiTest {
         assertEquals(listOf<Pair<Path, Int?>>(root.resolve("a.txt") to 3), opened)
 
         val goneRow =
-            document.rows.indexOfFirst { it is ReviewRow.SplitLine && it.path == "gone.txt" && it.current == 3 }
+            fx { document.rows.indexOfFirst { it is ReviewRow.SplitLine && it.path == "gone.txt" && it.current == 3 } }
         hideMenu()
-        contextMenu(column(goneRow, 2))
+        contextMenu(goneRow, 2)
         val missing = fx { shownMenu().item("Open in Editor") }
         assertTrue(fx { missing.isDisable })
         assertEquals("Open in Editor (not in the working tree)", fx { missing.text })
@@ -255,7 +264,7 @@ class ReviewDiffListLinesUiTest {
         load("a.txt" to small)
         settle()
 
-        contextMenu(column(splitRow(3), 3))
+        contextMenu(splitRow(3), 3)
 
         assertTrue(fx { shownMenu().item("Open in Editor").isDisable })
     }
@@ -266,7 +275,7 @@ class ReviewDiffListLinesUiTest {
         settle()
         val row = splitRow(2)
 
-        contextMenu(column(row, 3))
+        contextMenu(row, 3)
 
         assertEquals(listOf(2, 3), selected(row))
         hideMenu()
@@ -277,11 +286,11 @@ class ReviewDiffListLinesUiTest {
         load("a.txt" to small)
         settle()
 
-        contextMenu(view, keyboard = true)
+        contextMenuOn(keyboard = true) { view }
         assertEquals(emptyList(), fx { Window.getWindows().filterIsInstance<ContextMenu>().filter { it.isShowing } })
 
-        press(column(splitRow(2), 2))
-        contextMenu(view, keyboard = true)
+        press(splitRow(2), 2)
+        contextMenuOn(keyboard = true) { view }
 
         assertEquals("Copy Lines", fx { shownMenu().items.first().text })
         hideMenu()
@@ -292,7 +301,7 @@ class ReviewDiffListLinesUiTest {
         load("dir/a.txt" to small)
         settle()
 
-        contextMenu(cell(0))
+        contextMenuOn { cell(0) }
         val menu = shownMenu()
         assertEquals(
             listOf<String?>("Open in Editor (not in the working tree)", "Show History", "Copy Path", null) +
@@ -317,7 +326,7 @@ class ReviewDiffListLinesUiTest {
         val sticky = fx { view.lookup(".review-sticky") }
         assertTrue(fx { sticky.isVisible }, "the sticky header is not shown")
 
-        contextMenu(fx { (sticky as javafx.scene.Parent).childrenUnmodifiable.first() })
+        contextMenuOn { (sticky as Parent).childrenUnmodifiable.first() }
         fx { shownMenu().item("Show History").fire() }
 
         assertEquals(listOf(root.resolve("dir/a.txt")), histories)
@@ -331,7 +340,7 @@ class ReviewDiffListLinesUiTest {
         val big = textDiff(300, 300, LineChange(20..21, 20..21), LineChange(150..150, 150..150))
         load("a.txt" to big, "b.txt" to big, "c.txt" to big)
         settle()
-        val rows = document.rows
+        val rows = fx { document.rows.toList() }
         val changes =
             rows.indices.filter { i ->
                 (rows[i] as? ReviewRow.SplitLine)?.let { it.current == 20 || it.current == 150 } ?: false
@@ -356,10 +365,10 @@ class ReviewDiffListLinesUiTest {
         // Everything is shown: C is too near the end to stand at the top, and the selection stays on screen.
         load("a.txt" to textDiff(18, 18, LineChange(2..2, 2..2), LineChange(8..8, 8..8), LineChange(14..14, 14..14)))
         settle()
-        val rows = document.rows
+        val rows = fx { document.rows.toList() }
         val changes = rows.indices.filter { (rows[it] as? ReviewRow.SplitLine)?.kind == DiffKind.MODIFIED }
-        assertNotNull(view.rowCell(rows.lastIndex), "the whole file is shown")
-        press(column(changes[0], 2))
+        assertNotNull(fx { view.rowCell(rows.lastIndex) }, "the whole file is shown")
+        press(changes[0], 2)
 
         // Read in the same pulse: reveal answers with the row it was asked for before any layout.
         val first = fx { fireKey(KeyCode.F7).let { view.firstVisible().first } }
@@ -370,11 +379,44 @@ class ReviewDiffListLinesUiTest {
     }
 
     @Test
+    fun `F7 starts from the row at the top when no row of the selection is shown`() {
+        load("a.txt" to bigFile())
+        settle()
+        val rows = fx { document.rows.toList() }
+        val changes = rows.indices.filter { (rows[it] as? ReviewRow.SplitLine)?.kind == DiffKind.MODIFIED }
+        press(splitRow(5), 2)
+        fx { view.scrollToRow(300) }
+        settle()
+        val top = fx { view.firstVisible().first }
+        assertTrue(top > 200, "the list is at row $top")
+
+        val target = fx { fireKey(KeyCode.F7).let { view.firstVisible().first } }
+
+        // The change after the selection (row 5) would be near the top of the list.
+        assertTrue(target in changes.filter { it > top }.take(2), "F7 went to row $target from row $top")
+    }
+
+    @Test
+    fun `clearSelection takes the selection and its paint away`() {
+        load("a.txt" to small)
+        settle()
+        val row = splitRow(2)
+        press(row, 2)
+        assertEquals(listOf(2, 3), selected(row))
+
+        fx { view.clearSelection() }
+
+        assertEquals(emptyList(), selected(row))
+        key(KeyCode.C, shortcut = true)
+        assertTrue(clipboardText() != "c2", "nothing is left to copy")
+    }
+
+    @Test
     fun `a selected row is painted again when its cell is created after scrolling away and back`() {
         load("a.txt" to bigFile())
         settle()
         val row = splitRow(5)
-        press(column(row, 2))
+        press(row, 2)
 
         fx { view.scrollToRow(300) }
         settle()
@@ -393,7 +435,7 @@ class ReviewDiffListLinesUiTest {
                 textDiff(14, 14, LineChange(2..3, 2..3), LineChange(6..7, 6 until 6), LineChange(10 until 10, 8..9)),
         )
         settle()
-        val rows = document.rows
+        val rows = fx { document.rows.toList() }
 
         fun kindRows(kind: DiffKind) = rows.indices.filter { (rows[it] as? ReviewRow.SplitLine)?.kind == kind }
         // The part to click and the columns to look at: the side with the line, its number and its text.
@@ -406,7 +448,7 @@ class ReviewDiffListLinesUiTest {
 
         for ((kind, number, parts) in cases) {
             val (picked, other) = kindRows(kind).let { it[0] to it[1] }
-            press(column(picked, number))
+            press(picked, number)
             settle()
             for (part in parts) {
                 val fills = fx { (column(picked, part) as Region).background.fills }

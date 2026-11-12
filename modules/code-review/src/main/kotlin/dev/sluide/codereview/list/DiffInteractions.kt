@@ -212,6 +212,8 @@ internal class DiffInteractions(
         return if (selected.any { host.cell(it) != null }) selected.first() else host.viewportRow()
     }
 
+    fun clearSelection() = select(null)
+
     private fun select(next: LineSelection?) {
         selection = next
         lastTarget = null

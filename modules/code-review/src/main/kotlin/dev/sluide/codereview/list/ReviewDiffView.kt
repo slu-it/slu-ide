@@ -33,6 +33,9 @@ internal interface ReviewDiffView {
         get() = null
         set(_) {}
 
+    /** Drops the selected lines (a Reload may put other text on them). */
+    fun clearSelection() {}
+
     /** The path of the file the first visible row belongs to; `null` without rows. Follows every scroll. */
     val topFile: ReadOnlyObjectProperty<String?>
 

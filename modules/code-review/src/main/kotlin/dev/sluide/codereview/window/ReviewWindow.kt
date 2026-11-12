@@ -168,7 +168,11 @@ internal class ReviewWindow(
     fun changeBase(ref: String) = loader.changeBase(ref)
 
     /** Resolves the review again and keeps the place in the diff. */
-    fun reload() = loader.reload()
+    fun reload() {
+        // The same lines may hold other text afterwards.
+        diffView.clearSelection()
+        loader.reload()
+    }
 
     /** Checks whether the reviewed changes changed; the notice bar shows when they did. */
     fun checkStale() = loader.checkStale()
@@ -207,7 +211,7 @@ internal class ReviewWindow(
         document.ignoreWhitespace.addListener { _, _, hide -> savePrefs { prefs.write(hideWhitespace = hide) } }
         toolbar.trailing.setAll(hideWhitespace, *layoutButtons.values.toTypedArray())
 
-        reloadButton.setOnAction { loader.reload() }
+        reloadButton.setOnAction { reload() }
         noticeBar.children += reloadButton
         noticeBar.visibleProperty().bind(loader.stale)
         noticeBar.managedProperty().bind(noticeBar.visibleProperty())

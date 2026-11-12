@@ -53,6 +53,7 @@ private class FakeDiffView : ReviewDiffView {
     override var lineActions: LineActions? = null
     override val topFile: ReadOnlyObjectProperty<String?> = ReadOnlyObjectWrapper<String?>(null).readOnlyProperty
 
+    var cleared = 0
     var place = 0 to 0.0
     val scrolls = CopyOnWriteArrayList<Pair<Int, Double>>()
 
@@ -61,6 +62,10 @@ private class FakeDiffView : ReviewDiffView {
         offset: Double,
     ) {
         scrolls += index to offset
+    }
+
+    override fun clearSelection() {
+        cleared++
     }
 
     override fun firstVisible() = place
@@ -321,5 +326,19 @@ class ReviewWindowUiTest {
         assertEquals(window.root, lineActions.root)
         assertEquals(listOf<Pair<Path, Int?>>(window.root.resolve("a.txt") to 4), opened)
         assertEquals(listOf(window.root.resolve("a.txt")), histories)
+    }
+
+    @Test
+    fun `Reload, from the button or the API, clears the diff's line selection first`(robot: FxRobot) {
+        val window = window(robot)
+        loaded(window)
+        assertEquals(0, fx { window.fake().cleared })
+
+        robot.interact { window.reloadButton.fire() }
+        assertEquals(1, fx { window.fake().cleared })
+        loaded(window)
+        robot.interact { window.reload() }
+
+        assertEquals(2, fx { window.fake().cleared })
     }
 }
