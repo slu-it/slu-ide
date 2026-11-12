@@ -11,8 +11,9 @@ javafx {
 }
 
 dependencies {
-    // Deliberate module API dependency: the review rows carry DiffKind, LineChange and HighlightSpan, and files are
-    // prepared with a SyntaxHighlighter and the word diff (ADR 0168).
+    // Deliberate module API dependency: ReviewFileContent.Text carries LineChanges; the rows carry DiffKind and
+    // HighlightSpan, files are prepared with a SyntaxHighlighter and the word diff, and the window takes FileViewers
+    // (ADR 0168).
     api(project(":modules:file-viewers"))
     // Deliberate module dependency: the files pane shows file-type icons (ADR 0012, ADR 0168). Declared with the
     // module so that the window's packages do not touch this file.
@@ -20,12 +21,13 @@ dependencies {
     // Deliberate module dependency: each review window loads on its own logged NamedThreads thread (ADR 0060,
     // ADR 0168). Declared with the module for the window's packages.
     implementation(project(":modules:background-tasks"))
-    // Deliberate module dependency: the diff uses the editor font (FontSettings, ADR 0168). Declared with the module
-    // for the window's packages.
-    implementation(project(":modules:settings"))
-    // Deliberate module dependency: the layout and Hide whitespace are remembered in the shared data file (field
-    // `review`, ADR 0101, ADR 0168). Declared with the module for the window's packages.
-    implementation(project(":modules:project-data"))
+    // Deliberate module API dependency: the diff uses the editor font; the window bean Reviews takes FontSettings
+    // (ADR 0168). Declared with the module for the window's packages.
+    api(project(":modules:settings"))
+    // Deliberate module API dependency: the layout and Hide whitespace are remembered in the shared data file (field
+    // `review`); the window bean Reviews takes the ProjectDataStore (ADR 0101, ADR 0168). Declared with the module for
+    // the window's packages.
+    api(project(":modules:project-data"))
     implementation(libs.spring.context)
     // The diff list is a VirtualFlow with variable row heights (ADR 0168).
     implementation(libs.flowless)
