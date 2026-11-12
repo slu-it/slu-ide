@@ -1,5 +1,6 @@
 package dev.sluide.codereview.list
 
+import dev.sluide.codereview.find.FindMatch
 import dev.sluide.codereview.model.ExpandDirection
 import dev.sluide.codereview.model.ReviewLineSource
 import dev.sluide.codereview.model.ReviewRow
@@ -36,6 +37,15 @@ internal interface ReviewDiffView {
     /** Drops the selected lines (a Reload may put other text on them). */
     fun clearSelection() {}
 
+    /**
+     * Marks the find's [matches] in the visible rows and in the rows shown later, the match [current] (an index into
+     * [matches]) as the current one; no matches clear the marks.
+     */
+    fun showMatches(
+        matches: List<FindMatch>,
+        current: Int?,
+    ) {}
+
     /** The path of the file the first visible row belongs to; `null` without rows. Follows every scroll. */
     val topFile: ReadOnlyObjectProperty<String?>
 
@@ -57,6 +67,12 @@ internal interface ReviewDiffView {
      * or the user scrolls it is the real one (a row too near the end to reach its offset reports where it is).
      */
     fun firstVisible(): Pair<Int, Double>
+
+    /**
+     * Whether row [index] is shown completely, not cut off by the viewport's edges or covered by the sticky file
+     * header. A view that cannot tell says `false`, so that callers reveal.
+     */
+    fun isFullyVisible(index: Int): Boolean = false
 
     /** The node showing row [index], `null` while it is not shown. */
     fun rowCell(index: Int): Node?

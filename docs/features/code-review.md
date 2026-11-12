@@ -93,9 +93,19 @@ all changed files in one long scroll beside a filterable file tree, without push
   the focus.
 
 ## Find
-- Shortcut+F opens a find bar above the diff: literal text, ignoring case unless Match Case is on, in all rows shown
-  of the files that are not collapsed. It counts the matches ("3 / 17"), Enter / Shift+Enter or F3 / Shift+F3 move
-  between them, Escape closes the bar.
+- Shortcut+F opens a find bar above the diff (or focuses it, selecting its text): literal text, ignoring case unless
+  Match Case is on. It searches the rows the diff shows: the lines of expanded context and changes, not the hidden
+  context behind a gap and not the files that are collapsed, Viewed or still behind Load diff. A unified row is
+  searched once, a split row on its original half, then its current half. Occurrences do not overlap.
+- Typing searches at once on the FX thread (50 000 rows take about 20 ms). The first match at or after the first
+  visible row becomes the current one and is scrolled into view. The counter reads "3 of 17", "0 of 0" without
+  matches and "10000+" as the total above the cap of 10 000 matches; it is empty while the query is.
+- Enter / Shift+Enter in the field and F3 / Shift+F3 (while the bar is open, wherever the focus is) go to the next /
+  previous match, wrapping; Escape in the field or the close button closes the bar and focuses the diff.
+- All matches of the visible rows are marked behind the text, the current one stronger (colours of the editor's find,
+  `review-diff.css`); closing the bar clears them. When the rows change (a gap expanded, a file collapsed or loaded,
+  the filter) the search runs again, the current match stays where it was (same line and column) or, if it is gone,
+  the next one after it takes its place; the view does not scroll.
 
 ## Refresh
 - When the reviewed commits or, for reviews reaching the working tree, the uncommitted changes change (a commit, an

@@ -28,6 +28,18 @@
     -fx-stroke: transparent;
 }
 
+/* The find's matches and its current match, drawn behind the text (keep in sync with .search-match and
+   .search-match-current in code-view.css). */
+.review-find-match {
+    -fx-fill: #fbe3a0;
+    -fx-stroke: transparent;
+}
+
+.review-find-current {
+    -fx-fill: #f0b44c;
+    -fx-stroke: transparent;
+}
+
 /* Where a side has no line: the row's colour, lighter. */
 .review-filler {
     -fx-opacity: 0.45;
@@ -135,6 +147,14 @@
 
     .review-changed-words {
         -fx-fill: #35598c;
+    }
+
+    .review-find-match {
+        -fx-fill: #5e4f22;
+    }
+
+    .review-find-current {
+        -fx-fill: #8a6a1c;
     }
 
     .review-sticky {

@@ -1,5 +1,6 @@
 package dev.sluide.codereview.list
 
+import dev.sluide.codereview.find.FindMatch
 import dev.sluide.codereview.model.ExpandDirection
 import dev.sluide.codereview.model.ReviewLineSource
 import dev.sluide.codereview.model.ReviewRow
@@ -49,9 +50,16 @@ internal class ReviewDiffList(
             loadDiff = { path -> onLoadDiff(path) },
         )
 
+    private val highlights = FindHighlights()
+
     private val flow: VirtualFlow<ReviewRow, Cell<ReviewRow, Node>> =
         VirtualFlow.createVertical(rows) { row ->
-            Cell.wrapNode(createRowCell(row, lines, actions).also { interactions.paint(row, it) })
+            Cell.wrapNode(
+                createRowCell(row, lines, actions).also {
+                    interactions.paint(row, it)
+                    highlights.paint(row, it)
+                },
+            )
         }
 
     private val interactions =
@@ -61,8 +69,7 @@ internal class ReviewDiffList(
             object : InteractionHost {
                 override val owner: Node get() = this@ReviewDiffList
 
-                override fun visibleIndices() =
-                    if (flow.visibleCells().isEmpty()) IntRange.EMPTY else flow.firstVisibleIndex..flow.lastVisibleIndex
+                override fun visibleIndices() = this@ReviewDiffList.visibleIndices()
 
                 override fun cell(index: Int) = rowCell(index)
 
@@ -146,6 +153,17 @@ internal class ReviewDiffList(
 
     override fun clearSelection() = interactions.clearSelection()
 
+    override fun showMatches(
+        matches: List<FindMatch>,
+        current: Int?,
+    ) {
+        highlights.set(rows, matches, current)
+        for (i in visibleIndices()) rowCell(i)?.let { highlights.paint(rows[i], it) }
+    }
+
+    private fun visibleIndices() =
+        if (flow.visibleCells().isEmpty()) IntRange.EMPTY else flow.firstVisibleIndex..flow.lastVisibleIndex
+
     override fun scrollToRow(
         index: Int,
         offset: Double,
@@ -168,6 +186,13 @@ internal class ReviewDiffList(
 
     override fun firstVisible(): Pair<Int, Double> =
         remembered?.let { it.index to it.offset } ?: position() ?: (0 to 0.0)
+
+    override fun isFullyVisible(index: Int): Boolean {
+        val cell = flow.getCellIfVisible(index).orElse(null) ?: return false
+        val top = flow.cellToViewport(cell, 0.0, 0.0).y
+        val covered = if (sticky.isVisible) sticky.prefHeight(-1.0) else 0.0
+        return top >= covered - 0.5 && top + cell.node.layoutBounds.height <= flow.height + 0.5
+    }
 
     override fun rowCell(index: Int): Node? = flow.getCellIfVisible(index).map { it.node }.orElse(null)
 

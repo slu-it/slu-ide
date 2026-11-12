@@ -10,6 +10,35 @@
     -fx-alignment: center-left;
 }
 
+/* The find bar: the look of the editor's (.find-bar in code-view.css; keep in sync). */
+.review-find-bar {
+    -fx-padding: 3 6 3 6;
+    -fx-spacing: 3;
+    -fx-alignment: center-left;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.review-find-query {
+    -fx-pref-column-count: 24;
+}
+
+.review-find-option,
+.review-find-button {
+    -fx-padding: 2 6 2 6;
+    -fx-font-size: 0.9em;
+}
+
+.review-find-button .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.review-find-counter {
+    -fx-padding: 0 6 0 6;
+    -fx-font-size: 0.9em;
+    -fx-opacity: 0.75;
+}
+
 .review-overlay {
     -fx-opacity: 0.7;
     -fx-font-size: 1.1em;

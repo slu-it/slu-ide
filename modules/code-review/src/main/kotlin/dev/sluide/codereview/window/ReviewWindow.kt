@@ -96,6 +96,7 @@ internal class ReviewWindow(
 
     /** Under the notice bar, for the find bar. */
     val findBarSlot = VBox()
+    internal val findBar = ReviewFindBar(document, diffView, findBarSlot)
 
     internal val hideWhitespace =
         ToggleButton("Hide whitespace").apply {
@@ -257,6 +258,9 @@ internal class ReviewWindow(
             height = bounds.height
             scene.accelerators[CLOSE] = Runnable { close() }
             scene.accelerators[FILTER] = Runnable { files.focusFilter() }
+            scene.accelerators[FIND] = Runnable { findBar.open() }
+            scene.accelerators[NEXT_MATCH] = Runnable { if (findBar.isOpen) findBar.next() }
+            scene.accelerators[PREVIOUS_MATCH] = Runnable { if (findBar.isOpen) findBar.previous() }
             resolved.addListener { _, _, review ->
                 if (review != null) title = "Review – ${review.title} – $folderName"
             }
@@ -273,6 +277,9 @@ internal class ReviewWindow(
         const val FILES_SHARE = 0.25
         val CLOSE = KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN)
         val FILTER = KeyCodeCombination(KeyCode.P, KeyCombination.SHORTCUT_DOWN)
+        val FIND = KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN)
+        val NEXT_MATCH = KeyCodeCombination(KeyCode.F3)
+        val PREVIOUS_MATCH = KeyCodeCombination(KeyCode.F3, KeyCombination.SHIFT_DOWN)
     }
 }
 

@@ -306,6 +306,10 @@ File does not react to it while a terminal has the focus.
 |---|---|
 | Shortcut+W | Close the review window (cancels the running load) |
 | Shortcut+P | Focus the files filter and select its text |
+| Shortcut+F | Open the find bar (or focus it) with its text selected |
+| Enter / Shift+Enter in the find field | Next / previous match, wrapping |
+| F3 / Shift+F3 | Next / previous match while the find bar is open |
+| Escape in the find field | Close the find bar and focus the diff |
 | Escape in the filter | Clear it |
 | Down in the filter | Select the first file and move into the tree |
 | Enter in the filter | Scroll the diff to the first matching file and focus the diff |

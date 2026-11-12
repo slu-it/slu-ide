@@ -84,7 +84,8 @@
     -fx-opacity: 1;
 }
 
-/* Matches of the find bar in the text, over the token styles; the selected one stronger. */
+/* Matches of the find bar in the text, over the token styles; the selected one stronger. Copied in code-review's
+   review-diff.css (.review-find-match, .review-find-current): keep in sync. */
 .search-match {
     -rtfx-background-color: #fbe3a0;
 }
