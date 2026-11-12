@@ -479,7 +479,7 @@ class MainWindow(
             editorArea.refreshDiffs()
             httpSession.gitStatusChanged()
             ignoreRuleEffects.changed()
-            gitLog.workingTreeChanged() // The Commit tab lists what can be committed (ADR 0048).
+            gitLog.workingTreeChanged() // The Commit tab and the review windows follow the status (ADRs 0048, 0168).
         }
 
         // Git runs only while the folder's trust allows it (ADR 0053), after its checks or the user's decision.

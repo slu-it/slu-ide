@@ -19,10 +19,7 @@ all changed files in one long scroll beside a filterable file tree, without push
 - Every review opens a window of its own, large and centred on the IDE window's screen, each further one a little
   offset by 30 px (80 % of the screen; the size is not remembered). Its title is `Review – <scope> – <project>`;
   Shortcut+W closes it (the running load is cancelled), and closing the project window closes its reviews.
-- Git → Review Branch sits after Pull… in the Git menu. Its window part is `WindowReviews` in `ide`: the git log's
-  requests become scopes (several commits: oldest = the last selected, newest = the first), a file link opens the file
-  in the editor area at its 0-based line, Show History expands the git log on the file's history, and the status
-  snapshot and the `.git` folder's changes tell the open reviews to check for changes.
+- Git → Review Branch sits after Pull… in the Git menu.
 
 ## Scope and pickers
 - A branch is reviewed against its base like a pull request: from where it left the base (the merge base) to its
@@ -124,3 +121,10 @@ all changed files in one long scroll beside a filterable file tree, without push
   since `head` is a hash that never moves; the fingerprint covers the base ref, `headRef`, the hashes, and for the
   checked-out head the working tree. A commit range runs from the oldest commit's first parent (none for a root
   commit) to the newest; one commit is titled `<short hash> <subject>`, a range `<oldest>..<newest>`.
+- `WindowReviews` (`ide/.../git`, created by `WindowGitLog`) is the window part: the git log's requests become scopes
+  (several commits: oldest = the last selected, newest = the first), a file link opens the file in the editor area at
+  its 0-based line, Show History expands the git log on the file's history (both bring the IDE window to the front),
+  and the status snapshot and the `.git` folder's changes tell the open reviews to check for changes.
+- A branch that does not resolve is "The branch has no commits yet." when it is the checked-out one (`HEAD` or its
+  refname), else "The branch <name> no longer exists."; a base that does not resolve is "The base <name> no longer
+  exists."

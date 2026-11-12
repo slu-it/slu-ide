@@ -8,7 +8,7 @@ import dev.sluide.gitlog.REVIEW_BRANCH_KEYS
 import dev.sluide.gitlog.ReviewRequest
 import javafx.beans.value.ObservableValue
 import javafx.scene.control.MenuItem
-import javafx.stage.Window
+import javafx.stage.Stage
 import java.nio.file.Path
 
 /**
@@ -23,19 +23,19 @@ internal class WindowReviews(
     /** The repository open in the git log, `null` without one. */
     private val root: () -> Path?,
 ) {
-    /** The review of the checked-out branch against its base, on Shortcut+Shift+R; needs a repository. */
-    fun menuItem(hasRepository: ObservableValue<Boolean>): MenuItem =
+    /** The review of the checked-out branch against its base, on Shortcut+Shift+R; [disabled] while there is no repository. */
+    fun menuItem(disabled: ObservableValue<Boolean>): MenuItem =
         MenuItem("Review Branch").apply {
             accelerator = REVIEW_BRANCH_KEYS
-            disableProperty().bind(hasRepository.map { !it })
+            disableProperty().bind(disabled)
             setOnAction { open(ReviewScope.Branch("HEAD")) }
         }
 
     /** The IDE window, the owner of the review windows; set by [wire]. */
-    private var stage: Window? = null
+    private var stage: Stage? = null
 
     /** Connects the git log's requests and the review windows' links with the window; [window] is their owner. */
-    fun wire(window: Window) {
+    fun wire(window: Stage) {
         stage = window
         gitLogView.onReview = { request ->
             open(
@@ -48,8 +48,18 @@ internal class WindowReviews(
         // The line is 0-based, as the file views take it.
         reviews.openFile = { file, line ->
             if (editorArea.open(file) && line != null) editorArea.viewOf(file)?.showLine(line)
+            toFront()
         }
-        reviews.showHistory = gitLogView::showHistory
+        reviews.showHistory = { file ->
+            gitLogView.showHistory(file)
+            toFront()
+        }
+    }
+
+    /** The review window is a window of its own: what a link shows is in the IDE window, so that comes to the front. */
+    private fun toFront() {
+        stage?.toFront()
+        stage?.requestFocus()
     }
 
     private fun open(scope: ReviewScope) {

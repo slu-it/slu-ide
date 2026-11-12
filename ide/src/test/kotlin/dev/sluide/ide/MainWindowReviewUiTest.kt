@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import org.testfx.util.WaitForAsyncUtils
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -32,6 +33,8 @@ class MainWindowReviewUiTest : MainWindowUiFixture() {
 
     private val commit = arrayOf("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q")
 
+    private fun reviewItem(robot: FxRobot) = menu(robot, "Git").items.single { it.text == "Review Branch" }
+
     /** A repository with one commit, opened in the window once its git log is there. */
     private fun openRepository(robot: FxRobot) {
         assumeTrue(git.available, "git is not installed")
@@ -40,32 +43,51 @@ class MainWindowReviewUiTest : MainWindowUiFixture() {
         runGit("add", ".")
         runGit(*commit, "-m", "Initial commit")
         robot.interact { projectService.open(project) }
-        eventually(robot) { assertFalse(menu(robot, "Git").items.single { it.text == "Review Branch" }.isDisable) }
+        eventually(robot) { assertFalse(reviewItem(robot).isDisable) }
     }
 
     /** The review windows shown: top-level windows besides the main one; no other window is open in these tests. */
     private fun reviewStages() = Window.getWindows().filterIsInstance<Stage>().filter { it.isShowing && it !== stage }
 
-    /** Opens the review of HEAD and waits until its load has read the fingerprint. */
-    private fun openReviewAndWaitForLoad(robot: FxRobot) {
-        robot.interact { menu(robot, "Git").items.single { it.text == "Review Branch" }.fire() }
-        eventually(robot) { assertTrue(reviewSource.fingerprints.get() >= 1) }
-        // No signal for "nothing more is coming": the window's own focus and loads settle on their own threads.
-        Thread.sleep(500)
+    /** Opens the review of HEAD and waits until it is shown, focused and has read its fingerprint. */
+    private fun openReview(robot: FxRobot): Stage {
+        robot.interact { reviewItem(robot).fire() }
+        eventually(robot) { assertEquals(1, reviewStages().size) }
+        val review = reviewStages().single()
+        robot.interact { review.requestFocus() }
+        eventually(robot) {
+            assertTrue(review.isFocused)
+            assertTrue(reviewSource.fingerprints.get() >= 1)
+        }
+        return review
+    }
+
+    /** Waits until the fingerprint count stays the same across an idle barrier: the open review has settled. */
+    private fun settledFingerprints(robot: FxRobot): Int {
+        var settled = 0
+        eventually(robot) {
+            val before = reviewSource.fingerprints.get()
+            WaitForAsyncUtils.waitForFxEvents()
+            assertEquals(before, reviewSource.fingerprints.get())
+            settled = before
+        }
+        return settled
     }
 
     @Test
     fun `Git - Review Branch on Shortcut+Shift+R opens the review of HEAD once the git log has a repository`(
         robot: FxRobot,
     ) {
-        val item = menu(robot, "Git").items.single { it.text == "Review Branch" }
-        assertEquals(REVIEW_BRANCH_KEYS, item.accelerator)
-        assertTrue(item.isDisable, "no folder, no git log")
+        robot.interact {
+            assertEquals(REVIEW_BRANCH_KEYS, reviewItem(robot).accelerator)
+            assertTrue(reviewItem(robot).isDisable, "no folder, no git log")
+        }
 
         openRepository(robot)
-        robot.interact { item.fire() }
+        robot.interact { reviewItem(robot).fire() }
 
         eventually(robot) { assertEquals(1, reviewStages().size) }
+        eventually(robot) { assertEquals(1, reviewSource.resolved.size) }
         val (root, scope) = reviewSource.resolved.single()
         assertEquals(project.toRealPath(), root.toRealPath())
         assertEquals(ReviewScope.Branch("HEAD"), scope)
@@ -91,35 +113,40 @@ class MainWindowReviewUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `a review's file link opens the file in the editor at the 0-based line, its history link the git log`(
-        robot: FxRobot,
-    ) {
+    fun `a review's file and history links show their target and bring the IDE window to the front`(robot: FxRobot) {
         openRepository(robot)
         val file = project.resolve("notes.txt")
+        val review = openReview(robot)
+        eventually(robot) { assertFalse(stage.isFocused, "the review window has the focus") }
 
         robot.interact { reviews.openFile(file, 2) }
 
-        assertEquals(listOf(file.toRealPath()), editorArea.openPaths.map { it.toRealPath() })
         eventually(robot) {
+            assertEquals(listOf(file.toRealPath()), editorArea.openPaths.map { it.toRealPath() })
             val area = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).single()
             assertEquals(2, area.currentParagraph)
+            assertTrue(stage.isFocused, "the IDE window is in front")
         }
+        robot.interact { review.requestFocus() }
+        eventually(robot) { assertFalse(stage.isFocused) }
         robot.interact { reviews.showHistory(file) }
-        assertTrue(gitLogView.expanded.get())
         eventually(robot) {
+            assertTrue(gitLogView.expanded.get())
             val titles = robot.lookup(".git-log-tab-title").queryAllAs(Label::class.java).map { it.text }
             assertTrue("History: notes.txt" in titles, titles.toString())
+            assertTrue(stage.isFocused, "the IDE window is in front")
         }
     }
 
     @Test
     fun `the reviews check for changes when the git folder changes`(robot: FxRobot) {
         openRepository(robot)
-        openReviewAndWaitForLoad(robot)
-        val before = reviewSource.fingerprints.get()
+        openReview(robot)
+        val before = settledFingerprints(robot)
 
-        // Only .git changes (its configuration, which the watch sees on every platform): the status snapshot stays as it is.
-        runGit("config", "review.test", "1")
+        // Only `.git` changes, and not a trust input (`refs/stash` is directly below `.git/refs`, which the watch sees
+        // on every platform): the status snapshot and the trust check stay as they are.
+        runGit("update-ref", "refs/stash", "HEAD")
 
         eventually(robot) { assertTrue(reviewSource.fingerprints.get() > before) }
     }
@@ -127,8 +154,8 @@ class MainWindowReviewUiTest : MainWindowUiFixture() {
     @Test
     fun `the reviews check for changes when the status changes`(robot: FxRobot) {
         openRepository(robot)
-        openReviewAndWaitForLoad(robot)
-        val before = reviewSource.fingerprints.get()
+        openReview(robot)
+        val before = settledFingerprints(robot)
 
         // An untracked file: the status changes, `.git` does not.
         project.resolve("untracked.txt").writeText("new")
@@ -139,8 +166,7 @@ class MainWindowReviewUiTest : MainWindowUiFixture() {
     @Test
     fun `closing the window closes its reviews`(robot: FxRobot) {
         openRepository(robot)
-        robot.interact { menu(robot, "Git").items.single { it.text == "Review Branch" }.fire() }
-        eventually(robot) { assertEquals(1, reviewStages().size) }
+        openReview(robot)
 
         robot.interact { mainWindow.dispose() }
 

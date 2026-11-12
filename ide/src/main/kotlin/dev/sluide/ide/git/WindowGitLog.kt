@@ -208,8 +208,8 @@ internal class WindowGitLog(
         }
 
     /**
-     * The Git menu: Commit…, Push…, Pull…, Review Branch, Stash Changes… and Pop Latest Stash, disabled while the git log has no
-     * repository open.
+     * The Git menu: Commit…, Push…, Pull…, Review Branch, Stash Changes… and Pop Latest Stash, disabled while the git
+     * log has no repository open.
      */
     fun gitMenu(): Menu {
         // The Commit tab of the git log area, on IntelliJ's shortcut (ADR 0048).
@@ -244,7 +244,7 @@ internal class WindowGitLog(
                 setOnAction { gitLogView.popLatestStash() }
             }
         // The Review window of the checked-out branch (ADR 0168), on its own shortcut.
-        val review = reviewWindows.menuItem(gitLogOpen)
+        val review = reviewWindows.menuItem(gitLogOpen.not())
         return Menu("Git", null, commit, push, pull, review, SeparatorMenuItem(), stash, popLatest)
     }
 
