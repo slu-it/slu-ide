@@ -1,6 +1,5 @@
 package dev.sluide.codereview.model
 
-import dev.sluide.codereview.ReviewFile
 import dev.sluide.codereview.ReviewFileContent
 import dev.sluide.fileviewers.CodeEditors
 import dev.sluide.fileviewers.HighlightSpan
