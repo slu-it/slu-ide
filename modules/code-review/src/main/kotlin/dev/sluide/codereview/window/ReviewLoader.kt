@@ -157,6 +157,22 @@ internal class ReviewLoader(
         if (row >= 0) viewport.scrollToRow(row, place.second)
     }
 
+    /**
+     * Runs [change] (hiding whitespace), which drops all contents, and puts the diff back at the header of the file
+     * that was at the top; when its content arrives it stays there unless the user scrolled meanwhile.
+     */
+    fun keepingFile(change: () -> Unit) {
+        val path = currentAnchor()?.first?.path
+        change()
+        if (path == null) return
+        val header = ReviewAnchor(path, null, null)
+        val row = document.rowOf(header)
+        if (row < 0) return
+        viewport.scrollToRow(row, 0.0)
+        // The header stays while the content is not there; a loading file is one row tall.
+        scrollRestore = ScrollRestore(header, 0.0, header to 0.0)
+    }
+
     /** Cancels the running load and ignores everything still posted. */
     fun close() {
         closed = true

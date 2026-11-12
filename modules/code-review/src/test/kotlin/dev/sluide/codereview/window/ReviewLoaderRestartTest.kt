@@ -285,4 +285,40 @@ class ReviewLoaderRestartTest {
 
         assertEquals(scrolls, viewport.scrolls.size, "no scroll to the line")
     }
+
+    private fun hideWhitespaceAtSecondFile(viewport: FakeViewport): ReviewLoader {
+        source.files = listOf(file("a.kt"), file("b.kt"))
+        val loader = loader(viewport)
+        loader.openBranch()
+        posts.drain()
+        // A line in the middle of b.kt is at the top.
+        viewport.place = document.rows.indexOfFirst { it.path == "b.kt" && it is ReviewRow.SplitLine } to 3.0
+        loader.keepingFile { document.ignoreWhitespace.set(true) }
+        return loader
+    }
+
+    @Test
+    fun `hiding whitespace scrolls to the header of the top file and keeps it there when the content arrives`() {
+        val viewport = FakeViewport()
+        hideWhitespaceAtSecondFile(viewport)
+        assertEquals(document.headerRow("b.kt") to 0.0, viewport.scrolls.last())
+        val scrolls = viewport.scrolls.size
+
+        posts.drain()
+
+        assertTrue(viewport.scrolls.size > scrolls, "scrolled again when the content landed")
+        assertEquals(document.headerRow("b.kt") to 0.0, viewport.scrolls.last())
+    }
+
+    @Test
+    fun `hiding whitespace does not pull the user back when they scrolled before the content arrived`() {
+        val viewport = FakeViewport()
+        hideWhitespaceAtSecondFile(viewport)
+        viewport.place = 0 to 0.0
+        val scrolls = viewport.scrolls.size
+
+        posts.drain()
+
+        assertEquals(scrolls, viewport.scrolls.size)
+    }
 }

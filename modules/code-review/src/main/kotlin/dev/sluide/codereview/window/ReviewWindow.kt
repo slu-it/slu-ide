@@ -192,7 +192,10 @@ internal class ReviewWindow(
     }
 
     private fun wireToolbar() {
-        hideWhitespace.selectedProperty().bindBidirectional(document.ignoreWhitespace)
+        hideWhitespace.isSelected = document.ignoreWhitespace.get()
+        hideWhitespace.selectedProperty().addListener { _, _, hide ->
+            if (document.ignoreWhitespace.get() != hide) loader.keepingFile { document.ignoreWhitespace.set(hide) }
+        }
 
         layoutToggles.selectToggle(layoutButtons.getValue(document.layout.get()))
         layoutToggles.selectedToggleProperty().addListener { _, old, new ->
