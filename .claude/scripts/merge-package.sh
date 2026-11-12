@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Merges a package worktree (an implementer's branch) onto master in the main tree in one step: checks, rebase onto
-# master when it moved, compile of the touched modules, fast-forward merge. The worktree is kept on merge so the agent
-# can still be resumed; --remove deletes it after the review and the final gate.
+# master when it moved, compile of the touched modules, fast-forward merge. Refuses (exit 2), before anything is
+# changed, while a Gradle build runs in the worktree or in the main tree (builds in other worktrees do not count), and
+# when the worktree has uncommitted tracked changes or untracked files that are not ignored (they would be left out).
+# A fast-forward that git refuses (e.g. local changes in the main tree in the way) also exits 2; the branch may already
+# be rebased by then. The worktree is kept on merge so the agent can still be resumed; --remove deletes it after the
+# review and the final gate.
 # <worktree> is a worktree path, its branch name, or a unique substring of either (e.g. the agent id).
 # Usage: .claude/scripts/merge-package.sh <worktree> [--expect <pathspec>...] [--no-compile]
 #        .claude/scripts/merge-package.sh --remove <worktree>
@@ -86,14 +90,12 @@ fi
 [ "$(git -C "$main" rev-parse --abbrev-ref HEAD)" = "master" ] || die "The main tree $main is not on master."
 
 # Gradle clients (not daemons) in the worktree (the agent may still work) or in the main tree (the fast-forward changes
-# its files), found by gradle-running.sh (reads /proc, so Linux only). Before anything is changed.
+# its files; builds in other worktrees below it do not count), found by gradle-running.sh (reads /proc, so Linux only).
+# Before anything is changed.
 if found="$("$(dirname "$0")/gradle-running.sh" "$wt")"; then
   die "A Gradle build runs in $wt (pid ${found%% *}); the agent may still be working. Wait for it to finish."
 fi
-# Package worktrees live below the main tree (.claude/worktrees); builds there are not builds in the main tree.
-found="$("$(dirname "$0")/gradle-running.sh" "$main" | grep -vF " $main/.claude/worktrees/" || true)"
-if [ -n "$found" ]; then
-  found="$(head -n 1 <<<"$found")"
+if found="$("$(dirname "$0")/gradle-running.sh" "$main")"; then
   die "A Gradle build runs in the main tree $main (pid ${found%% *}); wait for it to finish first."
 fi
 
@@ -101,6 +103,12 @@ changes="$(git -C "$wt" status --porcelain --untracked-files=no)"
 if [ -n "$changes" ]; then
   echo "Uncommitted tracked changes in $wt:" >&2
   echo "$changes" >&2
+  exit 2
+fi
+untracked="$(git -C "$wt" ls-files --others --exclude-standard --directory --no-empty-directory)"
+if [ -n "$untracked" ]; then
+  echo "Untracked files in $wt (they would be left out of the merge); commit or delete them:" >&2
+  sed 's/^/  /' <<<"$untracked" >&2
   exit 2
 fi
 [ "$(git -C "$main" rev-list --count "master..$branch")" -gt 0 ] || die "nothing to merge: $branch has no commits beyond master."
@@ -155,6 +163,7 @@ if ! git -C "$main" merge-base --is-ancestor master "$branch"; then
 fi
 
 count="$(git -C "$main" rev-list --count "master..$branch")"
-git -C "$main" merge --ff-only -q "$branch"
+git -C "$main" merge --ff-only -q "$branch" \
+  || die "Fast-forward of master to $branch failed (see git's message above; local changes in the main tree in the way?). $branch may already be rebased onto master; fix the cause and run this again."
 echo "merged $count commits onto master: $(git -C "$main" rev-parse --short HEAD)"
 echo "worktree kept: remove after the review and the final gate with merge-package.sh --remove $branch"
