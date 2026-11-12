@@ -37,9 +37,12 @@ class GitReviewSource(
     private val reviews: GitReviews,
     private val pulls: GitPulls,
 ) : ReviewSource {
-    /** The default bases of `HEAD` first (the order of [GitReviews.defaultBases]), then the other branches. */
-    override fun bases(root: Path): List<ReviewBase> {
-        val defaults = reviews.defaultBases(root)
+    /** The default bases of [head] first (the order of [GitReviews.defaultBases]), then the other branches. */
+    override fun bases(
+        root: Path,
+        head: String,
+    ): List<ReviewBase> {
+        val defaults = reviews.defaultBases(root, head)
         val others = reviews.branches(root).filterNot { it in defaults }
         return defaults.map { ReviewBase(it, shortName(it), true) } +
             others.map { ReviewBase(it, shortName(it), false) }

@@ -134,11 +134,29 @@ class GitReviewSourceTest {
         featureBranch()
         git("branch", "other")
 
-        val bases = source.bases(repo)
+        val bases = source.bases(repo, "HEAD")
 
         assertEquals(listOf("main", "feature", "other"), bases.map { it.label })
         assertEquals(listOf(true, false, false), bases.map { it.isDefault })
         assertEquals("refs/heads/other", bases.last().ref)
+    }
+
+    @Test
+    fun `the bases of a remote head list that remote's default first, marked`() {
+        featureBranch()
+        git("remote", "add", "origin", "https://example.com/origin.git")
+        git("remote", "add", "zeta", "https://example.com/zeta.git")
+        git("update-ref", "refs/remotes/origin/main", "HEAD")
+        git("update-ref", "refs/remotes/zeta/main", "HEAD")
+        git("update-ref", "refs/remotes/zeta/topic", "HEAD")
+
+        val ofCheckedOut = source.bases(repo, "HEAD")
+        val ofZeta = source.bases(repo, "refs/remotes/zeta/topic")
+
+        assertEquals("origin/main", ofCheckedOut.first().label)
+        assertEquals("zeta/main", ofZeta.first().label)
+        assertTrue(ofZeta.first().isDefault)
+        assertEquals("origin/main", ofZeta[1].label)
     }
 
     @Test
@@ -375,6 +393,6 @@ class GitReviewSourceTest {
         assertFailsWith<ReviewException> {
             broken.changedFiles(repo, null, ReviewRevision.WorkingTree, ReviewCancellation())
         }
-        assertTrue(broken.bases(repo).isEmpty())
+        assertTrue(broken.bases(repo, "HEAD").isEmpty())
     }
 }

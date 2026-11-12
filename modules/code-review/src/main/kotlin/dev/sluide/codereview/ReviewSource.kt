@@ -104,13 +104,16 @@ class ReviewException(
  */
 interface ReviewSource {
     /**
-     * The bases a branch review can pick: the default candidates first, then local, then remote branches; an empty
-     * list when git fails.
+     * The bases a branch review of [head] (`HEAD` or a full refname) can pick: the default candidates for that head
+     * first, then local, then remote branches; an empty list when git fails.
      */
-    fun bases(root: Path): List<ReviewBase>
+    fun bases(
+        root: Path,
+        head: String,
+    ): List<ReviewBase>
 
     /**
-     * Resolves [scope] to commits. Throws [ReviewException] with git's reason when git fails, and
+     * Resolves [scope] to commits. Throws [ReviewException] with a short reason when git fails, and
      * [CancellationException] when [cancellation] was cancelled.
      */
     fun resolve(
@@ -120,7 +123,7 @@ interface ReviewSource {
     ): ResolvedReview
 
     /**
-     * The files changed from [from] (`null` for the empty tree) to [to]. Throws [ReviewException] with git's reason
+     * The files changed from [from] (`null` for the empty tree) to [to]. Throws [ReviewException] with a short reason
      * when git fails, and [CancellationException] when [cancellation] was cancelled.
      */
     fun changedFiles(
@@ -132,7 +135,7 @@ interface ReviewSource {
 
     /**
      * The diffs of [files] from [from] to [to], keyed by path; a file that cannot be read is absent from the map.
-     * Throws [ReviewException] with git's reason when git fails, and [CancellationException] when [cancellation] was
+     * Throws [ReviewException] with a short reason when git fails, and [CancellationException] when [cancellation] was
      * cancelled.
      */
     fun fileDiffs(

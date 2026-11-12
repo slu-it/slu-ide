@@ -18,7 +18,10 @@ internal class RecordingReviewSource : ReviewSource {
     val resolved = CopyOnWriteArrayList<Pair<Path, ReviewScope>>()
     val fingerprints = AtomicInteger()
 
-    override fun bases(root: Path): List<ReviewBase> = emptyList()
+    override fun bases(
+        root: Path,
+        head: String,
+    ): List<ReviewBase> = emptyList()
 
     override fun resolve(
         root: Path,

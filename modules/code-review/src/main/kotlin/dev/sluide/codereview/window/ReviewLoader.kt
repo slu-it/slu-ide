@@ -209,7 +209,7 @@ internal class ReviewLoader(
         executor.execute {
             guarded(cancellation) {
                 val review = source.resolve(root, scope, cancellation)
-                val bases = if (scope is ReviewScope.Branch) source.bases(root) else null
+                val bases = if (scope is ReviewScope.Branch) source.bases(root, scope.head) else null
                 // Before the files are read: what changes while they are read makes the review stale afterwards.
                 val print = source.fingerprint(root, review)
                 val picked = (meanwhile ?: restore?.picked)?.selectionIn(review) ?: ReviewSelection.All

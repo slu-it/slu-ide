@@ -66,7 +66,15 @@ internal class FakeSource(
 
     var baseList = listOf(ReviewBase("refs/heads/main", "main", true))
 
-    override fun bases(root: Path) = baseList
+    val baseHeads = CopyOnWriteArrayList<String>()
+
+    override fun bases(
+        root: Path,
+        head: String,
+    ): List<ReviewBase> {
+        baseHeads += head
+        return baseList
+    }
 
     override fun resolve(
         root: Path,
@@ -176,6 +184,7 @@ class ReviewLoaderTest {
         assertEquals(listOf(ReviewScope.Branch("HEAD")), source.scopes.toList())
         assertEquals(listOf("main"), loader.bases.map { it.label })
         assertEquals("main..feature", loader.resolved.get()?.title)
+        assertEquals(listOf("HEAD"), source.baseHeads.toList())
     }
 
     @Test
