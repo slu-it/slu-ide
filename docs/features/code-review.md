@@ -23,8 +23,9 @@ all changed files in one long scroll beside a filterable file tree, without push
 ## Scope and pickers
 - A branch is reviewed against its base like a pull request: from where it left the base (the merge base) to its
   last commit, so changes merged in from the base do not show. The base is the remote's default branch
-  (`origin/main` and the like), else the local `main` or `master`; **into: <base> ▾** on the toolbar picks another
-  branch. Without any default branch the review asks to choose a base.
+  (`origin/main` and the like; first that of the remote the reviewed branch tracks, or is on for a remote branch, then
+  `origin`'s), else the local `main` or `master`; **into: <base> ▾** on the toolbar picks another branch. Without any
+  default branch the review asks to choose a base.
 - The **commit picker** offers "All changes", the single commits (newest first) and, while the reviewed branch is
   checked out and has them, **Uncommitted changes** (untracked files included) on top. A click picks one entry,
   Shift+click a range. A merge commit alone is shown against its first parent. A single-commit review has no picker.
@@ -76,3 +77,22 @@ all changed files in one long scroll beside a filterable file tree, without push
 ## Limits
 - Text is selected by whole lines; there is no free text selection.
 - Viewed flags, review comments and image diffs are not there yet ([ideas](../ideas/review-later.md)).
+- A file removed from the index but still on disk (`git rm --cached`) shows as modified; a move that is not staged
+  (`mv a b`) shows as a deletion and an addition.
+
+## API
+- `GitReviews` (module `git`) is what the review reads from git; `ide` implements the window's `ReviewSource` over it.
+  All its calls block and run git on the calling thread; `null` means git failed, timed out or was cancelled.
+- A range runs from a full hash, or `null` for the empty tree, to a `GitReviewSide`: a commit or the working tree
+  (tracked changes, staged or not, plus the untracked files that are not ignored, as added).
+- `defaultBases(root, head)` gives the base candidates for `head` best first (the remote's of `head`'s upstream, or of
+  `head` itself if it is a remote branch; `origin`'s; the other remotes'; each `<remote>/HEAD`'s target or else `main`
+  then `master`; then the local `main` and `master`), `branches` the local then remote branches, `commits` the commits
+  of `from..to` newest first.
+- `fileDiffs` reads a commit range's objects with one `git cat-file --batch-check` and its blobs with one
+  `git cat-file --batch` (split when the names would not fit git's standard input or the blobs pass 32 MiB; paths with
+  a line break or a carriage return are left out, as git would read another file), then one `git diff` per text
+  file, with `-w` when whitespace is hidden; working-tree files are compared as the git log compares them. A file that
+  cannot be read is left out of the result.
+- `fingerprint` hashes what the given revisions resolve to and, for the working tree, `git status --porcelain` and the
+  size and modification time of every changed or untracked file.

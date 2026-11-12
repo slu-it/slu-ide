@@ -33,9 +33,10 @@ Options considered for the diff:
   80 % of the IDE window's screen, centred, offset by 30 px per further window; bounds are not remembered. A project
   window's reviews close with it.
 - **Scopes.** A branch is reviewed from `merge-base(base, head)` to `head`, GitHub's three-dot diff, so commits merged
-  in from the base do not show. The default base is the remote default branch (upstream remote's `HEAD`, then
-  `origin`'s, then other remotes', else their `main`/`master`), else the local `main`/`master`; a base picker changes
-  it. Commits are reviewed from the oldest one's first parent to the newest one; one commit (a merge too) against its
+  in from the base do not show. The default base is the remote default branch (the `HEAD` of the remote the reviewed
+  head's upstream is on, or of a remote branch's own remote, then `origin`'s, then other remotes', else their
+  `main`/`master`), else the local `main`/`master`; a base picker changes it. Commits are reviewed from the oldest
+  one's first parent to the newest one; one commit (a merge too) against its
   first parent. When the reviewed head is the checked-out `HEAD`, the uncommitted changes (untracked files included)
   are a pseudo-commit of the commit picker, and "All" reaches the working tree. Commit diffs read raw blobs, diffs to
   the working tree filter the original side like a checkout (as `GitLog.workingTreeFileDiff` does).
