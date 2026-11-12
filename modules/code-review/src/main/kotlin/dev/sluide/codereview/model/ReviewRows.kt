@@ -60,7 +60,11 @@ internal sealed interface ReviewRow {
         val kind: DiffKind?,
     ) : ReviewRow
 
-    /** A notice instead of the file's lines. */
+    /**
+     * A notice instead of the file's lines. [detail] is the bare count of changed lines for [NoticeKind.LOAD_DIFF]
+     * ("1234"), the short hashes "old → new" for [NoticeKind.SUBMODULE] and the sentence to show for
+     * [NoticeKind.NO_CONTENT_CHANGE]; `null` for the other kinds.
+     */
     data class Notice(
         override val path: String,
         val kind: NoticeKind,
