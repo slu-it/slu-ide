@@ -58,6 +58,8 @@ data class ResolvedReview(
     /** Newest first. */
     val commits: List<ReviewCommit>,
     val uncommitted: Boolean,
+    /** The reviewed branch's refname or `HEAD`, which move while [head] (a hash) does not; `null` for commit scopes. */
+    val headRef: String? = null,
 )
 
 /** How a file changed. */

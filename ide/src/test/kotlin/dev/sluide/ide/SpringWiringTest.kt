@@ -3,6 +3,7 @@ package dev.sluide.ide
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.codecs.Codecs
 import dev.sluide.codeintelligence.InstallPrompts
+import dev.sluide.codereview.Reviews
 import dev.sluide.coloring.Coloring
 import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
@@ -70,6 +71,7 @@ import dev.sluide.git.GitPulls
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
+import dev.sluide.git.GitReviews
 import dev.sluide.git.GitRewords
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
@@ -85,6 +87,7 @@ import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
+import dev.sluide.ide.git.GitReviewSource
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.MediaFileViewer
 import dev.sluide.media.MediaPreferences
@@ -198,6 +201,8 @@ class SpringWiringTest {
                         GitRemotes::class.java,
                         RemoteSourceCache::class.java,
                         GitPush::class.java,
+                        GitReviews::class.java,
+                        GitReviewSource::class.java,
                         GitLogView::class.java,
                         ProjectWindows::class.java,
                         SystemBrowser::class.java,
@@ -323,6 +328,7 @@ class SpringWiringTest {
                         DockerSandbox::class.java,
                         GitStatusService::class.java,
                         GitLogView::class.java,
+                        Reviews::class.java,
                         HttpClientSession::class.java,
                         GradleSession::class.java,
                         CommandRunSession::class.java,

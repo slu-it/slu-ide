@@ -30,6 +30,8 @@ dependencies {
     implementation(project(":modules:docker-sandbox"))
     implementation(project(":modules:git"))
     implementation(project(":modules:git-log"))
+    // The Review window (ADR 0168): `ide` implements its `ReviewSource` over the git module and opens its windows.
+    implementation(project(":modules:code-review"))
     implementation(project(":modules:http-client"))
     implementation(project(":modules:projects"))
     implementation(project(":modules:project-trust"))
