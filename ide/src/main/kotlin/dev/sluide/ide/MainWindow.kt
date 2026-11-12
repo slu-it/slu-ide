@@ -2,6 +2,7 @@ package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.codecs.Codecs
+import dev.sluide.codereview.Reviews
 import dev.sluide.coloring.Coloring
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.converting.Converting
@@ -156,6 +157,7 @@ class MainWindow(
     diagnostics: Diagnostics,
     private val softWrap: SoftWrap,
     private val codeIntelligence: CodeIntelligenceWiring,
+    reviews: Reviews,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -241,7 +243,8 @@ class MainWindow(
     internal val trust = WindowTrust(projectTrust, folder = { folder })
 
     /** The git log below the editor area, the Git menu and their wiring (ADRs 0035, 0053). */
-    private val gitLog = WindowGitLog(gitLogView, gitStatus, projectTrust, editorArea, fileExplorer, fileViewers)
+    private val gitLog =
+        WindowGitLog(gitLogView, gitStatus, projectTrust, editorArea, fileExplorer, fileViewers, reviews)
 
     /** The explorer column at the left of the window and the View menu's Explorer item (ADR 0104). */
     internal val explorer = WindowExplorer(fileExplorer, backgroundTasks, editorArea)
@@ -486,7 +489,7 @@ class MainWindow(
         }
         trust.attach(stage)
 
-        gitLog.wire()
+        gitLog.wire(stage)
 
         // A window gets its folder once (ADR 0014); other folders open in new windows.
         projectService.projectFolder.subscribe { folder ->

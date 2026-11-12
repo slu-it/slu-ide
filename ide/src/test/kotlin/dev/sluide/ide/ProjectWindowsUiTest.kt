@@ -3,6 +3,7 @@ package dev.sluide.ide
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.codecs.Codecs
 import dev.sluide.codeintelligence.InstallPrompts
+import dev.sluide.codereview.Reviews
 import dev.sluide.coloring.Coloring
 import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
@@ -57,6 +58,7 @@ import dev.sluide.git.GitPulls
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
+import dev.sluide.git.GitReviews
 import dev.sluide.git.GitRewords
 import dev.sluide.git.GitStashes
 import dev.sluide.git.GitStatusService
@@ -68,6 +70,7 @@ import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
+import dev.sluide.ide.git.GitReviewSource
 import dev.sluide.ide.speech.NoSpeechEngine
 import dev.sluide.ide.translation.NoLanguageDetector
 import dev.sluide.ide.translation.NoTranslationEngine
@@ -203,6 +206,8 @@ class ProjectWindowsUiTest {
                 register(GitRewords::class.java)
                 register(GitRemotes::class.java)
                 register(GitPush::class.java)
+                register(GitReviews::class.java)
+                register(GitReviewSource::class.java)
                 register(GitStashes::class.java)
                 register(DockerSettings::class.java)
                 register(DockerRunStore::class.java)
@@ -260,6 +265,7 @@ class ProjectWindowsUiTest {
                     DockerSandbox::class.java,
                     GitStatusService::class.java,
                     GitLogView::class.java,
+                    Reviews::class.java,
                     HttpClientSession::class.java,
                     GradleSession::class.java,
                     CommandRunSession::class.java,

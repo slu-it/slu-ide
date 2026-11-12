@@ -3,6 +3,7 @@ package dev.sluide.ide
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.codecs.Codecs
 import dev.sluide.codeintelligence.InstallPrompts
+import dev.sluide.codereview.Reviews
 import dev.sluide.coloring.Coloring
 import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
@@ -234,6 +235,7 @@ abstract class MainWindowUiFixture {
         gitStatus.close()
         projectTrust.close()
         gitLogViews.forEach(GitLogView::close)
+        Platform.runLater { reviewWindows.forEach(Reviews::closeAll) }
         watcher.close()
         httpSessions.forEach(HttpClientSession::close)
         gradleSessions.forEach(GradleSession::close)
@@ -252,6 +254,11 @@ abstract class MainWindowUiFixture {
 
     /** The git log views of the windows a test created, the main window's first; closed after it. */
     internal val gitLogViews = mutableListOf<GitLogView>()
+    internal val reviewWindows = mutableListOf<Reviews>()
+    internal val reviews get() = reviewWindows.first()
+
+    /** What the windows' reviews read; the main window's `Reviews` read it through this. */
+    internal val reviewSource = RecordingReviewSource()
     internal val gitLogView get() = gitLogViews.first()
 
     /** The HTTP client sessions of the windows a test created; closed after it. */
@@ -492,6 +499,7 @@ abstract class MainWindowUiFixture {
                 InstallPrompts(projectData),
                 LibraryCodeSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
             ).also(codeIntelligences::add),
+            Reviews(reviewSource, fontSettings, projectData, fileViewers).also(reviewWindows::add),
         )
     }
 

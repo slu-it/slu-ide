@@ -19,6 +19,10 @@ all changed files in one long scroll beside a filterable file tree, without push
 - Every review opens a window of its own, large and centred on the IDE window's screen, each further one a little
   offset by 30 px (80 % of the screen; the size is not remembered). Its title is `Review – <scope> – <project>`;
   Shortcut+W closes it (the running load is cancelled), and closing the project window closes its reviews.
+- Git → Review Branch sits after Pull… in the Git menu. Its window part is `WindowReviews` in `ide`: the git log's
+  requests become scopes (several commits: oldest = the last selected, newest = the first), a file link opens the file
+  in the editor area at its 0-based line, Show History expands the git log on the file's history, and the status
+  snapshot and the `.git` folder's changes tell the open reviews to check for changes.
 
 ## Scope and pickers
 - A branch is reviewed against its base like a pull request: from where it left the base (the merge base) to its
@@ -112,3 +116,11 @@ all changed files in one long scroll beside a filterable file tree, without push
   cannot be read is left out of the result.
 - `fingerprint` hashes what the given revisions resolve to and, for the working tree, `git status --porcelain` and the
   size and modification time of every changed or untracked file.
+- `GitReviewSource` (`ide/.../git`) is the `ReviewSource` over `GitReviews`: per call a `GitCancellation` is cancelled
+  with the load's `ReviewCancellation`; a `null` from git becomes `CancellationException` if cancelled, else a
+  `ReviewException` with a short reason. A branch review's title is `<head> into <base>` (the branch's short name, for
+  `HEAD` the current branch or the short hash when detached); `uncommitted` is set when the head is the checked-out one
+  (`HEAD` or the current branch's refname) and has changes. `ResolvedReview.headRef` keeps that refname or `HEAD`,
+  since `head` is a hash that never moves; the fingerprint covers the base ref, `headRef`, the hashes, and for the
+  checked-out head the working tree. A commit range runs from the oldest commit's first parent (none for a root
+  commit) to the newest; one commit is titled `<short hash> <subject>`, a range `<oldest>..<newest>`.

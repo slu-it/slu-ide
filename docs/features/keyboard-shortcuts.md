@@ -38,6 +38,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Shortcut+Alt+Shift+O (Cmd+Option+Shift+O on macOS) | Navigate → Go to Symbol… (searches the project's symbols in the search popup, window-wide; [code-intelligence.md](code-intelligence.md); not while a terminal has the focus on Linux and Windows) |
 | Shortcut+K | Git → Commit… |
 | Shortcut+Shift+K | Git → Push… |
+| Shortcut+Shift+R | Git → Review Branch (the review window of the checked-out branch; disabled without a repository; [code-review.md](code-review.md)) |
 | Shortcut+Shift+T | Terminal → New Terminal |
 | Alt+7 (Cmd+7 on macOS) | Services → Databases (opens the Databases tab or selects it; not while a terminal has the focus on Linux and Windows) |
 | Alt+8 (Cmd+8 on macOS) | Services → Docker (opens the Docker tab or selects it; not while a terminal has the focus on Linux and Windows) |

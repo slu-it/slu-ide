@@ -508,7 +508,7 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         val stashItem = menu(robot, "Git").items.single { it.text == "Stash Changes…" }
         val popItem = menu(robot, "Git").items.single { it.text == "Pop Latest Stash" }
         assertEquals(
-            listOf("Commit…", "Push…", "Pull…", null, "Stash Changes…", "Pop Latest Stash"),
+            listOf("Commit…", "Push…", "Pull…", "Review Branch", null, "Stash Changes…", "Pop Latest Stash"),
             menu(robot, "Git").items.map { it.text },
         )
         assertEquals(listOf(null, null), listOf(stashItem.accelerator, popItem.accelerator))

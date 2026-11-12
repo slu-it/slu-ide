@@ -1,5 +1,6 @@
 package dev.sluide.ide.git
 
+import dev.sluide.codereview.Reviews
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.FileViewers
@@ -19,6 +20,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.layout.Region
+import javafx.stage.Stage
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -40,8 +42,12 @@ internal class WindowGitLog(
     private val editorArea: EditorArea,
     private val fileExplorer: FileExplorerView,
     fileViewers: FileViewers,
+    reviews: Reviews,
 ) {
     private val diffTabs = GitDiffTabs(editorArea, fileViewers, gitLogView::showStatus)
+
+    /** The review windows of this window (ADR 0168). */
+    private val reviewWindows = WindowReviews(reviews, gitLogView, editorArea) { gitLogRoot }
 
     /** Whether the git log is shown below the editor area: only for folders whose git status is followed. */
     private val gitLogPresent = SimpleBooleanProperty(false)
@@ -63,11 +69,15 @@ internal class WindowGitLog(
     /** The height of the expanded git log in pixels, kept while it is collapsed; 0 until it was expanded. */
     private var gitLogHeight = 0.0
 
-    /** Connects the git log with the git status, the editor area and the explorer. */
-    fun wire() {
+    /** Connects the git log with the git status, the editor area and the explorer; [stage] is the window. */
+    fun wire(stage: Stage) {
+        reviewWindows.wire(stage)
         // The git log follows the repository's .git folder (commits, checkouts, fetches); collapsed, it only notes that
         // it is outdated (ADR 0035).
-        gitStatus.gitFolderChanged.addListener { _, _, _ -> gitLogView.refresh() }
+        gitStatus.gitFolderChanged.addListener { _, _, _ ->
+            gitLogView.refresh()
+            reviewWindows.repositoryChanged()
+        }
         // Its own operations hold the status while they run and count as one change at their end, once git's trust
         // check ran again on what they may have changed (ADRs 0053, 0062): the log reloads once per operation.
         gitLogView.onWriteStarted = gitStatus::writeStarted
@@ -96,8 +106,14 @@ internal class WindowGitLog(
         editorArea.tabMenu.canShowHistory = ::canShowHistory
     }
 
-    /** The Commit tab lists what can be committed: tells it that the working tree changed (ADR 0048). */
-    fun workingTreeChanged() = gitLogView.workingTreeChanged()
+    /**
+     * The status changed: the Commit tab lists what can be committed (ADR 0048), and the review windows check whether
+     * theirs changed (ADR 0168).
+     */
+    fun workingTreeChanged() {
+        gitLogView.workingTreeChanged()
+        reviewWindows.repositoryChanged()
+    }
 
     /**
      * Whether the git log area can show the history of [file]: while it is present and has the repository open (the
@@ -192,7 +208,7 @@ internal class WindowGitLog(
         }
 
     /**
-     * The Git menu: Commit…, Push…, Pull…, Stash Changes… and Pop Latest Stash, disabled while the git log has no
+     * The Git menu: Commit…, Push…, Pull…, Review Branch, Stash Changes… and Pop Latest Stash, disabled while the git log has no
      * repository open.
      */
     fun gitMenu(): Menu {
@@ -227,11 +243,14 @@ internal class WindowGitLog(
                 disableProperty().bind(gitLogOpen.not())
                 setOnAction { gitLogView.popLatestStash() }
             }
-        return Menu("Git", null, commit, push, pull, SeparatorMenuItem(), stash, popLatest)
+        // The Review window of the checked-out branch (ADR 0168), on its own shortcut.
+        val review = reviewWindows.menuItem(gitLogOpen)
+        return Menu("Git", null, commit, push, pull, review, SeparatorMenuItem(), stash, popLatest)
     }
 
-    /** Closes the repository in the git log; called when the window is closed. */
+    /** Closes the repository in the git log and the review windows; called when the window is closed. */
     fun dispose() {
+        reviewWindows.dispose()
         gitLogRoot = null
         gitLogOpen.set(false)
         gitLogView.open(null)
