@@ -1,0 +1,78 @@
+# Review
+
+**Modules:** `modules/code-review` (`Reviews`, the review window, `ReviewDocument`, `ReviewDiffList`),
+`modules/git` (`GitReviews`), `modules/git-log` (entry points), wired in `ide` (`WindowReviews`, `GitReviewSource`);
+decisions in [ADR 0168](../adr/0168-review-window.md)
+
+A local review of a branch, one or more commits, or the uncommitted changes, laid out like a pull request on GitHub:
+all changed files in one long scroll beside a filterable file tree, without pushing or creating a pull request.
+
+## Opening
+- **Review Branch** for the current branch: the button left of Push, Pull, Fetch and Refresh in the git log's header
+  (set apart by a gap), or Git → Review Branch (Shortcut+Shift+R, Cmd+Shift+R on macOS). Disabled without a
+  repository and while `HEAD` has no commit.
+- **Review Branch** in the branches pane's context menu and the per-branch submenus of the commit table, for local
+  and remote branches (not tags); the branch need not be checked out.
+- **Review Commit** / **Review Commits** in the commit table's context menu. Several selected commits are reviewed
+  from the oldest one's parent to the newest one, every commit in between included; when the newest does not descend
+  from the oldest, the window says "The selected commits are not on one line of history."
+- Every review opens a window of its own, large and centred on the IDE window's screen, each further one a little
+  offset. Its title is `Review – <scope> – <project>`; Shortcut+W closes it, and closing the project window closes its
+  reviews.
+
+## Scope and pickers
+- A branch is reviewed against its base like a pull request: from where it left the base (the merge base) to its
+  last commit, so changes merged in from the base do not show. The base is the remote's default branch
+  (`origin/main` and the like), else the local `main` or `master`; **into: <base> ▾** on the toolbar picks another
+  branch. Without any default branch the review asks to choose a base.
+- The **commit picker** offers "All changes", the single commits (newest first) and, while the reviewed branch is
+  checked out and has them, **Uncommitted changes** (untracked files included) on top. A click picks one entry,
+  Shift+click a range. A merge commit alone is shown against its first parent. A single-commit review has no picker.
+- Empty scopes say so ("No changes between origin/main and feature-x."); git failures show "Could not read the
+  review: …".
+
+## Files
+- The tree on the left lists the changed files, folders first, single-child folder chains compacted
+  (`src/main/kotlin`), names coloured as added, modified or deleted (deleted ones struck through), renamed files with
+  their old path in the tooltip, viewed files with a check mark. "x / y viewed" stands above it.
+- The **filter** field (Shortcut+P) narrows the tree and the diff to the files whose path contains the text, ignoring
+  case. Escape clears it, Down moves into the tree, Enter jumps to the first match.
+- Clicking a file scrolls the diff to it; scrolling the diff selects the file at its top in the tree.
+
+## Diff
+- **Split** (the default) or **Unified**, toggled at the right end of the toolbar; **Hide whitespace** next to them.
+  Both choices are remembered for the next review.
+- Each file starts with a header: collapse chevron, path (`old → new` for renames), the counts of added and removed
+  lines, and **Viewed**, which collapses the file until unchecked (for the window's lifetime; a file that changes on
+  Reload is unchecked again). The current file's header stays at the top while scrolling.
+- Changes show with 3 lines of context. Between them a gap row with the hunk header expands 20 lines up or down, or
+  all of the gap.
+- Colours are those of the editor's diff: removed grey, modified blue, added green, changed words darker. Unified view
+  shows a modified block as its old lines, then its new ones, told apart by − and +. Long lines wrap. Syntax colours
+  and the font are the editor's.
+- Large files (over 500 changed lines) and lock or minified files (`package-lock.json`, `yarn.lock`,
+  `pnpm-lock.yaml`, `gradle.lockfile`, `Cargo.lock`, `poetry.lock`, `go.sum`, `*.min.js`, `*.min.css`) start
+  collapsed with **Load diff**. Binary files, files over 5 MB and submodules show a notice instead of lines; a file
+  renamed without changes says so.
+- F7 / Shift+F7 move to the next or previous change, Alt+Down / Alt+Up (Option on macOS) to the next or previous file.
+
+## Lines
+- Click a line number to select the line, Shift+click to extend the selection within the same file and side (split
+  view: left numbers the old side, right numbers the new side). Shortcut+C copies the lines without − and +; Escape
+  clears the selection.
+- The context menu of selected lines: Copy Lines, Open in Editor (the file in the working tree at that line; disabled
+  when the file is not there), Copy Path. A file header's: Open in Editor, Show History, Copy Path, Mark as Viewed.
+
+## Find
+- Shortcut+F opens a find bar above the diff: literal text, ignoring case unless Match Case is on, in all rows shown
+  of the files that are not collapsed. It counts the matches ("3 / 17"), Enter / Shift+Enter or F3 / Shift+F3 move
+  between them, Escape closes the bar.
+
+## Refresh
+- When the reviewed commits or, for reviews reaching the working tree, the uncommitted changes change (a commit, an
+  amend, a fetch moving the base, an edit), a bar says "The reviewed changes have changed." with **Reload**. Reload
+  keeps the place: the same line of the same file, else its header. The review never reloads by itself.
+
+## Limits
+- Text is selected by whole lines; there is no free text selection.
+- Viewed flags, review comments and image diffs are not there yet ([ideas](../ideas/review-later.md)).
