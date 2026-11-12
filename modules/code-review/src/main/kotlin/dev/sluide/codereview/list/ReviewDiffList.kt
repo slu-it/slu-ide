@@ -167,34 +167,36 @@ internal class ReviewDiffList(
      * replaced range at the start of the change, so the row that was first is looked up again (by its [rowKey]) and
      * shown where it was. A change below does not move it; without the row (it was expanded away) the row at the start
      * of the change takes its place.
+     *
+     * Known limit: a scroll by the user that is not laid out yet is unknown to the list (Flowless's scroll estimate
+     * changes during the layout, not at the scroll), so a row change at or above the old first row in the same pulse
+     * puts the list back where the last layout left it, for that one pulse. Telling the user's scroll from the app's
+     * by a flag set on `ScrollEvent`s would be worse: it misses the scroll bar's drag and keys, and a flag that stays
+     * set by an event that scrolled nothing would keep a later change from being followed.
      */
     private fun followChange(change: ListChangeListener.Change<out ReviewRow>) {
-        var from = Int.MAX_VALUE
-        while (change.next()) from = minOf(from, change.from)
         if (rows.isEmpty()) {
             remembered = null
             return
         }
         val at = remembered
         if (at == null) return scrollToRow(0, 0.0)
+        var from = Int.MAX_VALUE
+        // Where the row can be now: where the changes before it shifted it to, or in what they added.
+        var shifted = at.index
+        val added = mutableListOf<IntRange>()
+        while (change.next()) {
+            from = minOf(from, change.from)
+            added += change.from until change.from + change.addedSize
+            if (change.from + change.removedSize <= shifted) shifted += change.addedSize - change.removedSize
+        }
         if (from > at.index) return
-        val index = indexOfKey(at.key, at.index) ?: from.coerceAtMost(rows.lastIndex)
+        val index =
+            (listOf(shifted) + added.flatMap { it })
+                .firstOrNull { it in rows.indices && rowKey(rows[it]) == at.key }
+                ?: from.coerceAtMost(rows.lastIndex)
         flow.showAtOffset(index, at.offset)
         remembered = Remembered(index, at.offset, rowKey(rows[index]))
-    }
-
-    /** The row with [key], searched outwards from [near]; keys are unique within the rows. */
-    private fun indexOfKey(
-        key: RowKey,
-        near: Int,
-    ): Int? {
-        val centre = near.coerceIn(0, rows.lastIndex)
-        for (distance in 0..rows.size) {
-            for (index in intArrayOf(centre - distance, centre + distance)) {
-                if (index in rows.indices && rowKey(rows[index]) == key) return index
-            }
-        }
-        return null
     }
 
     private fun showSticky(header: ReviewRow.FileHeader) {

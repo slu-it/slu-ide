@@ -117,9 +117,16 @@ class ReviewDiffListUiTest {
 
     private fun settle(robot: FxRobot) {
         robot.interact {
+            flow().requestLayout()
             view.applyCss()
             view.layout()
         }
+    }
+
+    /** Where Flowless has really put the first row: after a layout, not the position the app asked for. */
+    private fun placed(robot: FxRobot): Pair<Int, Double> {
+        settle(robot)
+        return view.firstVisible()
     }
 
     @ParameterizedTest
@@ -217,13 +224,13 @@ class ReviewDiffListUiTest {
         settle(robot)
 
         robot.interact { view.scrollToRow(30) }
-        assertEquals(30 to 0.0, view.firstVisible())
+        assertEquals(30 to 0.0, placed(robot))
 
         robot.interact { view.scrollToRow(12, -7.0) }
-        val (index, offset) = view.firstVisible()
+        val (index, offset) = placed(robot)
         robot.interact { view.scrollToRow(index, offset) }
         assertEquals(12 to -7.0, index to offset)
-        assertEquals(index to offset, view.firstVisible())
+        assertEquals(index to offset, placed(robot))
     }
 
     @Test
@@ -253,7 +260,7 @@ class ReviewDiffListUiTest {
         robot.interact { load("a.txt" to bigFile(), "b.txt" to bigFile()) }
         settle(robot)
         robot.interact { view.scrollToRow(14, 5.0) }
-        val before = view.firstVisible()
+        val before = placed(robot)
         val gap =
             document.rows
                 .filterIsInstance<ReviewRow.Gap>()
@@ -262,7 +269,7 @@ class ReviewDiffListUiTest {
 
         robot.interact { document.expand("b.txt", gap, ExpandDirection.ALL) }
 
-        assertEquals(before, view.firstVisible())
+        assertEquals(before, placed(robot))
     }
 
     @Test
@@ -270,7 +277,7 @@ class ReviewDiffListUiTest {
         robot.interact { load("a.txt" to bigFile(), "b.txt" to bigFile()) }
         settle(robot)
         robot.interact { view.scrollToRow(60, -5.0) }
-        val before = view.firstVisible()
+        val before = placed(robot)
         val anchor = document.anchorAt(before.first)
         val gap =
             document.rows
@@ -279,8 +286,8 @@ class ReviewDiffListUiTest {
 
         robot.interact { document.expand(gap.path, gap.gap, ExpandDirection.ALL) }
 
-        assertEquals(before, view.firstVisible())
-        assertEquals(anchor, document.anchorAt(view.firstVisible().first))
+        assertEquals(before, placed(robot))
+        assertEquals(anchor, document.anchorAt(placed(robot).first))
     }
 
     @ParameterizedTest
@@ -301,7 +308,7 @@ class ReviewDiffListUiTest {
 
         robot.interact { document.expand(gap.path, gap.gap, direction) }
 
-        val (index, offset) = view.firstVisible()
+        val (index, offset) = placed(robot)
         assertEquals(key, rowKey(document.rows[index]))
         assertEquals(0.0, offset)
     }
@@ -310,7 +317,7 @@ class ReviewDiffListUiTest {
     fun `rows arriving while the list is at the top keep the first row at offset 0`(robot: FxRobot) {
         robot.interact { document.setFiles(listOf(modified("a.txt"), modified("b.txt"))) }
         settle(robot)
-        assertEquals(0 to 0.0, view.firstVisible())
+        assertEquals(0 to 0.0, placed(robot))
 
         robot.interact {
             for (path in listOf("a.txt", "b.txt")) {
@@ -318,7 +325,7 @@ class ReviewDiffListUiTest {
             }
         }
 
-        assertEquals(0 to 0.0, view.firstVisible())
+        assertEquals(0 to 0.0, placed(robot))
         assertEquals("a.txt", view.topFile.value)
     }
 
@@ -335,7 +342,7 @@ class ReviewDiffListUiTest {
             document.expand("a.txt", 0, ExpandDirection.ALL)
         }
 
-        val (index, offset) = view.firstVisible()
+        val (index, offset) = placed(robot)
         assertEquals(key, rowKey(document.rows[index]))
         assertEquals(0.0, offset)
     }
@@ -345,7 +352,7 @@ class ReviewDiffListUiTest {
         robot.interact { load("a.txt" to bigFile(), "b.txt" to bigFile()) }
         settle(robot)
         robot.interact { flow().scrollYBy(508.0) }
-        val middle = view.firstVisible().first
+        val middle = placed(robot).first
         val key = rowKey(document.rows[middle])
         robot.interact { view.scrollToRow(0) }
 
@@ -354,7 +361,7 @@ class ReviewDiffListUiTest {
             document.expand("a.txt", 0, ExpandDirection.ALL)
         }
 
-        val index = view.firstVisible().first
+        val index = placed(robot).first
         assertEquals(key, rowKey(document.rows[index]))
     }
 
