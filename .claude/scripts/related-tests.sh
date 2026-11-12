@@ -11,6 +11,9 @@
 # test files searched is too common and is skipped.
 # Test helper files without @Test (fixtures) are left out. Always exits 0 (also --test-classes); prints
 # `no related tests` when empty.
+# A given path that does not exist is reported as `not found: <path>` on stderr (not for the default input, which
+# lists deleted files); paths may be absolute or relative to the repository root.
+# Names skipped as too common are listed as `skipped <name>: <n> test files`: on stdout, or with --names on stderr.
 # Usage: .claude/scripts/related-tests.sh [--names] [files...]
 #        .claude/scripts/related-tests.sh --test-classes   (file paths on stdin)
 #   --names   print only the class names, one per line (the input of verify.sh)
@@ -63,7 +66,9 @@ fi
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
+explicit=0
 if [ "$#" -gt 0 ]; then
+  explicit=1
   printf '%s\n' "$@" >"$work/input"
 else
   {
@@ -76,7 +81,11 @@ fi
 # stands for the main .kt files of its module that name it, since its tests rarely name the resource itself.
 while IFS= read -r f; do
   f="${f#"$root"/}"
-  [ -f "$f" ] || continue
+  if [ ! -f "$f" ]; then
+    # Only for given paths: the default input legitimately lists deleted files.
+    if [ "$explicit" -eq 1 ]; then echo "not found: $f" >&2; fi
+    continue
+  fi
   case "$f" in
     *.kt) echo "$f" ;;
     */src/main/resources/*)
@@ -143,11 +152,14 @@ if [ ! -s "$work/classes" ]; then
   if [ "$names_only" -eq 0 ]; then
     echo "no related tests"
     cat "$work/skipped"
+  else
+    cat "$work/skipped" >&2
   fi
   exit 0
 fi
 
 if [ "$names_only" -eq 1 ]; then
+  cat "$work/skipped" >&2
   cut -f3 "$work/classes" | sort -u
   exit 0
 fi

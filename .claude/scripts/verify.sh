@@ -12,6 +12,8 @@
 # An unknown target, or a file without @Test, ends with exit 2 before Gradle starts.
 # --changed adds the unit tests of every module with changed files (against master, uncommitted, untracked) and the
 # classes `related-tests.sh --names` finds; more than 12 UI test classes stop the run (name classes instead).
+# Names that related-tests.sh skipped as too common are shown on stderr (their tests in other modules are not run by
+# --changed and must be named explicitly).
 # --list resolves the targets (--changed included), prints one line per test class as
 # `<gradle module path> <task> <fully qualified class or *>` and exits 0, before the format step, the display setup
 # and Gradle (the check for another Gradle build does not apply to it).
@@ -137,7 +139,14 @@ if [ "$changed" -eq 1 ]; then
     while IFS= read -r dir; do
       if [ -f "$dir/build.gradle.kts" ]; then printf '%s\ttest\t*\n' "$dir" >>"$work/specs"; fi
     done
-  related="$("$root/.claude/scripts/related-tests.sh" --names || true)"
+  # Its stderr (names skipped as too common) goes to ours, with a hint.
+  related="$("$root/.claude/scripts/related-tests.sh" --names 2>"$work/related.err" || true)"
+  if [ -s "$work/related.err" ]; then
+    cat "$work/related.err" >&2
+    if grep -q '^skipped ' "$work/related.err"; then
+      echo "Tests of the skipped names in other modules are not run by --changed (the unit tests of the changed modules still run): name them explicitly." >&2
+    fi
+  fi
   for name in $related; do add_target "$name"; done
   ui_count="$(awk -F'\t' '$2 == "uiTest"' "$work/specs" | sort -u | wc -l | tr -d ' ')"
   if [ "$ui_count" -gt 12 ]; then
