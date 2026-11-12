@@ -42,7 +42,7 @@ class GitReviewSource(
         root: Path,
         head: String,
     ): List<ReviewBase> {
-        val defaults = reviews.defaultBases(root, head)
+        val defaults = defaultsFor(root, head, pulls.currentBranch(root))
         val others = reviews.branches(root).filterNot { it in defaults }
         return defaults.map { ReviewBase(it, shortName(it), true) } +
             others.map { ReviewBase(it, shortName(it), false) }
@@ -79,7 +79,7 @@ class GitReviewSource(
                     },
                 )
         val headLabel = if (head == "HEAD") current ?: headHash.take(SHORT_HASH) else shortName(head)
-        val defaults = reviews.defaultBases(root, head)
+        val defaults = defaultsFor(root, head, current)
         val baseRef = scope.base ?: defaults.firstOrNull()
         val base = baseRef?.let { ReviewBase(it, shortName(it), it in defaults) }
         if (base == null) return ResolvedReview(headLabel, null, null, headHash, emptyList(), false, head)
@@ -161,6 +161,16 @@ class GitReviewSource(
         val revisions = listOfNotNull(review.base?.ref, review.headRef, review.head, review.from)
         val workingTree = review.headRef?.let { isCheckedOut(it, pulls.currentBranch(root)) } == true
         return reviews.fingerprint(root, revisions, workingTree)
+    }
+
+    /** The default bases of [head], without the head itself: a branch is not reviewed against itself. */
+    private fun defaultsFor(
+        root: Path,
+        head: String,
+        current: String?,
+    ): List<String> {
+        val headRef = if (head == "HEAD") current?.let { HEADS + it } else head
+        return reviews.defaultBases(root, head).filter { it != headRef }
     }
 
     /** Whether [head] (a full refname or `HEAD`) is what is checked out, given the [current] branch's short name. */

@@ -160,6 +160,17 @@ class GitReviewSourceTest {
     }
 
     @Test
+    fun `the default branch is not its own base`() {
+        commit("only")
+
+        for (head in listOf("HEAD", "refs/heads/main")) {
+            val review = resolve(ReviewScope.Branch(head))
+            assertNull(review.base, head)
+            assertTrue(source.bases(repo, head).none { it.isDefault }, head)
+        }
+    }
+
+    @Test
     fun `a head without a base is shown by itself`() {
         commit("only")
         git("branch", "-m", "main", "solo")
