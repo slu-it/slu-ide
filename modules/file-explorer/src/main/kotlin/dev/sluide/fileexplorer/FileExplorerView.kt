@@ -175,6 +175,13 @@ class FileExplorerView(
     internal var askName: (title: String, initial: String, validate: (String) -> String?) -> String? =
         { title, initial, validate -> askForName(scene?.window, title, initial, validate) }
 
+    /**
+     * Asks for the name of a pasted image like [askName], showing `note(typed)` below the field; tests replace it,
+     * since it blocks.
+     */
+    internal var askImageName: (initial: String, validate: (String) -> String?, note: (String) -> String?) -> String? =
+        { initial, validate, note -> askForName(scene?.window, "Paste Image", initial, validate, note) }
+
     /** Shows an error message and waits until it is closed; tests replace it, since it blocks. */
     internal var showError: (String) -> Unit = { message ->
         Alert(Alert.AlertType.ERROR, message)
@@ -212,6 +219,7 @@ class FileExplorerView(
         ExplorerEditHost(
             projectItem = { projectItem },
             askName = { title, initial, validate -> askName(title, initial, validate) },
+            askImageName = { initial, validate, note -> askImageName(initial, validate, note) },
             showError = { showError(it) },
             showInfo = { showInfo(it) },
             confirmDelete = { confirmDelete(it) },
@@ -388,6 +396,7 @@ class FileExplorerView(
                     rename = { rename(it) },
                     delete = { delete(it) },
                     canPaste = { copies.canPaste(it) },
+                    pasteLabel = { copies.pasteLabel(it) },
                     cut = { copies.cut(it) },
                     copy = { copies.copy(it) },
                     paste = { copies.paste(it) },

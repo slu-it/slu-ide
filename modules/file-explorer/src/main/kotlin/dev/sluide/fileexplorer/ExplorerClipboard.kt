@@ -2,16 +2,34 @@ package dev.sluide.fileexplorer
 
 import javafx.beans.property.ReadOnlyIntegerProperty
 import javafx.beans.property.SimpleIntegerProperty
+import javafx.scene.image.PixelFormat
 import javafx.scene.input.Clipboard
 import javafx.scene.input.DataFormat
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
+import java.io.IOException
 import java.nio.file.Path
 
-/** The files on a clipboard; used on the JavaFX thread. */
+/** A raw image from the clipboard: [argb] holds [width] x [height] non-premultiplied ARGB pixels, row by row. */
+internal class ClipboardImage(
+    val width: Int,
+    val height: Int,
+    val argb: IntArray,
+)
+
+/** The image on the clipboard could not be read; the message is meant for the user. */
+internal class UnreadableClipboardImage : IOException("The clipboard image could not be read.")
+
+/** The files and the image on a clipboard; used on the JavaFX thread. */
 internal interface ClipboardFiles {
     /** The files on the clipboard; none if it holds something else. */
     fun files(): List<Path>
+
+    /** Whether the clipboard holds an image (which may still turn out unreadable), whatever else it holds. */
+    fun hasImage(): Boolean
+
+    /** The pixels of the image on the clipboard; `null` if there is none; fails with [UnreadableClipboardImage]. */
+    fun image(): ClipboardImage?
 
     /** Puts [files] on the clipboard, replacing what it held. */
     fun put(files: List<Path>)
@@ -27,6 +45,23 @@ internal object SystemClipboardFiles : ClipboardFiles {
     override fun files(): List<Path> {
         val clipboard = Clipboard.getSystemClipboard()
         return if (clipboard.hasFiles()) clipboard.files.map { it.toPath() } else emptyList()
+    }
+
+    override fun hasImage(): Boolean = Clipboard.getSystemClipboard().hasImage()
+
+    override fun image(): ClipboardImage? {
+        val clipboard = Clipboard.getSystemClipboard()
+        if (!clipboard.hasImage()) return null
+        val image = clipboard.image
+        val width = image?.width?.toInt() ?: 0
+        val height = image?.height?.toInt() ?: 0
+        val reader = image?.pixelReader
+        if (image == null || image.isError || width <= 0 || height <= 0 || reader == null) {
+            throw UnreadableClipboardImage()
+        }
+        val argb = IntArray(width * height)
+        reader.getPixels(0, 0, width, height, PixelFormat.getIntArgbInstance(), argb, 0, width)
+        return ClipboardImage(width, height, argb)
     }
 
     override fun put(files: List<Path>) {
@@ -64,6 +99,12 @@ class ExplorerClipboard internal constructor(
 
     /** The files on the clipboard, normalised; none if it holds something else. */
     internal fun files(): List<Path> = clipboard.files().map(::normal)
+
+    /** Whether there is an image to paste: one on the clipboard and no files (files win, ADR 0167). */
+    internal fun pastesImage(): Boolean = clipboard.files().isEmpty() && clipboard.hasImage()
+
+    /** The image on the clipboard, `null` if none; fails with [UnreadableClipboardImage]. */
+    internal fun image(): ClipboardImage? = clipboard.image()
 
     /** Puts [paths] on the clipboard to be copied; ends a cut. */
     internal fun copy(paths: List<Path>) {

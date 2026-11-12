@@ -10,6 +10,7 @@ import java.io.UncheckedIOException
 import java.nio.file.Files
 import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.Path
+import java.time.Clock
 
 private val log = System.getLogger(ExplorerCopies::class.java.name)
 
@@ -26,7 +27,11 @@ internal class ExplorerCopies(
     private val canChange: (TreeItem<Path>?) -> Boolean,
     /** Whether a folder is being deleted or lies in an entry being deleted; nothing is pasted into it. */
     private val isBeingDeleted: (Path) -> Boolean,
+    /** The time that names a pasted image. */
+    clock: Clock = Clock.systemDefaultZone(),
 ) {
+    private val images = ExplorerImagePaste(host, clipboard, clock)
+
     /** Puts [items] (outermost only, a compacted row's first folder) on the clipboard to be copied; also top-level folders. Ends a cut. */
     fun copy(items: List<FileTreeItem>): Boolean {
         if (items.isEmpty()) return false
@@ -60,27 +65,37 @@ internal class ExplorerCopies(
     }
 
     /**
-     * Whether a paste for [targets] would paste something: files on the clipboard and a folder for them
+     * Whether a paste for [targets] would paste something: files or an image on the clipboard and a folder for them
      * ([pasteTarget]). Checks the cut against the clipboard first.
      */
     fun canPaste(targets: List<FileTreeItem>): Boolean {
         if (pasteTarget(targets) == null) return false
         val board = clipboard()
         board.checkCut()
-        return board.files().isNotEmpty()
+        return board.files().isNotEmpty() || board.pastesImage()
     }
+
+    /** The label of the menu's paste item for [targets]: "Paste Image" when it would paste an image, else "Paste". */
+    fun pasteLabel(targets: List<FileTreeItem>): String =
+        if (pasteTarget(targets) != null && clipboard().pastesImage()) "Paste Image" else "Paste"
 
     /**
      * Pastes the files on the clipboard into the folder for [targets] ([pasteTarget]); returns whether there was
      * something to paste and a folder for it. Entries cut in the explorer, while the clipboard still holds them, are
      * moved there ([ExplorerMoves.move], asking only about names taken there), after which the cut ends. Anything
-     * else is copied ([copyInto]) without asking, unless files with unsaved changes are among them.
+     * else is copied ([copyInto]) without asking, unless files with unsaved changes are among them. Without files, an
+     * image on the clipboard is pasted as a PNG ([ExplorerImagePaste], ADR 0167).
      */
     fun paste(targets: List<FileTreeItem>): Boolean {
         val folder = pasteTarget(targets) ?: return false
         val board = clipboard()
         val files = board.files()
-        if (files.isEmpty()) return false
+        if (files.isEmpty()) {
+            board.checkCut()
+            if (!board.pastesImage()) return false
+            images.paste(folder)
+            return true
+        }
         val cut = board.checkCut()
         if (cut.isNotEmpty()) {
             if (moves.move(files, folder)) board.cutPasted()

@@ -12,6 +12,7 @@ import javafx.event.Event
 import javafx.scene.control.Button
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
+import javafx.scene.image.WritableImage
 import javafx.scene.input.Clipboard
 import javafx.scene.input.DataFormat
 import javafx.scene.input.KeyCode
@@ -733,5 +734,11 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
         assertFalse(paste.isDisable)
         robot.interact { paste.fire() }
         eventually(robot) { assertTrue(project.resolve("a-copy.txt").exists()) }
+
+        // An image alone is pasted as an image, which the item says (ADR 0167).
+        robot.interact {
+            Clipboard.getSystemClipboard().setContent(mapOf(DataFormat.IMAGE to WritableImage(2, 2)))
+        }
+        assertFalse(menuItemFor(robot, view, "Paste Image").isDisable)
     }
 }

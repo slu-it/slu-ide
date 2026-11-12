@@ -35,10 +35,11 @@ class NameDialogUiTest {
         robot: FxRobot,
         title: String,
         initial: String,
+        note: ((String) -> String?)? = null,
     ): NameDialog {
         lateinit var dialog: NameDialog
         robot.interact {
-            dialog = NameDialog(stage, title, initial, ::validate)
+            dialog = NameDialog(stage, title, initial, ::validate, note)
             dialog.show()
         }
         return dialog
@@ -76,5 +77,25 @@ class NameDialogUiTest {
         assertEquals("Main", dialog.field.selectedText)
         robot.interact { dialog.result = dialog.resultConverter.call(ButtonType.CANCEL) }
         assertNull(dialog.result)
+    }
+
+    @Test
+    fun `the note shows below the field for a valid name and follows the typing`(robot: FxRobot) {
+        val dialog = show(robot, "Paste Image", "a.png") { if (it.endsWith(".png")) null else "Saved as “$it.png”." }
+
+        assertNull(dialog.note.text)
+        assertTrue(dialog.note.isManaged, "its line is kept while empty, as the shown dialog does not grow")
+        robot.interact { dialog.field.text = "diagram" }
+        assertEquals("Saved as “diagram.png”.", dialog.note.text)
+        robot.interact { dialog.field.text = "taken.txt" }
+        assertNull(dialog.note.text, "no note beside a problem")
+        assertEquals("Not taken.txt", dialog.problem.text)
+    }
+
+    @Test
+    fun `a dialog without notes has no line for them`(robot: FxRobot) {
+        val dialog = show(robot, "New File", "a.txt")
+
+        assertFalse(dialog.note.isManaged)
     }
 }

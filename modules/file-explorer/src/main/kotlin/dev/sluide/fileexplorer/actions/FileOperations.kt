@@ -130,20 +130,44 @@ internal object FileOperations {
             current = current.resolve(if (last) part else nameOnDisk(current, part))
             if (last && !lastIsFolder) {
                 failingWith("create", current) { Files.createFile(current) }
-            } else if (!Files.isDirectory(current)) {
-                failingWith("create", current) {
-                    try {
-                        Files.createDirectory(current)
-                    } catch (e: FileAlreadyExistsException) {
-                        // Covers a race (made meanwhile by another process); fine if it is a folder now.
-                        // Untested: it needs the race.
-                        if (!Files.isDirectory(current)) throw e
-                        current
-                    }
-                }
+            } else {
+                ensureFolder(current)
             }
         }
         return current
+    }
+
+    /**
+     * Checks [path] (as for [pathProblem]) and creates the folders on its way in [folder], top-down; returns where the
+     * new file at its end goes, which is not created. A folder that exists is taken with its name on disk.
+     */
+    fun createParents(
+        folder: Path,
+        path: String,
+        windows: Boolean = IS_WINDOWS,
+    ): Path {
+        pathProblem(path, folder, windows)?.let { throw FileOperationException(it) }
+        val parts = (if (windows) path.replace('\\', '/') else path).split('/')
+        var current = folder
+        for (part in parts.dropLast(1)) {
+            current = current.resolve(nameOnDisk(current, part))
+            ensureFolder(current)
+        }
+        return current.resolve(parts.last())
+    }
+
+    private fun ensureFolder(folder: Path) {
+        if (Files.isDirectory(folder)) return
+        failingWith("create", folder) {
+            try {
+                Files.createDirectory(folder)
+            } catch (e: FileAlreadyExistsException) {
+                // Covers a race (made meanwhile by another process); fine if it is a folder now.
+                // Untested: it needs the race.
+                if (!Files.isDirectory(folder)) throw e
+                folder
+            }
+        }
     }
 
     /**
@@ -498,7 +522,7 @@ internal object FileOperations {
         }
 }
 
-private val IS_WINDOWS = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
+internal val IS_WINDOWS = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
 
 private const val COPY = "-copy"
 

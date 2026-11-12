@@ -1,12 +1,17 @@
 package dev.sluide.fileexplorer.actions
 
 import dev.sluide.fileexplorer.ClipboardFiles
+import dev.sluide.fileexplorer.ClipboardImage
 import dev.sluide.fileexplorer.ExplorerClipboard
+import dev.sluide.fileexplorer.UnreadableClipboardImage
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.expandTo
 import javafx.scene.control.TreeItem
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 
 /**
  * An [ExplorerEditHost] without a view, for testing [ExplorerEdits], [ExplorerMoves] and [ExplorerCopies] without a
@@ -43,6 +48,10 @@ internal class FakeEditHost(
     val copyQuestions = mutableListOf<CopyQuestion>()
     val deleteQuestions = mutableListOf<DeleteQuestion>()
     val nameAsks = mutableListOf<NameAsk>()
+
+    /** Answers the image name question; gets the default name, may change the disk first. */
+    var answerImageName: (String) -> String? = { it }
+    val imageNameAsks = mutableListOf<NameAsk>()
     val moved = mutableListOf<Pair<Path, Path>>()
     val deleted = mutableListOf<Pair<Path, List<Path>>>()
     val opened = mutableListOf<Path>()
@@ -58,6 +67,7 @@ internal class FakeEditHost(
         val title: String,
         val initial: String,
         val validate: (String) -> String?,
+        val note: (String) -> String? = { null },
     )
 
     val host =
@@ -66,6 +76,10 @@ internal class FakeEditHost(
             askName = { title, initial, validate ->
                 nameAsks += NameAsk(title, initial, validate)
                 answerName(initial)
+            },
+            askImageName = { initial, validate, note ->
+                imageNameAsks += NameAsk("Paste Image", initial, validate, note)
+                answerImageName(initial)
             },
             showError = { errors += it },
             showInfo = { infos += it },
@@ -108,13 +122,16 @@ internal class FakeEditHost(
             closeWatchesOfVanishedFolders = { vanishedChecks++ },
         )
 
+    /** The time that names pasted images; fixed. */
+    val clock: Clock = Clock.fixed(Instant.parse("2026-03-04T05:06:07Z"), ZoneOffset.UTC)
+
     val edits = ExplorerEdits(host)
     val moves = ExplorerMoves(host, edits::canChange, edits::isBeingDeleted, edits::canChangePath)
 
     /** The clipboard the copies use, on [clipboardFiles] instead of the system clipboard. */
     val clipboardFiles = FakeClipboardFiles()
     val clipboard = ExplorerClipboard(clipboardFiles)
-    val copies = ExplorerCopies(host, moves, { clipboard }, edits::canChange, edits::isBeingDeleted)
+    val copies = ExplorerCopies(host, moves, { clipboard }, edits::canChange, edits::isBeingDeleted, clock)
 
     init {
         reopen()
@@ -168,6 +185,17 @@ internal class FakeEditHost(
 /** A clipboard in memory: the files put on it, `null` for something else (e.g. text). */
 internal class FakeClipboardFiles : ClipboardFiles {
     var content: List<Path>? = null
+
+    /** The image on the clipboard; [unreadable] makes it one that cannot be read. */
+    var image: ClipboardImage? = null
+    var unreadable = false
+
+    override fun hasImage(): Boolean = image != null || unreadable
+
+    override fun image(): ClipboardImage? {
+        if (unreadable) throw UnreadableClipboardImage()
+        return image
+    }
 
     override fun files(): List<Path> = content.orEmpty()
 

@@ -19,6 +19,8 @@ private val log = System.getLogger(ExplorerEdits::class.java.name)
 internal class ExplorerEditHost(
     val projectItem: () -> FileTreeItem?,
     val askName: (title: String, initial: String, validate: (String) -> String?) -> String?,
+    /** Asks for the name of a pasted image (ADR 0167): like [askName], with a note shown below the field. */
+    val askImageName: (initial: String, validate: (String) -> String?, note: (String) -> String?) -> String?,
     val showError: (String) -> Unit,
     val showInfo: (String) -> Unit,
     val confirmDelete: (DeleteQuestion) -> Boolean,

@@ -10,14 +10,16 @@ import javafx.stage.Window
 
 /**
  * Asks for the name of a file or folder, starting with [initial]; returns it, or `null` if cancelled. While [validate]
- * finds a problem with the name, the dialog shows it and OK is disabled.
+ * finds a problem with the name, the dialog shows it and OK is disabled. [note], if given, may tell something about a
+ * valid name (e.g. what it is saved as), shown apart from the problem.
  */
 internal fun askForName(
     owner: Window?,
     title: String,
     initial: String,
     validate: (String) -> String?,
-): String? = NameDialog(owner, title, initial, validate).showAndWait().orElse(null)
+    note: ((String) -> String?)? = null,
+): String? = NameDialog(owner, title, initial, validate, note).showAndWait().orElse(null)
 
 /**
  * The dialog of [askForName]. The base name of [initial] (of its last `/`-separated part) is selected, so typing
@@ -28,20 +30,29 @@ internal class NameDialog(
     title: String,
     initial: String,
     validate: (String) -> String?,
+    noteOf: ((String) -> String?)? = null,
 ) : Dialog<String>() {
     val field = TextField(initial).apply { prefColumnCount = NAME_COLUMNS }
     val problem = Label()
+    val note =
+        Label().apply {
+            // Its line is kept while empty, since the shown dialog does not grow when a note appears (its buttons were
+            // cut off); a dialog without notes (New File, Rename) has none.
+            isVisible = noteOf != null
+            isManaged = noteOf != null
+        }
 
     init {
         owner?.let(::initOwner)
         this.title = title
         headerText = null
         dialogPane.buttonTypes.setAll(ButtonType.OK, ButtonType.CANCEL)
-        dialogPane.content = VBox(SPACING, Label("Name:"), field, problem)
+        dialogPane.content = VBox(SPACING, Label("Name:"), field, problem, note)
         val ok = dialogPane.lookupButton(ButtonType.OK)
         val check = {
             val found = validate(field.text)
             problem.text = found
+            note.text = if (found == null) noteOf?.invoke(field.text) else null
             ok.isDisable = found != null
         }
         field.textProperty().addListener { _ -> check() }

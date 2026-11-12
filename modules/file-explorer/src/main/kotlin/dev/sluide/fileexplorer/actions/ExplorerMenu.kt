@@ -150,6 +150,8 @@ internal class ExplorerMenuHost(
     val delete: (List<FileTreeItem>) -> Unit,
     /** Whether a paste for the targets would paste something; asked when the menu opens. */
     val canPaste: (List<FileTreeItem>) -> Boolean,
+    /** The text of the paste item for the targets, asked when the menu opens. */
+    val pasteLabel: (List<FileTreeItem>) -> String,
     val cut: (List<FileTreeItem>) -> Unit,
     val copy: (List<FileTreeItem>) -> Unit,
     /** Pastes into the folder for the targets. */
@@ -271,6 +273,7 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
             cut.isDisable = !state.cut
             copy.isDisable = !state.copy
             paste.isDisable = !state.paste
+            paste.text = host.pasteLabel(targets)
             history.isVisible = host.historyOffered()
             historySeparator.isVisible = host.historyOffered()
             history.isDisable = !state.history
