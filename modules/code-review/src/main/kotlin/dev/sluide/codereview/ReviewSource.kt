@@ -3,6 +3,7 @@ package dev.sluide.codereview
 import dev.sluide.fileviewers.LineChange
 import java.nio.file.Path
 import java.time.Instant
+import java.util.concurrent.CancellationException
 
 /** What a review shows (ADR 0168). */
 sealed interface ReviewScope {
@@ -95,19 +96,31 @@ class ReviewException(
     message: String,
 ) : Exception(message)
 
-/** Reads reviews from a repository. All calls block and never run on the FX thread. */
+/**
+ * Reads reviews from a repository. All calls block and never run on the FX thread. A [ReviewException]'s message is
+ * shown to the user; a [CancellationException] after the load's [ReviewCancellation] was cancelled is ignored.
+ */
 interface ReviewSource {
-    /** The bases a branch review can pick: the default candidates first, then local, then remote branches. */
+    /**
+     * The bases a branch review can pick: the default candidates first, then local, then remote branches; an empty
+     * list when git fails.
+     */
     fun bases(root: Path): List<ReviewBase>
 
-    /** Resolves [scope] to commits; throws [ReviewException] with git's reason. */
+    /**
+     * Resolves [scope] to commits. Throws [ReviewException] with git's reason when git fails, and
+     * [CancellationException] when [cancellation] was cancelled.
+     */
     fun resolve(
         root: Path,
         scope: ReviewScope,
         cancellation: ReviewCancellation,
     ): ResolvedReview
 
-    /** The files changed from [from] (`null` for the empty tree) to [to]. */
+    /**
+     * The files changed from [from] (`null` for the empty tree) to [to]. Throws [ReviewException] with git's reason
+     * when git fails, and [CancellationException] when [cancellation] was cancelled.
+     */
     fun changedFiles(
         root: Path,
         from: String?,
@@ -115,7 +128,11 @@ interface ReviewSource {
         cancellation: ReviewCancellation,
     ): List<ReviewFile>
 
-    /** The diffs of [files] from [from] to [to], keyed by path. */
+    /**
+     * The diffs of [files] from [from] to [to], keyed by path; a file that cannot be read is absent from the map.
+     * Throws [ReviewException] with git's reason when git fails, and [CancellationException] when [cancellation] was
+     * cancelled.
+     */
     fun fileDiffs(
         root: Path,
         from: String?,
