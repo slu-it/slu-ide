@@ -17,8 +17,9 @@ all changed files in one long scroll beside a filterable file tree, without push
   from the oldest one's parent to the newest one, every commit in between included; when the newest does not descend
   from the oldest, the window says "The selected commits are not on one line of history."
 - Every review opens a window of its own, large and centred on the IDE window's screen, each further one a little
-  offset by 30 px (80 % of the screen; the size is not remembered). Its title is `Review – <scope> – <folder>`, with the repository folder's name;
-  Shortcut+W closes it (the running load is cancelled), and closing the project window closes its reviews.
+  offset by 30 px (80 % of the screen; the size is not remembered). Its title is `Review – <scope> – <folder>`, with
+  the repository folder's name. Shortcut+W closes it (the running load is cancelled); closing the project window, a
+  switch to another repository and withdrawing the folder's trust close its reviews.
 - Git → Review Branch sits after Pull… in the Git menu.
 
 ## Scope and pickers
@@ -59,7 +60,8 @@ all changed files in one long scroll beside a filterable file tree, without push
 - Each file starts with a header: collapse chevron, path (`old → new` for renames), the counts of added and removed
   lines, and **Viewed**, which collapses the file until unchecked. The window remembers each file's content that was
   viewed for its lifetime: another content (Reload after a change, or one commit instead of all changes) shows the
-  file unchecked, and the same content again (back to "All changes") checked again. The current file's header stays at the top while scrolling.
+  file unchecked, and the same content again (back to "All changes") checked again. The current file's header stays
+  at the top while scrolling.
 - Changes show with 3 lines of context. Between them a gap row with the hunk header expands 20 lines up or down, or
   all of the gap.
 - Colours are those of the editor's diff: removed grey, modified blue, added green, changed words darker. Unified view
@@ -68,8 +70,9 @@ all changed files in one long scroll beside a filterable file tree, without push
 - Large files (over 500 changed lines) and lock or minified files (`package-lock.json`, `yarn.lock`,
   `pnpm-lock.yaml`, `gradle.lockfile`, `Cargo.lock`, `poetry.lock`, `go.sum`, `*.min.js`, `*.min.css`) start
   collapsed with **Load diff (N lines)**. Binary files, files over 5 MB and submodules show a notice instead of
-  lines, and so does a file git could not read ("Could not read this file") and a file without changed lines: "Renamed without changes", "Copied without changes", "Only
-  whitespace changes" (with Hide whitespace) or "No content changes" (e.g. only its mode changed).
+  lines, and so does a file git could not read ("Could not read this file") and a file without changed lines:
+  "Renamed without changes", "Copied without changes", "Only whitespace changes" (with Hide whitespace) or "No
+  content changes" (e.g. only its mode changed).
 - F7 / Shift+F7 move to the next or previous change, Alt+Down / Alt+Up (Option on macOS) to the next or previous file.
 
 ## Lines
@@ -79,8 +82,8 @@ all changed files in one long scroll beside a filterable file tree, without push
   numbers and text get a tint over the colour of the change. Shortcut+C copies the lines from top to bottom,
   without − and +; Escape clears the selection (and does nothing else when there is none).
 - The selection follows its lines when the layout switches; it is cleared when its file is filtered out or collapsed,
-  by Reload, and by Hide whitespace. Expanding a gap inside it leaves the revealed lines
-  unselected.
+  by Reload, by Hide whitespace and by picking other commits or another base. Expanding a gap inside it leaves the
+  revealed lines unselected.
 - A right click on a line selects it first when it is not selected. The context menu of selected lines (also Shift+F10
   or the menu key on the diff): Copy Lines, Open in Editor (the file in the working tree at that line, for a removed
   line the nearest new one; disabled, with "(not in the working tree)", when it is not a file there), Copy Path.
