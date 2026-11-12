@@ -1,6 +1,5 @@
 package dev.sluide.git
 
-import dev.sluide.git.cli.BranchRef
 import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.ancestryPath
 import dev.sluide.git.cli.branchRefs
@@ -166,9 +165,6 @@ class GitRewords(
 
         private const val CLEANUP_FAILED = "The message could not be cleaned up."
 
-        /** The names of default branches, in any case (as the git log's protected branches). */
-        private val DEFAULT_NAMES = listOf("main", "master")
-
         private val HASH = Regex("[0-9a-f]{40}|[0-9a-f]{64}")
 
         /** The full refnames of the branches in the output of [branchesContaining], without symbolic refs. */
@@ -179,37 +175,6 @@ class GitRewords(
                 .filter { it.size == 2 && it[0].isNotEmpty() && it[1].isEmpty() }
                 .map { it[0] }
                 .toSet()
-
-        /**
-         * The full refnames of the default branches among [refs], whose commits are never reworded: for each of the
-         * [remotes], what its `refs/remotes/<remote>/HEAD` points at, or without one its `main` and `master`; the
-         * local `main` and `master`, the names in any case; and the local branches of the same name as the remote one
-         * they track (a local `develop` tracking `origin/develop`, which `origin/HEAD` points at), also the current
-         * branch. A branch of another name that tracks one (`fix-123` made from `origin/main`) is no default branch.
-         */
-        internal fun defaultBranches(
-            refs: List<BranchRef>,
-            remotes: List<String>,
-        ): List<String> {
-            fun named(prefix: String) =
-                refs.map { it.name }.filter { name ->
-                    name.startsWith(prefix) &&
-                        DEFAULT_NAMES.any { it.equals(name.removePrefix(prefix), ignoreCase = true) }
-                }
-            val remote =
-                remotes.flatMap { remote ->
-                    val head = refs.firstOrNull { it.name == "$REMOTE$remote/HEAD" && it.target.isNotEmpty() }
-                    if (head != null) listOf(head.target) else named("$REMOTE$remote/")
-                }
-            val tracking =
-                refs
-                    .filter { ref ->
-                        ref.name.startsWith(LOCAL) &&
-                            ref.upstream in remote &&
-                            remotes.any { ref.upstream == "$REMOTE$it/${ref.name.removePrefix(LOCAL)}" }
-                    }.map { it.name }
-            return (remote + named(LOCAL) + tracking).distinct()
-        }
 
         private fun shortName(ref: String) =
             if (ref.startsWith(LOCAL)) ref.removePrefix(LOCAL) else ref.removePrefix(REMOTE)
