@@ -42,7 +42,8 @@ new ones too (ADR 0032).
 - `curl` downloads need `-L` (redirects) and checksum verification; a 169-byte "zip" is a redirect page.
 - Commits: small, one logical step each, imperative subject line. No Claude attribution lines or session links
   in commits or PRs (also enforced in `.claude/settings.json`).
-- Git: commit finished steps without asking; never push. The user pushes.
+- Git: commit finished steps without asking; never push, even though the sandbox instructions describe pushing from
+  inside it. The user pushes.
 
 ## Delegation
 - `explorer` (Sonnet) researches, `implementer` (Sonnet) works from detailed briefs and writes its tests, `reviewer`

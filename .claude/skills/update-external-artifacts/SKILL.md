@@ -8,8 +8,8 @@ description: Use when asked to update or bump bundled versions, or to check for 
 The inventory with pins, sources and tests is `docs/external-artifacts.md`: read it first, and update its rows with
 every bump. One commit per artifact (a library family counts as one). Never push.
 
-Sandbox network: a host may be blocked (HTTP 403 with an explanation). Read the body and follow the "Network access"
-section of the project CLAUDE.md; hosts used here: `api.github.com`, `github.com`, `objects.githubusercontent.com`,
+Sandbox network: a host may be blocked (HTTP 403 with an explanation). Read the body and follow the sandbox's
+"Network access" instructions; hosts used here: `api.github.com`, `github.com`, `objects.githubusercontent.com`,
 `registry.npmjs.org`, `huggingface.co`, `services.gradle.org`, `repo1.maven.org`, `plugins.gradle.org`,
 `packages.jetbrains.team` (JediTerm), `raw.githubusercontent.com`.
 
