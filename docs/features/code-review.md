@@ -78,7 +78,7 @@ all changed files in one long scroll beside a filterable file tree, without push
   numbers and text get a tint over the colour of the change. Shortcut+C copies the lines from top to bottom,
   without − and +; Escape clears the selection (and does nothing else when there is none).
 - The selection follows its lines when the layout switches; it is cleared when its file is filtered out or collapsed,
-  by Reload, and by Hide whitespace when its lines are gone. Expanding a gap inside it leaves the revealed lines
+  by Reload, and by Hide whitespace. Expanding a gap inside it leaves the revealed lines
   unselected.
 - A right click on a line selects it first when it is not selected. The context menu of selected lines (also Shift+F10
   or the menu key on the diff): Copy Lines, Open in Editor (the file in the working tree at that line, for a removed
