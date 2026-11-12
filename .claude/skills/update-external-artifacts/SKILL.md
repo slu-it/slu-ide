@@ -13,7 +13,8 @@ section of the project CLAUDE.md; hosts used here: `api.github.com`, `github.com
 `registry.npmjs.org`, `huggingface.co`, `services.gradle.org`, `repo1.maven.org`, `plugins.gradle.org`,
 `packages.jetbrains.team` (JediTerm), `raw.githubusercontent.com`.
 
-Download into a fresh scratchpad directory per artifact, always `curl -L`, and compute `sha256sum` yourself; never copy a hash from a page without comparing it to the file you downloaded.
+Download into a fresh scratchpad directory per artifact, always `curl -L`, and compute `sha256sum` yourself; never
+copy a hash from a page without comparing it to the file you downloaded.
 
 ## Part 1: runtime and vendored artifacts
 

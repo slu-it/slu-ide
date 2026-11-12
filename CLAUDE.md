@@ -11,10 +11,10 @@ new ones too (ADR 0032).
   Module and package rules: `docs/architecture.md`.
 
 ## Commands
-- Build and test everything: `.claude/scripts/full-build.sh` (`./gradlew build -q` on a pool of repaired displays, then the
-  docs index and unused-imports checks; refuses while another Gradle build runs in the tree). Unit tests in `test`, TestFX UI tests in
-  `uiTest`, which needs a display; `-q` prints only errors and failed tests with their exception, so read the output in
-  full instead of tailing
+- Build and test everything: `.claude/scripts/full-build.sh` (`./gradlew build -q` on a pool of repaired displays, then
+  the docs index and unused-imports checks; refuses while another Gradle build runs in the tree). Unit tests in
+  `test`, TestFX UI tests in `uiTest`, which needs a display; `-q` prints only errors and failed tests with their
+  exception, so read the output in full instead of tailing
 - Subset of tests: `.claude/scripts/verify.sh <TestClass|:module|--changed>` (format, compile, run, short failure
   digest; `docs/testing.md`, "Running a subset"); subagents never run the full build, the main session does after
   the last review

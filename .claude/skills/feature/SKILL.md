@@ -13,7 +13,7 @@ Enter plan mode (`EnterPlanMode`) unless the session already is in it. Nothing b
 user approves.
 
 ## 2. Orient
-- Read `docs/ui-conventions.md` (and `.claude/rules/safety.md` when the feature touches files, runs commands or
+- Read `docs/ui-conventions.md` (and `docs/safety.md` when the feature touches files, runs commands or
   handles secrets), then the `docs/index.md` rows that match and only the ADRs and feature pages they point to.
 - Wide research goes to `explorer`, with numbered questions, what the answer feeds into and how thorough to be;
   read the few files that matter yourself.
@@ -55,8 +55,8 @@ Write the plan to the plan file plan mode names:
 - **Verification**: targeted tests per package, the real-app checks and the final gate as in the `delegate` skill,
   and what cannot be checked in the sandbox.
 - **Network**: a feature that downloads (models, packages) names every host the sandbox must allow, redirect targets
-  included, and asks the user once before the round starts. The real-model or real-service check runs right after
-  the engine package, before packages build on its assumptions.
+  included (a download host often redirects to a CDN host), and asks the user once before the round starts. The
+  real-model or real-service check runs right after the engine package, before packages build on its assumptions.
 Then `ExitPlanMode`.
 
 ## 6. Round note

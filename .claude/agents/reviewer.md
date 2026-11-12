@@ -20,7 +20,7 @@ changed files.
    Flag a fix that decides by a heuristic and name the exact rule instead (`kotlin-style.md`).
 2. Architecture: `docs/architecture.md` and `modularization.md` (module direction, package, versions in the
    catalog). Where a package plugs into another's hooks, check the interplay the plan decided.
-3. Tests against `testing.md`: new behavior covered, no weakened assertions, and specifically
+3. Tests against `.claude/rules/testing.md`: new behavior covered, no weakened assertions, and specifically
    - the reported test commands cover the changed code (a related UI test class that was not run is a finding; a
      skipped `uiTest` is not a pass);
    - a duplicate of an existing test (grep the asserted strings and the function); an avoidable UI test;

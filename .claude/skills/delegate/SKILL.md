@@ -1,6 +1,6 @@
 ---
 name: delegate
-description: Use before handing implementation work in Thoreau to subagents, especially several packages in parallel worktrees. Covers package size, model choice and escalation, briefs, the triaged review loop, real-app checks and the merge gate.
+description: Use before handing implementation work in Thoreau to subagents, especially several packages in parallel worktrees. Covers package size, model choice and escalation, briefs, the triaged review loop, merging, real-app checks and the final gate.
 ---
 
 # Delegating work to subagents
@@ -59,8 +59,9 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
 5. Test classes to run. `verify.sh --changed` already runs the touched modules' unit tests and every class
    `.claude/scripts/related-tests.sh` finds for the changed files, so name only what that search cannot see: a
    behavior tested through another class, consumers in other modules, `:ide`'s `SpringWiringTest` when an API
-   changes, and the names it reports as skipped. Run `related-tests.sh <files the package will change>` while
-   planning; when `verify.sh --changed` would refuse (too many UI classes), give the class list instead.
+   changes, and the test classes of the names it reports as skipped. Run `related-tests.sh <files the package
+   will change>` while planning; `verify.sh --changed` refuses above 12 UI test classes, so give the class list
+   instead when there are more.
 6. Docs to update: feature page, ADR, `docs/index.md`; `docs/features/keyboard-shortcuts.md` when key bindings change.
 7. Docs to read (so the agent skips the index), with sections where useful; for UI work the matching sections of
    `docs/ui-conventions.md`. For large files, the classes or line ranges that matter.
@@ -69,8 +70,8 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
    provides or consumes a hook, with the parts that hold only in one mode.
 
 Take the base commit from `git rev-parse master` right before sending the brief: the user squashes and the main
-session amends. An agent whose worktree stayed unchanged may find it removed when it resumes; send a new agent with
-a new brief instead.
+session amends, and `worktree-check.sh start` refuses a commit that is no longer on master. An agent whose worktree
+stayed unchanged may find it removed when it resumes; send a new agent with a new brief instead.
 
 ## Reviewer brief
 - What to review: `git diff master...<branch>` in the package's worktree (path and branch from the implementer's
@@ -106,7 +107,8 @@ when master moved and then compiles the touched modules, and fast-forwards maste
 - Exit 3, a rebase conflict, already aborted: run `git -C <worktree> rebase master` yourself, resolve (keep both
   sides of lists and imports, drop exact duplicates), `--continue`, compile there (`./gradlew --no-daemon
   <:module>:testClasses -q`), then run the script again. After resolving conflicts in shared code or fixtures,
-  compile every commit of the branch, not only the tip, since each commit must compile on its own.
+  compile every commit of the branch, not only the tip, since each commit must compile on its own: check out each
+  commit of `git rev-list --reverse master..HEAD`, compile, and read `$?` right after Gradle.
 
 ## Real-app check (done criteria for UI work)
 A round that changes what the user sees is done only after the main session ran the real app, after each merged
@@ -114,9 +116,9 @@ package that changes what the user sees and once more at the end:
 - `.claude/scripts/run-app.sh <folder>` in the dark theme (the default), and `--theme light` as well when theme CSS
   or colours changed; screenshots with `import -window root`, looked at with Read; `--stop <pid>` afterwards.
 - It builds the jar in the main tree: never run it while the gate or another Gradle build runs there.
-- Drive the feature end to end with real data where the sandbox allows it (`docs/testing.md`, "Running and
-  screenshotting the real app"), plus one real-world input beyond the generated fixtures when the feature reads
-  files from outside.
+- Drive the feature end to end with real data where the sandbox allows it (a real model linked into the throwaway
+  home, the null ALSA device: `docs/testing.md`, "Portability", Media playback, and "Running and screenshotting the
+  real app"), plus one real-world input beyond the generated fixtures when the feature reads files from outside.
 - Keep long outputs (logs, xdotool searches) in scratchpad files and read only what matters.
 - The report says what was checked and what was not (macOS-only behavior, Podman, ...).
 

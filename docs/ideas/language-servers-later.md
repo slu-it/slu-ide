@@ -49,7 +49,7 @@ built. Each needs a decision of its own.
   server that does. Resource operations (create, rename, delete files) in workspace edits are refused too (ADR 0148).
 - **A background update check for ty**, opt-in. Today Check for Updates is a click and nothing is fetched in the
   background ([python.md](../features/python.md)); a background check needs an ADR exception to the network rule in
-  `.claude/rules/safety.md`.
+  `docs/safety.md`.
 - **Sigstore attestation verification** of ty downloads (for instance with sigstore-java; the signer identity would be
   Astral's release workflow), on top of the pinned sha256 and GitHub's API digest. ty's releases carry attestations
   (two per archive for 0.0.99, from `GET /repos/astral-sh/ty/attestations/sha256:<digest>`, checked 2026-11-07); the

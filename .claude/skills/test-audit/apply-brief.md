@@ -1,7 +1,8 @@
 # Applying test audit findings (implementer brief)
 
 You apply the findings of a read-only test audit to one package of modules. Your prompt names the package, the
-findings file(s), which IDs to do or skip, the decisions the main session took, your display and scratch folder.
+findings file(s), which IDs to do or skip, the decisions the main session took, the master commit, your display and
+scratch folder.
 
 ## Goal
 Faster, leaner tests with the same or better coverage: delete true duplicates, move logic tests out of `uiTest` into
@@ -9,7 +10,7 @@ unit tests (extracting small pure functions from controls where the finding says
 waits on a real signal, fix weak assertions, and add the listed missing tests.
 
 ## Rules
-- Your agent definition's worktree, verification and commit rules apply; this brief only adds to them.
+- Your agent definition's worktree and commit rules apply; the Verification section below replaces its verify call.
 - Read `docs/testing.md` ("Choosing the test level", "Writing UI tests"), ADR 0084 and `.claude/rules/testing.md`.
 - Finding line numbers drift as you edit: Grep for the test name. Read ranges of big files, not whole files.
 - Before deleting a test as DUPLICATE, open the test said to keep it covered and confirm it does; move a missing

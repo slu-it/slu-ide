@@ -36,9 +36,11 @@ must not skip test tasks (`-x`): old passing results of the skipped classes woul
 `.claude/scripts/related-tests.sh [files]` lists the test classes that name the types and top-level functions
 declared in the given (by default: the changed) files, per module and task: public names in every module, `internal`
 ones in the file's own module. A name used by more than 25 test files is reported as skipped; `verify.sh --changed`
-shows those lines, and tests of such a name in other modules must be named as targets.
+shows those lines: only the unit tests of the changed modules still run, so the UI tests of such a name and its
+tests in other modules must be named as targets. `--changed` refuses when it would run more than 12 UI test classes;
+name the classes then.
 ```bash
-.claude/scripts/verify.sh --changed GitLogWritesRefsUiTest            # what an implementer runs
+.claude/scripts/verify.sh --display 111 --changed GitLogWritesRefsUiTest  # what an implementer runs
 .claude/scripts/verify.sh 'MainWindow*' :modules:git                  # a pattern and one module's unit tests
 ./gradlew testClasses -q                                              # compile all main and test code
 ./gradlew :modules:git-log:test -q                                    # unit tests of one module

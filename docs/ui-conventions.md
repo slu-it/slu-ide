@@ -2,7 +2,7 @@
 
 How Thoreau's features look and behave, so a new feature reuses them instead of rediscovering them. Lines name the
 decision record where there is one; deviate only with a reason in the feature's ADR. Key bindings: `features/keyboard-shortcuts.md`.
-Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
+Safety of file operations, runs, secrets and network: `safety.md`.
 
 ## File views with a second side
 - **Two families.** Previews (Markdown, JSON, XML, YAML, SVG, ...) use the `previews` module's `PreviewMode`
@@ -156,4 +156,5 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   values with a "keep in sync" comment (`git-log.css`). Code editors keep the pane colour. The terminal is dark in
   every theme, and the video area of the media view is black in every theme. WebView pages follow the scene's scheme
   through a `dark` body class (ADR 0016).
-- Check new UI in the real app in dark (`testing.md`, `run-app.sh`), and in light too when colours changed.
+- New UI is checked in the real app in dark (`testing.md`, `run-app.sh`), and in light too when colours changed. The
+  main session does that; a subagent names in its report what needs looking at.

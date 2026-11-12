@@ -18,9 +18,9 @@ The module table, the capability families and the foundation modules are in `doc
   Unrelated feature modules do not depend on each other; `ide` wires them through callbacks.
 - When two modules need the same piece of a third, extract it into a small module instead of depending on the whole
   feature module.
-- A module whose main code imports another module's types declares that module in its `build.gradle.kts` with a
-  comment, even when the classes already arrive through some other module's `api`, and the dependency gets its row
-  with the reason in the "Module dependencies" table of `docs/architecture.md`.
+- Every module dependency is commented in the module's `build.gradle.kts` and has its row with the reason in the
+  "Module dependencies" table of `docs/architecture.md`. A module whose main code imports another module's types
+  declares that module itself, even when the classes already arrive through some other module's `api`.
 - Feature modules expose UI as a Spring `@Component` in package `dev.sluide.<module>`; keep implementation details
   `internal`/private. Foundation modules, and a family member without UI of its own, may be plain libraries without
   Spring beans.
@@ -30,5 +30,5 @@ The module table, the capability families and the foundation modules are in `doc
 - Shared build logic belongs in the root `build.gradle.kts`, not copied between modules.
 - A new dependency of `MainWindow` also goes into the explicit bean lists of `ProjectWindowsUiTest` and
   `SpringWiringTest` and into the constructor call in `MainWindowUiFixture`; run `ProjectWindowsUiTest`.
-- A new Spring bean in `dev.sluide.fileviewers` is also found by the previews' viewer scan (`AllViewersTest`), which
+- A new Spring bean in `dev.sluide.fileviewers` is also found by the previews' viewer scan (`AllViewers.kt`), which
   has no beans from other modules: run the `:modules:previews` tests too, and exclude the bean there if it needs one.

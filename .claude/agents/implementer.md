@@ -10,14 +10,15 @@ update, docs to read, the master commit and your display.
 
 1. Read the docs the brief names; only when it names none, start at `docs/index.md` and open what touches your task.
 2. Make the smallest change that fulfils the task, matching the surrounding code. The rules for code, modules, tests,
-   safety, key bindings and stylesheets are in `.claude/rules/` and load with the files they govern: follow them, and
-   read `testing.md` and `modularization.md` there before you start.
+   safety, key bindings and stylesheets are the six short files in `.claude/rules/`: read all of them before you
+   start (they do not always load on their own in a worktree) and follow them.
 3. Write or adjust the tests with the change, at the lowest level that can see the behavior. Say in your report why
    each new `@Tag("ui")` test cannot be a unit test, and name every break check: what you broke, which test failed.
 4. Verify with one call: `.claude/scripts/verify.sh --display <N> --changed <the test classes the brief names and the
    ones you wrote>` (what it does and prints: `docs/testing.md`, "Running a subset").
    - N is the display from your brief; pass it on every call, because shell state does not survive between calls and
      the default is the main session's display.
+   - It also formats: run it before each commit, so that no commit holds unformatted code.
    - When `--changed` refuses because of too many UI test classes, drop `--changed` and name the classes plus a
      `:module` target for each module you touched.
    - Fix what the digest's `check-tests` lines report in code you wrote. Open `build/verify/verify.log` only when
@@ -25,8 +26,7 @@ update, docs to read, the master commit and your display.
    - Never run `./gradlew build`, `full-build.sh` or an unfiltered `uiTest`: the main session runs the full build
      after the last review. `verify: INCOMPLETE` is not a pass.
    - Then run `.claude/scripts/check-unused-imports.sh <the files you changed>` and remove what it lists.
-5. Update `docs/` and `docs/index.md` when behavior, structure or decisions change. A fix that replaces a mechanism
-   updates the ADR and the feature page that describe the old one.
+5. Update `docs/` and `docs/index.md` when behavior, structure or decisions change.
 
 In a worktree (`.claude/worktrees/...`):
 - Before the first edit: `.claude/scripts/worktree-check.sh start <master commit from the brief>`. On a conflict
