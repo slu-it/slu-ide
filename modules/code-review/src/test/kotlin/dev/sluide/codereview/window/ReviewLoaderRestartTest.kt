@@ -40,8 +40,10 @@ class ReviewLoaderRestartTest {
     private val document = ReviewDocument()
     private val posts = Posts()
 
-    private fun loader(viewport: ReviewViewport = FakeViewport()) =
-        ReviewLoader(source, ROOT, document, viewport, { _, _ -> null }, DIRECT, posts::post)
+    private fun loader(
+        viewport: ReviewViewport = FakeViewport(document.rows),
+        chunk: Int = ReviewLoader.CHUNK_SIZE,
+    ) = ReviewLoader(source, ROOT, document, viewport, { _, _ -> null }, DIRECT, posts::post, chunk)
 
     private fun ReviewLoader.openBranch() = open(ReviewScope.Branch("HEAD"))
 
@@ -243,9 +245,12 @@ class ReviewLoaderRestartTest {
     }
 
     /** A reload whose first resolve was restarted by hiding whitespace: the content is dropped when the files land. */
-    private fun reloadWithDroppedContent(viewport: FakeViewport): ReviewAnchor {
+    private fun reloadWithDroppedContent(
+        viewport: FakeViewport,
+        chunk: Int = ReviewLoader.CHUNK_SIZE,
+    ): ReviewAnchor {
         source.files = listOf(file("a.kt"), file("b.kt"))
-        val loader = loader(viewport)
+        val loader = loader(viewport, chunk)
         loader.openBranch()
         posts.drain()
         val line = document.rows.indexOfFirst { it.path == "b.kt" && it is ReviewRow.SplitLine }
@@ -263,7 +268,7 @@ class ReviewLoaderRestartTest {
 
     @Test
     fun `reload scrolls to the line when its content arrives after a stop at the header`() {
-        val viewport = FakeViewport()
+        val viewport = FakeViewport(document.rows)
         val anchor = reloadWithDroppedContent(viewport)
         assertEquals(document.headerRow("b.kt") to 0.0, viewport.place)
 
@@ -274,8 +279,21 @@ class ReviewLoaderRestartTest {
     }
 
     @Test
+    fun `reload still scrolls to the line when an earlier file's chunk lands before the anchor file's`() {
+        val viewport = FakeViewport(document.rows)
+        val anchor = reloadWithDroppedContent(viewport, chunk = 1)
+
+        posts.step() // a.kt: the rows above the header grow, the list keeps the header at the top
+        assertEquals(document.headerRow("b.kt") to 0.0, viewport.place)
+        posts.step() // b.kt
+
+        assertEquals(document.rowOf(anchor) to 3.0, viewport.place)
+        assertTrue(document.rowOf(anchor) > document.headerRow("b.kt"), "the line, not the header")
+    }
+
+    @Test
     fun `reload does not jump to the line when the user scrolled after the header`() {
-        val viewport = FakeViewport()
+        val viewport = FakeViewport(document.rows)
         reloadWithDroppedContent(viewport)
         val scrolls = viewport.scrolls.size
         // The user scrolls to the top of the first file.
@@ -299,7 +317,7 @@ class ReviewLoaderRestartTest {
 
     @Test
     fun `hiding whitespace scrolls to the header of the top file and keeps it there when the content arrives`() {
-        val viewport = FakeViewport()
+        val viewport = FakeViewport(document.rows)
         hideWhitespaceAtSecondFile(viewport)
         assertEquals(document.headerRow("b.kt") to 0.0, viewport.scrolls.last())
         val scrolls = viewport.scrolls.size
@@ -312,7 +330,7 @@ class ReviewLoaderRestartTest {
 
     @Test
     fun `hiding whitespace does not pull the user back when they scrolled before the content arrived`() {
-        val viewport = FakeViewport()
+        val viewport = FakeViewport(document.rows)
         hideWhitespaceAtSecondFile(viewport)
         viewport.place = 0 to 0.0
         val scrolls = viewport.scrolls.size

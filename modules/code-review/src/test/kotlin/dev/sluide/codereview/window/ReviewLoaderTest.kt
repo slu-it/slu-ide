@@ -11,12 +11,16 @@ import dev.sluide.codereview.ReviewFileContent
 import dev.sluide.codereview.ReviewRevision
 import dev.sluide.codereview.ReviewScope
 import dev.sluide.codereview.ReviewSource
+import dev.sluide.codereview.list.RowKey
+import dev.sluide.codereview.list.rowKey
 import dev.sluide.codereview.model.ReviewDocument
 import dev.sluide.codereview.model.ReviewLayout
 import dev.sluide.codereview.model.ReviewRow
 import dev.sluide.codereview.model.ReviewSelection
 import dev.sluide.codereview.model.oneModifiedLine
 import dev.sluide.codereview.model.shortRows
+import javafx.collections.ListChangeListener
+import javafx.collections.ObservableList
 import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.CancellationException
@@ -119,10 +123,28 @@ internal class FakeSource(
     }
 }
 
-/** A viewport like the real list's: [firstVisible] is the place the last scroll asked for, or where the test puts it. */
-internal class FakeViewport : ReviewViewport {
-    var place = 0 to 0.0
+/**
+ * A viewport like the real list's: [firstVisible] is the place the last scroll asked for, or where the test puts it,
+ * and it follows the changes of [rows] the way `ReviewDiffList.followChange` does: the row at the place is found again
+ * by its [rowKey] (shifted by the changes before it, or inside what was added), else the place moves to the start of
+ * the change. So the loader sees what the real list reports after rows change under it.
+ */
+internal class FakeViewport(
+    rows: ObservableList<ReviewRow>? = null,
+) : ReviewViewport {
+    private val rows: List<ReviewRow> = rows.orEmpty()
+    private var key: RowKey? = null
     val scrolls = mutableListOf<Pair<Int, Double>>()
+
+    var place = 0 to 0.0
+        set(value) {
+            field = value
+            key = rows.getOrNull(value.first)?.let(::rowKey)
+        }
+
+    init {
+        rows?.addListener(ListChangeListener { change -> follow(change) })
+    }
 
     override fun firstVisible() = place
 
@@ -133,6 +155,24 @@ internal class FakeViewport : ReviewViewport {
         scrolls += index to offset
         place = index to offset
     }
+
+    private fun follow(change: ListChangeListener.Change<out ReviewRow>) {
+        val at = key ?: return
+        val (old, offset) = place
+        var from = Int.MAX_VALUE
+        var shifted = old
+        val added = mutableListOf<IntRange>()
+        while (change.next()) {
+            from = minOf(from, change.from)
+            added += change.from until change.from + change.addedSize
+            if (change.from + change.removedSize <= shifted) shifted += change.addedSize - change.removedSize
+        }
+        if (from > old || rows.isEmpty()) return
+        val index =
+            (listOf(shifted) + added.flatMap { it }).firstOrNull { it in rows.indices && rowKey(rows[it]) == at }
+                ?: from.coerceAtMost(rows.lastIndex)
+        place = index to offset
+    }
 }
 
 internal fun file(path: String) = ReviewFile(ReviewChange.MODIFIED, path)
@@ -140,7 +180,7 @@ internal fun file(path: String) = ReviewFile(ReviewChange.MODIFIED, path)
 class ReviewLoaderTest {
     private val source = FakeSource()
     private val document = ReviewDocument()
-    private val viewport = FakeViewport()
+    private val viewport = FakeViewport(document.rows)
 
     private fun loader(
         executor: Executor = DIRECT,
