@@ -75,7 +75,7 @@ class ReviewDiffListLinesUiTest {
         view.lineActions = LineActions(root, { path, line -> opened += path to line }, { path -> histories.add(path) })
         document.layout.set(layout)
         document.setFiles(files.map { modified(it.first) })
-        for ((path, content) in files) document.setContent(path, prepareFile(modified(path), content, null, false))
+        for ((path, content) in files) document.setContent(path, prepareFile(content, null, false))
     }
 
     private val small = textDiff(10, 10, LineChange(2..4, 2..4))

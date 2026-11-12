@@ -40,7 +40,7 @@ class PrepareFileTest {
         val name = HighlightSpan(content.indexOf("y"), content.indexOf("y") + 1, TokenStyle.KEYWORD)
         val highlighter = SyntaxHighlighter { listOf(HighlightSpan(0, 1, TokenStyle.TYPE), comment, name) }
 
-        val prepared = prepareFile(file, ReviewFileContent.Text(content, content, emptyList()), highlighter, false)
+        val prepared = prepareFile(ReviewFileContent.Text(content, content, emptyList()), highlighter, false)
 
         assertEquals(
             listOf(
@@ -63,7 +63,6 @@ class PrepareFileTest {
             }
 
         prepareFile(
-            file,
             ReviewFileContent.Text("a\nb\nc\n", "a\nB\nc\n", listOf(LineChange(1..1, 1..1))),
             highlighter,
             false,
@@ -84,7 +83,6 @@ class PrepareFileTest {
 
         val prepared =
             prepareFile(
-                file,
                 ReviewFileContent.Text("x\n", long, listOf(LineChange(1 until 1, 1..1))),
                 highlighter,
                 false,
@@ -98,7 +96,7 @@ class PrepareFileTest {
     @Test
     fun `without a highlighter there are no tokens`() {
         val prepared =
-            prepareFile(file, ReviewFileContent.Text("a\n", "b\n", listOf(LineChange(0..0, 0..0))), null, false)
+            prepareFile(ReviewFileContent.Text("a\n", "b\n", listOf(LineChange(0..0, 0..0))), null, false)
 
         assertEquals(listOf(emptyList<HighlightSpan>()), text(prepared).currentTokens)
     }
@@ -107,8 +105,8 @@ class PrepareFileTest {
     fun `changed words are marked within modified lines, whitespace too unless it is ignored`() {
         val content = ReviewFileContent.Text("val x = 1\n", "val  x = 2\n", listOf(LineChange(0..0, 0..0)))
 
-        val marked = text(prepareFile(file, content, null, ignoreWhitespace = false)).words
-        val ignored = text(prepareFile(file, content, null, ignoreWhitespace = true)).words
+        val marked = text(prepareFile(content, null, ignoreWhitespace = false)).words
+        val ignored = text(prepareFile(content, null, ignoreWhitespace = true)).words
 
         assertEquals(mapOf(0 to listOf(3..4, 9..9)), marked.current)
         assertEquals(mapOf(0 to listOf(9..9)), ignored.current)
@@ -127,7 +125,7 @@ class PrepareFileTest {
                 LineChange(7..8, 8..9), // beyond both sides: dropped
             )
 
-        val prepared = prepareFile(file, ReviewFileContent.Text(original, current, changes), null, false)
+        val prepared = prepareFile(ReviewFileContent.Text(original, current, changes), null, false)
 
         assertEquals(4, prepared.added)
         assertEquals(3, prepared.removed)
@@ -144,7 +142,7 @@ class PrepareFileTest {
             current: String,
             changes: List<LineChange> = listOf(LineChange(0..0, 0..0)),
             ignoreWhitespace: Boolean = false,
-        ) = prepareFile(file, ReviewFileContent.Text(original, current, changes), null, ignoreWhitespace).contentKey
+        ) = prepareFile(ReviewFileContent.Text(original, current, changes), null, ignoreWhitespace).contentKey
 
         assertEquals(key("a\n", "b\n"), key("a\n", "b\n", emptyList(), ignoreWhitespace = true))
         assertNotEquals(key("a\n", "b\n"), key("a\n", "c\n"))
@@ -154,8 +152,8 @@ class PrepareFileTest {
 
     @Test
     fun `a submodule names both commits by short hash, none for a missing side`() {
-        val moved = prepareFile(file, ReviewFileContent.Submodule("abc1234567890", "def5678901234"), null, false)
-        val added = prepareFile(file, ReviewFileContent.Submodule(null, "def5678901234"), null, false)
+        val moved = prepareFile(ReviewFileContent.Submodule("abc1234567890", "def5678901234"), null, false)
+        val added = prepareFile(ReviewFileContent.Submodule(null, "def5678901234"), null, false)
 
         assertEquals(PreparedBody.Submodule("abc1234 → def5678"), moved.body)
         assertEquals(PreparedBody.Submodule("none → def5678"), added.body)

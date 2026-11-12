@@ -307,7 +307,7 @@ internal class ReviewLoader(
             val prepared =
                 chunk.map { file ->
                     val content = contents[file.path]
-                    file.path to content?.let { prepareFile(file, it, highlighterOf(file, it), whitespace) }
+                    file.path to content?.let { prepareFile(it, highlighterOf(file, it), whitespace) }
                 }
             dispatch { if (!cancellation.isCancelled) showChunk(prepared) }
         }

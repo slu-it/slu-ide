@@ -54,14 +54,12 @@ internal sealed interface PreparedBody {
 }
 
 /**
- * Prepares [content] of [file] for the document; pure and thread-safe, run on the review thread. Each text is
+ * Prepares [content] for the document; pure and thread-safe, run on the review thread. Each text is
  * highlighted once as a whole with [highlighter] (not when `null` or the text is over [CodeEditors.HIGHLIGHT_LIMIT])
  * and the tokens are cut per line; [ignoreWhitespace] tells that git hid whitespace changes, so the word diff ignores
- * them too. [file] is not read yet; it is in the signature the other packages of this module were planned against.
+ * them too.
  */
-@Suppress("UNUSED_PARAMETER")
 internal fun prepareFile(
-    file: ReviewFile,
     content: ReviewFileContent,
     highlighter: SyntaxHighlighter?,
     ignoreWhitespace: Boolean,

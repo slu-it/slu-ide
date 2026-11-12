@@ -82,7 +82,7 @@ class ReviewDiffListUiTest {
         for ((path, content) in files) {
             document.setContent(
                 path,
-                prepareFile(modified(path), content, highlighter, false),
+                prepareFile(content, highlighter, false),
             )
         }
     }
@@ -321,7 +321,7 @@ class ReviewDiffListUiTest {
 
         robot.interact {
             for (path in listOf("a.txt", "b.txt")) {
-                document.setContent(path, prepareFile(modified(path), bigFile(), null, false))
+                document.setContent(path, prepareFile(bigFile(), null, false))
             }
         }
 

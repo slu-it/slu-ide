@@ -78,7 +78,7 @@ class ReviewDocumentTest {
         val document = ReviewDocument()
         document.setFiles(listOf(file))
 
-        document.setContent(file.path, prepareFile(file, content, null, ignoreWhitespace))
+        document.setContent(file.path, prepareFile(content, null, ignoreWhitespace))
 
         assertEquals(listOf(notice), document.bodyOf(file.path))
     }

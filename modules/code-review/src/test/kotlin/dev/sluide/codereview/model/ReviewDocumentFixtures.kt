@@ -39,7 +39,7 @@ internal fun ReviewDocument.load(
     path: String,
     content: ReviewFileContent,
     ignoreWhitespace: Boolean = false,
-) = setContent(path, prepareFile(modified(path), content, null, ignoreWhitespace))
+) = setContent(path, prepareFile(content, null, ignoreWhitespace))
 
 /** A document with [files] and their contents loaded. */
 internal fun document(
