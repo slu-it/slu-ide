@@ -19,9 +19,10 @@ folder, as cards with Markdown notes.
 - **Cards:** a card shows the summary on one line with buttons to Expand (the chevron; also hides the description
   again), Edit (pencil) and Delete (bin). Expanding shows the description as rendered Markdown; whether a card is
   expanded is stored, so it stays after a restart and in every window (new TODOs are collapsed). A card without a
-  description has no chevron, but its summary lines up with the others. A double click on the summary edits. Add (at
-  the top of a tab) opens the dialog for the tab's scope; an empty tab says "No TODOs". New TODOs go to the top. There
-  is no done state: delete a TODO when it is done.
+  description has no chevron, but its summary lines up with the others. A double click anywhere on the card (its
+  summary or the expanded description) edits, except on its buttons, task checkboxes and links, which keep their own
+  action. Add (at the top of a tab) opens the dialog for the tab's scope; an empty tab says "No TODOs". New TODOs go
+  to the top. There is no done state: delete a TODO when it is done.
 - **Folders:** New Folder (beside Add) asks for a name and a scope and puts the folder at the top of the tab. Folders
   are one level deep and sit among the TODOs in any order. A folder's header shows its name and number of TODOs, with
   buttons to collapse or expand it (stored, so it stays after a restart and in every window; new folders are

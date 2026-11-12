@@ -58,8 +58,14 @@ internal class TodoCard(
         }
         edit.setOnAction { host.edit(this.todo, scope, this.folderId) }
         delete.setOnAction { host.delete(this.todo, scope) }
-        summary.setOnMouseClicked {
-            if (it.button == MouseButton.PRIMARY && it.clickCount == 2) host.edit(this.todo, scope, this.folderId)
+        // Anywhere on the card, the expanded description too; buttons, task checkboxes and links (which consume
+        // their clicks) keep theirs. A click that ends a drag is no double click.
+        setOnMouseClicked {
+            if (it.button == MouseButton.PRIMARY && it.clickCount == 2 && it.isStillSincePress &&
+                !isOnButton(it.target)
+            ) {
+                host.edit(this.todo, scope, this.folderId)
+            }
         }
         refresh()
     }

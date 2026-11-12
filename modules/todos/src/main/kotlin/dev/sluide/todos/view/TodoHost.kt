@@ -5,7 +5,9 @@ import dev.sluide.todos.TodoFolder
 import dev.sluide.todos.TodoPlace
 import dev.sluide.todos.TodoScope
 import dev.sluide.todos.markdown.MarkdownContext
+import javafx.scene.Node
 import javafx.scene.control.Button
+import javafx.scene.control.ButtonBase
 import javafx.scene.control.Tooltip
 import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.javafx.FontIcon
@@ -84,3 +86,7 @@ internal fun iconButton(
         styleClass += "todo-icon-button"
         tooltip = Tooltip(tip)
     }
+
+/** Whether [target] of a mouse event is a button (also a task checkbox) or inside one: buttons keep their clicks. */
+internal fun isOnButton(target: Any?): Boolean =
+    generateSequence(target as? Node) { it.parent }.any { it is ButtonBase }

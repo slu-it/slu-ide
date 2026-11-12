@@ -494,7 +494,7 @@ it; Shortcut+9 is not bound there (Git Log on macOS).
 | Drag a tab header onto the other side's tab row, or onto the right half of the editor area | Move the tab to that side, opening the right side ([editor-tabs.md](editor-tabs.md)) |
 | Drag a TODO card by its header | Reorder the TODOs, also into, out of and between folders ([todos.md](todos.md)) |
 | Drag a TODO folder by its header | Reorder the folders among the TODOs ([todos.md](todos.md)) |
-| Double-click on a TODO card's summary | Edit the TODO ([todos.md](todos.md)) |
+| Double-click on a TODO card (not on its buttons, task checkboxes or links) | Edit the TODO ([todos.md](todos.md)) |
 | Double-click on a TODO folder's name | Edit the folder ([todos.md](todos.md)) |
 
 ## Pickers

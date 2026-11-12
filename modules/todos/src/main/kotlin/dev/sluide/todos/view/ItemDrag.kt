@@ -8,7 +8,6 @@ import javafx.event.EventHandler
 import javafx.geometry.Bounds
 import javafx.scene.Node
 import javafx.scene.Scene
-import javafx.scene.control.ButtonBase
 import javafx.scene.control.ScrollPane
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
@@ -102,7 +101,7 @@ internal class ItemDrag(
         id: () -> String,
     ) {
         header.addEventHandler(MouseEvent.MOUSE_PRESSED) { event ->
-            if (event.button == MouseButton.PRIMARY && !onButton(event.target)) {
+            if (event.button == MouseButton.PRIMARY && !isOnButton(event.target)) {
                 press = Press(event.sceneY, box.sceneToLocal(0.0, event.sceneY).y)
             }
         }
@@ -121,9 +120,6 @@ internal class ItemDrag(
             if (current?.node === node && result != null) move(current.id, result.place)
         }
     }
-
-    private fun onButton(target: Any?): Boolean =
-        generateSequence(target as? Node) { it.parent }.any { it is ButtonBase }
 
     /** [node]'s layout bounds in [box]'s coordinates. */
     private fun bounds(node: Node): Bounds = box.sceneToLocal(node.localToScene(node.layoutBounds))

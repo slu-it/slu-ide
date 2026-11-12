@@ -13,6 +13,7 @@ import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
+import javafx.scene.text.Text
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import java.net.URI
 import java.nio.file.Files
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -75,6 +77,7 @@ class TodoPanelUiTest {
         robot: FxRobot,
         node: Node,
         count: Int = 1,
+        still: Boolean = true,
     ) = robot.interact {
         Event.fireEvent(
             node,
@@ -95,7 +98,7 @@ class TodoPanelUiTest {
                 false,
                 false,
                 false,
-                true,
+                still,
                 null,
             ),
         )
@@ -194,19 +197,26 @@ class TodoPanelUiTest {
     }
 
     @Test
-    fun `a double click on the summary edits the TODO`(robot: FxRobot) {
-        add(robot, TodoScope.SHARED, "double", "")
+    fun `a double click on the card edits the TODO, but not on its buttons, task checkboxes and links`(robot: FxRobot) {
+        add(robot, TodoScope.SHARED, "double", "[web](https://example.com)\n\n- [ ] task\n\nplain")
+        val opened = mutableListOf<URI>()
+        panel.openWebPage = { opened += it }
         val card = cards(robot).single()
+        robot.interact { card.toggle.fire() }
+        val parts = fixture.fx(robot) { fixture.descendants(card) }
+        val link = parts.filterIsInstance<Text>().single { it.text == "web" }
+        val plain = parts.filterIsInstance<Text>().single { it.text == "plain" }
+        val box = parts.filterIsInstance<CheckBox>().single()
+
         click(robot, card.summary, 1)
+        listOf(card.toggle, card.edit, card.delete, box, link).forEach { click(robot, it, 2) }
+        // The release that ends a drag of the card, pressed right after a click.
+        click(robot, card.summary, 2, still = false)
         assertEquals(0, fixture.requests.size)
-        click(robot, card.summary, 2)
-        assertEquals(
-            "double",
-            fixture.requests
-                .single()
-                .todo
-                ?.summary,
-        )
+        assertEquals(listOf(URI("https://example.com")), opened)
+
+        listOf(card.summary, plain, card).forEach { click(robot, it, 2) }
+        assertEquals(listOf("double", "double", "double"), fixture.requests.map { it.todo?.summary })
     }
 
     @Test

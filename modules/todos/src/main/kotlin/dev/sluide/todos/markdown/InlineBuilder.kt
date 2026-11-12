@@ -18,6 +18,7 @@ import org.commonmark.node.Link
 import org.commonmark.node.Node
 import org.commonmark.node.SoftLineBreak
 import org.commonmark.node.StrongEmphasis
+import javafx.scene.Node as FxNode
 import org.commonmark.node.Image as MdImage
 import org.commonmark.node.Text as MdText
 
@@ -25,6 +26,9 @@ import org.commonmark.node.Text as MdText
 internal class InlineBuilder(
     private val context: MarkdownContext,
 ) {
+    /** The target of each part of a link, so that an image loaded into a link replaces its alt text as a link too. */
+    private val linkTargets = HashMap<FxNode, String>()
+
     /** A [TextFlow] with the inline children of [block]. */
     fun flow(
         block: Node,
@@ -78,7 +82,7 @@ internal class InlineBuilder(
             styleClass.addAll(styles)
         }
 
-    /** A link is styled text (so it wraps and keeps emphasis); a primary click acts on its target. */
+    /** A link is styled text (so it wraps and keeps emphasis); a primary click acts on its target and is consumed. */
     private fun link(
         flow: TextFlow,
         node: Link,
@@ -89,10 +93,22 @@ internal class InlineBuilder(
         append(flow, node, styles + "link")
         if (flow.children.size == before) flow.children.add(text(href, styles + "link"))
         flow.children.drop(before).forEach { part ->
-            part.cursor = Cursor.HAND
-            Tooltip.install(part, Tooltip(href))
-            part.setOnMouseClicked { event ->
-                if (event.button == MouseButton.PRIMARY) open(href)
+            linkTargets[part] = href
+            makeLink(part, href)
+        }
+    }
+
+    private fun makeLink(
+        part: FxNode,
+        href: String,
+    ) {
+        part.cursor = Cursor.HAND
+        Tooltip.install(part, Tooltip(href))
+        part.setOnMouseClicked { event ->
+            if (event.button == MouseButton.PRIMARY) {
+                open(href)
+                // A double click on a link must not also edit its TODO card.
+                event.consume()
             }
         }
     }
@@ -130,6 +146,7 @@ internal class InlineBuilder(
                         )
                     }
                 flow.children[index] = view
+                linkTargets[altText]?.let { makeLink(view, it) }
             }
         }
         image.progressProperty().addListener { _, _, _ -> show() }

@@ -204,6 +204,19 @@ class MarkdownRendererUiTest {
     }
 
     @Test
+    fun `a loaded image in a link opens the link and keeps the click to itself`(robot: FxRobot) {
+        Files.write(dir.resolve("p.png"), png(1, 1))
+        val pages = mutableListOf<URI>()
+        val root = show(robot, "[![logo](p.png)](https://example.com/x)", MarkdownContext(dir, pages::add, {}, null))
+        waitForImages(robot, root)
+        val reached = mutableListOf<MouseEvent>()
+        robot.interact { root.addEventHandler(MouseEvent.MOUSE_CLICKED) { reached += it } }
+        click(robot, descendants(root).filterIsInstance<ImageView>().single())
+        assertEquals(listOf(URI("https://example.com/x")), pages)
+        assertEquals(emptyList(), reached)
+    }
+
+    @Test
     fun `an image is no wider than the text flow it is in`(robot: FxRobot) {
         Files.write(dir.resolve("wide.png"), png(600, 10))
         val root = show(robot, "- > ![wide](wide.png)")
