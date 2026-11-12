@@ -45,6 +45,10 @@ Safety of file operations, runs, secrets and network: `safety.md`.
   `-fx-icon-color: -fx-text-base-color` so they follow the theme (the game logos are the exception: fixed colours
   on purpose, ADR 0156). Style the toolbar like `preview-view.css`
   (`.preview-toolbar`): no new colours, small padding.
+  A control that other modules place in their toolbars carries its own stylesheet on its node (`soft-wrap.css` of
+  `SoftWrapToggle`, `zoom-controls.css` of `ZoomControls`/`DocumentZoom`): the embedding view does not load the
+  owning module's stylesheet, so its icons would stay black in the dark theme and its buttons take Modena's sizes
+  (the ebook reader's zoom buttons did).
   Icons in a control's context menu (`Control.contextMenu`) are the exception: that menu is shown relative to the
   window, so only the scene root's stylesheets reach it, not the module's. Colour them inline by appending to the
   icon's own style (a `FontIcon` keeps its glyph font there) with `-fx-icon-color: -fx-text-background-color`, which

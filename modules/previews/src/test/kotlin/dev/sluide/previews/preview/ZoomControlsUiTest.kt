@@ -6,6 +6,7 @@ import dev.sluide.previews.scrollEvent
 import javafx.event.Event
 import javafx.event.EventHandler
 import javafx.event.EventType
+import javafx.geometry.Insets
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Button
@@ -13,10 +14,12 @@ import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
+import javafx.scene.paint.Color
 import javafx.scene.web.WebView
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
+import org.kordamp.ikonli.javafx.FontIcon
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -29,7 +32,7 @@ import kotlin.test.assertTrue
 
 /**
  * The input handling of [ZoomControls] over a [WebViewZoomTarget], without a page or a preview view: keys, buttons, wheel,
- * pinch, clamps. `DocumentZoomUiTest` checks that the previews wire it up. Needs a display, see the `uiTest` task.
+ * pinch, clamps; and the look the controls carry into other views' toolbars. `DocumentZoomUiTest` checks that the previews wire it up. Needs a display, see the `uiTest` task.
  */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
@@ -248,5 +251,19 @@ class ZoomControlsUiTest {
         assertEquals(1, changes)
         robot.interact { zoom.actualSize() }
         assertEquals(2, changes)
+    }
+
+    @Test
+    fun `the controls carry their look into a toolbar without the previews' stylesheet`(robot: FxRobot) {
+        // The scene loads no preview-view.css, like the ebook reader's toolbar; a dark base makes the theme's text light.
+        robot.interact {
+            container.style = "-fx-base: #3c3f41;"
+            container.applyCss()
+        }
+
+        val color = fx { (zoom.zoomOutButton.graphic as FontIcon).iconColor as Color }
+        assertTrue(color.brightness > 0.5, "icon takes the theme's text colour, not black: $color")
+        assertEquals(Insets(2.0, 10.0, 2.0, 10.0), fx { zoom.actualSizeButton.padding }, "the previews' button padding")
+        assertEquals(Insets(0.0, 4.0, 0.0, 4.0), fx { zoom.level.padding }, "the level's padding")
     }
 }

@@ -140,6 +140,10 @@ internal class ZoomControls(
         HBox(*listOfNotNull(zoomOutButton, level, zoomInButton, actualSizeButton, fitButton).toTypedArray()).apply {
             styleClass += "zoom-controls"
             alignment = Pos.CENTER_LEFT
+            // It carries its look into the toolbars of other modules (the ebook reader's, through DocumentZoom).
+            stylesheets +=
+                checkNotNull(ZoomControls::class.java.getResource("/dev/sluide/previews/zoom-controls.css"))
+                    .toExternalForm()
         }
 
     init {

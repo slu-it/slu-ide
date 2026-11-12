@@ -226,7 +226,8 @@ The `previews` module's root package (`dev.sluide.previews`, its API, ADR 0055) 
 show their own WebView page.
 
 - `DocumentZoom(webView)`: the document zoom of the HTML and Markdown previews (ADR 0083). `node` is the toolbar group
-  (zoom out, level, zoom in, 100%); `install()` adds Shortcut+Plus/Minus/0 and Shortcut+wheel or pinch on the web view.
+  (zoom out, level, zoom in, 100%), which carries its own look (`zoom-controls.css`), so the embedding view needs no
+  stylesheet of the previews; `install()` adds Shortcut+Plus/Minus/0 and Shortcut+wheel or pinch on the web view.
 - `TextMarks(engine)`: marks ranges of the page's text by offset, scrolls to an offset, and finds the offset at the top
   of the viewport or under a point. Calls do nothing (or answer null or false) until a page has loaded; `onUserScroll`
   is called for wheel, scroll keys, touch and scrollbar scrolling, not for `reveal` or `scrollToTop` (which puts the
