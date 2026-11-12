@@ -89,6 +89,23 @@ class GitLogViewGraphUiTest : GitLogViewUiFixture() {
     }
 
     @Test
+    fun `a layout leaves the graph cells laid out, so an idle log needs no further pulses`(robot: FxRobot) {
+        refs = someRefs
+        openAndExpand(robot)
+
+        robot.interact {
+            view.scene.root.layout()
+            assertFalse(view.scene.root.isNeedsLayout, "the view asks for another layout")
+            val cells = graphCells(robot).filter { it.item != null }
+            assertTrue(cells.isNotEmpty())
+            for (cell in cells) {
+                assertFalse(cell.isNeedsLayout, "row ${cell.index} asks for another layout")
+                assertEquals(cell.height, cell.content.height, "the graph spans the row")
+            }
+        }
+    }
+
+    @Test
     fun `selected rows draw a halo in the table's background colour under the graph`(robot: FxRobot) {
         history = listOf(commit("m", "b", "f"), commit("f", "a"), commit("b", "a"), commit("a"))
         openAndExpand(robot)

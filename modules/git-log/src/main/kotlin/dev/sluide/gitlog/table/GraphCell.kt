@@ -9,6 +9,7 @@ import javafx.geometry.VPos
 import javafx.scene.control.ContentDisplay
 import javafx.scene.control.Label
 import javafx.scene.control.TableCell
+import javafx.scene.control.skin.TableCellSkin
 import javafx.scene.layout.Region
 import javafx.scene.shape.Circle
 import javafx.scene.shape.LineTo
@@ -70,13 +71,27 @@ internal class GraphCell : TableCell<GitLogRow, GitLogRow>() {
         }
     }
 
-    override fun layoutChildren() {
-        super.layoutChildren()
-        if (graphic === content) {
-            // The skin centres the graphic at its preferred size; it takes the cell's whole height and width instead.
-            val left = snappedLeftInset()
-            content.resizeRelocate(left, 0.0, maxOf(0.0, width - left - snappedRightInset()), height)
-        }
+    override fun createDefaultSkin() = GraphCellSkin(this)
+}
+
+/**
+ * Lays out a [GraphCell]'s [GraphCell.content] over the cell's whole height and width, where the default skin would
+ * centre it at its preferred size. Done in one step: resizing it after the default skin's layout changed its bounds
+ * twice per layout, and each change requested another layout of the cell, so the table laid out its rows again on
+ * every pulse while idle.
+ */
+internal class GraphCellSkin(
+    private val cell: GraphCell,
+) : TableCellSkin<GitLogRow, GitLogRow>(cell) {
+    override fun layoutChildren(
+        x: Double,
+        y: Double,
+        w: Double,
+        h: Double,
+    ) {
+        if (cell.graphic !== cell.content) return super.layoutChildren(x, y, w, h)
+        // Over the top and bottom padding too, so that the lines of neighbouring rows meet.
+        cell.content.resizeRelocate(x, 0.0, maxOf(0.0, w), cell.height)
     }
 }
 
