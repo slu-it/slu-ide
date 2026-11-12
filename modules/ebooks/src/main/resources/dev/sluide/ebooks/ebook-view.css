@@ -6,14 +6,15 @@
     -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
 }
 
+/* Keep in sync with the zoom controls beside them (zoom-controls.css in previews) and preview-view.css. */
 .ebook-button {
-    -fx-padding: 2 8 2 8;
+    -fx-padding: 2 10 2 10;
+    -fx-font-size: 0.9em;
     -fx-background-radius: 0;
 }
 
 .ebook-button .ikonli-font-icon {
     -fx-icon-color: -fx-text-base-color;
-    -fx-icon-size: 16;
 }
 
 .ebook-progress {

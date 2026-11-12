@@ -8,21 +8,26 @@ import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.projectdata.ProjectDataStore
 import javafx.application.ColorScheme
 import javafx.event.Event
+import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.ToggleButton
 import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeView
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.layout.Region
 import javafx.stage.Stage
 import javafx.util.Duration
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
+import org.kordamp.ikonli.javafx.FontIcon
+import org.kordamp.ikonli.materialdesign2.MaterialDesignM
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
@@ -323,6 +328,34 @@ class EpubFileViewUiTest {
         fx { assertFalse(view.splitPane.items.contains(view.contents.node)) }
         fx { view.bar.contents.isSelected = true }
         await { view.splitPane.items.contains(view.contents.node) && view.splitPane.dividerPositions[0] in 0.39..0.41 }
+    }
+
+    @Test
+    fun `the toolbar buttons, the zoom group's and the slots' too, are equally high and centred in their row`() {
+        val view = open()
+        view.loadedPage()
+        val search = ToggleButton(null, FontIcon(MaterialDesignM.MAGNIFY)).apply { styleClass += "ebook-button" }
+        fx {
+            // A taller item in the row, as Read Aloud's combo boxes are; and the Search toggle as ReaderSearch adds it.
+            view.readAloudSlot.children += Region().apply { setMinSize(10.0, 40.0) }
+            view.searchSlot.children += search
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        val heights =
+            fx {
+                val zoomButtons = view.bar.node.lookupAll(".zoom-button")
+                assertEquals(3, zoomButtons.size, "zoom out, zoom in, 100%")
+                (listOf(view.bar.contents, view.bar.bookStyle, search) + zoomButtons).associate { node ->
+                    val bounds = node.localToScene(node.layoutBounds)
+                    node.toString() to Pair(bounds.height, bounds.centerY)
+                }
+            }
+        // Within a pixel: the zoom group's HBox and the toolbar's row snap their sizes and positions separately.
+        val (height, centre) = heights.values.first()
+        for ((node, measured) in heights) {
+            assertEquals(height, measured.first, 1.0, "height of $node: $heights")
+            assertEquals(centre, measured.second, 1.0, "centre of $node: $heights")
+        }
     }
 
     @Test
