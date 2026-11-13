@@ -2,6 +2,7 @@ package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.StashTip
+import dev.sluide.git.cli.branchRefs
 import dev.sluide.git.cli.canPassArgument
 import dev.sluide.git.cli.changedPaths
 import dev.sluide.git.cli.currentBranch
@@ -82,6 +83,26 @@ class GitRebases(
         root: Path,
         onto: String,
     ): Int? = if (refusal(onto) != null) null else git.mergeCount(root, onto)
+
+    /**
+     * The full refname of [remote]'s default branch: what `refs/remotes/<remote>/HEAD` points at, else
+     * `refs/remotes/<remote>/main`, else `.../master` (the names in any case, as [defaultBranches]). Only a ref that
+     * exists and is not symbolic counts (git lists no dangling symbolic ref, so a `HEAD` whose branch is gone falls
+     * back to the names). `null` if there is none or git fails. [remote] is only compared with refnames, never passed
+     * to git.
+     */
+    fun remoteDefaultBranch(
+        root: Path,
+        remote: String,
+    ): String? {
+        val refs = git.branchRefs(root) ?: return null
+        val existing = refs.filter { it.target.isEmpty() }.mapTo(HashSet()) { it.name }
+        val prefix = "refs/remotes/$remote/"
+        val names = listOf("main", "master")
+        return defaultBranches(refs, listOf(remote))
+            .filter { it.startsWith(prefix) && it in existing }
+            .minByOrNull { ref -> names.indexOfFirst { it.equals(ref.removePrefix(prefix), ignoreCase = true) } }
+    }
 
     /**
      * Continues the rebase in progress (ADR 0063), with the checks of continuing a cherry-pick (ADR 0042): conflict

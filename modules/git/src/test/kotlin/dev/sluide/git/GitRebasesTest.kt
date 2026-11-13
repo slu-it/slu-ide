@@ -462,4 +462,50 @@ class GitRebasesTest {
         )
         assertTrue(repo.resolve(".git/rebase-apply").exists())
     }
+
+    private fun remoteRef(
+        remote: String,
+        name: String,
+    ) = git("update-ref", "refs/remotes/$remote/$name", "HEAD")
+
+    @Test
+    fun `the default branch of a remote is what its HEAD points at, even with a main`() {
+        commit("Base")
+        remoteRef("origin", "main")
+        remoteRef("origin", "develop")
+        git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/develop")
+
+        assertEquals("refs/remotes/origin/develop", rebases.remoteDefaultBranch(repo, "origin"))
+    }
+
+    @Test
+    fun `without a remote HEAD the default branch is main, else master, else none`() {
+        commit("Base")
+        remoteRef("origin", "master")
+        assertEquals("refs/remotes/origin/master", rebases.remoteDefaultBranch(repo, "origin"))
+
+        remoteRef("origin", "main")
+        assertEquals("refs/remotes/origin/main", rebases.remoteDefaultBranch(repo, "origin"))
+    }
+
+    @Test
+    fun `a remote without a default branch gives none, another remote's main is not taken`() {
+        commit("Base")
+        remoteRef("origin", "develop")
+        remoteRef("upstream", "main")
+
+        assertNull(rebases.remoteDefaultBranch(repo, "origin"))
+        assertEquals("refs/remotes/upstream/main", rebases.remoteDefaultBranch(repo, "upstream"))
+    }
+
+    @Test
+    fun `a remote HEAD whose branch is gone is skipped for main`() {
+        commit("Base")
+        remoteRef("origin", "main")
+        remoteRef("origin", "master")
+        git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/master")
+        git("update-ref", "-d", "refs/remotes/origin/master")
+
+        assertEquals("refs/remotes/origin/main", rebases.remoteDefaultBranch(repo, "origin"))
+    }
 }
