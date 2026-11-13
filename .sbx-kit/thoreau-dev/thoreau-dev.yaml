@@ -37,3 +37,9 @@ capabilities:
           - security.debian.org
           - download.docker.com
           - dhi.io
+      # The Gradle build resolves jediterm (the terminal module) from JetBrains' repository, which redirects the
+      # downloads to its CloudFront distribution.
+      runtime:
+        allow:
+          - packages.jetbrains.team
+          - db2uklzeiyqq6.cloudfront.net

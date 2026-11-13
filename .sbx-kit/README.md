@@ -30,7 +30,9 @@ installs what is missing:
 
 It also writes an empty `~/.zshrc` (zsh's new-user menu would hang the terminal tests). Displays are not started at
 boot: `.claude/scripts/setup-display.sh` and `run-app.sh` start Xvfb and openbox when needed and repair hung ones.
-The kit's network policy opens the apt mirrors only while the install hook runs.
+The kit's network policy opens the apt mirrors only while the install hook runs, and, for the whole sandbox lifetime,
+`packages.jetbrains.team` and its CloudFront download host (`db2uklzeiyqq6.cloudfront.net`), where Gradle resolves
+jediterm.
 
 Files: `thoreau-dev.yaml` (descriptor), `thoreau-dev.dockerfile` (puts `install.sh` at `/opt/thoreau-dev/`),
 `install.sh`.

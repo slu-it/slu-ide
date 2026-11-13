@@ -23,7 +23,8 @@ of them, and the default `claude` image moved from Ubuntu with a JDK to Debian 1
   library names (no `t64` suffix) get the old names. A package apt cannot install, the JDK included, fails the install
   hook and with it the sandbox's creation: loud rather than a sandbox that half works.
 - **Network:** the kit opens the Ubuntu, Debian, Docker and `dhi.io` apt hosts in the install phase only
-  (`network-policy@2`); nothing extra at runtime.
+  (`network-policy@2`). At runtime it allows `packages.jetbrains.team` and the CloudFront host it redirects downloads
+  to (`db2uklzeiyqq6.cloudfront.net`), where Gradle resolves jediterm.
 - **Displays on demand:** the kit does not start Xvfb at boot. The scripts already start, and repair, displays and
   openbox when needed, and the full build uses a pool of eight.
 - **`sbxenv.yaml` in the repository root** declares agent, workspace, the kits and resources (12 CPUs, 12 GB for the
