@@ -4,6 +4,7 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.gitlog.REVIEW_BRANCH_KEYS
 import dev.sluide.gitlog.push.PUSH_KEYS
+import dev.sluide.gitlog.ui.GitLogIcons
 import dev.sluide.gitlog.ui.contains
 import javafx.beans.binding.Bindings
 import javafx.beans.property.BooleanProperty
@@ -18,11 +19,8 @@ import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import org.kordamp.ikonli.javafx.FontIcon
-import org.kordamp.ikonli.materialdesign2.MaterialDesignA
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
-import org.kordamp.ikonli.materialdesign2.MaterialDesignF
 import org.kordamp.ikonli.materialdesign2.MaterialDesignR
-import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 
 /** The gap between the quick git actions (Review Branch, Rebase onto origin's default) and Push. */
 private const val QUICK_ACTIONS_GAP = 12.0
@@ -87,7 +85,7 @@ internal class HeaderBar(
 
     /** Fetches all remotes (ADR 0043); not while an operation runs or there is no remote. */
     val fetchButton =
-        Button(null, FontIcon(MaterialDesignA.ARROW_DOWN)).apply {
+        Button(null, FontIcon(GitLogIcons.fetch)).apply {
             styleClass += "git-log-fetch"
             tooltip = Tooltip("Fetch All Remotes")
             isFocusTraversable = false
@@ -98,7 +96,7 @@ internal class HeaderBar(
 
     /** Reviews `HEAD`'s branch like a pull request (ADR 0168); only while the log shows a repository. */
     val reviewButton =
-        Button(null, FontIcon(MaterialDesignF.FILE_EYE_OUTLINE)).apply {
+        Button(null, FontIcon(GitLogIcons.review)).apply {
             styleClass += "git-log-review"
             tooltip = Tooltip("Review Branch (${REVIEW_BRANCH_KEYS.displayText})")
             isFocusTraversable = false
@@ -109,7 +107,7 @@ internal class HeaderBar(
 
     /** Fetches `origin` and rebases the current branch onto its default branch (ADR 0063). */
     val rebaseDefaultButton =
-        Button(null, FontIcon(MaterialDesignS.SOURCE_BRANCH_SYNC)).apply {
+        Button(null, FontIcon(GitLogIcons.rebase)).apply {
             styleClass += "git-log-rebase-default"
             tooltip = Tooltip("Fetch origin and Rebase onto its Default Branch")
             isFocusTraversable = false
@@ -120,7 +118,7 @@ internal class HeaderBar(
 
     /** Opens the Push dialog (ADR 0049); not without a remote, but while an operation runs. */
     val pushButton =
-        Button(null, FontIcon(MaterialDesignA.ARROW_UP)).apply {
+        Button(null, FontIcon(GitLogIcons.push)).apply {
             styleClass += "git-log-push"
             tooltip = Tooltip("Push… (${PUSH_KEYS.displayText})")
             isFocusTraversable = false
@@ -131,7 +129,7 @@ internal class HeaderBar(
 
     /** Opens the Pull dialog (ADR 0106); not while an operation runs or without a remote. */
     val pullButton =
-        Button(null, FontIcon(MaterialDesignS.SOURCE_PULL)).apply {
+        Button(null, FontIcon(GitLogIcons.pull)).apply {
             styleClass += "git-log-pull"
             tooltip = Tooltip("Pull…")
             isFocusTraversable = false
