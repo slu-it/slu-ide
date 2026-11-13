@@ -19,6 +19,8 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
+import org.kordamp.ikonli.javafx.FontIcon
+import org.kordamp.ikonli.materialdesign2.MaterialDesignM
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -129,6 +131,31 @@ class ThemeUiTest {
         assertTrue(areaFill.brightness > pane.brightness + 0.03, "a text area stands out, was $areaFill")
         assertTrue(fieldEdge.brightness > fieldFill.brightness, "the edge is lighter than the fill, was $fieldEdge")
         assertEquals(pane, previewFill, "the Fonts page's editor preview keeps the editor's colour")
+    }
+
+    @Test
+    fun `an icon without a rule of its own module is light in the dark theme, a module's own colour still wins`(
+        robot: FxRobot,
+    ) {
+        install(robot)
+        robot.interact { settings.apply(Theme.DARK) }
+        val bare = FontIcon(MaterialDesignM.MAGNIFY)
+        val coloured = FontIcon(MaterialDesignM.MAGNIFY).apply { styleClass += "own-colour" }
+        val module =
+            StackPane(coloured).apply {
+                stylesheets += "data:text/css,.own-colour { -fx-icon-color: %23ff0000; }"
+            }
+        lateinit var bareColour: Color
+        lateinit var ownColour: Color
+        robot.interact {
+            (stage.scene.root as StackPane).children.addAll(bare, module)
+            stage.scene.root.applyCss()
+            bareColour = bare.iconColor as Color
+            ownColour = coloured.iconColor as Color
+        }
+
+        assertTrue(bareColour.brightness > 0.6, "a bare icon is readable on the dark panes, was $bareColour")
+        assertEquals(Color.RED, ownColour)
     }
 
     @Test

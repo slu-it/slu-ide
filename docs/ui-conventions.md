@@ -41,18 +41,20 @@ Safety of file operations, runs, secrets and network: `safety.md`.
 - Toolbar controls are not focus-traversable. Icon-only buttons get a tooltip; one with a key binding says it:
   `"Zoom In (Shortcut++)"`. A `Slider` still takes the focus on a click (its behaviour asks for it regardless) and
   then eats the arrow keys: hand the focus back to the view (`MediaControlBar.install`).
-- Icons: Ikonli Material Design 2 `FontIcon` (ADR 0012), coloured by the stylesheet with
-  `-fx-icon-color: -fx-text-base-color` so they follow the theme (the game logos are the exception: fixed colours
-  on purpose, ADR 0156). Style the toolbar like `preview-view.css`
+- Icons: Ikonli Material Design 2 `FontIcon` (ADR 0012). `theme.css` colours every icon with
+  `-fx-text-base-color`, so they follow the theme without a rule of their own (ADR 0009); a module stylesheet sets
+  `-fx-icon-color` only for another colour (the game logos: fixed colours on purpose, ADR 0156).
+  Style the toolbar like `preview-view.css`
   (`.preview-toolbar`): no new colours, small padding.
   A control that other modules place in their toolbars carries its own stylesheet on its node (`soft-wrap.css` of
   `SoftWrapToggle`, `zoom-controls.css` of `ZoomControls`/`DocumentZoom`): the embedding view does not load the
-  owning module's stylesheet, so its icons would stay black in the dark theme and its buttons take Modena's sizes
+  owning module's stylesheet, so its icons would lose their own colours and its buttons take Modena's sizes
   (the ebook reader's zoom buttons did).
   Icons in a control's context menu (`Control.contextMenu`) are the exception: that menu is shown relative to the
-  window, so only the scene root's stylesheets reach it, not the module's. Colour them inline by appending to the
-  icon's own style (a `FontIcon` keeps its glyph font there) with `-fx-icon-color: -fx-text-background-color`, which
-  also follows the highlighted item (`FILE_ACTION_ICON_STYLE` in the explorer's `ExplorerMenu.kt`).
+  window, so only the scene root's stylesheets reach it, not the module's (`theme.css`'s default does, but it does not
+  follow the highlighted item). Colour them inline by appending to the icon's own style (a `FontIcon` keeps its glyph
+  font there) with `-fx-icon-color: -fx-text-background-color`, which follows the highlighted item
+  (`FILE_ACTION_ICON_STYLE` in the explorer's `ExplorerMenu.kt`).
 - Fonts: a file view inherits the editor's (monospace) font. Its UI parts that are not text to edit — toolbars, side
   panels, lists, notices, overlays — set `-fx-font-family: "System";` in the module's stylesheet, as `code-view.css`
   does for the toolbar, banners and find bar (the ebook reader's Contents and Search panels showed in the code font

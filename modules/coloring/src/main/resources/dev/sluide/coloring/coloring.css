@@ -3,7 +3,7 @@
     -fx-background-color: -fx-background;
 }
 
-/* Ikonli icons default to black, which vanishes on the dark theme's buttons. */
+/* Repeats theme.css's default icon colour (ADR 0009); kept, harmless. */
 .coloring .ikonli-font-icon {
     -fx-icon-color: -fx-text-base-color;
 }

@@ -13,6 +13,9 @@ javafx {
 dependencies {
     implementation(libs.spring.context)
 
+    // theme.css colours Ikonli's icons; the test checks that on a real FontIcon.
+    testImplementation(libs.ikonli.javafx)
+    testImplementation(libs.ikonli.materialdesign2)
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }

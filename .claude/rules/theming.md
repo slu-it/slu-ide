@@ -17,8 +17,13 @@ JavaFX stylesheet and follows this rule.
 - Every hard-coded colour gets its dark counterpart in an `@media (prefers-color-scheme: dark)` block. JavaFX applies
   descendant selectors inside a media block whatever the scheme, so dark rules use single-class selectors, and the
   light rules they override use the same specificity.
-- Icons take their colour from the stylesheet (`-fx-icon-color: -fx-text-base-color`), not from Kotlin. The property
-  belongs to the `FontIcon`: select `.my-button .ikonli-font-icon`, not the button, or the icon stays black in dark.
+- Icons take their colour from the stylesheet, not from Kotlin. `theme.css` gives every `FontIcon`
+  `-fx-text-base-color` in both themes (ADR 0009), so an icon on a pane, toolbar or button needs no rule. A module
+  rule, selecting the `FontIcon` (`.my-button .ikonli-font-icon`, not the button, which has no icon colour), is still
+  needed for: another colour (accent, file type); an icon on a selected cell, a highlighted menu item or a tooltip,
+  which needs `-fx-text-background-color` to follow that background (inline for a control's context menu, see
+  `docs/ui-conventions.md`); and any icon rule in a stylesheet on a scene rather than a node, which loses a tie to
+  `theme.css` and needs two classes.
 - Muted text uses `-fx-opacity` (0.6-0.8), not `-fx-text-fill: derive(-fx-text-base-color, N%)`: a positive N
   lightens, so the text stays white in dark. An author `-fx-opacity` also overrides Modena's disabled-label opacity
   (0.4): inside a disabled container the muted label stays brighter than its disabled neighbours; add a `:disabled`

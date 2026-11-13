@@ -31,7 +31,7 @@ updated when the summary or keywords no longer fit.
 | [0006](adr/0006-file-watching.md) | JDK `WatchService` behind `FileWatcher`, non-recursive watches | file watching, `FileWatcher`, `WatchService`, recreated folders, macOS polling | |
 | [0007](adr/0007-terminal.md) | Terminals on pty4j and the JediTerm core with an own canvas view | terminal, pty4j, JediTerm, canvas | amended by 0086, 0133 |
 | [0008](adr/0008-settings.md) | Settings as beans with JavaFX properties in a properties file | settings, `settings.properties`, `SettingsPage`, settings dialog | amended by 0067 |
-| [0009](adr/0009-themes.md) | Light/dark/system theme via colour-scheme preference and `theme.css` | theme, dark mode, `theme.css`, Modena, `prefers-color-scheme` | see 0016 |
+| [0009](adr/0009-themes.md) | Light/dark/system theme via colour-scheme preference and `theme.css` | theme, dark mode, `theme.css`, Modena, `prefers-color-scheme`, icon colour, `-fx-icon-color`, black icons | see 0016 |
 | [0010](adr/0010-docker-sandbox.md) | Docker sandboxes run as a terminal tab's process, only below home | Docker sandbox, `sbx`, terminal tab, home folder | amended by 0087, 0156 |
 | [0011](adr/0011-native-app-packaging.md) | jpackage app and disk image with a jlink runtime | jpackage, jlink, `Thoreau.app`, `jpackageDmg`, app icon, `render-icon.sh` | |
 | [0012](adr/0012-file-icons.md) | Explorer file icons from Ikonli's Material Design Icons | file icons, Ikonli, Material Design, icon colours | |

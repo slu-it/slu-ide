@@ -1,5 +1,13 @@
 /* Added to every window by ThemedWindows. Light is Modena as it is; dark re-tints Modena's looked-up colours. */
 
+/* Ikonli's FontIcon draws black unless a stylesheet colours it, which vanished in the dark theme wherever a module
+   forgot its rule. Every icon takes the text colour by default instead (ADR 0009). One class, the lowest specificity:
+   any class rule in a module's node stylesheet ties (and a node stylesheet wins a tie) or beats it; a stylesheet on a
+   scene loses a tie to this one. Outside the media block: the looked-up colour follows the theme by itself. */
+.ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
 @media (prefers-color-scheme: dark) {
     .root {
         -fx-base: #3c3f41;

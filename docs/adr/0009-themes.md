@@ -43,3 +43,14 @@ does not depend on `settings`.
 A missing or unknown stored theme now means Dark, not System. The user works mostly in Dark, and Dark is where visual
 problems hide, so a fresh install and every sandbox check should see it. System stays selectable and still follows the
 operating system, falling back to Light when the OS reports nothing. A stored value is always honoured.
+
+## Amendment 2026-11-13: Icons take the text colour by default
+Ikonli's `FontIcon` draws black unless a stylesheet sets `-fx-icon-color`, so every module had to add an
+`.x .ikonli-font-icon` rule, and each icon outside one stayed black in dark (the review window's file filter, the ebook
+reader's zoom buttons, …). `theme.css` therefore gives every `.ikonli-font-icon` `-fx-text-base-color` by default.
+JavaFX ranks rules of scene and node stylesheets by specificity first and lets a node stylesheet win only a tie. The
+default is one class, the lowest specificity, so any class rule in a module's node stylesheet ties or beats it; a
+stylesheet on a scene, which `ThemedWindows` puts before `theme.css`, loses a tie and needs a more specific selector.
+`ThemeUiTest` checks the default and a module colour. Module rules that only repeat the default are redundant but
+harmless. Not chosen: `-fx-text-background-color` as the default, which would follow selected cells and menu items
+but turn icons on default buttons dark in light; icons on a selection keep their own rule.
