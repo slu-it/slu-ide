@@ -46,7 +46,7 @@ class Reviews(
     /** The next window's place in the cascade; starts again at the centre once all windows are closed. */
     private var cascade = 0
 
-    /** Opens a new review window of [scope] in the project at [root], on the screen of [ideWindow]. */
+    /** Opens a new review window of [scope] in the project at [root], sized after and centred on [ideWindow]. */
     fun open(
         root: Path,
         scope: ReviewScope,
@@ -54,12 +54,13 @@ class Reviews(
     ) {
         if (open.isEmpty()) cascade = 0
         val area = screenAreaOf(ideWindow)
+        val owner = Rectangle2D(ideWindow.x, ideWindow.y, ideWindow.width, ideWindow.height)
         val window =
             ReviewWindow(
                 root,
                 scope,
                 ideWindow,
-                reviewWindowBounds(area, cascade++),
+                reviewWindowBounds(area, owner, cascade++),
                 source,
                 fonts,
                 prefs,
@@ -82,14 +83,9 @@ class Reviews(
         open.toList().forEach(ReviewWindow::close)
     }
 
+    /** The visual bounds of the screen holding the IDE window's centre, else of the primary screen. */
     private fun screenAreaOf(ide: Window): Rectangle2D {
-        val screens =
-            Screen.getScreensForRectangle(
-                ide.x,
-                ide.y,
-                ide.width.coerceAtLeast(1.0),
-                ide.height.coerceAtLeast(1.0),
-            )
+        val screens = Screen.getScreensForRectangle(ide.x + ide.width / 2, ide.y + ide.height / 2, 1.0, 1.0)
         return (screens.firstOrNull() ?: Screen.getPrimary()).visualBounds
     }
 }

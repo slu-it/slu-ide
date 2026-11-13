@@ -16,10 +16,13 @@ all changed files in one long scroll beside a filterable file tree, without push
 - **Review Commit** / **Review Commits** in the commit table's context menu. Several selected commits are reviewed
   from the oldest one's parent to the newest one, every commit in between included; when the newest does not descend
   from the oldest, the window says "The selected commits are not on one line of history."
-- Every review opens a window of its own, large and centred on the IDE window's screen, each further one a little
-  offset by 30 px (80 % of the screen; the size is not remembered). Its title is `Review – <scope> – <folder>`, with
-  the repository folder's name. Shortcut+W closes it (the running load is cancelled); closing the project window, a
-  switch to another repository and withdrawing the folder's trust close its reviews.
+- Every review opens a window of its own, sized after the IDE window and centred on it, each further one a little offset
+  by 30 px (90 % of the IDE window, at least 900 × 600, always inside the screen holding the IDE window's centre, and
+  without the offset when it already touches that screen's right or bottom edge; the size is not remembered), so that a
+  half-width IDE window on an ultra-wide display gets a review window of its size, not of the display. Its title is
+  `Review – <scope> – <folder>`, with the repository folder's name. Shortcut+W closes it (the running load is
+  cancelled); closing the project window, a switch to another repository and withdrawing the folder's trust close its
+  reviews.
 - Git → Review Branch sits after Pull… in the Git menu.
 
 ## Scope and pickers

@@ -30,8 +30,9 @@ Options considered for the diff:
   `GitReviews` (the pattern of `WindowWorkflowSources`). `git-log` only offers the entry points and hands a
   `ReviewRequest` to `ide`.
 - **Own window.** Every review opens a new top-level `Stage` without owner (like the working-tree window, ADR 0044),
-  80 % of the IDE window's screen, centred, offset by 30 px per further window; bounds are not remembered. A project
-  window's reviews close with it.
+  90 % of the IDE window (at least 900 × 600), centred on it and kept inside its screen, offset by 30 px per further
+  window; bounds are not remembered. Sizing after the screen was dropped: on an ultra-wide display it made the window
+  far wider than a half-width IDE window. A project window's reviews close with it.
 - **Scopes.** A branch is reviewed from `merge-base(base, head)` to `head`, GitHub's three-dot diff, so commits merged
   in from the base do not show. The default base is the remote default branch (the `HEAD` of the remote the reviewed
   head's upstream is on, or of a remote branch's own remote, then `origin`'s, then other remotes', else their

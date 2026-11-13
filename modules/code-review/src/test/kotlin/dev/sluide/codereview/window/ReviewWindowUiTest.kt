@@ -138,7 +138,7 @@ class ReviewWindowUiTest {
     private fun ReviewWindow.fake() = diffView as FakeDiffView
 
     @Test
-    fun `a window opens without an owner, with its title, 80 percent of the screen, and the next one 30 px off`(
+    fun `a window opens without an owner, with its title, sized after the IDE window, and the next one 30 px off`(
         robot: FxRobot,
     ) {
         robot.interact {
@@ -147,14 +147,16 @@ class ReviewWindowUiTest {
         }
         val (first, second) = fx { reviews.windows.map { it.stage } }
         val area = fx { Screen.getScreensForRectangle(ide.x, ide.y, ide.width, ide.height).first().visualBounds }
+        // Sized by reviewWindowBounds from the IDE window, not from the screen.
+        val expected = fx { reviewWindowBounds(area, Rectangle2D(ide.x, ide.y, ide.width, ide.height), 0) }
 
         eventually { assertEquals("Review – main..feature – project", fx { first.title }) }
         robot.interact {
             assertNull(first.owner)
-            assertEquals(area.width * 0.8, first.width, 1.0)
-            assertEquals(area.height * 0.8, first.height, 1.0)
-            assertEquals(area.minX + (area.width - first.width) / 2, first.x, 1.0)
-            assertEquals(area.minY + (area.height - first.height) / 2, first.y, 1.0)
+            assertEquals(expected.width, first.width, 1.0)
+            assertEquals(expected.height, first.height, 1.0)
+            assertEquals(expected.minX, first.x, 1.0)
+            assertEquals(expected.minY, first.y, 1.0)
             assertEquals(first.x + 30, second.x, 1.0)
             assertEquals(first.y + 30, second.y, 1.0)
         }
