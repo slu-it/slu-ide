@@ -8,9 +8,9 @@ A local review of a branch, one or more commits, or the uncommitted changes, lai
 all changed files in one long scroll beside a filterable file tree, without pushing or creating a pull request.
 
 ## Opening
-- **Review Branch** for the current branch: the button left of Push, Pull, Fetch and Refresh in the git log's header
-  (set apart by a gap), or Git → Review Branch (Shortcut+Shift+R, Cmd+Shift+R on macOS). Disabled without a
-  repository.
+- **Review Branch** for the current branch: the first of the header's quick git actions in the git log (followed by the
+  Rebase button, then a gap before Push, Pull, Fetch and Refresh), or Git → Review Branch (Shortcut+Shift+R,
+  Cmd+Shift+R on macOS). Disabled without a repository.
 - **Review Branch** in the branches pane's context menu and the per-branch submenus of the commit table, for local
   and remote branches (not tags); the branch need not be checked out.
 - **Review Commit** / **Review Commits** in the commit table's context menu. Several selected commits are reviewed

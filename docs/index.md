@@ -85,7 +85,7 @@ updated when the summary or keywords no longer fit.
 | [0060](adr/0060-logging-conventions.md) | Logging conventions; every git command numbered | logging, log levels, `git#n`, stderr, FX watchdog | amends 0013; see 0051, 0061 |
 | [0061](adr/0061-background-tasks.md) | Per-window background-task registry shown under the explorer | `BackgroundTasks`, `background-tasks`, cancel, `withdrawCancel`, `BackgroundTasks.forTests`, progress, `BackgroundTask.progress` | amended by 0106 |
 | [0062](adr/0062-git-concurrency.md) | Which git work runs in parallel and which is queued | git concurrency, threads, `sluide-git-diff`, `diffAsync`, `GitCancellation`, `.git` stamps, write holds | amends 0013, 0015, 0021, 0035, 0041, 0053 |
-| [0063](adr/0063-git-log-rebase.md) | Rebase the current branch onto another, with Continue/Skip/Abort | `GitRebases`, rebase, `GitPendingRebase`, pending bar, conflicts | amends 0042; amended by 0106 |
+| [0063](adr/0063-git-log-rebase.md) | Rebase the current branch onto another, with Continue/Skip/Abort | `GitRebases`, rebase, `GitPendingRebase`, pending bar, conflicts, rebase onto origin's default branch, header quick action | amends 0042; amended by 0106 |
 | [0064](adr/0064-json-preview.md) | JSON Source/Split/Preview with a foldable tree | JSON preview, Jackson, folds, JSON Pointer, `Preview.folds` | |
 | [0065](adr/0065-xml-preview.md) | XML preview on shared fold parts, StAX with XXE off | XML preview, StAX, XXE, `fold-tree.js`, `FoldState`, `data-path` | see 0064 |
 | [0066](adr/0066-scratch-files.md) | Scratch files in `~/.sluide/scratches`, shown as an explorer root | scratch files, `ExplorerRoot`, Shortcut+Shift+N, type picker | amended by 0114 |

@@ -36,9 +36,10 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
   the folder has `.git`), the window shows a Git Log area under the editor area. Other folders, and a window without a
   folder, have no such area: no header, no divider.
 - **Collapsed by default:** only its header bar shows: a chevron, "Git Log" and Review Branch (an
-  eye-on-a-file icon, a wider gap after it; off without a repository; it reviews `HEAD`'s branch, see
-  [code-review.md](code-review.md)), Push (an up arrow), Pull (the
-  source-pull icon), Fetch (a down arrow) and Refresh buttons on the right. Clicking the header (not its buttons)
+  eye-on-a-file icon; off without a repository; it reviews `HEAD`'s branch, see
+  [code-review.md](code-review.md)), "Fetch origin and Rebase onto its Default Branch" (the
+  source-branch-sync icon; the two are the quick git actions, a wider gap after that group, before Push), Push (an up
+  arrow), Pull (the source-pull icon), Fetch (a down arrow) and Refresh buttons on the right. Clicking the header (not its buttons)
   expands or collapses it, and so does **View → Git Log** (Alt+9, Cmd+9 on macOS), which is disabled when there is no
   area. Expanding moves the focus to the commit table; collapsing while the table has the focus gives it back to the
   editor (the selected tab, or the editor area without tabs). While the Commit tab
@@ -276,6 +277,14 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     error dialog. Unsaved editors are asked about first, as for a checkout. Every stop (a conflict, an edit, a hook,
     untracked files in the way), also after Continue or Skip, opens "Rebase Stopped" with Resolve and Abort Rebase and
     leaves a bar (below) to continue, skip or abort.
+  - **Rebase onto origin's default branch** (header button, ADR 0063): fetches `origin` (cancellable; "Fetching
+    origin…"), then rebases the current branch onto `origin/HEAD`'s target, else `origin/main`, else `origin/master`,
+    as the branch menu's Rebase does (the same merge-commits question, stops and bar; "Rebasing feature onto
+    origin/main…"); what the fetch brought is told first. It is enabled only when the last read found a remote named
+    `origin`, the current branch is not detached, there is a `HEAD` commit and no operation or pending bar is busy.
+    A failed fetch rebases nothing ("origin could not be fetched; nothing was rebased."); if the default branch cannot
+    be found: "origin's default branch could not be found (no origin/HEAD, main or master)." No menu item and no key
+    binding.
   - **Merge** ([ADR 0105](../adr/0105-git-log-merge.md)): after Rebase, "Merge 'main' into 'feature'…" ("Merge into
     Current Branch…" without a current branch or a single such branch), enabled exactly as Rebase. A dialog "Merge"
     ("Merge 'main' into 'feature'") offers Fast-forward if possible (preselected), Always create a merge commit,

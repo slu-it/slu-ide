@@ -87,6 +87,20 @@ Git 2.53 behaves as follows (checked in tests, `GitRebasesTest`):
   overwrite one, and `git merge-tree` for each of them would cost more than the rebase. Accepted gap: an ignored file a
   rebased commit adds is overwritten without a question, as git does in a terminal.
 
+### Rebase onto origin's default branch (header quick action)
+- A header button fetches `origin` first, then rebases the current branch onto its default branch. The fetch is
+  cancellable and an explicit click, so it is allowed by the Network rule (`.claude/rules/safety.md`). Only the fetch
+  is cancellable; the merge-commits confirmation re-runs a confirmed rebase that does not fetch again and keeps the
+  fetch's note for the header.
+- The default branch is resolved after the fetch: the target of `refs/remotes/origin/HEAD`, else `origin/main`, else
+  `origin/master`; only existing, non-symbolic refs count (`GitRebases.remoteDefaultBranch`), so an `origin/HEAD`
+  whose branch is gone is skipped for `origin/main`.
+- It is a plain `git rebase <onto>` without `--fork-point`, the same as the branch menu's Rebase.
+- Enabled with a remote named `origin`, a current branch (not detached), a `HEAD` commit, no running operation and
+  nothing pending.
+- The header has two groups: the quick git actions (Review Branch, this button) with the normal spacing, and Push,
+  Pull, Fetch, Refresh; the wider 12 px gap sits between the groups.
+
 ## Consequences
 - The current branch can be rebased onto any branch from the log, without the user's rebase settings changing what
   happens; a rebase that stops is finished from the bar, also one started in a terminal.
