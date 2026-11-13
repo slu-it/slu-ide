@@ -16,6 +16,7 @@ import dev.sluide.gitlog.data.branchNodes
 import dev.sluide.gitlog.data.filterBranches
 import dev.sluide.gitlog.operations.BranchActions
 import dev.sluide.gitlog.operations.Fetch
+import dev.sluide.gitlog.ui.COPY
 import dev.sluide.gitlog.ui.refStyleClass
 import javafx.animation.Animation
 import javafx.animation.PauseTransition
@@ -33,6 +34,7 @@ import javafx.scene.control.TreeView
 import javafx.scene.control.skin.VirtualFlow
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
+import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
@@ -140,6 +142,8 @@ internal class BranchesPane : BorderPane() {
             selectionModel.selectionMode = SelectionMode.MULTIPLE
             setCellFactory { BranchCell() }
             contextMenu = menu.contextMenu
+            // Names the items for what is selected now; JavaFX opens no menu without items (a group).
+            addEventFilter(ContextMenuEvent.CONTEXT_MENU_REQUESTED) { menu.update() }
             addEventFilter(KeyEvent.KEY_PRESSED) { event ->
                 if (event.code == KeyCode.ENTER && !event.isShortcutDown && enter()) event.consume()
             }
@@ -154,6 +158,10 @@ internal class BranchesPane : BorderPane() {
                         // On macOS, Cmd+Backspace, as in the Finder: Mac keyboards often have no Delete key.
                         event.code == KeyCode.DELETE || (event.code == KeyCode.BACK_SPACE && event.isShortcutDown) -> {
                             deleteSelected()
+                        }
+
+                        COPY.match(event) -> {
+                            copyNames()
                         }
 
                         else -> {
@@ -390,10 +398,19 @@ internal class BranchesPane : BorderPane() {
         return true
     }
 
-    private fun copyNames() {
-        val names = selectedBranches.map { it.ref.shortName }
-        if (names.isEmpty()) return
+    /** Copies the short names of the selected branches and tags and the names of the selected remotes. */
+    private fun copyNames(): Boolean {
+        val names =
+            selectedNodes().mapNotNull { node ->
+                when (node) {
+                    is BranchLeaf -> node.ref.shortName
+                    is BranchRemote -> node.name
+                    else -> null
+                }
+            }
+        if (names.isEmpty()) return false
         Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(names.joinToString("\n")) })
+        return true
     }
 
     private fun selectedNodes() = tree.selectionModel.selectedItems.mapNotNull { it?.value }

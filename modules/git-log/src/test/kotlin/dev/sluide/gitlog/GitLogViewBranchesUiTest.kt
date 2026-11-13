@@ -2,19 +2,27 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.gitlog.branches.BranchMenuEntry
 import dev.sluide.gitlog.filter.FilterItem
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
+import dev.sluide.gitlog.ui.GitLogIcons
 import javafx.animation.Animation
+import javafx.event.Event
 import javafx.scene.Node
+import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
 import javafx.scene.control.ListCell
 import javafx.scene.control.TreeCell
+import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.input.PickResult
 import javafx.scene.text.Text
 import javafx.stage.Stage
+import javafx.stage.Window
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
+import org.kordamp.ikonli.javafx.FontIcon
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -456,6 +464,73 @@ class GitLogViewBranchesUiTest : GitLogViewUiFixture() {
         assertTrue(branchItem("Local/feature").isExpanded)
         assertEquals(listOf("refs/heads/feature/a"), filters.last().revisions)
     }
+
+    @Test
+    fun `Shortcut+C copies the short names of the selected branches, tags and remotes`(robot: FxRobot) {
+        openBranches(robot)
+
+        selectBranches(robot, "Remote/origin/old", "HEAD", "Local/feature/b")
+        press(robot, branches.tree, KeyCode.C, shortcut = true)
+        assertEquals("HEAD\nfeature/b\norigin/old", clipboard())
+
+        selectBranches(robot, "Remote/origin")
+        press(robot, branches.tree, KeyCode.C, shortcut = true)
+        assertEquals("origin", clipboard())
+
+        // Only with Shortcut alone, and nothing for a group.
+        selectBranches(robot, "Local/feature/b")
+        val mac = System.getProperty("os.name").startsWith("Mac")
+        robot.interact {
+            Event.fireEvent(
+                branches.tree,
+                KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.C, true, !mac, false, mac),
+            )
+        }
+        assertEquals("origin", clipboard(), "Shortcut+Shift+C does not copy")
+        selectBranches(robot, "Local")
+        press(robot, branches.tree, KeyCode.C, shortcut = true)
+        assertEquals("origin", clipboard(), "a group has no name to copy")
+    }
+
+    @Test
+    fun `the context menu shows icons and does not open on a group`(robot: FxRobot) {
+        openBranches(robot)
+
+        selectBranches(robot, "Local")
+        requestContextMenu(robot)
+        assertFalse(contextMenuShowing())
+        assertTrue(branches.menu.isEmpty)
+
+        selectBranches(robot, "Local/feature/a")
+        requestContextMenu(robot)
+        eventually { assertTrue(contextMenuShowing()) }
+        val checkout = branches.menu.item(BranchMenuEntry.CHECKOUT)
+        assertEquals(GitLogIcons.checkout, (checkout.graphic as FontIcon).iconCode)
+        assertTrue("-fx-icon-color: -fx-text-background-color" in checkout.graphic.style, "follows the highlight")
+        assertTrue(checkout in branches.tree.contextMenu.items)
+        robot.interact { branches.tree.contextMenu.hide() }
+    }
+
+    /** What the OS sends for a right-click on the tree, without moving the real mouse. */
+    private fun requestContextMenu(robot: FxRobot) {
+        robot.interact {
+            val bounds = branches.tree.localToScreen(branches.tree.boundsInLocal)
+            Event.fireEvent(
+                branches.tree,
+                ContextMenuEvent(
+                    ContextMenuEvent.CONTEXT_MENU_REQUESTED,
+                    5.0,
+                    5.0,
+                    bounds.minX + 5,
+                    bounds.minY + 5,
+                    false,
+                    PickResult(branches.tree, 5.0, 5.0),
+                ),
+            )
+        }
+    }
+
+    private fun contextMenuShowing() = Window.getWindows().any { it is ContextMenu && it.isShowing }
 
     @Test
     fun `a refresh keeps the selected branch and collapsed folders, opening a folder clears search and selection`(
