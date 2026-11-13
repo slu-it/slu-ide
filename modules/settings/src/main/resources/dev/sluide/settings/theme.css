@@ -8,6 +8,13 @@
     -fx-icon-color: -fx-text-base-color;
 }
 
+/* Modena's menu separator is 3px high, too tight to read as a break between groups: a little more room, as padding
+   around the line (both themes). A SeparatorMenuItem's Separator sits in the menu without an item container, so the
+   rule selects the separator itself. */
+.context-menu .separator:horizontal {
+    -fx-padding: 0.083333em 0;
+}
+
 @media (prefers-color-scheme: dark) {
     .root {
         -fx-base: #3c3f41;
@@ -28,7 +35,7 @@
        descendant selectors in a media block whatever the colour scheme (ADR 0009). */
     .text-input {
         -fx-control-inner-background: #36393b;
-        -fx-text-box-border: #5b5e61;
+        -fx-text-box-border: #5b5e61; /* keep in sync with .separator below */
         -fx-prompt-text-fill: #969696;
     }
 
@@ -37,6 +44,13 @@
        check items and the submenu arrows turned dark on the dark menu. Menus work from the base colour instead. */
     .context-menu {
         -fx-color: -fx-base;
+    }
+
+    /* Modena draws a menu separator's line in -fx-box-border, near black from the dark base colour and barely
+       visible on the dark menu: the grey of the text fields' edge instead. Looked up from the separator, so the
+       single-class selector reaches its line (ADR 0009); other separators draw in -fx-text-box-border. */
+    .separator {
+        -fx-box-border: #5b5e61;
     }
 
     /* The Fonts page's editor preview stands for the code editor, so it keeps the editor's colour (after .text-input,

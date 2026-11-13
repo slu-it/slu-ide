@@ -8,6 +8,8 @@ import javafx.scene.control.Label
 import javafx.scene.control.MenuButton
 import javafx.scene.control.MenuItem
 import javafx.scene.control.RadioMenuItem
+import javafx.scene.control.Separator
+import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
 import javafx.scene.layout.BackgroundFill
@@ -207,6 +209,32 @@ class ThemeUiTest {
         }
 
         assertTrue(mark.brightness > 0.7, "the mark stands out on the dark menu, was $mark")
+    }
+
+    @Test
+    fun `a menu separator is a light line on the dark menu, with more room than Modena gives it`(robot: FxRobot) {
+        install(robot)
+        robot.interact { settings.apply(Theme.DARK) }
+        val separator = SeparatorMenuItem()
+        val menu = ContextMenu(MenuItem("above"), separator, MenuItem("below"))
+        lateinit var line: Color
+        var height = 0.0
+        robot.interact { menu.show(stage, stage.x + 10, stage.y + 10) }
+        robot.interact {
+            val content = checkNotNull(menu.skin?.node) { "the menu is not shown" }
+            content.applyCss()
+            val separatorNode = separator.content as Separator
+            line =
+                (separatorNode.lookup(".line") as Region)
+                    .border.strokes
+                    .first()
+                    .topStroke as Color
+            height = separatorNode.height
+            menu.hide()
+        }
+
+        assertTrue(line.brightness > 0.3, "the line stands out on the dark menu (#2b2b2b), was $line")
+        assertTrue(height >= 4.5, "the separator takes 50% more than Modena's 3px, was $height")
     }
 
     @Test
