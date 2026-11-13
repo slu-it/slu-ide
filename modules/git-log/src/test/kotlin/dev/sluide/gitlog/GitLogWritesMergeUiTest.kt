@@ -2,6 +2,7 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitMergeResult
 import dev.sluide.git.GitPendingMerge
+import dev.sluide.gitlog.branches.BranchMenuEntry
 import dev.sluide.gitlog.operations.ABORT_MERGE_BUTTON
 import dev.sluide.gitlog.operations.ABORT_MERGE_QUESTION
 import dev.sluide.gitlog.operations.MERGE_BUTTON
@@ -45,8 +46,8 @@ class GitLogWritesMergeUiTest : GitLogWritesUiFixture() {
     private fun openDialog(robot: FxRobot): DialogPane {
         openAndExpand(robot)
         selectBranches(robot, "Local/feature/a")
-        assertEquals("Merge 'feature/a' into 'main'…", branches.menu.mergeItem.text)
-        fireLater(branches.menu.mergeItem)
+        assertEquals("Merge 'feature/a' into 'main'…", branches.menu.item(BranchMenuEntry.MERGE).text)
+        fireLater(branches.menu.item(BranchMenuEntry.MERGE))
         return awaitDialog(robot)
     }
 

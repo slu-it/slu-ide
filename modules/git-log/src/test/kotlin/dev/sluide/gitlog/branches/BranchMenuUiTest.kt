@@ -10,7 +10,6 @@ import javafx.application.Platform
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
-import javafx.scene.input.Clipboard
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.framework.junit5.ApplicationExtension
@@ -34,7 +33,6 @@ class BranchMenuUiTest {
     private val operations = mutableListOf<RefOperation>()
     private val commands =
         BranchCommands().apply {
-            filter = { calls += "filter $it" }
             checkout = {
                 calls += "checkout"
                 operations += it
@@ -73,36 +71,22 @@ class BranchMenuUiTest {
         assertEquals("New Branch from 'origin/JIRA_1'…", menu.item("branch-new-branch").text)
         assertEquals("Rebase 'main' onto 'origin/JIRA_1'", menu.item("branch-rebase").text)
 
-        listOf(
-            "filter",
-            "copy-name",
-            "compare",
-            "working-tree-diff",
-            "checkout",
-            "rebase",
-            "new-branch",
-            "fetch",
-            "delete",
-        ).forEach { fire(menu.item("branch-$it")) }
-        assertTrue(menu.item("branch-rename").isDisable, "a remote branch is not renamed")
+        listOf("compare", "working-tree-diff", "checkout", "rebase", "new-branch", "delete")
+            .forEach { fire(menu.item("branch-$it")) }
+        assertTrue(menu.items.none { it.id == "branch-rename" }, "a remote branch is not renamed")
+        assertTrue(menu.items.none { it.id == "branch-fetch" }, "fetch is for remotes, not their branches")
         assertEquals(
             listOf(
-                "filter [refs/remotes/origin/JIRA_1]",
                 "compare refs/remotes/origin/JIRA_1",
                 "diff refs/remotes/origin/JIRA_1",
                 "checkout",
                 "rebase",
                 "new refs/remotes/origin/JIRA_1",
-                "fetch origin",
                 "delete remote origin refs/remotes/origin/JIRA_1",
             ),
             calls,
         )
         assertEquals(listOf(CheckoutRemote(remote), RebaseBranch("main", remote.name, "origin/JIRA_1")), operations)
-        assertEquals(
-            "origin/JIRA_1",
-            WaitForAsyncUtils.asyncFx<String?> { Clipboard.getSystemClipboard().string }.get(),
-        )
 
         // Rename and Delete of a local branch.
         calls.clear()

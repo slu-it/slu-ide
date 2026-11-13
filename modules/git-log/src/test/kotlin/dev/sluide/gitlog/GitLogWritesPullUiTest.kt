@@ -1,6 +1,7 @@
 package dev.sluide.gitlog
 
 import dev.sluide.git.GitPullSources
+import dev.sluide.gitlog.branches.BranchMenuEntry
 import dev.sluide.gitlog.operations.CheckoutBranch
 import dev.sluide.gitlog.operations.PULL_BUTTON
 import dev.sluide.gitlog.operations.PULL_WAITS
@@ -95,9 +96,9 @@ class GitLogWritesPullUiTest : GitLogWritesUiFixture() {
         sources(upstream = null)
         openAndExpand(robot)
         selectBranches(robot, "Remote/origin/old")
-        assertEquals("Pull 'origin/old' into 'main'…", branches.menu.pullItem.text)
-        assertFalse(branches.menu.pullItem.isDisable)
-        fireLater(branches.menu.pullItem)
+        assertEquals("Pull 'origin/old' into 'main'…", branches.menu.item(BranchMenuEntry.PULL).text)
+        assertFalse(branches.menu.item(BranchMenuEntry.PULL).isDisable)
+        fireLater(branches.menu.item(BranchMenuEntry.PULL))
 
         val dialog = awaitDialog(robot)
         assertEquals(old, dialog.from.value)

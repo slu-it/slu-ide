@@ -16,6 +16,7 @@ import javafx.stage.Stage
 import javafx.stage.WindowEvent
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
+import org.kordamp.ikonli.javafx.FontIcon
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -25,6 +26,7 @@ import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** UI tests of the branch submenus in the commit table's context menu (ADR 0063). Needs a display. */
@@ -45,10 +47,13 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
 
     private fun Menu.item(id: String): MenuItem = items.single { it.id == id }
 
+    /** The item with [id], `null` where the entry never applies to the branch and is left out. */
+    private fun Menu.find(id: String): MenuItem? = items.singleOrNull { it.id == id }
+
     /** Which of `branch-checkout`, rebase, compare and delete are enabled, as `C B P D` or `-`. */
     private fun Menu.enabled(): String =
         listOf("branch-checkout" to "C", "branch-rebase" to "B", "branch-compare" to "P", "branch-delete" to "D")
-            .joinToString(" ") { (id, letter) -> if (item(id).isDisable) "-" else letter }
+            .joinToString(" ") { (id, letter) -> if (find(id)?.isDisable == false) letter else "-" }
 
     private fun fire(item: MenuItem) {
         Platform.runLater { item.fire() }
@@ -66,30 +71,28 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         assertTrue(items[2] is SeparatorMenuItem, "a separator after the submenus")
         assertEquals("Copy Revision Number", items[3].text)
         assertEquals(
+            listOf("branch-new-branch", "branch-review", null, "branch-rename", null, "branch-working-tree-diff"),
+            menus().first().items.map { it.id },
+            "the current branch",
+        )
+        assertEquals(
             listOf(
-                "branch-filter",
+                "branch-new-branch",
+                "branch-review",
                 null,
-                "branch-copy-name",
+                "branch-pull",
                 null,
                 "branch-compare",
-                "branch-review",
                 "branch-working-tree-diff",
-                null,
-                "branch-checkout",
-                "branch-rebase",
-                "branch-merge",
-                "branch-pull",
-                "branch-new-branch",
-                "branch-rename",
-                "branch-delete",
             ),
-            menus().first().items.map { it.id },
+            menus()[1].items.map { it.id },
+            "a remote branch at HEAD: no checkout of the current branch, no rebase, merge, delete or fetch",
         )
+        assertTrue(menus().flatMap { it.items }.all { it is SeparatorMenuItem || it.graphic is FontIcon })
         assertEquals("New Branch from 'origin/main'\u2026", menus()[1].item("branch-new-branch").text)
         val size = view.table.contextMenu.items.size
         menus()
         assertEquals(size, view.table.contextMenu.items.size, "not added again when it opens again")
-        assertEquals(listOf("branch-fetch"), listOf(menus()[1].items.last().id))
 
         selectRows(robot, 1)
         assertTrue(menus().isEmpty(), "a tag only")
@@ -116,16 +119,16 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         assertEquals("- - - -", main.enabled())
         assertFalse(main.item("branch-rename").isDisable)
         assertEquals("- - P -", remote.enabled(), "its local branch is the current one, it is at HEAD, protected")
-        assertEquals("Rebase 'main' onto 'origin/main'", remote.item("branch-rebase").text)
-        assertTrue(main.item("branch-merge").isDisable)
-        assertTrue(remote.item("branch-merge").isDisable, "at HEAD's commit")
-        assertTrue(main.item("branch-pull").isDisable)
+        assertNull(remote.find("branch-rebase"), "at HEAD's commit")
+        assertNull(main.find("branch-merge"))
+        assertNull(remote.find("branch-merge"), "at HEAD's commit")
+        assertNull(main.find("branch-pull"), "a local branch")
         assertFalse(remote.item("branch-pull").isDisable, "the fetch may bring more")
         assertEquals("Pull 'origin/main' into 'main'\u2026", remote.item("branch-pull").text)
     }
 
     @Test
-    fun `rebase and checkout of another branch dispatch, and filter sets the branch filter`(robot: FxRobot) {
+    fun `merge, rebase and checkout of another branch dispatch`(robot: FxRobot) {
         writes.ancestry = { _, _ -> false }
         openAndExpand(robot)
         selectRows(robot, 2)
@@ -141,15 +144,6 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         assertEquals("Merge 'feature/a' into 'main'", dialog.headerText)
         press(robot, dialog, ButtonType.CANCEL)
         assertTrue(writes.calls.isEmpty())
-
-        fire(menu.item("branch-filter"))
-        eventually {
-            assertTrue(
-                view.filterBar.branch.label.text
-                    .contains("feature/a"),
-                view.filterBar.branch.label.text,
-            )
-        }
 
         fire(menu.item("branch-rebase"))
         eventually {
@@ -199,7 +193,7 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         selectRows(robot, 0)
 
-        assertTrue(menus().single { it.text == "origin/main" }.item("branch-delete").isDisable, "protected")
+        assertNull(menus().single { it.text == "origin/main" }.find("branch-delete"), "protected")
         val remote = menus().single { it.text == "origin/fix" }
         fireLater(remote.item("branch-delete"))
         val pane = awaitDialog(robot)

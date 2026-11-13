@@ -16,6 +16,7 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitTreePath
 import dev.sluide.git.GitWorkingTreeChanges
+import dev.sluide.gitlog.branches.BranchMenuEntry
 import dev.sluide.gitlog.data.ChangeFile
 import dev.sluide.gitlog.data.ChangeFolder
 import dev.sluide.gitlog.data.ChangeNode
@@ -225,7 +226,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
         assertFalse(view.compareBar.isVisible)
 
         selectBranches(robot, "$LOCAL/feature")
-        robot.interact { pane.menu.compareItem.fire() }
+        robot.interact { pane.menu.item(BranchMenuEntry.COMPARE).fire() }
 
         eventually {
             assertEquals(
@@ -271,7 +272,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
     fun `Escape in the table stops comparing, filtering by branch too`(robot: FxRobot) {
         openAndExpand(robot)
         selectBranches(robot, "$LOCAL/feature")
-        robot.interact { pane.menu.compareItem.fire() }
+        robot.interact { pane.menu.item(BranchMenuEntry.COMPARE).fire() }
         eventually { assertEquals(listOf("Feature 2", "Feature 1"), subjects()) }
 
         robot.interact {
@@ -283,9 +284,14 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
         eventually { assertEquals(GitLogFilter(), filters.last()) }
         robot.interact { assertFalse(view.compareBar.isVisible) }
 
-        robot.interact { pane.menu.compareItem.fire() }
+        robot.interact { pane.menu.item(BranchMenuEntry.COMPARE).fire() }
         eventually { assertTrue(view.compareBar.isVisible) }
-        robot.interact { pane.menu.filterItem.fire() }
+        robot.interact {
+            Event.fireEvent(
+                pane.tree,
+                KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ENTER, false, false, false, false),
+            )
+        }
         eventually { assertEquals(GitLogFilter(revisions = listOf(feature.name)), filters.last()) }
         robot.interact { assertFalse(view.compareBar.isVisible) }
     }
@@ -295,7 +301,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         selectBranches(robot, "$TAGS/v1")
         counts = mapOf(tag.name to GitComparisonCounts(0, 5))
-        robot.interact { pane.menu.compareItem.fire() }
+        robot.interact { pane.menu.item(BranchMenuEntry.COMPARE).fire() }
         eventually {
             assertEquals(emptyList(), subjects())
             assertEquals("In v1, not in main (0)", view.compareBar.refOnlyToggle.text)
@@ -326,7 +332,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
     fun `a branch outside the range is not in this comparison`(robot: FxRobot) {
         openAndExpand(robot)
         selectBranches(robot, "$LOCAL/feature")
-        robot.interact { pane.menu.compareItem.fire() }
+        robot.interact { pane.menu.item(BranchMenuEntry.COMPARE).fire() }
         eventually { assertEquals(listOf("Feature 2", "Feature 1"), subjects()) }
 
         selectBranches(robot, "$LOCAL/main")
@@ -340,7 +346,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
     ) {
         openAndExpand(robot)
         selectBranches(robot, "$LOCAL/feature")
-        robot.interact { pane.menu.compareItem.fire() }
+        robot.interact { pane.menu.item(BranchMenuEntry.COMPARE).fire() }
         robot.interact { view.filterBar.text.text = "nothing" }
         robot.interact { view.filterBar.debounce.jumpTo(view.filterBar.debounce.totalDuration) }
         eventually { assertEquals("No commits match the filters.", placeholder(robot)) }
@@ -391,7 +397,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
     fun `Show Diff with Working Tree opens a window with the files that differ, once per ref`(robot: FxRobot) {
         openAndExpand(robot)
         selectBranches(robot, "$LOCAL/feature")
-        robot.interact { pane.menu.workingTreeItem.fire() }
+        robot.interact { pane.menu.item(BranchMenuEntry.WORKING_TREE_DIFF).fire() }
 
         val window = windowOf(feature.name)
         eventually { assertEquals(listOf("docs/", "new.md", "src/", "One.kt", "Two.kt", "README.md"), treeOf(window)) }
@@ -416,7 +422,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
         assertEquals(feature.name, workingTreeLoads.first())
 
         // Again: the same window.
-        robot.interact { pane.menu.workingTreeItem.fire() }
+        robot.interact { pane.menu.item(BranchMenuEntry.WORKING_TREE_DIFF).fire() }
         robot.interact {
             assertEquals(1, view.diffs.workingTreeWindows.size)
             assertTrue(window.stage.isShowing)
@@ -440,7 +446,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
 
         // HEAD has a window of its own; another folder closes them all.
         selectBranches(robot, "HEAD")
-        robot.interact { pane.menu.workingTreeItem.fire() }
+        robot.interact { pane.menu.item(BranchMenuEntry.WORKING_TREE_DIFF).fire() }
         val head = windowOf("HEAD")
         robot.interact { assertEquals("HEAD ↔ Working Tree", head.stage.title) }
         robot.interact { view.open(null) }
@@ -568,17 +574,16 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
         selectBranches(robot, "$LOCAL/feature")
         robot.interact {
             pane.menu.update()
-            assertTrue(pane.menu.reviewItem.isVisible)
-            assertFalse(pane.menu.reviewItem.isDisable)
-            pane.menu.reviewItem.fire()
+            assertTrue(pane.menu.item(BranchMenuEntry.REVIEW) in pane.menu.contextMenu.items)
+            assertFalse(pane.menu.item(BranchMenuEntry.REVIEW).isDisable)
+            pane.menu.item(BranchMenuEntry.REVIEW).fire()
         }
         assertEquals(listOf<ReviewRequest>(ReviewRequest.Branch("refs/heads/feature")), requests)
 
         selectBranches(robot, "$TAGS/v1")
         robot.interact {
             pane.menu.update()
-            assertFalse(pane.menu.reviewItem.isVisible)
-            assertTrue(pane.menu.reviewItem.isDisable)
+            assertFalse(pane.menu.item(BranchMenuEntry.REVIEW) in pane.menu.contextMenu.items)
         }
     }
 }

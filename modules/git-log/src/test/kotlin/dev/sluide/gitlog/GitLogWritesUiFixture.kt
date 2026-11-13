@@ -17,6 +17,7 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitStash
 import dev.sluide.git.GitTreePath
+import dev.sluide.gitlog.branches.BranchMenuEntry
 import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.data.FakeWrites
 import dev.sluide.gitlog.data.GitLogRow
@@ -440,16 +441,24 @@ abstract class GitLogWritesUiFixture {
         WaitForAsyncUtils.waitForFxEvents()
     }
 
+    /** The texts of the branches pane's menu items, `null` for a separator. */
+    internal fun menuTexts(): List<String?> =
+        WaitForAsyncUtils
+            .asyncFx<List<String?>> {
+                branches.tree.contextMenu.items
+                    .map { it.text }
+            }.get()
+
     /** Which of Checkout, Rebase, New Branch, Rename and Delete of the branches pane are enabled, as `C B N R D` or `-`. */
     internal fun paneActions(): String =
         WaitForAsyncUtils
             .asyncFx<String> {
                 listOf(
-                    branches.menu.checkoutItem to "C",
-                    branches.menu.rebaseItem to "B",
-                    branches.menu.newBranchItem to "N",
-                    branches.menu.renameItem to "R",
-                    branches.menu.deleteItem to "D",
+                    branches.menu.item(BranchMenuEntry.CHECKOUT) to "C",
+                    branches.menu.item(BranchMenuEntry.REBASE) to "B",
+                    branches.menu.item(BranchMenuEntry.NEW_BRANCH) to "N",
+                    branches.menu.item(BranchMenuEntry.RENAME) to "R",
+                    branches.menu.item(BranchMenuEntry.DELETE) to "D",
                 ).joinToString(" ") { (item, letter) -> if (item.isDisable) "-" else letter }
             }.get()
 

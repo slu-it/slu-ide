@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitPendingConflicts
 import dev.sluide.git.GitStash
 import dev.sluide.git.GitStashResult
+import dev.sluide.gitlog.branches.BranchMenuEntry
 import dev.sluide.gitlog.operations.DROP_STASH_BUTTON
 import dev.sluide.gitlog.operations.STASH_BUTTON
 import javafx.application.Platform
@@ -33,13 +34,6 @@ class GitLogWritesStashUiTest : GitLogWritesUiFixture() {
     fun start(stage: Stage) = startView(stage)
 
     private val stash = GitStash(0, "c0ffee", 1_700_000_000, "On main: work in progress")
-
-    private fun menuTexts() =
-        WaitForAsyncUtils
-            .asyncFx<List<String?>> {
-                branches.tree.contextMenu.items
-                    .map { it.text }
-            }.get()
 
     /** Expands the log with [stash] and selects it in the branches pane. */
     private fun selectStash(robot: FxRobot) {
@@ -88,7 +82,7 @@ class GitLogWritesStashUiTest : GitLogWritesUiFixture() {
 
         // Branches have their own items again.
         selectBranches(robot, "Local/main")
-        assertEquals("Filter Log by Branch", menuTexts().first())
+        assertEquals("New Branch from 'main'\u2026", menuTexts().first())
     }
 
     @Test
@@ -168,7 +162,7 @@ class GitLogWritesStashUiTest : GitLogWritesUiFixture() {
         assertFalse(view.pendingBar.abortButton.isVisible)
         // Busy: nothing that would be refused is offered.
         selectBranches(robot, "Local/feature/a")
-        assertTrue(branches.menu.mergeItem.isDisable)
+        assertTrue(branches.menu.item(BranchMenuEntry.MERGE).isDisable)
 
         pending = null
         robot.interact { Platform.runLater { view.pendingBar.markResolvedButton.fire() } }

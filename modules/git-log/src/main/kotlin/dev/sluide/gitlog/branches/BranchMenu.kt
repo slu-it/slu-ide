@@ -27,8 +27,7 @@ import dev.sluide.gitlog.operations.rebaseText
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
-import javafx.scene.input.Clipboard
-import javafx.scene.input.ClipboardContent
+import org.kordamp.ikonli.javafx.FontIcon
 
 /** What the branch menus (of the branches pane, and of the commit table) do; shared so that both do the same. */
 internal class BranchCommands {
@@ -219,8 +218,9 @@ private fun menuTarget(selected: List<BranchNode>): String? {
 }
 
 /**
- * The submenu of the log's context menu for the branch or remote branch [ref]: the items of the branches pane for
- * that one branch, as the state of [refs], [remotes], [writing] and [busy] allows now; build it when the menu opens.
+ * The submenu of the log's context menu for the branch or remote branch [ref]: the entries of the branches pane for
+ * that one branch ([branchMenuEntries]), as the state of [refs], [remotes], [writing] and [busy] allows now;
+ * build it when the menu opens.
  */
 internal fun branchMenu(
     ref: GitRef,
@@ -230,69 +230,40 @@ internal fun branchMenu(
     busy: Boolean,
     commands: BranchCommands,
 ): Menu {
-    val leaf = branchLeaf(ref, refs)
-    val selected = listOf(leaf)
+    val selected = listOf(branchLeaf(ref, refs))
     val actions = menuActions(selected, refs, remotes, writing, busy)
-
-    fun item(
-        id: String,
-        text: String,
-        enabled: Boolean,
-        action: () -> Unit,
-    ) = MenuItem(text).apply {
-        this.id = id
-        // A ref name with `_` would lose it as a mnemonic.
-        isMnemonicParsing = false
-        isDisable = !enabled
-        setOnAction { action() }
-    }
-
     val items =
-        mutableListOf<MenuItem>(
-            item("branch-filter", "Filter Log by Branch", true) { commands.filter(listOf(ref.name)) },
-            SeparatorMenuItem(),
-            item("branch-copy-name", "Copy Name", true) {
-                Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(ref.shortName) })
-            },
-            SeparatorMenuItem(),
-            item("branch-compare", "Compare with Current", actions.compare != null) {
-                actions.compare?.let(commands.compare)
-            },
-            item("branch-review", "Review Branch", actions.review != null) {
-                actions.review?.let { commands.review(it.name) }
-            },
-            item("branch-working-tree-diff", "Show Diff with Working Tree", actions.workingTreeDiff != null) {
-                actions.workingTreeDiff?.let(commands.showWorkingTreeDiff)
-            },
-            SeparatorMenuItem(),
-            item("branch-checkout", "Checkout", actions.checkout != null) { actions.checkout?.let(commands.checkout) },
-            item("branch-rebase", rebaseMenuText(selected, refs), actions.rebase != null) {
-                actions.rebase?.let(commands.rebase)
-            },
-            item("branch-merge", mergeMenuText(selected, refs), actions.merge != null) {
-                actions.merge?.let(commands.merge)
-            },
-            item("branch-pull", pullMenuText(selected, refs), actions.pull != null) {
-                actions.pull?.let(commands.pull)
-            },
-            item("branch-new-branch", "New Branch from '${ref.shortName}'…", actions.newBranchFrom != null) {
-                actions.newBranchFrom?.let(commands.newBranchFrom)
-            },
-            item("branch-rename", "Rename…", actions.rename != null) { actions.rename?.let(commands.rename) },
-            item("branch-delete", "Delete", actions.delete.isNotEmpty() || actions.deleteRemote.isNotEmpty()) {
-                deleteWith(actions, commands)
-            },
-        )
-    if (ref.kind == GitRefKind.REMOTE_BRANCH) {
-        items += SeparatorMenuItem()
-        items += item("branch-fetch", "Fetch", actions.fetch != null) { actions.fetch?.let(commands.fetch) }
-    }
+        branchMenuEntries(selected, refs, remotes, writing, busy).flatMapIndexed { index, section ->
+            (if (index > 0) listOf(SeparatorMenuItem()) else emptyList()) +
+                section.map { shown ->
+                    branchMenuItem(shown.entry, shown.text) { runEntry(shown.entry, actions, commands) }
+                        .apply { isDisable = !shown.enabled }
+                }
+        }
     return Menu(ref.shortName).apply {
         styleClass += "git-branch-menu"
         isMnemonicParsing = false
         this.items.setAll(items)
     }
 }
+
+/**
+ * The icon's colour in a context menu, which only the scene root's stylesheets reach: it follows the highlighted item
+ * (ADR 0009, `docs/ui-conventions.md`).
+ */
+internal const val BRANCH_MENU_ICON_STYLE = "-fx-icon-color: -fx-text-background-color;"
+
+/** The menu item of [entry] with its icon and [text]; a ref name with `_` would lose it as a mnemonic. */
+internal fun branchMenuItem(
+    entry: BranchMenuEntry,
+    text: String,
+    action: () -> Unit,
+): MenuItem =
+    MenuItem(text, FontIcon(entry.icon).apply { style = BRANCH_MENU_ICON_STYLE }).apply {
+        id = entry.id
+        isMnemonicParsing = false
+        setOnAction { action() }
+    }
 
 /** What the table asks for the branches at a commit ([CommitTable.branchMenus][dev.sluide.gitlog.table.CommitTable]). */
 internal fun branchMenus(

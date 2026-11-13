@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitFetchChanges
 import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.branches.BranchMenuEntry
 import dev.sluide.gitlog.operations.Fetch
 import javafx.scene.control.ButtonType
 import javafx.scene.control.TextArea
@@ -101,11 +102,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         assertTrue(view.table.resetItem.isDisable)
         selectBranches(robot, "Local/feature/a")
         assertEquals("- - - - -", paneActions())
-        assertTrue(
-            branches.menu.copyNameItem.isDisable
-                .not(),
-            "reading actions stay",
-        )
+        assertFalse(branches.menu.item(BranchMenuEntry.COMPARE).isDisable, "reading actions stay")
         // Keys do nothing either.
         pressInTree(KeyCode.F2)
         pressInTree(KeyCode.DELETE)
@@ -126,13 +123,13 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         selectBranches(robot, "Local/feature/a")
         beforeFileChange += false
 
-        fireLater(branches.menu.checkoutItem)
+        fireLater(branches.menu.item(BranchMenuEntry.CHECKOUT))
 
         assertEquals(1, beforeCheckoutCalls)
         assertEquals(emptyList(), writes.calls)
         assertEquals("", status(robot))
 
-        fireLater(branches.menu.checkoutItem)
+        fireLater(branches.menu.item(BranchMenuEntry.CHECKOUT))
         eventually { assertEquals(listOf("switch feature/a"), writes.calls) }
         assertEquals(2, beforeCheckoutCalls)
         eventually { assertEquals("Checked out feature/a.", status(robot)) }
@@ -144,7 +141,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         writes.result = { GitResult(false, "hook failed", changed = true) }
         selectBranches(robot, "Local/feature/a")
 
-        fireLater(branches.menu.checkoutItem)
+        fireLater(branches.menu.item(BranchMenuEntry.CHECKOUT))
 
         val pane = awaitDialog(robot)
         assertEquals("Checked out feature/a, but git reported an error.", pane.headerText)
@@ -186,7 +183,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         assertTrue(cancelShown())
         assertTrue(view.fetchButton.isDisable)
         selectBranches(robot, "Remote/origin")
-        assertTrue(branches.menu.fetchItem.isDisable, "no other operation meanwhile")
+        assertTrue(branches.menu.item(BranchMenuEntry.FETCH).isDisable, "no other operation meanwhile")
         selectRows(robot, 1)
         assertTrue(view.table.checkoutRevisionItem.isDisable)
 
@@ -275,25 +272,26 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
 
         selectBranches(robot, "Local/main")
-        assertTrue(branches.menu.fetchItem.isDisable)
+        assertTrue(branches.menu.item(BranchMenuEntry.FETCH).isDisable)
         selectBranches(robot, "Remote/origin")
-        assertFalse(branches.menu.fetchItem.isDisable)
+        assertFalse(branches.menu.item(BranchMenuEntry.FETCH).isDisable)
 
-        fireLater(branches.menu.fetchItem)
+        fireLater(branches.menu.item(BranchMenuEntry.FETCH))
 
         eventually { assertEquals("Fetched origin: nothing new.", status(robot)) }
         assertEquals(listOf("fetch origin"), writes.calls)
 
+        // Only a remote is fetched, not its branches.
         selectBranches(robot, "Remote/origin/old")
-        fireLater(branches.menu.fetchItem)
-        eventually { assertEquals(listOf("fetch origin", "fetch origin"), writes.calls) }
+        assertFalse(branches.menu.item(BranchMenuEntry.FETCH) in branches.tree.contextMenu.items)
 
-        // The remote was removed; its remote branches are still there.
+        // The remote was removed; its remote branches are still there: nothing to fetch.
         currentRemotes = listOf("fork")
         robot.interact { view.refresh() }
-        eventually { assertTrue(branches.menu.fetchItem.isDisable) }
-        selectBranches(robot, "Remote/origin")
-        assertTrue(branches.menu.fetchItem.isDisable)
+        eventually {
+            selectBranches(robot, "Remote/origin")
+            assertFalse(branches.menu.item(BranchMenuEntry.FETCH) in branches.tree.contextMenu.items)
+        }
     }
 
     @Test
@@ -306,7 +304,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         selectBranches(robot, "Local/feature/a")
         val loadsBefore = loads.size
 
-        fireLater(branches.menu.checkoutItem)
+        fireLater(branches.menu.item(BranchMenuEntry.CHECKOUT))
 
         val pane = awaitDialog(robot)
         assertEquals("Checkout Failed", (pane.scene.window as Stage).title)
@@ -331,7 +329,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         writes.result = { GitResult(false, "error: interrupted") }
         selectBranches(robot, "Local/feature/a")
 
-        fireLater(branches.menu.checkoutItem)
+        fireLater(branches.menu.item(BranchMenuEntry.CHECKOUT))
         eventually { assertEquals("Checking out feature/a\u2026", status(robot)) }
         robot.interact { view.close() }
         writes.gate?.countDown()

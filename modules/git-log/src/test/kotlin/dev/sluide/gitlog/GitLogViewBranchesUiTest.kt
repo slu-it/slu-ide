@@ -405,7 +405,7 @@ class GitLogViewBranchesUiTest : GitLogViewUiFixture() {
     }
 
     @Test
-    fun `double-click, Enter and Filter Log by Branch filter the log by the selected branches`(robot: FxRobot) {
+    fun `double-click and Enter filter the log by the selected branches`(robot: FxRobot) {
         reachable =
             mapOf(
                 "refs/heads/feature/a" to setOf("h5", "h6"),
@@ -437,45 +437,24 @@ class GitLogViewBranchesUiTest : GitLogViewUiFixture() {
 
         // Enter with several selected: all of them, replacing the filter.
         selectBranches(robot, "HEAD", "Local/feature/b")
-        assertEquals("Filter Log by 2 Branches", branches.menu.filterItem.text)
         press(robot, branches.tree, KeyCode.ENTER)
         eventually { assertEquals(listOf("HEAD", "refs/heads/feature/b"), filters.last().revisions) }
         assertEquals("Branch: HEAD +1", bar.branch.label.text)
 
-        // The context menu's item, for one branch.
+        // Enter with one branch selected applies once.
         selectBranches(robot, "Local/feature/a")
-        assertEquals("Filter Log by Branch", branches.menu.filterItem.text)
-        assertFalse(branches.menu.filterItem.isDisable)
         val loadsBefore = filters.size
-        robot.interact { branches.menu.filterItem.fire() }
+        press(robot, branches.tree, KeyCode.ENTER)
         eventually { assertEquals(listOf("refs/heads/feature/a"), filters.last().revisions) }
         assertEquals(loadsBefore + 1, filters.size, "applied once")
 
         // Enter on a folder opens or closes it.
         selectBranches(robot, "Local/feature")
-        assertTrue(branches.menu.filterItem.isDisable)
-        assertTrue(branches.menu.copyNameItem.isDisable)
         press(robot, branches.tree, KeyCode.ENTER)
         assertFalse(branchItem("Local/feature").isExpanded)
         press(robot, branches.tree, KeyCode.ENTER)
         assertTrue(branchItem("Local/feature").isExpanded)
         assertEquals(listOf("refs/heads/feature/a"), filters.last().revisions)
-    }
-
-    @Test
-    fun `Copy Name copies the short names of the selected branches`(robot: FxRobot) {
-        openBranches(robot)
-        assertEquals(
-            listOf("Filter Log by Branch", null, "Copy Name"),
-            branches.tree.contextMenu.items
-                .take(3)
-                .map { it.text },
-        )
-
-        selectBranches(robot, "Remote/origin/old", "HEAD", "Local/feature/b")
-        assertFalse(branches.menu.copyNameItem.isDisable)
-        robot.interact { branches.menu.copyNameItem.fire() }
-        assertEquals("HEAD\nfeature/b\norigin/old", clipboard())
     }
 
     @Test

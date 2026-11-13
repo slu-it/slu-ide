@@ -127,14 +127,10 @@ internal class BranchesPane : BorderPane() {
     internal val menu =
         BranchPaneMenu(
             ::selectedNodes,
-            { refs },
+            { branchMenuEntries(selectedNodes(), refs, remotes, writing.get(), busy.get()) },
             ::actions,
             { commands },
             { stashActions(selectedNodes(), writing.get(), busy.get()) },
-            { filterSelected() },
-            ::copyNames,
-            { renameSelected() },
-            { deleteSelected() },
         )
 
     internal val tree: TreeView<BranchNode> =
