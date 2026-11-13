@@ -152,6 +152,12 @@ internal interface GitLogWrites : StashWrites {
         onto: String,
     ): GitRebaseResult
 
+    /** The full refname of [remote]'s default branch (`HEAD`'s target, `main`, `master`); `null` if there is none. */
+    fun remoteDefaultBranch(
+        root: Path,
+        remote: String,
+    ): String?
+
     /** How many merge commits `HEAD` has that [onto] (a full refname) does not; `null` if that cannot be read. */
     fun rebaseMergeCount(
         root: Path,

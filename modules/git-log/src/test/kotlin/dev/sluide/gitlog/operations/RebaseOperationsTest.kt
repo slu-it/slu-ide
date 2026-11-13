@@ -1,6 +1,8 @@
 package dev.sluide.gitlog.operations
 
 import dev.sluide.git.GitConflictReason
+import dev.sluide.git.GitFetchChanges
+import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitPendingRebase
 import dev.sluide.git.GitRebaseResult
 import dev.sluide.git.GitResult
@@ -291,5 +293,102 @@ class RebaseOperationsTest {
                 "resolve conflicts are lost.",
             abortRebaseQuestion(null),
         )
+    }
+
+    private val defaultRef = "refs/remotes/origin/develop"
+    private val quick = RebaseOntoOriginDefault()
+    private val progress = mutableListOf<String>()
+    private var uncancellable = 0
+    private val context = RunContext(progress = progress::add, uncancellable = { uncancellable++ })
+
+    private val fetchedTwo = GitFetchResult(GitResult(true, ""), changes = GitFetchChanges(updatedBranches = 2))
+    private val note = assertNotNull(pullFetchNote("origin", fetchedTwo))
+
+    private fun quickWrites() =
+        writes.also {
+            it.currentBranch = "feature"
+            it.remoteDefault = defaultRef
+            it.fetchResult = { fetchedTwo }
+        }
+
+    @Test
+    fun `the quick rebase fetches, then rebases onto the default branch the fetch left`() {
+        quickWrites()
+        val outcome = quick.run(writes, root, context)
+
+        assertEquals(
+            listOf("fetch origin", "default branch origin", "rebase merges $defaultRef", "rebase feature $defaultRef"),
+            writes.calls,
+        )
+        assertEquals("$note Rebased feature onto origin/develop.", outcome.done)
+        assertEquals(listOf("Rebasing feature onto origin/develop…"), progress)
+        assertEquals(1, uncancellable)
+        assertTrue(quick.cancellable)
+        assertEquals("Fetching origin…", quick.progress)
+        assertEquals("Rebase Failed", quick.errorTitle)
+        assertEquals("Rebase", quick.fileChange)
+    }
+
+    @Test
+    fun `the quick rebase needs a current branch and fetches nothing without`() {
+        quickWrites().currentBranch = null
+
+        assertEquals(RefOutcome(GitResult(true, ""), "Rebase needs a current branch."), quick.run(writes, root))
+        assertTrue(writes.calls.isEmpty())
+    }
+
+    @Test
+    fun `a quick rebase whose fetch is cancelled or fails rebases nothing`() {
+        quickWrites()
+        writes.fetchResult = { GitFetchResult(GitResult(false, "fatal: unable to access")) }
+        val failed = quick.run(writes, root, context)
+        assertEquals(false, failed.result.success)
+        assertEquals("origin could not be fetched; nothing was rebased.", failed.failure)
+        assertEquals(listOf("fetch origin"), writes.calls)
+
+        writes.fetchResult = { GitFetchResult(GitResult(false, "Cancelled."), cancelled = true) }
+        val cancelled = quick.run(writes, root, context)
+        assertEquals(RefOutcome(GitResult(true, ""), "Rebase cancelled.", cancelled = true), cancelled)
+        assertEquals(listOf("fetch origin", "fetch origin"), writes.calls)
+        assertEquals(0, uncancellable)
+    }
+
+    @Test
+    fun `a quick rebase without a default branch fails after the fetch`() {
+        quickWrites().remoteDefault = null
+
+        val outcome = quick.run(writes, root, context)
+
+        assertEquals(false, outcome.result.success)
+        assertEquals("origin's default branch could not be found (no origin/HEAD, main or master).", outcome.result.message)
+        assertEquals(listOf("fetch origin", "default branch origin"), writes.calls)
+    }
+
+    @Test
+    fun `a quick rebase onto what the branch contains already runs no rebase`() {
+        quickWrites().ancestry = { _, _ -> true }
+
+        val outcome = quick.run(writes, root, context)
+
+        assertEquals("$note 'origin/develop' is already contained in 'feature'; nothing to rebase.", outcome.done)
+        assertEquals(listOf("fetch origin", "default branch origin"), writes.calls)
+    }
+
+    @Test
+    fun `a quick rebase asks about merge commits, and the confirmed one does not fetch again`() {
+        quickWrites().rebaseMerges = 2
+
+        val asked = quick.run(writes, root, context)
+
+        val confirmation = assertNotNull(asked.confirmation)
+        assertEquals(
+            RebaseBranch("feature", defaultRef, "origin/develop", confirmed = true, note = note),
+            confirmation.confirmed,
+        )
+        assertEquals(listOf("fetch origin", "default branch origin", "rebase merges $defaultRef"), writes.calls)
+
+        assertEquals("$note Rebased feature onto origin/develop.", confirmation.confirmed.run(writes, root).done)
+        assertEquals("rebase feature $defaultRef", writes.calls.last())
+        assertEquals(1, writes.calls.count { it.startsWith("fetch") })
     }
 }

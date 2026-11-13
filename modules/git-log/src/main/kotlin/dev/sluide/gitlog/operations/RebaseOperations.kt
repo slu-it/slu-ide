@@ -23,13 +23,15 @@ internal data class RebaseStop(
 /**
  * Rebases the current [branch] (short name) onto [onto] (a full refname, shown as [ontoLabel]; ADR 0063). Nothing is
  * run if [onto] is already contained in `HEAD`. Unless [confirmed], it first asks if `HEAD` has merge commits that
- * [onto] lacks (or that cannot be read), as the rebase drops them.
+ * [onto] lacks (or that cannot be read), as the rebase drops them. [note] (what a fetch before it brought) goes in
+ * front of what the header says after it.
  */
 internal data class RebaseBranch(
     val branch: String,
     val onto: String,
     val ontoLabel: String,
     val confirmed: Boolean = false,
+    val note: String? = null,
 ) : RefOperation {
     override val progress get() = "Rebasing $branch onto $ontoLabel…"
     override val errorTitle get() = "Rebase Failed"
@@ -42,7 +44,7 @@ internal data class RebaseBranch(
         writes: GitLogWrites,
         root: Path,
     ): RefOutcome {
-        if (writes.isAncestor(root, onto, "HEAD") == true) return RefOutcome(GitResult(true, ""), upToDate())
+        if (writes.isAncestor(root, onto, "HEAD") == true) return RefOutcome(GitResult(true, ""), joined(note, upToDate()))
         if (!confirmed) {
             val merges = writes.rebaseMergeCount(root, onto)
             if (merges == null || merges > 0) {
@@ -56,10 +58,67 @@ internal data class RebaseBranch(
                 return RefOutcome(GitResult(true, ""), null, confirmation = confirmation)
             }
         }
-        return rebaseOutcome(writes.rebase(root, branch, onto), branch) { "Rebased $branch onto $ontoLabel." }
+        return rebaseOutcome(writes.rebase(root, branch, onto), branch) {
+            joined(note, "Rebased $branch onto $ontoLabel.").orEmpty()
+        }
     }
 
     private fun upToDate() = "'$ontoLabel' is already contained in '$branch'; nothing to rebase."
+}
+
+/**
+ * The header's quick action (ADR 0063): fetches [remote] (cancellable), then rebases the current branch onto the
+ * default branch it has after the fetch ([GitLogWrites.remoteDefaultBranch]) as a [RebaseBranch] does, which also asks
+ * about merge commits. Only the fetch is cancellable, and the confirmed rebase does not fetch again.
+ */
+internal data class RebaseOntoOriginDefault(
+    val remote: String = "origin",
+) : RefOperation {
+    override val progress get() = "Fetching $remote…"
+    override val errorTitle get() = "Rebase Failed"
+    override val failure get() = "The current branch could not be rebased onto $remote's default branch."
+
+    // It rewrites the files.
+    override val fileChange get() = "Rebase"
+
+    // Only the fetch; the rebase after it is not.
+    override val cancellable get() = true
+
+    override fun run(
+        writes: GitLogWrites,
+        root: Path,
+    ) = run(writes, root, RunContext())
+
+    override fun run(
+        writes: GitLogWrites,
+        root: Path,
+        context: RunContext,
+    ): RefOutcome {
+        val branch =
+            writes.currentBranch(root)
+                ?: return RefOutcome(GitResult(true, ""), "Rebase needs a current branch.")
+        val fetch = writes.fetch(root, remote, context.cancellation)
+        if (fetch.cancelled) return RefOutcome(GitResult(true, ""), "Rebase cancelled.", cancelled = true)
+        val note = pullFetchNote(remote, fetch)
+        if (!fetch.result.success) {
+            return RefOutcome(
+                GitResult(false, fetch.result.message),
+                note,
+                failure = "$remote could not be fetched; nothing was rebased.",
+            )
+        }
+        context.uncancellable()
+        val ref =
+            writes.remoteDefaultBranch(root, remote)
+                ?: return RefOutcome(
+                    GitResult(false, "$remote's default branch could not be found (no $remote/HEAD, main or master)."),
+                    note,
+                    failure = failure,
+                )
+        val label = ref.removePrefix(REMOTES)
+        context.progress("Rebasing $branch onto $label…")
+        return RebaseBranch(branch, ref, label, note = note).run(writes, root)
+    }
 }
 
 /** The question before a rebase of [branch] onto [onto] that drops [merges] merge commits (`null`: maybe some). */

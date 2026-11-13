@@ -129,6 +129,11 @@ internal class GitLogCliWrites(
         onto: String,
     ) = rebases.rebase(root, branch, onto)
 
+    override fun remoteDefaultBranch(
+        root: Path,
+        remote: String,
+    ) = rebases.remoteDefaultBranch(root, remote)
+
     override fun rebaseMergeCount(
         root: Path,
         onto: String,

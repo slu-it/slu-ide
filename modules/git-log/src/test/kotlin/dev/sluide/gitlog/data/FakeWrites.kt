@@ -245,6 +245,18 @@ internal class FakeWrites(
         onto: String,
     ) = rebaseCall("rebase $branch $onto")
 
+    /** The default branch of a remote; `null`: there is none. */
+    @Volatile
+    var remoteDefault: String? = "refs/remotes/origin/main"
+
+    override fun remoteDefaultBranch(
+        root: Path,
+        remote: String,
+    ): String? {
+        calls += "default branch $remote"
+        return remoteDefault
+    }
+
     override fun rebaseMergeCount(
         root: Path,
         onto: String,

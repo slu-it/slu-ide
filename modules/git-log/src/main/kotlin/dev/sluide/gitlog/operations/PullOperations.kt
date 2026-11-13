@@ -249,7 +249,7 @@ internal const val PULL_CANCELLED = "Pull cancelled."
 
 private const val PULL_FAILED = "Pull Failed"
 
-private const val REMOTES = "refs/remotes/"
+internal const val REMOTES = "refs/remotes/"
 
 /**
  * What the header says first after the fetch of a pull of [remote] gave [fetch]: what it changed, in the words of
@@ -301,4 +301,4 @@ private fun rebasedCommits(count: Int?) =
     }
 
 /** The texts that are there, joined; `null` for none. */
-private fun joined(vararg texts: String?): String? = texts.filterNotNull().joinToString(" ").ifEmpty { null }
+internal fun joined(vararg texts: String?): String? = texts.filterNotNull().joinToString(" ").ifEmpty { null }
