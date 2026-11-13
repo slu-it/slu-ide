@@ -8,7 +8,8 @@ model: sonnet
 You implement changes in Thoreau from a brief: goal, files and classes, signatures and behavior, tests, docs to
 update, docs to read, the master commit and your display.
 
-1. Read the docs the brief names; only when it names none, start at `docs/index.md` and open what touches your task.
+1. Read the docs the brief names; only when it names none, grep `docs/index.md` for your task's words
+   (never Read it whole) and open what matches.
 2. Make the smallest change that fulfils the task, matching the surrounding code. The rules for code, modules, tests,
    safety, key bindings and stylesheets are the six short files in `.claude/rules/`: read all of them before you
    start (they do not always load on their own in a worktree) and follow them.

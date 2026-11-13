@@ -1,13 +1,15 @@
 # Thoreau documentation index
 
-Entry point for agents: scan the tables for the words of your task, then open only the documents that match.
-Rows are short on purpose; the documents hold the details.
+Entry point for agents: grep this file for the words of your task (Grep tool, case-insensitive, pattern like
+`word|other`) instead of reading it whole, then open only the documents whose rows match. Rows are short on purpose;
+the documents hold the details.
 
 Keep it up to date: every new ADR, feature page or idea gets a row in its table, and a changed document gets its row
 updated when the summary or keywords no longer fit.
-- Summary: one clause, at most ~15 words: what was decided or what the feature is. No details, limits or rejected options.
-- Keywords: 4–8 search terms: the concepts a task would mention plus identifiers to grep for (modules, classes, files,
-  settings keys, menu items, shortcuts). No `|` inside cells; write "Source/Split".
+- Summary: one clause, at most 120 characters (checked): what was decided or what the feature is. No details, limits
+  or rejected options.
+- Keywords: 4–12 search terms (at most 12, checked): the concepts a task would mention plus identifiers to grep for
+  (modules, classes, files, settings keys, menu items, shortcuts). No `|` inside cells (checked); write "Source/Split".
 - Related (ADRs only): `amends N` when the ADR changes part of ADR N (and `amended by` on N's row), `see N` for close
   relatives. Read an amended ADR together with the ADRs that amend it.
 

@@ -14,7 +14,8 @@ user approves.
 
 ## 2. Orient
 - Read `docs/ui-conventions.md` (and `docs/safety.md` when the feature touches files, runs commands or
-  handles secrets), then the `docs/index.md` rows that match and only the ADRs and feature pages they point to.
+  handles secrets), then grep `docs/index.md` for the feature's words and read only the ADRs and feature pages of the
+  matching rows.
 - Wide research goes to `explorer`, with numbered questions, what the answer feeds into and how thorough to be;
   read the few files that matter yourself.
 - Look for what can be reused: a similar view, tool, dialog or runner the feature should behave like (the user often

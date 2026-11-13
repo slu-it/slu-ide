@@ -5,8 +5,9 @@ Thoreau is the name users see; identifiers keep the technical name `sluide` (rep
 new ones too (ADR 0032).
 
 ## Orient yourself
-- Read `docs/index.md` first, unless your brief already names the docs to read; open only the documents relevant to
-  your task. Do not read all of `docs/`.
+- Find docs with the Grep tool on `docs/index.md` (case-insensitive, pattern like `word|other`) for your task's words,
+  unless your brief already names the docs to read; don't Read the index whole. Open only the documents whose rows match; do not
+  read all of `docs/`.
 - Layout: `ide/` (app, fat jar), `modules/<name>/` (one Gradle module per capability), `docs/`, `.claude/`, `.github/`.
   Module and package rules: `docs/architecture.md`.
 
