@@ -22,6 +22,7 @@ import javafx.scene.control.CheckBox
 import javafx.scene.control.ScrollBar
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.layout.Region
 import javafx.scene.shape.Path
 import javafx.scene.text.Text
 import javafx.stage.Stage
@@ -102,6 +103,8 @@ class ReviewDiffListUiTest {
         )
 
     private fun cell(index: Int): Node = assertNotNull(view.rowCell(index), "row $index is not shown")
+
+    private fun Node.sceneMaxX() = localToScene(layoutBounds).maxX
 
     private fun flow(): VirtualFlow<*, *> = view.lookup(".virtual-flow") as VirtualFlow<*, *>
 
@@ -204,6 +207,44 @@ class ReviewDiffListUiTest {
 
         assertEquals(listOf("a.txt" to true), collapsedCalls)
         assertEquals(listOf("a.txt" to true), viewedCalls)
+    }
+
+    @Test
+    fun `Viewed sits at the right end of every header, whatever the path's length`(robot: FxRobot) {
+        val long = "some/much/longer/path/to/a/file.txt"
+        robot.interact {
+            load(
+                "a.txt" to textDiff(3, 3, LineChange(1..1, 1..1)),
+                long to textDiff(3, 3, LineChange(1..1, 1..1)),
+            )
+        }
+
+        // Wide, and so narrow that the long path shortens: Viewed and the counts keep their width, Viewed its place.
+        for (width in listOf(600.0, 260.0)) {
+            robot.interact { view.scene.window.width = width }
+            settle(robot)
+            robot.interact {
+                val headers =
+                    listOf("a.txt", long).map { path ->
+                        cell(document.rows.indexOfFirst { it is ReviewRow.FileHeader && it.path == path })
+                    }
+                val rights = headers.map { it.sceneMaxX() - it.lookup(".review-viewed").sceneMaxX() }
+                // Only the header's right padding between Viewed and the header's end.
+                assertTrue(rights.all { it in 0.0..12.0 }, "Viewed at the right end at $width px, was $rights px off")
+                assertEquals(rights[0], rights[1], 0.5, "lined up at $width px")
+                for (part in listOf(".review-viewed", ".review-count-added", ".review-count-removed")) {
+                    for (header in headers) {
+                        val node = header.lookup(part) as Region
+                        // Snapped to whole pixels, so up to half a pixel off.
+                        assertTrue(node.width >= node.prefWidth(-1.0) - 0.5, "$part shortened at $width px")
+                    }
+                }
+                if (width < 300) {
+                    val path = headers[1].lookup(".review-header-path") as Region
+                    assertTrue(path.width < path.prefWidth(-1.0), "the long path shortens at $width px")
+                }
+            }
+        }
     }
 
     @Test

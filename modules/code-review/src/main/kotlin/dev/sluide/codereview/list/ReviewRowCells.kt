@@ -95,6 +95,9 @@ internal fun createHeaderCell(
             isFocusTraversable = false
             isSelected = row.viewed
             setOnAction { actions.viewed(row.path, isSelected) }
+            // Never shortened, so that it stays lined up when a narrow header shortens the path; a list narrower
+            // than the header's fixed parts (about 200 px) cuts it off at the right instead.
+            minWidth = Region.USE_PREF_SIZE
         }
     return NarrowRow().apply {
         styleClass += "review-file-header"
@@ -104,11 +107,20 @@ internal fun createHeaderCell(
         if (row.added + row.removed > 0) {
             children +=
                 listOf(
-                    Label("+${row.added}").apply { styleClass += "review-count-added" },
-                    Label("−${row.removed}").apply { styleClass += "review-count-removed" },
+                    Label("+${row.added}").apply {
+                        styleClass += "review-count-added"
+                        minWidth = Region.USE_PREF_SIZE
+                    },
+                    Label("−${row.removed}").apply {
+                        styleClass += "review-count-removed"
+                        minWidth = Region.USE_PREF_SIZE
+                    },
                 )
         }
-        children += viewed
+        // Viewed at the right end, so that it lines up on every header while scrolling.
+        val spacer = Region().apply { minWidth = 0.0 }
+        HBox.setHgrow(spacer, Priority.ALWAYS)
+        children += listOf(spacer, viewed)
     }
 }
 
