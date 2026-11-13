@@ -20,7 +20,7 @@ internal data class BranchActions(
     val rename: GitRef?,
     /** The selected local branches and tags, if that is all the selection holds and none is current. */
     val delete: List<GitRef>,
-    /** The remote of the one selected remote, folder of a remote or remote branch, to fetch (ADR 0043). */
+    /** The remote of the one selected remote or folder of a remote, to fetch (ADR 0043); never for a branch. */
     val fetch: String? = null,
     /** The one selected branch, remote branch or tag to compare with `HEAD`; not `HEAD` or the current branch (ADR 0044). */
     val compare: GitRef? = null,
@@ -116,7 +116,13 @@ internal fun branchActions(
                 ?.takeIf { it.ref.shortName != "${it.remote}/HEAD" && !isProtectedBranch(it.nameOnRemote) }
         }
     val deleteRemote = if (remoteBranches.all { it != null }) remoteBranches.filterNotNull() else emptyList()
-    val fetch = selected.singleOrNull()?.let { remoteOf(it, remotes) }
+    val fetch =
+        selected.singleOrNull()?.takeIf { it is BranchRemote || it is BranchFolder }?.let {
+            remoteOf(
+                it,
+                remotes,
+            )
+        }
     val current = currentBranch?.removePrefix("refs/heads/")
     val rebase =
         if (current != null && headCommit != null && single?.current == false &&

@@ -211,7 +211,7 @@ class FetchOperationsTest {
     }
 
     @Test
-    fun `the branches pane fetches the remote a selected node is or is in, among the remotes git has`() {
+    fun `the branches pane fetches the remote a selected remote or folder is or is in, never for a branch`() {
         val refs =
             GitRefs(
                 listOf(
@@ -234,11 +234,11 @@ class FetchOperationsTest {
 
         assertEquals("origin", fetch("Remote/origin"))
         assertEquals("origin", fetch("Remote/origin/fix"), "a folder of a remote")
-        assertEquals("origin", fetch("Remote/origin/fix/a"))
+        assertNull(fetch("Remote/origin/fix/a"), "a branch is not fetched")
         assertNull(fetch("Remote/team"), "not a remote: only team/a is")
         assertEquals("team/a", fetch("Remote/team/a"), "the folder that is the remote")
-        assertEquals("team/a", fetch("Remote/team/a/main"))
-        assertEquals("team/a", fetch("Remote/team/a/fix/b"))
+        assertNull(fetch("Remote/team/a/main"))
+        assertEquals("team/a", fetch("Remote/team/a/fix"))
         assertNull(fetch("Remote/old"), "a removed remote")
         assertNull(fetch("Remote/old/main"))
         assertNull(fetch("Remote/trunk"), "a remote branch named like a remote is not in it")
@@ -249,7 +249,7 @@ class FetchOperationsTest {
         assertNull(branchActions(listOf(node("Remote/origin"))).fetch, "remotes not known")
         assertEquals(
             "team/a",
-            branchActions(listOf(node("Remote/team/a/main")), remotes = listOf("team", "team/a")).fetch,
+            branchActions(listOf(node("Remote/team/a/fix")), remotes = listOf("team", "team/a")).fetch,
             "the longest match",
         )
     }

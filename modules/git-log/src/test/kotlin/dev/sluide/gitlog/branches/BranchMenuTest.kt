@@ -69,16 +69,17 @@ class BranchMenuTest {
     }
 
     @Test
-    fun `while writing a remote branch can neither be fetched nor deleted on its remote`() {
+    fun `only a remote can be fetched, not a branch, and while writing neither it nor a remote delete`() {
         val withRemote =
             GitRefs(refs.refs + GitRef("refs/remotes/origin/x", GitRefKind.REMOTE_BRANCH, "h2"), "refs/heads/main")
         val idle = actions("Remote/origin/x", withRemote, remotes = listOf("origin"))
-        assertEquals("origin", idle.fetch)
+        assertNull(idle.fetch, "a branch is not fetched, its remote is")
         assertEquals(1, idle.deleteRemote.size)
+        assertEquals("origin", actions("Remote/origin", withRemote, remotes = listOf("origin")).fetch)
 
         val writing = actions("Remote/origin/x", withRemote, writing = true, remotes = listOf("origin"))
-        assertNull(writing.fetch)
         assertTrue(writing.deleteRemote.isEmpty())
+        assertNull(actions("Remote/origin", withRemote, writing = true, remotes = listOf("origin")).fetch)
     }
 
     @Test
@@ -209,5 +210,151 @@ class BranchMenuTest {
         assertEquals("refs/heads/feature", actions("Local/feature", all, busy = true).review?.name)
         assertNull(actions("Tags/v1", all).review)
         assertNull(actions("Remote/origin", all).review, "a remote, not a branch")
+    }
+
+    private val withRemoteAndTag =
+        GitRefs(
+            refs.refs +
+                GitRef("refs/heads/other", GitRefKind.LOCAL_BRANCH, "h3") +
+                GitRef("refs/remotes/origin/x", GitRefKind.REMOTE_BRANCH, "h2") +
+                GitRef("refs/remotes/origin/feature/y", GitRefKind.REMOTE_BRANCH, "h2") +
+                GitRef("refs/tags/v1", GitRefKind.TAG, "h1"),
+            "refs/heads/main",
+        )
+
+    private fun entries(
+        vararg paths: String,
+        refs: GitRefs = withRemoteAndTag,
+        writing: Boolean = false,
+        busy: Boolean = false,
+    ) = branchMenuEntries(paths.flatMap { selected(refs, it) }, refs, listOf("origin"), writing, busy)
+
+    private fun List<List<ShownEntry>>.entries() = map { section -> section.map { it.entry } }
+
+    private fun List<List<ShownEntry>>.disabled() = flatten().filter { !it.enabled }.map { it.entry }
+
+    @Test
+    fun `a local branch that is not current shows its sections in order`() {
+        val shown = entries("Local/feature")
+
+        assertEquals(
+            listOf(
+                listOf(BranchMenuEntry.NEW_BRANCH, BranchMenuEntry.REVIEW),
+                listOf(BranchMenuEntry.CHECKOUT, BranchMenuEntry.RENAME, BranchMenuEntry.DELETE),
+                listOf(BranchMenuEntry.REBASE, BranchMenuEntry.MERGE),
+                listOf(BranchMenuEntry.COMPARE, BranchMenuEntry.WORKING_TREE_DIFF),
+            ),
+            shown.entries(),
+        )
+        assertEquals("New Branch from 'feature'\u2026", shown[0][0].text)
+        assertEquals("Rebase 'main' onto 'feature'", shown[2][0].text)
+        assertTrue(shown.disabled().isEmpty())
+    }
+
+    @Test
+    fun `the current branch has no checkout, rebase, merge, delete or compare`() {
+        assertEquals(
+            listOf(
+                listOf(BranchMenuEntry.NEW_BRANCH, BranchMenuEntry.REVIEW),
+                listOf(BranchMenuEntry.RENAME),
+                listOf(BranchMenuEntry.WORKING_TREE_DIFF),
+            ),
+            entries("Local/main").entries(),
+        )
+    }
+
+    @Test
+    fun `a remote branch has no rename and no fetch but deletes on its remote and pulls`() {
+        val shown = entries("Remote/origin/x")
+
+        assertEquals(
+            listOf(
+                listOf(BranchMenuEntry.NEW_BRANCH, BranchMenuEntry.REVIEW),
+                listOf(BranchMenuEntry.CHECKOUT, BranchMenuEntry.DELETE),
+                listOf(BranchMenuEntry.REBASE, BranchMenuEntry.MERGE, BranchMenuEntry.PULL),
+                listOf(BranchMenuEntry.COMPARE, BranchMenuEntry.WORKING_TREE_DIFF),
+            ),
+            shown.entries(),
+        )
+        assertEquals("Pull 'origin/x' into 'main'\u2026", shown[2][2].text)
+    }
+
+    @Test
+    fun `a tag can start a branch, be checked out, deleted, compared and diffed`() {
+        assertEquals(
+            listOf(
+                listOf(BranchMenuEntry.NEW_BRANCH),
+                listOf(BranchMenuEntry.CHECKOUT, BranchMenuEntry.DELETE),
+                listOf(BranchMenuEntry.COMPARE, BranchMenuEntry.WORKING_TREE_DIFF),
+            ),
+            entries("Tags/v1").entries(),
+        )
+    }
+
+    @Test
+    fun `a remote and a folder of its branches only fetch`() {
+        assertEquals(listOf(listOf(BranchMenuEntry.FETCH)), entries("Remote/origin").entries())
+        assertEquals(listOf(listOf(BranchMenuEntry.FETCH)), entries("Remote/origin/feature").entries())
+        assertEquals("Fetch", entries("Remote/origin").single().single().text)
+    }
+
+    @Test
+    fun `several branches only delete, a group or a mixed selection shows nothing`() {
+        assertEquals(
+            listOf(listOf(BranchMenuEntry.DELETE)),
+            entries("Local/feature", "Local/other", "Tags/v1").entries(),
+        )
+        assertEquals(
+            listOf(listOf(BranchMenuEntry.DELETE)),
+            entries("Remote/origin/x", "Remote/origin/feature/y").entries(),
+        )
+        assertTrue(entries("Local").isEmpty())
+        assertTrue(entries("Remote").isEmpty())
+        assertTrue(entries("Tags").isEmpty())
+        assertTrue(entries("Local/feature", "Remote/origin/x").isEmpty(), "local and remote together")
+        assertTrue(entries("Local/feature", "Remote/origin").isEmpty())
+        assertTrue(entries().isEmpty())
+    }
+
+    @Test
+    fun `while writing the same entries stay and only what reads is enabled`() {
+        val idle = entries("Local/feature").entries()
+        val writing = entries("Local/feature", writing = true)
+
+        assertEquals(idle, writing.entries())
+        assertEquals(
+            listOf(
+                BranchMenuEntry.CHECKOUT,
+                BranchMenuEntry.RENAME,
+                BranchMenuEntry.DELETE,
+                BranchMenuEntry.REBASE,
+                BranchMenuEntry.MERGE,
+                BranchMenuEntry.NEW_BRANCH,
+            ).toSet(),
+            writing.disabled().toSet(),
+        )
+        assertEquals(listOf(listOf(BranchMenuEntry.FETCH)), entries("Remote/origin", writing = true).entries())
+        assertEquals(listOf(BranchMenuEntry.FETCH), entries("Remote/origin", writing = true).disabled())
+    }
+
+    @Test
+    fun `while busy only rebase, merge and pull are disabled`() {
+        val busy = entries("Remote/origin/x", busy = true)
+
+        assertEquals(entries("Remote/origin/x").entries(), busy.entries())
+        assertEquals(
+            setOf(BranchMenuEntry.REBASE, BranchMenuEntry.MERGE, BranchMenuEntry.PULL),
+            busy.disabled().toSet(),
+        )
+    }
+
+    @Test
+    fun `without a commit at HEAD there is no compare`() {
+        val unborn = GitRefs(withRemoteAndTag.refs.filter { it.kind != GitRefKind.HEAD }, "refs/heads/main")
+        val shown = entries("Local/feature", refs = unborn).entries().flatten()
+
+        assertFalse(BranchMenuEntry.COMPARE in shown)
+        assertFalse(BranchMenuEntry.REBASE in shown)
+        assertTrue(BranchMenuEntry.WORKING_TREE_DIFF in shown)
     }
 }
