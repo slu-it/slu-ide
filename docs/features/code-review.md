@@ -60,11 +60,12 @@ all changed files in one long scroll beside a filterable file tree, without push
   Both choices are remembered for the next review (`shared.json`, field `review`: only values other than Split and
   off are written). Switching the layout keeps the line at the top of the diff; Hide whitespace reads the diffs again
   (not the file list) and resets the revealed lines; the file at the top stays at the top (its header).
-- Each file starts with a header: collapse chevron, path (`old → new` for renames), the counts of added and removed
-  lines, and **Viewed**, which collapses the file until unchecked. The window remembers each file's content that was
-  viewed for its lifetime: another content (Reload after a change, or one commit instead of all changes) shows the
-  file unchecked, and the same content again (back to "All changes") checked again. The current file's header stays
-  at the top while scrolling.
+- Each file starts with a header bar, taller than a line and set off by its colour (darker than the lines in the light
+  theme, brighter in the dark one) and a border above and below, and 28 px of space before the next file: collapse
+  chevron, path (`old → new` for renames), the counts of added and removed lines, and **Viewed**, which collapses the
+  file until unchecked. The window remembers each file's content that was viewed for its lifetime: another content
+  (Reload after a change, or one commit instead of all changes) shows the file unchecked, and the same content again
+  (back to "All changes") checked again. The current file's header stays at the top while scrolling.
 - Changes show with 3 lines of context. Between them a gap row with the hunk header expands 20 lines up or down, or
   all of the gap.
 - Colours are those of the editor's diff: removed grey, modified blue, added green, changed words darker. Unified view

@@ -15,6 +15,9 @@
     -review-modified: #dbe7fb;
     -review-added: #d9f2d9;
     -review-selection: rgba(30, 99, 200, 0.28);
+    /* The file header: darker than the lines in light, brighter in dark, so that each file starts visibly. */
+    -review-file-header: #dfe3e8;
+    -review-file-header-border: #b8bec6;
 }
 
 /* Text without a token class: the editor's base colour (keep in sync with TextExt in syntax.css). */
@@ -75,10 +78,10 @@
 }
 
 .review-file-header {
-    -fx-background-color: derive(-fx-control-inner-background, -6%);
-    -fx-border-color: -fx-box-border transparent transparent transparent;
-    -fx-border-width: 1 0 0 0;
-    -fx-padding: 4 8 4 6;
+    -fx-background-color: -review-file-header;
+    -fx-border-color: -review-file-header-border;
+    -fx-border-width: 1 0 1 0;
+    -fx-padding: 8 8 8 6;
 }
 
 .review-sticky {
@@ -139,6 +142,8 @@
         -review-modified: #263a57;
         -review-added: #2a4530;
         -review-selection: rgba(90, 154, 230, 0.35);
+        -review-file-header: #45494e;
+        -review-file-header-border: #5a5f66;
     }
 
     .review-plain {

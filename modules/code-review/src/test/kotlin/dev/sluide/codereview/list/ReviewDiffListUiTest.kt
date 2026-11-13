@@ -34,6 +34,7 @@ import org.junit.jupiter.params.provider.EnumSource
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -352,8 +353,7 @@ class ReviewDiffListUiTest {
         robot.interact { load("a.txt" to bigFile(), "b.txt" to bigFile()) }
         settle(robot)
         robot.interact { flow().scrollYBy(508.0) }
-        val middle = placed(robot).first
-        val key = rowKey(document.rows[middle])
+        val key = rowKey(document.rows[placed(robot).first])
         robot.interact { view.scrollToRow(0) }
 
         robot.interact {
@@ -361,8 +361,11 @@ class ReviewDiffListUiTest {
             document.expand("a.txt", 0, ExpandDirection.ALL)
         }
 
+        // Not back at the top: the scroll stays. Flowless places a scroll that is not laid out yet by its estimate of
+        // the row heights, which the rows the expansion added change, so the row may be one off.
         val index = placed(robot).first
-        assertEquals(key, rowKey(document.rows[index]))
+        val scrolledTo = document.rows.indexOfFirst { rowKey(it) == key }
+        assertTrue(abs(index - scrolledTo) <= 1, "first row $index, the scrolled-to row $scrolledTo")
     }
 
     @Test

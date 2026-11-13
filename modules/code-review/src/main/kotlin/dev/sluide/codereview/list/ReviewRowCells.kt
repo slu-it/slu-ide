@@ -151,7 +151,7 @@ internal fun createSpacerCell(): Node =
         override fun computePrefWidth(height: Double) = 1.0
     }.apply { styleClass += "review-spacer" }
 
-private const val SPACER_HEIGHT = 16.0
+private const val SPACER_HEIGHT = 28.0
 
 /** A gutter column: the line number or sign of one side, right-aligned in the width of [digits] digits. */
 internal class GutterLabel(
