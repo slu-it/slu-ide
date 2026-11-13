@@ -26,7 +26,7 @@ of them, and the default `claude` image moved from Ubuntu with a JDK to Debian 1
   (`network-policy@2`); nothing extra at runtime.
 - **Displays on demand:** the kit does not start Xvfb at boot. The scripts already start, and repair, displays and
   openbox when needed, and the full build uses a pool of eight.
-- **`sbxenv.yaml` in the repository root** declares agent, workspace, the kit and resources (12 CPUs, 12 GB for the
+- **`sbxenv.yaml` in the repository root** declares agent, workspace, the kits and resources (12 CPUs, 12 GB for the
   full build's eight displays). Docker suggests keeping it outside mounted folders, because the agent can edit it;
   it sits in the root anyway because Thoreau's Docker Sandbox menu offers the Environment session for a project
   with one there (ADR 0156). Changes to it and to `.sbx-kit/` are reviewed before a sandbox is created from them.
@@ -37,5 +37,8 @@ of them, and the default `claude` image moved from Ubuntu with a JDK to Debian 1
   the real app without setup. Checked: `install.sh` on `docker.io/sbx/claude` (Debian 13), then `run-app.sh` showed
   the IDE on a virtual display.
 - The install adds about two minutes to sandbox creation. A changed kit applies to new sandboxes only.
-- Not covered: Claude's memory and plans, Gradle caches, `~/.sluide` models and pulled Docker images.
+- Recreating sandboxes is cheap for Claude's history: `sbxenv.yaml` adds Docker's `claude-sessions` kit (pinned
+  1.1.0, needs sbx 0.50 or later), which keeps `~/.claude/projects` (transcripts and memory) and the session state in
+  a host folder keyed on the sandbox name; hence `name: slu-ide` must stay. Not kept: plans, `~/.claude.json`, Gradle
+  caches, `~/.sluide` models and pulled Docker images.
 - See [.sbx-kit/README.md](../../.sbx-kit/README.md).

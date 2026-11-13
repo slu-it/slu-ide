@@ -41,5 +41,12 @@ Files: `thoreau-dev.yaml` (descriptor), `thoreau-dev.dockerfile` (puts `install.
 - Kits apply when a sandbox is created: `sbx kit add` cannot add a v3 mixin to an existing sandbox. To get a changed
   kit, remove the sandbox and run `sbx env run` again.
 - The agent can edit this folder and `sbxenv.yaml`. Read their diff before creating a sandbox from them.
-- Not part of the kit: Claude's memory and plans (`~/.claude`), the Gradle caches, `~/.sluide` (models, settings) and
-  pulled Docker images. A new sandbox starts without them.
+
+## Claude's history: claude-sessions
+`sbxenv.yaml` also adds Docker's `docker.io/sbx/claude-sessions` kit. It mounts a host folder at
+`~/claude-history` and links `~/.claude/projects` (session transcripts for `--resume`, and the memory), `sessions`,
+`todos`, `shell-snapshots` and `statsig` into `~/claude-history/<sandbox name>/`. Removing and recreating the
+sandbox keeps them, as long as its `name` in `sbxenv.yaml` stays the same. Needs sbx 0.50 or later (`host-mount@1`).
+
+Not kept: `~/.claude/plans`, `~/.claude.json` and other user settings, the Gradle caches, `~/.sluide` (models,
+settings) and pulled Docker images. A new sandbox starts without them.

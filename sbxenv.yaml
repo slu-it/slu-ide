@@ -1,13 +1,16 @@
 # Docker Sandbox environment for developing Thoreau: `sbx env run` in this folder (or Thoreau's
-# Docker Sandbox → New Docker Sandbox Session (Environment)) starts Claude Code with the thoreau-dev kit.
+# Docker Sandbox → New Docker Sandbox Session (Environment)) starts Claude Code with the kits below.
 # See .sbx-kit/README.md. The agent can edit this file and the kit: review changes before the next `sbx env create`.
 schemaVersion: "1"
-name: slu-ide
+name: slu-ide # keep it: claude-sessions stores the history under the sandbox name
 agent: claude
 workspace: .
 
 kits:
   - ./.sbx-kit/thoreau-dev
+  # Docker's kit: ~/.claude/projects (transcripts, memory), sessions, todos, shell-snapshots and statsig live in a
+  # folder on the host, so they survive removing and recreating the sandbox (needs sbx 0.50 or later).
+  - docker.io/sbx/claude-sessions:1.1.0
 
 sandboxOptions:
   cpus: 12 # the full build runs UI tests on 8 displays in parallel
