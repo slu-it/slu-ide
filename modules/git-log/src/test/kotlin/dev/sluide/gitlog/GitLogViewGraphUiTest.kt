@@ -324,10 +324,17 @@ class GitLogViewGraphUiTest : GitLogViewUiFixture() {
         WaitForAsyncUtils.waitForFxEvents()
         val first = graphCells(robot).single { it.item?.commit?.hash == "h1" }
 
+        // In the IDE the window's root is not the view, so git-log.css is not above the tooltip: an owner without it.
+        // Shown twice: the popup scene's stylesheets are replaced with the owner's on every show, not only the first.
+        lateinit var owner: javafx.stage.Stage
         robot.interact {
-            first.labels.tooltip.show(view.scene.window)
+            owner =
+                javafx.stage.Stage().apply { scene = javafx.scene.Scene(javafx.scene.layout.StackPane(), 50.0, 50.0) }
+            owner.show()
+            first.labels.tooltip.show(owner)
         }
-        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact { first.labels.tooltip.hide() }
+        robot.interact { first.labels.tooltip.show(owner) }
         robot.interact {
             val lines = (first.labels.tooltip.graphic as javafx.scene.Parent).childrenUnmodifiable.map { it as Label }
             assertEquals(listOf("HEAD", "main", "origin/main", "v1.0"), lines.map { it.text })
@@ -337,7 +344,14 @@ class GitLogViewGraphUiTest : GitLogViewUiFixture() {
                     line.graphic.styleClass.single { it.startsWith("git-ref-") && it != "git-ref-icon" }
                 },
             )
+            // The lighter colour, on Modena's dark tooltip.
+            assertEquals(
+                javafx.scene.paint.Color
+                    .web("#e8c04a"),
+                (lines.first().graphic as org.kordamp.ikonli.javafx.FontIcon).iconColor,
+            )
             first.labels.tooltip.hide()
+            owner.close()
         }
 
         fun headColour(scheme: ColorScheme): Paint {

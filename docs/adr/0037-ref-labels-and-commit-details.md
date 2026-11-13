@@ -42,8 +42,10 @@ email, dates and the refs of the selected commit.
     (`-fx-control-inner-background`), like the graph's halo and, like it, not tied to the table's focus. The text is
     muted, in the selection text colour on selected rows.
   - A tooltip on the labels (not the whole cell) lists every ref of the row with its icon, `HEAD` first; one per cell,
-    its content built when it shows. It is a window of its own, so it gets `git-log.css` itself and the lighter colours
-    in both themes, as Modena's tooltips are dark.
+    its content built when it shows. It is a window of its own, so its content (`.git-ref-tooltip-lines`) carries
+    `git-log.css` itself and the lighter colours in both themes, as Modena's tooltips are dark. On the content node,
+    not the popup's scene: JavaFX replaces a popup scene's stylesheets with the owner window's on every show, so the
+    tooltip's icons were uncoloured until 2026-11-13.
 - **Details pane** right of the table in the log's split pane, at first the right 30 %. A resize of the log keeps both
   panes' shares (`SharedSplit`): a plain `SplitPane` keeps the pixel width of a pane that does not resize with it,
   which squeezed the table in narrow windows, or splits the change equally between panes that do. Dragging the divider

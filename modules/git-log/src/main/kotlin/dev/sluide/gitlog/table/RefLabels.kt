@@ -28,10 +28,15 @@ internal class RefLabels : HBox() {
 
     internal val tooltip =
         Tooltip().apply {
-            styleClass += "git-ref-tooltip"
-            // Its content is not in the view's scene, so it gets the stylesheet (and the colours) of its own.
-            scene.stylesheets += GIT_LOG_CSS
-            setOnShowing { graphic = VBox(*refLines(refs).toTypedArray()).apply { styleClass += "git-ref-lines" } }
+            // Its content is not in the view's scene, so it carries the stylesheet (and the colours) itself: on the
+            // node, as JavaFX replaces a popup scene's stylesheets with the owner window's on every show.
+            setOnShowing {
+                graphic =
+                    VBox(*refLines(refs).toTypedArray()).apply {
+                        styleClass += listOf("git-ref-lines", "git-ref-tooltip-lines")
+                        stylesheets += GIT_LOG_CSS
+                    }
+            }
         }
 
     init {
