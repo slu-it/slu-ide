@@ -5,6 +5,7 @@ import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.branches.BranchMenuEntry
 import dev.sluide.gitlog.operations.Fetch
+import dev.sluide.gitlog.table.CommitMenuEntry
 import javafx.scene.control.ButtonType
 import javafx.scene.control.TextArea
 import javafx.scene.input.KeyCode
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import org.testfx.util.WaitForAsyncUtils
 import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -36,46 +38,52 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         robot: FxRobot,
     ) {
         openAndExpand(robot)
-        val items =
+        val writing =
             listOf(
-                view.table.checkoutRevisionItem,
-                view.table.newBranchItem,
-                view.table.newTagItem,
-                view.table.cherryPickItem,
-                view.table.revertItem,
-                view.table.resetItem,
-                view.table.editMessageItem,
+                CommitMenuEntry.CHECKOUT_REVISION,
+                CommitMenuEntry.NEW_BRANCH,
+                CommitMenuEntry.NEW_TAG,
+                CommitMenuEntry.CHERRY_PICK,
+                CommitMenuEntry.REVERT,
+                CommitMenuEntry.RESET,
+                CommitMenuEntry.EDIT_MESSAGE,
             )
+
+        selectRows(robot)
+        assertTrue(writing.all { commitItem(it) == null }, "no selection: nothing to offer")
+        assertTrue(
+            WaitForAsyncUtils
+                .asyncFx<Boolean> {
+                    view.table.contextMenu.items
+                        .isEmpty()
+                }.get(),
+        )
+        selectRows(robot, 1, 2)
+        assertTrue(writing.all { commitItem(it) == null }, "several commits: only review and copy")
+        selectRows(robot, 1)
+        assertTrue(writing.all { commitItem(it)?.isDisable == false })
         assertEquals(
             listOf(
-                "Copy Revision Number",
-                "Compare with Local",
                 "Review Commit",
-                null,
                 "Checkout Revision",
-                "New Branch\u2026",
-                "New Tag\u2026",
+                "Copy Revision Number",
                 null,
                 "Cherry-Pick",
                 "Revert Commit",
                 "Reset Current Branch to Here\u2026",
-                "Edit Commit Message\u2026",
                 null,
-                "Go to Hash/Branch/Tag\u2026",
+                "New Branch\u2026",
+                "New Tag\u2026",
+                null,
+                "Compare with Local",
+                "Edit Commit Message\u2026",
             ),
             view.table.contextMenu.items
                 .map { it.text },
         )
 
-        selectRows(robot)
-        assertTrue(items.all { it.isDisable })
-        selectRows(robot, 1, 2)
-        assertTrue(items.all { it.isDisable })
-        selectRows(robot, 1)
-        assertTrue(items.none { it.isDisable })
-
         val loadsBefore = loads.size
-        fireLater(view.table.checkoutRevisionItem)
+        fireLater(view.table.item(CommitMenuEntry.CHECKOUT_REVISION))
 
         eventually { assertEquals("Checked out h2.", status(robot)) }
         assertEquals(listOf("switch --detach h2"), writes.calls)
@@ -91,15 +99,15 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         selectRows(robot, 2)
         writes.gate = CountDownLatch(1)
 
-        fireLater(view.table.checkoutRevisionItem)
+        fireLater(view.table.item(CommitMenuEntry.CHECKOUT_REVISION))
 
         eventually { assertEquals("Checking out h3\u2026", status(robot)) }
-        assertTrue(view.table.checkoutRevisionItem.isDisable)
-        assertTrue(view.table.newBranchItem.isDisable)
-        assertTrue(view.table.newTagItem.isDisable)
-        assertTrue(view.table.cherryPickItem.isDisable)
-        assertTrue(view.table.revertItem.isDisable)
-        assertTrue(view.table.resetItem.isDisable)
+        assertEquals(true, commitItem(CommitMenuEntry.CHECKOUT_REVISION)?.isDisable)
+        assertEquals(true, commitItem(CommitMenuEntry.NEW_BRANCH)?.isDisable)
+        assertEquals(true, commitItem(CommitMenuEntry.NEW_TAG)?.isDisable)
+        assertEquals(true, commitItem(CommitMenuEntry.CHERRY_PICK)?.isDisable)
+        assertEquals(true, commitItem(CommitMenuEntry.REVERT)?.isDisable)
+        assertEquals(true, commitItem(CommitMenuEntry.RESET)?.isDisable)
         selectBranches(robot, "Local/feature/a")
         assertEquals("- - - - -", paneActions())
         assertFalse(branches.menu.item(BranchMenuEntry.COMPARE).isDisable, "reading actions stay")
@@ -114,7 +122,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         eventually { assertEquals("Checked out h3.", status(robot)) }
         assertEquals("C B N R D", paneActions())
         selectRows(robot, 2)
-        assertFalse(view.table.checkoutRevisionItem.isDisable)
+        assertEquals(false, commitItem(CommitMenuEntry.CHECKOUT_REVISION)?.isDisable)
     }
 
     @Test
@@ -185,7 +193,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         selectBranches(robot, "Remote/origin")
         assertTrue(branches.menu.item(BranchMenuEntry.FETCH).isDisable, "no other operation meanwhile")
         selectRows(robot, 1)
-        assertTrue(view.table.checkoutRevisionItem.isDisable)
+        assertEquals(true, commitItem(CommitMenuEntry.CHECKOUT_REVISION)?.isDisable)
 
         writes.gate?.countDown()
 

@@ -8,6 +8,7 @@ import dev.sluide.gitlog.operations.ABORT_REBASE_BUTTON
 import dev.sluide.gitlog.operations.COMMIT_AS_ON_DISK_BUTTON
 import dev.sluide.gitlog.operations.RESOLVE_BUTTON
 import dev.sluide.gitlog.operations.SKIP_REBASE_BUTTON
+import dev.sluide.gitlog.table.CommitMenuEntry
 import javafx.application.Platform
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonType
@@ -60,8 +61,8 @@ class GitLogWritesRebaseUiTest : GitLogWritesUiFixture() {
         assertTrue(view.pendingBar.skipButton.isManaged)
         assertTrue(view.pendingBar.abortButton.isVisible)
         selectRows(robot, 2)
-        assertTrue(view.table.cherryPickItem.isDisable, "not while a rebase is in progress")
-        assertFalse(view.table.resetItem.isDisable)
+        assertEquals(true, commitItem(CommitMenuEntry.CHERRY_PICK)?.isDisable, "not while a rebase is in progress")
+        assertEquals(false, commitItem(CommitMenuEntry.RESET)?.isDisable)
 
         // Skip asks first, as it drops what was done to resolve the conflicts; Cancel, the default, skips nothing.
         fire(robot, view.pendingBar.skipButton)

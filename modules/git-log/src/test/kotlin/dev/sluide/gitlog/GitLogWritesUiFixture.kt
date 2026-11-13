@@ -23,6 +23,7 @@ import dev.sluide.gitlog.data.FakeWrites
 import dev.sluide.gitlog.data.GitLogRow
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogWrites
+import dev.sluide.gitlog.table.CommitMenuEntry
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Scene
@@ -384,6 +385,17 @@ abstract class GitLogWritesUiFixture {
         Platform.runLater { item.fire() }
         WaitForAsyncUtils.waitForFxEvents()
     }
+
+    /**
+     * The fixed item of [entry] as the table's menu holds it for the selection and state now, `null` where the entry
+     * is left out (the menu is refreshed first, as opening it does).
+     */
+    internal fun commitItem(entry: CommitMenuEntry): MenuItem? =
+        WaitForAsyncUtils
+            .asyncFx<MenuItem?> {
+                view.table.refreshMenu()
+                view.table.item(entry).takeIf { it in view.table.contextMenu.items }
+            }.get()
 
     /** Presses [button] of the dialog [pane], which closes it. */
     internal fun press(

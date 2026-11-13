@@ -23,6 +23,7 @@ import dev.sluide.gitlog.data.ChangeNode
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.LOCAL
 import dev.sluide.gitlog.data.TAGS
+import dev.sluide.gitlog.table.CommitMenuEntry
 import dev.sluide.gitlog.workingtree.WorkingTreeWindow
 import javafx.event.Event
 import javafx.scene.control.TreeItem
@@ -465,14 +466,19 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         robot.interact {
             view.table.selectionModel.selectIndices(0, 1)
-            assertTrue(view.table.compareWithLocalItem.isDisable, "two commits")
+            view.table.refreshMenu()
+            assertFalse(
+                view.table.item(CommitMenuEntry.COMPARE_WITH_LOCAL) in view.table.contextMenu.items,
+                "two commits",
+            )
             view.table.selectionModel.clearAndSelect(0)
-            assertFalse(view.table.compareWithLocalItem.isDisable)
+            view.table.refreshMenu()
+            assertFalse(view.table.item(CommitMenuEntry.COMPARE_WITH_LOCAL).isDisable)
         }
         val commit =
             view.table.items[0]
                 .commit.hash
-        robot.interact { view.table.compareWithLocalItem.fire() }
+        robot.interact { view.table.item(CommitMenuEntry.COMPARE_WITH_LOCAL).fire() }
         val window = windowOf(commit)
         eventually { assertEquals("4 files differ", window.header.text) }
         robot.interact { assertEquals("$commit ↔ Working Tree", window.stage.title) }
@@ -541,12 +547,11 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
         robot.interact { view.onReview = { requests += it } }
         openAndExpand(robot)
         val menu = view.table.contextMenu
-        val review = view.table.reviewItem
+        val review = view.table.item(CommitMenuEntry.REVIEW)
         robot.interact { view.table.selectionModel.clearSelection() }
         robot.interact { Event.fireEvent(menu, WindowEvent(menu, WindowEvent.WINDOW_SHOWING)) }
         robot.interact {
-            assertTrue(review.isDisable, "no selection")
-            assertEquals("Compare with Local", menu.items[menu.items.indexOf(review) - 1].text)
+            assertTrue(menu.items.isEmpty(), "no selection: nothing to offer")
         }
 
         // Selected bottom-up: the hashes still come top row first.
@@ -554,6 +559,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
         robot.interact { Event.fireEvent(menu, WindowEvent(menu, WindowEvent.WINDOW_SHOWING)) }
         robot.interact {
             assertEquals("Review Commits", review.text)
+            assertEquals(listOf(review), menu.items.filter { it.text == review.text })
             assertFalse(review.isDisable)
             review.fire()
         }

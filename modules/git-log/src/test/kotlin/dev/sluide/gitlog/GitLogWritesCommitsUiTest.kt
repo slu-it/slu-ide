@@ -19,6 +19,7 @@ import dev.sluide.gitlog.operations.COMMIT_AS_ON_DISK_BUTTON
 import dev.sluide.gitlog.operations.RESET_BUTTON
 import dev.sluide.gitlog.operations.RESOLVE_BUTTON
 import dev.sluide.gitlog.operations.REVERT_BUTTON
+import dev.sluide.gitlog.table.CommitMenuEntry
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.control.Button
@@ -38,6 +39,7 @@ import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -56,11 +58,11 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         selectRows(robot, 1)
         val loadsBefore = loads.size
 
-        fireLater(view.table.cherryPickItem)
+        fireLater(view.table.item(CommitMenuEntry.CHERRY_PICK))
         eventually { assertEquals("Cherry-picked h2 as 5e6f7a8b.", status(robot)) }
         eventually { assertTrue(loads.size > loadsBefore, "refreshed") }
 
-        fireLater(view.table.revertItem)
+        fireLater(view.table.item(CommitMenuEntry.REVERT))
         eventually { assertEquals("Reverted h2 in 5e6f7a8b.", status(robot)) }
 
         assertEquals(listOf("cherry-pick h2", "revert h2"), writes.calls)
@@ -70,13 +72,13 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
 
         // Cancelled, nothing runs.
         beforeFileChange += false
-        fireLater(view.table.cherryPickItem)
+        fireLater(view.table.item(CommitMenuEntry.CHERRY_PICK))
         assertEquals(2, writes.calls.size)
         assertEquals("Reverted h2 in 5e6f7a8b.", status(robot))
 
         // Nothing to commit is told in the header, not in a dialog.
         writes.pickResult = { GitPickResult.Empty("main") }
-        fireLater(view.table.cherryPickItem)
+        fireLater(view.table.item(CommitMenuEntry.CHERRY_PICK))
         eventually {
             assertEquals("Nothing to cherry-pick: the changes of h2 are already on main.", status(robot))
         }
@@ -88,7 +90,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         selectRows(robot, 5)
 
-        fireLater(view.table.cherryPickItem)
+        fireLater(view.table.item(CommitMenuEntry.CHERRY_PICK))
         var pane = awaitDialog(robot)
         assertEquals("Cherry-Pick", (pane.scene.window as Stage).title)
         assertEquals(
@@ -101,7 +103,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         assertEquals(emptyList(), writes.calls)
         assertEquals(emptyList(), fileChanges, "not asked before the merge is confirmed")
 
-        fireLater(view.table.revertItem)
+        fireLater(view.table.item(CommitMenuEntry.REVERT))
         pane = awaitDialog(robot)
         assertEquals("Revert Commit", (pane.scene.window as Stage).title)
         press(robot, pane, REVERT_BUTTON)
@@ -115,7 +117,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         selectRows(robot, 1)
         writes.pickOverwritten = listOf(".env", "build/cache/data")
 
-        fireLater(view.table.cherryPickItem)
+        fireLater(view.table.item(CommitMenuEntry.CHERRY_PICK))
         var pane = awaitDialog(robot)
         assertEquals("Cherry-Pick", (pane.scene.window as Stage).title)
         assertEquals(
@@ -127,7 +129,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         press(robot, pane, ButtonType.CANCEL)
         assertEquals(emptyList(), writes.calls)
 
-        fireLater(view.table.cherryPickItem)
+        fireLater(view.table.item(CommitMenuEntry.CHERRY_PICK))
         pane = awaitDialog(robot)
         press(robot, pane, CHERRY_PICK_BUTTON)
         eventually { assertEquals(listOf("cherry-pick h2"), writes.calls) }
@@ -146,7 +148,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
             }
         }
 
-        fireLater(view.table.cherryPickItem)
+        fireLater(view.table.item(CommitMenuEntry.CHERRY_PICK))
         var pane = awaitDialog(robot)
         assertEquals("Cherry-Pick Stopped", (pane.scene.window as Stage).title)
         assertEquals("Cherry-pick of h3 stopped with conflicts in:", pane.headerText)
@@ -159,7 +161,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         assertNoDialog()
         assertEquals(listOf("cherry-pick h3"), writes.calls)
 
-        fireLater(view.table.cherryPickItem)
+        fireLater(view.table.item(CommitMenuEntry.CHERRY_PICK))
         pane = awaitDialog(robot)
         press(robot, pane, ABORT_CHERRY_PICK_BUTTON)
         eventually { assertEquals("Aborted the cherry-pick of h3.", status(robot)) }
@@ -177,10 +179,10 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         assertEquals("Cherry-pick of h4 is in progress: 2 files have conflicts.", text.text)
         assertTrue(view.pendingBar.isManaged)
         selectRows(robot, 2)
-        assertTrue(view.table.cherryPickItem.isDisable, "not while one is in progress")
-        assertTrue(view.table.revertItem.isDisable)
-        assertTrue(view.table.editMessageItem.isDisable, "not while one is in progress")
-        assertFalse(view.table.resetItem.isDisable, "the way out")
+        assertEquals(true, commitItem(CommitMenuEntry.CHERRY_PICK)?.isDisable, "not while one is in progress")
+        assertEquals(true, commitItem(CommitMenuEntry.REVERT)?.isDisable)
+        assertEquals(true, commitItem(CommitMenuEntry.EDIT_MESSAGE)?.isDisable, "not while one is in progress")
+        assertEquals(false, commitItem(CommitMenuEntry.RESET)?.isDisable, "the way out")
 
         writes.gate = CountDownLatch(1)
         robot.interact { view.pendingBar.continueButton.fire() }
@@ -246,7 +248,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         selectRows(robot, 2)
 
-        fireLater(view.table.resetItem)
+        fireLater(view.table.item(CommitMenuEntry.RESET))
         var pane = awaitDialog(robot)
         assertEquals("Reset Current Branch", (pane.scene.window as Stage).title)
         assertEquals("Reset branch 'main' (at h1) to h3", (pane.lookup(".git-reset-description") as Label).text)
@@ -262,7 +264,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
 
         writes.unreachable = 2
         writes.localChanges = 3
-        fireLater(view.table.resetItem)
+        fireLater(view.table.item(CommitMenuEntry.RESET))
         pane = awaitDialog(robot)
         robot.interact { (pane.lookup(".git-reset-hard") as RadioButton).isSelected = true }
         press(robot, pane, RESET_BUTTON)
@@ -279,7 +281,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         press(robot, question, ButtonType.CANCEL)
         assertEquals(1, writes.calls.size, "nothing reset")
 
-        fireLater(view.table.resetItem)
+        fireLater(view.table.item(CommitMenuEntry.RESET))
         pane = awaitDialog(robot)
         robot.interact { (pane.lookup(".git-reset-hard") as RadioButton).isSelected = true }
         press(robot, pane, RESET_BUTTON)
@@ -292,7 +294,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         writes.unreachable = 0
         writes.localChanges = 0
         writes.overwritten = listOf(".env", "build/out.txt")
-        fireLater(view.table.resetItem)
+        fireLater(view.table.item(CommitMenuEntry.RESET))
         pane = awaitDialog(robot)
         robot.interact { (pane.lookup(".git-reset-hard") as RadioButton).isSelected = true }
         press(robot, pane, RESET_BUTTON)
@@ -308,12 +310,12 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
 
         // Soft asks nothing about editors; Cancel resets nothing.
         writes.unreachable = 0
-        fireLater(view.table.resetItem)
+        fireLater(view.table.item(CommitMenuEntry.RESET))
         pane = awaitDialog(robot)
         robot.interact { (pane.lookup(".git-reset-soft") as RadioButton).isSelected = true }
         press(robot, pane, RESET_BUTTON)
         eventually { assertEquals("reset --soft h3", writes.calls.last()) }
-        fireLater(view.table.resetItem)
+        fireLater(view.table.item(CommitMenuEntry.RESET))
         press(robot, awaitDialog(robot), ButtonType.CANCEL)
         assertEquals(3, writes.calls.size)
         assertEquals(listOf("Reset", "Reset", "Reset"), fileChanges, "the cancelled overwrite asked too")
@@ -325,12 +327,12 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
     ) {
         openAndExpand(robot)
         selectRows(robot, 1, 2)
-        assertTrue(view.table.editMessageItem.isDisable, "one commit only")
+        assertNull(commitItem(CommitMenuEntry.EDIT_MESSAGE), "one commit only")
         selectRows(robot, 2)
-        assertFalse(view.table.editMessageItem.isDisable)
+        assertEquals(false, commitItem(CommitMenuEntry.EDIT_MESSAGE)?.isDisable)
         writes.rewordCheck = GitRewordCheck.Allowed("Old subject\n\nBody", listOf("fix-x", "fix-y"), "origin/main")
 
-        fireLater(view.table.editMessageItem)
+        fireLater(view.table.item(CommitMenuEntry.EDIT_MESSAGE))
         val pane = awaitDialog(robot)
         assertEquals("Edit Commit Message", (pane.scene.window as Stage).title)
         assertEquals("Message of h3 on main", pane.headerText)
@@ -363,11 +365,11 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         assertEquals(emptyList(), fileChanges, "files stay")
 
         // Cancel changes nothing; a refusal is shown in the header, without a dialog.
-        fireLater(view.table.editMessageItem)
+        fireLater(view.table.item(CommitMenuEntry.EDIT_MESSAGE))
         press(robot, awaitDialog(robot), ButtonType.CANCEL)
         assertEquals(3, writes.calls.size)
         writes.rewordCheck = GitRewordCheck.Refused("It is on main.")
-        fireLater(view.table.editMessageItem)
+        fireLater(view.table.item(CommitMenuEntry.EDIT_MESSAGE))
         eventually { assertEquals("It is on main.", status(robot)) }
     }
 
@@ -382,22 +384,24 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         selectRows(robot, 3)
 
-        fireLater(view.table.resetItem)
+        fireLater(view.table.item(CommitMenuEntry.RESET))
         val pane = awaitDialog(robot)
         assertEquals("Reset HEAD", (pane.scene.window as Stage).title)
         assertEquals("Reset detached HEAD (at h1) to h4", (pane.lookup(".git-reset-description") as Label).text)
         press(robot, pane, RESET_BUTTON)
         eventually { assertEquals("Reset HEAD to h4 (mixed); it was at h1.", status(robot)) }
         val calls = writes.calls.size
-        fireLater(view.table.editMessageItem)
+        assertNull(commitItem(CommitMenuEntry.EDIT_MESSAGE), "not offered on a detached HEAD")
+        assertEquals(false, commitItem(CommitMenuEntry.RESET)?.isDisable)
+        fireLater(view.table.item(CommitMenuEntry.EDIT_MESSAGE))
         eventually { assertEquals("Commit messages can be changed only on a branch.", status(robot)) }
         assertEquals(calls, writes.calls.size, "nothing runs")
 
         currentRefs = GitRefs(refs.refs.filter { it.kind != GitRefKind.HEAD }, "refs/heads/main")
         robot.interact { view.refresh() }
-        eventually { assertTrue(view.table.resetItem.isDisable) }
-        assertTrue(view.table.editMessageItem.isDisable, "no HEAD commit")
-        assertFalse(view.table.cherryPickItem.isDisable)
+        eventually { assertNull(commitItem(CommitMenuEntry.RESET)) }
+        assertNull(commitItem(CommitMenuEntry.EDIT_MESSAGE), "no HEAD commit")
+        assertEquals(false, commitItem(CommitMenuEntry.CHERRY_PICK)?.isDisable)
     }
 
     @Test
@@ -413,15 +417,15 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         assertFalse(view.pendingBar.skipButton.isVisible)
         assertFalse(view.pendingBar.skipButton.isManaged)
         selectRows(robot, 1)
-        assertTrue(view.table.cherryPickItem.isDisable)
-        assertTrue(view.table.revertItem.isDisable)
-        assertTrue(view.table.editMessageItem.isDisable)
-        assertFalse(view.table.resetItem.isDisable)
+        assertEquals(true, commitItem(CommitMenuEntry.CHERRY_PICK)?.isDisable)
+        assertEquals(true, commitItem(CommitMenuEntry.REVERT)?.isDisable)
+        assertEquals(true, commitItem(CommitMenuEntry.EDIT_MESSAGE)?.isDisable)
+        assertEquals(false, commitItem(CommitMenuEntry.RESET)?.isDisable)
 
         pending = null
         robot.interact { view.refresh() }
         eventually { assertFalse(view.pendingBar.isVisible) }
-        assertFalse(view.table.cherryPickItem.isDisable)
+        assertEquals(false, commitItem(CommitMenuEntry.CHERRY_PICK)?.isDisable)
     }
 
     @Test

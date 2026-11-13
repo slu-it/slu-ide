@@ -1,22 +1,33 @@
 package dev.sluide.gitlog
 
+import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPendingRebase
+import dev.sluide.git.GitPick
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.gitlog.operations.DELETE_BUTTON
+import dev.sluide.gitlog.table.CommitMenuEntry
+import dev.sluide.gitlog.ui.GitLogIcons
+import javafx.application.ColorScheme
 import javafx.application.Platform
 import javafx.event.Event
+import javafx.scene.Parent
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonType
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
+import javafx.scene.input.ContextMenuEvent
+import javafx.scene.input.PickResult
+import javafx.scene.paint.Color
+import javafx.scene.paint.Paint
 import javafx.stage.Stage
 import javafx.stage.WindowEvent
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.kordamp.ikonli.javafx.FontIcon
+import org.kordamp.ikonli.materialdesign2.MaterialDesignT
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -36,14 +47,18 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
     @Start
     fun start(stage: Stage) = startView(stage)
 
-    /** Opens the table's menu as the user does and returns its submenus. */
-    private fun menus(): List<Menu> =
+    /** Opens the table's menu as the user does and returns its top-level submenus. */
+    private fun topMenus(): List<Menu> =
         WaitForAsyncUtils
             .asyncFx<List<Menu>> {
                 val menu = view.table.contextMenu
                 Event.fireEvent(menu, WindowEvent(menu, WindowEvent.WINDOW_SHOWING))
                 menu.items.filterIsInstance<Menu>()
             }.get()
+
+    /** The branch submenus of the opened menu, also those a "Branches" menu holds. */
+    private fun menus(): List<Menu> =
+        topMenus().flatMap { if (it.text == "Branches") it.items.filterIsInstance<Menu>() else listOf(it) }
 
     private fun Menu.item(id: String): MenuItem = items.single { it.id == id }
 
@@ -68,8 +83,9 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         assertEquals(listOf("main", "origin/main"), menus().map { it.text })
         assertTrue(menus().all { "git-branch-menu" in it.styleClass })
         val items = view.table.contextMenu.items
-        assertTrue(items[2] is SeparatorMenuItem, "a separator after the submenus")
-        assertEquals("Copy Revision Number", items[3].text)
+        assertEquals("Branches", items[0].text, "two branches: one menu holding both")
+        assertTrue(items[1] is SeparatorMenuItem, "a separator after the submenus")
+        assertEquals("Review Commit", items[2].text)
         assertEquals(
             listOf("branch-new-branch", "branch-review", null, "branch-rename", null, "branch-working-tree-diff"),
             menus().first().items.map { it.id },
@@ -97,7 +113,7 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         selectRows(robot, 1)
         assertTrue(menus().isEmpty(), "a tag only")
         assertEquals(
-            "Copy Revision Number",
+            "Review Commit",
             view.table.contextMenu.items
                 .first()
                 .text,
@@ -108,6 +124,154 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         assertTrue(menus().isEmpty(), "several commits")
         selectRows(robot, 2)
         assertEquals(listOf("feature/a"), menus().map { it.text })
+    }
+
+    @Test
+    fun `several branches are grouped under Branches, one stands alone, and the icons keep their font`(
+        robot: FxRobot,
+    ) {
+        openAndExpand(robot)
+        selectRows(robot, 0)
+
+        val top = topMenus()
+        assertEquals(listOf("Branches"), top.map { it.text }, "two branches: one menu")
+        assertEquals(listOf("main", "origin/main"), top.single().items.map { it.text })
+        val branches = top.single().graphic as FontIcon
+        assertTrue(FontIcon(GitLogIcons.branches).style in branches.style, "the glyph font stays")
+        val refIcons = top.single().items.map { (it.graphic as Parent).childrenUnmodifiable.single() as FontIcon }
+        assertTrue(refIcons.all { FontIcon(MaterialDesignT.TAG_OUTLINE).style in it.style }, "the glyph font stays")
+
+        selectRows(robot, 2)
+        assertEquals(listOf("feature/a"), topMenus().map { it.text }, "one branch: its own submenu, not grouped")
+
+        val pick = view.table.item(CommitMenuEntry.CHERRY_PICK)
+        val icon = pick.graphic as FontIcon
+        assertTrue(pick in view.table.contextMenu.items)
+        assertTrue(FontIcon(GitLogIcons.cherryPick).style in icon.style, "the glyph font stays")
+        assertTrue("-fx-icon-color: -fx-text-background-color" in icon.style, "follows the highlighted item")
+    }
+
+    @Test
+    fun `the menu opens on a request only with a row selected, also after one without`(robot: FxRobot) {
+        openAndExpand(robot)
+        selectRows(robot, 2)
+        requestMenu(robot)
+        eventually { assertTrue(view.table.contextMenu.isShowing, "the first request opens it") }
+        robot.interact { view.table.contextMenu.hide() }
+
+        selectRows(robot)
+        requestMenu(robot)
+        assertFalse(view.table.contextMenu.isShowing, "nothing is selected: no empty popup")
+
+        selectRows(robot, 2)
+        requestMenu(robot)
+        eventually { assertTrue(view.table.contextMenu.isShowing, "and again after the empty one") }
+        robot.interact { view.table.contextMenu.hide() }
+    }
+
+    @Test
+    fun `the ref icons in the shown menu take the colours of the light and the dark theme`(robot: FxRobot) {
+        openAndExpand(robot)
+        selectRows(robot, 2)
+        robot.interact { view.scene.preferences.colorScheme = ColorScheme.LIGHT }
+        requestMenu(robot)
+        eventually { assertTrue(view.table.contextMenu.isShowing) }
+        val icon =
+            view.table.contextMenu.items
+                .filterIsInstance<Menu>()
+                .single()
+                .let { (it.graphic as Parent).childrenUnmodifiable.single() as FontIcon }
+
+        fun colour(scheme: ColorScheme): Paint {
+            robot.interact {
+                // ThemedWindows sets the scheme of every window's scene, popups included; the test does it itself.
+                icon.scene.preferences.colorScheme = scheme
+                icon.scene.root.applyCss()
+            }
+            return icon.iconColor
+        }
+        assertEquals(Color.web("#3f9a4a"), colour(ColorScheme.LIGHT), "a local branch, light")
+        assertEquals(Color.web("#6cc070"), colour(ColorScheme.DARK), "a local branch, dark")
+        robot.interact { view.table.contextMenu.hide() }
+    }
+
+    @Test
+    fun `an open menu follows a pick that begins while it is shown`(robot: FxRobot) {
+        openAndExpand(robot)
+        selectRows(robot, 2)
+        requestMenu(robot)
+        eventually { assertTrue(view.table.contextMenu.isShowing) }
+        val pick = view.table.item(CommitMenuEntry.CHERRY_PICK)
+        val shown =
+            view.table.contextMenu.items
+                .toList()
+        assertFalse(pick.isDisable)
+
+        pending = GitPendingPick(GitPick.CHERRY_PICK, "h4", listOf("a.txt"))
+        robot.interact { view.refresh() }
+
+        eventually { assertTrue(pick.isDisable, "git is busy now") }
+        assertTrue(view.table.item(CommitMenuEntry.RESET).let { !it.isDisable }, "the way out")
+        assertEquals(
+            shown,
+            view.table.contextMenu.items
+                .toList(),
+            "the popup is not rebuilt",
+        )
+        robot.interact { view.table.contextMenu.hide() }
+    }
+
+    @Test
+    fun `an open menu follows an operation that begins while it is shown`(robot: FxRobot) {
+        openAndExpand(robot)
+        selectRows(robot, 2)
+        requestMenu(robot)
+        eventually { assertTrue(view.table.contextMenu.isShowing) }
+        val writing =
+            listOf(
+                CommitMenuEntry.CHECKOUT_REVISION,
+                CommitMenuEntry.NEW_BRANCH,
+                CommitMenuEntry.NEW_TAG,
+                CommitMenuEntry.RESET,
+            ).map { view.table.item(it) }
+        val shown =
+            view.table.contextMenu.items
+                .toList()
+        assertTrue(writing.none { it.isDisable })
+        writes.gate = CountDownLatch(1)
+
+        fireLater(view.table.item(CommitMenuEntry.CHECKOUT_REVISION))
+
+        eventually { assertTrue(writing.all { it.isDisable }, "an operation runs now") }
+        assertEquals(
+            shown,
+            view.table.contextMenu.items
+                .toList(),
+            "the popup is not rebuilt",
+        )
+        writes.gate?.countDown()
+        eventually { assertTrue(writing.none { it.isDisable }, "and is over") }
+        robot.interact { view.table.contextMenu.hide() }
+    }
+
+    /** What the OS sends for a right-click on the table, without moving the real mouse. */
+    private fun requestMenu(robot: FxRobot) {
+        robot.interact {
+            val bounds = view.table.localToScreen(view.table.boundsInLocal)
+            Event.fireEvent(
+                view.table,
+                ContextMenuEvent(
+                    ContextMenuEvent.CONTEXT_MENU_REQUESTED,
+                    5.0,
+                    5.0,
+                    bounds.minX + 5,
+                    bounds.minY + 5,
+                    false,
+                    PickResult(view.table, 5.0, 5.0),
+                ),
+            )
+        }
+        WaitForAsyncUtils.waitForFxEvents()
     }
 
     @Test

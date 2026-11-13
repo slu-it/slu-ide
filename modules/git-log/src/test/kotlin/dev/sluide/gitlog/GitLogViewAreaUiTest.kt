@@ -1,8 +1,10 @@
 package dev.sluide.gitlog
 
+import dev.sluide.gitlog.table.CommitMenuEntry
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.control.Label
+import javafx.scene.control.MenuItem
 import javafx.scene.control.skin.VirtualFlow
 import javafx.scene.input.Clipboard
 import javafx.scene.input.KeyCode
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
@@ -184,21 +187,25 @@ class GitLogViewAreaUiTest : GitLogViewUiFixture() {
         assertEquals(500, view.table.items.size)
     }
 
+    /** The menu's Copy item as the menu holds it for the selection now; `null` where it is left out. */
+    private fun commitCopy(): MenuItem? =
+        WaitForAsyncUtils
+            .asyncFx<MenuItem?> {
+                view.table.refreshMenu()
+                view.table.item(CommitMenuEntry.COPY_REVISION_NUMBER).takeIf { it in view.table.contextMenu.items }
+            }.get()
+
     @Test
     fun `Copy Revision Number copies the selected hashes in table order, also with Shortcut+C`(robot: FxRobot) {
         openAndExpand(robot)
-        val copy =
-            view.table.contextMenu.items
-                .first()
-        assertEquals("Copy Revision Number", copy.text)
-        assertTrue(copy.isDisable, "nothing selected")
+        assertNull(commitCopy(), "nothing selected")
 
         robot.interact {
             view.table.selectionModel.select(4)
             view.table.selectionModel.select(1)
         }
-        assertFalse(copy.isDisable)
-        robot.interact { copy.fire() }
+        assertEquals("Copy Revision Numbers", commitCopy()?.text)
+        robot.interact { view.table.item(CommitMenuEntry.COPY_REVISION_NUMBER).fire() }
         assertEquals("h2\nh5", clipboard())
 
         robot.interact {

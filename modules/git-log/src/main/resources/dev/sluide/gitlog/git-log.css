@@ -172,9 +172,11 @@
 /*
  * Ref labels (ADR 0037): a tag icon per kind of ref, in looked-up colours redefined for the dark theme below. The
  * tooltip's content is outside .git-log, so it defines them too: the lighter ones, as Modena's tooltips are dark in
- * both themes.
+ * both themes. The ref icons in a context menu sit in a wrapper with the stylesheet and the class git-ref-menu-icon
+ * (ADR 0172), which gets the colours for the same reason.
  */
-.git-log {
+.git-log,
+.git-ref-menu-icon {
     -git-ref-head: #d9a000;
     -git-ref-local: #3f9a4a;
     -git-ref-remote: #8d5bd0;
@@ -931,7 +933,8 @@
 
 /* Single-class selector only: JavaFX applies descendant selectors in @media blocks whatever the scheme (ADR 0009). */
 @media (prefers-color-scheme: dark) {
-    .git-log {
+    .git-log,
+    .git-ref-menu-icon {
         -git-change-added: #5cbf62;
         -git-change-modified: #5a9ae6;
         -git-change-deleted: #9a9a9a;

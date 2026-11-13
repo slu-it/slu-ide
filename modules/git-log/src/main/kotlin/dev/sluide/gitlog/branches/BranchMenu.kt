@@ -24,10 +24,11 @@ import dev.sluide.gitlog.operations.dropConfirmation
 import dev.sluide.gitlog.operations.mergeText
 import dev.sluide.gitlog.operations.pullText
 import dev.sluide.gitlog.operations.rebaseText
+import dev.sluide.gitlog.ui.contextMenuItem
+import dev.sluide.gitlog.ui.refMenuIcon
+import dev.sluide.gitlog.ui.withSeparators
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
-import javafx.scene.control.SeparatorMenuItem
-import org.kordamp.ikonli.javafx.FontIcon
 
 /** What the branch menus (of the branches pane, and of the commit table) do; shared so that both do the same. */
 internal class BranchCommands {
@@ -219,8 +220,8 @@ private fun menuTarget(selected: List<BranchNode>): String? {
 
 /**
  * The submenu of the log's context menu for the branch or remote branch [ref]: the entries of the branches pane for
- * that one branch ([branchMenuEntries]), as the state of [refs], [remotes], [writing] and [busy] allows now;
- * build it when the menu opens.
+ * that one branch ([branchMenuEntries]), as the state of [refs], [remotes], [writing] and [busy] allows now, with
+ * the icon of the ref's kind; build it when the menu opens.
  */
 internal fun branchMenu(
     ref: GitRef,
@@ -233,37 +234,27 @@ internal fun branchMenu(
     val selected = listOf(branchLeaf(ref, refs))
     val actions = menuActions(selected, refs, remotes, writing, busy)
     val items =
-        branchMenuEntries(selected, refs, remotes, writing, busy).flatMapIndexed { index, section ->
-            (if (index > 0) listOf(SeparatorMenuItem()) else emptyList()) +
+        withSeparators(
+            branchMenuEntries(selected, refs, remotes, writing, busy).map { section ->
                 section.map { shown ->
                     branchMenuItem(shown.entry, shown.text) { runEntry(shown.entry, actions, commands) }
                         .apply { isDisable = !shown.enabled }
                 }
-        }
-    return Menu(ref.shortName).apply {
+            },
+        )
+    return Menu(ref.shortName, refMenuIcon(ref.kind)).apply {
         styleClass += "git-branch-menu"
         isMnemonicParsing = false
         this.items.setAll(items)
     }
 }
 
-/**
- * The icon's colour in a context menu, which only the scene root's stylesheets reach: it follows the highlighted item
- * (ADR 0009, `docs/ui-conventions.md`).
- */
-internal const val BRANCH_MENU_ICON_STYLE = "-fx-icon-color: -fx-text-background-color;"
-
-/** The menu item of [entry] with its icon and [text]; a ref name with `_` would lose it as a mnemonic. */
+/** The menu item of [entry] with its icon and [text]. */
 internal fun branchMenuItem(
     entry: BranchMenuEntry,
     text: String,
     action: () -> Unit,
-): MenuItem =
-    MenuItem(text, FontIcon(entry.icon).apply { style = "$style $BRANCH_MENU_ICON_STYLE".trim() }).apply {
-        id = entry.id
-        isMnemonicParsing = false
-        setOnAction { action() }
-    }
+): MenuItem = contextMenuItem(entry.id, entry.icon, text, action)
 
 /** What the table asks for the branches at a commit ([CommitTable.branchMenus][dev.sluide.gitlog.table.CommitTable]). */
 internal fun branchMenus(

@@ -349,15 +349,21 @@ class GitLogViewNavigationUiTest : GitLogViewUiFixture() {
                 .toList(),
         )
 
-        // Also from the details, and the table's context menu.
+        // Also from the details; the table's context menu has no Go to any more (ADR 0172).
         select(robot, 0)
         eventually { assertTrue(showsDetailsOf("Subject 1")) }
         press(robot, details.body, KeyCode.G, shortcut = true)
         eventually { assertTrue(goTo.isShowing) }
         robot.interact { goTo.hide() }
-        assertEquals("Go to Hash/Branch/Tag\u2026", view.table.goToItem.text)
-        robot.interact { view.table.goToItem.fire() }
-        eventually { assertTrue(goTo.isShowing) }
+        robot.interact { view.table.refreshMenu() }
+        assertTrue(
+            view.table.contextMenu.items
+                .isNotEmpty(),
+        )
+        assertTrue(
+            view.table.contextMenu.items
+                .none { it.text?.startsWith("Go to") == true },
+        )
     }
 
     @Test

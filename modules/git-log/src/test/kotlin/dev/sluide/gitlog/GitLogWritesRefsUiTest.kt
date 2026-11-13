@@ -12,6 +12,7 @@ import dev.sluide.gitlog.operations.DELETE_BUTTON
 import dev.sluide.gitlog.operations.FORCE_DELETE_BUTTON
 import dev.sluide.gitlog.operations.OVERWRITE_BUTTON
 import dev.sluide.gitlog.operations.RENAME_BUTTON
+import dev.sluide.gitlog.table.CommitMenuEntry
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonType
 import javafx.scene.control.CheckBox
@@ -206,7 +207,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         selectRows(robot, 1)
 
-        fireLater(view.table.newBranchItem)
+        fireLater(view.table.item(CommitMenuEntry.NEW_BRANCH))
         var pane = awaitDialog(robot)
         val dialog = NameControls(pane)
         assertEquals("New Branch", (pane.scene.window as Stage).title)
@@ -238,7 +239,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         assertEquals(listOf("branch x h2"), writes.calls)
         assertEquals(0, beforeCheckoutCalls, "no checkout")
 
-        fireLater(view.table.newBranchItem)
+        fireLater(view.table.item(CommitMenuEntry.NEW_BRANCH))
         pane = awaitDialog(robot)
         robot.interact { NameControls(pane).field.text = "y" }
         press(robot, pane, CREATE_BUTTON)
@@ -280,7 +281,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         eventually { assertEquals("branch -f feature/a refs/remotes/origin/old", writes.calls.last()) }
 
         // Cancel creates nothing.
-        fireLater(view.table.newBranchItem)
+        fireLater(view.table.item(CommitMenuEntry.NEW_BRANCH))
         pane = awaitDialog(robot)
         robot.interact { NameControls(pane).field.text = "z" }
         press(robot, pane, ButtonType.CANCEL)
@@ -303,7 +304,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         selectRows(robot, 0)
 
-        fireLater(view.table.newTagItem)
+        fireLater(view.table.item(CommitMenuEntry.NEW_TAG))
         var pane = awaitDialog(robot)
         val dialog = NameControls(pane)
         assertEquals("New Tag", (pane.scene.window as Stage).title)
@@ -314,7 +315,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         press(robot, pane, CREATE_BUTTON)
         eventually { assertEquals("Created tag v2.", status(robot)) }
 
-        fireLater(view.table.newTagItem)
+        fireLater(view.table.item(CommitMenuEntry.NEW_TAG))
         pane = awaitDialog(robot)
         robot.interact {
             NameControls(pane).field.text = "v3"

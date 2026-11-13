@@ -2,9 +2,9 @@ package dev.sluide.gitlog.branches
 
 import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.operations.BranchActions
+import dev.sluide.gitlog.ui.withSeparators
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.MenuItem
-import javafx.scene.control.SeparatorMenuItem
 
 /**
  * The context menu of the branches pane (ADRs 0040, 0041, 0171): it shows the [sections] of entries that apply to the
@@ -58,10 +58,6 @@ internal class BranchPaneMenu(
         val layout = shown.map { section -> section.map { it.entry } }
         if (layout == shownLayout) return
         shownLayout = layout
-        contextMenu.items.setAll(
-            shown.flatMapIndexed { index, section ->
-                (if (index > 0) listOf(SeparatorMenuItem()) else emptyList()) + section.map { item(it.entry) }
-            },
-        )
+        contextMenu.items.setAll(withSeparators(shown.map { section -> section.map { item(it.entry) } }))
     }
 }

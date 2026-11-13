@@ -261,7 +261,6 @@ class GitLogView internal constructor(
             compareWithLocal = { commit ->
                 diffs.showWorkingTreeDiff(commit.hash, commit.hash.take(SHORT_HASH))
             }
-            openGoTo = { navigation.openGoTo() }
             stopComparing = compareBar::stopComparing
             review = { hashes -> onReview(ReviewRequest.Commits(hashes)) }
         }
@@ -447,7 +446,6 @@ class GitLogView internal constructor(
             when (state) {
                 GitLogState.IDLE -> {
                     pendingBar.show(null)
-                    table.refsChanged()
                     noRemotes.set(false)
                     branchesPane.remotes = emptyList()
                 }
@@ -464,7 +462,6 @@ class GitLogView internal constructor(
                     noRemotes.set(pages.remotes?.isEmpty() == true)
                     quickRebase.refsRead(pages.remotes, pages.refs)
                     branchesPane.remotes = pages.remotes.orEmpty()
-                    table.refsChanged()
                 }
             }
         }
