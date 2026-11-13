@@ -1,0 +1,14 @@
+# Docker Sandbox environment for developing Thoreau: `sbx env run` in this folder (or Thoreau's
+# Docker Sandbox → New Docker Sandbox Session (Environment)) starts Claude Code with the thoreau-dev kit.
+# See .sbx-kit/README.md. The agent can edit this file and the kit: review changes before the next `sbx env create`.
+schemaVersion: "1"
+name: slu-ide
+agent: claude
+workspace: .
+
+kits:
+  - ./.sbx-kit/thoreau-dev
+
+sandboxOptions:
+  cpus: 12 # the full build runs UI tests on 8 displays in parallel
+  memory: 12g # about 9.5 GB in use at peak with SLUIDE_UI_DISPLAYS=8 (docs/testing.md)
