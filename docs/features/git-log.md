@@ -119,8 +119,9 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
   the selection changed while the diff was read, nothing is said. Open Local File (F4 or the context menu) opens the
   file as it is now in the editor; it is disabled for files not in the working tree (e.g. deleted). Copy Path copies the
   path relative to the repository. Enter on a folder opens or closes it.
-- **Loading:** nothing is read before the area is first expanded. Then 500 commits load in the background; scrolling
-  to within 50 rows of the last one loads the next 500, until there are no more. In very large repositories without
+- **Loading:** nothing is read before the area is first expanded (except what the header's rebase button needs,
+  below). Then 500 commits load in the background; scrolling to within 50 rows of the last one loads the next 500,
+  until there are no more. In very large repositories without
   a commit-graph file (`git gc` writes one), git sorts the whole history for every page, so the first page can hit the
   10 s limit ([ADR 0035](../adr/0035-git-log-area.md)).
 - **Messages:** "Loading…" while the first page loads; "No commits yet." for a repository without commits; "No commits
@@ -128,7 +129,8 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
   longer than 10 s, also for an invalid regex (with rows already shown, they stay and the message appears in the
   header).
 - **Refresh:** the Refresh button, and changes directly in `.git` or `.git/refs` (commits, checkouts, staging, fetches,
-  merges, rebases, stashes) reload the first page and the refs; while collapsed the log only notes it and reloads on the next expand.
+  merges, rebases, stashes) reload the first page and the refs; while collapsed the log only notes it and reloads on
+  the next expand (apart from the rebase button's state, which is read again at once).
   Changes of `.git` that change nothing the log reads (new objects, reflogs) do not reload it
   ([ADR 0062](../adr/0062-git-concurrency.md)). Selected commits stay selected if they are still in the first page; the
   details and changed files of a commit that stays selected are not read again (a commit cannot change them; after a
@@ -282,6 +284,8 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     as the branch menu's Rebase does (the same merge-commits question, stops and bar; "Rebasing feature onto
     origin/main…"); what the fetch brought is told first. It is enabled only when the last read found a remote named
     `origin`, the current branch is not detached, there is a `HEAD` commit and no operation or pending bar is busy.
+    That state is read also while the area is collapsed (`git remote`, the current branch and `HEAD`; local, no
+    fetch), on open and on every refresh; expanded, the log's own read sets it.
     A failed fetch rebases nothing ("origin could not be fetched; nothing was rebased."); if the default branch cannot
     be found: "origin's default branch could not be found (no origin/HEAD, main or master)." No menu item and no key
     binding.

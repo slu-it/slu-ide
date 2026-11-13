@@ -43,8 +43,8 @@ the command line (status, diff to `HEAD`, the ref in the title, [ADR 0013](0013-
   - records end with NUL and fields are separated by U+001F (`GitLogParser`); malformed records are skipped.
 - **Refresh:** the Refresh button, and every change `GitStatusService` notices directly in `.git` (its new
   `gitFolderChanged` counter: `HEAD`, `index`, `packed-refs`, `FETCH_HEAD`, `ORIG_HEAD`, …). Collapsed, the log is only
-  marked outdated and reloads on the next expand. A reload replaces the rows with a fresh first page and keeps the
-  selected commits selected by hash if they are in it. Results of runs for a previously opened folder or superseded
+  marked outdated and reloads on the next expand (except the header rebase button's local state, ADR 0063). A reload
+  replaces the rows with a fresh first page and keeps the selected commits selected by hash if they are in it. Results of runs for a previously opened folder or superseded
   by a newer run are dropped; a failed or timed-out run keeps the rows and says "The git log could not be read."
 - **Columns:** a table resize widens or narrows only Subject; when it would get narrower than its minimum, Author
   and Date shrink proportionally down to their minimums, so Date stays in view; below the sum of all minimum widths

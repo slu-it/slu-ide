@@ -97,7 +97,9 @@ Git 2.53 behaves as follows (checked in tests, `GitRebasesTest`):
   whose branch is gone is skipped for `origin/main`.
 - It is a plain `git rebase <onto>` without `--fork-point`, the same as the branch menu's Rebase.
 - Enabled with a remote named `origin`, a current branch (not detached), a `HEAD` commit, no running operation and
-  nothing pending.
+  nothing pending. Pages load only when the area is expanded, so `QuickRebaseState` reads this itself (`git remote`,
+  the current branch, `HEAD`; local, no fetch) on open and on every refresh while collapsed (while expanded the
+  pages' own read sets it); an answer overtaken by a newer open, refresh or read is dropped.
 - The header has two groups: the quick git actions (Review Branch, this button) with the normal spacing, and Push,
   Pull, Fetch, Refresh; the wider 12 px gap sits between the groups.
 

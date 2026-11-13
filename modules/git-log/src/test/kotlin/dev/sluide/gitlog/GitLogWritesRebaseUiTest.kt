@@ -212,6 +212,30 @@ class GitLogWritesRebaseUiTest : GitLogWritesUiFixture() {
     }
 
     @Test
+    fun `the header's quick rebase is read and enabled while the area is collapsed`(robot: FxRobot) {
+        robot.interact { view.open(repo) }
+
+        // Nothing is expanded, so no page is read: only the quick rebase's own read can enable it.
+        eventually { assertFalse(view.rebaseDefaultButton.isDisable) }
+        robot.interact {
+            assertFalse(view.expanded.get())
+            assertTrue(view.table.items.isEmpty())
+        }
+
+        // No repository: off, while it was on.
+        robot.interact { view.open(null) }
+        robot.interact { assertTrue(view.rebaseDefaultButton.isDisable) }
+
+        robot.interact { view.open(repo) }
+        eventually { assertFalse(view.rebaseDefaultButton.isDisable) }
+
+        // A refresh reads again, here that origin is gone.
+        currentRemotes = listOf("upstream")
+        robot.interact { view.refresh() }
+        eventually { assertTrue(view.rebaseDefaultButton.isDisable) }
+    }
+
+    @Test
     fun `the header's quick rebase is off without an origin remote`(robot: FxRobot) {
         currentRemotes = listOf("upstream")
         openAndExpand(robot)

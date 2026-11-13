@@ -73,7 +73,7 @@ internal class WindowGitLog(
     fun wire(stage: Stage) {
         reviewWindows.wire(stage)
         // The git log follows the repository's .git folder (commits, checkouts, fetches); collapsed, it only notes that
-        // it is outdated (ADR 0035).
+        // it is outdated and reads what the header's rebase button needs (ADR 0035, 0063).
         gitStatus.gitFolderChanged.addListener { _, _, _ ->
             gitLogView.refresh()
             reviewWindows.repositoryChanged()

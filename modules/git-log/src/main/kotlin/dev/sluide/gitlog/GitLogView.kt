@@ -20,8 +20,8 @@ import dev.sluide.gitlog.area.CompareBar
 import dev.sluide.gitlog.area.GO_TO
 import dev.sluide.gitlog.area.HeaderBar
 import dev.sluide.gitlog.area.HeaderStatus
+import dev.sluide.gitlog.area.QuickRebaseState
 import dev.sluide.gitlog.area.endMessage
-import dev.sluide.gitlog.area.rebaseOntoOriginPossible
 import dev.sluide.gitlog.branches.BranchesPane
 import dev.sluide.gitlog.branches.branchCommands
 import dev.sluide.gitlog.branches.branchMenus
@@ -237,8 +237,16 @@ class GitLogView internal constructor(
     /** Whether the last read found no remote to fetch; `false` while that is not known (ADR 0043). */
     private val noRemotes = SimpleBooleanProperty(false)
 
-    /** Whether the last read allows the header's rebase onto origin's default branch ([rebaseOntoOriginPossible]). */
-    private val canRebaseOntoOrigin = SimpleBooleanProperty(false)
+    /** Whether the header's rebase onto origin's default branch may start; read also while collapsed (ADR 0063). */
+    private val quickRebase =
+        QuickRebaseState(
+            { root -> source.remotes(root) },
+            { root -> writes.currentBranch(root) },
+            { root -> source.headCommit(root) },
+            { expanded.get() },
+            readers.logReads,
+            dispatch,
+        )
 
     /** Whether the log shows a repository; the review window reports an unborn `HEAD` itself (ADR 0168). */
     private val hasRepository = SimpleBooleanProperty(false)
@@ -397,7 +405,7 @@ class GitLogView internal constructor(
             hasRepository.not(),
             { onReview(ReviewRequest.Branch("HEAD")) },
             { actions.start(RebaseOntoOriginDefault()) },
-            Bindings.or(Bindings.or(actions.running, pendingBar.busy), canRebaseOntoOrigin.not()),
+            Bindings.or(Bindings.or(actions.running, pendingBar.busy), quickRebase.possible.not()),
             ::refresh,
             { actions.start(Fetch()) },
             ::showPush,
@@ -441,7 +449,6 @@ class GitLogView internal constructor(
                     pendingBar.show(null)
                     table.refsChanged()
                     noRemotes.set(false)
-                    canRebaseOntoOrigin.set(false)
                     branchesPane.remotes = emptyList()
                 }
 
@@ -455,7 +462,7 @@ class GitLogView internal constructor(
                     compareBar.update()
                     pendingBar.show(pages.pending, pages.refs)
                     noRemotes.set(pages.remotes?.isEmpty() == true)
-                    canRebaseOntoOrigin.set(rebaseOntoOriginPossible(pages.remotes, pages.refs))
+                    quickRebase.refsRead(pages.remotes, pages.refs)
                     branchesPane.remotes = pages.remotes.orEmpty()
                     table.refsChanged()
                 }
@@ -549,6 +556,7 @@ class GitLogView internal constructor(
         // Resets the filter and ends a comparison too, before the bar, which then tells no change.
         pages.open(root)
         hasRepository.set(root != null)
+        quickRebase.open(root)
         tabs.closeAll()
         filterBar.reset()
         compareBar.comparisonChanged()
@@ -561,12 +569,14 @@ class GitLogView internal constructor(
     /**
      * Loads the first page again now if [expanded], else the next time it is expanded; keeps the selection by hash.
      * Called for the Refresh button and for changes in `.git`, after which `HEAD`'s tree is read again too. The file
-     * histories and the Commit tab read again as well, now if shown, else when shown next.
+     * histories and the Commit tab read again as well, now if shown, else when shown next. Only what the header's
+     * rebase button needs is read now also while collapsed (local, no fetch; [quickRebase]).
      */
     fun refresh() {
         // The tree may have changed: read again when the path popup is shown next.
         filterSources.markPathsStale()
         pages.refresh()
+        quickRebase.refresh()
         tabs.refresh()
     }
 
@@ -582,6 +592,7 @@ class GitLogView internal constructor(
         actions.close()
         detailsPane.close()
         changesPane.close()
+        quickRebase.close()
         readers.close()
     }
 }
