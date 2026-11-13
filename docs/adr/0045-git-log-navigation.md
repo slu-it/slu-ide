@@ -1,6 +1,6 @@
 # 0045. Git log navigation: branches containing a commit, hash links and Go to
 
-- Status: accepted
+- Status: accepted; amended by [0172](0172-commit-menu.md) (Go to is no longer in the table's context menu)
 - Date: 2026-10-17
 
 ## Context
@@ -49,12 +49,12 @@ branch's commit, loading pages until it is there ([ADR 0040](0040-git-log-branch
   (then the shown commit's are read again, the old line staying meanwhile) or another folder opens. "Looking for
   branches…" only after 300 ms, as the details' "Loading…". Ordered current branch, local, remote, by name ignoring
   case first; at most 6 names before a "Show all (N)" link, which lists all for that commit.
-- **Go to Hash/Branch/Tag** (`GoToPopup`): Shortcut+G in the log body or the table's context menu; a popup at the top of
-  the table completing the branches and tags already read (no git call while typing), resolving the choice (an item
-  by its full refname, else the typed text) with the resolver on the log's thread, then `loadUntil`. Its outcome stays
-  in the popup, not the header, so the user can correct the text. "Hidden by the filters" offers Clear Filters
-  (`FilterBar.clearFilters`: everything back to the defaults but the Regex and Match Case toggles), then the search
-  goes on in the reloaded log.
+- **Go to Hash/Branch/Tag** (`GoToPopup`): Shortcut+G in the log body (a context menu item until ADR 0172); a popup at
+  the top of the table completing the branches and tags already read (no git call while typing), resolving the choice
+  (an item by its full refname, else the typed text) with the resolver on the log's thread, then `loadUntil`. Its
+  outcome stays in the popup, not the header, so the user can correct the text. "Hidden by the filters" offers Clear
+  Filters (`FilterBar.clearFilters`: everything back to the defaults but the Regex and Match Case toggles), then the
+  search goes on in the reloaded log.
 - **One navigation path:** the branches pane, hash links and Go to all end in `GitLogPages.loadUntil` with the same
   `missingMessage`, which also tells a log that cannot be read (a failed page ends the search with
   `CommitMissing.UNREADABLE` instead of silently); a newer request replaces an older one, whichever kind; the branches

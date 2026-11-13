@@ -219,7 +219,7 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     while there are stashes, one node per stash by its message, newest first; its own menu pops, applies, drops and
     copies a stash and opens Stash Changes…; a stash neither navigates nor filters the log.
 - **Go to Hash/Branch/Tag** ([ADR 0045](../adr/0045-git-log-navigation.md)): Shortcut+G in the log body (table,
-  changed files, details, filter bar, branches pane) or "Go to Hash/Branch/Tag…" at the end of the table's context menu
+  changed files, details, filter bar, branches pane; no context menu item, [ADR 0172](../adr/0172-commit-menu.md))
   opens a popup at the top of the commit table, as in IntelliJ: a field ("Hash, branch or tag"), focused, and below it
   the branches and tags read with the last first page (local, remote, tags, with the ref labels' icons) whose short
   name has the typed text (ignoring case), at most 10 rows in view; none while the field is empty or nothing matches.
@@ -228,26 +228,30 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
   short hash (at least 4 characters), a branch or tag (short or full refname), `HEAD~3`, `main^2`, `v1.0^{}`,
   `@{upstream}`; annotated tags lead to the commit they tag. On success the popup closes, the commit's row is selected
   and scrolled into view, and the table has the focus. Otherwise the popup stays open, the text selected, and says
-  "Unknown revision 'xyz'." (also when git cannot look it up, e.g. `@{upstream}` without one), "'abc1' is
-  ambiguous.", or as the branches pane would: "… is not in this comparison.", "… is hidden by the filters." (then with
-  a Clear Filters button that clears the text, branches, users, paths and graph options, Regex and Match Case staying
-  as they are, and goes on to the commit), "… is not in the log." or "… is more than 10,000 commits down."; "The
-  git log could not be read." if a page fails meanwhile (the header says so too, also after a hash link or a branch).
-  Escape (or a click elsewhere) closes it without moving. A newer Go to, hash link or branch selection replaces a
-  search still loading pages.
-- **Copy Revision Number:** in the context menu of the table, and with Shortcut+C while the table has the focus; it
-  copies the full hash of the selected commit, or of all selected commits one per line in table order (Shift/Ctrl
-  select several).
+  "Unknown revision 'xyz'." (also when git cannot look it up, e.g. `@{upstream}` without one), "'abc1' is ambiguous.",
+  or as the branches pane would: "… is not in this comparison.", "… is hidden by the filters." (then with a Clear
+  Filters button that clears the text, branches, users, paths and graph options, Regex and Match Case staying as they
+  are, and goes on to the commit), "… is not in the log." or "… is more than 10,000 commits down."; "The git log could
+  not be read." if a page fails meanwhile (the header says so too, also after a hash link or a branch). Escape (or a
+  click elsewhere) closes it without moving. A newer Go to, hash link or branch selection replaces a search still
+  loading pages.
+- **Copy Revision Number:** in the context menu of the table (Copy Revision Numbers with several commits selected),
+  and with Shortcut+C while the table has the focus; it copies the full hash of the selected commit, or of all
+  selected commits one per line in table order (Shift/Ctrl select several).
 - **Changing the repository** ([ADR 0041](../adr/0041-git-write-operations.md)), with the git command line, so hooks
   and the user's configuration apply:
-  - **Commit table:** its context menu has, after Copy Revision Number, Compare with Local (below), Review Commit (Review
-    Commits with several selected, also while an operation runs; the review window opens on the selection, see
-    [code-review.md](code-review.md)) and a separator, Checkout Revision (`HEAD`
-    detached at the commit), New Branch… and New Tag… (at the commit), and after another separator Cherry-Pick, Revert
-    Commit, Reset Current Branch to Here… ([ADR 0042](../adr/0042-git-log-commit-operations.md), below) and Edit
-    Commit Message… ([ADR 0100](../adr/0100-editing-commit-messages.md)); enabled with exactly one commit selected,
-    Reset and Edit Commit Message only while the refs read show a `HEAD` commit (Edit also not while git is busy).
-    Go to Hash/Branch/Tag… (above) follows after a last separator.
+  - **Commit table** ([ADR 0172](../adr/0172-commit-menu.md)): its context menu shows only what applies to the
+    selection, each item with an icon, in sections with a separator between non-empty ones: the branch submenus at the
+    commit (below); Review Commit, Checkout Revision (`HEAD` detached at the commit) and Copy Revision Number;
+    Cherry-Pick, Revert Commit and Reset Current Branch to Here… ([ADR
+    0042](../adr/0042-git-log-commit-operations.md), below); New Branch… and New Tag… (at the commit); Compare with
+    Local (below) and Edit Commit Message… ([ADR 0100](../adr/0100-editing-commit-messages.md)). With several commits
+    only Review Commits (the review window opens on the selection, see [code-review.md](code-review.md)) and Copy
+    Revision Numbers show; with none, no menu opens. Reset and Edit Commit Message are left out without a `HEAD`
+    commit in the refs read, Edit also on a detached `HEAD`. Checkout Revision, New Branch, New Tag and Reset are
+    greyed out while an operation runs, and Cherry-Pick, Revert and Edit Commit Message also while git is busy with a
+    merge, rebase or pick; Review, Copy and Compare only read and stay enabled. The state is read when the menu opens
+    and followed while it is open.
   - **Branches pane:** its context menu shows only what applies to the selection, each item with an icon (the
     header's for Review, Rebase, Pull and Fetch), in sections with separators between them
     ([ADR 0171](../adr/0171-context-sensitive-branch-menus.md)): "New Branch from '<name>'…" (from any one branch, tag
@@ -320,12 +324,14 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     for exactly one remote branch of a configured remote (not `<remote>/HEAD`), also one at `HEAD`'s commit, with a
     current branch that has a commit, and left out otherwise; greyed out while an operation runs or something is in
     progress; it opens the Pull dialog (below) with that branch chosen.
-  - **Branch submenus in the log:** the table's context menu starts, with exactly one commit selected, with one submenu
-    per local or remote branch at that commit (named "feature", "origin/main"; not `HEAD` or tags), then a separator. A
-    submenu has the entries of the branches pane for that branch, with the same order, icons, texts and enabling (no
-    Fetch, not even for a remote branch; Delete of a remote branch is on its remote, below). It is built when the
-    menu opens, so it follows the state at that moment (nothing that writes while an operation runs, no rebase while one
-    is in progress).
+  - **Branch submenus in the log:** the table's context menu starts, with exactly one commit selected, with the
+    submenu of the local or remote branch at that commit (named "feature", "origin/main"; not `HEAD` or tags), or, for
+    several, one "Branches" menu with a submenu each, then a separator. Each has the icon of its ref kind (in the
+    colours of the tree, light or dark by the window's theme, through a wrapper that carries the log's stylesheet, as
+    a context menu does not get it). A submenu has the entries of the branches pane for that branch, with the same
+    order, icons, texts and enabling (no Fetch, not even for a remote branch; Delete of a remote branch is on its
+    remote, below). It is built when the menu opens, so it follows the state at that moment (nothing that writes while
+    an operation runs, no rebase while one is in progress).
   - **Leaving a detached HEAD:** a checkout (also of a revision from the log, or a new branch with Checkout) that would
     leave commits of a detached `HEAD` on no branch, remote branch or tag asks first: "2 commits of the detached HEAD
     will no longer be on any branch or tag; they stay reachable through the reflog for a while." and below it "To

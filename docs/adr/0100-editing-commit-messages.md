@@ -1,6 +1,7 @@
 # 0100. Git log edits the message of any commit of the current branch by rewriting the commits after it
 
-- Status: accepted
+- Status: accepted; amended by [0172](0172-commit-menu.md) (the menu item is left out without a `HEAD` commit or a
+  current branch, and for several commits)
 - Date: 2026-10-26
 
 ## Context
