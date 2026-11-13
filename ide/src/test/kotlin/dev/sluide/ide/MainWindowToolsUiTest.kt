@@ -29,12 +29,9 @@ import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import java.util.concurrent.Callable
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
-import kotlin.io.path.createFile
-import kotlin.io.path.deleteExisting
 import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
@@ -188,62 +185,6 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `offers one Docker Sandbox item with an accelerator, disabled without a folder, and named by the folder`(
-        robot: FxRobot,
-    ) {
-        val item = sandboxItems(robot).single()
-
-        assertEquals("New Docker Sandbox Session (Claude Code)", item.text)
-        assertEquals(
-            KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
-            item.accelerator,
-        )
-        assertTrue(item.isDisable)
-
-        val folder = home.resolve("work/project").createDirectories()
-        robot.interact { projectService.open(folder) }
-        assertEquals("New Docker Sandbox Session (Claude Code)", item.text)
-        assertFalse(item.isDisable)
-
-        folder.resolve("sbxenv.yaml").createFile()
-        robot.interact { menu(robot, "Docker Sandbox").onShowing.handle(null) }
-
-        assertEquals("New Docker Sandbox Session (Environment)", item.text)
-        assertFalse(item.isDisable)
-    }
-
-    @Test
-    fun `firing the sandbox item chooses the action again from the current folder`(robot: FxRobot) {
-        val folder = home.resolve("work/project").createDirectories()
-        val file = folder.resolve("sbxenv.yaml").createFile()
-        robot.interact { projectService.open(folder) }
-        robot.interact { menu(robot, "Docker Sandbox").onShowing.handle(null) }
-        assertEquals("New Docker Sandbox Session (Environment)", sandboxItems(robot).single().text)
-
-        // The menu is not shown again, so its label is stale when the accelerator fires.
-        file.deleteExisting()
-        robot.interact { sandboxItems(robot).single().fire() }
-
-        // The fake shell may already have exited, which appends " (exited)" to the title.
-        assertTrue(tabTitles(robot).single().startsWith("Claude Code 1"), tabTitles(robot).toString())
-    }
-
-    @Test
-    fun `starting a sandbox where it may not run shows an error and opens no tab`(robot: FxRobot) {
-        val errors = mutableListOf<String>()
-        mainWindow.showError = { _, message -> errors += message }
-        robot.interact { projectService.open(home) }
-
-        // Fired directly: the menu would not offer it, the start is checked again.
-        robot.interact { sandboxItems(robot).single().fire() }
-
-        assertEquals(1, errors.size)
-        assertTrue(errors.single().startsWith("Claude Code cannot be started. Docker sandboxes run only"), errors[0])
-        assertEquals(emptyList(), tabTitles(robot))
-        assertEquals(0, terminals.openCount)
-    }
-
-    @Test
     fun `a terminal or sandbox whose shell cannot be started shows an error and opens no tab`(robot: FxRobot) {
         val errors = mutableListOf<String>()
         mainWindow.showError = { _, message -> errors += message }
@@ -254,36 +195,20 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         robot.interact {
             menu(robot, "Terminal").items.single().fire()
-            sandboxItems(robot).single().fire()
+            sandboxItems(robot)[0].fire()
+            sandboxItems(robot)[1].fire()
             codeIntelligences.single().intelligence.runInTerminal(folder, "uv sync (project)", "uv sync")
         }
 
-        assertEquals(3, errors.size, errors.toString())
+        assertEquals(4, errors.size, errors.toString())
         assertTrue(errors[0].startsWith("The terminal cannot be started. $shell could not be started in $folder ("))
         assertTrue(errors[1].startsWith("Claude Code cannot be started. $shell could not be started in $folder ("))
-        assertTrue(errors[2].startsWith("The terminal cannot be started. $shell could not be started in $folder ("))
+        assertTrue(
+            errors[2].startsWith("The Management Console cannot be started. $shell could not be started in $home ("),
+        )
+        assertTrue(errors[3].startsWith("The terminal cannot be started. $shell could not be started in $folder ("))
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals(0, terminals.openCount)
-    }
-
-    @Test
-    fun `the Docker Sandbox menu is disabled without sbx, and until sbx has been found`(robot: FxRobot) {
-        assertFalse(menu(robot, "Docker Sandbox").isDisable)
-
-        val missing = otherWindowSandboxMenu(robot, CompletableFuture.completedFuture(false))
-        WaitForAsyncUtils.waitForFxEvents()
-        assertTrue(missing.isDisable)
-
-        val sbxInstalled = CompletableFuture<Boolean>()
-        val menu = otherWindowSandboxMenu(robot, sbxInstalled)
-        WaitForAsyncUtils.waitForFxEvents()
-        assertTrue(menu.isDisable)
-
-        sbxInstalled.complete(true)
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertFalse(menu.isDisable)
-        assertFalse(menu.items.single().isDisable)
     }
 
     @Test

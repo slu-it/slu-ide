@@ -86,12 +86,15 @@ class DockerSandboxTest {
                     )
                 }
             }
+            assertEquals(SBX_MISSING, sandbox.consoleProblem())
+            assertEquals(SBX_MISSING, assertFailsWith<SandboxNotAllowedException> { sandbox.openConsole() }.message)
         }
         assertEquals(0, terminals.openCount)
 
         check.complete(true)
 
         assertNull(sandbox(check).problem(SandboxAction.ENVIRONMENT, project))
+        assertNull(sandbox(check).consoleProblem(), "the console needs no folder")
     }
 
     @Test
@@ -113,10 +116,12 @@ class DockerSandboxTest {
         val sandbox = sandbox(failed)
 
         assertEquals(SBX_MISSING, sandbox.problem(SandboxAction.CLAUDE_CODE, project))
+        assertEquals(SBX_MISSING, sandbox.consoleProblem())
         assertEquals(false, sandbox.sbxInstalled.toCompletableFuture().get())
 
         val cancelled = CompletableFuture<Boolean>().apply { cancel(false) }
         assertEquals(SBX_MISSING, sandbox(cancelled).problem(SandboxAction.CLAUDE_CODE, project))
+        assertEquals(SBX_MISSING, sandbox(cancelled).consoleProblem())
         assertEquals(false, sandbox(cancelled).sbxInstalled.toCompletableFuture().get())
     }
 }

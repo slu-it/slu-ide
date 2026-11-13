@@ -80,10 +80,15 @@ class DockerSandboxUiTest {
         robot: FxRobot,
         action: SandboxAction,
         sandbox: DockerSandbox = sandbox(),
+    ): EditorTab = run(robot) { sandbox.open(action, project) }
+
+    private fun run(
+        robot: FxRobot,
+        start: () -> EditorTab,
     ): EditorTab {
         lateinit var tab: EditorTab
         robot.interact {
-            tab = sandbox.open(action, project)
+            tab = start()
             pane.children.setAll(tab.content)
         }
         val deadline = System.nanoTime() + 20.seconds.inWholeNanoseconds
@@ -123,6 +128,16 @@ class DockerSandboxUiTest {
                 .map { run(robot, it, sandbox).title.value }
 
         assertEquals(listOf("Claude Code 1 (exited)", "Claude Code 2 (exited)", "Claude Code 3 (exited)"), titles)
+    }
+
+    @Test
+    fun `the Management Console runs bare sbx in the home folder in the tab SBX`(robot: FxRobot) {
+        val sandbox = sandbox()
+
+        val tab = run(robot) { sandbox.openConsole() }
+
+        assertEquals("SBX (exited)", tab.title.value)
+        assertEquals(listOf("${home.toRealPath()}: "), calls.readLines())
     }
 
     @Test

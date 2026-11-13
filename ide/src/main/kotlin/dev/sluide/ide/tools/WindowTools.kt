@@ -9,6 +9,7 @@ import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.dockersandbox.SandboxAction
 import dev.sluide.dockersandbox.SandboxNotAllowedException
 import dev.sluide.editorarea.EditorArea
+import dev.sluide.editorarea.EditorTab
 import dev.sluide.games.BlockBreaker
 import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
@@ -253,6 +254,10 @@ internal class WindowTools(
      * "(Claude Code)"; enabled only where that action may run. The action is chosen again when the item fires (the
      * accelerator works without the menu showing), and checked again when it is started. The whole menu is disabled
      * until the check for `sbx` has found it.
+     *
+     * A second item, "Management Console", opens bare `sbx` in the home folder in the tab "SBX" (ADR 0170). It needs
+     * only `sbx`, not a project folder, as it mounts no folder. One such tab per window: firing the item again selects
+     * it while its command runs, and replaces it by a fresh one once it has ended.
      */
     fun dockerSandboxMenu(stage: Stage): Menu {
         val item =
@@ -261,7 +266,11 @@ internal class WindowTools(
                 setOnAction { openSandbox(stage, SandboxAction.forFolder(projectService.projectFolder.get())) }
             }
 
+        val console =
+            MenuItem("Management Console").apply { setOnAction { openConsole(stage) } }
+
         fun updateItem() {
+            console.isDisable = dockerSandbox.consoleProblem() != null
             val folder = projectService.projectFolder.get()
             val action = SandboxAction.forFolder(folder)
             item.text = "New Docker Sandbox Session (${action.title})"
@@ -271,7 +280,7 @@ internal class WindowTools(
         // Fired before an accelerator checks isDisable, so Shortcut+Shift+B sees a fresh state too.
         item.setOnMenuValidation { updateItem() }
         projectService.projectFolder.subscribe { _ -> updateItem() }
-        return Menu("Docker Sandbox", null, item).apply {
+        return Menu("Docker Sandbox", null, item, console).apply {
             // Also picks up an sbxenv.yaml created or deleted since the folder was opened.
             setOnShowing { updateItem() }
             isDisable = true
@@ -281,6 +290,28 @@ internal class WindowTools(
                     updateItem()
                 }
             }
+        }
+    }
+
+    /** The open "SBX" tab of the Management Console, if any (it may have been closed since). */
+    private var consoleTab: EditorTab? = null
+
+    private fun openConsole(stage: Stage) {
+        val existing = consoleTab?.takeIf { it in editorArea.tabs }
+        if (existing != null && !terminals.hasEnded(existing)) {
+            editorArea.select(existing)
+            return
+        }
+        try {
+            val tab = dockerSandbox.openConsole()
+            // An ended command has no warning, so the old tab closes without asking; a failed start keeps it.
+            existing?.let(editorArea::close)
+            editorArea.open(tab)
+            consoleTab = tab
+        } catch (e: SandboxNotAllowedException) {
+            showError(stage, "The Management Console cannot be started. ${e.message}")
+        } catch (e: TerminalStartException) {
+            showError(stage, "The Management Console cannot be started. ${e.message}")
         }
     }
 

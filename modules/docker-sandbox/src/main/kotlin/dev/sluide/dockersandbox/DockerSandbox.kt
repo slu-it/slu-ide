@@ -75,6 +75,12 @@ class DockerSandbox(
         return if (folder.resolve(required).isRegularFile()) null else "There is no $required in $folder."
     }
 
+    /**
+     * Why the Management Console cannot run, or `null` if it can: only `sbx` is needed, no folder, as bare `sbx`
+     * mounts none (ADR 0170).
+     */
+    fun consoleProblem(): String? = if (installed()) null else SBX_MISSING
+
     /** Whether the check found `sbx`; `false` while it runs or if it failed (logged by [sbxInstalled]). */
     private fun installed(): Boolean =
         try {
@@ -105,6 +111,18 @@ class DockerSandbox(
         return terminals
             .open(folder, "${SandboxAction.TAB_NAME} $number", action.command, environment)
             .also { started = number }
+    }
+
+    /**
+     * Runs bare `sbx` (its management console) in the home folder in a terminal tab named "SBX" and returns the tab.
+     * Not subject to the below-home rule, which protects folders that sbx mounts. Must be called on the FX thread.
+     *
+     * @throws SandboxNotAllowedException if [consoleProblem] reports one (`sbx` not found).
+     * @throws dev.sluide.terminal.TerminalStartException if the shell cannot be started.
+     */
+    fun openConsole(): EditorTab {
+        consoleProblem()?.let { throw SandboxNotAllowedException(it) }
+        return terminals.open(home, "SBX", "sbx", environment)
     }
 }
 
