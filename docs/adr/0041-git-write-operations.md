@@ -1,6 +1,7 @@
 # 0041. Git log changes the repository: checkout, new branch, new tag, rename, delete through the git CLI
 
-- Status: accepted; partly superseded by [0062](0062-git-concurrency.md) (how the log is refreshed after an operation)
+- Status: accepted; partly superseded by [0062](0062-git-concurrency.md) (how the log is refreshed after an operation);
+  amended by [0171](0171-context-sensitive-branch-menus.md) (the menus show only what applies, in a new order)
 - Date: 2026-10-16
 
 ## Context

@@ -90,8 +90,8 @@ in tests, `GitPullsTest`):
   source-pull icon, also while the log is collapsed; disabled while an operation runs, as Fetch, and once the log found
   no remote), "Pull 'origin/main' into 'feature'…" after Merge in the branches pane and the table's branch submenus (one
   remote branch of a known remote, not `<remote>/HEAD`, with a current branch that has a commit, also at `HEAD`'s
-  commit, as the fetch may bring more; not while an operation runs or git is in the middle of something; "Pull into
-  Current Branch…" otherwise), and Pull… next to the Push dialog's note that the target has commits the branch has not
+  commit, as the fetch may bring more; not while an operation runs or git is in the middle of something; the item is left out
+  otherwise, [ADR 0171](0171-context-sensitive-branch-menus.md)), and Pull… next to the Push dialog's note that the target has commits the branch has not
   (that target's remote-tracking ref chosen; the Push dialog stays open and reads again afterwards).
 
 ## Consequences

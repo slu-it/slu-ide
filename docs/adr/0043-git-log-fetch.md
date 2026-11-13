@@ -1,6 +1,6 @@
 # 0043. Git log fetches each remote with the git CLI, non-interactive and cancellable
 
-- Status: accepted
+- Status: accepted; amended by [0171](0171-context-sensitive-branch-menus.md) (Fetch only on a remote or its folder)
 - Date: 2026-10-17
 
 ## Context
@@ -85,13 +85,13 @@ Git 2.53 behaves as follows (checked in tests):
   destination, `refs/remotes/<remote>/`. `for-each-ref` matches whole path components, so the folders are read and
   filtered. A `*` in the middle (`refs/a/*/b`) counts everything below `refs/a/`.
 - **Where:** a Fetch button (down arrow, "Fetch All Remotes") in the log's header next to Refresh, also while the log is
-  collapsed, and Fetch in the branches pane's context menu on a remote, a folder of a remote or a remote branch (that
-  remote only). The pane's tree splits remote branch names at their first `/`
+  collapsed, and Fetch in the branches pane's context menu on a remote or a folder of a remote (that remote only;
+  not on a remote branch, [ADR 0171](0171-context-sensitive-branch-menus.md)). The pane's tree splits remote branch names at their first `/`
   ([ADR 0040](0040-git-log-branches-pane.md)), but which remote a node belongs to is matched against the names of all
   remotes (`git remote`, also those with `skipFetchAll`, fetched when asked for, as `git fetch <remote>` does): the
   longest remote whose name is the node's (a remote or folder below Remote, `team/a`) or starts the node's name followed
   by `/` (a remote branch `team/a/main`). Without one (a remote that was removed while its remote branches stay, or
-  `team` when only `team/a` is a remote), Fetch is disabled. Fetch runs through the `RefWriter` on `sluide-git-write`
+  `team` when only `team/a` is a remote), Fetch is left out of the menu (greyed out only while another operation runs). Fetch runs through the `RefWriter` on `sluide-git-write`
   like every other operation, so meanwhile they are all disabled; it changes no files, so no unsaved editors are asked
   about. The log is refreshed afterwards, also after a failure or cancel.
 - **No remotes:** the names of all remotes are read with every first page of the log, on `sluide-git-log` with the

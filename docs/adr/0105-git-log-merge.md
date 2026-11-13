@@ -36,7 +36,7 @@ message; `main` and `master` by default). Git 2.53 behaves as follows (checked i
 - **When it is offered** (the menu, on the JavaFX thread, without running git): exactly as Rebase (ADR 0063), for one
   local or remote branch that is not the current one, with a current branch (not detached) and a `HEAD` commit, the
   branch at another commit than `HEAD`, nothing in progress and no git write running: "Merge 'main' into
-  'feature'…" ("Merge into Current Branch…" without a current branch or such a selection) after the Rebase item, in
+  'feature'…" (left out otherwise, [ADR 0171](0171-context-sensitive-branch-menus.md)) after the Rebase item, in
   the branches pane and in the commit table's branch submenus, which share the commands. Not for tags, commits or the
   Git menu.
 - **The dialog** (`MergeDialog`, modal, owned by the window): "Merge 'main' into 'feature'", the options of

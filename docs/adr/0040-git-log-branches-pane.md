@@ -1,6 +1,6 @@
 # 0040. Git log branches pane: a tree of the refs already read, click navigates, double-click filters
 
-- Status: accepted
+- Status: accepted; amended by [0171](0171-context-sensitive-branch-menus.md) (no Filter or Copy Name in the menus)
 - Date: 2026-10-16
 
 ## Context

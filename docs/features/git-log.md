@@ -210,10 +210,11 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     filters." (with filters set), "<name> is not in the
     log." or "<name> is more than 10,000 commits down.", until the next selection. A tag of a tree or blob (not a
     commit) is never in the log, so it gets one of the last two. Groups, folders and several branches do not navigate.
-  - **Filter:** a double-click on a branch, Enter, or "Filter Log by Branch" ("Filter Log by N Branches") in the
-    context menu sets the Branch filter to exactly the selected branches (Shift/Ctrl select several), as if checked in
-    its popup. Enter on a folder opens or closes it. "Copy Name" copies the short names, one per line; both are
-    disabled without a branch selected.
+  - **Filter:** a double-click on a branch or Enter sets the Branch filter to exactly the selected branches
+    (Shift/Ctrl select several), as if checked in its popup; the context menus have no item for it
+    ([ADR 0171](../adr/0171-context-sensitive-branch-menus.md)). Enter on a folder opens or closes it.
+  - **Copy names:** Shortcut+C in the tree copies the short names of the selected branches and tags and the names of
+    the selected remotes (`origin`), one per line; nothing for other selections (groups, folders, stashes).
   - **Stashes** ([ADR 0107](../adr/0107-git-log-stashes.md), [stash.md](stash.md)): a group "Stashes" after Tags
     while there are stashes, one node per stash by its message, newest first; its own menu pops, applies, drops and
     copies a stash and opens Stash Changes…; a stash neither navigates nor filters the log.
@@ -247,13 +248,18 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     Commit Message… ([ADR 0100](../adr/0100-editing-commit-messages.md)); enabled with exactly one commit selected,
     Reset and Edit Commit Message only while the refs read show a `HEAD` commit (Edit also not while git is busy).
     Go to Hash/Branch/Tag… (above) follows after a last separator.
-  - **Branches pane:** its context menu has, after Copy Name and a separator, Compare with Current, Review Branch (local and
-    remote branches, not tags, see [code-review.md](code-review.md); the commit table's branch submenus have it too) and
-    Show Diff with Working Tree (below), and after another separator Checkout, "New Branch from '<name>'…"
-    (from any one branch, tag or `HEAD`), Rename… (local branches, also the current one; also F2) and Delete (local
-    branches and tags, or remote branches, several at once; also Delete, or Shortcut+Backspace as in the explorer).
-    Checkout is disabled for `HEAD`, the current branch, a remote branch whose local branch of the same name is the
-    current one, folders, groups and several; Delete as soon as the selection holds the current branch, `HEAD`,
+  - **Branches pane:** its context menu shows only what applies to the selection, each item with an icon (the
+    header's for Review, Rebase, Pull and Fetch), in sections with separators between them
+    ([ADR 0171](../adr/0171-context-sensitive-branch-menus.md)): "New Branch from '<name>'…" (from any one branch, tag
+    or `HEAD`) and Review Branch (local and remote branches, not tags, see [code-review.md](code-review.md)); Checkout,
+    Rename… (local branches, also the current one; also F2) and Delete (local branches and tags, or remote branches,
+    several at once; also Delete, or Shortcut+Backspace as in the explorer); Rebase …, Merge … and Pull … (below);
+    Compare with Current and Show Diff with Working Tree (below); and, alone, Fetch for a remote or a folder of a
+    remote. An item that never applies is left out (Rename on a tag, Checkout, Rebase and Merge on the current branch,
+    Pull on a local branch, Compare while `HEAD` has no commit); an item that applies but is blocked for now (an
+    operation runs, a rebase or merge waits) stays, greyed out. A group and a mixed selection have no items, so no
+    menu opens (a stash selection has its own menu). Checkout is left out for `HEAD`, the current branch, a remote
+    branch whose local branch of the same name is the current one, folders, groups and several; Delete as soon as the selection holds the current branch, `HEAD`,
     `<remote>/HEAD`, a protected remote branch (`main`, `master`, as for Force Push), a folder, a group, a remote branch
     of a remote that is not configured, or remote branches together with local branches or tags. A local branch is
     checked out, a tag detached; a remote branch `origin/fix` checks out the local branch `fix` if there is one and it
@@ -265,11 +271,11 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     A checkout never overwrites an ignored file the other commit tracks (a local `.env`): git refuses as for untracked
     files ("The following untracked working tree files would be overwritten by checkout: .env"), shown in the error
     dialog.
-  - **Rebase** ([ADR 0063](../adr/0063-git-log-rebase.md)): the branches pane's context menu has, after Checkout,
-    "Rebase 'feature' onto 'main'" (the current branch onto the one selected local or remote branch, e.g.
-    'origin/main'; "Rebase Current Branch onto…" without a current branch or a single such branch). It is enabled for
-    exactly one local or remote branch that is not the current one, with a current branch (not detached) and a `HEAD`
-    commit, whose commit is not `HEAD`'s, while no operation runs and nothing is in progress. The branch is rebased
+  - **Rebase** ([ADR 0063](../adr/0063-git-log-rebase.md)): the branches pane's context menu has, in the section after
+    Checkout, Rename… and Delete, "Rebase 'feature' onto 'main'" (the current branch onto the one selected local or
+    remote branch, e.g. 'origin/main'). It is shown for exactly one local or remote branch that is not the current one,
+    with a current branch (not detached) and a `HEAD` commit, whose commit is not `HEAD`'s; otherwise it is left out. It
+    is greyed out while an operation runs or something is in progress. The branch is rebased
     with `git rebase --merge` (no autostash, no fork point, `rebase.updateRefs` and `rebase.rebaseMerges` off), so a
     rebase onto a branch `HEAD` is behind just fast-forwards. If the other branch is already contained in the current
     one nothing runs ("'main' is already contained in 'feature'; nothing to rebase."). If the current branch has merge
@@ -289,8 +295,8 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     A failed fetch rebases nothing ("origin could not be fetched; nothing was rebased."); if the default branch cannot
     be found: "origin's default branch could not be found (no origin/HEAD, main or master)." No menu item and no key
     binding.
-  - **Merge** ([ADR 0105](../adr/0105-git-log-merge.md)): after Rebase, "Merge 'main' into 'feature'…" ("Merge into
-    Current Branch…" without a current branch or a single such branch), enabled exactly as Rebase. A dialog "Merge"
+  - **Merge** ([ADR 0105](../adr/0105-git-log-merge.md)): after Rebase, "Merge 'main' into 'feature'…", shown and
+    greyed out exactly as Rebase. A dialog "Merge"
     ("Merge 'main' into 'feature'") offers Fast-forward if possible (preselected), Always create a merge commit,
     Fast-forward only and Squash (the changes are staged, nothing is committed); the message in a monospace area,
     prefilled with git's ("Merge branch 'main' into feature", "Merge remote-tracking branch 'origin/main' into feature";
@@ -310,15 +316,14 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     conflicts leaves them without a merge in progress ("… with conflicts in 2 files; resolve them, then commit."); the
     bar then offers Mark Resolved (below).
     Ignored files in the way are not checked, as for a rebase.
-  - **Pull** ([ADR 0106](../adr/0106-git-log-pull.md)): after Merge, "Pull 'origin/main' into 'feature'…" ("Pull into
-    Current Branch…" otherwise), enabled for exactly one remote branch of a configured remote (not `<remote>/HEAD`),
-    also one at `HEAD`'s commit, with a current branch that has a commit, while no operation runs and nothing is in
+  - **Pull** ([ADR 0106](../adr/0106-git-log-pull.md)): after Merge, "Pull 'origin/main' into 'feature'…", shown
+    for exactly one remote branch of a configured remote (not `<remote>/HEAD`), also one at `HEAD`'s commit, with a
+    current branch that has a commit, and left out otherwise; greyed out while an operation runs or something is in
     progress; it opens the Pull dialog (below) with that branch chosen.
   - **Branch submenus in the log:** the table's context menu starts, with exactly one commit selected, with one submenu
     per local or remote branch at that commit (named "feature", "origin/main"; not `HEAD` or tags), then a separator. A
-    submenu has the items of the branches pane for that branch, with the same texts and enabling: Filter Log by Branch,
-    Copy Name, Compare with Current, Show Diff with Working Tree, Checkout, Rebase …, Merge …, Pull …, New Branch from
-    '…'…, Rename…, Delete (a remote branch on its remote, below), and Fetch for a remote branch. It is built when the
+    submenu has the entries of the branches pane for that branch, with the same order, icons, texts and enabling (no
+    Fetch, not even for a remote branch; Delete of a remote branch is on its remote, below). It is built when the
     menu opens, so it follows the state at that moment (nothing that writes while an operation runs, no rebase while one
     is in progress).
   - **Leaving a detached HEAD:** a checkout (also of a revision from the log, or a new branch with Checkout) that would
@@ -461,9 +466,9 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     Anyway", [stash.md](stash.md)); not for soft and mixed resets, dropping a stash or branch and tag operations.
 - **Fetch** ([ADR 0043](../adr/0043-git-log-fetch.md)): the down arrow in the header ("Fetch All Remotes", also while
   the log is collapsed) fetches every remote but those with `remote.<name>.skipFetchAll`, one after the other; Fetch in
-  the branches pane's context menu (after Delete and a separator) on a remote, a folder of a remote or a remote branch
-  fetches only that remote, also one with `skipFetchAll`; it is disabled where no remote of the repository matches
-  (remote branches of a removed remote). `git fetch --prune --recurse-submodules=no`: remote branches deleted on the
+  the branches pane's context menu (its only item) on a remote or a folder of a remote
+  fetches only that remote, also one with `skipFetchAll`; it is left out where no remote of the repository matches
+  (a removed remote), and greyed out while an operation runs. `git fetch --prune --recurse-submodules=no`: remote branches deleted on the
   server disappear (not for a remote whose fetch refspecs write outside `refs/remotes/`, e.g. a mirror, where pruning
   would delete local branches and tags: "Not pruned: backup, as its fetch refspecs write outside refs/remotes/."), tags
   arrive as git follows them by default (those of the fetched commits); local tags are not deleted (unless the user
@@ -539,7 +544,7 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     commits that pass the other filters too, as listed; exactly one selected, the first at first; a click on the
     selected one keeps it) and × ("Stop Comparing"; Escape in the table too). The text, user and path filters and the
     graph options still apply; the Branch button is disabled meanwhile and its selection comes back when comparing
-    stops, as do all filters. "Filter Log by Branch" in the pane stops comparing first. An empty side says "No commits
+    stops, as do all filters. Filtering by branches from the pane (double-click, Enter) stops comparing first. An empty side says "No commits
     in feature that are not in main." (without other filters set, else "No commits match the filters."). The graph is
     drawn as for a branch filter; lanes to parents outside the range run to the end of the list. No hash match while
     comparing. The counts are read with every first page, so a refresh (Refresh, a commit, checkout or fetch) counts
