@@ -98,3 +98,34 @@ data class GitRemoteDeletionResult(
     val cancelled: Boolean = false,
     val outcomes: Map<String, GitRemoteRefResult> = emptyMap(),
 )
+
+/** What became of one tag that a tag push sent (ADR 0173). */
+enum class GitTagPushOutcome {
+    /** The remote has the tag now, new. */
+    PUSHED,
+
+    /** The remote had the tag at this object already; nothing was sent. */
+    UP_TO_DATE,
+
+    /** The remote has a tag of that name at another object; a tag is never overwritten. */
+    EXISTS,
+
+    /** The remote refused it for another reason, e.g. a hook. */
+    REJECTED,
+}
+
+/** [outcome] of one tag, with git's [summary] for a refusal (`[rejected] (already exists)`). */
+data class GitTagPushRefResult(
+    val outcome: GitTagPushOutcome,
+    val summary: String = "",
+)
+
+/**
+ * What a tag push gave: git's [result], whether [cancelled], and per short tag name what git reported ([outcomes]); a
+ * tag git did not report on is missing.
+ */
+data class GitTagPushResult(
+    val result: GitResult,
+    val cancelled: Boolean = false,
+    val outcomes: Map<String, GitTagPushRefResult> = emptyMap(),
+)

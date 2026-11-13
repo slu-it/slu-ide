@@ -16,9 +16,10 @@ import dev.sluide.git.cli.status
 import dev.sluide.git.parse.GitLogParser
 import dev.sluide.git.parse.RefspecDestination
 import dev.sluide.git.parse.deletionStatus
+import dev.sluide.git.parse.pushStatus
+import dev.sluide.git.parse.reason
 import dev.sluide.git.parse.refspecDestinations
 import dev.sluide.git.parse.rejection
-import dev.sluide.git.parse.status
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 import kotlin.time.Duration
@@ -26,10 +27,10 @@ import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Pushes a branch, tells what a push would send (ADR 0049) and deletes refs on a remote (ADR 0078) with the git
- * command line. A push runs as a fetch does (ADR 0043): git never asks for anything ([fetchEnvironment]), it stops
- * after 10 minutes or on a cancel, and names that cannot be passed to git ([refusal]) fail without running it. Runs git
- * on the calling thread.
+ * Pushes a branch, tells what a push would send (ADR 0049), deletes refs on a remote (ADR 0078) and pushes tags
+ * (ADR 0173) with the git command line. A push runs as a fetch does (ADR 0043): git never asks for anything
+ * ([fetchEnvironment]), it stops after 10 minutes or on a cancel, and names that cannot be passed to git ([refusal])
+ * fail without running it. Runs git on the calling thread.
  */
 @Component
 class GitPush(
@@ -276,7 +277,7 @@ class GitPush(
         if (written.exitValue == null && cancellation.cancelled) {
             return GitPushResult(GitResult(false, GitCli.CANCELLED), cancelled = true)
         }
-        val status = status(written.output, "$HEADS$branch:$HEADS$target")
+        val status = pushStatus(written.output, "$HEADS$branch:$HEADS$target")
         if (written.result.success) {
             val result = GitResult(true, written.errors)
             return GitPushResult(result, upToDate = status?.flag == '=', created = status?.flag == '*')
@@ -393,6 +394,85 @@ class GitPush(
     }
 
     /**
+     * Pushes the [tags] (short names) to [remote] in one push (ADR 0173): `git push --porcelain
+     * --recurse-submodules=no --end-of-options <remote> refs/tags/<t>:refs/tags/<t>…`, never forced, with the
+     * environment and the limits of [push]: git never asks, it stops after the [timeout] or on a [cancellation]
+     * (either may have reached the remote all the same: the message says so), and names that cannot be passed to git
+     * ([refusal]) fail without running it. Git pushes each tag on its own, so some may be sent and others refused; the
+     * result tells for each tag what git reported (verified with git 2.47.3, tab separated, the same for a lightweight and
+     * an annotated tag):
+     *
+     * | case | porcelain line | exit |
+     * |---|---|---|
+     * | new on the remote | `*\trefs/tags/v1:refs/tags/v1\t[new tag]` | 0 |
+     * | remote has it at the same object | `=\trefs/tags/v1:refs/tags/v1\t[up to date]` | 0 |
+     * | remote has the name at another object | `!\trefs/tags/v1:refs/tags/v1\t[rejected] (already exists)` | 1 |
+     * | remote hook declines | `!\trefs/tags/v1:refs/tags/v1\t[remote rejected] (pre-receive hook declined)` | 1 |
+     *
+     * The other tags of a push with a refused one are still sent.
+     */
+    fun pushTags(
+        root: Path,
+        remote: String,
+        tags: List<String>,
+        cancellation: GitCancellation,
+        timeout: Duration = GitCli.FETCH_TIMEOUT,
+    ): GitTagPushResult {
+        require(tags.isNotEmpty()) { "no tags to push" }
+        val names = listOf(remote) + tags
+        names.firstNotNullOfOrNull { refusal(it) }?.let { return GitTagPushResult(GitResult(false, it)) }
+        // A name git would read as a pattern or as a refspec of its own ('*', ':') is no tag name.
+        tags.firstOrNull { !GitRefNames.isValidTagName(it) }?.let {
+            return GitTagPushResult(GitResult(false, "'$it' is no valid tag name."))
+        }
+        if (cancellation.cancelled) return GitTagPushResult(GitResult(false, GitCli.CANCELLED), cancelled = true)
+        val arguments =
+            buildList {
+                addAll(listOf("push", "--porcelain", "--recurse-submodules=no", "--end-of-options", remote))
+                tags.distinct().forEach { add("$TAGS$it:$TAGS$it") }
+            }
+        val environment = fetchEnvironment(git.environment, git.sshConfigured(root) == true)
+        val written =
+            git.writeWithOutput(
+                root,
+                arguments,
+                timeout = timeout,
+                environment = environment,
+                cancellation = cancellation,
+            )
+        if (written.exitValue == null && cancellation.cancelled) {
+            return GitTagPushResult(GitResult(false, GitCli.CANCELLED), cancelled = true)
+        }
+        val outcomes = LinkedHashMap<String, GitTagPushRefResult>()
+        for (tag in tags) {
+            val status = pushStatus(written.output, "$TAGS$tag:$TAGS$tag") ?: continue
+            outcomes[tag] =
+                when {
+                    status.flag == '*' -> {
+                        GitTagPushRefResult(GitTagPushOutcome.PUSHED)
+                    }
+
+                    status.flag == '=' -> {
+                        GitTagPushRefResult(GitTagPushOutcome.UP_TO_DATE)
+                    }
+
+                    status.flag == '!' && reason(status.summary) == "already exists" -> {
+                        GitTagPushRefResult(GitTagPushOutcome.EXISTS, status.summary)
+                    }
+
+                    else -> {
+                        GitTagPushRefResult(GitTagPushOutcome.REJECTED, status.summary)
+                    }
+                }
+        }
+        if (written.result.success) return GitTagPushResult(GitResult(true, written.errors), outcomes = outcomes)
+        // Stopped while it waited for the server's answer, it may have pushed all the same, as a cancel may.
+        val unknown = if (written.timedOut) "\nIt may have reached $remote. Fetch to check." else ""
+        val result = written.result.copy(message = written.result.message + unknown)
+        return GitTagPushResult(result, outcomes = outcomes)
+    }
+
+    /**
      * Which of the [refs] (full refnames) [remote] has, as `git ls-remote --end-of-options <url> <ref>…` lists them at
      * the URL a push of [remote] goes to (`git remote get-url --push`, which may differ from the one fetched from),
      * within the [timeout] left; `null` if that URL cannot be read or passed to git ([refusal]), or `ls-remote` fails,
@@ -435,9 +515,9 @@ class GitPush(
             .filterTo(HashSet()) { it in refs }
     }
 
-    /** A status line of `git push --porcelain`: `<flag> TAB <from>:<to> TAB <summary>`. */
     private companion object {
         const val HEADS = "refs/heads/"
+        const val TAGS = "refs/tags/"
 
         val FULL_HASH = Regex("[0-9a-f]{40}|[0-9a-f]{64}")
 
