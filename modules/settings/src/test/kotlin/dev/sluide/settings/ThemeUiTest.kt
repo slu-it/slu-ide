@@ -3,8 +3,10 @@ package dev.sluide.settings
 import javafx.application.ColorScheme
 import javafx.beans.property.SimpleObjectProperty
 import javafx.scene.Scene
+import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
 import javafx.scene.control.MenuButton
+import javafx.scene.control.MenuItem
 import javafx.scene.control.RadioMenuItem
 import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
@@ -167,6 +169,23 @@ class ThemeUiTest {
 
         assertEquals(ColorScheme.DARK, stage.scene.preferences.colorScheme)
         assertTrue((stage.scene.root as Region).isDark())
+    }
+
+    @Test
+    fun `a context menu that is shown again after a theme switch takes the new scheme`(robot: FxRobot) {
+        install(robot)
+        robot.interact { settings.apply(Theme.DARK) }
+        val menu = ContextMenu(MenuItem("item"))
+        robot.interact { menu.show(stage, stage.x + 10, stage.y + 10) }
+        assertEquals(ColorScheme.DARK, menu.scene.preferences.colorScheme)
+        robot.interact { menu.hide() }
+
+        // Switched while the menu is closed, so the switch does not reach it.
+        robot.interact { settings.apply(Theme.LIGHT) }
+        robot.interact { menu.show(stage, stage.x + 10, stage.y + 10) }
+
+        assertEquals(ColorScheme.LIGHT, menu.scene.preferences.colorScheme)
+        robot.interact { menu.hide() }
     }
 
     @Test

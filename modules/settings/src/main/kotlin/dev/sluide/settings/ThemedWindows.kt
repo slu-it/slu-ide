@@ -2,6 +2,7 @@ package dev.sluide.settings
 
 import javafx.scene.Scene
 import javafx.stage.Window
+import javafx.stage.WindowEvent
 import javafx.util.Subscription
 import org.springframework.stereotype.Component
 import java.util.WeakHashMap
@@ -39,9 +40,16 @@ class ThemedWindows(
         subscription = Subscription.EMPTY
     }
 
+    /**
+     * Styles the scene of [window] when it gets one, and again whenever the window shows: a theme switch reaches only
+     * the open windows, and a reused popup (a control's context menu) would otherwise show in the scheme it had when
+     * it was last open.
+     */
     private fun watch(window: Window) {
         if (watched.put(window, Unit) != null) return
         window.sceneProperty().subscribe { scene -> if (installed) scene?.let(::style) }
+        // Before the window's first CSS pass of this showing.
+        window.addEventHandler(WindowEvent.WINDOW_SHOWING) { if (installed) window.scene?.let(::style) }
     }
 
     private fun style(scene: Scene) {

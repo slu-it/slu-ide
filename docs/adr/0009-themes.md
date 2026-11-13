@@ -15,7 +15,9 @@ does not depend on `settings`.
   and Spring creates the bean on the launcher thread.
 - `ThemedWindows` sets `Scene.getPreferences().colorScheme` (JavaFX 25+) on every window in `Window.getWindows()`,
   including dialogs and popups, and adds `theme.css`, which re-tints Modena's looked-up colours (`-fx-base`,
-  `-fx-background`, …) inside `@media (prefers-color-scheme: dark)` (JavaFX 24+).
+  `-fx-background`, …) inside `@media (prefers-color-scheme: dark)` (JavaFX 24+). It does so when a window gets a
+  scene, for all open windows when the theme changes, and again whenever a window shows, so that a reused popup (a
+  control's context menu) closed during a theme switch shows in the new scheme.
 - Stylesheets that set their own colours add `@media (prefers-color-scheme: dark)` rules for them (`syntax.css`,
   `file-explorer.css`); stylesheets that only use Modena's looked-up colours (`editor.css`, `preview-view.css`,
   `view-toolbar.css`, `settings.css` apart from its always-dark terminal preview) need none, `theme.css` re-tints those. Either way
