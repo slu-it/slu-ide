@@ -95,7 +95,7 @@ class TodoPanel(
             Tab("", lists.getValue(scope)).apply { isClosable = false }
         }
 
-    internal val tabPane = TabPane(tabs.getValue(TodoScope.SHARED), tabs.getValue(TodoScope.PROJECT))
+    internal val tabPane = TabPane(tabs.getValue(TodoScope.PROJECT), tabs.getValue(TodoScope.SHARED))
 
     /** The collapsed panel; a click anywhere on it expands. */
     internal val stripe: Node =
@@ -141,11 +141,14 @@ class TodoPanel(
         refresh(TodoScope.PROJECT)
     }
 
-    /** The window's project folder; null disables the Project tab (and the Project scope in the dialog). */
+    /**
+     * The window's project folder, which selects the Project tab; null disables the Project tab (and the Project scope
+     * in the dialog) and selects Shared. A window gets its folder once (ADR 0014), so no choice of the user is lost.
+     */
     fun open(folder: Path?) {
         this.folder = folder
         tabs.getValue(TodoScope.PROJECT).isDisable = folder == null
-        if (folder == null) tabPane.selectionModel.select(tabs.getValue(TodoScope.SHARED))
+        select(if (folder == null) TodoScope.SHARED else TodoScope.PROJECT)
         refresh(TodoScope.SHARED)
         refresh(TodoScope.PROJECT)
     }

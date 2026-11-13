@@ -14,8 +14,8 @@ folder, as cards with Markdown notes.
 - **Width and tab:** the expanded panel is 320 px wide at first; the width the user drags it to and the selected tab are
   kept while the window is open (collapsing and expanding again restores them), but not between runs. Resizing the
   window changes the editor's width, not the panel's.
-- **Tabs:** "Shared" (the default) and "Project", each with the number of its TODOs. The Project tab is disabled in a
-  window without a folder.
+- **Tabs:** "Project" (the default) and "Shared", each with the number of its TODOs. The Project tab is disabled in a
+  window without a folder, which shows "Shared".
 - **Cards:** a card shows the summary on one line with buttons to Expand (the chevron; also hides the description
   again), Edit (pencil) and Delete (bin). Expanding shows the description as rendered Markdown; whether a card is
   expanded is stored, so it stays after a restart and in every window (new TODOs are collapsed). A card without a
@@ -29,9 +29,9 @@ folder, as cards with Markdown notes.
   are one level deep and sit among the TODOs in any order. A folder's header shows its name and number of TODOs, with
   buttons to collapse or expand it (stored, so it stays after a restart and in every window; new folders are
   expanded), to add a TODO into it (at its top; a collapsed folder expands), to edit it (also by a double click on the
-  name: name and Shared | Project, which moves the folder with its TODOs to the top of the other tab) and to delete
+  name: name and Project | Shared, which moves the folder with its TODOs to the top of the other tab) and to delete
   it. An expanded empty folder says "Drag TODOs here". The tab's number counts the TODOs in folders too.
-- **The dialog:** a Shared | Project switch (Project is disabled without a folder), a Summary field and a Description
+- **The dialog:** a Project | Shared switch (Project is disabled without a folder), a Summary field and a Description
   editor with Write | Preview. Write is a Markdown code editor in the editor font (the keys of code editors apply,
   [keyboard-shortcuts.md](keyboard-shortcuts.md)); Preview renders the text as the card does. The summary is required.
   Changing the switch of an existing TODO moves it to the other scope. The Folder field offers "No folder" and the

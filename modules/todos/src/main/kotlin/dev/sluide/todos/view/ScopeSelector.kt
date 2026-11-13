@@ -5,7 +5,7 @@ import javafx.scene.control.ToggleButton
 import javafx.scene.control.ToggleGroup
 import javafx.scene.layout.HBox
 
-/** The Shared|Project segmented toggle of the dialogs; a choice is always selected, Project can be disabled. */
+/** The Project|Shared segmented toggle of the dialogs; a choice is always selected, Project can be disabled. */
 internal class ScopeSelector(
     initial: TodoScope,
     projectPossible: Boolean,
@@ -22,7 +22,7 @@ internal class ScopeSelector(
         }
 
     val row =
-        HBox(buttons.getValue(TodoScope.SHARED), buttons.getValue(TodoScope.PROJECT)).apply {
+        HBox(buttons.getValue(TodoScope.PROJECT), buttons.getValue(TodoScope.SHARED)).apply {
             styleClass += "todo-segmented"
         }
 

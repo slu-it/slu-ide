@@ -53,6 +53,7 @@ class TodoPanelUiTest {
     @AfterEach
     fun clean() = fixture.cleanup()
 
+    /** The list of [scope], Shared by default, whichever tab is selected. */
     private fun list(scope: TodoScope = TodoScope.SHARED) = panel.lists.getValue(scope)
 
     private fun tabText(
@@ -139,7 +140,7 @@ class TodoPanelUiTest {
     @Test
     fun `expanding focuses the Add button of the selected tab and the buttons are reachable by Tab`(robot: FxRobot) {
         robot.interact { panel.expanded.set(true) }
-        assertTrue(scene.focusOwner === list().addButton)
+        assertTrue(scene.focusOwner === list(TodoScope.PROJECT).addButton)
         add(robot, TodoScope.SHARED, "one", "text")
         val card = cards(robot).single()
         assertTrue(listOf(card.toggle, card.edit, card.delete, panel.collapseButton).all { it.isFocusTraversable })
@@ -156,6 +157,7 @@ class TodoPanelUiTest {
 
     @Test
     fun `Add puts the TODO at the top of the tab and a draft of the other scope selects that tab`(robot: FxRobot) {
+        robot.interact { panel.select(TodoScope.SHARED) }
         fixture.draft = TodoDraft(TodoScope.SHARED, "first", "")
         robot.interact { list().addButton.fire() }
         fixture.draft = TodoDraft(TodoScope.SHARED, "second", "")
@@ -179,6 +181,7 @@ class TodoPanelUiTest {
 
     @Test
     fun `Edit with another scope moves the TODO to the other tab and selects it`(robot: FxRobot) {
+        robot.interact { panel.select(TodoScope.SHARED) }
         val added = assertNotNull(add(robot, TodoScope.SHARED, "move me", "text"))
         val card = cards(robot).single()
         fixture.draft = TodoDraft(TodoScope.PROJECT, "moved", "text")
@@ -341,9 +344,18 @@ class TodoPanelUiTest {
     }
 
     @Test
-    fun `the Project tab is disabled without a folder`(robot: FxRobot) {
+    fun `the Project tab comes first and is selected, but is disabled without a folder`(robot: FxRobot) {
         assertFalse(fixture.fx(robot) { panel.tabs.getValue(TodoScope.PROJECT).isDisable })
-        robot.interact { panel.tabPane.selectionModel.select(panel.tabs.getValue(TodoScope.PROJECT)) }
+        assertEquals(
+            listOf(panel.tabs.getValue(TodoScope.PROJECT), panel.tabs.getValue(TodoScope.SHARED)),
+            fixture.fx(robot) { panel.tabPane.tabs.toList() },
+        )
+        assertTrue(
+            fixture.fx(robot) {
+                panel.tabPane.selectionModel.selectedItem ===
+                    panel.tabs.getValue(TodoScope.PROJECT)
+            },
+        )
         robot.interact { panel.open(null) }
         assertTrue(fixture.fx(robot) { panel.tabs.getValue(TodoScope.PROJECT).isDisable })
         assertTrue(

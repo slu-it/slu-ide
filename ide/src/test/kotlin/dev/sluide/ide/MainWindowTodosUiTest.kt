@@ -54,13 +54,23 @@ class MainWindowTodosUiTest : MainWindowUiFixture() {
                 .isDisable
         }
 
+    private fun selectedTabText(robot: FxRobot) =
+        onFx(robot) {
+            robot
+                .lookup(".todo-panel .tab-pane")
+                .queryAs(TabPane::class.java)
+                .selectionModel
+                .selectedItem
+                .text
+        }
+
     private fun sharedTabText(robot: FxRobot) =
         onFx(robot) {
             robot
                 .lookup(".todo-panel .tab-pane")
                 .queryAs(TabPane::class.java)
                 .tabs
-                .first()
+                .single { it.text.startsWith("Shared") }
                 .text
         }
 
@@ -141,12 +151,14 @@ class MainWindowTodosUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `the folder reaches the panel, which enables the Project tab`(robot: FxRobot) {
+    fun `the folder reaches the panel, which enables and selects the Project tab`(robot: FxRobot) {
         expand(robot)
         assertTrue(projectTabDisabled(robot), "no folder yet")
+        assertEquals("Shared", selectedTabText(robot).substringBefore(" ("), "no folder yet")
 
         robot.interact { projectService.open(project) }
         assertFalse(projectTabDisabled(robot))
+        assertEquals("Project", selectedTabText(robot).substringBefore(" ("))
     }
 
     @Test
