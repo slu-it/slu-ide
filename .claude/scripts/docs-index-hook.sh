@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# PostToolUse hook (Edit|Write): after a file below docs/ changed, verify docs/index.md still lists every document.
+# PostToolUse hook (Edit|Write): after a file below docs/ changed, verify docs/index.md still lists every document and
+# its rows keep the limits of its header.
 # Looks at tool_input.file_path only: the file must be below the top-level docs/ folder of the git work tree that
 # contains it (a linked worktree under .claude/worktrees/ is its own tree). That tree's
 # .claude/scripts/check-docs-index.sh runs; a tree without one is ignored (the hook's own copy would check another
@@ -31,6 +32,6 @@ check="$top/.claude/scripts/check-docs-index.sh"
 [ -x "$check" ] || exit 0
 if ! output="$(cd "$top" && "$check" 2>&1)"; then
   echo "$output" >&2
-  echo "Add the missing documents to docs/index.md as table rows with a short summary and keywords." >&2
+  echo "Fix docs/index.md: every document needs a row; summary at most 120 characters, at most 12 keywords, no \\| (rules in its header)." >&2
   exit 2
 fi
