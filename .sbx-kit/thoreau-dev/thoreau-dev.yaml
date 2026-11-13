@@ -1,0 +1,39 @@
+# syntax=docker/sandbox-kit:3
+schemaVersion: "3"
+displayName: Thoreau development
+description: Virtual displays, UI automation and the programs Thoreau's features call, for building, testing and
+  driving the IDE in a Claude Code sandbox
+sourceUrl: https://github.com/slu-it/slu-ide
+
+kind: mixin
+provides: ["thoreau-dev@1.0.0"]
+
+# The content (thoreau-dev.dockerfile) only adds /opt/thoreau-dev/install.sh; the install hook runs it once, when the
+# sandbox is created. Displays are not started here: .claude/scripts/setup-display.sh and run-app.sh start Xvfb and
+# openbox on demand and repair hung ones.
+capabilities:
+  - type: com.docker.sandbox/lifecycle@1
+    config:
+      install:
+        - command: [bash, /opt/thoreau-dev/install.sh]
+          user: "0"
+          env: [HTTP_PROXY, HTTPS_PROXY, NO_PROXY, http_proxy, https_proxy, no_proxy]
+          description: Install JDK 25 if missing, the display stack, openbox, zsh, espeak-ng, secret-tool and npm
+      files:
+        - path: /home/agent/.zshrc
+          content: ""
+          mode: "0644"
+          overwrite: false
+          description: Empty ~/.zshrc, so zsh's new-user menu does not hang the terminal tests
+
+  - type: com.docker.sandbox/network-policy@2
+    config:
+      install:
+        allow:
+          - ports.ubuntu.com
+          - archive.ubuntu.com
+          - security.ubuntu.com
+          - deb.debian.org
+          - security.debian.org
+          - download.docker.com
+          - dhi.io
