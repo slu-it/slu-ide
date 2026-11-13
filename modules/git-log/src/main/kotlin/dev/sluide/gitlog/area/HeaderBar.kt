@@ -28,16 +28,25 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 private const val QUICK_ACTIONS_GAP = 12.0
 
 /**
- * Whether the header may rebase onto `origin`'s default branch: the last read found a remote named `origin`, `HEAD` is
- * on a branch and there is a commit (a `HEAD` ref).
+ * Whether the header may rebase onto `origin`'s default branch: a remote named `origin` ([hasOrigin]), `HEAD` on a
+ * branch ([onBranch], not detached) and a commit ([hasCommit]).
  */
+internal fun rebaseOntoOriginPossible(
+    hasOrigin: Boolean,
+    onBranch: Boolean,
+    hasCommit: Boolean,
+): Boolean = hasOrigin && onBranch && hasCommit
+
+/** [rebaseOntoOriginPossible] for the [remotes] and [refs] the log's pages read; `null` for what could not be read. */
 internal fun rebaseOntoOriginPossible(
     remotes: List<String>?,
     refs: GitRefs?,
 ): Boolean =
-    remotes.orEmpty().contains("origin") &&
-        refs?.currentBranch != null &&
-        refs.refs.any { it.kind == GitRefKind.HEAD }
+    rebaseOntoOriginPossible(
+        hasOrigin = remotes.orEmpty().contains("origin"),
+        onBranch = refs?.currentBranch != null,
+        hasCommit = refs?.refs.orEmpty().any { it.kind == GitRefKind.HEAD },
+    )
 
 /**
  * The header bar of the git log area (ADRs 0035, 0046): a chevron that follows [expanded], the tabs' [titles], the
