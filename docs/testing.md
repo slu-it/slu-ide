@@ -202,6 +202,9 @@ CI once.
   `--stop`. The catalog's URLs and sha256 values download them by hand (`curl -L`, then `sha256sum`).
 
 ## Running and screenshotting the real app (headless Linux sandbox)
+A sandbox started from `sbxenv.yaml` (`sbx env run`) has JDK 25 and the packages these scripts need preinstalled by the
+kit in `.sbx-kit/` (ADR 0169); in other sandboxes the scripts install the display packages and openbox with
+`sudo apt-get` on first use.
 ```bash
 .claude/scripts/run-app.sh <folder>                 # dark theme on display :107 (outside the gate's :99-:106); prints pid=, display=, home=, log=
 .claude/scripts/run-app.sh --theme light --display 108 <folder>
