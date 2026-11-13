@@ -464,6 +464,36 @@ class TerminalUiTest {
     }
 
     @Test
+    fun `hasEnded is exact about this Terminals open tabs whose command has ended`(robot: FxRobot) {
+        val other = Terminals(fontSettings, scrollSettings, environment)
+        try {
+            lateinit var job: TerminalTab
+            lateinit var quick: TerminalTab
+            lateinit var foreign: TerminalTab
+            lateinit var shell: EditorTab
+            robot.interact {
+                job = terminals.open(dir, "Job 1", "sleep 300") as TerminalTab
+                quick = terminals.open(dir, "Job 2", "true") as TerminalTab
+                foreign = other.open(dir, "Job 3", "true") as TerminalTab
+                shell = terminals.open(dir)
+                root.children.setAll(job.content)
+            }
+
+            eventually { assertTrue(quick.view.exited.get() && foreign.view.exited.get()) }
+            robot.interact {
+                assertTrue(terminals.hasEnded(quick))
+                assertFalse(terminals.hasEnded(job), "still running")
+                assertFalse(terminals.hasEnded(shell), "a plain shell that runs")
+                assertFalse(terminals.hasEnded(foreign), "ended, but not this instance's tab")
+                quick.dispose()
+                assertFalse(terminals.hasEnded(quick), "closed")
+            }
+        } finally {
+            other.close()
+        }
+    }
+
+    @Test
     fun `a running terminal follows font changes and tells the shell its new size`(robot: FxRobot) {
         val tab = open(robot)
         val before = tab.view.cell

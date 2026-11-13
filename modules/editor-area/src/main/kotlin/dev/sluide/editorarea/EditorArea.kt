@@ -400,8 +400,7 @@ class EditorArea(
     }
 
     private fun focus(openFile: OpenFile) {
-        val diffView = openFile.diffView
-        if (diffView != null) diffView.node.requestFocus() else openFile.editor.focus()
+        openFile.diffView?.node?.requestFocus() ?: openFile.editor.focus()
     }
 
     /**
@@ -554,6 +553,9 @@ class EditorArea(
         }
     }
 
+    /** Closes [tab] without asking, e.g. a command tab that has ended; does nothing if it is not open. */
+    fun close(tab: EditorTab) = editorTabs.close(tab)
+
     /** Closes all tabs without asking, including the ones that do not show files. */
     fun closeAll() = editorTabs.closeAll()
 
@@ -570,9 +572,7 @@ class EditorArea(
         discarded: List<Path>,
     ) {
         for (openFile in editorTabs.filesUnder(path)) {
-            if (!openFile.isDirty ||
-                openFile.path in discarded
-            ) {
+            if (!openFile.isDirty || openFile.path in discarded) {
                 editorTabs.close(openFile)
             } else {
                 onChangedOnDisk(openFile)

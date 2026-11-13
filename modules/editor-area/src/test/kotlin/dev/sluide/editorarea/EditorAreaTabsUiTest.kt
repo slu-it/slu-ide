@@ -403,7 +403,7 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
 
         dragBy(robot, label, 80.0, release = false)
         assertEquals(1, robot.lookup(".editor-tab.dragging").queryAll<Node>().size)
-        robot.interact { editor.editorTabs.close(tabs.first()) }
+        robot.interact { editor.close(tabs.first()) }
 
         assertTrue(robot.lookup(".editor-tab.dragging").queryAll<Node>().isEmpty())
         releaseOn(robot, label, 80.0)

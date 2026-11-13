@@ -157,6 +157,12 @@ class Terminals(
     /** The number of terminals whose tab is not closed yet; embedded terminals do not count. */
     val openCount: Int get() = open.size
 
+    /**
+     * Whether [tab] is one of this instance's open terminal tabs whose shell or command has ended; `false` for any
+     * other tab, also for one closed already.
+     */
+    fun hasEnded(tab: EditorTab): Boolean = open.any { it === tab && it.view.exited.get() }
+
     /** Ends all terminals, in tabs and embedded. */
     override fun close() {
         open.toList().forEach(TerminalTab::dispose)
