@@ -32,4 +32,5 @@ internal object GitLogIcons {
     val reset: Ikon = MaterialDesignH.HISTORY
     val editMessage: Ikon = MaterialDesignC.COMMENT_EDIT_OUTLINE
     val branches: Ikon = MaterialDesignS.SOURCE_BRANCH
+    val tags: Ikon = MaterialDesignT.TAG_MULTIPLE_OUTLINE
 }

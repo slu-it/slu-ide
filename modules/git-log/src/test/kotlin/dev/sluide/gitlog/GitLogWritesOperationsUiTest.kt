@@ -64,6 +64,9 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         assertTrue(writing.all { commitItem(it)?.isDisable == false })
         assertEquals(
             listOf(
+                // The tag at this commit has its own submenu.
+                "v0.9",
+                null,
                 "Review Commit",
                 "Checkout Revision",
                 "Copy Revision Number",

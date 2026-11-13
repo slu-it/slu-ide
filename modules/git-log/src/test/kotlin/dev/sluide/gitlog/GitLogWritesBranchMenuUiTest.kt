@@ -58,9 +58,29 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
                 menu.items.filterIsInstance<Menu>()
             }.get()
 
-    /** The branch submenus of the opened menu, also those a "Branches" menu holds. */
-    private fun menus(): List<Menu> =
-        topMenus().flatMap { if (it.text == "Branches") it.items.filterIsInstance<Menu>() else listOf(it) }
+    /** The submenus of the opened menu with the group each sits in: `Branches`, `Tags` or none (it stands alone). */
+    private fun grouped(): List<Pair<String?, Menu>> =
+        topMenus().flatMap { top ->
+            if (top.text in setOf("Branches", "Tags")) {
+                top.items.filterIsInstance<Menu>().map { top.text to it }
+            } else {
+                listOf(null to top)
+            }
+        }
+
+    /** The ref submenus of the opened menu, also those a "Branches" or "Tags" menu holds. */
+    private fun refMenus(): List<Menu> = grouped().map { it.second }
+
+    /** The branch submenus of the opened menu; a tag is told by the kind style of its ref icon, not by name. */
+    private fun menus(): List<Menu> = refMenus().filter { !it.isTag() }
+
+    /** The tag submenus of the opened menu. */
+    private fun tagMenus(): List<Menu> = refMenus().filter { it.isTag() }
+
+    private fun Menu.isTag(): Boolean = "git-ref-tag" in refIcon().styleClass
+
+    /** The ref icon of a ref submenu. */
+    private fun Menu.refIcon(): FontIcon = (graphic as Parent).childrenUnmodifiable.single() as FontIcon
 
     private fun Menu.item(id: String): MenuItem = items.single { it.id == id }
 
@@ -78,16 +98,18 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
     }
 
     @Test
-    fun `a commit shows a submenu for each local and remote branch, not for HEAD or tags, once`(robot: FxRobot) {
+    fun `a commit shows a submenu for each local and remote branch and tag, not for HEAD, once`(robot: FxRobot) {
         openAndExpand(robot)
         selectRows(robot, 0)
 
         assertEquals(listOf("main", "origin/main"), menus().map { it.text })
-        assertTrue(menus().all { "git-branch-menu" in it.styleClass })
+        assertEquals(listOf("v1.0"), tagMenus().map { it.text }, "a tag: its own submenu")
+        assertTrue(refMenus().all { "git-branch-menu" in it.styleClass })
         val items = view.table.contextMenu.items
         assertEquals("Branches", items[0].text, "two branches: one menu holding both")
-        assertTrue(items[1] is SeparatorMenuItem, "a separator after the submenus")
-        assertEquals("Review Commit", items[2].text)
+        assertEquals("v1.0", items[1].text, "the tag after the branches")
+        assertTrue(items[2] is SeparatorMenuItem, "a separator after the submenus")
+        assertEquals("Review Commit", items[3].text)
         assertEquals(
             listOf("branch-new-branch", "branch-review", null, "branch-rename", null, "branch-working-tree-diff"),
             menus().first().items.map { it.id },
@@ -113,17 +135,15 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         assertEquals(size, view.table.contextMenu.items.size, "not added again when it opens again")
 
         selectRows(robot, 1)
-        assertTrue(menus().isEmpty(), "a tag only")
-        assertEquals(
-            "Review Commit",
-            view.table.contextMenu.items
-                .first()
-                .text,
-            "no leading separator",
-        )
+        assertTrue(menus().isEmpty(), "a tag only: no branch")
+        assertEquals(listOf("v0.9"), tagMenus().map { it.text })
+        val tagOnly = view.table.contextMenu.items
+        assertEquals("v0.9", tagOnly[0].text)
+        assertTrue(tagOnly[1] is SeparatorMenuItem, "a separator after the submenu")
+        assertEquals("Review Commit", tagOnly[2].text)
 
         selectRows(robot, 0, 2)
-        assertTrue(menus().isEmpty(), "several commits")
+        assertTrue(refMenus().isEmpty(), "several commits")
         selectRows(robot, 2)
         assertEquals(listOf("feature/a"), menus().map { it.text })
     }
@@ -136,12 +156,17 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         selectRows(robot, 0)
 
         val top = topMenus()
-        assertEquals(listOf("Branches"), top.map { it.text }, "two branches: one menu")
-        assertEquals(listOf("main", "origin/main"), top.single().items.map { it.text })
-        val branches = top.single().graphic as FontIcon
+        assertEquals(listOf("Branches", "v1.0"), top.map { it.text }, "two branches: one menu, then the tag")
+        assertEquals(listOf("main", "origin/main"), top[0].items.map { it.text })
+        val branches = top[0].graphic as FontIcon
         assertTrue(FontIcon(GitLogIcons.branches).style in branches.style, "the glyph font stays")
-        val refIcons = top.single().items.map { (it.graphic as Parent).childrenUnmodifiable.single() as FontIcon }
+        assertEquals(GitLogIcons.branches, branches.iconCode, "the Branches glyph")
+        val refIcons = top[0].items.map { (it as Menu).refIcon() }
         assertTrue(refIcons.all { FontIcon(MaterialDesignT.TAG_OUTLINE).style in it.style }, "the glyph font stays")
+        assertTrue(refIcons.all { it.iconCode == MaterialDesignT.TAG_OUTLINE })
+        val tagIcon = top[1].refIcon()
+        assertEquals(MaterialDesignT.TAG_OUTLINE, tagIcon.iconCode, "the tag's ref icon")
+        assertTrue("git-ref-tag" in tagIcon.styleClass)
 
         selectRows(robot, 2)
         assertEquals(listOf("feature/a"), topMenus().map { it.text }, "one branch: its own submenu, not grouped")
@@ -151,6 +176,24 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         assertTrue(pick in view.table.contextMenu.items)
         assertTrue(FontIcon(GitLogIcons.cherryPick).style in icon.style, "the glyph font stays")
         assertTrue("-fx-icon-color: -fx-text-background-color" in icon.style, "follows the highlighted item")
+    }
+
+    @Test
+    fun `several tags are grouped under Tags after the branch group, one tag stands alone`(robot: FxRobot) {
+        currentRefs = GitRefs(refs.refs + GitRef("refs/tags/v0.8", GitRefKind.TAG, "h1"), refs.currentBranch)
+        openAndExpand(robot)
+        selectRows(robot, 0)
+
+        val both = topMenus()
+        assertEquals(listOf("Branches", "Tags"), both.map { it.text }, "branch group, then tag group")
+        assertEquals(listOf("v0.8", "v1.0"), both[1].items.map { it.text })
+        val tags = both[1].graphic as FontIcon
+        assertEquals(GitLogIcons.tags, tags.iconCode, "the Tags glyph")
+        assertTrue(FontIcon(GitLogIcons.tags).style in tags.style, "the glyph font stays")
+        assertEquals(listOf("v0.8", "v1.0"), tagMenus().map { it.text }, "a new tag counts as a tag")
+        assertEquals(listOf("main", "origin/main"), menus().map { it.text })
+        selectRows(robot, 1)
+        assertEquals(listOf("v0.9"), topMenus().map { it.text }, "one tag and no branch: its own submenu")
     }
 
     @Test
@@ -386,6 +429,20 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         eventually { assertEquals("Deleted remote branch origin/fix.", status(robot)) }
         assertEquals(listOf("push --delete origin refs/heads/fix:h1"), writes.calls)
         assertEquals(setOf("sluide-git-write"), writes.threads.toSet())
+    }
+
+    @Test
+    fun `Delete in the submenu of a tag asks to delete the tag`(robot: FxRobot) {
+        openAndExpand(robot)
+        selectRows(robot, 1)
+
+        fireLater(tagMenus().single().item("branch-delete"))
+        val pane = awaitDialog(robot)
+        assertEquals("Delete tag 'v0.9'?", pane.headerText)
+        assertTrue((pane.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
+        press(robot, pane, DELETE_BUTTON)
+
+        eventually { assertEquals(listOf("tag -d v0.9"), writes.calls) }
     }
 
     @Test

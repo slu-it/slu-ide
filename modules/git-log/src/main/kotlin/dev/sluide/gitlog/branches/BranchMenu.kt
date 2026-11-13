@@ -256,7 +256,10 @@ internal fun branchMenuItem(
     action: () -> Unit,
 ): MenuItem = contextMenuItem(entry.id, entry.icon, text, action)
 
-/** What the table asks for the branches at a commit ([CommitTable.branchMenus][dev.sluide.gitlog.table.CommitTable]). */
+/**
+ * What the table asks for the branches or the tags at a commit
+ * ([CommitTable.branchMenus][dev.sluide.gitlog.table.CommitTable]).
+ */
 internal fun branchMenus(
     pages: GitLogPages,
     writing: () -> Boolean,

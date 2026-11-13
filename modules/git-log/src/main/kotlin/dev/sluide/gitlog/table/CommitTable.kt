@@ -29,18 +29,19 @@ import javafx.scene.input.ClipboardContent
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import org.kordamp.ikonli.Ikon
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /**
  * The commits of the [pages] with their graph, newest first, loaded as the user scrolls; several can be selected. The
- * context menu shows what applies to the selection ([commitMenuEntries], ADR 0172): the branches at the commit, review,
- * copying hashes (also Shortcut+C), comparing a commit with the working tree ([compareWithLocal], ADR 0044), checking
- * it out, creating branches and tags at it (ADR 0041), cherry-picking, reverting and resetting to it (ADR 0042) and
- * editing its message (ADR 0100) through [actions]. Escape ends a comparison ([stopComparing]); while it lists an
- * empty side, the placeholder says [emptySide]. Cherry-pick, revert and Edit Commit Message are greyed out while git
- * is [busy] with something; Reset and Edit Commit Message need a `HEAD` commit.
+ * context menu shows what applies to the selection ([commitMenuEntries], ADR 0172, ADR 0173): the branches and tags at
+ * the commit, review, copying hashes (also Shortcut+C), comparing a commit with the working tree ([compareWithLocal],
+ * ADR 0044), checking it out, creating branches and tags at it (ADR 0041), cherry-picking, reverting and resetting to
+ * it (ADR 0042) and editing its message (ADR 0100) through [actions]. Escape ends a comparison ([stopComparing]); while
+ * it lists an empty side, the placeholder says [emptySide]. Cherry-pick, revert and Edit Commit Message are greyed out
+ * while git is [busy] with something; Reset and Edit Commit Message need a `HEAD` commit.
  */
 internal class CommitTable(
     private val pages: GitLogPages,
@@ -57,7 +58,10 @@ internal class CommitTable(
     /** Ends the comparison shown (ADR 0044); set by the view. */
     var stopComparing: () -> Unit = {}
 
-    /** The submenus for the branches at a commit (ADR 0063); set by the view, called when the menu opens. */
+    /**
+     * The submenus for the given branches or tags at a commit (ADR 0063, ADR 0173); set by the view, called when the
+     * menu opens, once for the branches and once for the tags.
+     */
     var branchMenus: (List<GitRef>) -> List<Menu> = { emptyList() }
 
     private val dateFormat = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withZone(ZoneId.systemDefault())
@@ -130,7 +134,7 @@ internal class CommitTable(
             }
         }
         val fixed = sections.map { section -> section.map { item(it.entry) } }
-        contextMenu.items.setAll(withSeparators(listOf(branchSection(selected.singleOrNull()?.refs.orEmpty())) + fixed))
+        contextMenu.items.setAll(withSeparators(listOf(refSection(selected.singleOrNull()?.refs.orEmpty())) + fixed))
     }
 
     private fun currentSections() =
@@ -152,13 +156,27 @@ internal class CommitTable(
         currentSections().flatten().forEach { shown -> item(shown.entry).isDisable = !shown.enabled }
     }
 
-    /** The branch submenus at the commit: the one branch's own, or one Branches menu with a submenu for each. */
-    private fun branchSection(refs: List<GitRef>): List<MenuItem> {
-        val menus =
-            branchMenus(refs.filter { it.kind == GitRefKind.LOCAL_BRANCH || it.kind == GitRefKind.REMOTE_BRANCH })
+    /** The ref submenus at the commit: the branch group, then the tag group (ADR 0173). */
+    private fun refSection(refs: List<GitRef>): List<MenuItem> =
+        refGroup(
+            refs.filter {
+                it.kind == GitRefKind.LOCAL_BRANCH || it.kind == GitRefKind.REMOTE_BRANCH
+            },
+            "Branches",
+            GitLogIcons.branches,
+        ) +
+            refGroup(refs.filter { it.kind == GitRefKind.TAG }, "Tags", GitLogIcons.tags)
+
+    /** The one ref's own submenu, or one menu [name] with a submenu for each. */
+    private fun refGroup(
+        refs: List<GitRef>,
+        name: String,
+        icon: Ikon,
+    ): List<MenuItem> {
+        val menus = branchMenus(refs)
         if (menus.size < 2) return menus
         return listOf(
-            Menu("Branches", contextMenuIcon(GitLogIcons.branches)).apply {
+            Menu(name, contextMenuIcon(icon)).apply {
                 isMnemonicParsing = false
                 items.setAll(menus)
             },
