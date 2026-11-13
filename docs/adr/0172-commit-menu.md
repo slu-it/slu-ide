@@ -42,7 +42,8 @@ context-sensitive just before ([ADR 0171](0171-context-sensitive-branch-menus.md
   The existing route of the ref tooltip applies: `refMenuIcon` wraps the ref icon in a small `StackPane` that carries
   `GIT_LOG_CSS` on the node and the class `git-ref-menu-icon`, which the `.git-log` rules (light and dark block) list,
   so `-git-ref-*` resolve there and follow the popup scene's colour scheme, which `ThemedWindows` sets on every
-  window's scene. No colour is written in Kotlin.
+  window's scene. No colour is written in Kotlin. On the highlighted item the icon gets the outline of a selected
+  row (`.menu-item:focused .git-ref-icon`), so that green and purple stand out on the selection bar.
 - **Go to Hash/Branch/Tag…** leaves the menu; Shortcut+G (handled by the view and the area's tabs) is the only way.
 
 ## Consequences

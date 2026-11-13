@@ -12,12 +12,14 @@ import dev.sluide.gitlog.ui.GitLogIcons
 import javafx.application.ColorScheme
 import javafx.application.Platform
 import javafx.event.Event
+import javafx.scene.Node
 import javafx.scene.Parent
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonType
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
+import javafx.scene.effect.DropShadow
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.PickResult
 import javafx.scene.paint.Color
@@ -192,6 +194,22 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         }
         assertEquals(Color.web("#3f9a4a"), colour(ColorScheme.LIGHT), "a local branch, light")
         assertEquals(Color.web("#6cc070"), colour(ColorScheme.DARK), "a local branch, dark")
+        // On the highlighted item the icon gets the outline of a selected row, so that it stands out on the bar.
+        val item = generateSequence(icon as Node) { it.parent }.first { "menu-item" in it.styleClass }
+        val other =
+            icon.scene.root
+                .lookupAll(".menu-item")
+                .first { it !== item }
+
+        fun highlight(node: Node) =
+            robot.interact {
+                node.requestFocus()
+                icon.scene.root.applyCss()
+            }
+        highlight(other)
+        assertNull(icon.effect, "not highlighted")
+        highlight(item)
+        assertTrue(icon.effect is DropShadow, "highlighted")
         robot.interact { view.table.contextMenu.hide() }
     }
 

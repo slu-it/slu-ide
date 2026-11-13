@@ -204,12 +204,14 @@
 }
 
 /*
- * In selected rows a thin outline in the table's background colour, like the graph's halo, so that every icon colour
- * stands out against the selection bar. Not tied to the table's focus, which follows the window's focus.
+ * In selected rows and on the highlighted item of a context menu a thin outline in the background colour, like the
+ * graph's halo, so that every icon colour stands out against the selection bar. Not tied to the table's focus, which
+ * follows the window's focus.
  */
 .table-row-cell:filled:selected .git-ref-icon,
 .list-cell:filled:selected .git-ref-icon,
-.tree-cell:filled:selected .git-ref-icon {
+.tree-cell:filled:selected .git-ref-icon,
+.menu-item:focused .git-ref-icon {
     -fx-effect: dropshadow(one-pass-box, -fx-control-inner-background, 2, 1, 0, 0);
 }
 
