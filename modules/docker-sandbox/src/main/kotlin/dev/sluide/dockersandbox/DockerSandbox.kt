@@ -60,7 +60,8 @@ class DockerSandbox(
                 failure == null && installed == true
             }.minimalCompletionStage()
 
-    private val started = mutableMapOf<SandboxAction, Int>()
+    /** The number of the last session tab; one counter for all actions. */
+    private var started = 0
 
     /** Why [action] cannot run in [folder] (`null`: no folder is open), or `null` if it can. */
     fun problem(
@@ -85,12 +86,12 @@ class DockerSandbox(
         }
 
     /**
-     * Runs [action] in a terminal tab in [folder], named e.g. "Claude Code 1", and returns the tab. Must be called on
-     * the FX thread.
+     * Runs [action] in a terminal tab in [folder], named "Claude Code 1", "Claude Code 2", … (one counter for all
+     * actions), and returns the tab. Must be called on the FX thread.
      *
      * @throws SandboxNotAllowedException if [problem] reports one (e.g. "No folder is open."), also when the menu
      *   should not have offered it.
-     * @throws dev.sluide.terminal.TerminalStartException if the shell cannot be started; the next tab of [action]
+     * @throws dev.sluide.terminal.TerminalStartException if the shell cannot be started; the next session tab
      *   gets the same number.
      */
     fun open(
@@ -100,10 +101,10 @@ class DockerSandbox(
         if (folder == null) throw SandboxNotAllowedException(problem(action, null) ?: NO_FOLDER)
         // Checked again here, on the very folder the terminal starts in, not only when the menu is shown.
         problem(action, folder)?.let { throw SandboxNotAllowedException(it) }
-        val number = started.getOrDefault(action, 0) + 1
+        val number = started + 1
         return terminals
-            .open(folder, "${action.title} $number", action.command, environment)
-            .also { started[action] = number }
+            .open(folder, "${SandboxAction.TAB_NAME} $number", action.command, environment)
+            .also { started = number }
     }
 }
 

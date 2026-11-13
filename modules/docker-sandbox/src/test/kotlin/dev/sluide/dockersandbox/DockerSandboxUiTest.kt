@@ -109,12 +109,12 @@ class DockerSandboxUiTest {
 
         val tab = run(robot, SandboxAction.ENVIRONMENT)
 
-        assertEquals("Environment 1 (exited)", tab.title.value)
+        assertEquals("Claude Code 1 (exited)", tab.title.value)
         assertEquals(listOf("${project.toRealPath()}: env run"), calls.readLines())
     }
 
     @Test
-    fun `tabs are numbered per action`(robot: FxRobot) {
+    fun `tabs share one number counter whatever the action`(robot: FxRobot) {
         project.resolve("sbxenv.yaml").createFile()
         val sandbox = sandbox()
 
@@ -122,7 +122,7 @@ class DockerSandboxUiTest {
             listOf(SandboxAction.CLAUDE_CODE, SandboxAction.CLAUDE_CODE, SandboxAction.ENVIRONMENT)
                 .map { run(robot, it, sandbox).title.value }
 
-        assertEquals(listOf("Claude Code 1 (exited)", "Claude Code 2 (exited)", "Environment 1 (exited)"), titles)
+        assertEquals(listOf("Claude Code 1 (exited)", "Claude Code 2 (exited)", "Claude Code 3 (exited)"), titles)
     }
 
     @Test

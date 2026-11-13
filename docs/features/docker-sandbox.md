@@ -9,8 +9,8 @@
   fires (the accelerator works without the menu showing, so the label may be stale):
   - **Claude Code** runs `sbx run claude .` in the project folder.
   - **Environment** runs `sbx env run` in the project folder; it needs the `sbxenv.yaml`.
-- The session opens a terminal tab ([terminal.md](terminal.md)) named "Claude Code 1", "Environment 1", … (numbered per
-  action, so the second Claude Code tab is "Claude Code 2"), whose tooltip shows folder and command. The command runs
+- The session opens a terminal tab ([terminal.md](terminal.md)) named "Claude Code 1", "Claude Code 2", … for both
+  actions (one counter per window: Claude Code, Claude Code, Environment give 1, 2, 3), whose tooltip shows folder and command. The command runs
   in the user's interactive login shell (`$SHELL -l -i -c`, the startup files of a terminal tab), so `sbx` must
   be on its `PATH`. When `sbx` ends, the tab shows
   "(exited)".
