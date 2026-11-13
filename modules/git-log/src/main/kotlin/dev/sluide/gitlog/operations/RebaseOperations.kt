@@ -44,7 +44,8 @@ internal data class RebaseBranch(
         writes: GitLogWrites,
         root: Path,
     ): RefOutcome {
-        if (writes.isAncestor(root, onto, "HEAD") == true) return RefOutcome(GitResult(true, ""), joined(note, upToDate()))
+        val contained = writes.isAncestor(root, onto, "HEAD") == true
+        if (contained) return RefOutcome(GitResult(true, ""), joined(note, upToDate()))
         if (!confirmed) {
             val merges = writes.rebaseMergeCount(root, onto)
             if (merges == null || merges > 0) {

@@ -21,6 +21,7 @@ import dev.sluide.gitlog.area.GO_TO
 import dev.sluide.gitlog.area.HeaderBar
 import dev.sluide.gitlog.area.HeaderStatus
 import dev.sluide.gitlog.area.endMessage
+import dev.sluide.gitlog.area.rebaseOntoOriginPossible
 import dev.sluide.gitlog.branches.BranchesPane
 import dev.sluide.gitlog.branches.branchCommands
 import dev.sluide.gitlog.branches.branchMenus
@@ -39,12 +40,14 @@ import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.PULL_WAITS
 import dev.sluide.gitlog.operations.PendingBar
 import dev.sluide.gitlog.operations.PopLatestStash
+import dev.sluide.gitlog.operations.RebaseOntoOriginDefault
 import dev.sluide.gitlog.table.CommitTable
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import dev.sluide.gitlog.ui.SharedSplit
 import dev.sluide.gitlog.ui.contains
 import dev.sluide.gitlog.workingtree.WorkingTreeWindow
 import javafx.application.Platform
+import javafx.beans.binding.Bindings
 import javafx.beans.property.BooleanProperty
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.collections.ListChangeListener
@@ -234,6 +237,9 @@ class GitLogView internal constructor(
     /** Whether the last read found no remote to fetch; `false` while that is not known (ADR 0043). */
     private val noRemotes = SimpleBooleanProperty(false)
 
+    /** Whether the last read allows the header's rebase onto origin's default branch ([rebaseOntoOriginPossible]). */
+    private val canRebaseOntoOrigin = SimpleBooleanProperty(false)
+
     /** Whether the log shows a repository; the review window reports an unborn `HEAD` itself (ADR 0168). */
     private val hasRepository = SimpleBooleanProperty(false)
 
@@ -390,6 +396,8 @@ class GitLogView internal constructor(
             noRemotes,
             hasRepository.not(),
             { onReview(ReviewRequest.Branch("HEAD")) },
+            { actions.start(RebaseOntoOriginDefault()) },
+            Bindings.or(Bindings.or(actions.running, pendingBar.busy), canRebaseOntoOrigin.not()),
             ::refresh,
             { actions.start(Fetch()) },
             ::showPush,
@@ -398,6 +406,7 @@ class GitLogView internal constructor(
         )
     internal val header: HBox get() = headerBar.node
     internal val refreshButton get() = headerBar.refreshButton
+    internal val rebaseDefaultButton get() = headerBar.rebaseDefaultButton
     internal val fetchButton get() = headerBar.fetchButton
     internal val pushButton get() = headerBar.pushButton
     internal val pullButton get() = headerBar.pullButton
@@ -432,6 +441,7 @@ class GitLogView internal constructor(
                     pendingBar.show(null)
                     table.refsChanged()
                     noRemotes.set(false)
+                    canRebaseOntoOrigin.set(false)
                     branchesPane.remotes = emptyList()
                 }
 
@@ -445,6 +455,7 @@ class GitLogView internal constructor(
                     compareBar.update()
                     pendingBar.show(pages.pending, pages.refs)
                     noRemotes.set(pages.remotes?.isEmpty() == true)
+                    canRebaseOntoOrigin.set(rebaseOntoOriginPossible(pages.remotes, pages.refs))
                     branchesPane.remotes = pages.remotes.orEmpty()
                     table.refsChanged()
                 }

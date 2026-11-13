@@ -1,5 +1,7 @@
 package dev.sluide.gitlog.area
 
+import dev.sluide.git.GitRefKind
+import dev.sluide.git.GitRefs
 import dev.sluide.gitlog.REVIEW_BRANCH_KEYS
 import dev.sluide.gitlog.push.PUSH_KEYS
 import dev.sluide.gitlog.ui.contains
@@ -22,15 +24,28 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignF
 import org.kordamp.ikonli.materialdesign2.MaterialDesignR
 import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 
-/** The gap between Review Branch and Push. */
-private const val REVIEW_GAP = 12.0
+/** The gap between the quick git actions (Review Branch, Rebase onto origin's default) and Push. */
+private const val QUICK_ACTIONS_GAP = 12.0
+
+/**
+ * Whether the header may rebase onto `origin`'s default branch: the last read found a remote named `origin`, `HEAD` is
+ * on a branch and there is a commit (a `HEAD` ref).
+ */
+internal fun rebaseOntoOriginPossible(
+    remotes: List<String>?,
+    refs: GitRefs?,
+): Boolean =
+    remotes.orEmpty().contains("origin") &&
+        refs?.currentBranch != null &&
+        refs.refs.any { it.kind == GitRefKind.HEAD }
 
 /**
  * The header bar of the git log area (ADRs 0035, 0046): a chevron that follows [expanded], the tabs' [titles], the
  * [status] message, Cancel (only while the operation going on is [cancellable], ADR 0043) and, on the right, Review
- * Branch (ADR 0168; off with [noRepository], it calls [review]), Push, Pull, Fetch All Remotes and Refresh. Fetch and
- * Pull are off while an operation is [running] or there are [noRemotes], Push without a remote. Clicking the bar (but
- * not its buttons) expands or collapses the area.
+ * Branch (ADR 0168; off with [noRepository], it calls [review]) and Fetch origin and Rebase onto its Default Branch
+ * (ADR 0063; off with [noRebaseOntoDefault], it calls [rebaseOntoDefault]), the quick git actions, then Push, Pull,
+ * Fetch All Remotes and Refresh. Fetch and Pull are off while an operation is [running] or there are [noRemotes],
+ * Push without a remote. Clicking the bar (but not its buttons) expands or collapses the area.
  */
 internal class HeaderBar(
     titles: Node,
@@ -41,6 +56,8 @@ internal class HeaderBar(
     noRemotes: ObservableBooleanValue,
     noRepository: ObservableBooleanValue,
     review: () -> Unit,
+    rebaseOntoDefault: () -> Unit,
+    noRebaseOntoDefault: ObservableBooleanValue,
     refresh: () -> Unit,
     fetch: () -> Unit,
     push: () -> Unit,
@@ -79,6 +96,17 @@ internal class HeaderBar(
             minWidth = Region.USE_PREF_SIZE
             setOnAction { review() }
             disableProperty().bind(noRepository)
+        }
+
+    /** Fetches `origin` and rebases the current branch onto its default branch (ADR 0063). */
+    val rebaseDefaultButton =
+        Button(null, FontIcon(MaterialDesignS.SOURCE_BRANCH_SYNC)).apply {
+            styleClass += "git-log-rebase-default"
+            tooltip = Tooltip("Fetch origin and Rebase onto its Default Branch")
+            isFocusTraversable = false
+            minWidth = Region.USE_PREF_SIZE
+            setOnAction { rebaseOntoDefault() }
+            disableProperty().bind(noRebaseOntoDefault)
         }
 
     /** Opens the Push dialog (ADR 0049); not without a remote, but while an operation runs. */
@@ -122,6 +150,7 @@ internal class HeaderBar(
             cancelButton,
             Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
             reviewButton,
+            rebaseDefaultButton,
             pushButton,
             pullButton,
             fetchButton,
@@ -134,6 +163,7 @@ internal class HeaderBar(
                     listOf(
                         refreshButton,
                         reviewButton,
+                        rebaseDefaultButton,
                         pushButton,
                         pullButton,
                         fetchButton,
@@ -146,9 +176,12 @@ internal class HeaderBar(
         }
 
     init {
-        // The spacing comes from the stylesheet: the margin makes up the rest of the wider gap after Review Branch.
+        // The spacing comes from the stylesheet: the margin makes up the rest of the wider gap after the quick actions.
         node.spacingProperty().subscribe { spacing ->
-            HBox.setMargin(reviewButton, Insets(0.0, maxOf(0.0, REVIEW_GAP - spacing.toDouble()), 0.0, 0.0))
+            HBox.setMargin(
+                rebaseDefaultButton,
+                Insets(0.0, maxOf(0.0, QUICK_ACTIONS_GAP - spacing.toDouble()), 0.0, 0.0),
+            )
         }
         expanded.subscribe { isExpanded ->
             chevron.iconCode = if (isExpanded) MaterialDesignC.CHEVRON_DOWN else MaterialDesignC.CHEVRON_RIGHT

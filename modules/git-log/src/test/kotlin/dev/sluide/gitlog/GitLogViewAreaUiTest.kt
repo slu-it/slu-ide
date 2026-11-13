@@ -245,7 +245,7 @@ class GitLogViewAreaUiTest : GitLogViewUiFixture() {
     }
 
     @Test
-    fun `the Review button asks to review HEAD and sits 12 px left of Push`(robot: FxRobot) {
+    fun `the Review button asks to review HEAD and sits left of the Rebase button, 12 px from Push`(robot: FxRobot) {
         refs = someRefs
         val requests = CopyOnWriteArrayList<ReviewRequest>()
         robot.interact {
@@ -261,8 +261,10 @@ class GitLogViewAreaUiTest : GitLogViewUiFixture() {
             assertFalse(button.isFocusTraversable)
             view.header.applyCss()
             view.header.layout()
-            val gap = view.pushButton.boundsInParent.minX - button.boundsInParent.maxX
-            assertEquals(12.0, gap, 1.0)
+            // The wider gap sits between the quick git actions and Push, not between the two quick actions.
+            val rebase = view.rebaseDefaultButton
+            assertTrue(rebase.boundsInParent.minX - button.boundsInParent.maxX < 12.0 - 1.0)
+            assertEquals(12.0, view.pushButton.boundsInParent.minX - rebase.boundsInParent.maxX, 1.0)
         }
 
         // A click on it asks for the review.

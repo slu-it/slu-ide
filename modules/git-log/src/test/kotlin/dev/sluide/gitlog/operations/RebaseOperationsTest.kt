@@ -360,7 +360,10 @@ class RebaseOperationsTest {
         val outcome = quick.run(writes, root, context)
 
         assertEquals(false, outcome.result.success)
-        assertEquals("origin's default branch could not be found (no origin/HEAD, main or master).", outcome.result.message)
+        assertEquals(
+            "origin's default branch could not be found (no origin/HEAD, main or master).",
+            outcome.result.message,
+        )
         assertEquals(listOf("fetch origin", "default branch origin"), writes.calls)
     }
 

@@ -191,4 +191,53 @@ class GitLogWritesRebaseUiTest : GitLogWritesUiFixture() {
             writes.calls,
         )
     }
+
+    @Test
+    fun `the header's quick rebase needs an origin, fetches it and rebases onto its default branch`(robot: FxRobot) {
+        writes.ancestry = { _, _ -> false }
+        openAndExpand(robot)
+        val button = view.rebaseDefaultButton
+        robot.interact {
+            assertFalse(button.isDisable)
+            assertEquals("Fetch origin and Rebase onto its Default Branch", button.tooltip.text)
+            assertFalse(button.isFocusTraversable)
+        }
+
+        fire(robot, button)
+        eventually { assertEquals("rebase main refs/remotes/origin/main", writes.calls.last()) }
+        assertEquals(
+            listOf("fetch origin", "default branch origin", "rebase merges refs/remotes/origin/main"),
+            writes.calls.take(3),
+        )
+    }
+
+    @Test
+    fun `the header's quick rebase is off without an origin remote`(robot: FxRobot) {
+        currentRemotes = listOf("upstream")
+        openAndExpand(robot)
+
+        robot.interact { assertTrue(view.rebaseDefaultButton.isDisable) }
+    }
+
+    @Test
+    fun `the header's quick rebase is off while something is pending or an operation runs`(robot: FxRobot) {
+        pending = GitPendingRebase("feature", onto, stopped, 3, 7, listOf("a.txt"))
+        writes.inProgress = pending
+        openAndExpand(robot)
+        eventually { assertTrue(view.pendingBar.isVisible) }
+        eventually { assertTrue(view.rebaseDefaultButton.isDisable, "off while a rebase is pending") }
+
+        // With nothing pending, a running operation (a fetch held at the gate) turns it off, the end on again.
+        pending = null
+        writes.inProgress = null
+        robot.interact { view.refresh() }
+        eventually { assertFalse(view.rebaseDefaultButton.isDisable) }
+        writes.gate = CountDownLatch(1)
+        fire(robot, view.fetchButton)
+        eventually { assertTrue(view.cancelButton.isVisible) }
+        robot.interact { assertTrue(view.rebaseDefaultButton.isDisable, "off while an operation runs") }
+
+        writes.gate?.countDown()
+        eventually { assertFalse(view.rebaseDefaultButton.isDisable) }
+    }
 }
