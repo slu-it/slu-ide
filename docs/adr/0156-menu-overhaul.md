@@ -1,6 +1,6 @@
 # 0156. Menu overhaul: File, Docker Sandbox, Services, Games
 
-- Status: accepted
+- Status: accepted; amended by [0170](0170-sbx-management-console.md) (a Management Console item; tab titles)
 - Date: 2026-11-10
 
 ## Context

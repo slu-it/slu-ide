@@ -1,7 +1,8 @@
 # 0010. Docker sandboxes run in terminal tabs, only below the home folder
 
 - Status: accepted; amended by [0087](0087-commands-in-an-interactive-login-shell.md) (commands run in an interactive
-  login shell, `$SHELL -l -i -c`)
+  login shell, `$SHELL -l -i -c`), [0156](0156-menu-overhaul.md), [0170](0170-sbx-management-console.md) (bare `sbx`
+  in the home folder is the one exception to the below-home rule; tab titles)
 - Date: 2026-10-13
 
 ## Context
