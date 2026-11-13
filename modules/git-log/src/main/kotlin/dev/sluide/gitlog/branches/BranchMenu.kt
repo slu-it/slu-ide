@@ -259,7 +259,7 @@ internal fun branchMenuItem(
     text: String,
     action: () -> Unit,
 ): MenuItem =
-    MenuItem(text, FontIcon(entry.icon).apply { style = BRANCH_MENU_ICON_STYLE }).apply {
+    MenuItem(text, FontIcon(entry.icon).apply { style = "$style $BRANCH_MENU_ICON_STYLE".trim() }).apply {
         id = entry.id
         isMnemonicParsing = false
         setOnAction { action() }

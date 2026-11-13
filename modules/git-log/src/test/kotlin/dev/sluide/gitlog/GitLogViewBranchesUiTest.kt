@@ -507,6 +507,8 @@ class GitLogViewBranchesUiTest : GitLogViewUiFixture() {
         val checkout = branches.menu.item(BranchMenuEntry.CHECKOUT)
         assertEquals(GitLogIcons.checkout, (checkout.graphic as FontIcon).iconCode)
         assertTrue("-fx-icon-color: -fx-text-background-color" in checkout.graphic.style, "follows the highlight")
+        // The icon keeps its own style, which holds the glyph font; replacing it paints empty boxes.
+        assertTrue(FontIcon(GitLogIcons.checkout).style in checkout.graphic.style, "keeps the glyph font")
         assertTrue(checkout in branches.tree.contextMenu.items)
         robot.interact { branches.tree.contextMenu.hide() }
     }
