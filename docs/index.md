@@ -198,7 +198,8 @@ updated when the summary or keywords no longer fit.
 | [0171](adr/0171-context-sensitive-branch-menus.md) | Branch menus show only what applies, greyed out only while blocked, in sections with icons from `GitLogIcons` | branch menu, context menu, `BranchMenuEntry`, `branchMenuEntries`, `GitLogIcons`, Shortcut+C, hide vs disable, empty menu | amends 0040, 0041; amended by 0173 |
 | [0172](adr/0172-commit-menu.md) | The commit table's menu shows only what applies, in sections with icons; several branches group under Branches | commit menu, context menu, `CommitMenuEntry`, `commitMenuEntries`, `refMenuIcon`, `contextMenuIcon`, `GitLogIcons`, Branches submenu, hide vs disable | amends 0041, 0042, 0045, 0100; follows 0171; amended by 0173 |
 | [0173](adr/0173-pushing-tags-and-tag-submenus.md) | Push Tag in the tag menus; tags at a commit get submenus, several under Tags | push tags, Push Tag, `pushTags`, `PushTags`, tag submenu, Tags submenu, commit menu, `already exists`, remote | amends 0049, 0078, 0171, 0172 |
-| [0174](adr/0174-barcodes-tool.md) | Barcodes tool with ZXing core: crisp module grids, ECI only beyond Latin-1, multi-code reading | `barcodes`, QR code, ZXing, Data Matrix, Aztec, PDF417, EAN-13, UPC-A, Code 128, ECI, read barcode | amends 0047; see 0110, 0112 |
+| [0174](adr/0174-barcodes-tool.md) | Barcodes tool with ZXing core: crisp module grids, ECI only beyond Latin-1, multi-code reading | `barcodes`, QR code, ZXing, Data Matrix, Aztec, PDF417, EAN-13, UPC-A, Code 128, ECI, read barcode | amends 0047; amended by 0175; see 0110, 0112 |
+| [0175](adr/0175-image-size-caps.md) | Image size caps: shared header reader refuses images too large to decode, before JavaFX allocates them | `image-limits`, image size, decompression bomb, megapixels, `ImageHeaders`, `ImageLimits`, WebP, ICO, animated GIF, progressive JPEG | amends 0174 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features

@@ -1,6 +1,6 @@
 # 0174. Barcodes tool: generate and read barcodes with ZXing core, crisp module grids, ECI only beyond Latin-1
 
-- Status: accepted; amends [0047](0047-module-dependencies-and-shared-modules.md) (`barcodes` joins the editor family); see [0110](0110-tools-menu.md), [0112](0112-codecs-tool.md)
+- Status: accepted; amends [0047](0047-module-dependencies-and-shared-modules.md) (`barcodes` joins the editor family); amended by [0175](0175-image-size-caps.md) (the header reader and caps move into `image-limits`); see [0110](0110-tools-menu.md), [0112](0112-codecs-tool.md)
 - Date: 2026-11-14
 
 ## Context
@@ -99,6 +99,8 @@ several codes, inverted codes or very large images.
   progressive JPEG (it buffers all its coefficients), 100 for baseline JPEG, which JavaFX decodes scaled. Pasted and
   dropped images, already decoded, get the 40 megapixels too. This is a cap on what is attempted, not a guarantee
   about memory; a decode that still fails (an `OutOfMemoryError` too) ends as "The image could not be
-  read.". At most 20 MiB of a regular file are read. A read runs on a `NamedThreads` thread and gets no
-  `BackgroundTasks` row: the status line shows "Reading…".
+  read.". At most 20 MiB of a regular file are read. The header reader, the caps and the bounded read now live in the
+  foundation module `image-limits` (`ImageHeaders`, `ImageLimits`, [ADR 0175](0175-image-size-caps.md)), to be
+  shared with the image viewer and the TODOs panel; Barcodes keeps its messages. A read runs on a `NamedThreads`
+  thread and gets no `BackgroundTasks` row: the status line shows "Reading…".
 - Listed in [../index.md](../index.md).

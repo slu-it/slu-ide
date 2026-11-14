@@ -53,6 +53,7 @@ assembled from Gradle modules.
 | `file-watcher` | foundation | Changes on disk. | [0006](adr/0006-file-watching.md) |
 | `text-editing` | foundation (library, no Spring beans) | Logic of editing text without JavaFX: encodings (UTF-8, else Windows-1252), line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line, sentence ranges (`SentenceRanges`, English and German abbreviations). | [0020](adr/0020-editing-and-saving-files.md), [0023](adr/0023-indentation-from-editorconfig.md), [0098](adr/0098-windows-1252-fallback.md) |
 | `file-icons` | foundation (library, no Spring beans) | File-type icons and their colours, shared by the explorer, the git log and the scratches. | [0012](adr/0012-file-icons.md), [0047](adr/0047-module-dependencies-and-shared-modules.md) |
+| `image-limits` | foundation (library, no Spring beans) | Size caps of images from outside, checked before JavaFX decodes them, without JavaFX: the header reader (`ImageHeaders`: PNG, JPEG, GIF, BMP, WebP, ICO; frames, baseline JPEG), the caps and their check and wording (`ImageLimits`: 40 megapixels, 100 for baseline JPEG; fail closed), the bounded file read, and test fixtures (`TestImages`). | [0175](adr/0175-image-size-caps.md) |
 | `project-trust` | foundation | Whether the tools of an opened folder may run what it defines: the `ProjectTrustCheck` extension point, the combined decision and its storage. | [0053](adr/0053-project-trust.md) |
 | `background-tasks` | foundation | Per-window background tasks (registry and indicator) and logged named threads (`NamedThreads`). | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
 | `project-data` | foundation | Per-project metadata, one JSON file per project in `~/.sluide/projects` (`ProjectDataStore`), with per-file data in it or, for files outside any project, in the shared data file `~/.sluide/shared.json`, which modules can also use for their own top-level fields (`readShared`/`updateShared`); the migration of old properties files (`LegacyProjectData`) and of `outside-projects.json`. | [0090](adr/0090-per-project-metadata-store.md), [0101](adr/0101-shared-data-file.md) |
@@ -74,8 +75,9 @@ modules are small and meant for sharing; they may be plain libraries without Spr
 - Modules (`modules/*`) never depend on `ide`. `ide` depends on all feature modules and wires them together.
 - Modules may depend on other modules ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md)), without cycles
   (Gradle refuses cycles anyway), but only on a module of the same capability family (`git-log` -> `git`) or on a small
-  foundation module meant for sharing (`settings`, `file-watcher`, `text-editing`, `file-icons`, `project-trust`,
-  `background-tasks`, `project-data`, `secrets`, `local-models`, `language-servers`, `server-tools`, `library-code`).
+  foundation module meant for sharing (`settings`, `file-watcher`, `text-editing`, `file-icons`, `image-limits`,
+  `project-trust`, `background-tasks`, `project-data`, `secrets`, `local-models`, `language-servers`, `server-tools`,
+  `library-code`).
   Unrelated feature modules do not depend on each other: `ide` wires them through callbacks (`git-log` with `editor-area`
   and `file-viewers`, `git` with the explorer's markers). When two modules need the same piece of a third, it is
   extracted into a small module rather than depending on the whole feature module. The families are defined under
@@ -192,6 +194,7 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `codecs` | `file-viewers` | `api` | It adds "Open Selection in Codecs" to the code editors' context menu. | [0108](adr/0108-code-editor-extensions-and-context-menu.md), [0112](adr/0112-codecs-tool.md) |
 | `barcodes` | `editor-area` | `api` | The Barcodes tool is an `EditorTab` for the window's `EditorArea`. | [0110](adr/0110-tools-menu.md), [0174](adr/0174-barcodes-tool.md) |
 | `barcodes` | `background-tasks` | `implementation` | Reading an image (file decoding and ZXing) runs on a `NamedThreads` thread; so does the options writer. | [0060](adr/0060-logging-conventions.md), [0174](adr/0174-barcodes-tool.md) |
+| `barcodes` | `image-limits` | `implementation` | An image file is read bounded (`ImageLimits.readFile`) and refused from its header above the pixel caps before decoding (`ImageLimits.check`); the tests use its `TestImages` fixtures. | [0174](adr/0174-barcodes-tool.md), [0175](adr/0175-image-size-caps.md) |
 | `barcodes` | `file-viewers` | `api` | It adds "Show Selection as Barcode" to the code editors' context menu. | [0108](adr/0108-code-editor-extensions-and-context-menu.md), [0174](adr/0174-barcodes-tool.md) |
 | `barcodes` | `project-data` | `api` | `BarcodeOptionsStore` keeps the last format and options in the shared data file (field `barcodes`) and takes the `ProjectDataStore`; `api`: its public constructor takes the store. | [0101](adr/0101-shared-data-file.md), [0174](adr/0174-barcodes-tool.md) |
 | `converting` | `editor-area` | `api` | The Converting tool is an `EditorTab` that `Converting.createTab()` returns for the window's `EditorArea`. | [0110](adr/0110-tools-menu.md), [0115](adr/0115-converting-tool.md) |
@@ -232,7 +235,7 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `file-explorer` | `background-tasks` | `implementation` | Deletes run on `NamedThreads`. | [0060](adr/0060-logging-conventions.md) |
 | `file-explorer` | `library-code` | `implementation` | Library code opens read-only: library root folders (a venv, `__pypackages__`) get a lock folder icon and a tooltip, following the setting. | [0150](adr/0150-library-code-read-only.md) |
 | `scratches` | `file-icons` | `implementation` | The type picker shows each type with its file-type icon. | [0066](adr/0066-scratch-files.md) |
-| `ide` | every module but `file-icons` and `text-editing` | `implementation` | Wires the modules together; those two arrive through `api` edges. | [0002](adr/0002-spring-inside-javafx.md), [0068](adr/0068-window-parts-in-ide.md) |
+| `ide` | every module but `file-icons`, `text-editing` and `image-limits` | `implementation` | Wires the modules together; the first two arrive through `api` edges, and `ide` uses nothing of `image-limits`. | [0002](adr/0002-spring-inside-javafx.md), [0068](adr/0068-window-parts-in-ide.md) |
 | `ide` | `previews` | `implementation` | For the Spring beans only: the previews are `FileViewer`s found by component scan, `ide` imports nothing from them. | [0069](adr/0069-previews-module.md) |
 | `ide` | `secrets` | `implementation` | For the Spring bean only: `Secrets` is a singleton found by component scan and named in `SpringWiringTest`; the features that save secrets inject it. | [0122](adr/0122-saved-secrets.md) |
 | `ide` | `library-code` | `implementation` | For the Spring bean only: `LibraryCodeSettings` is a singleton found by component scan and named in `SpringWiringTest`; the modules that lock library code inject it. | [0150](adr/0150-library-code-read-only.md) |

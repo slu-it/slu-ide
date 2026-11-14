@@ -70,8 +70,9 @@ The short form that loads with production code is `.claude/rules/safety.md`; kee
   with limits (entries, sizes, nesting depth; count what is actually read, not what headers claim) and with XML DTDs
   and external entities off (`XmlTree`, `EpubXml`).
 - Images from outside: JavaFX `Image` with a requested size still allocates the whole picture for PNG, GIF (every
-  frame) and BMP, only baseline JPEG decodes scaled; cap the pixel count from the header before decoding (the
-  Barcodes tool's `ImageFiles`, ADR 0174), and read files with `readNBytes(limit + 1)`, never `readAllBytes`.
+  frame) and BMP, only baseline JPEG decodes scaled; cap the pixel count from the header before decoding, and
+  refuse a header that cannot be read (`ImageLimits.check` over `ImageHeaders` in `image-limits`, ADR 0175). Read
+  files with `readNBytes(limit + 1)` (`ImageLimits.readFile`), never `readAllBytes`.
 - Escape every value written into HTML, CSS or an attribute, also the ones that look safe (a media type, an id): an
   unescaped EPUB media type once ran the book's own script. Rendered pages run only Thoreau's script (a CSP with its
   hash) and load nothing remote (ADR 0165).
