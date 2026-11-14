@@ -24,6 +24,8 @@ packages=(
   libsecret-tools gnome-keyring dbus
   # npm for the real-tsc tests (SLUIDE_TEST_TSC)
   nodejs npm
+  # Building the newest git from source (install_git below); git itself to fetch the sources
+  git build-essential libcurl4-openssl-dev libssl-dev zlib1g-dev libexpat1-dev gettext
 )
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -79,3 +81,33 @@ else
   apt-get install -y -qq -o DPkg::Lock::Timeout=300 "${missing[@]}"
   echo "thoreau-dev: installed ${missing[*]}"
 fi
+
+# The newest git 2.x release, from the official repository, built into /usr/local (ahead of /usr/bin in PATH). Git 3.0
+# will need Rust (cargo), so 2.x only; NO_RUST leaves out the optional Rust parts of 2.x. A failure keeps the
+# distribution's git and only warns: the sandbox works with it, apart from tests that expect a newer git.
+git_repository=https://github.com/git/git
+install_git() {
+  local latest current workdir
+  latest=$(git ls-remote --tags --refs "$git_repository" 'v2.*' |
+    sed -n 's|.*refs/tags/v\([0-9]*\.[0-9]*\.[0-9]*\)$|\1|p' | sort -V | tail -n 1 || true)
+  if [ -z "$latest" ]; then
+    echo "Warning: could not read git's releases from $git_repository; keeping $(git --version)" >&2
+    return 0
+  fi
+  current=$(/usr/local/bin/git --version 2>/dev/null | awk '{print $3}' || true)
+  if [ "$current" = "$latest" ]; then
+    echo "thoreau-dev: git $latest is installed"
+    return 0
+  fi
+  workdir=$(mktemp -d)
+  local options=(prefix=/usr/local NO_TCLTK=1 NO_RUST=1)
+  if git -c advice.detachedHead=false clone -q --depth 1 --branch "v$latest" "$git_repository" "$workdir/git" &&
+    make -C "$workdir/git" -j "$(nproc)" "${options[@]}" all >"$workdir/build.log" 2>&1 &&
+    make -C "$workdir/git" "${options[@]}" install >>"$workdir/build.log" 2>&1; then
+    echo "thoreau-dev: installed $(/usr/local/bin/git --version)"
+    rm -rf "$workdir"
+  else
+    echo "Warning: building git $latest failed (log: $workdir/build.log); keeping $(git --version)" >&2
+  fi
+}
+install_git

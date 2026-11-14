@@ -18,7 +18,8 @@ capabilities:
         - command: [bash, /opt/thoreau-dev/install.sh]
           user: "0"
           env: [HTTP_PROXY, HTTPS_PROXY, NO_PROXY, http_proxy, https_proxy, no_proxy]
-          description: Install JDK 25 if missing, the display stack, openbox, zsh, espeak-ng, secret-tool and npm
+          description: Install JDK 25 if missing, the display stack, openbox, zsh, espeak-ng, secret-tool and npm, and
+            build the newest git 2.x
       files:
         - path: /home/agent/.zshrc
           content: ""
@@ -37,6 +38,8 @@ capabilities:
           - security.debian.org
           - download.docker.com
           - dhi.io
+          # git's sources (install.sh builds the newest git 2.x)
+          - github.com
       # The Gradle build resolves jediterm (the terminal module) from JetBrains' repository, which redirects the
       # downloads to its CloudFront distribution.
       runtime:

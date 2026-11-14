@@ -1,6 +1,6 @@
 # 0169. Development sandbox kit and `sbxenv.yaml`
 
-- Status: accepted
+- Status: accepted; amended 2026-11-14 (git built from source)
 - Date: 2026-11-13
 
 ## Context
@@ -22,9 +22,16 @@ of them, and the default `claude` image moved from Ubuntu with a JDK to Debian 1
   background `apt-get update` instead of racing it for the lock. Images with older
   library names (no `t64` suffix) get the old names. A package apt cannot install, the JDK included, fails the install
   hook and with it the sandbox's creation: loud rather than a sandbox that half works.
-- **Network:** the kit opens the Ubuntu, Debian, Docker and `dhi.io` apt hosts in the install phase only
-  (`network-policy@2`). At runtime it allows `packages.jetbrains.team` and the CloudFront host it redirects downloads
-  to (`db2uklzeiyqq6.cloudfront.net`), where Gradle resolves jediterm.
+- **Except git, built from source** (amended 2026-11-14): Debian 13's git 2.47.3 fails submodule tests in
+  `GitLogTest`, `GitCompareTest` and `GitReviewsTest` that pass with 2.56.1. No newer git installs on Debian 13 without
+  building: trixie-backports has none, and the packages of forky and sid need a newer `libc6`. `install.sh` therefore
+  clones the newest `v2.x.y` tag of `github.com/git/git` and builds it into `/usr/local` (before `/usr/bin` in `PATH`),
+  with `NO_RUST` and `NO_TCLTK`; the compiler and libraries come from apt with the other packages. Only 2.x, since
+  Git 3.0 needs Rust. Always the newest release means no pinned checksum: the script trusts GitHub over HTTPS. A
+  version already in `/usr/local` is not built again; a failed build only warns and keeps the distribution's git.
+- **Network:** the kit opens the Ubuntu, Debian, Docker and `dhi.io` apt hosts, and `github.com` for git's sources,
+  in the install phase only (`network-policy@2`). At runtime it allows `packages.jetbrains.team` and the CloudFront
+  host it redirects downloads to (`db2uklzeiyqq6.cloudfront.net`), where Gradle resolves jediterm.
 - **Displays on demand:** the kit does not start Xvfb at boot. The scripts already start, and repair, displays and
   openbox when needed, and the full build uses a pool of eight.
 - **`sbxenv.yaml` in the repository root** declares agent, workspace, the kits and resources (12 CPUs, 12 GB for the
@@ -37,7 +44,8 @@ of them, and the default `claude` image moved from Ubuntu with a JDK to Debian 1
 - `sbx env run` in the root (or Shortcut+Shift+B in Thoreau) gives a sandbox that can build, run UI tests and drive
   the real app without setup. Checked: `install.sh` on `docker.io/sbx/claude` (Debian 13), then `run-app.sh` showed
   the IDE on a virtual display.
-- The install adds about two minutes to sandbox creation. A changed kit applies to new sandboxes only.
+- The install adds about two minutes to sandbox creation, building git about half a minute of it. A changed kit
+  applies to new sandboxes only.
 - Recreating sandboxes is cheap for Claude's history: `sbxenv.yaml` adds Docker's `claude-sessions` kit (pinned
   1.1.0, needs sbx 0.50 or later), which keeps `~/.claude/projects` (transcripts and memory) and the session state in
   a host folder keyed on the sandbox name; hence `name: slu-ide` must stay. Not kept: plans, `~/.claude.json`, Gradle
