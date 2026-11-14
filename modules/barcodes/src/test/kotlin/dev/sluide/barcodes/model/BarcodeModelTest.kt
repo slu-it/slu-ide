@@ -155,6 +155,25 @@ class BarcodeModelTest {
     }
 
     @Test
+    fun `the image status names the format of the selected code`() {
+        model.imageRead(model.beginRead(), image, listOf(code("one"), code("2", CodeFormat.AZTEC)), "two.jpg")
+        assertEquals("Read from two.jpg · 2 codes · QR Code", model.imageStatus)
+
+        model.selectCode(1)
+        assertEquals("Read from two.jpg · 2 codes · Aztec", model.imageStatus)
+        model.selectCode(0)
+        assertEquals("Read from two.jpg · 2 codes · QR Code", model.imageStatus)
+    }
+
+    @Test
+    fun `selecting a code keeps a failure message that replaced the read status`() {
+        model.imageRead(model.beginRead(), image, listOf(code("one"), code("2", CodeFormat.AZTEC)), "two.jpg")
+        model.readFailed(model.beginRead(), "The image could not be read.")
+        model.selectCode(1)
+        assertEquals("The image could not be read.", model.imageStatus)
+    }
+
+    @Test
     fun `an edit after a read makes the text the source and regenerates`() {
         model.imageRead(model.beginRead(), image, listOf(code("one")), "x")
         model.editText("one!")

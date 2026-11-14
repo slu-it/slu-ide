@@ -49,6 +49,8 @@ internal class BarcodeModel(
     /** A warning for the foreground and background colours, or null. */
     val colorWarning: String? get() = colorWarning(options.foreground, options.background)
 
+    /** Where the shown codes were read from; null once the status shows something else than that read. */
+    private var readOrigin: String? = null
     private var sequence = 0L
     private val listeners = mutableListOf<() -> Unit>()
 
@@ -98,6 +100,7 @@ internal class BarcodeModel(
     ) {
         if (seq != sequence) return
         if (codes.isEmpty()) {
+            readOrigin = null
             imageStatus = "No barcode found"
         } else {
             source = Source.IMAGE
@@ -106,8 +109,8 @@ internal class BarcodeModel(
             generated = null
             failure = null
             show(0)
-            val count = if (codes.size == 1) "1 code" else "${codes.size} codes"
-            imageStatus = "Read from $origin · $count · ${codes[0].format.title}"
+            readOrigin = origin
+            imageStatus = readStatus()
         }
         changed()
     }
@@ -117,6 +120,7 @@ internal class BarcodeModel(
         message: String,
     ) {
         if (seq != sequence) return
+        readOrigin = null
         imageStatus = message
         changed()
     }
@@ -124,7 +128,14 @@ internal class BarcodeModel(
     fun selectCode(index: Int) {
         if (index !in codes.indices) return
         show(index)
+        if (readOrigin != null) imageStatus = readStatus()
         changed()
+    }
+
+    /** "Read from two.jpg · 2 codes · QR Code", naming the format of the selected code. */
+    private fun readStatus(): String {
+        val count = if (codes.size == 1) "1 code" else "${codes.size} codes"
+        return "Read from $readOrigin · $count · ${codes[selectedCode].format.title}"
     }
 
     /** Takes code [index] as text, and its format as the picker's if it can be generated. */
@@ -145,6 +156,7 @@ internal class BarcodeModel(
         codes = emptyList()
         selectedCode = 0
         imageStatus = null
+        readOrigin = null
     }
 
     private fun regenerate() {
