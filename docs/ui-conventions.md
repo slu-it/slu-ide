@@ -64,7 +64,7 @@ Safety of file operations, runs, secrets and network: `safety.md`.
   the Python project of a file (ADR 0151).
 
 ## Tool and service tabs
-- Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate), Services menu (Databases, Docker) and Games menu
+- Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate, Barcodes), Services menu (Databases, Docker) and Games menu
   (Block Breaker, Doubles, Minesweeper, Mini Golf, Orbit Guard, Pipe Puzzle, Solitaire, Sudoku, Word Guess; the Services and Games lists are sorted by title, so a new entry lands in place) after Docker Sandbox in the menu bar (ADR 0110, 0118, 0121, 0131, 0132, 0136, 0137, 0138, 0139, 0140, 0152, 0153, 0156), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
 - A game shows a self-drawn, coloured 16 px logo on its Games menu item and its tab header (`<Game>Logo.kt` in the game's `ui` package, fixed colours, vector shapes; `WindowTool.graphic` and `EditorTab.icon()`, a fresh node per call); a new game adds its logo (ADR 0156).
 - One tab per window: the menu selects the open tab or creates one. Closes with Shortcut+W without a question and is
@@ -74,7 +74,7 @@ Safety of file operations, runs, secrets and network: `safety.md`.
   `openScratch`, ...) in `WindowTools` or `MainWindow`; a callback left unset fails silently, so the wiring gets a
   test.
 - State lives in the window and outlives the tab; anything stored is opt-in per tool and never holds pasted secrets
-  (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, Translate the last source, target and quality; neither the text; Word Guess the last language; Doubles the last size and best scores; Sudoku the last size and level and the best times; Solitaire the last game, draw and suits and the high scores; Orbit Guard and Block Breaker the last difficulty and the best score per difficulty; Mini Golf the best total and the best per hole; Pipe Puzzle the last mode, size and look and the best time per mode and size; every game its zoom, in `gameZoom`).
+  (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, Translate the last source, target and quality; neither the text; Barcodes the last format and options, never the text; Word Guess the last language; Doubles the last size and best scores; Sudoku the last size and level and the best times; Solitaire the last game, draw and suits and the high scores; Orbit Guard and Block Breaker the last difficulty and the best score per difficulty; Mini Golf the best total and the best per hole; Pipe Puzzle the last mode, size and look and the best time per mode and size; every game its zoom, in `gameZoom`).
 - A game tab has the zoom group (zoom out, level menu, zoom in, Fit) at the far right of its toolbar, after its own
   trailing controls, and zooms with Shortcut+Plus/Minus/0, Shortcut+wheel and pinch anywhere in the tab
   (`GameZoomControls` in `games/common/ui`, ADR 0155).
