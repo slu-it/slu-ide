@@ -14,6 +14,7 @@ import java.nio.file.Path
 import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
@@ -163,6 +164,20 @@ class BarcodeModelTest {
         assertEquals("Read from two.jpg · 2 codes · Aztec", model.imageStatus)
         model.selectCode(0)
         assertEquals("Read from two.jpg · 2 codes · QR Code", model.imageStatus)
+    }
+
+    @Test
+    fun `showsReadStatus is true only while the status is the read text`() {
+        assertFalse(model.showsReadStatus)
+        model.imageRead(model.beginRead(), image, listOf(code("one"), code("2", CodeFormat.AZTEC)), "two.jpg")
+        assertTrue(model.showsReadStatus)
+
+        model.readFailed(model.beginRead(), "The image could not be read.")
+        assertFalse(model.showsReadStatus)
+
+        model.imageRead(model.beginRead(), image, listOf(code("one"), code("2", CodeFormat.AZTEC)), "two.jpg")
+        model.imageRead(model.beginRead(), image, emptyList(), "two.jpg")
+        assertFalse(model.showsReadStatus)
     }
 
     @Test

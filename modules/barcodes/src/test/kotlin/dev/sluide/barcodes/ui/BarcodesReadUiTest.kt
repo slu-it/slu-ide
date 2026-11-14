@@ -357,6 +357,10 @@ class BarcodesReadUiTest {
 
         clickCanvas(robot, 2.0, 2.0)
         assertEquals(1, fx { model.selectedCode })
+
+        // A later failed read replaces the status; the hint to pick an outline does not stay on it.
+        robot.interact { model.readFailed(model.beginRead(), "The image could not be read.") }
+        assertEquals("The image could not be read.", fx { (view.root.lookup("#barcodes-image-status") as Label).text })
     }
 
     @Test

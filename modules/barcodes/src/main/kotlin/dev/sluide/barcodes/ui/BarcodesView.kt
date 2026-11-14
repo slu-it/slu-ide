@@ -325,7 +325,7 @@ internal class BarcodesView(
             val summary = generated?.takeIf { model.source == Source.TEXT }?.summary
             textStatus.info(if (summary != null) "$counts · $summary" else counts)
         }
-        val pick = if (model.source == Source.IMAGE && model.codes.size > 1) " · click an outline to pick one" else ""
+        val pick = if (model.showsReadStatus && model.codes.size > 1) " · click an outline to pick one" else ""
         val message =
             localImageStatus ?: model.imageStatus?.let { it + pick + (readNote?.let { note -> " · $note" } ?: "") }
         val warning = model.colorWarning

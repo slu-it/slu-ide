@@ -51,6 +51,10 @@ internal class BarcodeModel(
 
     /** Where the shown codes were read from; null once the status shows something else than that read. */
     private var readOrigin: String? = null
+
+    /** True while [imageStatus] is the "Read from ..." text of the shown read, not a failure or "No barcode found". */
+    val showsReadStatus: Boolean get() = readOrigin != null
+
     private var sequence = 0L
     private val listeners = mutableListOf<() -> Unit>()
 
