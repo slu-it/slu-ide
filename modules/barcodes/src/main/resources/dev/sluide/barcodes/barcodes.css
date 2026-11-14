@@ -1,0 +1,37 @@
+/* The Barcodes tool (ADR 0174). Only Modena's looked-up colours, so dark mode follows the theme without rules of its
+   own; errors differ from info by weight and full opacity, not by a colour of their own. */
+.barcodes {
+    -fx-background-color: -fx-background;
+}
+
+.barcodes .text-area {
+    -fx-font-family: "monospace";
+}
+
+.barcodes-side-title {
+    -fx-font-weight: bold;
+}
+
+.barcodes-status {
+    -fx-opacity: 0.7;
+    -fx-min-height: 1.4em;
+}
+
+.barcodes-status.barcodes-error {
+    -fx-opacity: 1;
+    -fx-font-weight: bold;
+}
+
+.barcodes-status.barcodes-warning {
+    -fx-opacity: 1;
+    -fx-font-weight: bold;
+}
+
+.barcodes-canvas-pane {
+    -fx-background-color: -fx-control-inner-background;
+    -fx-border-color: -fx-box-border;
+}
+
+.barcodes-hint {
+    -fx-opacity: 0.6;
+}
