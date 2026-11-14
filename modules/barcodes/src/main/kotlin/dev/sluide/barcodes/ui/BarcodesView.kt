@@ -106,8 +106,7 @@ internal class BarcodesView(
             setOnAction { chooseImageFile(root.scene?.window)?.let { input.readFile(it) } }
         }
 
-    /** The buttons above the canvas; Paste Image and Open… go in front of Copy. */
-    internal val imageButtons =
+    private val imageButtons =
         HBox(6.0, pasteImage, openImage, copyImage, saveImage).apply { alignment = Pos.CENTER_LEFT }
 
     /** Shows the Wi-Fi template dialog; true when the user chose Insert. Tests replace it. */
@@ -144,8 +143,7 @@ internal class BarcodesView(
             setOnAction { browserUri?.let(openUrl) }
         }
 
-    /** The toolbar spot of the text side; holds Open in Browser. */
-    internal val textToolbarSlot = HBox(6.0, openInBrowser).apply { alignment = Pos.CENTER_LEFT }
+    private val textToolbarSlot = HBox(6.0, openInBrowser).apply { alignment = Pos.CENTER_LEFT }
 
     /** Below the text: the structured view goes here; takes no room while empty. */
     internal val structuredSlot =
@@ -275,13 +273,7 @@ internal class BarcodesView(
         copyImage.isDisable = !canExport
         saveImage.isDisable = !canExport
         val why =
-            if (model.source ==
-                Source.IMAGE
-            ) {
-                Tooltip("Edit the text or change an option to make a code")
-            } else {
-                null
-            }
+            if (model.source == Source.IMAGE) Tooltip("Edit the text or change an option to make a code") else null
         copyImage.tooltip = why
         saveImage.tooltip = why
         showStatuses()

@@ -1,6 +1,7 @@
 package dev.sluide.barcodes.ui
 
 import dev.sluide.barcodes.engine.ArgbImage
+import dev.sluide.barcodes.engine.Reader
 import dev.sluide.barcodes.engine.grouped
 import javafx.scene.image.Image
 import javafx.scene.image.PixelFormat
@@ -18,8 +19,8 @@ internal const val TOO_LARGE = "The image is larger than 20 MiB."
 
 private const val MAX_FILE_BYTES = 20 * 1024 * 1024
 
-/** The longest side an image file is decoded to. */
-internal const val MAX_DECODE_SIDE = 4096
+/** The longest side an image file is decoded to: the side the reader scales down to anyway, so one constant decides. */
+private const val MAX_DECODE_SIDE = Reader.MAX_SIDE
 
 /** The result of reading an image file: its pixels, or the message to show. */
 internal sealed interface ImageLoad {

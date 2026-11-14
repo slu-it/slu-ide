@@ -286,6 +286,8 @@ abstract class MainWindowUiFixture {
 
     /** The Converting tools of the windows created by [mainWindow]; closed after the test. */
     internal val convertings = mutableListOf<Converting>()
+
+    /** The Barcodes tools of the windows created by [mainWindow]. */
     internal val barcodes = mutableListOf<Barcodes>()
 
     /** The Read Aloud tools of the windows created by [mainWindow]; closed after the test. */

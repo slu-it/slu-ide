@@ -32,8 +32,8 @@ internal sealed interface CanvasContent {
     /** A read image, fitted, with the outlines of its [codes] and the [selected] one marked. */
     data class Picture(
         val image: ArgbImage,
-        val codes: List<DecodedCode> = emptyList(),
-        val selected: Int = 0,
+        val codes: List<DecodedCode>,
+        val selected: Int,
     ) : CanvasContent
 }
 
