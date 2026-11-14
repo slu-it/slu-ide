@@ -12,6 +12,8 @@ import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.MenuButton
+import javafx.scene.control.MenuItem
 import javafx.scene.control.SplitPane
 import javafx.scene.control.TextArea
 import javafx.scene.control.Tooltip
@@ -108,6 +110,29 @@ internal class BarcodesView(
     internal val imageButtons =
         HBox(6.0, pasteImage, openImage, copyImage, saveImage).apply { alignment = Pos.CENTER_LEFT }
 
+    /** Shows the Wi-Fi template dialog; true when the user chose Insert. Tests replace it. */
+    internal var askWifi: (Window?, WifiForm) -> Boolean = TemplateDialogs::wifi
+
+    /** Shows the Contact template dialog; true when the user chose Insert. Tests replace it. */
+    internal var askContact: (Window?, ContactForm) -> Boolean = TemplateDialogs::contact
+
+    private val template =
+        MenuButton(
+            "Template",
+            null,
+            MenuItem("Wi-Fi…").apply {
+                id = "barcodes-template-wifi"
+                setOnAction { insertTemplate(WifiForm.of(model.text), askWifi, WifiForm::text) }
+            },
+            MenuItem("Contact…").apply {
+                id = "barcodes-template-contact"
+                setOnAction { insertTemplate(ContactForm.of(model.text), askContact, ContactForm::text) }
+            },
+        ).apply {
+            id = "barcodes-template"
+            isFocusTraversable = false
+        }
+
     private var browserUri: URI? = null
 
     /** Opens the text in the browser; shown only while the text is one http(s) URL, and never clicked by the app. */
@@ -150,6 +175,7 @@ internal class BarcodesView(
     private val removeListener: () -> Unit
 
     init {
+        options.trailingGroup.children += template
         // A listener, not subscribe: that would report the current text as an edit.
         area.textProperty().addListener { _, _, text ->
             if (!updating) model.editText(text)
@@ -259,6 +285,21 @@ internal class BarcodesView(
         copyImage.tooltip = why
         saveImage.tooltip = why
         showStatuses()
+    }
+
+    /** Asks for the values of a template and, on Insert, replaces the whole text (undoable, a user edit). */
+    private fun <F> insertTemplate(
+        form: F,
+        ask: (Window?, F) -> Boolean,
+        text: (F) -> String,
+    ) {
+        if (!ask(root.scene?.window, form)) return
+        val newText = text(form)
+        // Writing the text it already holds fires no change; the Insert is still the user's request (a read image
+        // becomes a generated code).
+        val unchanged = area.text == newText
+        area.replaceText(0, area.length, newText)
+        if (unchanged) model.editText(newText)
     }
 
     private fun showStructured() {

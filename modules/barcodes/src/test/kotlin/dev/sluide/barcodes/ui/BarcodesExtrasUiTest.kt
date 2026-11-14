@@ -13,6 +13,7 @@ import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.MenuButton
 import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
 import javafx.scene.input.Clipboard
@@ -152,5 +153,73 @@ class BarcodesExtrasUiTest {
         type(robot, "javascript:alert(1)")
         assertFalse(browserVisible())
         assertFalse(browserManaged())
+    }
+
+    private fun templateItem(id: String) = fx { node<MenuButton>("#barcodes-template").items.single { it.id == id } }
+
+    @Test
+    fun `Template Wi-Fi inserts the text as a user edit and Undo brings the old text back`(robot: FxRobot) {
+        type(robot, "old text")
+        val asked = mutableListOf<String>()
+        view.askWifi = { _, form ->
+            asked += form.ssid
+            form.ssid = "Home"
+            form.password = "pw"
+            true
+        }
+        // The app's own change first, so that the insert has to make the text the source again.
+        robot.interact {
+            model.imageRead(
+                model.beginRead(),
+                ArgbImage(1, 1, intArrayOf(-1)),
+                listOf(DecodedCode(CodeFormat.QR_CODE, "old text", Box(0.0, 0.0, 1.0, 1.0))),
+                "clipboard",
+            )
+        }
+        assertEquals(Source.IMAGE, fx { model.source })
+
+        robot.interact { templateItem("barcodes-template-wifi").fire() }
+
+        assertEquals(listOf(""), asked)
+        assertEquals("WIFI:T:WPA;S:Home;P:pw;;", fx { model.text })
+        assertEquals(Source.TEXT, fx { model.source })
+        robot.interact { node<TextArea>("#barcodes-text").undo() }
+        assertEquals("old text", fx { model.text })
+    }
+
+    @Test
+    fun `Template Contact is prefilled from the text and Cancel leaves it alone`(robot: FxRobot) {
+        type(robot, "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Ada Lovelace\r\nEND:VCARD\r\n")
+        var seen = ""
+        view.askContact = { _, form ->
+            seen = form.name
+            form.name = "Other"
+            false
+        }
+        robot.interact { templateItem("barcodes-template-contact").fire() }
+
+        assertEquals("Ada Lovelace", seen)
+        assertTrue(fx { model.text }.contains("Ada Lovelace"))
+    }
+
+    @Test
+    fun `Insert of the text the area already holds still makes the text the source and a code`(robot: FxRobot) {
+        robot.interact {
+            model.imageRead(
+                model.beginRead(),
+                ArgbImage(1, 1, intArrayOf(-1)),
+                listOf(DecodedCode(CodeFormat.QR_CODE, wifi, Box(0.0, 0.0, 1.0, 1.0))),
+                "clipboard",
+            )
+        }
+        assertEquals(Source.IMAGE, fx { model.source })
+        // The prefilled form writes back the very text the area holds.
+        view.askWifi = { _, _ -> true }
+
+        robot.interact { templateItem("barcodes-template-wifi").fire() }
+
+        assertEquals(wifi, fx { model.text })
+        assertEquals(Source.TEXT, fx { model.source })
+        assertTrue(fx { model.generated != null })
     }
 }
