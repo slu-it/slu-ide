@@ -93,3 +93,10 @@
         -fx-text-fill: #ef8a80;
     }
 }
+
+/* The image view (ImageFileView) in place of the image when it is over the size cap or unreadable: muted, centred. */
+.image-refusal {
+    -fx-padding: 24;
+    -fx-opacity: 0.7;
+    -fx-font-size: 1.1em;
+}

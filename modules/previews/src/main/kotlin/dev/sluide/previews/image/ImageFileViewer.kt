@@ -4,14 +4,18 @@ import dev.sluide.fileviewers.ExtensionFileViewer
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.WrappingToolbar
+import dev.sluide.imagelimits.ImageCheck
+import dev.sluide.imagelimits.ImageLimits
 import dev.sluide.previews.preview.PageZoom
 import dev.sluide.previews.preview.ZoomControls
 import dev.sluide.previews.preview.isPageFromString
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker
+import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.layout.BorderPane
+import javafx.scene.text.TextAlignment
 import javafx.scene.web.WebView
 import netscape.javascript.JSObject
 import org.springframework.stereotype.Component
@@ -58,6 +62,18 @@ internal class ImageFileView(
     val webView = WebView().apply { isContextMenuEnabled = false }
     val status = Label().apply { styleClass += "image-status" }
     private val engine = webView.engine
+
+    /** Stands in for the web view while the image is over the cap or unreadable (ADR 0175). */
+    private val refusal =
+        Label().apply {
+            styleClass += "image-refusal"
+            isWrapText = true
+            alignment = Pos.CENTER
+            textAlignment = TextAlignment.CENTER
+        }
+
+    /** Whether the refusal is shown instead of the image; no page is loaded then. */
+    private var refused = false
 
     /** The image's zoom, in the toolbar above it and on the keys, wheel and pinch in the web view. */
     internal val zoom = ZoomControls(PageZoom(engine) { isLoaded })
@@ -125,12 +141,15 @@ internal class ImageFileView(
     }
 
     /** Focuses the image, so that the zoom keys work right away. */
-    override fun focusText() = webView.requestFocus()
+    override fun focusText() = (if (refused) pane else webView).requestFocus()
 
-    /** Focuses the image once it is shown, so that the zoom keys work right away. */
-    override fun focus() = pendingFocus.request(webView) { if (!disposed) webView.requestFocus() }
+    /**
+     * Focuses the image once it is shown, so that the zoom keys work right away; while the message shows, the pane
+     * takes it, so that keys do not land on a control elsewhere. The target is chosen when the request runs.
+     */
+    override fun focus() = pendingFocus.request(pane) { if (!disposed) (if (refused) pane else webView).requestFocus() }
 
-    /** Stops showing the image for good: the blank page left is no page of ours, and nothing renders again. */
+    /** Stops showing the image for good: it loads a blank page, which is no page of ours, and nothing renders again. */
     override fun dispose() {
         disposed = true
         pendingFocus.cancel()
@@ -139,10 +158,32 @@ internal class ImageFileView(
 
     /** Whether the view shows its image page, completely loaded. */
     internal val isLoaded
-        get() = !disposed && engine.loadWorker.state == Worker.State.SUCCEEDED && isPageFromString(engine.location)
+        get() =
+            !disposed && !refused && engine.loadWorker.state == Worker.State.SUCCEEDED &&
+                isPageFromString(engine.location)
 
+    /** Checks the header first: only an image within its cap reaches the web view, which decodes it whole. */
     private fun render() {
-        engine.loadContent(ImagePage.render(bytes, imageTypes.getValue(file.extension.lowercase()), dark))
+        val check = ImageLimits.check(bytes)
+        val text = refusalText(check)
+        if (text == null) {
+            refused = false
+            pane.center = webView
+            zoom.node.isDisable = false
+            engine.loadContent(ImagePage.render(bytes, imageTypes.getValue(file.extension.lowercase()), dark))
+            return
+        }
+        val wasShowingPage = !refused
+        refused = true
+        // The page of an image shown before goes away, as in dispose; on the first render this blank load is also the
+        // signal for the tests that no page of ours was loaded.
+        if (wasShowingPage) engine.load("")
+        refusal.text = text
+        pane.center = refusal
+        zoom.node.isDisable = true
+        val size = humanSize(bytes.size.toLong())
+        status.text =
+            if (check is ImageCheck.TooLarge) "${ImageLimits.sizeText(check.header, "px")} · $size" else size
     }
 
     private fun onLoaded() {
@@ -164,6 +205,23 @@ internal class ImageFileView(
         ) = zoom.zoomed(scale, fitted)
     }
 }
+
+/** What the view says instead of the image when [check] refuses it; null when it [fits][ImageCheck.Fits]. */
+internal fun refusalText(check: ImageCheck): String? =
+    when (check) {
+        is ImageCheck.Fits -> {
+            null
+        }
+
+        is ImageCheck.TooLarge -> {
+            "${ImageLimits.sizeText(check.header, "px")} — too large to show " +
+                "(at most ${check.limitPixels / 1_000_000} megapixels)"
+        }
+
+        ImageCheck.Unreadable -> {
+            "The image could not be read."
+        }
+    }
 
 /** [bytes] for people: `512 B`, `1.5 KB`, `3.2 MB`. */
 internal fun humanSize(bytes: Long): String =

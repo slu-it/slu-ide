@@ -1,5 +1,8 @@
 package dev.sluide.previews.image
 
+import dev.sluide.imagelimits.ImageCheck
+import dev.sluide.imagelimits.ImageFormat
+import dev.sluide.imagelimits.ImageHeader
 import org.junit.jupiter.api.io.TempDir
 import java.io.RandomAccessFile
 import java.nio.file.Path
@@ -7,6 +10,7 @@ import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 
 /** Which files the image viewer accepts, and its page. */
 class ImageFileViewerTest {
@@ -54,5 +58,22 @@ class ImageFileViewerTest {
 
         assert("src=\"data:image/png;base64,AQID\"" in light)
         assert("<body class=\"zoomable\">" in light && "<body class=\"dark zoomable\">" in dark)
+    }
+
+    @Test
+    fun `the refusal says the size and the cap, or that the image could not be read, and nothing for a fitting one`() {
+        val png = ImageHeader(30_000, 30_000, 1, ImageFormat.PNG, baselineJpeg = false)
+        val gif = ImageHeader(4_000, 4_000, 60, ImageFormat.GIF, baselineJpeg = false)
+
+        assertEquals(
+            "30 000 × 30 000 px — too large to show (at most 40 megapixels)",
+            refusalText(ImageCheck.TooLarge(png, 40_000_000)),
+        )
+        assertEquals(
+            "60 frames of 4 000 × 4 000 px — too large to show (at most 40 megapixels)",
+            refusalText(ImageCheck.TooLarge(gif, 40_000_000)),
+        )
+        assertEquals("The image could not be read.", refusalText(ImageCheck.Unreadable))
+        assertNull(refusalText(ImageCheck.Fits(png)))
     }
 }

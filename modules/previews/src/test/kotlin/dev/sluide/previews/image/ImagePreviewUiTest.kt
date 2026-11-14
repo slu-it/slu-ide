@@ -1,5 +1,6 @@
 package dev.sluide.previews.image
 
+import dev.sluide.imagelimits.TestImages
 import dev.sluide.previews.press
 import dev.sluide.previews.preview.PreviewFileView
 import dev.sluide.previews.preview.PreviewMode
@@ -9,9 +10,12 @@ import javafx.concurrent.Worker
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Scene
+import javafx.scene.control.Label
+import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
 import javafx.scene.web.WebView
 import javafx.stage.Stage
@@ -30,6 +34,7 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 import kotlin.io.path.fileSize
+import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -97,6 +102,107 @@ class ImagePreviewUiTest {
         view.webView.script("document.body.click()")
         assertEquals(fitted, view.webView.imageWidth())
         assertTrue(fx { view.zoom.fit })
+    }
+
+    private fun refusalShown(view: ImageFileView) = fx { (view.node as BorderPane).center !== view.webView }
+
+    /** Waits for the blank page the view loads when it refuses an image: no page of ours was or is loaded. */
+    private fun awaitBlank(webView: WebView) {
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+            fx { webView.engine.loadWorker.state == Worker.State.SUCCEEDED && webView.engine.location == "about:blank" }
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+    }
+
+    @Test
+    fun `an image whose header claims too many pixels, or that cannot be read, shows a message and loads no page`(
+        robot: FxRobot,
+    ) {
+        val bomb = dir.resolve("bomb.png").apply { writeBytes(TestImages.pngHeader(30_000, 30_000)) }
+        val view = fx { ImageFileViewer().open(bomb) as ImageFileView }
+        robot.interact { container.children.setAll(view.node) }
+
+        assertTrue(refusalShown(view))
+        awaitBlank(view.webView)
+        assertEquals(null, view.webView.script("document.querySelector('img')"))
+        assertFalse(fx { view.isLoaded })
+        // A change of the scheme must not script the blank page either.
+        robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
+        assertFalse(fx { view.isLoaded })
+        assertEquals(false, view.webView.script("document.body.classList.contains('dark')"))
+        robot.interact { container.scene.preferences.colorScheme = ColorScheme.LIGHT }
+        assertEquals("30 000 × 30 000 px · ${humanSize(bomb.fileSize())}", fx { view.status.text })
+        val message = fx { ((view.node as BorderPane).center as Label).text }
+        assertEquals("30 000 × 30 000 px — too large to show (at most 40 megapixels)", message)
+        assertTrue(fx { view.zoom.node.isDisable })
+        // Muted and padded by preview-view.css (computed from the stylesheet, so a lost rule fails here).
+        val label = fx { (view.node as BorderPane).center as Label }
+        assertEquals(0.7, fx { label.opacity })
+        assertEquals(24.0, fx { label.padding.top })
+
+        val garbage = dir.resolve("garbage.png").apply { writeBytes(ByteArray(300) { it.toByte() }) }
+        val unreadable = fx { ImageFileViewer().open(garbage) as ImageFileView }
+        robot.interact { container.children.setAll(unreadable.node) }
+        assertEquals("The image could not be read.", fx { ((unreadable.node as BorderPane).center as Label).text })
+        assertEquals(humanSize(garbage.fileSize()), fx { unreadable.status.text })
+        awaitBlank(unreadable.webView)
+        assertEquals(null, unreadable.webView.script("document.querySelector('img')"))
+    }
+
+    @Test
+    fun `a reload to an image over the cap unloads the page, and a reload back shows the image again`(robot: FxRobot) {
+        val file = png("icon.png", 10, 10)
+        val view = fx { ImageFileViewer().open(file) as ImageFileView }
+        robot.interact { container.children.setAll(view.node) }
+        awaitLoaded(view.webView)
+        assertFalse(refusalShown(view))
+
+        file.writeBytes(TestImages.pngHeader(30_000, 30_000))
+        robot.interact { view.reload() }
+        assertTrue(refusalShown(view))
+        awaitBlank(view.webView)
+        assertEquals(null, view.webView.script("document.querySelector('img')"))
+        assertTrue(fx { view.zoom.node.isDisable })
+        assertTrue(fx { view.status.text.startsWith("30 000 × 30 000 px · ") })
+
+        png("icon.png", 30, 20)
+        robot.interact { view.reload() }
+        awaitLoaded(view.webView)
+        assertFalse(refusalShown(view))
+        assertFalse(fx { view.zoom.node.isDisable })
+        assertEquals(30, (view.webView.script("document.querySelector('img').naturalWidth") as Number).toInt())
+        assertEquals("30 × 20 px · ${humanSize(file.fileSize())}", fx { view.status.text })
+    }
+
+    @Test
+    fun `while the message shows the pane takes the focus, and a request waits for the view to be in the scene`(
+        robot: FxRobot,
+    ) {
+        val other = TextField()
+        robot.interact { container.children.setAll(other) }
+        robot.interact { other.requestFocus() }
+        val bomb = dir.resolve("bomb.png").apply { writeBytes(TestImages.pngHeader(30_000, 30_000)) }
+        val view = fx { ImageFileViewer().open(bomb) as ImageFileView }
+
+        // Out of the scene: nothing happens yet, also not when the image changes meanwhile.
+        robot.interact { view.focus() }
+        png("bomb.png", 10, 10)
+        robot.interact { view.reload() }
+        assertEquals(other, fx { container.scene.focusOwner })
+        // Shown at last: the request runs and picks the web view, as the image shows now.
+        robot.interact { container.children.setAll(other, view.node) }
+        awaitLoaded(view.webView)
+        assertEquals(view.webView, fx { container.scene.focusOwner })
+
+        // A refused view in the scene takes the focus itself, with either call.
+        robot.interact { other.requestFocus() }
+        bomb.writeBytes(TestImages.pngHeader(30_000, 30_000))
+        robot.interact { view.reload() }
+        robot.interact { view.focus() }
+        assertEquals(view.node, fx { container.scene.focusOwner })
+        robot.interact { other.requestFocus() }
+        robot.interact { view.focusText() }
+        assertEquals(view.node, fx { container.scene.focusOwner })
     }
 
     @Test

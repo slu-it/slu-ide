@@ -23,6 +23,9 @@ dependencies {
     implementation(project(":modules:github-actions"))
     // Deliberate module dependency: the source side of a preview knows the comment syntax of a file (CommentSyntax).
     implementation(project(":modules:text-editing"))
+    // Deliberate module dependency: the image viewer checks an image's size from its header before it renders it, so
+    // that a decompression bomb cannot fill the heap (ADR 0175).
+    implementation(project(":modules:image-limits"))
     implementation(libs.spring.context)
     // Markdown preview: commonmark renders HTML, jsoup sanitises it (ADR 0016).
     implementation(libs.bundles.commonmark)
@@ -36,6 +39,8 @@ dependencies {
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)
 
+    // Hand-built image files and bomb headers (TestImages).
+    testImplementation(testFixtures(project(":modules:image-limits")))
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
     // The tests read the source's RichTextFX area (SourceArea.kt).
