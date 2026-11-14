@@ -32,6 +32,7 @@ internal data class NewTag(
 internal val CREATE_BUTTON = ButtonType("Create", ButtonBar.ButtonData.OK_DONE)
 internal val RENAME_BUTTON = ButtonType("Rename", ButtonBar.ButtonData.OK_DONE)
 internal val DELETE_BUTTON = ButtonType("Delete", ButtonBar.ButtonData.OK_DONE)
+internal val PUSH_BUTTON = ButtonType("Push", ButtonBar.ButtonData.OK_DONE)
 internal val FORCE_DELETE_BUTTON = ButtonType("Force Delete", ButtonBar.ButtonData.OK_DONE)
 
 /**
@@ -245,6 +246,60 @@ internal fun deleteRefsConfirmation(
             dialogPane.content = VBox(SPACING, list, *boxes.values.toTypedArray())
         }
     return DeleteConfirmation(alert, boxes)
+}
+
+/** The push tags dialog's [alert] and, by remote, the checkboxes that choose where the tags go (ADR 0173). */
+internal class PushTagsConfirmation(
+    val alert: Alert,
+    val remotes: Map<String, CheckBox>,
+) {
+    /** The remotes whose checkbox is checked, in their order. */
+    val checkedRemotes: List<String> get() = remotes.filterValues { it.isSelected }.keys.toList()
+}
+
+/** The remote whose box is checked at first: `origin` if there is one, else the first of the [remotes]. */
+internal fun defaultTagRemote(remotes: List<String>): String? =
+    remotes.firstOrNull { it == "origin" } ?: remotes.firstOrNull()
+
+/**
+ * Asks to which of the [remotes] to push the [tags] (short names): "Push tag 'v1'?" or "Push 3 tags?", the names one
+ * per line in a read-only area, one checkbox per remote with [defaultTagRemote] checked. Push, the default button, is
+ * disabled while no box is checked. Pushing a tag is not destructive, so Cancel is not the default. Not shown yet.
+ */
+internal fun pushTagsConfirmation(
+    owner: Window?,
+    tags: List<String>,
+    remotes: List<String>,
+): PushTagsConfirmation {
+    val preChecked = defaultTagRemote(remotes)
+    val boxes =
+        remotes.associateWith { remote ->
+            CheckBox(remote).apply {
+                styleClass += "git-push-tag-remote"
+                isMnemonicParsing = false
+                isSelected = remote == preChecked
+            }
+        }
+    val alert =
+        Alert(Alert.AlertType.CONFIRMATION, null, PUSH_BUTTON, ButtonType.CANCEL).apply {
+            owner?.let(::initOwner)
+            title = "Push Tags"
+            headerText = tags.singleOrNull()?.let { "Push tag '$it'?" } ?: "Push ${tags.size} tags?"
+            val list =
+                TextArea(tags.joinToString("\n")).apply {
+                    styleClass += "git-push-tag-names"
+                    isEditable = false
+                    prefColumnCount = NAME_COLUMNS
+                    prefRowCount = tags.size.coerceIn(DELETE_ROWS_MIN, DELETE_ROWS_MAX)
+                }
+            // In a pane of its own: the dialog pane pads its content, which would pad the text inside the area.
+            dialogPane.content = VBox(SPACING, list, *boxes.values.toTypedArray())
+            val push = dialogPane.lookupButton(PUSH_BUTTON) as Button
+            val update = { push.isDisable = boxes.values.none { it.isSelected } }
+            boxes.values.forEach { it.selectedProperty().subscribe { _ -> update() } }
+            update()
+        }
+    return PushTagsConfirmation(alert, boxes)
 }
 
 /**

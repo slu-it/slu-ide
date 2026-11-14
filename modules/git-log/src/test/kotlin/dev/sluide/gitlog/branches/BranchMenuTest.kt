@@ -218,7 +218,8 @@ class BranchMenuTest {
                 GitRef("refs/heads/other", GitRefKind.LOCAL_BRANCH, "h3") +
                 GitRef("refs/remotes/origin/x", GitRefKind.REMOTE_BRANCH, "h2") +
                 GitRef("refs/remotes/origin/feature/y", GitRefKind.REMOTE_BRANCH, "h2") +
-                GitRef("refs/tags/v1", GitRefKind.TAG, "h1"),
+                GitRef("refs/tags/v1", GitRefKind.TAG, "h1") +
+                GitRef("refs/tags/v2", GitRefKind.TAG, "h3"),
             "refs/heads/main",
         )
 
@@ -280,15 +281,46 @@ class BranchMenuTest {
     }
 
     @Test
-    fun `a tag can start a branch, be checked out, deleted, compared and diffed`() {
+    fun `a tag can start a branch, be checked out, deleted, pushed, compared and diffed`() {
+        val shown = entries("Tags/v1")
         assertEquals(
             listOf(
                 listOf(BranchMenuEntry.NEW_BRANCH),
                 listOf(BranchMenuEntry.CHECKOUT, BranchMenuEntry.DELETE),
+                listOf(BranchMenuEntry.PUSH_TAG),
                 listOf(BranchMenuEntry.COMPARE, BranchMenuEntry.WORKING_TREE_DIFF),
             ),
-            entries("Tags/v1").entries(),
+            shown.entries(),
         )
+        assertEquals("Push Tag", shown[2].single().text)
+    }
+
+    @Test
+    fun `several tags are pushed together, a branch or a mix with one is not, nor is a tag without a remote`() {
+        val several = entries("Tags/v1", "Tags/v2")
+        assertEquals(listOf(listOf(BranchMenuEntry.DELETE), listOf(BranchMenuEntry.PUSH_TAG)), several.entries())
+        assertEquals("Push Tags", several[1].single().text)
+        assertEquals(1, actions("Tags/v1", withRemoteAndTag, remotes = listOf("origin")).pushTags.size)
+
+        assertTrue(BranchMenuEntry.PUSH_TAG !in entries("Local/feature").entries().flatten())
+        assertTrue(BranchMenuEntry.PUSH_TAG !in entries("Tags/v1", "Local/feature").entries().flatten())
+        val noRemote =
+            branchMenuEntries(selected(withRemoteAndTag, "Tags/v1"), withRemoteAndTag, emptyList(), false, false)
+        assertTrue(BranchMenuEntry.PUSH_TAG !in noRemote.entries().flatten())
+    }
+
+    @Test
+    fun `pushing tags is disabled while writing but not while busy, as it changes no files`() {
+        assertEquals(
+            listOf(BranchMenuEntry.PUSH_TAG),
+            entries("Tags/v1", writing = true)
+                .flatten()
+                .filter { it.entry == BranchMenuEntry.PUSH_TAG && !it.enabled }
+                .map { it.entry },
+        )
+        assertTrue(actions("Tags/v1", withRemoteAndTag, writing = true, remotes = listOf("origin")).pushTags.isEmpty())
+        assertFalse(BranchMenuEntry.PUSH_TAG in entries("Tags/v1", busy = true).disabled())
+        assertEquals(1, actions("Tags/v1", withRemoteAndTag, busy = true, remotes = listOf("origin")).pushTags.size)
     }
 
     @Test

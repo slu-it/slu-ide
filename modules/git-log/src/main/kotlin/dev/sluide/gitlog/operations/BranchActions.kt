@@ -42,6 +42,8 @@ internal data class BranchActions(
      * and the remote of each is known; never `<remote>/HEAD` or a protected branch ([isProtectedBranch]).
      */
     val deleteRemote: List<RemoteBranch> = emptyList(),
+    /** The selected tags, to push to a remote (ADR 0173), if that is all the selection holds and there is a remote. */
+    val pushTags: List<GitRef> = emptyList(),
 )
 
 /** The text of the rebase item: for [current] onto [target] (short names), or generic if either is not known. */
@@ -116,6 +118,14 @@ internal fun branchActions(
                 ?.takeIf { it.ref.shortName != "${it.remote}/HEAD" && !isProtectedBranch(it.nameOnRemote) }
         }
     val deleteRemote = if (remoteBranches.all { it != null }) remoteBranches.filterNotNull() else emptyList()
+    val pushTags =
+        if (remotes.isNotEmpty() && selected.isNotEmpty() &&
+            selected.all { it is BranchLeaf && it.ref.kind == GitRefKind.TAG }
+        ) {
+            selected.map { (it as BranchLeaf).ref }
+        } else {
+            emptyList()
+        }
     val fetch =
         selected.singleOrNull()?.takeIf { it is BranchRemote || it is BranchFolder }?.let {
             remoteOf(
@@ -146,6 +156,7 @@ internal fun branchActions(
         merge = ref.takeIf { rebase != null },
         pull = ref?.takeIf { pullable(it, single?.current == true, current, headCommit, remotes) },
         deleteRemote = deleteRemote,
+        pushTags = pushTags,
     )
 }
 

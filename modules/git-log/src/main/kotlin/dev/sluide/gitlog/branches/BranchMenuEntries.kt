@@ -20,6 +20,7 @@ internal enum class BranchMenuEntry(
     REBASE("branch-rebase", GitLogIcons.rebase, 3),
     MERGE("branch-merge", GitLogIcons.merge, 3),
     PULL("branch-pull", GitLogIcons.pull, 3),
+    PUSH_TAG("branch-push-tag", GitLogIcons.push, 3),
     COMPARE("branch-compare", GitLogIcons.compare, 4),
     WORKING_TREE_DIFF("branch-working-tree-diff", GitLogIcons.workingTreeDiff, 4),
     FETCH("branch-fetch", GitLogIcons.fetch, 5),
@@ -74,6 +75,7 @@ private fun applies(
         BranchMenuEntry.REBASE -> actions.rebase != null
         BranchMenuEntry.MERGE -> actions.merge != null
         BranchMenuEntry.PULL -> actions.pull != null
+        BranchMenuEntry.PUSH_TAG -> actions.pushTags.isNotEmpty()
         BranchMenuEntry.COMPARE -> actions.compare != null
         BranchMenuEntry.WORKING_TREE_DIFF -> actions.workingTreeDiff != null
         BranchMenuEntry.FETCH -> actions.fetch != null
@@ -120,6 +122,10 @@ internal fun entryText(
             pullMenuText(selected, refs)
         }
 
+        BranchMenuEntry.PUSH_TAG -> {
+            if (actions.pushTags.size == 1) "Push Tag" else "Push Tags"
+        }
+
         BranchMenuEntry.COMPARE -> {
             "Compare with Current"
         }
@@ -148,6 +154,7 @@ internal fun runEntry(
         BranchMenuEntry.REBASE -> actions.rebase?.let(commands.rebase)
         BranchMenuEntry.MERGE -> actions.merge?.let(commands.merge)
         BranchMenuEntry.PULL -> actions.pull?.let(commands.pull)
+        BranchMenuEntry.PUSH_TAG -> if (actions.pushTags.isNotEmpty()) commands.pushTags(actions.pushTags)
         BranchMenuEntry.COMPARE -> actions.compare?.let(commands.compare)
         BranchMenuEntry.WORKING_TREE_DIFF -> actions.workingTreeDiff?.let(commands.showWorkingTreeDiff)
         BranchMenuEntry.FETCH -> actions.fetch?.let(commands.fetch)

@@ -137,6 +137,10 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         selectRows(robot, 1)
         assertTrue(menus().isEmpty(), "a tag only: no branch")
         assertEquals(listOf("v0.9"), tagMenus().map { it.text })
+        assertTrue(
+            tagMenus().single().items.any { it.id == "branch-push-tag" },
+            "a tag's submenu pushes it, to the remotes the log read",
+        )
         val tagOnly = view.table.contextMenu.items
         assertEquals("v0.9", tagOnly[0].text)
         assertTrue(tagOnly[1] is SeparatorMenuItem, "a separator after the submenu")

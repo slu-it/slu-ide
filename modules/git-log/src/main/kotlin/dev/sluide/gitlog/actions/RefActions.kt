@@ -29,12 +29,14 @@ import dev.sluide.gitlog.operations.MergeBranch
 import dev.sluide.gitlog.operations.MergeDialog
 import dev.sluide.gitlog.operations.NewBranchDialog
 import dev.sluide.gitlog.operations.NewTagDialog
+import dev.sluide.gitlog.operations.PUSH_BUTTON
 import dev.sluide.gitlog.operations.PickCommit
 import dev.sluide.gitlog.operations.PreparePull
 import dev.sluide.gitlog.operations.PrepareStash
 import dev.sluide.gitlog.operations.PullBranch
 import dev.sluide.gitlog.operations.PullDialog
 import dev.sluide.gitlog.operations.PullPrompt
+import dev.sluide.gitlog.operations.PushTags
 import dev.sluide.gitlog.operations.RefConfirmation
 import dev.sluide.gitlog.operations.RefNameKind
 import dev.sluide.gitlog.operations.RefOperation
@@ -63,6 +65,7 @@ import dev.sluide.gitlog.operations.pickButton
 import dev.sluide.gitlog.operations.pickStoppedDialog
 import dev.sluide.gitlog.operations.pickTitle
 import dev.sluide.gitlog.operations.pullRefusedAlert
+import dev.sluide.gitlog.operations.pushTagsConfirmation
 import dev.sluide.gitlog.operations.rebaseStoppedDialog
 import dev.sluide.gitlog.operations.refConfirmation
 import dev.sluide.gitlog.operations.remoteOfBranch
@@ -449,6 +452,24 @@ internal class RefActions(
         val confirmation = deleteRefsConfirmation(window(), deleteRemoteQuestion(branches), names)
         if (confirmation.alert.showAndWait().orElse(ButtonType.CANCEL) != DELETE_BUTTON) return
         start(DeleteRemoteBranches(branches))
+    }
+
+    /**
+     * Pushes the tags [refs] (ADR 0173) to the only remote at once, or, with several, to those the user checks in a
+     * dialog; nothing while an operation runs or without tags or remotes.
+     */
+    fun pushTags(refs: List<GitRef>) {
+        if (writer.running.get()) return
+        val tags = refs.filter { it.kind == GitRefKind.TAG }.map { it.shortName }
+        val remotes = pages.remotes.orEmpty()
+        if (tags.isEmpty() || remotes.isEmpty()) return
+        if (remotes.size == 1) {
+            start(PushTags(tags, remotes))
+            return
+        }
+        val confirmation = pushTagsConfirmation(window(), tags, remotes)
+        if (confirmation.alert.showAndWait().orElse(ButtonType.CANCEL) != PUSH_BUTTON) return
+        start(PushTags(tags, confirmation.checkedRemotes))
     }
 
     /** Cancels the fetch, commit or push going on, if any (ADR 0043). */

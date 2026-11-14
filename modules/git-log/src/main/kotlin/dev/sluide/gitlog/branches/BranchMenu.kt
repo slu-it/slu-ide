@@ -50,6 +50,9 @@ internal class BranchCommands {
     /** Asks whether to delete the given remote branches on their remotes (Delete, ADR 0078). */
     var deleteRemote: (List<RemoteBranch>) -> Unit = {}
 
+    /** Pushes the given tags to a remote, asking which when there are several (ADR 0173). */
+    var pushTags: (List<GitRef>) -> Unit = {}
+
     /** Fetches the given remote. */
     var fetch: (String) -> Unit = {}
 
@@ -101,6 +104,7 @@ internal fun branchCommands(
         rename = actions::renameBranch
         delete = actions::deleteRefs
         deleteRemote = actions::deleteRemoteBranches
+        pushTags = actions::pushTags
         fetch = { remote -> actions.start(Fetch(remote)) }
         rebase = { operation -> actions.start(operation) }
         merge = actions::merge
