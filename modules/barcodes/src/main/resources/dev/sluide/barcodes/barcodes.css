@@ -35,3 +35,29 @@
 .barcodes-hint {
     -fx-opacity: 0.6;
 }
+
+.barcodes-structured,
+.barcodes-structured > .viewport {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.barcodes-structured-title {
+    -fx-font-weight: bold;
+    -fx-font-size: 0.9em;
+}
+
+.barcodes .barcodes-field-label {
+    -fx-opacity: 0.7;
+}
+
+.barcodes .barcodes-field-value {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 2 4 2 4;
+}
+
+.barcodes .barcodes-field-button {
+    -fx-background-color: transparent;
+    -fx-padding: 2 4 2 4;
+}

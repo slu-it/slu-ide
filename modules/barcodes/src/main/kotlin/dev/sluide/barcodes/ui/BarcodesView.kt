@@ -64,6 +64,7 @@ internal class BarcodesView(
         )
 
     private val options = OptionsBar(model)
+    private val structured = StructuredView()
     private val area =
         TextArea().apply {
             id = "barcodes-text"
@@ -179,6 +180,7 @@ internal class BarcodesView(
         return VBox(6.0, header, area, structuredSlot, textStatus).apply {
             padding = Insets(8.0)
             minWidth = 0.0
+            structured.limitHeight(heightProperty())
         }
     }
 
@@ -206,6 +208,7 @@ internal class BarcodesView(
         } finally {
             updating = false
         }
+        showStructured()
         val generated = model.generated
         val failure = model.failure
         codeCanvas.content =
@@ -238,6 +241,15 @@ internal class BarcodesView(
         copyImage.tooltip = why
         saveImage.tooltip = why
         showStatuses()
+    }
+
+    private fun showStructured() {
+        val shown = structured.show(model.text)
+        if (shown && structured.node !in structuredSlot.children) {
+            structuredSlot.children += structured.node
+        } else if (!shown) {
+            structuredSlot.children.clear()
+        }
     }
 
     private fun showStatuses() {
