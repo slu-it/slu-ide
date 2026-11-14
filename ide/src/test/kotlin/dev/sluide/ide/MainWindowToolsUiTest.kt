@@ -555,6 +555,38 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     }
 
     @Test
+    fun `Show Selection as Barcode in a code editor's context menu opens the Barcodes tab with the selection`(
+        robot: FxRobot,
+    ) {
+        val file = project.resolve("notes.txt").apply { writeText("https://example.com/x\n") }
+        robot.interact { editorArea.open(file) }
+        eventually(robot) { assertEquals(1, robot.lookup(".code-area").queryAllAs(CodeArea::class.java).size) }
+        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
+
+        val items =
+            WaitForAsyncUtils
+                .asyncFx<List<MenuItem>> {
+                    area.selectRange(0, 19)
+                    val menu = checkNotNull(area.contextMenu)
+                    val at = area.localToScreen(5.0, 5.0)
+                    menu.show(area, at.x, at.y)
+                    menu.items.toList().also { menu.hide() }
+                }.get()
+        val texts = items.map { it.text }
+        assertTrue(
+            texts.indexOf("Translate Selection") in 0 until texts.indexOf("Show Selection as Barcode"),
+            "items: $texts",
+        )
+        val item = items.single { it.text == "Show Selection as Barcode" }
+        assertFalse(item.isDisable)
+        robot.interact { item.fire() }
+
+        assertEquals(listOf("notes.txt", "Barcodes"), tabTitles(robot))
+        assertEquals("Barcodes", checkNotNull(editorArea.selectedTab).title.value)
+        assertEquals("https://example.com", barcodesText())
+    }
+
+    @Test
     fun `Open Selection in Converting follows Codecs' item in a code editor's context menu and opens the tab`(
         robot: FxRobot,
     ) {

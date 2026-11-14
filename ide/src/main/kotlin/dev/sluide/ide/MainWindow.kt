@@ -455,10 +455,10 @@ class MainWindow(
         )
         // A saved build file marks its build's task list stale (ADR 0085).
         editorArea.onFileSaved = gradleSession::fileSaved
-        // Code editors show the colors of style, markup and script files as swatches and open them in Coloring (ADR 0108,
-        // ADR 0109), open a selection in Codecs (ADR 0112) and a selection or a whole file in Converting (ADR 0115);
-        // they wrap long lines by one switch for all editors of all windows (ADR 0130); Python files get code
-        // intelligence from the window's language servers (ADR 0145).
+        // Code editors show the colors of style, markup and script files as swatches and open them in Coloring (ADR
+        // 0108, ADR 0109), open a selection in Codecs (ADR 0112), show it as a barcode (ADR 0174) and open a selection
+        // or a whole file in Converting (ADR 0115); they wrap long lines by one switch for all editors of all windows
+        // (ADR 0130); Python files get code intelligence from the window's language servers (ADR 0145).
         codeIntelligence.register(editorArea.windowServices)
         editorArea.windowServices.register(
             CodeEditorExtensions::class.java,
@@ -468,6 +468,7 @@ class MainWindow(
                 add(converting.editorExtension)
                 add(readAloud.editorExtension)
                 add(translate.editorExtension)
+                add(barcodes.editorExtension)
                 add(codeIntelligence.editorExtension)
                 add(libraryCode)
             },

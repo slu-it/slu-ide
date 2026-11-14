@@ -1,9 +1,11 @@
 package dev.sluide.barcodes
 
+import dev.sluide.barcodes.editor.ShowSelectionExtension
 import dev.sluide.barcodes.model.BarcodeModel
 import dev.sluide.barcodes.ui.BarcodesTab
 import dev.sluide.barcodes.ui.BarcodesView
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.fileviewers.CodeEditorExtension
 import javafx.stage.FileChooser
 import javafx.stage.Window
 import org.springframework.context.annotation.Scope
@@ -32,6 +34,9 @@ class Barcodes(
 
     /** A new Barcodes tab on [model]. */
     fun createTab(): EditorTab = BarcodesTab(BarcodesView(model, ::chooseSaveFile, ::chooseImageFile) { openUrl(it) })
+
+    /** Adds "Show Selection as Barcode" to the code editors' context menu (ADR 0174); registered by ide. */
+    val editorExtension: CodeEditorExtension = ShowSelectionExtension(::open)
 
     /** Puts [text] into the tool as typed text and shows the tab. */
     fun open(text: String) {
