@@ -27,6 +27,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.net.URI
 import java.nio.file.Path
 import java.util.concurrent.Callable
 import java.util.concurrent.CopyOnWriteArrayList
@@ -511,15 +512,21 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `Barcodes open shows the Barcodes tab with the text, and a second call reuses the tab`(robot: FxRobot) {
-        robot.interact { barcodes.single().open("hello") }
-        assertEquals(listOf("Barcodes"), tabTitles(robot))
+    fun `Barcodes open selects the Barcodes tab, and its Open in Browser button opens the window's web page`(
+        robot: FxRobot,
+    ) {
+        val opened = mutableListOf<URI>()
+        mainWindow.openWebPage = { opened += it }
+        robot.interact { barcodes.single().open("https://example.com") }
         assertEquals("Barcodes", checkNotNull(editorArea.selectedTab).title.value)
-        assertEquals("hello", barcodesText())
+        assertEquals("https://example.com", barcodesText())
 
-        robot.interact { barcodes.single().open("again") }
-        assertEquals(listOf("Barcodes"), tabTitles(robot))
-        assertEquals("again", barcodesText())
+        val button =
+            WaitForAsyncUtils
+                .asyncFx(Callable { checkNotNull(editorArea.selectedTab).content.lookup("#barcodes-open-browser") })
+                .get() as Button
+        robot.interact { button.fire() }
+        assertEquals(listOf(URI("https://example.com")), opened)
     }
 
     private fun barcodesText(): String =
