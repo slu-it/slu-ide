@@ -15,7 +15,11 @@ dependencies {
     api(project(":modules:editor-area"))
     // Deliberate module API dependency: it will add "Show Selection as Barcode" to the code editors (ADR 0174).
     api(project(":modules:file-viewers"))
+    // Deliberate module API dependency: the last format and options live in the shared data file (ADR 0101, ADR 0174).
+    api(project(":modules:project-data"))
     implementation(libs.spring.context)
+    // The `barcodes` field of the shared data file is a JSON node.
+    implementation(libs.jackson.databind)
     // Generates and reads the barcodes; only ZXing core, without the AWT-based javase module (ADR 0174).
     implementation(libs.zxing.core)
 
