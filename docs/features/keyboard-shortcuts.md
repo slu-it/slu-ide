@@ -358,6 +358,13 @@ File does not react to it while a terminal has the focus.
 | F5 | Refresh: reload the engine's containers, images, volumes and networks |
 | Shortcut+C in the log list | Copy the selected lines (select several with Shift- or Ctrl-click; also Copy in its context menu); there is no Shortcut+F, the Filter field narrows the lines |
 
+## Barcodes tab
+[barcodes.md](barcodes.md)
+
+| Keys | Action |
+|---|---|
+| Shortcut+V anywhere in the tab | Read the image on the clipboard, when it holds an image and no text; with text, the text area pastes it as usual |
+
 ## Databases tab
 [databases.md](databases.md)
 

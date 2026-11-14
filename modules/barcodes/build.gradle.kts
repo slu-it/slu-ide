@@ -17,6 +17,8 @@ dependencies {
     api(project(":modules:file-viewers"))
     // Deliberate module API dependency: the last format and options live in the shared data file (ADR 0101, ADR 0174).
     api(project(":modules:project-data"))
+    // The read of an image runs on a named thread (NamedThreads, ADR 0060, ADR 0174).
+    implementation(project(":modules:background-tasks"))
     implementation(libs.spring.context)
     // The `barcodes` field of the shared data file is a JSON node.
     implementation(libs.jackson.databind)

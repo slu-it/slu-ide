@@ -13,10 +13,17 @@ import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.SplitPane
 import javafx.scene.control.TextArea
+import javafx.scene.control.Tooltip
 import javafx.scene.image.PixelFormat
 import javafx.scene.image.WritableImage
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
+import javafx.scene.input.DragEvent
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyCodeCombination
+import javafx.scene.input.KeyCombination
+import javafx.scene.input.KeyEvent
+import javafx.scene.input.TransferMode
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
@@ -36,11 +43,25 @@ import java.nio.file.Path
 internal class BarcodesView(
     private val model: BarcodeModel,
     private val chooseSaveFile: (Window?, String) -> Path?,
+    private val chooseImageFile: (Window?) -> Path?,
 ) {
     private var updating = false
 
     /** An error of Copy or Save as…, shown until the next model change. */
     private var localImageStatus: String? = null
+
+    /** A note after a read that was applied (several files dropped), appended to the status until the next change. */
+    private var readNote: String? = null
+
+    private val input =
+        ImageInput(
+            model,
+            reading = { showLocal("Reading…") },
+            noted = {
+                readNote = it
+                showStatuses()
+            },
+        )
 
     private val options = OptionsBar(model)
     private val area =
@@ -50,7 +71,7 @@ internal class BarcodesView(
         }
     private val textStatus = StatusLabel(::select).apply { id = "barcodes-text-status" }
     private val imageStatus = StatusLabel().apply { id = "barcodes-image-status" }
-    private val codeCanvas = CodeCanvas()
+    private val codeCanvas = CodeCanvas().apply { onPick = { model.selectCode(it) } }
     private val hint = Label("Type text, or paste an image (Shortcut+V)").apply { styleClass += "barcodes-hint" }
     private val copyImage =
         Button("Copy").apply {
@@ -65,8 +86,22 @@ internal class BarcodesView(
             setOnAction { saveCode() }
         }
 
+    private val pasteImage =
+        Button("Paste Image").apply {
+            id = "barcodes-paste-image"
+            isFocusTraversable = false
+            setOnAction { input.readClipboard() }
+        }
+    private val openImage =
+        Button("Open…").apply {
+            id = "barcodes-open-image"
+            isFocusTraversable = false
+            setOnAction { chooseImageFile(root.scene?.window)?.let { input.readFile(it) } }
+        }
+
     /** The buttons above the canvas; Paste Image and Open… go in front of Copy. */
-    internal val imageButtons = HBox(6.0, copyImage, saveImage).apply { alignment = Pos.CENTER_LEFT }
+    internal val imageButtons =
+        HBox(6.0, pasteImage, openImage, copyImage, saveImage).apply { alignment = Pos.CENTER_LEFT }
 
     /** The toolbar spot of the text side for Open in Browser. */
     internal val textToolbarSlot = HBox(6.0).apply { alignment = Pos.CENTER_LEFT }
@@ -90,6 +125,12 @@ internal class BarcodesView(
     /** The canvas the code is drawn on; tests sample its pixels. */
     internal val canvas get() = codeCanvas.canvas
 
+    /** Whether the canvas holds the bitmap of a read image. */
+    internal val holdsPicture get() = codeCanvas.holdsPicture
+
+    /** How many bitmaps the canvas built for read images; tests check that drawing again does not build one. */
+    internal val picturesBuilt get() = codeCanvas.picturesBuilt
+
     private val removeListener: () -> Unit
 
     init {
@@ -97,9 +138,20 @@ internal class BarcodesView(
         area.textProperty().addListener { _, _, text ->
             if (!updating) model.editText(text)
         }
+        // Shortcut+V reads an image from the clipboard only when it holds no text; otherwise the TextArea pastes as usual.
+        root.addEventFilter(KeyEvent.KEY_PRESSED) {
+            if (pasteKeys.match(it)) {
+                val clipboard = Clipboard.getSystemClipboard()
+                if (clipboard.hasImage() && !clipboard.hasString()) {
+                    input.readClipboard()
+                    it.consume()
+                }
+            }
+        }
         removeListener =
             model.addListener {
                 localImageStatus = null
+                readNote = null
                 refresh()
             }
         refresh()
@@ -134,6 +186,8 @@ internal class BarcodesView(
         val bar = WrappingToolbar().apply { leading.setAll(imageButtons) }
         val pane =
             StackPane(codeCanvas, hint).apply {
+                setOnDragOver(::dragOver)
+                setOnDragDropped(::dropped)
                 styleClass += "barcodes-canvas-pane"
                 minHeight = 0.0
                 VBox.setVgrow(this, Priority.ALWAYS)
@@ -156,15 +210,33 @@ internal class BarcodesView(
         val failure = model.failure
         codeCanvas.content =
             when {
-                model.source == Source.IMAGE && model.image != null -> CanvasContent.Picture(checkNotNull(model.image))
-                generated != null -> CanvasContent.Generated(generated, model.options, dimmed = failure != null)
-                else -> CanvasContent.Empty
+                model.source == Source.IMAGE && model.image != null -> {
+                    CanvasContent.Picture(checkNotNull(model.image), model.codes, model.selectedCode)
+                }
+
+                generated != null -> {
+                    CanvasContent.Generated(generated, model.options, dimmed = failure != null)
+                }
+
+                else -> {
+                    CanvasContent.Empty
+                }
             }
         hint.isVisible = codeCanvas.content == CanvasContent.Empty && model.source == Source.TEXT && failure == null
         // A failure keeps the last code on screen, which is not the code of the text: nothing to export then.
         val canExport = generated != null && failure == null && model.source == Source.TEXT
         copyImage.isDisable = !canExport
         saveImage.isDisable = !canExport
+        val why =
+            if (model.source ==
+                Source.IMAGE
+            ) {
+                Tooltip("Edit the text or change an option to make a code")
+            } else {
+                null
+            }
+        copyImage.tooltip = why
+        saveImage.tooltip = why
         showStatuses()
     }
 
@@ -182,7 +254,9 @@ internal class BarcodesView(
             val summary = generated?.takeIf { model.source == Source.TEXT }?.summary
             textStatus.info(if (summary != null) "$counts · $summary" else counts)
         }
-        val message = localImageStatus ?: model.imageStatus
+        val pick = if (model.source == Source.IMAGE && model.codes.size > 1) " · click an outline to pick one" else ""
+        val message =
+            localImageStatus ?: model.imageStatus?.let { it + pick + (readNote?.let { note -> " · $note" } ?: "") }
         val warning = model.colorWarning
         when {
             message != null -> imageStatus.info(message)
@@ -241,6 +315,35 @@ internal class BarcodesView(
         }
     }
 
+    private fun dragOver(event: DragEvent) {
+        if (event.dragboard.hasFiles() || event.dragboard.hasImage()) event.acceptTransferModes(TransferMode.COPY)
+        event.consume()
+    }
+
+    private fun dropped(event: DragEvent) {
+        val board = event.dragboard
+        val files = if (board.hasFiles()) board.files.orEmpty() else emptyList()
+        when {
+            files.isNotEmpty() -> {
+                input.readFile(
+                    files.first().toPath(),
+                    if (files.size > 1) "only the first of ${files.size} files was read" else null,
+                )
+            }
+
+            board.hasImage() -> {
+                input.readBoard(board, "dropped image", "The dropped item holds no image.")
+            }
+
+            else -> {
+                event.consume()
+                return
+            }
+        }
+        event.isDropCompleted = true
+        event.consume()
+    }
+
     private fun showLocal(message: String) {
         localImageStatus = message
         showStatuses()
@@ -250,6 +353,8 @@ internal class BarcodesView(
     fun dispose() = removeListener()
 
     internal companion object {
+        private val pasteKeys = KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN)
+
         fun suggestedName(format: CodeFormat): String =
             when (format) {
                 CodeFormat.QR_CODE -> "qr-code.png"

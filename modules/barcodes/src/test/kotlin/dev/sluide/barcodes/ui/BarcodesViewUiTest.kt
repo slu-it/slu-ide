@@ -65,10 +65,14 @@ class BarcodesViewUiTest {
         // Writes at once on the calling thread: no timing in these tests.
         model = BarcodeModel(BarcodeOptionsStore(data, Duration.ZERO) { it.run() })
         view =
-            BarcodesView(model) { _: Window?, name: String ->
-                suggestedNames += name
-                fileToSave
-            }
+            BarcodesView(
+                model,
+                chooseSaveFile = { _: Window?, name: String ->
+                    suggestedNames += name
+                    fileToSave
+                },
+                chooseImageFile = { null },
+            )
         stage.scene = Scene(view.root as Parent, 1100.0, 600.0)
         stage.show()
     }

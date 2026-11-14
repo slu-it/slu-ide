@@ -31,13 +31,30 @@ class Barcodes(
     internal val model = BarcodeModel(store)
 
     /** A new Barcodes tab on [model]. */
-    fun createTab(): EditorTab = BarcodesTab(BarcodesView(model, ::chooseSaveFile))
+    fun createTab(): EditorTab = BarcodesTab(BarcodesView(model, ::chooseSaveFile, ::chooseImageFile))
 
     /** Puts [text] into the tool as typed text and shows the tab. */
     fun open(text: String) {
         model.editText(text)
         showTab()
     }
+
+    private fun chooseImageFile(window: Window?): Path? =
+        FileChooser()
+            .apply {
+                title = "Open Image"
+                extensionFilters.add(
+                    FileChooser.ExtensionFilter(
+                        "Images (*.png, *.jpg, *.jpeg, *.gif, *.bmp)",
+                        "*.png",
+                        "*.jpg",
+                        "*.jpeg",
+                        "*.gif",
+                        "*.bmp",
+                    ),
+                )
+            }.showOpenDialog(window)
+            ?.toPath()
 
     private fun chooseSaveFile(
         window: Window?,

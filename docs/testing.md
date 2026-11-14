@@ -103,6 +103,11 @@ A behavior is tested once, at the lowest level that can see it
   times and the slowest classes from the last test results.
 
 ## Writing UI tests
+- A `DragEvent` needs a `Dragboard`, whose constructor is package-private: `TestDragboards.of(content)`
+  (`modules/barcodes/src/test/kotlin/javafx/scene/input/TestDragboards.kt`) makes one so a test can fire a real
+  `DRAG_DROPPED` at a node. It works only while JavaFX is on the test classpath, not the module path, and it uses
+  package-private `Dragboard.createDragboard` and internal toolkit API (`Toolkit.createLocalClipboard`), so a JavaFX
+  upgrade may break it. Its `getTransferModes` throws, so a `DRAG_OVER` handler that accepts cannot be fired.
 - Use `@ExtendWith(ApplicationExtension::class)`, build the real component in a `@Start` method, and inspect it
   through the scene graph (`robot.lookup(".tree-cell")`). Examples: `FileExplorerViewUiTest`, `MainWindowProjectUiTest`.
 - Change state via `robot.interact { ... }`, not via synthetic mouse/keyboard input (`robot.clickOn`, `type`,

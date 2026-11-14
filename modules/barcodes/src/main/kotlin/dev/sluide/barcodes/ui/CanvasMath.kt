@@ -1,5 +1,6 @@
 package dev.sluide.barcodes.ui
 
+import dev.sluide.barcodes.engine.Box
 import javafx.scene.paint.Color
 import kotlin.math.floor
 import kotlin.math.roundToInt
@@ -52,6 +53,36 @@ internal fun fit(
     }
     return Fit(scale / renderScaleX, x / renderScaleX, y / renderScaleY, contentWidth, contentHeight)
 }
+
+/** A rectangle in canvas coordinates (logical pixels). */
+internal data class Rect(
+    val x: Double,
+    val y: Double,
+    val width: Double,
+    val height: Double,
+) {
+    fun contains(
+        pointX: Double,
+        pointY: Double,
+    ) = pointX >= x && pointX <= x + width && pointY >= y && pointY <= y + height
+}
+
+/** Where [box], in the pixels of the image, lies on the canvas when the image is placed as [fit] says. */
+internal fun imageToCanvas(
+    box: Box,
+    fit: Fit,
+): Rect = Rect(fit.x + box.x * fit.scale, fit.y + box.y * fit.scale, box.width * fit.scale, box.height * fit.scale)
+
+/** The index of the smallest of [boxes] (image pixels) that contains the canvas point, so a code inside another wins; null if none. */
+internal fun hitTest(
+    x: Double,
+    y: Double,
+    boxes: List<Box>,
+    fit: Fit,
+): Int? =
+    boxes.indices
+        .filter { imageToCanvas(boxes[it], fit).contains(x, y) }
+        .minByOrNull { boxes[it].width * boxes[it].height }
 
 /** The ARGB int of [color], as the engine's options hold it. */
 internal fun Color.toArgb(): Int =

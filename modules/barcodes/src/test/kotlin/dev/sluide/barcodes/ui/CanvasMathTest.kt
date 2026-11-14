@@ -1,5 +1,6 @@
 package dev.sluide.barcodes.ui
 
+import dev.sluide.barcodes.engine.Box
 import javafx.scene.paint.Color
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -48,5 +49,24 @@ class CanvasMathTest {
         val argb = 0x80336699.toInt()
         assertEquals(argb, colorOf(argb).toArgb())
         assertEquals(0xFF000000.toInt(), Color.BLACK.toArgb())
+    }
+
+    @Test
+    fun `a box maps by the fit's scale and offset`() {
+        val placed = checkNotNull(fit(200, 100, 100.0, 100.0, wholePixels = false))
+        // Scale 0.5, offset (0, 25).
+        assertEquals(Rect(10.0, 35.0, 20.0, 10.0), imageToCanvas(Box(20.0, 20.0, 40.0, 20.0), placed))
+    }
+
+    @Test
+    fun `a click picks the box under it, the smallest of nested ones, and none outside`() {
+        val placed = Fit(0.5, 0.0, 25.0, 200, 100)
+        val outer = Box(0.0, 0.0, 200.0, 100.0)
+        val inner = Box(80.0, 30.0, 40.0, 40.0)
+        val boxes = listOf(outer, inner)
+        assertEquals(1, hitTest(50.0, 50.0, boxes, placed))
+        assertEquals(0, hitTest(5.0, 30.0, boxes, placed))
+        assertNull(hitTest(5.0, 5.0, boxes, placed))
+        assertNull(hitTest(50.0, 50.0, emptyList(), placed))
     }
 }
