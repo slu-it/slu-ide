@@ -118,6 +118,10 @@ notebooks, PEM) zooms as a document: the whole page scales and reflows, as in a 
   at the same zoom.
 - The whole file is read and encoded into the page (base64, a third larger) on the JavaFX thread, when it opens and
   on every change: a large image holds up the UI for a moment.
+- The header is checked before every render, also on a reload (ADR 0175): an image over 40 megapixels (100 for a
+  baseline JPEG; all frames of a GIF or WebP, all entries of an ICO together) or with an unreadable header is not
+  rendered. A centred, muted message gives its size and the cap, or says it could not be read; the status line keeps
+  the size, the zoom controls are disabled, and a reload to a fitting image shows it again. No "show anyway".
 - Modified images open normally, never as a diff.
 
 ## CSV and TSV (`.csv`, `.tsv`) — `CsvFileViewer`

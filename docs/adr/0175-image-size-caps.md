@@ -47,8 +47,8 @@ shows formats Barcodes does not read: WebP and ICO.
   20 MiB (`MAX_FILE_BYTES`): a larger file, a folder, a pipe or an I/O error gives null, and a huge or growing file is
   never read whole.
 - **Users.** Barcodes moves onto the module with this ADR and behaves as before: it reads PNG, JPEG, GIF and BMP, and
-  a dropped WebP or ICO stays unreadable whatever its size. The image viewer (`previews`) will check the bytes before
-  it renders and on every reload, and show a message instead of the image when it is over the cap or unreadable,
+  a dropped WebP or ICO stays unreadable whatever its size. The image viewer (`previews`) checks the bytes before
+  it renders and on every reload, and shows a message instead of the image when it is over the cap or unreadable,
   with no "show anyway". The TODOs panel (`todos`) will read local images with the bounded read and fetch web images
   with a bounded body, then check and decode them off the FX thread, keeping the alt text when an image is refused.
 - **Out of scope:** images in the Markdown preview and in the ebook reader, which WebKit loads itself (covering them
