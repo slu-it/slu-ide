@@ -5,6 +5,7 @@ import dev.sluide.barcodes.engine.Export
 import dev.sluide.barcodes.engine.grouped
 import dev.sluide.barcodes.model.BarcodeModel
 import dev.sluide.barcodes.model.Source
+import dev.sluide.barcodes.payload.Payloads
 import dev.sluide.fileviewers.WrappingToolbar
 import javafx.beans.binding.Bindings
 import javafx.geometry.Insets
@@ -30,7 +31,9 @@ import javafx.scene.layout.Priority
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 import javafx.stage.Window
+import org.kordamp.ikonli.javafx.FontIcon
 import java.io.IOException
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -44,6 +47,7 @@ internal class BarcodesView(
     private val model: BarcodeModel,
     private val chooseSaveFile: (Window?, String) -> Path?,
     private val chooseImageFile: (Window?) -> Path?,
+    private val openUrl: (URI) -> Unit = {},
 ) {
     private var updating = false
 
@@ -104,8 +108,19 @@ internal class BarcodesView(
     internal val imageButtons =
         HBox(6.0, pasteImage, openImage, copyImage, saveImage).apply { alignment = Pos.CENTER_LEFT }
 
-    /** The toolbar spot of the text side for Open in Browser. */
-    internal val textToolbarSlot = HBox(6.0).apply { alignment = Pos.CENTER_LEFT }
+    private var browserUri: URI? = null
+
+    /** Opens the text in the browser; shown only while the text is one http(s) URL, and never clicked by the app. */
+    private val openInBrowser =
+        Button("Open in Browser").apply {
+            id = "barcodes-open-browser"
+            graphic = FontIcon("mdi2o-open-in-new")
+            isFocusTraversable = false
+            setOnAction { browserUri?.let(openUrl) }
+        }
+
+    /** The toolbar spot of the text side; holds Open in Browser. */
+    internal val textToolbarSlot = HBox(6.0, openInBrowser).apply { alignment = Pos.CENTER_LEFT }
 
     /** Below the text: the structured view goes here; takes no room while empty. */
     internal val structuredSlot =
@@ -209,6 +224,9 @@ internal class BarcodesView(
             updating = false
         }
         showStructured()
+        browserUri = Payloads.httpUrl(model.text)
+        openInBrowser.isVisible = browserUri != null
+        openInBrowser.isManaged = browserUri != null
         val generated = model.generated
         val failure = model.failure
         codeCanvas.content =

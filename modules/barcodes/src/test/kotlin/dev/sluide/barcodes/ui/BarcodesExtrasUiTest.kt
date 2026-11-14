@@ -25,6 +25,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.net.URI
 import java.nio.file.Path
 import java.time.Duration
 import kotlin.test.Test
@@ -45,12 +46,13 @@ class BarcodesExtrasUiTest {
 
     private lateinit var model: BarcodeModel
     private lateinit var view: BarcodesView
+    private val opened = mutableListOf<URI>()
 
     @Start
     fun start(stage: Stage) {
         val data = ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())
         model = BarcodeModel(BarcodeOptionsStore(data, Duration.ZERO) { it.run() })
-        view = BarcodesView(model, { _: Window?, _: String -> null }, { null })
+        view = BarcodesView(model, { _: Window?, _: String -> null }, { null }, { opened += it })
         stage.scene = Scene(view.root as Parent, 1100.0, 600.0)
         stage.show()
     }
@@ -128,5 +130,27 @@ class BarcodesExtrasUiTest {
         assertEquals(Source.IMAGE, fx { model.source })
         assertTrue(structuredShown())
         assertEquals("Home", fieldText(0))
+    }
+
+    private fun browserVisible() = fx { node<Button>("#barcodes-open-browser").isVisible }
+
+    private fun browserManaged() = fx { node<Button>("#barcodes-open-browser").isManaged }
+
+    @Test
+    fun `Open in Browser is shown for one http URL only and a click opens that URL`(robot: FxRobot) {
+        type(robot, "hello")
+        assertFalse(browserVisible())
+        assertFalse(browserManaged())
+
+        type(robot, "https://example.com")
+        assertTrue(browserVisible())
+        assertTrue(browserManaged())
+        assertTrue(opened.isEmpty(), "never opens on its own")
+        robot.interact { node<Button>("#barcodes-open-browser").fire() }
+        assertEquals(listOf(URI("https://example.com")), opened)
+
+        type(robot, "javascript:alert(1)")
+        assertFalse(browserVisible())
+        assertFalse(browserManaged())
     }
 }

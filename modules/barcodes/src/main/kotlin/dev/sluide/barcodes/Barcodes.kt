@@ -31,7 +31,7 @@ class Barcodes(
     internal val model = BarcodeModel(store)
 
     /** A new Barcodes tab on [model]. */
-    fun createTab(): EditorTab = BarcodesTab(BarcodesView(model, ::chooseSaveFile, ::chooseImageFile))
+    fun createTab(): EditorTab = BarcodesTab(BarcodesView(model, ::chooseSaveFile, ::chooseImageFile) { openUrl(it) })
 
     /** Puts [text] into the tool as typed text and shows the tab. */
     fun open(text: String) {
