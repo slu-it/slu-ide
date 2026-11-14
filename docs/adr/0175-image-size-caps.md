@@ -31,11 +31,11 @@ shows formats Barcodes does not read: WebP and ICO.
 - **Fail closed.** A header the reader cannot parse is refused as `Unreadable` ("The image could not be read."), as
   its size is unknown. The reader never throws and only walks forward through the given bytes; a fuzz test of
   200 000 random mutations per format keeps that.
-- **WebP:** the first chunk decides. `VP8 ` (lossy) gives the 14-bit size after the start code `9d 01 2a`, `VP8L`
-  (lossless) 14 bits each of width − 1 and height − 1, `VP8X` the 24-bit canvas width − 1 and height − 1. All chunks
-  are walked (little-endian sizes, padded to even, up to the data or the RIFF size); an animated `VP8X` counts its
-  `ANMF` chunks as frames, and frames × canvas is capped. A still `VP8X` takes the larger of its canvas and its
-  `VP8 `/`VP8L` image. A chunk cut short or past the end, an unknown first chunk, a malformed image chunk or an
+- **WebP:** the first chunk must be `VP8 `, `VP8L` or `VP8X`. `VP8 ` (lossy) gives the 14-bit size after the start code
+  `9d 01 2a`, `VP8L` (lossless) 14 bits each of width − 1 and height − 1, `VP8X` the 24-bit canvas width − 1 and height
+  − 1. All chunks are walked (little-endian sizes, padded to even, up to the data or the RIFF size); an animated `VP8X`
+  counts its `ANMF` chunks as frames, and frames × canvas is capped. A still `VP8X` takes the larger of its canvas and
+  its `VP8 `/`VP8L` image. A chunk cut short or past the end, an unknown first chunk, a malformed image chunk or an
   animation without frames is unreadable.
 - **ICO:** the directory (a count, then 16-byte entries: width and height with 0 for 256, data size and offset). An
   entry holding a PNG has that PNG's IHDR size, a BMP entry the larger of its directory and DIB size (16-bit in a

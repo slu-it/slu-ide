@@ -6,10 +6,10 @@ import kotlin.math.min
 internal fun isWebp(b: ByteArray) = b.size >= 12 && isTag(b, 0, "RIFF") && isTag(b, 8, "WEBP")
 
 /**
- * The header of the WebP in [b], from its first chunk: `VP8 ` (lossy) and `VP8L` (lossless) hold the image size,
- * `VP8X` the canvas size and whether it is animated, in which case its `ANMF` chunks are counted as frames. A `VP8 `
- * or `VP8L` chunk after the first (the image of an extended still WebP) widens the size to the larger of both, as a
- * decoder may allocate the image's own size whatever the canvas says.
+ * The header of the WebP in [b]; its first chunk must be one of these: `VP8 ` (lossy) and `VP8L` (lossless) hold the
+ * image size, `VP8X` the canvas size and whether it is animated, in which case its `ANMF` chunks are counted as frames.
+ * A `VP8 ` or `VP8L` chunk after the first (the image of an extended still WebP) widens the size to the larger of both,
+ * as a decoder may allocate the image's own size whatever the canvas says.
  *
  * All chunks are walked, up to the end of the data or the RIFF size, whichever comes first. Chunk sizes are
  * little-endian and padded to even; every step moves forward by at least the 8 bytes of a chunk header. Null when a
