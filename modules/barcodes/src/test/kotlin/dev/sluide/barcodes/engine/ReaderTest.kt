@@ -178,5 +178,18 @@ internal class ReaderTest {
         )
     }
 
+    @Test
+    fun `a linear code on a low-contrast background reads`() {
+        // Rows of grey noise in a narrow band have no clear black point: ZXing's row binarizer throws on them, which
+        // the probing for a linear code's height meets in the rows above and below the bars.
+        val random = Random(7)
+        val noise = IntArray(900 * 500) { 0xFF shl 24 or (0x010101 * (120 + random.nextInt(12))) }
+        val ean = codeImage("4006381333931", CodeFormat.EAN_13, GenerateOptions(sizePx = 300))
+        val image = compose(900, 500, Triple(ean, 300, 200), background = 0)
+        val pixels = IntArray(image.argb.size) { if (image.argb[it] == 0) noise[it] else image.argb[it] }
+        val codes = Reader.read(ArgbImage(900, 500, pixels))
+        assertEquals(listOf(CodeFormat.EAN_13 to "4006381333931"), codes.map { it.format to it.text })
+    }
+
     private fun Box.inside(outer: Box) = x >= outer.x && y >= outer.y && right <= outer.right && bottom <= outer.bottom
 }

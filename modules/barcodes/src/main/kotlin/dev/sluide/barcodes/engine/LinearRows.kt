@@ -46,18 +46,19 @@ internal object LinearRows {
         val reader = readerFor(format) ?: return null
         val buffer = BitArray(bitmap.width)
 
-        fun decodes(y: Int): Boolean {
-            val full = bitmap.getBlackRow(y, buffer)
-            val clipped = BitArray(bitmap.width)
-            for (x in from until to) if (full[x]) clipped.set(x)
-            return try {
+        // A row without a clear black point (low-contrast background) makes getBlackRow throw too: that row is not
+        // part of the code.
+        fun decodes(y: Int): Boolean =
+            try {
+                val full = bitmap.getBlackRow(y, buffer)
+                val clipped = BitArray(bitmap.width)
+                for (x in from until to) if (full[x]) clipped.set(x)
                 reader.decodeRow(y, clipped, null).text == result.text
             } catch (_: ReaderException) {
                 false
             } catch (_: RuntimeException) {
                 false
             }
-        }
         var top = row
         while (top - step >= 0 && decodes(top - step)) top -= step
         var bottom = row
