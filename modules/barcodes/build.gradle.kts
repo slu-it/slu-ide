@@ -19,6 +19,8 @@ dependencies {
     api(project(":modules:project-data"))
     // The read of an image runs on a named thread (NamedThreads, ADR 0060, ADR 0174).
     implementation(project(":modules:background-tasks"))
+    // An image file is read bounded and refused from its header above the pixel caps before decoding (ADR 0175).
+    implementation(project(":modules:image-limits"))
     implementation(libs.spring.context)
     // The `barcodes` field of the shared data file is a JSON node.
     implementation(libs.jackson.databind)
@@ -28,6 +30,8 @@ dependencies {
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)
 
+    // Hand-built image files and bomb headers (TestImages).
+    testImplementation(testFixtures(project(":modules:image-limits")))
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }
