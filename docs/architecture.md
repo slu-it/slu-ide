@@ -188,6 +188,8 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `git-log` | `file-icons` | `implementation` | File-type icons in the commit details. | [0012](adr/0012-file-icons.md) |
 | `projects` | `project-data` | `api` | `RecentProjects` keeps `lastOpened` in the project's data and takes the `ProjectDataStore`; `LegacyRecentProjects` migrates `projects.properties`. | [0090](adr/0090-per-project-metadata-store.md) |
 | `todos` | `project-data` | `api` | `Todos` keeps the TODOs in the `todos` field of the project data and of the shared data file and takes the `ProjectDataStore`. | [0090](adr/0090-per-project-metadata-store.md), [0101](adr/0101-shared-data-file.md) |
+| `todos` | `background-tasks` | `implementation` | A Markdown image is read or fetched, checked and decoded on a `NamedThreads` thread. | [0060](adr/0060-logging-conventions.md), [0175](adr/0175-image-size-caps.md) |
+| `todos` | `image-limits` | `implementation` | A Markdown image is read and fetched bounded and refused from its header above the pixel caps before it is decoded. | [0175](adr/0175-image-size-caps.md) |
 | `coloring` | `editor-area` | `api` | The Coloring tool is an `EditorTab` that `Coloring.createTab()` returns for the window's `EditorArea`. | [0109](adr/0109-coloring-tool.md), [0110](adr/0110-tools-menu.md) |
 | `coloring` | `file-viewers` | `api` | It extends the code editors with gutter swatches and a menu item. | [0108](adr/0108-code-editor-extensions-and-context-menu.md) |
 | `coloring` | `project-data` | `api` | Saved colors live in the project data and take the `ProjectDataStore`. | [0090](adr/0090-per-project-metadata-store.md), [0109](adr/0109-coloring-tool.md) |
