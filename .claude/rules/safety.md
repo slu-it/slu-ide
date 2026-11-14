@@ -25,9 +25,9 @@ deviates says why in its ADR.
 - **Secrets**: never log secrets, stdin, HTTP bodies, headers or query strings, and never show or log remote URLs
   (they can carry credentials). Show secret values masked by default. A stored secret is opt-in per value and goes
   through `Secrets`; the key is read off the FX thread.
-- **Network**: fetching from remotes, registries or the web is an explicit action; nothing is fetched in the
-  background or on open, except the decided cases listed in `docs/safety.md` (remote resources in the Markdown and
-  HTML previews, the Gradle wrapper download). A new exception needs an ADR. Local servers bind `127.0.0.1` with a
+- **Network**: fetching from remotes, registries or the web is an explicit action; nothing is fetched in the background
+  or on open, except the decided cases listed in `docs/safety.md` (remote resources in the Markdown and HTML previews,
+  TODO web images, the Gradle wrapper download). A new exception needs an ADR. Local servers bind `127.0.0.1` with a
   token in the path.
 - **Untrusted input** (archives, documents, HTML, XML, CSS, markup in user files) is parsed with limits on what is
   actually read and with XML DTDs and external entities off. Escape every value written into HTML, CSS or an

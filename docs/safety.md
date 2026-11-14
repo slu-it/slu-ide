@@ -85,6 +85,8 @@ The short form that loads with production code is `.claude/rules/safety.md`; kee
 - Enter confirms: `FxDockerDialogs.ask` (Remove, Kill, Prune), `ComposeView.confirm` ("Down and Remove Volumes"),
   http-client `EnvDialogs.confirm`, the Gradle stop question.
 - Codecs and Converting "Save as…" write directly on the FX thread, without temp file or atomic move.
+- The image viewer reads image files (up to 50 MB) whole with `readBytes` on the FX thread, not through
+  `ImageLimits.readFile`; its header check still runs before anything is decoded (ADR 0175).
 - Gradle's trust check runs only at window open (no `recheck`), so a wrapper that arrives or changes later loads
   without a new question (contradicts ADR 0085).
 - `docker compose config` runs on attach and save without a trust check (ADR 0119); it follows `extends`, `env_file`

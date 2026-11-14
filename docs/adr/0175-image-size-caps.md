@@ -28,9 +28,9 @@ shows formats Barcodes does not read: WebP and ICO.
   together, ICO with all entries together, and progressive JPEG; 100 megapixels (`MAX_JPEG_PIXELS`) for baseline
   JPEG. `ImageLimits.check` gives `Fits`, `TooLarge` (with the cap) or `Unreadable`; at the cap fits. Pixel counts
   that do not fit a `Long` count as `Long.MAX_VALUE`, never wrap around.
-- **Fail closed.** A header the reader cannot parse is refused as `Unreadable` ("The image could not be read."), as
-  its size is unknown. The reader never throws and only walks forward through the given bytes; a fuzz test of
-  200 000 random mutations per format keeps that.
+- **Fail closed.** A header the reader cannot parse is refused as `Unreadable`, as its size is unknown; each user words
+  that itself ("The image could not be read."). The reader never throws and only walks forward through the given bytes;
+  a fuzz test of 200 000 random mutations per format keeps that.
 - **WebP:** the first chunk must be `VP8 `, `VP8L` or `VP8X`. `VP8 ` (lossy) gives the 14-bit size after the start code
   `9d 01 2a`, `VP8L` (lossless) 14 bits each of width − 1 and height − 1, `VP8X` the 24-bit canvas width − 1 and height
   − 1. All chunks are walked (little-endian sizes, padded to even, up to the data or the RIFF size); an animated `VP8X`
@@ -51,9 +51,13 @@ shows formats Barcodes does not read: WebP and ICO.
   it renders and on every reload, and shows a message instead of the image when it is over the cap or unreadable,
   with no "show anyway". The TODOs panel (`todos`) reads local images with the bounded read and fetches web images
   with a bounded body (one 10 s deadline over connect, headers and body, 20 MiB), then checks and decodes them off
-  the FX thread, keeping the alt text with the reason as tooltip when an image is refused.
-- **Out of scope:** images in the Markdown preview and in the ebook reader, which WebKit loads itself (covering them
-  would need our own loader that rewrites sources), and the sizes SVGs are rasterised at.
+  the FX thread, keeping the alt text with the reason as tooltip when an image is refused. The wording follows the
+  user: Barcodes says "too large to read", the viewer and the TODOs "too large to show"; the viewer names the cap,
+  the TODOs tooltip only the size. The viewer keeps its 50 MB file limit and reads the file whole before the check;
+  a local TODO image over 20 MiB says "could not be loaded" ([ideas](../ideas/image-limits.md)).
+- **Out of scope** (listed in [ideas](../ideas/image-limits.md)): images in the Markdown preview and in the ebook
+  reader, which WebKit loads itself (covering them would need our own loader that rewrites sources), and the sizes SVGs
+  are rasterised at.
 
 ## Consequences
 - One place decides what is too large to decode; the viewer and the TODOs panel can use the Barcodes caps without a
