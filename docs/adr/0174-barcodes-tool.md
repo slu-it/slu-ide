@@ -37,6 +37,8 @@ several codes, inverted codes or very large images.
 - **Size limits**: Code 128 takes at most 80 characters (ZXing has no limit, and scanners give up long before). A
   code over 4 096 modules per side with its quiet zone is refused as too large to draw, and the export refuses images
   over 16 384 px per side, so that Copy and Save on the JavaFX thread cannot run out of memory.
+  Generation itself runs on the FX thread, on every keystroke; text over 7 089 characters (QR's numeric maximum,
+  the largest capacity of any format) is refused before encoding, which is why it stays fast.
 - **Character set**: text that fits in ISO-8859-1, the default of the 2D formats, is written without a character set,
   so no ECI is written and old scanners read it. Other text goes as UTF-8 behind an ECI. ZXing's encoders that switch
   modes per character check every UTF-16 unit on its own and refuse characters outside the BMP (emoji), so Data

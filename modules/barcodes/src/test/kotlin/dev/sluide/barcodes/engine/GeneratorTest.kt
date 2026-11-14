@@ -3,9 +3,11 @@ package dev.sluide.barcodes.engine
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.EnumSource
 import java.nio.charset.StandardCharsets.UTF_8
 
 internal class GeneratorTest {
@@ -118,6 +120,24 @@ internal class GeneratorTest {
         message: String,
     ) {
         assertEquals(Generated.Failure(message), failure("a".repeat(4000), format))
+    }
+
+    @ParameterizedTest
+    @EnumSource(CodeFormat::class)
+    fun `text over 7 089 characters is refused before encoding, for every format`(format: CodeFormat) {
+        assumeTrue(format.generatable)
+        assertEquals(
+            Generated.Failure("Too long for ${format.title}: 7 090 characters; no barcode holds more than 7 089"),
+            failure("1".repeat(7090), format),
+        )
+    }
+
+    @Test
+    fun `7 089 digits fit a QR code at ECC L`() {
+        assertEquals(
+            "QR version 40 · 177×177 · ECC L",
+            code("1".repeat(7089), CodeFormat.QR_CODE, GenerateOptions(QrEcc.L)).summary,
+        )
     }
 
     @Test

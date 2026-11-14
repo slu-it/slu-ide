@@ -71,7 +71,8 @@ The format picker offers QR Code, Data Matrix, Aztec, PDF417, Code 128, EAN-13 a
 - Empty text gives no code and no error.
 - When the text cannot be made into a code ("Too long for QR Code at ECC H: 1 300 of 1 273 bytes", "EAN-13 takes digits
   only: 'a' (character 3)"), the status line shows why, the last good code stays shown at 35 % opacity, and a click on
-  the message selects the character it names.
+  the message selects the character it names. Text over 7 089 characters (the most any format holds) is refused up
+  front: "Too long for Aztec: 7 090 characters; no barcode holds more than 7 089".
 
 ## Reading
 A code in an image is read from four inputs, all above the right side: **Paste Image** (the clipboard image; without

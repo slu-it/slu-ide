@@ -22,6 +22,12 @@ internal object Generator {
     /** PDF417 rows are drawn this many modules high, as ZXing's own writer does. */
     private const val PDF417_ROW_HEIGHT = 4
 
+    /**
+     * The most characters any format is asked to encode: QR's numeric maximum at ECC L, the largest capacity of all.
+     * Longer text is refused before encoding, so that the generation on every keystroke stays fast on the FX thread.
+     */
+    const val MAX_TEXT_LENGTH = 7089
+
     /** The code for [text], a [Generated.Failure] saying why it cannot be one, or null for an empty text. */
     fun generate(
         text: String,
@@ -30,6 +36,12 @@ internal object Generator {
     ): Generated? {
         if (text.isEmpty()) return null
         if (!format.generatable) return Generated.Failure("${format.title} can only be read, not generated")
+        if (text.length > MAX_TEXT_LENGTH) {
+            return Generated.Failure(
+                "Too long for ${format.title}: ${grouped(text.length)} characters; " +
+                    "no barcode holds more than ${grouped(MAX_TEXT_LENGTH)}",
+            )
+        }
         val generated =
             try {
                 when (format) {
