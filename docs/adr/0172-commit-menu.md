@@ -3,7 +3,7 @@
 - Status: accepted; amends [0045](0045-git-log-navigation.md) (Go to is no longer in the menu),
   [0041](0041-git-write-operations.md), [0042](0042-git-log-commit-operations.md) and
   [0100](0100-editing-commit-messages.md) (where they describe the table's menu), and follows
-  [0171](0171-context-sensitive-branch-menus.md)
+  [0171](0171-context-sensitive-branch-menus.md); amended by [0173](0173-pushing-tags-and-tag-submenus.md) (tags at the commit get submenus)
 - Date: 2026-11-13
 
 ## Context

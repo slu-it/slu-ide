@@ -1,6 +1,6 @@
 # 0078. Deleting remote branches, and tags on remotes
 
-- Status: accepted
+- Status: accepted; amended by [0173](0173-pushing-tags-and-tag-submenus.md) (pushing tags, tag submenus)
 - Date: 2026-10-23
 
 ## Context
@@ -109,4 +109,5 @@ remote. Deleting on a remote cannot be undone from Thoreau, and the remote may h
 - A tag deleted on a remote can come back with the next fetch from another remote that still has it, or from a
   colleague's push. Thoreau doesn't track that.
 - Deleting tags on remotes needs git 2.24 or later, as all writes do; reads keep working with older git.
-- Deferred: deleting a remote branch's local branch with it, a tag submenu in the log, pushing tags.
+- Deferred: deleting a remote branch's local branch with it, a tag submenu in the log, pushing tags (both done since
+  [ADR 0173](0173-pushing-tags-and-tag-submenus.md)).

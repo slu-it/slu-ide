@@ -112,5 +112,6 @@ itself come from `GitPush` in `modules/git`. Decisions in [ADR 0049](../adr/0049
 - **Reading:** on the dialog's own thread, newest read wins, again whenever the dialog gains the focus, is opened again
   or an operation (a fetch, a commit) ends; another checked-out branch takes its defaults again.
 - Not yet implemented: committing parts of a file (chunks or lines), changelists, commit checks, author and sign-off,
-  a history of earlier messages; pushing tags, skipping hooks, several branches at once, Push All up to Here, defining
-  remotes.
+  a history of earlier messages; pushing tags with a branch (tags are pushed from the git log's tag menus,
+  [ADR 0173](../adr/0173-pushing-tags-and-tag-submenus.md)), skipping hooks, several branches at once, Push All up to
+  Here, defining remotes.

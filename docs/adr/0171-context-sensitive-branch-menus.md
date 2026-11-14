@@ -1,6 +1,7 @@
 # 0171. Branch menus show only what applies, in sections, with icons; Copy Name is Shortcut+C
 
-- Status: accepted; amends [0040](0040-git-log-branches-pane.md) and [0041](0041-git-write-operations.md)
+- Status: accepted; amends [0040](0040-git-log-branches-pane.md) and [0041](0041-git-write-operations.md); amended by
+  [0173](0173-pushing-tags-and-tag-submenus.md) (Push Tag)
 - Date: 2026-11-13
 
 ## Context

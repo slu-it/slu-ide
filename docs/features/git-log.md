@@ -241,8 +241,8 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
 - **Changing the repository** ([ADR 0041](../adr/0041-git-write-operations.md)), with the git command line, so hooks
   and the user's configuration apply:
   - **Commit table** ([ADR 0172](../adr/0172-commit-menu.md)): its context menu shows only what applies to the
-    selection, each item with an icon, in sections with a separator between non-empty ones: the branch submenus at the
-    commit (below); Review Commit, Checkout Revision (`HEAD` detached at the commit) and Copy Revision Number;
+    selection, each item with an icon, in sections with a separator between non-empty ones: the branch and tag
+    submenus at the commit (below); Review Commit, Checkout Revision (`HEAD` detached at the commit) and Copy Revision Number;
     Cherry-Pick, Revert Commit and Reset Current Branch to Here… ([ADR
     0042](../adr/0042-git-log-commit-operations.md), below); New Branch… and New Tag… (at the commit); Compare with
     Local (below) and Edit Commit Message… ([ADR 0100](../adr/0100-editing-commit-messages.md)). With several commits
@@ -257,7 +257,8 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     ([ADR 0171](../adr/0171-context-sensitive-branch-menus.md)): "New Branch from '<name>'…" (from any one branch, tag
     or `HEAD`) and Review Branch (local and remote branches, not tags, see [code-review.md](code-review.md)); Checkout,
     Rename… (local branches, also the current one; also F2) and Delete (local branches and tags, or remote branches,
-    several at once; also Delete, or Shortcut+Backspace as in the explorer); Rebase …, Merge … and Pull … (below);
+    several at once; also Delete, or Shortcut+Backspace as in the explorer); Rebase …, Merge …, Pull … and Push Tag
+    (below);
     Compare with Current and Show Diff with Working Tree (below); and, alone, Fetch for a remote or a folder of a
     remote. An item that never applies is left out (Rename on a tag, Checkout, Rebase and Merge on the current branch,
     Pull on a local branch, Compare while `HEAD` has no commit); an item that applies but is blocked for now (an
@@ -324,12 +325,14 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     for exactly one remote branch of a configured remote (not `<remote>/HEAD`), also one at `HEAD`'s commit, with a
     current branch that has a commit, and left out otherwise; greyed out while an operation runs or something is in
     progress; it opens the Pull dialog (below) with that branch chosen.
-  - **Branch submenus in the log:** the table's context menu starts, with exactly one commit selected, with the
-    submenu of the local or remote branch at that commit (named "feature", "origin/main"; not `HEAD` or tags), or, for
-    several, one "Branches" menu with a submenu each, then a separator. Each has the icon of its ref kind (in the
+  - **Branch and tag submenus in the log** ([ADR 0173](../adr/0173-pushing-tags-and-tag-submenus.md) for tags): the
+    table's context menu starts, with exactly one commit selected, with the submenu of the local or remote branch at
+    that commit (named "feature", "origin/main"; not `HEAD`), or, for several, one "Branches" menu with a submenu each;
+    then the tags at the commit the same way: one tag's own submenu ("v1.0"), or one "Tags" menu for several; then a
+    separator. Each has the icon of its ref kind (in the
     colours of the tree, light or dark by the window's theme, through a wrapper that carries the log's stylesheet, as
-    a context menu does not get it). A submenu has the entries of the branches pane for that branch, with the same
-    order, icons, texts and enabling (no Fetch, not even for a remote branch; Delete of a remote branch is on its
+    a context menu does not get it). A submenu has the entries of the branches pane for that branch or tag, with the
+    same order, icons, texts and enabling (no Fetch, not even for a remote branch; Delete of a remote branch is on its
     remote, below). It is built when the menu opens, so it follows the state at that moment (nothing that writes while
     an operation runs, no rebase while one is in progress).
   - **Leaving a detached HEAD:** a checkout (also of a revision from the log, or a new branch with Checkout) that would
@@ -371,6 +374,16 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     selection, the delete confirmation has an unchecked "Also delete the tag on <remote>" ("the tags" for several) per
     remote; the checked remotes delete the tags first, and if that fails or is cancelled nothing is deleted locally
     ("Deleted on origin before that: v1." in the error dialog). A tag the remote does not have counts as deleted.
+  - **Push Tag** ([ADR 0173](../adr/0173-pushing-tags-and-tag-submenus.md)): after Pull, "Push Tag" ("Push Tags" for
+    several), for a selection of only tags in a repository with a remote, also in a tag's submenu of the commit menu;
+    greyed out while an operation runs, not while a merge, rebase or pick waits. With one remote it pushes at once; with
+    several it asks "Push tag 'v1'?" / "Push 3 tags?" with one checkbox per remote, `origin` (else the first) checked,
+    Push the default button and disabled while none is checked. It pushes `refs/tags/<t>` to each checked remote in
+    turn, never forced: "Pushed tag v1 to origin.", "Pushed 3 tags to origin and upstream.", or "Tag v1 is already on
+    origin." when the remote had it. A remote with another tag of that name refuses it ("Push Failed": "Tag v1 could
+    not be pushed to origin.", "v1: origin has another tag v1; delete it there or rename yours."), and the remotes
+    after it are skipped ("Skipped: fork.", "Pushed to origin before that: …"). Cancel says "Push cancelled; it may have reached origin.
+    Fetch to check." or, between remotes, "Push cancelled.".
   - **Running:** one operation at a time, in the background; meanwhile all these actions are disabled and the header
     says "Checking out main…", "Creating branch x…" and so on, then "Checked out main.", "Created branch x.", "Created
     and checked out branch x.", "Created tag v1.", "Renamed branch a to b.", "Deleted branch x." or "Deleted 3 refs."
@@ -587,7 +600,7 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
   comparing two branches or commits with each other (and the files since their merge base), the changes against each
   parent of a merge, a diff preview in the log, a date filter, dotted edges through commits hidden by filters, tracking
   information in the branches pane, remembering the area's height and state, and more operations: updating local
-  branches after a fetch, pulling several branches at once, pushing tags; for cherry-pick and revert several commits at
+  branches after a fetch, pulling several branches at once, pushing all tags; for cherry-pick and revert several commits at
   once, a merge tool or three-way view, `-x` and edited messages; `reset --keep`; rebasing with `--onto`, interactively,
   a branch other than the current one, or onto a tag or commit; merging tags or commits, octopus merges, `--no-commit`
   or strategies; continuing or aborting octopus merges and sequences from the bar; for stashes keep-index, `--index`,

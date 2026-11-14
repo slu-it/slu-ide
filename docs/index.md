@@ -73,7 +73,7 @@ updated when the summary or keywords no longer fit.
 | [0046](adr/0046-git-log-file-history.md) | File history as `History:` tabs in the git log area | file history, `--follow`, renames, Show History | |
 | [0047](adr/0047-module-dependencies-and-shared-modules.md) | Acyclic module dependencies; shared pieces in small modules | module dependencies, foundation modules, `ide` callbacks, `file-icons` | amended by 0069, 0071, 0109, 0112; see 0055 |
 | [0048](adr/0048-commit-tab.md) | Commit tab in the git log area | Commit tab, Shortcut+K, `git commit --only`, Amend, unversioned files | |
-| [0049](adr/0049-push.md) | Non-modal Push dialog, force only with lease | Push dialog, Shortcut+Shift+K, `--force-with-lease`, push target, main/master | see 0078 |
+| [0049](adr/0049-push.md) | Non-modal Push dialog, force only with lease | Push dialog, Shortcut+Shift+K, `--force-with-lease`, push target, main/master | see 0078; amended by 0173 |
 | [0050](adr/0050-focus-when-a-file-tab-is-shown.md) | One focus rule for shown file tabs | focus, `FileView.focus()`, `focusText()`, tab selection | amends 0033 |
 | [0051](adr/0051-log-file.md) | Rolling log file in `~/.sluide/logs` via Logback | `sluide.log`, `logback-spring.xml`, uncaught exceptions, `sluide.log.dir` | see 0060 |
 | [0052](adr/0052-hardening-how-git-is-started.md) | `GitCli` drops repository-redirecting variables and fsmonitor hooks | `GitCli`, git environment variables, `core.fsmonitor`, hardening | |
@@ -102,7 +102,7 @@ updated when the summary or keywords no longer fit.
 | [0075](adr/0075-github-actions-workflow-graph.md) | Workflow graph via GitHub's own parser in a hidden WebEngine | GitHub Actions, workflow graph, `@actions/workflow-parser`, `github-actions`, `uses:` | amends 0017; amended by 0076, 0077 |
 | [0076](adr/0076-cache-of-remote-action-sources.md) | Remote `uses:` read from a git cache of shallow bare repositories | `RemoteSourceCache`, `~/.sluide/cache/git`, Fetch References, GHES, `RemoteSources` | amends 0070, 0075; see 0053 |
 | [0077](adr/0077-graph-nodes-open-their-source.md) | Workflow graph boxes open their source | `WorkflowGraph.locations`, `SourceLocation`, `openNode`, `FileView.showLine` | amends 0075; amended by 0141 |
-| [0078](adr/0078-deleting-remote-branches-and-tags.md) | Delete remote branches and remote tags from the git log | remote delete, `git push :<ref>`, `--force-with-lease`, protected main/master | see 0041, 0049 |
+| [0078](adr/0078-deleting-remote-branches-and-tags.md) | Delete remote branches and remote tags from the git log | remote delete, `git push :<ref>`, `--force-with-lease`, protected main/master | see 0041, 0049; amended by 0173 |
 | [0079](adr/0079-yaml-preview.md) | YAML preview on the fold parts from SnakeYAML events | YAML preview, SnakeYAML, Copy Formatted, anchors, `---` documents | amends 0074; amended by 0119; see 0064, 0065 |
 | [0080](adr/0080-gitignore-line-effects.md) | Gutter dots for `.gitignore` lines from `git check-ignore -v` | `.gitignore`, `check-ignore`, gutter dots, `IgnoreRuleEffects`, `GitignoreFileView` | |
 | [0081](adr/0081-parallel-ui-tests-on-a-display-pool.md) | Modules' `uiTest` tasks run in parallel on a display pool | `uiTest`, `DisplayService`, `sluide.uiDisplays`, Xvfb, `full-build.sh` | amended by 0082 |
@@ -195,8 +195,9 @@ updated when the summary or keywords no longer fit.
 | [0168](adr/0168-review-window.md) | Review window: a branch, commits or uncommitted changes as one long PR-style scroll in an own window | review, code review, pull request, `Reviews`, `ReviewDocument`, `ReviewDiffList`, `ReviewSource`, `GitReviews`, merge-base, base picker, Viewed, Shortcut+Shift+R | see 0015, 0019, 0044, 0047, 0084 |
 | [0169](adr/0169-development-sandbox-kit.md) | Development sandbox: `sbxenv.yaml` plus a v3 mixin kit that apt-installs the dev tools at creation | `sbxenv.yaml`, `sbx env run`, `.sbx-kit`, thoreau-dev, `install.sh`, JDK 25, Xvfb | see 0010, 0081, 0156 |
 | [0170](adr/0170-sbx-management-console.md) | Management Console: bare `sbx` in one SBX tab per window; all session tabs named Claude Code N | Management Console, SBX, `sbx`, Docker Sandbox, tab title, `openConsole`, `consoleProblem`, `Terminals.hasEnded`, `EditorArea.close` | amends 0010, 0156 |
-| [0171](adr/0171-context-sensitive-branch-menus.md) | Branch menus show only what applies, greyed out only while blocked, in sections with icons from `GitLogIcons` | branch menu, context menu, `BranchMenuEntry`, `branchMenuEntries`, `GitLogIcons`, Shortcut+C, hide vs disable, empty menu | amends 0040, 0041 |
-| [0172](adr/0172-commit-menu.md) | The commit table's menu shows only what applies, in sections with icons; several branches group under Branches | commit menu, context menu, `CommitMenuEntry`, `commitMenuEntries`, `refMenuIcon`, `contextMenuIcon`, `GitLogIcons`, Branches submenu, hide vs disable | amends 0041, 0042, 0045, 0100; follows 0171 |
+| [0171](adr/0171-context-sensitive-branch-menus.md) | Branch menus show only what applies, greyed out only while blocked, in sections with icons from `GitLogIcons` | branch menu, context menu, `BranchMenuEntry`, `branchMenuEntries`, `GitLogIcons`, Shortcut+C, hide vs disable, empty menu | amends 0040, 0041; amended by 0173 |
+| [0172](adr/0172-commit-menu.md) | The commit table's menu shows only what applies, in sections with icons; several branches group under Branches | commit menu, context menu, `CommitMenuEntry`, `commitMenuEntries`, `refMenuIcon`, `contextMenuIcon`, `GitLogIcons`, Branches submenu, hide vs disable | amends 0041, 0042, 0045, 0100; follows 0171; amended by 0173 |
+| [0173](adr/0173-pushing-tags-and-tag-submenus.md) | Push Tag in the tag menus; tags at a commit get submenus, several under Tags | push tags, Push Tag, `pushTags`, `PushTags`, tag submenu, Tags submenu, commit menu, `already exists`, remote | amends 0049, 0078, 0171, 0172 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -254,7 +255,7 @@ updated when the summary or keywords no longer fit.
 | [git-status.md](features/git-status.md) | Git status colours and bubbles in the explorer | status colours, unversioned, modified, ignored, folder bubbles |
 | [gitignore-line-effects.md](features/gitignore-line-effects.md) | Gutter dots showing which `.gitignore` lines have an effect | `.gitignore`, gutter dots, tracked-only matches, tooltips |
 | [git-diff.md](features/git-diff.md) | Change markers in the gutter and a side-by-side diff against `HEAD` | change markers, Show Changes, Shortcut+Shift+D, changed words |
-| [git-log.md](features/git-log.md) | Git log area: commits, graph, details, filters, branch and commit operations | Alt+9, commit graph, filters, branches pane, checkout, cherry-pick, rebase, merge, fetch, pull, stash, Mark Resolved |
+| [git-log.md](features/git-log.md) | Git log area: commits, graph, details, filters, branch, tag and commit operations | Alt+9, commit graph, filters, branches pane, checkout, cherry-pick, rebase, merge, fetch, pull, stash, Mark Resolved |
 | [code-review.md](features/code-review.md) | Review window: a branch, commits or uncommitted changes like a pull request, in one scroll with a filterable tree | Review Branch, Review Commits, Shortcut+Shift+R, base picker, commit picker, unified, split, hide whitespace, expand context, Viewed, Load diff, Reload |
 | [file-history.md](features/file-history.md) | A file's history as a tab in the git log area | Show History, `History:` tab, renames, Compare with Local |
 | [commit-and-push.md](features/commit-and-push.md) | Commit tab and Push dialog | Commit (Shortcut+K), Amend, Push (Shortcut+Shift+K), Force Push, Commit and Push, Pull after a rejection, Stash Checked Files |
