@@ -26,7 +26,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Shortcut+W | File → Close Tab (file, diff, tool and terminal tabs; a command tab once its command has exited) |
 | Shortcut+, | File → Settings… |
 | Shortcut+Shift+D | View → Show Changes (side-by-side diff of the current file); in the explorer with two files selected, Compare Files |
-| Shortcut+Shift+B | Docker Sandbox → New Docker Sandbox Session (Environment when the folder has sbxenv.yaml, else Claude Code) |
+| Shortcut+Shift+B | Docker Sandbox → New Session (Environment when the folder has sbxenv.yaml, else Claude Code) |
 | Alt+F1 (Option+F1 on macOS) | View → Select Opened File (reveals the selected tab's file in the explorer and focuses it; not while a terminal has the focus, it sends Alt+F1 to the shell; many Linux desktops (GNOME, KDE, Xfce) grab Alt+F1 themselves, so it may never reach the app there) |
 | Alt+1 (Cmd+1 on macOS) | View → Explorer (expand or collapse the explorer column; not while a terminal has the focus on Linux and Windows) |
 | Alt+9 (Cmd+9 on macOS) | View → Git Log (expand or collapse) |

@@ -40,7 +40,7 @@ class MainWindowSandboxUiTest : MainWindowUiFixture() {
     ) {
         val item = sessionItem(robot)
 
-        assertEquals("New Docker Sandbox Session (Claude Code)", item.text)
+        assertEquals("New Session (Claude Code)", item.text)
         assertEquals(
             KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
             item.accelerator,
@@ -49,13 +49,13 @@ class MainWindowSandboxUiTest : MainWindowUiFixture() {
 
         val folder = home.resolve("work/project").createDirectories()
         robot.interact { projectService.open(folder) }
-        assertEquals("New Docker Sandbox Session (Claude Code)", item.text)
+        assertEquals("New Session (Claude Code)", item.text)
         assertFalse(item.isDisable)
 
         folder.resolve("sbxenv.yaml").createFile()
         robot.interact { menu(robot, "Docker Sandbox").onShowing.handle(null) }
 
-        assertEquals("New Docker Sandbox Session (Environment)", item.text)
+        assertEquals("New Session (Environment)", item.text)
         assertFalse(item.isDisable)
     }
 
@@ -76,7 +76,7 @@ class MainWindowSandboxUiTest : MainWindowUiFixture() {
         val file = folder.resolve("sbxenv.yaml").createFile()
         robot.interact { projectService.open(folder) }
         robot.interact { menu(robot, "Docker Sandbox").onShowing.handle(null) }
-        assertEquals("New Docker Sandbox Session (Environment)", sessionItem(robot).text)
+        assertEquals("New Session (Environment)", sessionItem(robot).text)
 
         // The menu is not shown again, so its label is stale when the accelerator fires.
         file.deleteExisting()

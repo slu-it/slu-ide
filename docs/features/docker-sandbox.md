@@ -3,8 +3,8 @@
 **Module:** `modules/docker-sandbox` (package `dev.sluide.dockersandbox`), depends on `modules/terminal`; menu in
 `ide` (`WindowTools`); decision in [ADR 0010](../adr/0010-docker-sandbox.md)
 
-- Menu **Docker Sandbox** with the session item **New Docker Sandbox Session (Environment)** when the project folder
-  contains an `sbxenv.yaml` (a regular file, not in subfolders), otherwise **New Docker Sandbox Session (Claude
+- Menu **Docker Sandbox** with the session item **New Session (Environment)** when the project folder
+  contains an `sbxenv.yaml` (a regular file, not in subfolders), otherwise **New Session (Claude
   Code)**. Accelerator Shortcut+Shift+B. The action is chosen by `SandboxAction.forFolder`, and again when the item
   fires (the accelerator works without the menu showing, so the label may be stale):
   - **Claude Code** runs `sbx run claude .` in the project folder.

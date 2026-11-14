@@ -8,7 +8,7 @@ sbx env plan     # in the repository root: shows agent, workspace, kits and opti
 sbx env run      # creates the sandbox on first use and starts Claude Code in it
 ```
 
-Thoreau's **Docker Sandbox → New Docker Sandbox Session (Environment)** (Shortcut+Shift+B) runs `sbx env run` too.
+Thoreau's **Docker Sandbox → New Session (Environment)** (Shortcut+Shift+B) runs `sbx env run` too.
 
 ## thoreau-dev
 

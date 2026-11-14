@@ -250,7 +250,7 @@ internal class WindowTools(
     }
 
     /**
-     * One item, "New Docker Sandbox Session (Environment)" where the project folder has an `sbxenv.yaml`, else
+     * One item, "New Session (Environment)" where the project folder has an `sbxenv.yaml`, else
      * "(Claude Code)"; enabled only where that action may run. The action is chosen again when the item fires (the
      * accelerator works without the menu showing), and checked again when it is started. The whole menu is disabled
      * until the check for `sbx` has found it.
@@ -273,7 +273,7 @@ internal class WindowTools(
             console.isDisable = dockerSandbox.consoleProblem() != null
             val folder = projectService.projectFolder.get()
             val action = SandboxAction.forFolder(folder)
-            item.text = "New Docker Sandbox Session (${action.title})"
+            item.text = "New Session (${action.title})"
             item.isDisable = dockerSandbox.problem(action, folder) != null
         }
         updateItem()

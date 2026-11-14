@@ -22,8 +22,8 @@ The menus grew item by item. Several gaps and inconsistencies showed up:
   - **Close Project** fires the window's close request, so it asks exactly what the close button asks (unsaved files,
     running tabs, database work), and Cancel keeps the window. A window holds one project for its whole life (ADR
     0014), so closing the project means closing the window. The last window closing shows the picker, as before.
-- **Docker Sandbox** (amends ADR 0010): the menu has one item, "New Docker Sandbox Session (<action>)", on
-  Shortcut+Shift+B. The action is Environment when the folder has `sbxenv.yaml` and Claude Code otherwise
+- **Docker Sandbox** (amends ADR 0010): the menu has one item, "New Session (<action>)" (until 2026-11-14 "New
+  Docker Sandbox Session"), on Shortcut+Shift+B. The action is Environment when the folder has `sbxenv.yaml` and Claude Code otherwise
   (`SandboxAction.forFolder`).
   - The label and enabled state are refreshed when the menu shows and when the folder changes. The action is chosen
     again when the item fires, because the accelerator works without the menu ever showing.
