@@ -1,5 +1,6 @@
 package dev.sluide.barcodes
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.barcodes.engine.CodeFormat
 import dev.sluide.barcodes.engine.GenerateOptions
 import dev.sluide.barcodes.engine.QrEcc
@@ -10,7 +11,6 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode
 import java.time.Duration
 import java.util.concurrent.Executor
-import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -32,7 +32,9 @@ class BarcodeOptionsStore internal constructor(
     private val writer: Executor,
 ) : DisposableBean {
     @Autowired
-    constructor(store: ProjectDataStore) : this(store, Duration.ofMillis(300), daemonWriter())
+    constructor(
+        store: ProjectDataStore,
+    ) : this(store, Duration.ofMillis(300), NamedThreads.single("sluide-barcodes-prefs"))
 
     private data class Values(
         val format: CodeFormat,
@@ -194,11 +196,6 @@ class BarcodeOptionsStore internal constructor(
         private const val FOREGROUND = "foreground"
         private const val BACKGROUND = "background"
         private val COLOR = Regex("#[0-9a-fA-F]{8}")
-
-        private fun daemonWriter(): Executor =
-            Executors.newSingleThreadExecutor { task ->
-                Thread(task, "sluide-barcodes-prefs").apply { isDaemon = true }
-            }
 
         val SIZE_RANGE = 256..4096
         val QUIET_RANGE = 0..10
