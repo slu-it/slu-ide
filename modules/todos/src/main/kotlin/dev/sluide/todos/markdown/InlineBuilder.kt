@@ -1,9 +1,9 @@
 package dev.sluide.todos.markdown
 
+import javafx.application.Platform
 import javafx.beans.binding.Bindings
 import javafx.scene.Cursor
 import javafx.scene.control.Tooltip
-import javafx.scene.image.Image
 import javafx.scene.image.ImageView
 import javafx.scene.input.MouseButton
 import javafx.scene.text.Text
@@ -28,6 +28,9 @@ internal class InlineBuilder(
 ) {
     /** The target of each part of a link, so that an image loaded into a link replaces its alt text as a link too. */
     private val linkTargets = HashMap<FxNode, String>()
+
+    /** The tooltip of each part of a link, so that a refused image can add its reason to it. */
+    private val linkTooltips = HashMap<FxNode, Tooltip>()
 
     /** A [TextFlow] with the inline children of [block]. */
     fun flow(
@@ -103,7 +106,9 @@ internal class InlineBuilder(
         href: String,
     ) {
         part.cursor = Cursor.HAND
-        Tooltip.install(part, Tooltip(href))
+        val tooltip = Tooltip(href)
+        linkTooltips[part] = tooltip
+        Tooltip.install(part, tooltip)
         part.setOnMouseClicked { event ->
             if (event.button == MouseButton.PRIMARY) {
                 open(href)
@@ -121,7 +126,10 @@ internal class InlineBuilder(
         }
     }
 
-    /** Shows the alt text until the image is loaded; then the image, no wider than itself or its text flow. */
+    /**
+     * Shows the alt text until the image is loaded off the FX thread (ADR 0175); then the image, no wider than itself
+     * or its text flow. An image that cannot be shown keeps its alt text, dimmed, with the reason as tooltip.
+     */
     private fun image(
         flow: TextFlow,
         node: MdImage,
@@ -130,27 +138,44 @@ internal class InlineBuilder(
         val altText = text(alt.ifEmpty { node.destination.orEmpty() }, listOf("image-alt"))
         flow.children.add(altText)
         val source = imageSource(node.destination.orEmpty(), context.projectFolder) ?: return
-        val image = Image(source, true)
-        val show = {
-            val index = flow.children.indexOf(altText)
-            if (index >= 0 && !image.isError && image.progress >= 1.0) {
-                val view =
-                    ImageView(image).apply {
-                        isPreserveRatio = true
-                        fitWidthProperty().bind(
-                            Bindings.createDoubleBinding(
-                                { minOf(image.width, flow.width.coerceAtLeast(1.0)) },
-                                image.widthProperty(),
-                                flow.widthProperty(),
-                            ),
-                        )
-                    }
-                flow.children[index] = view
-                linkTargets[altText]?.let { makeLink(view, it) }
-            }
+        context.imageExecutor.execute {
+            val loaded = loadImage(source, context.imageFetcher)
+            Platform.runLater { show(flow, altText, loaded) }
         }
-        image.progressProperty().addListener { _, _, _ -> show() }
-        show()
+    }
+
+    /** Replaces [altText] with the image; the result of a load is dropped when the alt text left the flow meanwhile. */
+    private fun show(
+        flow: TextFlow,
+        altText: Text,
+        loaded: LoadedImage,
+    ) {
+        val index = flow.children.indexOf(altText)
+        if (index < 0) return
+        val image = loaded.image
+        if (image == null) {
+            altText.styleClass.add("image-refused")
+            val linkTooltip = linkTooltips[altText]
+            if (linkTooltip != null) {
+                linkTooltip.text = "${linkTooltip.text} — image ${loaded.reason}"
+            } else {
+                Tooltip.install(altText, Tooltip("Image ${loaded.reason}"))
+            }
+            return
+        }
+        val view =
+            ImageView(image).apply {
+                isPreserveRatio = true
+                fitWidthProperty().bind(
+                    Bindings.createDoubleBinding(
+                        { minOf(image.width, flow.width.coerceAtLeast(1.0)) },
+                        image.widthProperty(),
+                        flow.widthProperty(),
+                    ),
+                )
+            }
+        flow.children[index] = view
+        linkTargets[altText]?.let { makeLink(view, it) }
     }
 
     /** The text of [node] without markup. */

@@ -12,6 +12,7 @@ import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class ImageLoadingTest {
@@ -79,6 +80,14 @@ class ImageLoadingTest {
             refusedReason(loadImageBytes("https://example.com/a.png", fetcher)),
         )
         assertEquals(URI("https://example.com/a.png"), asked)
+    }
+
+    @Test
+    fun `contexts without their own fetcher share one, so that cards do not each make an HTTP client`() {
+        val first = MarkdownContext(dir, {}, {}, null)
+        val second = MarkdownContext(dir, {}, {}, null)
+        assertSame(first.imageFetcher, second.imageFetcher)
+        assertSame(first.imageExecutor, second.imageExecutor)
     }
 
     @Test

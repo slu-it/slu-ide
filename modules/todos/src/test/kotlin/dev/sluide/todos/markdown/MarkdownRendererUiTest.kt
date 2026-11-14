@@ -1,5 +1,6 @@
 package dev.sluide.todos.markdown
 
+import dev.sluide.imagelimits.TestImages
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Parent
@@ -7,6 +8,7 @@ import javafx.scene.Scene
 import javafx.scene.control.CheckBox
 import javafx.scene.control.Label
 import javafx.scene.control.Separator
+import javafx.scene.control.Tooltip
 import javafx.scene.image.ImageView
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
@@ -31,6 +33,7 @@ import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 import kotlin.test.assertEquals
@@ -93,7 +96,7 @@ class MarkdownRendererUiTest {
     @Test
     fun `a task checkbox reports the toggled source and later toggles build on it`(robot: FxRobot) {
         var changed: String? = null
-        val root = show(robot, "- [ ] one\n- [x] two", MarkdownContext(dir, {}, {}) { changed = it })
+        val root = show(robot, "- [ ] one\n- [x] two", MarkdownContext(dir, {}, {}, { changed = it }))
         val boxes = descendants(root).filterIsInstance<CheckBox>()
         assertEquals(listOf(false, true), boxes.map { it.isSelected })
         robot.interact { boxes[1].fire() }
@@ -111,7 +114,7 @@ class MarkdownRendererUiTest {
         robot: FxRobot,
     ) {
         var changed: String? = null
-        val root = show(robot, source, MarkdownContext(dir, {}, {}) { changed = it })
+        val root = show(robot, source, MarkdownContext(dir, {}, {}, { changed = it }))
         val boxes = descendants(root).filterIsInstance<CheckBox>()
         if (expected == null) assertTrue(boxes[index].isDisable, "a box without a marker in the source is disabled")
         robot.interact { boxes[index].fire() }
@@ -228,18 +231,99 @@ class MarkdownRendererUiTest {
         assertTrue(view.fitWidth <= flow.width + 0.5, "image ${view.fitWidth} in flow ${flow.width}")
     }
 
+    /** A context whose image loads run where [tasks] says; the default runs them at once, on the calling thread. */
+    private fun imageContext(tasks: Executor = Executor { it.run() }) =
+        MarkdownContext(dir, {}, {}, null, ImageFetcher { null }, tasks)
+
+    private fun Node.tooltips() = properties.values.filterIsInstance<Tooltip>().map { it.text }
+
+    /** The PNG of [png] with its pixel data damaged and cut: a valid header, so that only the decoder can tell. */
+    private fun corruptPng(): ByteArray {
+        val bytes = png(8, 8)
+        val idat = String(bytes, Charsets.ISO_8859_1).indexOf("IDAT") + 4
+        for (i in idat until idat + 8) bytes[i] = 0x55
+        return bytes.copyOf(idat + 6)
+    }
+
+    /** Waits until [count] alt texts of [root] carry `image-refused`; a refusal has no signal but its style class. */
+    private fun waitForRefused(
+        robot: FxRobot,
+        root: Region,
+        count: Int,
+    ) {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        var found = 0
+        while (found < count && System.nanoTime() < deadline) {
+            robot.interact { found = descendants(root).count { it is Text && it.has("image-refused") } }
+            if (found < count) Thread.sleep(20) // polling for the background image load, bounded by the deadline
+        }
+        var state = ""
+        robot.interact { state = descendants(root).filterIsInstance<Text>().joinToString { it.text + it.styleClass } }
+        assertEquals(count, found, "refused images in $state")
+    }
+
     @Test
-    fun `an image that is missing or no image keeps its alt text`(robot: FxRobot) {
-        Files.write(dir.resolve("p.png"), png(1, 1))
+    fun `images that cannot be shown keep their dimmed alt text with the reason and the others show`(robot: FxRobot) {
+        Files.write(dir.resolve("ok.png"), png(3, 2))
+        Files.write(dir.resolve("bomb.png"), TestImages.pngHeader(30_000, 30_000))
         Files.writeString(dir.resolve("bad.png"), "not an image")
-        val root = show(robot, "![missing](nope.png) ![broken](bad.png) ![fine](p.png)")
+        Files.write(dir.resolve("corrupt.png"), corruptPng())
+        val source = "![missing](nope.png) ![broken](bad.png) ![corrupt](corrupt.png) ![bomb](bomb.png) ![fine](ok.png)"
+        val root = show(robot, source, imageContext())
+        // "missing" has no file, so imageSource gives no source and it is never loaded: it stays plain alt text.
+        waitForRefused(robot, root, 3)
         waitForImages(robot, root)
-        // A failed load has no signal of its own: the loads run side by side, so a short wait after the good one.
-        Thread.sleep(200)
         robot.interact {
-            val alts = descendants(root).filter { it is Text && it.has("image-alt") }.map { (it as Text).text }
-            assertEquals(listOf("missing", "broken"), alts)
-            assertEquals(1, descendants(root).count { it is ImageView })
+            val reasons =
+                descendants(root)
+                    .filterIsInstance<Text>()
+                    .filter { it.has("image-alt") }
+                    .associate { it.text to it.tooltips() }
+            assertEquals(
+                mapOf(
+                    "missing" to emptyList(),
+                    "broken" to listOf("Image could not be read"),
+                    "corrupt" to listOf("Image could not be read"),
+                    "bomb" to listOf("Image too large to show (30 000 × 30 000 px)"),
+                ),
+                reasons,
+            )
+            val refused = descendants(root).filterIsInstance<Text>().filter { it.has("image-refused") }
+            refused.forEach { assertEquals(0.7, it.opacity, 1e-9, "dimmed by the stylesheet") }
+            val view = descendants(root).filterIsInstance<ImageView>().single()
+            assertEquals(3.0, view.image.width)
+            assertEquals(2.0, view.image.height)
+        }
+    }
+
+    @Test
+    fun `a refused image in a link adds its reason to the link tooltip`(robot: FxRobot) {
+        Files.write(dir.resolve("bomb.png"), TestImages.pngHeader(30_000, 30_000))
+        val root = show(robot, "[![bomb](bomb.png)](https://example.com/x)", imageContext())
+        waitForRefused(robot, root, 1)
+        robot.interact {
+            val alt = descendants(root).filterIsInstance<Text>().single { it.has("image-alt") }
+            val expected = "https://example.com/x — image too large to show (30 000 × 30 000 px)"
+            assertEquals(listOf(expected), alt.tooltips())
+        }
+    }
+
+    @Test
+    fun `a load that finishes after its alt text left the flow changes nothing`(robot: FxRobot) {
+        Files.write(dir.resolve("bomb.png"), TestImages.pngHeader(30_000, 30_000))
+        val held = mutableListOf<Runnable>()
+        val root = show(robot, "![bomb](bomb.png)", imageContext { held += it })
+        lateinit var alt: Text
+        robot.interact {
+            alt = descendants(root).filterIsInstance<Text>().single { it.has("image-alt") }
+            (alt.parent as TextFlow).children.remove(alt)
+        }
+        held.forEach { it.run() }
+        robot.interact { }
+        assertEquals(1, held.size)
+        robot.interact {
+            assertTrue(!alt.has("image-refused"))
+            assertEquals(emptyList(), alt.tooltips())
         }
     }
 

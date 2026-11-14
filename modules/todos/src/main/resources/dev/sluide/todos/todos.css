@@ -81,6 +81,11 @@
     -fx-font-style: italic;
 }
 
+/* An image over the caps or not loadable: its alt text, dimmed. */
+.todo-markdown .text.image-refused {
+    -fx-opacity: 0.7;
+}
+
 .todo-markdown .text.link {
     -fx-fill: -fx-accent;
     -fx-underline: true;

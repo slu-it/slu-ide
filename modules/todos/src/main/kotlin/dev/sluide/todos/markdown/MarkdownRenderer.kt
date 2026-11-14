@@ -1,5 +1,6 @@
 package dev.sluide.todos.markdown
 
+import dev.sluide.backgroundtasks.NamedThreads
 import javafx.geometry.Pos
 import javafx.scene.control.CheckBox
 import javafx.scene.control.Label
@@ -30,6 +31,7 @@ import org.commonmark.parser.IncludeSourceSpans
 import org.commonmark.parser.Parser
 import java.net.URI
 import java.nio.file.Path
+import java.util.concurrent.Executor
 
 /** What the rendered Markdown needs from its surroundings. */
 internal class MarkdownContext(
@@ -39,7 +41,17 @@ internal class MarkdownContext(
     val openFile: (Path) -> Unit,
     /** Called with the new source when a task checkbox is clicked; null makes the checkboxes read-only. */
     val sourceChanged: ((String) -> Unit)?,
+    /** Fetches web images; tests replace it. */
+    val imageFetcher: ImageFetcher = sharedImageFetcher,
+    /** Runs the load of an image off the FX thread; tests run it at once or hold it. */
+    val imageExecutor: Executor = sharedImageExecutor,
 )
+
+/** The fetcher of every context that does not bring its own: one HTTP client for the app, not one per card. */
+internal val sharedImageFetcher = HttpImageFetcher()
+
+/** Three named threads share one queue of image loads, so that a local image does not wait behind a slow web one. */
+private val sharedImageExecutor: Executor = NamedThreads.fixed("todo-image", 3)
 
 private const val STYLESHEET = "/dev/sluide/todos/todos.css"
 
