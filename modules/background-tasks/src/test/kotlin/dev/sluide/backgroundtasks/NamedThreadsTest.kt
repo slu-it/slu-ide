@@ -161,6 +161,44 @@ class NamedThreadsTest {
         }
     }
 
+    private fun currentThreadInfo(): Pair<String, Boolean> {
+        val thread = Thread.currentThread()
+        return thread.name to thread.isDaemon
+    }
+
+    @Test
+    fun `a fixed executor runs a task on a free thread while another is blocked`() {
+        val executor = NamedThreads.fixed("sluide-fixed", 2)
+        val release = CountDownLatch(1)
+        try {
+            val blocked = executor.submit { release.await() }
+            val names = (1..5).map { executor.submit<Pair<String, Boolean>> { currentThreadInfo() } }
+            names.forEach { assertEquals("sluide-fixed" to true, it.get(5, TimeUnit.SECONDS)) }
+            assertTrue(!blocked.isDone)
+        } finally {
+            release.countDown()
+            executor.finish()
+        }
+    }
+
+    @Test
+    fun `a fixed executor runs as many tasks at once as it has threads`() {
+        val executor = NamedThreads.fixed("sluide-fixed", 3)
+        try {
+            val together = CountDownLatch(3)
+            val futures =
+                (1..3).map {
+                    executor.submit<Boolean> {
+                        together.countDown()
+                        together.await(5, TimeUnit.SECONDS)
+                    }
+                }
+            futures.forEach { assertTrue(it.get(10, TimeUnit.SECONDS)) }
+        } finally {
+            executor.finish()
+        }
+    }
+
     @Test
     fun `virtual reports a failure and the thread has the name`() {
         val boom = IllegalStateException("boom")

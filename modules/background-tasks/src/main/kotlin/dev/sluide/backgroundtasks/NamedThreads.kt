@@ -34,8 +34,27 @@ object NamedThreads {
     internal fun single(
         name: String,
         keepAliveMillis: Long,
+    ): ExecutorService = pool(name, 1, keepAliveMillis)
+
+    /**
+     * Up to [threads] daemon threads named [name] taking tasks from one shared queue, so a free thread never waits behind
+     * a slow task of another. Failures are logged as for [single]; an idle thread ends after a minute, a new one gets the
+     * same name, and an abandoned executor shuts itself down.
+     */
+    fun fixed(
+        name: String,
+        threads: Int,
+    ): ExecutorService {
+        require(threads >= 1) { "threads must be at least 1" }
+        return pool(name, threads, 60_000)
+    }
+
+    private fun pool(
+        name: String,
+        threads: Int,
+        keepAliveMillis: Long,
     ): ExecutorService =
-        LoggingExecutor(factory(name)).apply {
+        LoggingExecutor(threads, factory(name)).apply {
             setKeepAliveTime(keepAliveMillis, TimeUnit.MILLISECONDS)
             allowCoreThreadTimeOut(true)
         }
@@ -82,8 +101,9 @@ object NamedThreads {
     }
 
     private class LoggingExecutor(
+        threads: Int,
         factory: ThreadFactory,
-    ) : ThreadPoolExecutor(1, 1, 0, TimeUnit.MILLISECONDS, LinkedBlockingQueue(), factory) {
+    ) : ThreadPoolExecutor(threads, threads, 0, TimeUnit.MILLISECONDS, LinkedBlockingQueue(), factory) {
         override fun execute(command: Runnable) {
             // submit() wraps in a FutureTask, which never throws; a raw command is guarded here so the thread survives.
             super.execute(
