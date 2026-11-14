@@ -57,6 +57,8 @@ dependencies {
     implementation(project(":modules:coloring"))
     // The Codecs tool: a tab opened from the Tools menu, one per window (ADR 0110, ADR 0112).
     implementation(project(":modules:codecs"))
+    // The Barcodes tool: a tab opened from the Tools menu, one per window (ADR 0110, ADR 0174).
+    implementation(project(":modules:barcodes"))
     // The Converting tool: a tab opened from the Tools menu, one per window (ADR 0110, ADR 0115).
     implementation(project(":modules:converting"))
     // Docker through its CLI: the window's DockerSession and the Docker settings page (ADR 0117).

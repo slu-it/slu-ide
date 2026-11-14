@@ -1,6 +1,8 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.barcodes.BarcodeOptionsStore
+import dev.sluide.barcodes.Barcodes
 import dev.sluide.codecs.Codecs
 import dev.sluide.codeintelligence.InstallPrompts
 import dev.sluide.codereview.Reviews
@@ -196,6 +198,7 @@ class ProjectWindowsUiTest {
                 register(ArgumentHistories::class.java)
                 register(Todos::class.java)
                 registerBean(SavedColors::class.java, Supplier { SavedColors(projectData) })
+                registerBean(BarcodeOptionsStore::class.java, Supplier { BarcodeOptionsStore(projectData) })
                 register(GitLog::class.java)
                 register(GitFileComparison::class.java)
                 register(GitBranches::class.java)
@@ -273,6 +276,7 @@ class ProjectWindowsUiTest {
                     BackgroundTasks::class.java,
                     TodoPanel::class.java,
                     Coloring::class.java,
+                    Barcodes::class.java,
                     Codecs::class.java,
                     Converting::class.java,
                     ReadAloud::class.java,

@@ -1,6 +1,7 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.barcodes.Barcodes
 import dev.sluide.codecs.Codecs
 import dev.sluide.codereview.Reviews
 import dev.sluide.coloring.Coloring
@@ -140,6 +141,7 @@ class MainWindow(
     private val converting: Converting,
     private val readAloud: ReadAloud,
     private val translate: Translate,
+    private val barcodes: Barcodes,
     private val libraryCode: LibraryCodeExtension,
     gitFileComparison: GitFileComparison,
     private val docker: Docker,
@@ -298,6 +300,7 @@ class MainWindow(
             converting,
             readAloud,
             translate,
+            barcodes,
             docker,
             databases,
             minesweeper,

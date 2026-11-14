@@ -1,6 +1,8 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.barcodes.BarcodeOptionsStore
+import dev.sluide.barcodes.Barcodes
 import dev.sluide.codecs.Codecs
 import dev.sluide.codeintelligence.InstallPrompts
 import dev.sluide.codereview.Reviews
@@ -227,6 +229,7 @@ class SpringWiringTest {
                         ScratchFiles::class.java,
                         Todos::class.java,
                         SavedColors::class.java,
+                        BarcodeOptionsStore::class.java,
                         DockerSettings::class.java,
                         DockerSettingsPage::class.java,
                         ComposeFileViewer::class.java,
@@ -336,6 +339,7 @@ class SpringWiringTest {
                         BackgroundTasks::class.java,
                         TodoPanel::class.java,
                         Coloring::class.java,
+                        Barcodes::class.java,
                         Codecs::class.java,
                         Converting::class.java,
                         ReadAloud::class.java,

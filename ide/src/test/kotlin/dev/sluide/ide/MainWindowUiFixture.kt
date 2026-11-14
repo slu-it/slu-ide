@@ -1,6 +1,8 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.barcodes.BarcodeOptionsStore
+import dev.sluide.barcodes.Barcodes
 import dev.sluide.codecs.Codecs
 import dev.sluide.codeintelligence.InstallPrompts
 import dev.sluide.codereview.Reviews
@@ -284,6 +286,7 @@ abstract class MainWindowUiFixture {
 
     /** The Converting tools of the windows created by [mainWindow]; closed after the test. */
     internal val convertings = mutableListOf<Converting>()
+    internal val barcodes = mutableListOf<Barcodes>()
 
     /** The Read Aloud tools of the windows created by [mainWindow]; closed after the test. */
     internal val readAlouds = mutableListOf<ReadAloud>()
@@ -465,6 +468,7 @@ abstract class MainWindowUiFixture {
                 TranslationPreferences(projectData),
                 fontSettings,
             ).also(translates::add),
+            Barcodes(BarcodeOptionsStore(projectData)).also(barcodes::add),
             LibraryCodeExtension(LibraryCodeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
             GitFileComparison(git),
             Docker(dockerSession, terminals, tasks, DockerRunStore(projectData)).also(dockers::add),

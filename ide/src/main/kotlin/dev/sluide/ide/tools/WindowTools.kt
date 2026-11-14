@@ -1,5 +1,6 @@
 package dev.sluide.ide.tools
 
+import dev.sluide.barcodes.Barcodes
 import dev.sluide.codecs.Codecs
 import dev.sluide.coloring.Coloring
 import dev.sluide.converting.Converting
@@ -37,8 +38,8 @@ import java.nio.file.Path
 
 /**
  * The tools of one window: the Terminal and Docker Sandbox menus with the terminal tabs they open in the
- * [editorArea], the Tools menu with the Coloring, Codecs, Converting, Read Aloud and Translate tabs (ADR 0110,
- * ADR 0112, ADR 0115, ADR 0124, ADR 0126), the Services menu with the Databases and Docker tabs (ADR 0118,
+ * [editorArea], the Tools menu with the Coloring, Codecs, Converting, Read Aloud, Translate and Barcodes tabs (ADR 0110,
+ * ADR 0112, ADR 0115, ADR 0124, ADR 0126, ADR 0174), the Services menu with the Databases and Docker tabs (ADR 0118,
  * ADR 0121) and the Games menu (both sorted by title) with the Block Breaker, Doubles, Minesweeper, Mini Golf,
  * Orbit Guard, Pipe Puzzle, Solitaire, Sudoku and Word Guess tabs (ADR 0131, 0132, 0136, 0137, 0138, 0139, 0140,
  * 0152, 0153, 0156).
@@ -56,6 +57,7 @@ internal class WindowTools(
     converting: Converting,
     readAloud: ReadAloud,
     translate: Translate,
+    barcodes: Barcodes,
     docker: Docker,
     databases: Databases,
     minesweeper: Minesweeper,
@@ -86,13 +88,16 @@ internal class WindowTools(
     /** The Translate tool of the Tools menu. */
     internal val translateTool = WindowTool("Translate", translate::createTab, newTabEachTime = true)
 
+    /** The Barcodes tool of the Tools menu. */
+    internal val barcodesTool = WindowTool("Barcodes", barcodes::createTab)
+
     /** The Tools menu logic; tests choose tools through it. */
     internal val toolsMenu =
         ToolsMenu(
             { editorArea.tabs },
             editorArea::open,
             editorArea::select,
-            listOf(coloringTool, codecsTool, convertingTool, readAloudTool, translateTool),
+            listOf(coloringTool, codecsTool, convertingTool, readAloudTool, translateTool, barcodesTool),
         )
 
     /** The Docker tool of the Services menu, on IntelliJ's key for its Services tool window. */
@@ -174,6 +179,8 @@ internal class WindowTools(
         converting.showTab = { toolsMenu.open(convertingTool) }
         readAloud.showTab = { toolsMenu.open(readAloudTool) }
         translate.openTab = { editorArea.open(it) }
+        barcodes.showTab = { toolsMenu.open(barcodesTool) }
+        barcodes.openUrl = openWebPage
         coloring.projectFolder.bind(projectService.projectFolder)
         docker.showTab = { servicesMenu.open(dockerTool) }
         docker.openTab = { editorArea.open(it) }
@@ -193,7 +200,7 @@ internal class WindowTools(
         pipePuzzle.showTab = { gamesMenu.open(pipePuzzleTool) }
     }
 
-    /** The Tools menu: Coloring, Codecs, Converting, Read Aloud, Translate. */
+    /** The Tools menu: Coloring, Codecs, Converting, Read Aloud, Translate, Barcodes. */
     fun toolsMenu(): Menu = toolsMenu.menu()
 
     /** The Services menu, sorted by title: Databases, Docker. */

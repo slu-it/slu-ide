@@ -472,11 +472,14 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `Tools - Codecs, Converting and Translate open tabs, and Converting shows its tab when text is opened`(
+    fun `Tools - Codecs, Converting, Translate and Barcodes open tabs, Converting shows its tab for text`(
         robot: FxRobot,
     ) {
         val tools = menu(robot, "Tools").items
-        assertEquals(listOf("Coloring", "Codecs", "Converting", "Read Aloud", "Translate"), tools.map { it.text })
+        assertEquals(
+            listOf("Coloring", "Codecs", "Converting", "Read Aloud", "Translate", "Barcodes"),
+            tools.map { it.text },
+        )
         val codecsItem = tools.single { it.text == "Codecs" }
         robot.interact { codecsItem.fire() }
         robot.interact { codecsItem.fire() }
@@ -495,10 +498,35 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot.interact { translateItem.fire() }
         assertEquals(listOf("Codecs", "Converting", "Translate 1", "Translate 2"), tabTitles(robot))
 
+        val barcodesItem = tools.last()
+        assertEquals("Barcodes", barcodesItem.text)
+        robot.interact { barcodesItem.fire() }
+        robot.interact { barcodesItem.fire() }
+        assertEquals(listOf("Codecs", "Converting", "Translate 1", "Translate 2", "Barcodes"), tabTitles(robot))
+        assertEquals("Make and read barcodes and QR codes", checkNotNull(editorArea.selectedTab).tooltip)
+
         robot.interact { editorArea.closeAll() }
         robot.interact { convertings.single().open("{}", "json") }
         assertEquals(listOf("Converting"), tabTitles(robot))
     }
+
+    @Test
+    fun `Barcodes open shows the Barcodes tab with the text, and a second call reuses the tab`(robot: FxRobot) {
+        robot.interact { barcodes.single().open("hello") }
+        assertEquals(listOf("Barcodes"), tabTitles(robot))
+        assertEquals("Barcodes", checkNotNull(editorArea.selectedTab).title.value)
+        assertEquals("hello", barcodesText())
+
+        robot.interact { barcodes.single().open("again") }
+        assertEquals(listOf("Barcodes"), tabTitles(robot))
+        assertEquals("again", barcodesText())
+    }
+
+    private fun barcodesText(): String =
+        WaitForAsyncUtils
+            .asyncFx(
+                Callable { (checkNotNull(editorArea.selectedTab).content.lookup("#barcodes-text") as TextArea).text },
+            ).get()
 
     @Test
     fun `Open Selection in Codecs in a code editor's context menu opens the Codecs tab with the selection`(
