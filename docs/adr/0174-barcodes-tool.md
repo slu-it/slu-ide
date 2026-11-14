@@ -91,7 +91,8 @@ several codes, inverted codes or very large images.
 - Reading from the UI: image files are refused above 20 MiB and decoded (JavaFX `Image`) no larger than 4096 px on the
   longer side, the size taken from the file header before decoding. JavaFX's scaled decode does not bound memory for
   PNG, GIF and BMP (it allocates the whole image first, every frame of a GIF at full size), so the header's size is
-  capped: 40 megapixels for those (a GIF counts all its frames, from walking its blocks, and an animated GIF is refused outright, as JavaFX gives no pixels for it; 8K screenshots fit) and for
+  capped: 40 megapixels for those (a GIF counts all its frames, from walking its blocks, and an animated GIF is
+  refused outright, as JavaFX gives no pixels for it; 8K screenshots fit) and for
   progressive JPEG (it buffers all its coefficients), 100 for baseline JPEG, which JavaFX decodes scaled. Pasted and
   dropped images, already decoded, get the 40 megapixels too. This is a cap on what is attempted, not a guarantee
   about memory; a decode that still fails (an `OutOfMemoryError` too) ends as "The image could not be

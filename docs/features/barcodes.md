@@ -20,7 +20,8 @@ not part of this version yet.
   number of characters, the number of UTF-8 bytes and what was made ("QR version 1 · 21×21 · ECC M"), or the error.
 - **Code** (right): the generated code on a themed background, centred. The code is drawn from its module grid with a
   whole number of pixels per module where the space allows, so its edges stay sharp; in less space it is drawn
-  smaller (on a scaled display, with whole device pixels). Without text, the pane says "Type text, or paste an image (Shortcut+V)".
+  smaller (on a scaled display, with whole device pixels). Without text, the pane says "Type text, or paste an image
+  (Shortcut+V)".
   The line under it shows the colour warning, if any.
 
 ## Formats and options
@@ -56,8 +57,9 @@ no text, otherwise the text area pastes), **Open…** (filter "Images (*.png, *.
   pixels; at most 40 megapixels)."): JavaFX allocates a whole PNG, GIF or BMP before it scales it, and a progressive
   JPEG buffers all its data; a baseline JPEG it decodes scaled. JavaFX gives no pixels for an animated GIF,
   so one with more than one frame is refused from its header with "Animated GIFs cannot be read; save one frame as
-  PNG." (after the size check: too many pixels in all frames gets the size message). The 40 megapixels also apply to pasted and dropped
-  images. An unreadable or corrupt image shows "The image could not be read." and nothing else changes.
+  PNG." (after the size check: too many pixels in all frames gets the size message). The 40 megapixels also apply
+  to pasted and dropped images. An unreadable or corrupt image shows "The image could not be read." and nothing else
+  changes.
 - **In the background**: the status says "Reading…" while the image is decoded and read off the UI thread. A newer
   read, an edit of the text, or a change of format or option makes a pending read void.
 - **Outlines**: the image is fitted and centred, smoothly scaled. Each code found gets an outline with a dark halo
@@ -77,10 +79,10 @@ no text, otherwise the text area pastes), **Open…** (filter "Images (*.png, *.
   chosen name decides the format. Suggested names: `qr-code.png`, `data-matrix.png`, `aztec.png`, `pdf417.png`,
   `code-128.png`, `ean-13.png`, `upc-a.png`.
 - Both are disabled without a code and while an error shows (the code still on screen is the last good one, not the
-  text's). Save as… writes through a temporary file, so a failed write leaves an existing file whole. An error (an image over 16 384 px per side, a file that cannot be written) shows in
-  the status line under the code.
+  text's). Save as… writes through a temporary file, so a failed write leaves an existing file whole. An error (an
+  image over 16 384 px per side, a file that cannot be written) shows in the status line under the code.
 
 ## What is stored
 The format and options (error correction, size, quiet zone, colours) are stored user-wide in `shared.json`, field
-`barcodes`, shortly after they change (changes within 300 ms end in one write, off the FX thread; quitting writes what is
-pending); only values that differ from the defaults are written. Never the text.
+`barcodes`, shortly after they change (changes within 300 ms end in one write, off the FX thread; quitting writes what
+is pending); only values that differ from the defaults are written. Never the text.
