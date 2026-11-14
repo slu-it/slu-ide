@@ -71,7 +71,7 @@ updated when the summary or keywords no longer fit.
 | [0044](adr/0044-git-log-compare.md) | Compare with Current as a log mode; diff with the working tree | compare, `GitLogFilter.excluded`, `--left-right`, Compare with Local, working tree | amended by 0113 |
 | [0045](adr/0045-git-log-navigation.md) | One revision resolver for hash links and Go to Hash/Branch/Tag | revision resolver, `cat-file --batch-check`, hash links, `LinkText`, Shortcut+G, `loadUntil` | amended by 0172 |
 | [0046](adr/0046-git-log-file-history.md) | File history as `History:` tabs in the git log area | file history, `--follow`, renames, Show History | |
-| [0047](adr/0047-module-dependencies-and-shared-modules.md) | Acyclic module dependencies; shared pieces in small modules | module dependencies, foundation modules, `ide` callbacks, `file-icons` | amended by 0069, 0071, 0109, 0112; see 0055 |
+| [0047](adr/0047-module-dependencies-and-shared-modules.md) | Acyclic module dependencies; shared pieces in small modules | module dependencies, foundation modules, `ide` callbacks, `file-icons` | amended by 0069, 0071, 0109, 0112, 0174; see 0055 |
 | [0048](adr/0048-commit-tab.md) | Commit tab in the git log area | Commit tab, Shortcut+K, `git commit --only`, Amend, unversioned files | |
 | [0049](adr/0049-push.md) | Non-modal Push dialog, force only with lease | Push dialog, Shortcut+Shift+K, `--force-with-lease`, push target, main/master | see 0078; amended by 0173 |
 | [0050](adr/0050-focus-when-a-file-tab-is-shown.md) | One focus rule for shown file tabs | focus, `FileView.focus()`, `focusText()`, tab selection | amends 0033 |
@@ -198,6 +198,7 @@ updated when the summary or keywords no longer fit.
 | [0171](adr/0171-context-sensitive-branch-menus.md) | Branch menus show only what applies, greyed out only while blocked, in sections with icons from `GitLogIcons` | branch menu, context menu, `BranchMenuEntry`, `branchMenuEntries`, `GitLogIcons`, Shortcut+C, hide vs disable, empty menu | amends 0040, 0041; amended by 0173 |
 | [0172](adr/0172-commit-menu.md) | The commit table's menu shows only what applies, in sections with icons; several branches group under Branches | commit menu, context menu, `CommitMenuEntry`, `commitMenuEntries`, `refMenuIcon`, `contextMenuIcon`, `GitLogIcons`, Branches submenu, hide vs disable | amends 0041, 0042, 0045, 0100; follows 0171; amended by 0173 |
 | [0173](adr/0173-pushing-tags-and-tag-submenus.md) | Push Tag in the tag menus; tags at a commit get submenus, several under Tags | push tags, Push Tag, `pushTags`, `PushTags`, tag submenu, Tags submenu, commit menu, `already exists`, remote | amends 0049, 0078, 0171, 0172 |
+| [0174](adr/0174-barcodes-tool.md) | Barcodes tool with ZXing core: crisp module grids, ECI only beyond Latin-1, multi-code reading | `barcodes`, QR code, ZXing, Data Matrix, Aztec, PDF417, EAN-13, UPC-A, Code 128, ECI, read barcode | amends 0047; see 0110, 0112 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
