@@ -12,8 +12,9 @@ stays sharp at any size, which character set the codes carry, and how reading co
 several codes, inverted codes or very large images.
 
 ## Decision
-- **Module `barcodes`** in the editor family: its tab is an `EditorTab` and it will add "Show Selection as Barcode" to
-  the code editors, so it depends on `editor-area` and `file-viewers`, as `codecs` does. The engine (package
+- **Module `barcodes`** in the editor family: its tab is an `EditorTab` and it adds "Show Selection as Barcode" to
+  the code editors' context menu, like Codecs' item in ADR 0112, with no new editor API; the item is disabled above
+  4 096 characters. So it depends on `editor-area` and `file-viewers`, as `codecs` does. The engine (package
   `dev.sluide.barcodes.engine`) is free of JavaFX: it works on module grids and ARGB pixel arrays.
 - **ZXing core only** (`com.google.zxing:core`), not `javase`: that module adds AWT image helpers
   (`BufferedImageLuminanceSource`, `MatrixToImageWriter`) and a command-line parser, none of which the tool needs.

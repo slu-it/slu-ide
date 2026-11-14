@@ -6,14 +6,17 @@ decisions in [ADR 0174](../adr/0174-barcodes-tool.md) and [ADR 0110](../adr/0110
 
 The Barcodes tool makes QR codes and six other barcodes from text, so that a URL, a Wi-Fi login or a test value does not
 have to go to an online generator. It is a tab of the editor area with the options of the format at the top and two
-sides: the text at the left, the generated code or a read image at the right. Templates and the structured view are
-not part of this version yet.
+sides: the text at the left, the generated code or a read image at the right. Below the text a structured view says
+what the text is, and a Template menu fills in Wi-Fi and contact texts.
 
 ## Opening
 - **Tools → Barcodes** (last in the Tools menu) opens the tab, titled "Barcodes". There is one tab per window:
   choosing the item again selects the open tab.
 - Shortcut+W closes the tab without asking. The text, format and options belong to the window: when the tab is closed
   and opened again, they are as they were. After a restart the tool starts with an empty text.
+- **Show Selection as Barcode** in the context menu of a code editor (after the Translate items) opens the tab with
+  the selection as the text, as typed text (the code is made in the current format). It is disabled without a
+  selection, and a selection of more than 4 096 characters reads "Show Selection as Barcode (too long)" and is disabled.
 
 ## Two sides
 - **Text** (left): a text area with **Copy** and **Clear**. Every change makes the code again. The status line shows the
@@ -23,6 +26,32 @@ not part of this version yet.
   smaller (on a scaled display, with whole device pixels). Without text, the pane says "Type text, or paste an image
   (Shortcut+V)".
   The line under it shows the colour warning, if any.
+
+## Structured view
+Below the text, shown only while the text is more than plain text: Wi-Fi, contact (vCard or MECARD), email, phone, SMS,
+location, calendar event, one-time password (`otpauth`) and link; texts over 8 192 characters are plain. It has the kind
+as a small bold heading and a row per field: the label (dimmed), the value as selectable read-only text (a value with
+line breaks, such as an event description, in a wrapping area up to four rows high) and a **Copy** button. Wi-Fi
+passwords and `otpauth` secrets show as `••••••••` with an eye button (Show/Hide); the value is masked again whenever
+the text changes, and Copy copies the real value. The view takes at most a third of the side's height and scrolls beyond
+that. It describes the text whatever its source: typed, from a template or read from an image.
+
+## Open in Browser
+A button next to the "Text" title, shown only while the text, trimmed, is one http or https URL. A click opens it in the
+system browser; nothing opens on its own.
+
+## Templates
+**Template ▾** at the right of the toolbar has two items, each opening a dialog owned by the window with the buttons
+**Insert** (default) and Cancel:
+- **Wi-Fi…** ("Wi-Fi Template"): Network (required: Insert is disabled while empty), Security (WPA/WPA2/WPA3, WEP,
+  None; default WPA), Password (hidden, with an eye toggle; disabled for None) and Hidden network. It writes
+  `WIFI:T:WPA;S:…;P:…;H:true;;` with backslash, semicolon, comma, colon and double quote escaped.
+- **Contact…** ("Contact Template"): Name, Organization, Phone, Email and Website (Insert is disabled while all are
+  empty). It writes a vCard 3.0.
+
+Each dialog is prefilled when the current text parses as that type. Insert replaces the whole text like an edit of the
+user: Undo (Shortcut+Z in the text) brings the old text back, and the text becomes the source (a read image is replaced
+by the generated code).
 
 ## Formats and options
 The format picker offers QR Code, Data Matrix, Aztec, PDF417, Code 128, EAN-13 and UPC-A. Next to it:
@@ -66,10 +95,10 @@ no text, otherwise the text area pastes), **Open…** (filter "Images (*.png, *.
   (3 px, bright blue, for the selected one; 2 px at 60 % for the others), and with two or more codes a numbered badge
   at its top-left corner. Clicking an outline selects that code: its text, and its format if it can be generated, show
   at the left. The hand cursor shows over an outline when there are several codes; with one code nothing is picked.
-- **Statuses**: "Read from clipboard · 2 codes · QR Code" (the origin is "clipboard", the file name or "dropped
-  image"), with several codes followed by "· click an outline to pick one"; "No barcode found" leaves everything as it
-  was. Copy and Save as… stay disabled while an image is the source (tooltip: "Edit the text or change an option to
-  make a code"); editing the text or an option makes a generated code again.
+- **Statuses**: "Read from clipboard · 2 codes · QR Code" (the format is the selected code's; the origin is "clipboard",
+  the file name or "dropped image"), with several codes followed by "· click an outline to pick one"; "No barcode found"
+  leaves everything as it was. Copy and Save as… stay disabled while an image is the source (tooltip: "Edit the text or
+  change an option to make a code"); editing the text or an option makes a generated code again.
 - **Formats read**: QR, Data Matrix, Aztec, PDF417, EAN-8, EAN-13, UPC-A, UPC-E, Code 39, Code 93, Code 128, ITF and
   Codabar, also inverted.
 
