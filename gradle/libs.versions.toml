@@ -21,6 +21,7 @@ onnxruntime = "1.31.1"
 lingua = "1.2.2"
 lsp4j = "1.0.0"
 bouncycastle = "1.86"
+zxing = "3.5.4"
 
 [libraries]
 spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
@@ -57,6 +58,8 @@ lingua = { module = "com.github.pemistahl:lingua", version.ref = "lingua" }
 lsp4j = { module = "org.eclipse.lsp4j:org.eclipse.lsp4j", version.ref = "lsp4j" }
 # Argon2id for the keys of encrypted files (ADR 0162); only the lightweight API, no JCE provider.
 bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+# Generates and reads the barcodes of the barcodes module (ADR 0174); only core, never javase (AWT).
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 # Version from the Spring Boot BOM (Jackson 3).
 jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 # Versions from the Spring Boot BOM (Jackson 3).
