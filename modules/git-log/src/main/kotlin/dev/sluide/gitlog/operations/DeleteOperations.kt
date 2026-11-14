@@ -313,7 +313,7 @@ internal fun cancelledText(interrupted: String?) =
 private fun interrupted(
     result: GitRemoteDeletionResult,
     context: RunContext,
-) = result.cancelled || (!result.result.success && result.outcomes.isEmpty() && context.cancellation.cancelled)
+) = pushInterrupted(result.cancelled, result.result, result.outcomes.isNotEmpty(), context)
 
 /** "Deleted on origin before that: v1, v2." for each remote of [deletedOn]. */
 private fun deletedBefore(deletedOn: Map<String, List<String>>): List<String> =

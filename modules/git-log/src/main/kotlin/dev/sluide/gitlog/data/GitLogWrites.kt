@@ -20,6 +20,7 @@ import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitRewordCheck
 import dev.sluide.git.GitRewordResult
+import dev.sluide.git.GitTagPushResult
 import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 
@@ -346,4 +347,15 @@ internal interface GitLogWrites : StashWrites {
         refs: List<GitRemoteDeletion>,
         cancellation: GitCancellation,
     ): GitRemoteDeletionResult
+
+    /**
+     * Pushes the tags (short names) to [remote] in one push, never overwriting a tag the remote has (ADR 0173);
+     * [cancellation] stops git.
+     */
+    fun pushTags(
+        root: Path,
+        remote: String,
+        tags: List<String>,
+        cancellation: GitCancellation,
+    ): GitTagPushResult
 }

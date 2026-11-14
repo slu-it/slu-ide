@@ -55,6 +55,17 @@ internal data class PushOperation(
 internal fun pushCancelled(remote: String) = "Push cancelled; it may have reached $remote. Fetch to check."
 
 /**
+ * Whether a cancel interrupted a push: git was [stopped], or it failed ([result]) without reporting on any ref
+ * ([reported]) once cancelled.
+ */
+internal fun pushInterrupted(
+    stopped: Boolean,
+    result: GitResult,
+    reported: Boolean,
+    context: RunContext,
+) = stopped || (!result.success && !reported && context.cancellation.cancelled)
+
+/**
  * What the header says after the successful push [operation] gave [pushed]: "Everything up to date." if the remote had
  * it already, "Pushed main to origin/feature (new branch).", "Force pushed main to origin/main.", "Pushed 3 commits to
  * origin/main." ("1000+ commits" when there were more than shown), or "Pushed main to origin/main." without commits.

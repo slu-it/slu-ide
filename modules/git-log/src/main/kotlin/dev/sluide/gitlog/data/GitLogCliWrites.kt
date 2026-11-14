@@ -273,4 +273,11 @@ internal class GitLogCliWrites(
         refs: List<GitRemoteDeletion>,
         cancellation: GitCancellation,
     ) = gitPush.deleteRemoteRefs(root, remote, refs, cancellation)
+
+    override fun pushTags(
+        root: Path,
+        remote: String,
+        tags: List<String>,
+        cancellation: GitCancellation,
+    ) = gitPush.pushTags(root, remote, tags, cancellation)
 }

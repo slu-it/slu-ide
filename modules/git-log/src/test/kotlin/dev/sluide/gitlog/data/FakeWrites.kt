@@ -23,6 +23,9 @@ import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitRewordCheck
 import dev.sluide.git.GitRewordResult
+import dev.sluide.git.GitTagPushOutcome
+import dev.sluide.git.GitTagPushRefResult
+import dev.sluide.git.GitTagPushResult
 import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
@@ -581,6 +584,33 @@ internal class FakeWrites(
         calls += line
         if (cancellation.cancelled) return GitRemoteDeletionResult(GitResult(false, "Cancelled."), cancelled = true)
         return deleteRemoteResult(line, refs)
+    }
+
+    /** What pushing tags to a remote gives, by its line, unless it was cancelled; by default all are pushed. */
+    @Volatile
+    var pushTagsResult: (String, List<String>) -> GitTagPushResult = { _, tags ->
+        GitTagPushResult(
+            GitResult(true, ""),
+            outcomes = tags.associateWith { GitTagPushRefResult(GitTagPushOutcome.PUSHED) },
+        )
+    }
+
+    /** Records `push-tags <remote> <refs/tags/name>…` and answers with [pushTagsResult]; waits for the [gate]. */
+    override fun pushTags(
+        root: Path,
+        remote: String,
+        tags: List<String>,
+        cancellation: GitCancellation,
+    ): GitTagPushResult {
+        threads += Thread.currentThread().name
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+        while (gate?.await(10, TimeUnit.MILLISECONDS) == false && !cancellation.cancelled) {
+            if (System.nanoTime() > deadline) break
+        }
+        val line = "push-tags $remote " + tags.joinToString(" ") { "refs/tags/$it" }
+        calls += line
+        if (cancellation.cancelled) return GitTagPushResult(GitResult(false, "Cancelled."), cancelled = true)
+        return pushTagsResult(remote, tags)
     }
 
     companion object {
