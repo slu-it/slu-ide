@@ -1,6 +1,10 @@
 package dev.sluide.imagelimits
 
+import dev.sluide.imagelimits.TestImages.IcoEntry
+import dev.sluide.imagelimits.TestImages.animatedWebp
+import dev.sluide.imagelimits.TestImages.dib
 import dev.sluide.imagelimits.TestImages.gif
+import dev.sluide.imagelimits.TestImages.ico
 import dev.sluide.imagelimits.TestImages.jpeg
 import dev.sluide.imagelimits.TestImages.pngHeader
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -46,6 +50,33 @@ class ImageLimitsTest {
         assertIs<ImageCheck.Fits>(ImageLimits.check(gif(1_000, 1_000, 40)))
         val over = assertIs<ImageCheck.TooLarge>(ImageLimits.check(gif(1_000, 1_000, 41)))
         assertEquals(41, over.header.frames)
+        assertIs<ImageCheck.Fits>(ImageLimits.check(animatedWebp(1_000, 1_000, 40)))
+        assertIs<ImageCheck.TooLarge>(ImageLimits.check(animatedWebp(1_000, 1_000, 41)))
+    }
+
+    @Test
+    fun `the entries of an icon count together, not as many times its largest`() {
+        // 36 megapixels and two small entries fit; three entries of 16 megapixels, each within the cap, do not.
+        val large = IcoEntry(0, 0, pngHeader(6_000, 6_000))
+        assertIs<ImageCheck.Fits>(
+            ImageLimits.check(ico(large, IcoEntry(16, 16, dib(16, 16)), IcoEntry(32, 32, dib(32, 32)))),
+        )
+        val medium = IcoEntry(0, 0, pngHeader(4_000, 4_000))
+        assertIs<ImageCheck.TooLarge>(ImageLimits.check(ico(medium, medium, medium)))
+    }
+
+    @Test
+    fun `pixel counts too large for a Long are refused, not wrapped around`() {
+        val huge = IcoEntry(0, 0, pngHeader(Int.MAX_VALUE, Int.MAX_VALUE))
+        val icon = ico(*Array(4) { huge })
+        assertEquals(Long.MAX_VALUE, checkNotNull(ImageHeaders.read(icon)).pixels)
+        assertIs<ImageCheck.TooLarge>(ImageLimits.check(icon))
+        // 2^15 frames of a 2^24 × 2^24 canvas are 2^63 pixels, one more than a Long holds; wrapped they were negative.
+        assertIs<ImageCheck.TooLarge>(ImageLimits.check(animatedWebp(16_777_216, 16_777_216, 32_768)))
+        assertEquals(
+            Long.MAX_VALUE,
+            ImageHeader(Int.MAX_VALUE, Int.MAX_VALUE, Int.MAX_VALUE, ImageFormat.WEBP, false).pixels,
+        )
     }
 
     @Test
@@ -62,6 +93,12 @@ class ImageLimitsTest {
         assertEquals("60 frames of 4 000 × 4 000 pixels", ImageLimits.sizeText(animated))
         assertEquals("60 frames of 4 000 × 4 000 px", ImageLimits.sizeText(animated, "px"))
         assertEquals("1 × 999 pixels", ImageLimits.sizeText(checkNotNull(ImageHeaders.read(pngHeader(1, 999)))))
+        val icon = checkNotNull(ImageHeaders.read(ico(IcoEntry(16, 16, dib(16, 16)), IcoEntry(0, 0, dib(256, 256)))))
+        assertEquals("2 images, the largest 256 × 256 px", ImageLimits.sizeText(icon, "px"))
+        assertEquals(
+            "16 × 16 pixels",
+            ImageLimits.sizeText(checkNotNull(ImageHeaders.read(ico(IcoEntry(16, 16, dib(16, 16)))))),
+        )
     }
 
     @Test

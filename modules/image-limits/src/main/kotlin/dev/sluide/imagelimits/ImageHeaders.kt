@@ -8,9 +8,9 @@ import kotlin.math.abs
  */
 object ImageHeaders {
     /**
-     * The header of the PNG, GIF, BMP or JPEG in [bytes], or null when it is none of them, cut short or malformed.
-     * For a GIF the blocks are walked to count the frames. Never throws; reads nothing outside [bytes] and takes time
-     * bounded by its size.
+     * The header of the PNG, GIF, BMP, JPEG, WebP or ICO in [bytes], or null when it is none of them, cut short or
+     * malformed. The blocks of a GIF and the chunks of a WebP are walked to count the frames, the directory of an ICO
+     * to sum its entries. Never throws; reads nothing outside [bytes] and takes time bounded by its size.
      */
     fun read(bytes: ByteArray): ImageHeader? {
         val b = bytes
@@ -35,6 +35,14 @@ object ImageHeaders {
 
                 u8(b, 0) == 0xFF && u8(b, 1) == 0xD8 -> {
                     jpegHeader(b)
+                }
+
+                isWebp(b) -> {
+                    webpHeader(b)
+                }
+
+                isIco(b) -> {
+                    icoHeader(b)
                 }
 
                 else -> {

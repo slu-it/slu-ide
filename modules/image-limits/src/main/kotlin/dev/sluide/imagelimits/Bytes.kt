@@ -27,3 +27,16 @@ internal fun le32(
     b: ByteArray,
     i: Int,
 ) = le16(b, i) or (le16(b, i + 2) shl 16)
+
+/** The unsigned little-endian 32-bit value at [i]; only for positions within the data. */
+internal fun u32(
+    b: ByteArray,
+    i: Int,
+) = le32(b, i).toLong() and 0xFFFF_FFFFL
+
+/** Whether the four bytes at [i] are the ASCII [tag]. */
+internal fun isTag(
+    b: ByteArray,
+    i: Int,
+    tag: String,
+) = tag.indices.all { u8(b, i + it) == tag[it].code }

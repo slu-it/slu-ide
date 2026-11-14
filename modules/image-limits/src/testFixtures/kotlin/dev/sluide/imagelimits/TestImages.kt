@@ -5,8 +5,8 @@ import java.util.zip.CRC32
 import java.util.zip.Deflater
 
 /**
- * Image files written by hand for tests: real files that decode, and headers that claim any size, so that a test can
- * hold a decompression bomb without its memory.
+ * Image files written by hand for tests (PNG, GIF, BMP, JPEG, WebP, ICO): real files that decode, and headers that
+ * claim any size, so that a test can hold a decompression bomb without its memory.
  */
 object TestImages {
     /** An 8-bit grayscale PNG of one flat grey that decodes: tiny however large it is (a real bomb when large). */
@@ -92,6 +92,94 @@ object TestImages {
     ) = intArrayOf(0xFF, 0xD8, 0xFF, marker, 0, 11, 8, height shr 8, height and 0xFF, width shr 8, width and 0xFF, 1)
         .map { it.toByte() }
         .toByteArray()
+
+    /** A RIFF chunk: its [tag], the little-endian size of [data], the data and a pad byte when the size is odd. */
+    fun riffChunk(
+        tag: String,
+        data: ByteArray,
+    ) = tag.toByteArray() + le32(data.size) + data + if (data.size % 2 == 1) byteArrayOf(0) else byteArrayOf()
+
+    /** A WebP file of [chunks], with the RIFF size of what follows it. */
+    fun webp(vararg chunks: ByteArray): ByteArray {
+        val body = chunks.fold("WEBP".toByteArray()) { all, chunk -> all + chunk }
+        return "RIFF".toByteArray() + le32(body.size) + body
+    }
+
+    /** A lossy WebP's `VP8 ` chunk: a key frame tag, the start code and 14 bits each of width and height. */
+    fun vp8(
+        width: Int,
+        height: Int,
+    ) = riffChunk(
+        "VP8 ",
+        byteArrayOf(0x10, 0x02, 0x00, 0x9D.toByte(), 0x01, 0x2A) + le16(width) + le16(height) + byteArrayOf(0, 0),
+    )
+
+    /** A lossless WebP's `VP8L` chunk: the signature, then 14 bits each of width − 1 and height − 1. */
+    fun vp8l(
+        width: Int,
+        height: Int,
+    ) = riffChunk("VP8L", byteArrayOf(0x2F) + le32((width - 1) or ((height - 1) shl 14)) + byteArrayOf(0))
+
+    /**
+     * An extended WebP's `VP8X` chunk with a canvas of [width] × [height] (24 bits each) and the animation flag when
+     * [animated].
+     */
+    fun vp8x(
+        width: Int,
+        height: Int,
+        animated: Boolean,
+    ) = riffChunk(
+        "VP8X",
+        byteArrayOf(if (animated) 0x02 else 0x00, 0, 0, 0) + le32(width - 1).copyOf(3) + le32(height - 1).copyOf(3),
+    )
+
+    /** An animated WebP with a [width] × [height] canvas and [frames] `ANMF` chunks of 1 × 1 lossless frames. */
+    fun animatedWebp(
+        width: Int,
+        height: Int,
+        frames: Int,
+    ): ByteArray {
+        val anim = riffChunk("ANIM", ByteArray(6))
+        // Frame position and size (− 1, 24 bits each), duration and flags, then the frame's image chunk.
+        val frame = riffChunk("ANMF", ByteArray(16) + vp8l(1, 1))
+        return webp(vp8x(width, height, animated = true), anim, *Array(frames) { frame })
+    }
+
+    /** An entry of an icon file: the size its directory gives (256 is written as 0) and its image data. */
+    class IcoEntry(
+        val width: Int,
+        val height: Int,
+        val data: ByteArray,
+    )
+
+    /** An icon file: the directory of [entries], then their data in order. */
+    fun ico(vararg entries: IcoEntry): ByteArray {
+        var offset = 6 + 16 * entries.size
+        var directory = byteArrayOf(0, 0, 1, 0) + le16(entries.size)
+        for (entry in entries) {
+            directory += byteArrayOf(entry.width.toByte(), entry.height.toByte(), 0, 0, 1, 0, 32, 0) +
+                le32(entry.data.size) + le32(offset)
+            offset += entry.data.size
+        }
+        return entries.fold(directory) { all, entry -> all + entry.data }
+    }
+
+    /** The BITMAPINFOHEADER of an icon's BMP entry: its height counts the mask rows too, so it is doubled. */
+    fun dib(
+        width: Int,
+        height: Int,
+    ) = le32(40) + le32(width) + le32(height * 2) + byteArrayOf(1, 0, 32, 0) + ByteArray(24)
+
+    /** The older BITMAPCOREHEADER of an icon's BMP entry: 16-bit width and doubled height. */
+    fun coreDib(
+        width: Int,
+        height: Int,
+    ) = le32(12) + le16(width) + le16(height * 2) + byteArrayOf(1, 0, 32, 0)
+
+    private fun le16(value: Int) = byteArrayOf(value.toByte(), (value ushr 8).toByte())
+
+    private fun le32(value: Int) =
+        byteArrayOf(value.toByte(), (value ushr 8).toByte(), (value ushr 16).toByte(), (value ushr 24).toByte())
 
     private val PNG_SIGNATURE =
         byteArrayOf(0x89.toByte(), 'P'.code.toByte(), 'N'.code.toByte(), 'G'.code.toByte(), 13, 10, 26, 10)

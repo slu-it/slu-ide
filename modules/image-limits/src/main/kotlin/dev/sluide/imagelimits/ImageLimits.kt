@@ -33,8 +33,8 @@ sealed interface ImageCheck {
  */
 object ImageLimits {
     /**
-     * Pixels above which an image is refused: PNG, BMP, GIF (all frames together) and progressive JPEG. 8K
-     * screenshots fit.
+     * Pixels above which an image is refused: PNG, BMP, GIF and WebP (all frames together), ICO (all entries together)
+     * and progressive JPEG. 8K screenshots fit.
      */
     const val MAX_PIXELS = 40_000_000L
 
@@ -45,27 +45,32 @@ object ImageLimits {
     const val MAX_FILE_BYTES = 20 * 1024 * 1024
 
     /**
-     * Whether the image in [bytes] may be decoded: frames × width × height from its header against
-     * [MAX_JPEG_PIXELS] for a baseline JPEG, else [MAX_PIXELS]. A header that cannot be read is [ImageCheck.Unreadable].
-     * At the cap fits, one pixel more does not. Reads only the header; cheap enough for the FX thread.
+     * Whether the image in [bytes] may be decoded: the pixels from its header ([ImageHeader.pixels]: frames × width ×
+     * height, of an ICO the sum of its entries) against [MAX_JPEG_PIXELS] for a baseline JPEG, else [MAX_PIXELS].
+     * A header that cannot be read is [ImageCheck.Unreadable]. At the cap fits, one pixel more does not. Reads only
+     * the header; cheap enough for the FX thread.
      */
     fun check(bytes: ByteArray): ImageCheck {
         val header = ImageHeaders.read(bytes) ?: return ImageCheck.Unreadable
         val limit = if (header.baselineJpeg) MAX_JPEG_PIXELS else MAX_PIXELS
-        val pixels = header.frames.toLong() * header.width * header.height
-        return if (pixels > limit) ImageCheck.TooLarge(header, limit) else ImageCheck.Fits(header)
+        return if (header.pixels > limit) ImageCheck.TooLarge(header, limit) else ImageCheck.Fits(header)
     }
 
     /**
-     * The size of [header] in words, thousands grouped with a space: "30 000 × 30 000 pixels", or for an animated
-     * image "60 frames of 4 000 × 4 000 pixels". [unit] replaces "pixels" (e.g. "px").
+     * The size of [header] in words, thousands grouped with a space: "30 000 × 30 000 pixels", for an animated image
+     * "60 frames of 4 000 × 4 000 pixels", for an ICO of several entries "3 images, the largest 256 × 256 pixels".
+     * [unit] replaces "pixels" (e.g. "px").
      */
     fun sizeText(
         header: ImageHeader,
         unit: String = "pixels",
     ): String {
         val size = "${grouped(header.width)} × ${grouped(header.height)} $unit"
-        return if (header.frames > 1) "${grouped(header.frames)} frames of $size" else size
+        return when {
+            header.frames <= 1 -> size
+            header.format == ImageFormat.ICO -> "${grouped(header.frames)} images, the largest $size"
+            else -> "${grouped(header.frames)} frames of $size"
+        }
     }
 
     /**

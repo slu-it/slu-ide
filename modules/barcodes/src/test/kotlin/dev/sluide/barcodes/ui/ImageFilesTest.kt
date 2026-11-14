@@ -6,10 +6,15 @@ import dev.sluide.barcodes.engine.GenerateOptions
 import dev.sluide.barcodes.engine.Generated
 import dev.sluide.barcodes.engine.Generator
 import dev.sluide.barcodes.engine.Reader
+import dev.sluide.imagelimits.TestImages.IcoEntry
+import dev.sluide.imagelimits.TestImages.animatedWebp
 import dev.sluide.imagelimits.TestImages.bmpHeader
+import dev.sluide.imagelimits.TestImages.dib
 import dev.sluide.imagelimits.TestImages.gif
 import dev.sluide.imagelimits.TestImages.grayPng
+import dev.sluide.imagelimits.TestImages.ico
 import dev.sluide.imagelimits.TestImages.jpeg
+import dev.sluide.imagelimits.TestImages.pngHeader
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
@@ -123,6 +128,22 @@ class ImageFilesTest {
         assertEquals(1 to 1, assertIs<ImageLoad.Loaded>(loadImageFile(one)).image.let { it.width to it.height })
         // JavaFX has no pixels for an animated image, so it is refused from the frame count, not decoded to fail.
         assertEquals(ImageLoad.Failed(ANIMATED), loadImageFile(three))
+    }
+
+    @Test
+    fun `a dropped WebP or icon is unreadable, also when animated or over the cap`() {
+        // The header reader knows them, JavaFX cannot decode them; the file chooser does not offer them.
+        val files =
+            mapOf(
+                "anim.webp" to animatedWebp(10, 10, 3),
+                "bomb.webp" to animatedWebp(4_000, 4_000, 60),
+                "app.ico" to ico(IcoEntry(16, 16, dib(16, 16)), IcoEntry(32, 32, dib(32, 32))),
+                "bomb.ico" to ico(IcoEntry(0, 0, pngHeader(30_000, 30_000))),
+            )
+        for ((name, bytes) in files) {
+            val file = dir.resolve(name).also { Files.write(it, bytes) }
+            assertEquals(ImageLoad.Failed(UNREADABLE), loadImageFile(file), name)
+        }
     }
 
     @Test

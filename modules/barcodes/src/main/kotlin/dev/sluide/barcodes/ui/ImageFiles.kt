@@ -21,6 +21,9 @@ internal const val UNREADABLE = "The image could not be read."
 internal const val ANIMATED = "Animated GIFs cannot be read; save one frame as PNG."
 internal const val TOO_LARGE = "The image is larger than 20 MiB."
 
+/** The formats an image file is read in. */
+private val READ_FORMATS = setOf(ImageFormat.PNG, ImageFormat.JPEG, ImageFormat.GIF, ImageFormat.BMP)
+
 /** The longest side an image file is decoded to: the side the reader scales down to anyway, so one constant decides. */
 private const val MAX_DECODE_SIDE = Reader.MAX_SIDE
 
@@ -64,12 +67,17 @@ internal fun sizeMessage(
  */
 internal fun loadImageFile(path: Path): ImageLoad {
     val bytes = ImageLimits.readFile(path) ?: return ImageLoad.Failed(if (isOverLimit(path)) TOO_LARGE else UNREADABLE)
+    val check = ImageLimits.check(bytes)
     val header =
-        when (val check = ImageLimits.check(bytes)) {
+        when (check) {
             is ImageCheck.Fits -> check.header
-            is ImageCheck.TooLarge -> return ImageLoad.Failed(sizeMessage(check.header, check.limitPixels))
+            is ImageCheck.TooLarge -> check.header
             ImageCheck.Unreadable -> return ImageLoad.Failed(UNREADABLE)
         }
+    // A dropped WebP or ICO is unreadable whatever its size, as before the shared reader knew them: JavaFX decodes
+    // neither, and the file chooser does not offer them.
+    if (header.format !in READ_FORMATS) return ImageLoad.Failed(UNREADABLE)
+    if (check is ImageCheck.TooLarge) return ImageLoad.Failed(sizeMessage(header, check.limitPixels))
     // JavaFX gives no pixels for an animated image: refuse it now, not after decoding every frame.
     if (header.frames > 1) return ImageLoad.Failed(ANIMATED)
     val target = decodeSize(header.width, header.height)
