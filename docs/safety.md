@@ -61,7 +61,9 @@ The short form that loads with production code is `.claude/rules/safety.md`; kee
 ## Network
 - Fetching from remotes, registries or the web is an explicit action (ADR 0043, 0076): no background fetch.
   Decided exceptions on open: Markdown and HTML previews load remote images and resources (ADR 0016, 0017, 0018);
-  a trusted Gradle task-list load may download the wrapper's distribution (ADR 0085). A new exception needs an ADR.
+  the TODOs panel fetches the web images of Markdown, bounded to 10 s and 20 MiB and checked before decoding
+  (ADR 0175); a trusted Gradle task-list load may download the wrapper's distribution (ADR 0085). A new exception
+  needs an ADR.
 - Local servers bind `127.0.0.1` with a token in the path and serve only the project folder, or the file's own folder
   when it is outside any project, without hidden files (ADR 0018).
 

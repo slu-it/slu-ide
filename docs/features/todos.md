@@ -52,7 +52,10 @@ folder, as cards with Markdown notes.
 - **Links and images:** `http` and `https` links (and `mailto`) open in the system browser. A relative or absolute path
   below the project folder opens the file in the editor, and as an image it is shown; a path outside the folder, other
   schemes (`file:`, `javascript:` …) and any local path in a Shared TODO do nothing / show no image. Web images are
-  loaded from the web.
+  fetched in at most 10 s (connecting, headers and body together) and at most 20 MiB. Images load off the UI thread
+  and are checked from their header first: one over the size caps, unreadable or not loadable keeps its dimmed alt
+  text, and a tooltip gives the reason, e.g. "Image too large to show (30 000 × 30 000 px)"; in a link the reason is
+  added to the link's tooltip ([ADR 0175](../adr/0175-image-size-caps.md)).
 - **Storage:** Shared TODOs in `~/.sluide/shared.json`, Project TODOs in the project's file below `~/.sluide/projects`
   ([ADR 0090](../adr/0090-per-project-metadata-store.md), [ADR 0101](../adr/0101-shared-data-file.md)), each as the
   array `todos` in display order, folders as entries with their own `todos`. Other windows show a change at once. If a TODO cannot be saved, an error says so and
