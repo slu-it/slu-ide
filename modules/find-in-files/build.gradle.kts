@@ -23,6 +23,10 @@ dependencies {
     // Deliberate module dependency: the walk and the preview loads run on logged NamedThreads threads (ADR 0060).
     implementation(project(":modules:background-tasks"))
 
+    // Deliberate module API dependency: the popup shows files in the editor font (FontSettings), which the public
+    // constructor takes (ADR 0177).
+    api(project(":modules:settings"))
+
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }
