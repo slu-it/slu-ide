@@ -234,18 +234,9 @@ internal class FileTreeItem(
 
     /** The entries of this folder to show with their reason; remembers the generated ones as [candidates]. */
     private fun listShown(): List<Pair<Path, GeneratedReason?>> {
-        val paths = listDirectory(value)
-        val filter = generated
-        if (filter == null || insideGenerated()) {
-            candidates = emptyMap()
-            return paths.map { it to null }
-        }
-        val names = paths.mapTo(HashSet()) { it.fileName.toString() }
-        candidates = paths.mapNotNull { path -> filter.structural(path, names)?.let { path to it } }.toMap()
-        return paths.mapNotNull { path ->
-            val why = candidates[path]?.let { filter.effective(path, it) }
-            if (filter.isHidden(path, why)) null else path to why
-        }
+        val listing = listFolder(value, generated?.takeUnless { insideGenerated() })
+        candidates = listing.candidates
+        return listing.shown
     }
 
     /** Whether [entry], an entry of this folder, was a generated folder or file at the last listing (shown or hidden). */
