@@ -14,4 +14,4 @@ kits:
 
 sandboxOptions:
   cpus: 12 # the full build runs UI tests on 8 displays in parallel
-  memory: 12g # about 9.5 GB in use at peak with SLUIDE_UI_DISPLAYS=8 (docs/testing.md)
+  memory: 16g # about 9.5 GB in use at peak with SLUIDE_UI_DISPLAYS=8 (docs/testing.md)
