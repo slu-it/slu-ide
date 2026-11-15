@@ -38,6 +38,11 @@ internal class FileTreeItem(
     private val detectLibrary: Boolean = false,
     /** Leaves generated folders out of the children and gives their rows a reason (ADR 0158); inherited. */
     private val generated: GeneratedFolderFilter? = null,
+    /**
+     * The explorer search's filter while one is applied: the children are those it [TreeSearchFilter.shows], after the
+     * generated ones were left out; read whenever the children are listed, inherited.
+     */
+    private val searchFilter: () -> TreeSearchFilter? = { null },
     private val onChildrenLoaded: (FileTreeItem) -> Unit = {},
 ) : TreeItem<Path>(path) {
     private val directory: Boolean = Files.isDirectory(path)
@@ -232,11 +237,15 @@ internal class FileTreeItem(
     private fun insideGenerated(): Boolean =
         generatedReason != null || (parent as? FileTreeItem)?.insideGenerated() == true
 
-    /** The entries of this folder to show with their reason; remembers the generated ones as [candidates]. */
+    /**
+     * The entries of this folder to show with their reason, those the [searchFilter] shows if one is applied; remembers
+     * the generated ones as [candidates].
+     */
     private fun listShown(): List<Pair<Path, GeneratedReason?>> {
         val listing = listFolder(value, generated?.takeUnless { insideGenerated() })
         candidates = listing.candidates
-        return listing.shown
+        val search = searchFilter() ?: return listing.shown
+        return listing.shown.filter { (path, _) -> search.shows(path) }
     }
 
     /** Whether [entry], an entry of this folder, was a generated folder or file at the last listing (shown or hidden). */
@@ -267,7 +276,12 @@ internal class FileTreeItem(
         if (filter != null && candidates.isNotEmpty()) {
             val rows = super.getChildren().filterIsInstance<FileTreeItem>().associateBy { it.sourcePath }
             val reasons = candidates.mapValues { (path, why) -> filter.effective(path, why) }
-            if (reasons.any { (path, why) -> (path in rows) == filter.isHidden(path, why) }) {
+            val search = searchFilter()
+            if (reasons.any { (path, why) ->
+                    (path in rows) ==
+                        (filter.isHidden(path, why) || search?.shows(path) == false)
+                }
+            ) {
                 refresh()
             } else {
                 reasons.forEach { (path, why) -> rows[path]?.setReason(why) }
@@ -308,5 +322,6 @@ internal class FileTreeItem(
         libraryRoots = libraryRoots,
         detectLibrary = true,
         generated = generated,
+        searchFilter = searchFilter,
     ).also { it.reason.value = why }
 }
