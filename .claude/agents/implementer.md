@@ -34,6 +34,8 @@ In a worktree (`.claude/worktrees/...`):
   (exit 3) it has aborted the rebase: stop and report.
 - Before reporting: `.claude/scripts/worktree-check.sh report`. Its diff stat must list only the files you meant to
   change, and it must not list untracked files. Put its `branch:` and `worktree:` lines into your report.
+- Report only changes you can see in `git show` of your commits: a command that aborted halfway leaves edits you
+  meant to make unapplied, and a report describing them sends the review after code that is not there.
 - Gradle you run yourself needs `./gradlew --no-daemon ...` (`verify.sh` does that on its own).
 - Never work in the main tree. If your worktree is gone when you are resumed, say so and stop.
 

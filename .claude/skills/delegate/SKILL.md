@@ -65,7 +65,9 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
 6. Docs to update: feature page, ADR, `docs/index.md`; `docs/features/keyboard-shortcuts.md` when key bindings change.
 7. Docs to read (so the agent skips the index), with sections where useful; for UI work the matching sections of
    `docs/ui-conventions.md`. For large files, the classes or line ranges that matter.
-8. Base and display: the master commit for `worktree-check.sh start` and the agent's display.
+8. Base, display and scratch folder: the master commit for `worktree-check.sh start`, the agent's display, and a
+   named scratchpad subfolder (`<scratchpad>/<package>`): parallel agents told "your own subfolder" picked the same one
+   and overwrote each other's break-check scripts.
 9. The interactions the plan decided (`feature` skill, "Plan file"), repeated in the brief of every package that
    provides or consumes a hook, with the parts that hold only in one mode.
 
