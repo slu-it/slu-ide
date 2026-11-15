@@ -2,15 +2,20 @@ package dev.sluide.findinfiles
 
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.settings.FontSettings
+import dev.sluide.settings.SettingsStore
 import dev.sluide.textediting.SearchOptions
 import javafx.beans.property.SimpleStringProperty
 import javafx.geometry.Bounds
 import javafx.scene.Scene
 import javafx.scene.control.TextArea
 import javafx.scene.layout.VBox
+import javafx.stage.Popup
 import javafx.stage.Stage
+import javafx.stage.Window
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.io.TempDir
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -18,6 +23,7 @@ import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -132,5 +138,25 @@ class FindInFilesUiTest {
 
         assertNotNull(view.lastAnchor)
         assertEquals("a\\.b", view.query)
+    }
+
+    @Test
+    fun `the public constructor shows the real popup and closing hides it`(
+        robot: FxRobot,
+        @TempDir dir: Path,
+    ) {
+        val fonts = FontSettings(SettingsStore(dir.resolve("settings.properties")), FontSettings.systemDefaults())
+        val real =
+            FindInFiles(DefaultTextFileViewer().let { FileViewers(listOf(it), it) }, fonts).apply {
+                roots = { listOf(dir) }
+            }
+
+        fun popupShows() = Window.getWindows().any { it is Popup && it.isShowing }
+
+        robot.interact { assertTrue(real.open(stage)) }
+        assertTrue(popupShows())
+
+        robot.interact { real.close() }
+        assertFalse(popupShows())
     }
 }

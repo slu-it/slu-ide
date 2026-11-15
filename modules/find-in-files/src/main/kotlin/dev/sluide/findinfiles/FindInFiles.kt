@@ -1,6 +1,9 @@
 package dev.sluide.findinfiles
 
 import dev.sluide.backgroundtasks.NamedThreads
+import dev.sluide.fileicons.FILE_ICONS_CSS
+import dev.sluide.fileicons.fileIconFor
+import dev.sluide.fileicons.show
 import dev.sluide.fileviewers.CodeEditorExtension
 import dev.sluide.fileviewers.ExtensibleCodeEditor
 import dev.sluide.fileviewers.FileViewers
@@ -15,6 +18,7 @@ import dev.sluide.findinfiles.search.SearchState
 import dev.sluide.findinfiles.search.searchContents
 import dev.sluide.findinfiles.search.statusText
 import dev.sluide.findinfiles.ui.FindAnchor
+import dev.sluide.findinfiles.ui.FindInFilesPopup
 import dev.sluide.findinfiles.ui.FindView
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
@@ -25,7 +29,9 @@ import javafx.application.Platform
 import javafx.beans.value.ObservableValue
 import javafx.scene.Node
 import javafx.scene.control.MenuItem
+import javafx.scene.layout.StackPane
 import javafx.stage.Window
+import org.kordamp.ikonli.javafx.FontIcon
 import java.nio.file.Path
 import java.util.concurrent.Executor
 import javafx.util.Duration as FxDuration
@@ -45,7 +51,8 @@ fun interface MatchOpener {
  */
 class FindInFiles internal constructor(
     private val fileViewers: FileViewers,
-    private val view: () -> FindView,
+    /** Makes the popup on first use, given this (its previews, highlighter and font). */
+    private val view: (FindInFiles) -> FindView,
     /** The editor font as CSS, for the popup's preview and result rows. */
     internal val editorFont: ObservableValue<String>,
     scheduler: SearchScheduler,
@@ -54,10 +61,9 @@ class FindInFiles internal constructor(
     runOnFx: (Runnable) -> Unit,
 ) : CodeEditorExtension,
     AutoCloseable {
-    // TODO(main session): the view factory throws until the popup is wired.
     constructor(fileViewers: FileViewers, fontSettings: FontSettings) : this(
         fileViewers,
-        { error("popup not wired") },
+        { find -> FindInFilesPopup(find::highlighterFor, ::fileIcon, find.previewTexts, find.editorFont) },
         fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss),
         pauseScheduler,
         NamedThreads.single("sluide-find-in-files"),
@@ -91,7 +97,7 @@ class FindInFiles internal constructor(
     private var viewMade = false
 
     private val popup: FindView by lazy {
-        view().also {
+        view(this).also {
             viewMade = true
             wire(it)
         }
@@ -314,3 +320,12 @@ private fun anchorOf(window: Window): FindAnchor? {
     val bounds = root.localToScreen(root.boundsInLocal) ?: return null
     return FindAnchor(window, bounds, scene.focusOwner)
 }
+
+/**
+ * The file-type icon of a result's [file] (in a pane carrying the icons' colours, as a `FontIcon` takes no
+ * stylesheet); files with matches are text, so an unknown type shows as text.
+ */
+private fun fileIcon(file: Path): Node =
+    StackPane(FontIcon().apply { show(fileIconFor(file, directory = false, expanded = false) { true }) }).apply {
+        stylesheets += FILE_ICONS_CSS
+    }
