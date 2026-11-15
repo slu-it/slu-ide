@@ -29,6 +29,13 @@ of them, and the default `claude` image moved from Ubuntu with a JDK to Debian 1
   with `NO_RUST` and `NO_TCLTK`; the compiler and libraries come from apt with the other packages. Only 2.x, since
   Git 3.0 needs Rust. Always the newest release means no pinned checksum: the script trusts GitHub over HTTPS. A
   version already in `/usr/local` is not built again; a failed build only warns and keeps the distribution's git.
+- **The JDK's trust store, built by the script** (amended 2026-11-15): `ca-certificates-java` builds
+  `/etc/ssl/certs/java/cacerts` from the per-certificate `*.pem` links in `/etc/ssl/certs`. The default image has
+  none (only the bundle and the proxy CA's hash link), so it wrote no store: the JDK trusted nothing and Gradle could
+  not download. When the store is missing, `install.sh` feeds the CA files of `/etc/ca-certificates.conf` and
+  `/usr/local/share/ca-certificates` (the sandbox proxy's CA) to the package's own tool. It does not run
+  `update-ca-certificates`, which would rewrite the bundle without the sandbox's marker comments around the proxy CA.
+  A failure only warns.
 - **Network:** the kit opens the Ubuntu, Debian, Docker and `dhi.io` apt hosts, and `github.com` for git's sources,
   in the install phase only (`network-policy@2`). At runtime it allows `packages.jetbrains.team` and the CloudFront
   host it redirects downloads to (`db2uklzeiyqq6.cloudfront.net`), where Gradle resolves jediterm.

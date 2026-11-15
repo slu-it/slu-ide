@@ -82,6 +82,32 @@ else
   echo "thoreau-dev: installed ${missing[*]}"
 fi
 
+# The JDK's trust store. ca-certificates-java builds it from the per-certificate *.pem links in /etc/ssl/certs, which
+# the default image does not have (only the bundle and the proxy CA's hash link), so it writes no store at all: the JDK
+# then trusts nothing and Gradle cannot download. Built here from the same CA files instead, leaving /etc/ssl/certs as
+# the sandbox set it up (its bundle carries the proxy CA between marker comments that update-ca-certificates drops).
+install_java_cacerts() {
+  local store=/etc/ssl/certs/java/cacerts jar=/usr/share/ca-certificates-java/ca-certificates-java.jar
+  if [ -s "$store" ]; then
+    echo "thoreau-dev: Java trust store present"
+    return 0
+  fi
+  if [ ! -f "$jar" ] || ! command -v java >/dev/null; then
+    echo "Warning: no ca-certificates-java or java; the JDK has no trust store and Gradle cannot download" >&2
+    return 0
+  fi
+  # C.UTF-8 as in ca-certificates-java's own script, for the non-ASCII certificate file names.
+  if {
+    sed -n 's|^\([^#!].*\)$|/usr/share/ca-certificates/\1|p' /etc/ca-certificates.conf 2>/dev/null || true
+    find /usr/local/share/ca-certificates -type f -name '*.crt' 2>/dev/null || true
+  } | sed 's/^/+/' | LC_ALL='' LC_CTYPE=C.UTF-8 java -Xmx64m -jar "$jar" -storepass changeit >/dev/null; then
+    echo "thoreau-dev: built the Java trust store $store"
+  else
+    echo "Warning: building the Java trust store failed; Gradle cannot download" >&2
+  fi
+}
+install_java_cacerts
+
 # The newest git 2.x release, from the official repository, built into /usr/local (ahead of /usr/bin in PATH). Git 3.0
 # will need Rust (cargo), so 2.x only; NO_RUST leaves out the optional Rust parts of 2.x. A failure keeps the
 # distribution's git and only warns: the sandbox works with it, apart from tests that expect a newer git.
