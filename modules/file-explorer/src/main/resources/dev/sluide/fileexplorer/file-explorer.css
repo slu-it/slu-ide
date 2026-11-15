@@ -112,3 +112,31 @@
     -fx-icon-color: -fx-text-base-color;
     -fx-icon-size: 14;
 }
+
+/* The search row above the tree (ExplorerSearchBar); the review window's file filter has the same spacing. */
+.explorer-search-field {
+    -fx-padding: 4 8 4 8;
+    -fx-spacing: 4;
+}
+
+.explorer-search-status {
+    -fx-opacity: 0.7;
+    -fx-padding: 0 8 4 8;
+}
+
+/* The part of a name the search matched (PathCell): an amber wash that keeps the text readable in both themes. */
+.explorer-search-hit {
+    -fx-background-color: rgba(255, 193, 7, 0.5);
+    -fx-background-radius: 2;
+}
+
+/* On the selection bar the wash is dark, as the text there is light in both themes. */
+.tree-cell:selected .explorer-search-hit {
+    -fx-background-color: rgba(0, 0, 0, 0.4);
+}
+
+@media (prefers-color-scheme: dark) {
+    .explorer-search-hit {
+        -fx-background-color: rgba(255, 193, 7, 0.38);
+    }
+}

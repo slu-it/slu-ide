@@ -22,6 +22,9 @@ internal val PASTE_KEYS = KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_
  */
 internal val COMPARE_KEYS = KeyCodeCombination(KeyCode.D, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
 
+/** Shortcut+F: focuses the search field and selects its text; consumed, so no other Shortcut+F binding sees it. */
+internal val SEARCH_KEYS = KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN)
+
 /** What the keys of the explorer act on; each action returns whether it did something, consuming the key. */
 internal class ExplorerKeyHost(
     /** The selected entries, in row order. */
@@ -38,13 +41,15 @@ internal class ExplorerKeyHost(
     val cancelCut: () -> Boolean,
     /** Compares the entries if they are exactly two regular files; returns whether it did. */
     val compare: (List<FileTreeItem>) -> Boolean,
+    /** Focuses the search field and selects its text. */
+    val focusSearch: () -> Unit,
 )
 
 /**
  * The keys of the explorer [tree]: Enter opens the selected files, F5 refreshes, F2 renames the single selected entry,
  * Delete (or Shortcut+Backspace) deletes the selection, Shortcut+C / X / V copy, cut and paste, Escape ends a cut,
- * Shortcut+Shift+D compares two selected files (otherwise left to the window's Show Changes). A
- * running drag takes Escape first (its filter consumes it).
+ * Shortcut+Shift+D compares two selected files (otherwise left to the window's Show Changes), Shortcut+F focuses the
+ * search field. A running drag takes Escape first (its filter consumes it).
  */
 internal fun installExplorerKeys(
     tree: Node,
@@ -90,6 +95,11 @@ internal fun installExplorerKeys(
 
                 COMPARE_KEYS.match(event) -> {
                     host.compare(selected)
+                }
+
+                SEARCH_KEYS.match(event) -> {
+                    host.focusSearch()
+                    true
                 }
 
                 event.code == KeyCode.ESCAPE -> {

@@ -15,6 +15,7 @@ import dev.sluide.fileexplorer.actions.askToMove
 import dev.sluide.fileexplorer.actions.buildExplorerMenu
 import dev.sluide.fileexplorer.actions.comparePair
 import dev.sluide.fileexplorer.generated.GeneratedFolderFilter
+import dev.sluide.fileexplorer.search.buildSearchBar
 import dev.sluide.fileexplorer.tree.EXPAND_DELAY
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
@@ -44,6 +45,7 @@ import javafx.beans.property.SimpleIntegerProperty
 import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableValue
 import javafx.beans.value.WeakChangeListener
+import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Alert
 import javafx.scene.control.SelectionMode
@@ -57,6 +59,7 @@ import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Tree view showing the complete content of a folder, including hidden files. Every folder whose content has been
@@ -262,6 +265,17 @@ class FileExplorerView(
     // Reveal, Collapse All, Refresh and listing again.
     private val operations = TreeOperations(this, ::topLevel, { projectItem }, generated, watches, search)
 
+    /** How long typing in the search field waits before the search runs; tests shorten it. */
+    internal var searchDelay: kotlin.time.Duration = 250.milliseconds
+
+    private val searchControls = buildSearchBar { searchDelay }
+
+    /** The search row to place above the tree (ADR 0176): the field and its status line. */
+    val searchBar: Node get() = searchControls
+
+    /** Takes the focus into the search field and selects its text. */
+    internal fun focusSearch() = searchControls.focusAndSelectAll()
+
     /**
      * Whether git ignores a folder: true/false when the window's git status covers it, null when it does not (no
      * repository, no status yet, untrusted). Set on the FX thread; also called off it ([shownEntries]), so it must be safe
@@ -319,6 +333,7 @@ class FileExplorerView(
                 cutChanges,
                 { path -> clipboard.isCut(path) },
                 libraryCode.readOnly,
+                { searchControls.search.query },
             )
         }
         clipboard.cutChanges.addListener(WeakInvalidationListener(cutUpdater))
@@ -345,6 +360,7 @@ class FileExplorerView(
                 cut = copies::cut,
                 paste = copies::paste,
                 cancelCut = copies::cancelCut,
+                focusSearch = ::focusSearch,
                 compare = { items ->
                     val hook = compareFiles
                     val pair = comparePair(items) { Files.isRegularFile(it.value) }

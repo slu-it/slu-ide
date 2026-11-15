@@ -2,6 +2,7 @@ package dev.sluide.fileexplorer.tree
 
 import dev.sluide.fileexplorer.FileMarker
 import dev.sluide.fileexplorer.FileMarkers
+import dev.sluide.fileexplorer.search.NameQuery
 import dev.sluide.fileicons.show
 import javafx.beans.InvalidationListener
 import javafx.beans.Observable
@@ -39,6 +40,8 @@ internal class PathCell(
     private val isCut: (Path) -> Boolean,
     /** [dev.sluide.librarycode.LibraryCodeSettings.readOnly]: the library folder icons are shown while it is true. */
     private val libraryReadOnly: ObservableValue<Boolean>,
+    /** The query of the applied search; while there is one, the matching part of every name is highlighted. */
+    private val searchQuery: () -> NameQuery?,
 ) : TreeCell<Path>() {
     private val pathTooltip = Tooltip()
     private val icon = FontIcon().apply { iconSizeProperty().bind(fileIconSize) }
@@ -53,11 +56,14 @@ internal class PathCell(
 
     // The name is a label in the graphic, so the markers can follow it; it looks like the cell's own text unless
     // a marker colours it.
-    private val name =
-        Label().apply {
-            fontProperty().bind(this@PathCell.fontProperty())
-            textFillProperty().bind(this@PathCell.textFillProperty())
-        }
+    private val name = nameLabel()
+
+    // While a search is applied the name is shown in three labels, the middle one highlighted; they look like [name].
+    private val before = nameLabel()
+    private val hit = nameLabel().apply { styleClass += SEARCH_HIT_CLASS }
+    private val after = nameLabel()
+    private val nameLabels = listOf(name, before, hit, after)
+    private val highlighted = HBox(0.0, before, hit, after).apply { alignment = Pos.CENTER_LEFT }
     private val bubbleRadius = fileIconSize.map { it * BUBBLE_SCALE }
 
     // One bubble per marker, reused; without markers the box takes no space.
@@ -128,11 +134,41 @@ internal class PathCell(
         val entry = treeItem as? FileTreeItem
         text = if (empty || item == null) null else entry?.displayName ?: (item.fileName ?: item).toString()
         name.text = text
+        updateHighlight()
         updateTooltip()
         updateIcon()
         updateMarkers()
         updateDropTarget()
         updateCut()
+    }
+
+    private fun nameLabel() =
+        Label().apply {
+            fontProperty().bind(this@PathCell.fontProperty())
+            textFillProperty().bind(this@PathCell.textFillProperty())
+        }
+
+    // Shows [name], or the split name with the hit highlighted while the applied search matches this row's name.
+    private fun updateHighlight() {
+        val shown = text
+        val range = shown?.let { highlightRange(it) }
+        if (shown != null && range != null) {
+            before.text = shown.substring(0, range.first)
+            hit.text = shown.substring(range.first, range.last + 1)
+            after.text = shown.substring(range.last + 1)
+        }
+        val wanted = if (range == null) name else highlighted
+        val other = if (range == null) highlighted else name
+        val index = content.children.indexOf(other)
+        if (index >= 0) content.children[index] = wanted
+    }
+
+    private fun highlightRange(shown: String): IntRange? {
+        val query = searchQuery() ?: return null
+        val entry = treeItem as? FileTreeItem ?: return null
+        val top = generateSequence<TreeItem<Path>>(entry) { it.parent }.firstOrNull { it.parent?.parent == null }
+        val relative = top?.value?.relativize(entry.value) ?: return null
+        return query.highlight(shown, relative.joinToString("/") { it.toString() })
     }
 
     private fun updateTooltip() {
@@ -206,17 +242,20 @@ internal class PathCell(
     // CSS cannot set a bound property, so a coloured name is unbound from the cell's text fill.
     private fun updateNameColour() {
         val marker = nameMarker
-        name.styleClass.removeAll(nameStyleClasses)
-        if (marker == null || isSelected) {
-            name.textFillProperty().bind(textFillProperty())
-        } else {
-            name.textFillProperty().unbind()
-            name.styleClass += marker.nameStyleClass
+        nameLabels.forEach { label ->
+            label.styleClass.removeAll(nameStyleClasses)
+            if (marker == null || isSelected) {
+                label.textFillProperty().bind(textFillProperty())
+            } else {
+                label.textFillProperty().unbind()
+                label.styleClass += marker.nameStyleClass
+            }
         }
     }
 }
 
 private const val FILE_MARKER_CLASS = "file-marker"
+private const val SEARCH_HIT_CLASS = "explorer-search-hit"
 private val DROP_TARGET = PseudoClass.getPseudoClass("drop-target")
 private val CUT = PseudoClass.getPseudoClass("cut")
 private val nameStyleClasses = FileMarker.entries.map(FileMarker::nameStyleClass)
