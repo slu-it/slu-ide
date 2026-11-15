@@ -51,6 +51,8 @@ dependencies {
     implementation(project(":modules:gradle"))
     // Needed only for the Spring bean: ShellScriptFileViewer is a FileViewer found by component scan (ADR 0089).
     implementation(project(":modules:shell-scripts"))
+    // Find in Files (Shortcut+Shift+F): FindInFilesWiring creates one per window, the Navigate menu opens it (ADR 0177).
+    implementation(project(":modules:find-in-files"))
     // The TODO panel at the right of every window; TodoPanel is a window bean, Todos a singleton (ADR 0102).
     implementation(project(":modules:todos"))
     // The Coloring tool: a tab opened from the Tools menu, one per window (ADR 0109, ADR 0110).

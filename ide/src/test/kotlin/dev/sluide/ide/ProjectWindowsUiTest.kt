@@ -72,6 +72,7 @@ import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
+import dev.sluide.ide.find.FindInFilesWiring
 import dev.sluide.ide.git.GitReviewSource
 import dev.sluide.ide.speech.NoSpeechEngine
 import dev.sluide.ide.translation.NoLanguageDetector
@@ -295,6 +296,7 @@ class ProjectWindowsUiTest {
                     MiniGolf::class.java,
                     PipePuzzle::class.java,
                     CodeIntelligenceWiring::class.java,
+                    FindInFilesWiring::class.java,
                     LibraryCodeSettings::class.java,
                 )
                 refresh()

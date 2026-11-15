@@ -76,6 +76,7 @@ import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
+import dev.sluide.ide.find.FindInFilesWiring
 import dev.sluide.ide.speech.NoSpeechEngine
 import dev.sluide.ide.translation.NoLanguageDetector
 import dev.sluide.ide.translation.NoTranslationEngine
@@ -248,11 +249,15 @@ abstract class MainWindowUiFixture {
         readAlouds.forEach(ReadAloud::close)
         translates.forEach(Translate::close)
         dockerSessions.forEach(DockerSession::close)
+        Platform.runLater { findInFilesWirings.forEach(FindInFilesWiring::close) }
         codeIntelligences.forEach(CodeIntelligenceWiring::close)
     }
 
     /** The code intelligence of the windows a test created, without language specs; closed after it. */
     internal val codeIntelligences = mutableListOf<CodeIntelligenceWiring>()
+
+    /** The Find in Files of the windows a test created; closed after it. */
+    internal val findInFilesWirings = mutableListOf<FindInFilesWiring>()
 
     /** The git log views of the windows a test created, the main window's first; closed after it. */
     internal val gitLogViews = mutableListOf<GitLogView>()
@@ -410,6 +415,15 @@ abstract class MainWindowUiFixture {
         val tasks = BackgroundTasks().also(backgroundTasks::add)
         val commandRuns = CommandRunSession(terminals, tasks, argumentHistories).also(commandRunSessions::add)
         val dockerSession = DockerSession(dockerSettings).also(dockerSessions::add)
+        val codeIntelligence =
+            CodeIntelligenceWiring(
+                emptyList(),
+                projectService,
+                projectTrust,
+                watcher,
+                InstallPrompts(projectData),
+                LibraryCodeSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
+            ).also(codeIntelligences::add)
         return MainWindow(
             projectService,
             fileExplorer,
@@ -497,14 +511,9 @@ abstract class MainWindowUiFixture {
             // Only its folder and capturing flag are read; the tests replace the capture.
             Diagnostics(),
             softWrap,
-            CodeIntelligenceWiring(
-                emptyList(),
-                projectService,
-                projectTrust,
-                watcher,
-                InstallPrompts(projectData),
-                LibraryCodeSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
-            ).also(codeIntelligences::add),
+            codeIntelligence,
+            FindInFilesWiring(fileExplorer, editorArea, codeIntelligence, fileViewers, fontSettings)
+                .also(findInFilesWirings::add),
             Reviews(reviewSource, fontSettings, projectData, fileViewers).also(reviewWindows::add),
         )
     }

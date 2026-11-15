@@ -54,6 +54,7 @@ import dev.sluide.ide.files.UnsavedChoice
 import dev.sluide.ide.files.WindowTextFileActions
 import dev.sluide.ide.files.askUnsaved
 import dev.sluide.ide.files.fileMenu
+import dev.sluide.ide.find.FindInFilesWiring
 import dev.sluide.ide.git.WindowGitLog
 import dev.sluide.ide.git.gitStatusChanged
 import dev.sluide.ide.git.ignoreRuleEffects
@@ -81,16 +82,10 @@ import dev.sluide.speech.ReadAloud
 import dev.sluide.terminal.Terminals
 import dev.sluide.todos.TodoPanel
 import dev.sluide.translation.Translate
-import javafx.beans.value.ObservableValue
 import javafx.scene.Scene
 import javafx.scene.control.Alert
-import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
-import javafx.scene.control.MenuItem
 import javafx.scene.control.SplitPane
-import javafx.scene.input.KeyCode
-import javafx.scene.input.KeyCodeCombination
-import javafx.scene.input.KeyCombination
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.VBox
 import javafx.stage.DirectoryChooser
@@ -159,6 +154,7 @@ class MainWindow(
     diagnostics: Diagnostics,
     private val softWrap: SoftWrap,
     private val codeIntelligence: CodeIntelligenceWiring,
+    private val findInFiles: FindInFilesWiring,
     reviews: Reviews,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
@@ -352,7 +348,7 @@ class MainWindow(
                 fileExplorer,
                 editorArea.selectedFile,
                 ::selectOpenedFile,
-                selectOpenedKey.displayText,
+                SELECT_OPENED_KEY.displayText,
                 collapse = explorer::collapse,
             )
         val split = SplitPane(editorArea)
@@ -375,8 +371,13 @@ class MainWindow(
                                 recentProjects = recentProjects,
                                 openRecent = projectWindows::open,
                             ),
-                            viewMenu(explorerBar.canSelectOpened),
-                            navigateMenu(codeIntelligence.intelligence, stage),
+                            viewMenu(
+                                editorArea,
+                                explorerBar.canSelectOpened,
+                                ::selectOpenedFile,
+                                listOf(explorer.menuItem(), gitLog.gitLogMenuItem(), todos.menuItem()),
+                            ),
+                            navigateMenu(codeIntelligence.intelligence, findInFiles, stage),
                             gitLog.gitMenu(),
                             tools.terminalMenu(stage),
                             tools.dockerSandboxMenu(stage),
@@ -470,6 +471,7 @@ class MainWindow(
                 add(translate.editorExtension)
                 add(barcodes.editorExtension)
                 add(codeIntelligence.editorExtension)
+                add(findInFiles.editorExtension)
                 add(libraryCode)
             },
         )
@@ -531,27 +533,6 @@ class MainWindow(
 
         stage.scene = Scene(root, 1000.0, 700.0)
         stage.show()
-    }
-
-    private val selectOpenedKey = KeyCodeCombination(KeyCode.F1, KeyCombination.ALT_DOWN)
-
-    private fun viewMenu(canSelectOpened: ObservableValue<Boolean>): Menu {
-        // Switches between the editor of the selected file and its diff against HEAD (ADR 0021).
-        val showChanges =
-            MenuItem("Show Changes").apply {
-                accelerator = KeyCodeCombination(KeyCode.D, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
-                disableProperty().bind(editorArea.canToggleDiff.map { !it })
-                setOnAction { editorArea.toggleDiff() }
-            }
-        // Reveals the selected tab's file in the explorer and focuses it (ADR 0095); Alt is Option on macOS.
-        val selectOpened =
-            MenuItem("Select Opened File").apply {
-                accelerator = selectOpenedKey
-                disableProperty().bind(canSelectOpened.map { !it })
-                setOnAction { selectOpenedFile() }
-            }
-        val panels = arrayOf(explorer.menuItem(), gitLog.gitLogMenuItem(), todos.menuItem())
-        return Menu("View", null, showChanges, selectOpened, *panels)
     }
 
     /** Reveals the file of the selected tab in the explorer, with the focus; nothing without a file under a root. */

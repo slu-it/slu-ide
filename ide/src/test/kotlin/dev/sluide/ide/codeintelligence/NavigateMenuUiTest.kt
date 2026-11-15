@@ -9,6 +9,8 @@ import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.WindowServices
 import dev.sluide.fileviewers.languages.PythonFileViewer
+import dev.sluide.findinfiles.FIND_IN_FILES_KEYS
+import dev.sluide.ide.find.FindInFilesEntry
 import dev.sluide.languageservers.FakeLanguageServers
 import dev.sluide.languageservers.FakeServer
 import dev.sluide.languageservers.LanguageServerSpec
@@ -23,6 +25,7 @@ import javafx.scene.Scene
 import javafx.scene.control.ListView
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
+import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
@@ -90,6 +93,17 @@ internal class NavigateMenuUiTest {
     private var view: FileView? = null
     private val definitionRequests = AtomicInteger()
     private val symbolRequests = AtomicInteger()
+
+    /** Find in Files as the menu sees it: [blocker] says why it cannot open, [opened] counts the openings. */
+    private val find =
+        object : FindInFilesEntry {
+            var blocker: String? = null
+            var opened = 0
+
+            override fun blocker() = blocker
+
+            override fun open(window: Window): Boolean = true.also { opened++ }
+        }
 
     /**
      * Declares definitions, answered with `def run` in the file, and document and workspace symbols: `run` and
@@ -195,7 +209,7 @@ internal class NavigateMenuUiTest {
         val opened = fx { PythonFileViewer().open(file) }
         view = opened
         robot.interact {
-            root.top = MenuBar(navigateMenu(intelligence, root.scene.window))
+            root.top = MenuBar(navigateMenu(intelligence, find, root.scene.window))
             root.bottom = elsewhere
             root.center = opened.node
             opened.host =
@@ -271,7 +285,17 @@ internal class NavigateMenuUiTest {
     ) {
         val editor = setUp(robot)
         assertEquals(
-            listOf("Back", "Forward", null, "Go to Definition", "Find Usages", "File Structure", "Go to Symbol…"),
+            listOf(
+                "Back",
+                "Forward",
+                null,
+                "Go to Definition",
+                "Find Usages",
+                "File Structure",
+                "Go to Symbol…",
+                null,
+                "Find in Files…",
+            ),
             menu().items.map { it.text },
         )
         press(robot, KeyCode.B)
@@ -379,5 +403,27 @@ internal class NavigateMenuUiTest {
             menu().onShowing.handle(null)
         }
         assertEquals(listOf(false, true, false, false), items.map { it.isDisable })
+    }
+
+    @Test
+    fun `Find in Files has Shortcut+Shift+F, opens, and is disabled only while the menu shows without a folder`(
+        robot: FxRobot,
+    ) {
+        setUp(robot)
+        val item = menu().items.single { it.text == "Find in Files…" }
+        assertEquals(FIND_IN_FILES_KEYS, item.accelerator)
+        assertTrue(menu().items[menu().items.indexOf(item) - 1] is SeparatorMenuItem, "after a separator")
+        robot.interact { item.fire() }
+        assertEquals(1, find.opened)
+
+        find.blocker = "no folder open"
+        robot.interact { menu().onShowing.handle(null) }
+        assertTrue(item.isDisable, "no folder open")
+        robot.interact { menu().onHidden.handle(null) }
+        assertFalse(item.isDisable, "enabled again so that the accelerator always acts")
+
+        find.blocker = null
+        robot.interact { menu().onShowing.handle(null) }
+        assertFalse(item.isDisable)
     }
 }

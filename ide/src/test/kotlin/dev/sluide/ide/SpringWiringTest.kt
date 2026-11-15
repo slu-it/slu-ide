@@ -89,6 +89,7 @@ import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
+import dev.sluide.ide.find.FindInFilesWiring
 import dev.sluide.ide.git.GitReviewSource
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.MediaFileViewer
@@ -282,6 +283,7 @@ class SpringWiringTest {
                         TypeScriptSettingsPage::class.java,
                         InstallPrompts::class.java,
                         CodeIntelligenceWiring::class.java,
+                        FindInFilesWiring::class.java,
                         EditorSettingsPage::class.java,
                         LibraryCodeExtension::class.java,
                         LibraryCodeSettings::class.java,
@@ -357,6 +359,7 @@ class SpringWiringTest {
                         MiniGolf::class.java,
                         PipePuzzle::class.java,
                         CodeIntelligenceWiring::class.java,
+                        FindInFilesWiring::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {
