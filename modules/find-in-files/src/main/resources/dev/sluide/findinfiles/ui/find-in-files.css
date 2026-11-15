@@ -1,0 +1,97 @@
+/*
+ * The Find in Files popup (FindInFilesPopup), added to its content: popups do not inherit a window's stylesheets.
+ * Modena's looked-up colours follow the theme; own colours are the popup's fill and edge (copied from
+ * code-intelligence-popups.css, keep in sync with it) and the hit colours, each with a dark counterpart. Dark rules use
+ * single classes (ADR 0009).
+ */
+
+.find-in-files-popup {
+    -fx-font-family: "System";
+    -fx-background-color: -fx-control-inner-background;
+    -fx-border-color: -fx-box-border;
+    -fx-padding: 4;
+    -fx-spacing: 4;
+}
+
+@media (prefers-color-scheme: dark) {
+    .find-in-files-popup {
+        -fx-control-inner-background: #35383a;
+        -fx-control-inner-background-alt: #3a3d40;
+        -fx-box-border: #6b6f73;
+    }
+
+    /* Keep in sync with code-intelligence-popups.css (.search-popup-field). */
+    .find-in-files-field {
+        -fx-control-inner-background: #3f4245;
+        -fx-text-box-border: #6b6f73;
+    }
+}
+
+/* The list draws no border of its own. */
+.find-in-files-list {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.find-in-files-cell {
+    -fx-padding: 0 6 0 6;
+}
+
+.find-in-files-name {
+    -fx-font-weight: bold;
+}
+
+.find-in-files-dim {
+    -fx-opacity: 0.65;
+}
+
+.find-in-files-widen {
+    -fx-padding: 0 4 0 4;
+    -fx-background-color: transparent;
+}
+
+/*
+ * The focus stays in the fields, so the list never has it: its selection is shown as if it had (as
+ * code-intelligence-popups.css does for .caret-popup-cell).
+ */
+.find-in-files-cell:filled:selected {
+    -fx-background: -fx-selection-bar;
+    -fx-background-color: -fx-selection-bar;
+}
+
+/* A Text takes its colour from -fx-fill; -fx-text-background-color follows the selected row. The font is the editor's,
+   bound inline by the cell. */
+.find-in-files-text {
+    -fx-fill: -fx-text-background-color;
+}
+
+/*
+ * The match in a result line: a fill that reads on the plain row, brown in light and amber in dark (the find bar's
+ * match colours, #fbe3a0 and #5e4f22, are backgrounds, which a Text cannot have). On the selected row neither reads
+ * on the selection bar, so a hit there takes the selection's text colour and is underlined; the descendant selector is
+ * outside the media block and, being more specific, wins in both themes.
+ */
+.find-in-files-hit-text {
+    -fx-fill: #6b3f00;
+}
+
+.find-in-files-cell:filled:selected .find-in-files-hit-text {
+    -fx-fill: -fx-selection-bar-text;
+    -fx-underline: true;
+}
+
+/* The matches of the selected line in the preview: the find bar's .search-match (code-view.css), keep in sync. */
+.find-in-files-hit {
+    -rtfx-background-color: #fbe3a0;
+}
+
+@media (prefers-color-scheme: dark) {
+    .find-in-files-hit-text {
+        -fx-fill: #ffd479;
+    }
+
+    .find-in-files-hit {
+        -rtfx-background-color: #5e4f22;
+    }
+}
