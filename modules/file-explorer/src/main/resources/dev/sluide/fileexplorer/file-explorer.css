@@ -124,10 +124,22 @@
     -fx-padding: 0 8 4 8;
 }
 
-/* The part of a name the search matched (PathCell): an amber wash that keeps the text readable in both themes. */
+/*
+ * The name of a row with a hit is three labels (PathCell). Modena pads a label in a row on its left (about 3px); that is
+ * the row's own gap before the name, so only the first part keeps it, and the others sit flush against the one before.
+ */
+.explorer-entry .explorer-name-part {
+    -fx-padding: 0;
+}
+
+/*
+ * The part of a name the search matched (PathCell): an amber wash that keeps the text readable in both themes, a pixel
+ * wider than the text on each side without moving it.
+ */
 .explorer-search-hit {
     -fx-background-color: rgba(255, 193, 7, 0.5);
     -fx-background-radius: 2;
+    -fx-background-insets: 0 -1 0 -1;
 }
 
 /* On the selection bar the wash is dark, as the text there is light in both themes. */

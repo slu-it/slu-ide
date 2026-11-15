@@ -6,6 +6,7 @@ import javafx.scene.control.Label
 import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 import javafx.scene.paint.Color
 import javafx.stage.Stage
@@ -281,6 +282,29 @@ class ExplorerSearchBarUiTest : FileExplorerViewUiFixture() {
         type(robot, "ead")
 
         eventually(robot) { assertEquals(listOf("EAD"), hits(robot).map { it.text }) }
+    }
+
+    @Test
+    fun `the three parts of a highlighted name touch, so the name reads as one word`(robot: FxRobot) {
+        open(robot)
+        type(robot, "ead")
+
+        eventually(robot) {
+            val hit = hits(robot).single()
+            val parts = (hit.parent as HBox).children.map { it as Label }
+            val bounds = parts.map { it.localToScene(it.layoutBounds) }
+            assertEquals(listOf("R", "EAD", "ME.md"), parts.map { it.text })
+            assertEquals(0.0, bounds[1].minX - bounds[0].maxX, 0.5, "before and hit")
+            assertEquals(0.0, bounds[2].minX - bounds[1].maxX, 0.5, "hit and after")
+            // Nothing but the text inside the hit and the rest: no padding that would show as a gap.
+            listOf(1, 2).forEach {
+                val text =
+                    javafx.scene.text
+                        .Text(parts[it].text)
+                        .apply { font = parts[it].font }
+                assertEquals(text.layoutBounds.width, parts[it].width, 1.0, "width of ${parts[it].text}")
+            }
+        }
     }
 
     @Test

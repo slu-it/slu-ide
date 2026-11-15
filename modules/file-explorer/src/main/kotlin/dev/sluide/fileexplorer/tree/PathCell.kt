@@ -60,8 +60,8 @@ internal class PathCell(
 
     // While a search is applied the name is shown in three labels, the middle one highlighted; they look like [name].
     private val before = nameLabel()
-    private val hit = nameLabel().apply { styleClass += SEARCH_HIT_CLASS }
-    private val after = nameLabel()
+    private val hit = nameLabel().apply { styleClass += listOf(NAME_PART_CLASS, SEARCH_HIT_CLASS) }
+    private val after = nameLabel().apply { styleClass += NAME_PART_CLASS }
     private val nameLabels = listOf(name, before, hit, after)
     private val highlighted = HBox(0.0, before, hit, after).apply { alignment = Pos.CENTER_LEFT }
     private val bubbleRadius = fileIconSize.map { it * BUBBLE_SCALE }
@@ -256,6 +256,7 @@ internal class PathCell(
 
 private const val FILE_MARKER_CLASS = "file-marker"
 private const val SEARCH_HIT_CLASS = "explorer-search-hit"
+private const val NAME_PART_CLASS = "explorer-name-part"
 private val DROP_TARGET = PseudoClass.getPseudoClass("drop-target")
 private val CUT = PseudoClass.getPseudoClass("cut")
 private val nameStyleClasses = FileMarker.entries.map(FileMarker::nameStyleClass)
