@@ -1,6 +1,7 @@
 package dev.sluide.fileexplorer.actions
 
 import dev.sluide.fileexplorer.tree.FileTreeItem
+import dev.sluide.fileexplorer.tree.TreeSearchFilter
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
@@ -62,6 +63,22 @@ class ExplorerMovesTest {
         assertEquals(listOf(target.resolve("src"), target.resolve("a.txt")), fake.selectedPaths())
         assertEquals(emptyList(), fake.errors)
         assertEquals(listOf(project.resolve("a.txt"), project.resolve("src")), fake.closedUnder, "watches end")
+    }
+
+    @Test
+    fun `while a search narrows the tree, the moved entries are kept in its results and selected`() {
+        project.resolve("src/a.txt").also { it.parent.createDirectories() }.writeText("a")
+        project.resolve("target/match.txt").also { it.parent.createDirectories() }.writeText("m")
+        open()
+        fake.search =
+            TreeSearchFilter(listOf(project.resolve("src/a.txt"), project.resolve("target/match.txt")), listOf(project))
+        fake.item("target").isExpanded = true
+
+        move(listOf(fake.item("src/a.txt")), fake.item("target"))
+
+        val moved = project.resolve("target/a.txt")
+        assertEquals(listOf(moved), fake.selectedPaths())
+        assertEquals(listOf("a.txt", "match.txt"), fake.item("target").children.map { it.value.fileName.toString() })
     }
 
     @Test

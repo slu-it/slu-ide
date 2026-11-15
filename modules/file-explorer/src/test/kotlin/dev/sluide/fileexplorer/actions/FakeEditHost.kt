@@ -5,6 +5,7 @@ import dev.sluide.fileexplorer.ClipboardImage
 import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.UnreadableClipboardImage
 import dev.sluide.fileexplorer.tree.FileTreeItem
+import dev.sluide.fileexplorer.tree.TreeSearchFilter
 import dev.sluide.fileexplorer.tree.expandTo
 import javafx.scene.control.TreeItem
 import java.nio.file.Files
@@ -57,6 +58,9 @@ internal class FakeEditHost(
     val opened = mutableListOf<Path>()
     val closedUnder = mutableListOf<Path>()
     var vanishedChecks = 0
+
+    /** The explorer search's filter the items list with, as in the view; `null`: no search applied. */
+    var search: TreeSearchFilter? = null
 
     /** The selected items; `select`, `selectRow` and `selectRows` set it, as the view does. */
     var selected: List<TreeItem<Path>> = emptyList()
@@ -120,6 +124,7 @@ internal class FakeEditHost(
             isShown = ::isShown,
             closeWatchesUnder = { closedUnder.add(it) },
             closeWatchesOfVanishedFolders = { vanishedChecks++ },
+            keepFound = { search?.keep(it) },
         )
 
     /** The time that names pasted images; fixed. */
@@ -139,8 +144,14 @@ internal class FakeEditHost(
 
     /** Opens the folders again as new items; the old ones are no longer shown. */
     fun reopen() {
-        projectItem = FileTreeItem(project, compact = { compact }).also { it.isExpanded = true }
-        extraItems = extraRoots.map { FileTreeItem(it, compact = { compact }).also { item -> item.isExpanded = true } }
+        projectItem =
+            FileTreeItem(project, compact = { compact }, searchFilter = { search }).also { it.isExpanded = true }
+        extraItems =
+            extraRoots.map {
+                FileTreeItem(it, compact = { compact }, searchFilter = { search }).also { item ->
+                    item.isExpanded = true
+                }
+            }
         root = TreeItem<Path>()
         root.children.setAll(listOf(projectItem) + extraItems)
     }

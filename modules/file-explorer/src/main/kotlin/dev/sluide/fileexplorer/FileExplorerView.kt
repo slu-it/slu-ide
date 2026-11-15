@@ -22,6 +22,7 @@ import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
 import dev.sluide.fileexplorer.tree.TreeDragAndDrop
 import dev.sluide.fileexplorer.tree.TreeOperations
+import dev.sluide.fileexplorer.tree.TreeSearch
 import dev.sluide.fileexplorer.tree.TreeWatches
 import dev.sluide.fileexplorer.tree.defaultCopyModifier
 import dev.sluide.fileexplorer.tree.isShown
@@ -39,6 +40,7 @@ import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
 import javafx.application.Platform
 import javafx.beans.InvalidationListener
+import javafx.beans.Observable
 import javafx.beans.WeakInvalidationListener
 import javafx.beans.property.BooleanProperty
 import javafx.beans.property.SimpleIntegerProperty
@@ -210,8 +212,14 @@ class FileExplorerView(
         )
 
     // Loaded folders and the middle folders of compacted rows (ADR 0096).
-    private val watches =
-        TreeWatches(fileWatcher, { isShown(it) }, { keepSelection(change = it) }) { changed -> onFilesChanged(changed) }
+    private val watches: TreeWatches =
+        TreeWatches(fileWatcher, { isShown(it) }, { keepSelection(change = it) }) { changed ->
+            onFilesChanged(changed)
+            search.invalidate()
+        }
+
+    // Narrows the tree to the matches of the explorer search and restores it.
+    private val search: TreeSearch = TreeSearch(this, ::topLevel) { watches.closeVanished() }
 
     // The hooks and test seams are read when an edit runs, not now, so later changes take effect.
     private val editHost =
@@ -238,6 +246,7 @@ class FileExplorerView(
             isShown = { isShown(it) },
             closeWatchesUnder = { watches.closeUnder(it) },
             closeWatchesOfVanishedFolders = { watches.closeVanished() },
+            keepFound = { search.keep(it) },
         )
     private val edits = ExplorerEdits(editHost)
     private val moves = ExplorerMoves(editHost, edits::canChange, edits::isBeingDeleted, edits::canChangePath)
@@ -286,7 +295,7 @@ class FileExplorerView(
         }
 
     // Reveal, Collapse All, Refresh and listing again.
-    private val operations = TreeOperations(this, ::topLevel, { projectItem }, generated, watches)
+    private val operations = TreeOperations(this, ::topLevel, { projectItem }, generated, watches, search)
 
     /**
      * Whether git ignores a folder: true/false when the window's git status covers it, null when it does not (no
@@ -438,6 +447,7 @@ class FileExplorerView(
         extraRoots: List<ExplorerRoot> = emptyList(),
     ) {
         watches.closeAll()
+        search.forget()
         val project = root?.let { topLevelItem(it, null, null) }
         project?.isExpanded = true
         projectItem = project
@@ -466,6 +476,7 @@ class FileExplorerView(
         onChildrenLoaded = watches::watch,
         libraryRoots = { LibraryCode.libraryRootKind(it) },
         generated = generated,
+        searchFilter = { search.filter },
     )
 
     /** The top-level folders, the project first. */
@@ -499,6 +510,27 @@ class FileExplorerView(
         operations.refreshAll()
         onFilesChanged(emptySet())
     }
+
+    /**
+     * Narrows the tree to [matches] and the folders holding them, or ends the search for `null`, expanding the folders
+     * expanded before it and revealing the selection; see [TreeSearch.apply]. Never opens files or moves the focus.
+     */
+    internal fun applySearch(matches: List<Path>?) = search.apply(matches)
+
+    /** Drops the entries the explorer added to the results while searching (revealed, created, moved), e.g. for a new query. */
+    internal fun resetSearchExtras() = search.resetExtras()
+
+    /** Whether a search filter is applied. */
+    internal val searchActive: Boolean get() = search.filter != null
+
+    /** The paths of the top-level rows, in row order. */
+    internal fun searchRoots(): List<Path> = topLevel().map { it.value }
+
+    /**
+     * Fires (FX thread) after files changed in loaded folders, after [refreshAll], and after the Compact or Hide Generated
+     * setting changed, so that the search can run again.
+     */
+    internal val searchInvalidated: Observable get() = search.invalidated
 
     /**
      * The width the explorer would like to start with: enough for the names of the shown entries with their icons and

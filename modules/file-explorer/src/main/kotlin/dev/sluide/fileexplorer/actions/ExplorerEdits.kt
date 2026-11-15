@@ -44,6 +44,8 @@ internal class ExplorerEditHost(
     /** Ends the watches of the folders at or below a path, which moved. */
     val closeWatchesUnder: (Path) -> Unit,
     val closeWatchesOfVanishedFolders: () -> Unit,
+    /** Keeps an entry the explorer is about to show and select in the search's results while a search is applied. */
+    val keepFound: (Path) -> Unit = {},
 )
 
 /** The file operations of the explorer: create, rename and delete entries, and run actions on folders. */

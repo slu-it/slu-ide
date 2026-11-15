@@ -178,6 +178,7 @@ internal class ExplorerMoves(
             .filter(host.isShown)
             .forEach(FileTreeItem::refresh)
         folder.isExpanded = true
+        moved.forEach { (_, to) -> host.keepFound(to) }
         folder.refresh()
         host.closeWatchesOfVanishedFolders()
         val shown =

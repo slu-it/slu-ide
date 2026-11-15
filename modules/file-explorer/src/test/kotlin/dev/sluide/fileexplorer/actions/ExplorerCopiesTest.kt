@@ -1,6 +1,7 @@
 package dev.sluide.fileexplorer.actions
 
 import dev.sluide.fileexplorer.tree.FileTreeItem
+import dev.sluide.fileexplorer.tree.TreeSearchFilter
 import org.junit.jupiter.api.Assumptions.assumeFalse
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
@@ -73,6 +74,23 @@ class ExplorerCopiesTest {
         assertEquals(emptyList(), fake.moved)
         assertTrue(project.resolve("notes.txt").exists(), "the clipboard still holds the files to paste again")
         assertEquals(2, fake.clipboardFiles.content?.size)
+    }
+
+    @Test
+    fun `while a search narrows the tree, the copies are kept in its results and selected`() {
+        project.resolve("notes.txt").writeText("notes")
+        open()
+        fake.search = TreeSearchFilter(listOf(project.resolve("notes.txt")), listOf(project))
+        fake.projectItem.refresh()
+        fake.copies.copy(listOf(fake.item("notes.txt")))
+
+        assertTrue(fake.copies.paste(listOf(fake.item("notes.txt"))))
+
+        assertEquals(listOf(project.resolve("notes-copy.txt")), fake.selectedPaths())
+        assertEquals(
+            listOf("notes-copy.txt", "notes.txt"),
+            fake.projectItem.children.map { it.value.fileName.toString() },
+        )
     }
 
     @Test

@@ -17,13 +17,17 @@ internal class TreeOperations(
     private val projectItem: () -> FileTreeItem?,
     private val generated: GeneratedFolderFilter,
     private val watches: TreeWatches,
+    /** The search, which keeps the entries revealed and selected here and is told when the tree was listed again. */
+    private val search: TreeSearch,
 ) {
     /**
      * Expands the top-level folder holding [path] and the folders down to it, loading them, then selects and scrolls
      * to [path]. Returns false, expanding nothing, if no top-level folder holds it or it does not exist.
      */
     fun reveal(path: Path): Boolean {
-        val (folders, item) = findForReveal(topLevel(), path, generated::unhide) ?: return false
+        val (folders, item) =
+            search.keepFor(path) { findForReveal(topLevel(), path, generated::unhide) }
+                ?: return false
         // Only now, so that a path not found leaves the tree as it was.
         folders.forEach { it.isExpanded = true }
         tree.selectRow(item)
@@ -41,7 +45,7 @@ internal class TreeOperations(
         parent: FileTreeItem,
         path: Path,
     ): TreeItem<Path>? {
-        val item = expandTo(parent, path, generated::unhide) ?: return null
+        val item = search.keepFor(path) { expandTo(parent, path, generated::unhide) } ?: return null
         tree.selectRow(item)
         return item
     }
@@ -76,14 +80,17 @@ internal class TreeOperations(
             }
             watches.closeVanished()
         }
+        search.invalidate()
     }
 
     /** Builds the tree again, e.g. after compacting was turned on or off, keeping what was expanded and selected. */
-    fun relist(ancestorFallback: Boolean = false) =
+    fun relist(ancestorFallback: Boolean = false) {
         tree.keepSelection(ancestorFallback) {
             topLevel().forEach(FileTreeItem::refreshTree)
             watches.closeVanished()
         }
+        search.invalidate()
+    }
 
     /** Checks the generated folders and files of every loaded folder against git again; see the view's. */
     fun gitIgnoresChanged() =

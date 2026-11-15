@@ -251,6 +251,7 @@ internal class ExplorerCopies(
                 host.dispatch {
                     if (host.isShown(folder)) {
                         folder.isExpanded = true
+                        copies.forEach(host.keepFound)
                         folder.refresh()
                         host.selectRows(folder.children.filter { (it as? FileTreeItem)?.sourcePath in copies })
                     }
