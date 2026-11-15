@@ -229,13 +229,14 @@ internal class ServerLifecycle(
 
     /** Waits for the trust checks; `false`, settled [ServerState.Untrusted] or failed, if the server may not run. */
     private fun trusted(gen: Int): Boolean {
-        val checkId = spec.trustCheckId
-        if (checkId == null) {
+        val checkIds = spec.trustCheckIds
+        if (checkIds.isEmpty()) {
             settle(gen, ServerState.Failed("${spec.name} language server runs project code but names no trust check"))
             return false
         }
-        if (trustGate.awaitAllows(checkId) { !isCurrent(gen) }) return true
-        log.log(System.Logger.Level.INFO, "lsp ${spec.id}: not started, the project trust does not allow $checkId")
+        val refused = checkIds.firstOrNull { checkId -> !trustGate.awaitAllows(checkId) { !isCurrent(gen) } }
+        if (refused == null) return true
+        log.log(System.Logger.Level.INFO, "lsp ${spec.id}: not started, the project trust does not allow $refused")
         settle(gen, ServerState.Untrusted)
         return false
     }

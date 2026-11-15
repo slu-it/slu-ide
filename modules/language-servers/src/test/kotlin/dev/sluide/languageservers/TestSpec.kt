@@ -7,6 +7,8 @@ internal class TestSpec(
     @Volatile var command: ServerCommand? = ServerCommand(Path.of("fake-server")),
     override val runsProjectCode: Boolean = false,
     override val trustCheckId: String? = null,
+    /** The trust checks; `null` keeps the default (the [trustCheckId] alone). */
+    private val trustChecks: List<String>? = null,
     private val config: (ConfigurationItem) -> Any? = { null },
     private val initOptions: Any? = null,
     override val id: String = "test",
@@ -20,6 +22,8 @@ internal class TestSpec(
     private val keeps: (file: Path) -> Boolean = { false },
 ) : LanguageServerSpec {
     override val name = "Test"
+
+    override val trustCheckIds: List<String> get() = trustChecks ?: super.trustCheckIds
 
     override fun initializationOptions(root: Path) = initOptions
 

@@ -50,8 +50,18 @@ interface LanguageServerSpec {
      */
     val runsProjectCode: Boolean get() = false
 
-    /** The id of the `ProjectTrustCheck` that covers what the server runs; required if [runsProjectCode]. */
+    /**
+     * The id of the `ProjectTrustCheck` that covers what the server runs; required if [runsProjectCode], unless
+     * [trustCheckIds] names the checks.
+     */
     val trustCheckId: String? get() = null
+
+    /**
+     * The ids of the `ProjectTrustCheck`s that cover what the server runs (ADR 0179: Gradle and Maven builds), asked in
+     * order; the server starts only once every one allows it. By default [trustCheckId] alone. None while
+     * [runsProjectCode] fails the start.
+     */
+    val trustCheckIds: List<String> get() = listOfNotNull(trustCheckId)
 
     /** Installs the server for the user, or `null` if Thoreau cannot (the user installs it). */
     val installer: ServerInstaller? get() = null

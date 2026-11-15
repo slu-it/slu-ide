@@ -5,6 +5,8 @@ import org.eclipse.lsp4j.DidChangeWatchedFilesParams
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -158,6 +160,48 @@ class LanguageServersTest {
         servers.session(spec).ensureStarted()
 
         servers.awaitState(spec, ServerState.Untrusted)
+        assertEquals(0, starter.processes.size)
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "true, true, Running, 'gradle maven'",
+        "true, false, Untrusted, 'gradle maven'",
+        "false, true, Untrusted, gradle",
+    )
+    fun `a server with several trust checks asks them in order and starts only once every one allows it`(
+        gradle: Boolean,
+        maven: Boolean,
+        expected: String,
+        asked: String,
+    ) {
+        val answers = mapOf("gradle" to gradle, "maven" to maven)
+        val askedIds = CopyOnWriteArrayList<String>()
+        val spec = TestSpec(runsProjectCode = true, trustChecks = listOf("gradle", "maven"))
+        val servers =
+            servers(
+                spec,
+                TrustGate { checkId, _ ->
+                    askedIds += checkId
+                    answers.getValue(checkId)
+                },
+            )
+
+        servers.session(spec).ensureStarted()
+
+        servers.awaitState(spec, if (expected == "Running") ServerState.Running else ServerState.Untrusted)
+        assertEquals(asked.split(" "), askedIds)
+        assertEquals(if (expected == "Running") 1 else 0, starter.processes.size)
+    }
+
+    @Test
+    fun `a server that runs project code but names no trust check fails`() {
+        val spec = TestSpec(runsProjectCode = true, trustChecks = emptyList())
+        val servers = servers(spec)
+
+        servers.session(spec).ensureStarted()
+
+        servers.awaitState(spec, ServerState.Failed("Test language server runs project code but names no trust check"))
         assertEquals(0, starter.processes.size)
     }
 

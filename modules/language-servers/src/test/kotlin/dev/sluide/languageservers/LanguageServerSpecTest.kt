@@ -79,4 +79,23 @@ class LanguageServerSpecTest {
         assertEquals(emptyList(), plain.configFiles(file, window))
         assertEquals(status, folderStatus.workspaceStatus(file, window.resolve("apps/a"), window))
     }
+
+    @Test
+    fun `by default the trust checks are the one trust check id, none without it`() {
+        val checked =
+            object : LanguageServerSpec {
+                override val id = "checked"
+                override val name = "Checked"
+                override val trustCheckId = "python"
+
+                override fun matches(file: Path) = true
+
+                override fun languageId(file: Path) = "checked"
+
+                override fun command(): ServerCommand? = null
+            }
+
+        assertEquals(listOf("python"), checked.trustCheckIds)
+        assertEquals(emptyList(), plain.trustCheckIds)
+    }
 }
