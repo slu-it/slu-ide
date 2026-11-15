@@ -90,7 +90,7 @@ Safety of file operations, runs, secrets and network: `safety.md`.
   `null` subscribes again and catches up when it is back (`ConnectionCardList`), or never unsubscribes on scene loss at all.
 
 ## Context menus and entry points
-- Menu bar, in this order: File, View, Navigate (Back, Forward | Go to Definition, Find Usages, File Structure, Go to Symbol…; ADR 0146, ADR 0149), Git,
+- Menu bar, in this order: File, View, Navigate (Back, Forward | Go to Definition, Find Usages, File Structure, Go to Symbol… | Find in Files…; ADR 0146, ADR 0149, ADR 0177), Git,
   Terminal, Docker Sandbox, Tools, Services, Games, Help (the tool and service menus: see Tool and service tabs).
 - Explorer: `FileAction(label, icon, appliesTo, perform)` items appear only for a single file they apply to, after
   Open, and are never shown disabled (Run, ADR 0089). Folder actions use `FolderAction` (ADR 0056). Convert to ▸ is

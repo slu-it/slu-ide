@@ -36,6 +36,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Shortcut+B / Alt+F7 | Navigate → Go to Definition / Find Usages, at the caret of the focused editor with code intelligence (the editor's own bindings, see [Code intelligence](#code-intelligence)) |
 | Shortcut+F12 (Cmd+F12 on macOS, which may need Fn when the F keys control the Mac) | Navigate → File Structure of the focused editor with code intelligence (the editor's own binding, see [Code intelligence](#code-intelligence)) |
 | Shortcut+Alt+Shift+O (Cmd+Option+Shift+O on macOS) | Navigate → Go to Symbol… (searches the project's symbols in the search popup, window-wide; [code-intelligence.md](code-intelligence.md); not while a terminal has the focus on Linux and Windows) |
+| Shortcut+Shift+F | Navigate → Find in Files… (the popup over the files of the window; scoped to the folder selected in the focused explorer tree, searches the selection of a focused editor; also in a focused terminal; [find-in-files.md](find-in-files.md), see [Find in Files](#find-in-files)) |
 | Shortcut+K | Git → Commit… |
 | Shortcut+Shift+K | Git → Push… |
 | Shortcut+Shift+R | Git → Review Branch (the review window of the checked-out branch; disabled without a repository; [code-review.md](code-review.md)) |
@@ -115,6 +116,18 @@ keys of a popup are taken only while it shows, before the editor's own; otherwis
 | Enter, double-click (search popup) | Jump to the item |
 | Escape (search popup) | Close it; the focus goes back to where it was |
 | Any key (search popup note shown) | Hide the note; Escape goes no further, other keys still act |
+
+## Find in Files
+[find-in-files.md](find-in-files.md)
+
+| Keys | Action |
+|---|---|
+| Shortcut+Shift+F | Open the popup (Menus table above; also Explorer → Find in Folder… on a folder) |
+| Up / Down | Previous / next match (the file header rows are skipped) |
+| PageUp / PageDown | A page of matches up / down |
+| Enter, or double-click on a match | Open the match at its line and hide the popup |
+| Escape | Hide the popup |
+| Tab | Switch between the query field and the file mask field |
 
 ## Side-by-side diff
 [git-diff.md](git-diff.md)

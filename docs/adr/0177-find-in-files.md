@@ -19,6 +19,9 @@ the unsaved text of open editors.
   explorer's `shownEntries`: Hide Generated Files, revealed folders, sorting), depth-first in tree order, roots (project
   and scratches) in tree order. `.git` entries are skipped, symlinked folders are not followed (a symlinked file is
   searched), only regular files are read; dotfiles are searched. A folder that cannot be listed is skipped.
+- **Opening a match** goes through `CodeIntelligence.jump` (Back/Forward history); it returns `false` when it
+  could not open the file: no host (a window where no code editor was ever opened) or the host could not open it. `ide`'s
+  `FindInFilesWiring` then opens it with `EditorArea.open(file, line, column)`, which also fails for the second reason.
 - **Reading like the editor**: a dirty open editor's buffer is searched instead of the file (a snapshot taken on the FX
   thread when the search starts, keyed by the `toAbsolutePath().normalize()`d path); otherwise the file is read with
   `readNBytes(2 MiB + 1)`, `isTextSample` on its first 8 KiB, then `decodeText` (UTF-8, else Windows-1252). Binary or

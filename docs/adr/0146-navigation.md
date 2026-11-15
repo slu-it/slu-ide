@@ -55,7 +55,8 @@ which the Navigate menu shows too; a key must not act twice when both the editor
   places in files that no longer exist (`Files.exists` when stepping onto them) and the current place are skipped.
   Places do not follow edits or renames.
 - **Navigate menu** (`ide`, `NavigateMenu.kt`, right after View): Back (Shortcut+Alt+Left), Forward
-  (Shortcut+Alt+Right) | Go to Definition (Shortcut+B), Find Usages (Alt+F7); File Structure and Go to Symbol follow.
+  (Shortcut+Alt+Right) | Go to Definition (Shortcut+B), Find Usages (Alt+F7); File Structure and Go to Symbol follow, then after a
+  separator Find in Files… (Shortcut+Shift+F, ADR 0177).
   Back and Forward are bound to the history's `canGoBack`/`canGoForward`; the other two act on the focused bound
   editor (`CodeIntelligence.focusedBinding`: the editor whose text area is its scene's focus owner) and are disabled,
   set when the menu opens, without one or while its server cannot answer (`definitionBlocker`, `usagesBlocker`).

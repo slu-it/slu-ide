@@ -22,8 +22,8 @@ texts and the jump (so that Back and Forward return to where the search started)
   double-click opens one, Escape hides it. The popup also hides on a click outside it.
 - Opening a match closes the popup, opens the file at the line and puts the caret on the first match of that line; the
   jump is recorded in Back/Forward.
-- The key is added to the Navigate menu (Find in Files…, disabled "(no folder open)" without a folder) by the window
-  wiring.
+- The key is added to the Navigate menu (Find in Files…, disabled without a folder, with no reason in the label, as
+  Go to Symbol… is) by the window wiring.
 
 ## Entry points
 - **Navigate → Find in Files…** (Shortcut+Shift+F): the whole window; with the explorer tree focused and one folder
