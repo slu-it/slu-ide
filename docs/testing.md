@@ -106,8 +106,11 @@ A behavior is tested once, at the lowest level that can see it
   cannot find after `--`, or their wiring shows as false survivors. `--list` first shows the mutants, the tests and
   the guard-like lines it does not mutate (`?: return`, `when` branches, multi-line conditions). A run can outlast one
   Bash call: start it with `--detach` and call `--wait` until the exit code is not 5. It refuses uncommitted changes
-  in the files it mutates, so a survivor's fix is a `fixup!` commit before the next run. A survivor is a vacuous test
-  or dead code (a guard no input can reach); an equivalent one is a defensive call the caller already made.
+  in the files it mutates, so a survivor's fix is a `fixup!` commit before the next run; `--survivors` reruns only
+  the last run's survivors and timeouts, and all mutants of a file whose production code changed since or that has no
+  finished run (82 s for the popup's 9 survivors against 18 min for all 72 mutants). A survivor is a
+  vacuous test or dead code (a guard no input can reach); an equivalent one is a defensive call the caller already
+  made.
 - `.claude/scripts/check-tests.sh [files]` reports fixed sleeps without a reason (poll intervals inside a `while`
   loop do not count), synthetic OS input without a `//` reason, `waitForFxEvents()` right after `interact` and test
   classes over 800 lines; a hook runs it on newly written test code. `.claude/scripts/test-times.sh` lists task

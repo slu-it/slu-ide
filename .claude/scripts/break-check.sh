@@ -8,25 +8,33 @@
 #                             (on one line, brackets balanced)
 #   a call or an assignment that is a whole statement on one line -> removed (wiring, stop(), require())
 # Not mutated: comments, imports, declarations, logging, lines in multi-line strings, lines that continue or open a
-# multi-line expression or follow a brace-less if/else, and presentation (literal values, style classes, sizes,
+# multi-line expression or follow a brace-less if/else, and presentation (string literals, style classes, sizes,
 # padding, spacing, alignment, prompt texts: paint checks cover what the user sees). Guard-like added lines that got
 # no mutant (`?: return`, `when`, multi-line conditions, ...) are listed by --list and counted in the summary: they
 # keep a hand break check.
 # Tests per file: the unit `test` task of its module, the classes `related-tests.sh --names <file>` finds and the
 # verify.sh targets after `--` (the classes a brief names). The baseline runs them unmutated with Gradle's cached
 # results invalidated, so its time is a real run; a red baseline stops the run. Each mutant runs in stages with
-# Gradle's fail-fast on, each stage ending the mutant at its first failing test: the UI class that killed the previous
-# mutant of the file, then the unit tests, then the remaining UI classes. It counts as killed (a test failed),
-# SURVIVED (all green), timeout (a stage ran past 4x its baseline plus 60 s; not a kill: an endless loop, or load
-# that hid a survivor, so read its log and rerun the file) or no compile (ignored). Any other outcome (INCOMPLETE, NOT RUN, a Gradle failure without a failing test)
-# stops the run with exit 3.
+# Gradle's fail-fast on, each stage ending the mutant at its first failing test: the UI class that killed the
+# previous mutant of the file, then the unit tests, then the other UI classes. (Running only the killing test
+# methods first measured 5% faster, within noise, and was dropped: each stage pays Gradle's start, ADR 0178.)
+# A mutant counts as killed (a test failed), SURVIVED (all green), timeout (a stage ran past 4x its baseline plus
+# 60 s; not a kill: an endless loop, or load that hid a survivor, so read its log and rerun the file) or no compile
+# (ignored). Any other outcome (INCOMPLETE, NOT RUN, a Gradle failure without a failing test) stops the run with
+# exit 3.
 # Files are replaced atomically and restored after every mutant and on exit, Ctrl-C, SIGTERM and SIGHUP. The originals
 # and the mutant in place are recorded in build/break-check/restore/: after a hard kill (SIGKILL) the next start
 # restores a file that holds exactly that mutant and refuses one that differs otherwise. Refuses while a file to
 # mutate has uncommitted changes, while another run is active in this tree, and when <base> is not an ancestor of HEAD.
-# Usage: .claude/scripts/break-check.sh [--display N] [--list] [--detach] <base> [file...] [-- verify-target...]
+# Usage: .claude/scripts/break-check.sh [--display N] [--list] [--detach] [--survivors] <base> [file...]
+#                                        [-- verify-target...]
 #        .claude/scripts/break-check.sh --wait [seconds]
 #   --list    print each file's tests, the mutants and the guard-like lines left unmutated; run nothing
+#   --survivors  only the mutants that SURVIVED or timed out in this tree's last runs (build/break-check/survivors.json,
+#             matched by file and change, not by line number, so test edits do not matter): the rerun after fixing
+#             tests. A file whose content changed since its finished run (a deleted or rewritten guard), or that has
+#             no entry (never run, or its run was aborted), gets all its mutants and its unmutated guard-like lines.
+#             Each run replaces only its own files' entries, and only when it finishes (exit 0 or 1).
 #   --detach  start the run in the background and return; collect it with --wait
 #   --wait    print what the last detached run printed since the last --wait, waiting up to `seconds` (default 100,
 #             below the Bash tool's default 2-minute timeout); its exit code once finished, 5 while it still runs
@@ -36,8 +44,8 @@
 # verify run's output: build/break-check/logs/. About 1-2 s per unit-test stage with a warm daemon, about 7 s in a
 # worktree (`--no-daemon`); a UI stage adds its classes' time, so --list and the estimate after the baseline come
 # first.
-# Exit: 0 no survivor and no timeout, 1 survivors or timeouts, 2 usage or refusal, 3 a run neither passed nor failed (or a detached run died),
-# 4 internal error, 5 (--wait) still running, 128+signal when interrupted.
+# Exit: 0 no survivor and no timeout, 1 survivors or timeouts, 2 usage or refusal, 3 a run neither passed nor
+# failed (or a detached run died), 4 internal error, 5 (--wait) still running, 128+signal when interrupted.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd -P)"
@@ -52,8 +60,10 @@ work = os.path.join(root, "build", "break-check")
 restore_dir = os.path.join(work, "restore")
 logs = os.path.join(work, "logs")
 pid_file, status_file = os.path.join(work, "run.pid"), os.path.join(work, "status")
+survivors_file = os.path.join(work, "survivors.json")
 output_file, cursor_file = os.path.join(work, "output.txt"), os.path.join(work, "wait-offset")
-USAGE = ("Usage: break-check.sh [--display N] [--list] [--detach] <base> [file...] [-- verify-target...]\n"
+USAGE = ("Usage: break-check.sh [--display N] [--list] [--detach] [--survivors] <base> [file...]"
+         " [-- verify-target...]\n"
          "       break-check.sh --wait [seconds]")
 
 def fail(message, code=2):
@@ -103,7 +113,7 @@ if args[:1] == ["--wait"]:
     wait(int(args[1]) if len(args) == 2 else 100)
 
 # --- Arguments -------------------------------------------------------------------------------------------------
-display, list_only, detach, base, only, extra = "", False, False, None, [], []
+display, list_only, detach, survivors_only, base, only, extra = "", False, False, False, None, [], []
 i = 0
 while i < len(args):
     a = args[i]
@@ -112,6 +122,7 @@ while i < len(args):
         display = args[i + 1]; i += 1
     elif a == "--list": list_only = True
     elif a == "--detach": detach = True
+    elif a == "--survivors": survivors_only = True
     elif a == "--":
         extra = args[i + 1:]; break
     elif a.startswith("-"): fail("Unknown option %s.\n%s" % (a, USAGE))
@@ -347,7 +358,7 @@ def stages_for(targets):
     if r.returncode: fail("verify.sh --list %s failed:\n%s" % (" ".join(targets), r.stdout + r.stderr))
     unit, ui = [], []
     for line in r.stdout.splitlines():
-        parts = line.split()
+        parts = line.split(None, 2)
         if len(parts) != 3: continue
         module, task, cls = parts
         name = module if cls == "*" else cls.split(".")[-1]
@@ -407,13 +418,15 @@ def invalidate_results(unit, ui):
     runs the baseline's tests (with --no-build-cache) instead of reusing results: its time sets the timeouts."""
     r = subprocess.run([".claude/scripts/verify.sh", "--list"] + unit + ui, capture_output=True, text=True)
     for line in r.stdout.splitlines():
-        parts = line.split()
+        parts = line.split(None, 2)
         if len(parts) != 3: continue
         results = os.path.join(root, parts[0].lstrip(":").replace(":", "/"), "build", "test-results")
         if not os.path.isdir(results): continue
         for task in os.listdir(results):
             if task == parts[1] or (parts[1] == "uiTest" and task.startswith("uiTestPart")):
                 subprocess.run(["rm", "-rf", os.path.join(results, task)])
+
+run_left = []  # the finished run's survivors and timeouts, for the survivors list
 
 def run(plan, unmutated, targets):
     os.makedirs(logs, exist_ok=True)
@@ -439,7 +452,7 @@ def run(plan, unmutated, targets):
             if not same: write_atomic(p, data)
         save_manifest(None)
     counts = {"killed": 0, "SURVIVED": 0, "timeout": 0, "no compile": 0}
-    stages, base_time, last_killer = {}, {}, {}
+    stages, base_time, last_killer, left = {}, {}, {}, []
     try:
         for path, t in targets.items():
             unit, ui = stages_for(t)
@@ -490,15 +503,36 @@ def run(plan, unmutated, targets):
                 return 3
             label = {"red": "killed", "timeout": "timeout", "green": "SURVIVED", "nocompile": "no compile"}[state]
             counts[label] += 1
+            if label in ("SURVIVED", "timeout"): left.append({"path": path, "what": what})
             print("%-10s  %s:%d  %s%s" % (label, path, n, what, "  [%s]" % detail if detail else ""), flush=True)
     finally:
         stop_children()
         restore()
         clear_restore_dir()
+    run_left.extend(left)
     print("break-check: %d mutants, %d killed, %d SURVIVED, %d timeout, %d no compile; %d guard-like lines not "
           "mutated%s" % (len(plan), counts["killed"], counts["SURVIVED"], counts["timeout"], counts["no compile"],
                          len(unmutated), " (--list shows them)" if unmutated else ""))
     return 1 if counts["SURVIVED"] or counts["timeout"] else 0
+
+def load_survivors():
+    data = read(survivors_file)
+    data = json.loads(data) if data else {}
+    return data if isinstance(data, dict) and "files" in data else {"files": {}, "survivors": []}
+
+def file_hash(path):
+    return git("hash-object", "--", path).strip()
+
+def forget_survivors(survivors, covered):
+    survivors["survivors"] = [e for e in survivors["survivors"] if e["path"] not in covered]
+    for path in covered: survivors["files"].pop(path, None)
+    write_atomic(survivors_file, json.dumps(survivors).encode())
+
+def save_survivors(survivors, covered, left):
+    """The list keeps other files' entries; the covered files get this run's survivors and their current content."""
+    survivors["survivors"] = [e for e in survivors["survivors"] if e["path"] not in covered] + left
+    for path in covered: survivors["files"][path] = file_hash(path)
+    write_atomic(survivors_file, json.dumps(survivors).encode())
 
 def main():
     if not list_only:
@@ -517,6 +551,27 @@ def main():
         dirty = git("status", "--porcelain", "--", *added).strip()
         if dirty: fail("Uncommitted changes in files to mutate; commit them (a fixup! commit) first:\n" + dirty)
     plan, unmutated = plan_for(added)
+    survivors = load_survivors()
+    covered = set(added)
+    if survivors_only:
+        listed = {p for p in survivors["files"] if p in added}
+        # A file without an entry (never run, or its run was aborted) and a file changed since its run (a deleted or
+        # rewritten guard) have mutants the list never saw: all of them run.
+        changed = {p for p in added if p not in listed or file_hash(p) != survivors["files"][p]}
+        wanted = {(e["path"], e["what"]) for e in survivors["survivors"] if e["path"] in listed}
+        plan = [m for m in plan if m[0] in changed or (m[0], m[3]) in wanted]
+        unmutated = [u for u in unmutated if u[0] in changed]
+        gone = len({w for w in wanted if w not in {(m[0], m[3]) for m in plan}})
+        covered = listed | changed
+        if changed:
+            print("break-check: new or changed since their last finished run, so all their mutants run: "
+                  + ", ".join(sorted(changed)))
+        if gone:
+            print("break-check: %d listed survivors are no mutants any more (lines deleted or changed)" % gone)
+    elif not list_only:
+        # This run replaces the covered files' entries: dropped now, so that an aborted run leaves no entry (and a
+        # later --survivors runs all their mutants) instead of old survivors or a hash that claims a clean file.
+        forget_survivors(survivors, covered)
     targets = {path: targets_for(path) for path in sorted({p for p, *_ in plan})}
     if list_only:
         for path, t in targets.items(): print("%s  tests: %s" % (path, " ".join(t)))
@@ -525,9 +580,12 @@ def main():
         print("break-check: %d mutants, %d guard-like lines not mutated (list only)" % (len(plan), len(unmutated)))
         return 0
     if not plan:
+        save_survivors(survivors, covered, [])
         print("break-check: 0 mutants; %d guard-like lines not mutated" % len(unmutated))
         return 0
-    return run(plan, unmutated, targets)
+    code = run(plan, unmutated, targets)
+    if code in (0, 1): save_survivors(survivors, covered, run_left)
+    return code
 
 for s in (signal.SIGTERM, signal.SIGHUP): signal.signal(s, on_signal)
 code = 4
