@@ -26,7 +26,8 @@ built. Each needs a decision of its own.
 - **More languages on the foundation.** A language is a `LanguageServerSpec` plus, if Thoreau installs the server, an
   installer (ADR 0142, [ADR 0143](../adr/0143-tool-installs.md), ADR 0144). Candidates: Kotlin through
   [kotlin-lsp](https://kotlinlang.org/docs/kotlin-lsp.html) (Alpha; it imports the Gradle build, i.e. runs project
-  code, so it belongs behind the trust question, see [code-navigation.md](code-navigation.md)), Java (jdtls).
+  code, so it belongs behind the trust question, see [code-navigation.md](code-navigation.md)), Java (jdtls;
+  spiked in [java-language-server.md](java-language-server.md)).
   TypeScript is done ([ADR 0161](../adr/0161-typescript-via-typescript-7.md), [typescript.md](../features/typescript.md)).
 - **Semantic colours for more token types** (class, interface, type, function, ...): today the generic mapping
   colours parameters and deprecated symbols only (ADR 0148).
