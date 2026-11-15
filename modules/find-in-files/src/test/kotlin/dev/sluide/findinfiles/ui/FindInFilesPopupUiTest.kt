@@ -7,11 +7,14 @@ import javafx.application.ColorScheme
 import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
 import javafx.event.EventType
+import javafx.geometry.BoundingBox
+import javafx.geometry.Point2D
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.ListCell
+import javafx.scene.control.skin.VirtualFlow
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
@@ -19,7 +22,10 @@ import javafx.scene.input.MouseEvent
 import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
 import javafx.scene.text.Text
+import javafx.stage.Popup
+import javafx.stage.Screen
 import javafx.stage.Stage
+import javafx.stage.Window
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -128,13 +134,14 @@ internal class FindInFilesPopupUiTest {
     private fun mouse(
         type: EventType<MouseEvent>,
         clicks: Int,
+        button: MouseButton = MouseButton.PRIMARY,
     ) = MouseEvent(
         type,
         1.0,
         1.0,
         1.0,
         1.0,
-        MouseButton.PRIMARY,
+        button,
         clicks,
         false,
         false,
@@ -161,6 +168,22 @@ internal class FindInFilesPopupUiTest {
             .lookupAll(".$HIT_CLASS")
             .filterIsInstance<Text>()
 
+    /** The popup's window: the one showing popup of the owner stage. */
+    private fun window(): Window = Window.getWindows().first { it is Popup && it.isShowing && it.ownerWindow == stage }
+
+    /** Presses [code] in the query field until [done] holds; fails after 5 s. */
+    private fun pressUntil(
+        robot: FxRobot,
+        code: KeyCode,
+        done: () -> Boolean,
+    ) {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (!fx(done)) {
+            check(System.nanoTime() < deadline) { "$code did not get there" }
+            key(robot, code)
+        }
+    }
+
     private fun waitUntil(condition: () -> Boolean) = WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { fx(condition) }
 
     @Test
@@ -170,6 +193,62 @@ internal class FindInFilesPopupUiTest {
             assertTrue(popup.queryField.isFocused)
             assertEquals("foo", popup.queryField.selectedText)
         }
+    }
+
+    @Test
+    fun `open again while showing focuses the query field and selects its text`(robot: FxRobot) {
+        setUp(robot)
+        robot.interact {
+            popup.queryField.deselect()
+            assertTrue(popup.queryField.isFocused)
+            assertEquals("", popup.queryField.selectedText)
+            popup.open(anchor())
+            assertEquals("foo", popup.queryField.selectedText)
+            popup.maskField.requestFocus()
+            popup.open(anchor())
+            assertTrue(popup.queryField.isFocused)
+        }
+    }
+
+    @Test
+    fun `open puts the popup where findPopupPosition says and sizes it to the anchor`(robot: FxRobot) {
+        setUp(robot)
+        val area = fx { checkNotNull(stage.scene.root.localToScreen(stage.scene.root.boundsInLocal)) }
+
+        fun expectedPosition(width: Double): Point2D {
+            val screen =
+                Screen.getScreensForRectangle(area.minX, area.minY, area.width, area.height).firstOrNull()
+                    ?: Screen.getPrimary()
+            return findPopupPosition(area, width, screen.visualBounds)
+        }
+        robot.interact {
+            val position = expectedPosition(window().width)
+            assertEquals(position.x, window().x)
+            assertEquals(position.y, window().y)
+        }
+        // A wider anchor makes a wider popup, a narrower one narrows it again.
+        robot.interact {
+            popup.open(FindAnchor(stage, BoundingBox(area.minX, area.minY, 1200.0, area.height), returnTo))
+            assertEquals(findPopupWidth(1200.0), window().width)
+        }
+        robot.interact {
+            popup.open(anchor())
+            assertEquals(findPopupWidth(area.width), window().width)
+        }
+    }
+
+    @Test
+    fun `open for an owner that is not showing does not watch it`(robot: FxRobot) {
+        setUp(robot)
+        val hidden = fx { Stage().apply { scene = Scene(StackPane(), 100.0, 100.0) } }
+        robot.interact {
+            popup.hide()
+            popup.open(FindAnchor(hidden, BoundingBox(0.0, 0.0, 800.0, 600.0), null))
+            popup.open(anchor())
+        }
+        // The first open must not have watched the hidden owner: its move would hide the popup.
+        robot.interact { hidden.x = 10.0 }
+        robot.interact { assertTrue(popup.isShowing) }
     }
 
     @Test
@@ -234,29 +313,32 @@ internal class FindInFilesPopupUiTest {
         robot.interact {
             popup.query = "bar"
             popup.mask = "*.kt"
-            popup.options = SearchOptions(matchCase = true, regex = true)
+            popup.options = SearchOptions(matchCase = true, wholeWord = true, regex = true)
         }
         assertEquals(0, changes)
-        assertEquals(SearchOptions(matchCase = true, regex = true), fx { popup.options })
+        assertEquals(SearchOptions(matchCase = true, wholeWord = true, regex = true), fx { popup.options })
         robot.interact { popup.queryField.text = "typed" }
         assertEquals(1, changes)
         robot.interact { popup.maskField.text = "*.md" }
         assertEquals(2, changes)
         robot.interact { popup.wordToggle.fire() }
         assertEquals(3, changes)
-        robot.interact { assertTrue(popup.options.wholeWord) }
+        robot.interact { assertFalse(popup.options.wholeWord) }
     }
 
     @Test
-    fun `toggles take no focus`(robot: FxRobot) {
+    fun `toggles and the list take no focus`(robot: FxRobot) {
         setUp(robot)
         robot.interact {
             assertFalse(popup.caseToggle.isFocusTraversable)
             assertFalse(popup.wordToggle.isFocusTraversable)
             assertFalse(popup.regexToggle.isFocusTraversable)
             assertFalse(popup.widenButton.isFocusTraversable)
+            assertFalse(popup.list.isFocusTraversable)
             // A real press would focus a focus-traversable button.
             Event.fireEvent(popup.caseToggle, mouse(MouseEvent.MOUSE_PRESSED, 1))
+            assertTrue(popup.queryField.isFocused)
+            Event.fireEvent(popup.list, mouse(MouseEvent.MOUSE_PRESSED, 1))
             assertTrue(popup.queryField.isFocused)
         }
     }
@@ -338,11 +420,13 @@ internal class FindInFilesPopupUiTest {
         robot.interact {
             assertTrue(popup.maskField.isFocused)
             assertEquals("*.kt", popup.maskField.selectedText)
+            assertEquals(4, popup.maskField.caretPosition)
         }
         key(robot, KeyCode.TAB, { popup.maskField })
         robot.interact {
             assertTrue(popup.queryField.isFocused)
             assertEquals("foo", popup.queryField.selectedText)
+            assertEquals(3, popup.queryField.caretPosition)
         }
         key(robot, KeyCode.TAB, { popup.queryField }, shift = true)
         robot.interact { assertTrue(popup.maskField.isFocused) }
@@ -351,13 +435,26 @@ internal class FindInFilesPopupUiTest {
     @Test
     fun `the scope chip shows the last folder with the path in its tooltip and widens`(robot: FxRobot) {
         setUp(robot)
+        val chip = checkNotNull(popup.scopeText.parent)
+        robot.interact {
+            assertFalse(chip.isVisible)
+            assertFalse(chip.isManaged)
+        }
         robot.interact { popup.scopeLabel = "modules/file-explorer" }
         robot.interact {
+            assertTrue(chip.isVisible)
+            assertTrue(chip.isManaged)
+            assertEquals("modules/file-explorer", popup.scopeLabel)
             assertEquals("In: file-explorer", popup.scopeText.text)
             assertEquals("modules/file-explorer", popup.scopeText.tooltip.text)
         }
         robot.interact { popup.widenButton.fire() }
         assertEquals(1, widened)
+        robot.interact { popup.scopeLabel = null }
+        robot.interact {
+            assertFalse(chip.isVisible)
+            assertFalse(chip.isManaged)
+        }
     }
 
     @Test
@@ -371,6 +468,8 @@ internal class FindInFilesPopupUiTest {
         assertEquals(listOf(hitsB to hitsB.lines[0]), opened)
         robot.interact { Event.fireEvent(cell(2), mouse(MouseEvent.MOUSE_CLICKED, 1)) }
         assertEquals(1, opened.size)
+        robot.interact { Event.fireEvent(cell(2), mouse(MouseEvent.MOUSE_CLICKED, 2, MouseButton.SECONDARY)) }
+        assertEquals(1, opened.size)
     }
 
     @Test
@@ -379,6 +478,9 @@ internal class FindInFilesPopupUiTest {
         robot.interact { popup.add(listOf(hitsA)) }
         waitUntil { popup.preview.shownFile == a }
         robot.interact {
+            // The press hands the focus to the query field, also from the mask field.
+            popup.maskField.requestFocus()
+            assertTrue(popup.maskField.isFocused)
             val area = popup.preview.editorNode.lookup(".code-area")
             Event.fireEvent(area, mouse(MouseEvent.MOUSE_PRESSED, 1))
             assertTrue(popup.queryField.isFocused)
@@ -451,5 +553,151 @@ internal class FindInFilesPopupUiTest {
             assertEquals(31.0, number.font.size)
             assertEquals(31.0, previewText.font.size)
         }
+    }
+
+    @Test
+    fun `a key no field handles does not reach the owner window`(robot: FxRobot) {
+        setUp(robot)
+        var inPopup = 0
+        var atStage = 0
+        var atScene = 0
+        robot.interact {
+            popup.queryField.addEventFilter(KeyEvent.KEY_PRESSED) { inPopup++ }
+            stage.addEventHandler(KeyEvent.KEY_PRESSED) { atStage++ }
+            stage.scene.addEventHandler(KeyEvent.KEY_PRESSED) { atScene++ }
+            // As a native key: from the owner's focus owner through the popup redirector.
+            Event.fireEvent(button, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.F5, false, false, false, false))
+        }
+        assertEquals(listOf(1, 0, 0), listOf(inPopup, atStage, atScene))
+    }
+
+    @Test
+    fun `a press outside hides the popup and still reaches the window beneath`(robot: FxRobot) {
+        setUp(robot)
+        var pressed = 0
+        robot.interact {
+            button.addEventHandler(MouseEvent.MOUSE_PRESSED) { pressed++ }
+            Event.fireEvent(button, mouse(MouseEvent.MOUSE_PRESSED, 1))
+        }
+        robot.interact { assertFalse(popup.isShowing) }
+        assertEquals(1, pressed)
+    }
+
+    @Test
+    fun `status reaches the label`(robot: FxRobot) {
+        setUp(robot)
+        robot.interact { popup.status("3 matches") }
+        robot.interact { assertEquals("3 matches", popup.statusLabel.text) }
+    }
+
+    @Test
+    fun `clear empties the list and the preview`(robot: FxRobot) {
+        setUp(robot)
+        robot.interact { popup.add(listOf(hitsA)) }
+        waitUntil { popup.preview.shownFile == a }
+        robot.interact { popup.clear() }
+        robot.interact {
+            assertEquals(0, popup.list.items.size)
+            assertEquals(null, popup.preview.shownFile)
+            assertEquals("", popup.preview.text)
+        }
+    }
+
+    @Test
+    fun `clearing the selection empties the preview`(robot: FxRobot) {
+        setUp(robot)
+        robot.interact { popup.add(listOf(hitsA)) }
+        waitUntil { popup.preview.shownFile == a }
+        robot.interact { popup.list.selectionModel.clearSelection() }
+        robot.interact { assertEquals(null, popup.preview.shownFile) }
+    }
+
+    @Test
+    fun `iconifying the owner hides the popup once`(robot: FxRobot) {
+        setUp(robot)
+        // Not TestFX's shared stage: iconifying it would hide the other tests' window.
+        val owner = fx { Stage().apply { scene = Scene(StackPane(), 300.0, 200.0) } }
+        try {
+            robot.interact { owner.show() }
+            // Unfocused when the popup opens, so that only the iconified watch can hide it, not the focus watch.
+            robot.interact { stage.requestFocus() }
+            waitUntil { !owner.isFocused }
+            robot.interact {
+                popup.hide()
+                hiddenCount = 0
+                popup.open(FindAnchor(owner, BoundingBox(owner.x, owner.y, 300.0, 200.0), null))
+                assertTrue(popup.isShowing)
+                owner.isIconified = true
+                // The iconified watch hides the popup in the same step.
+                assertFalse(popup.isShowing)
+            }
+            assertEquals(1, hiddenCount)
+        } finally {
+            robot.interact { owner.close() }
+        }
+    }
+
+    @Test
+    fun `an answer that arrives after the popup was hidden is not shown`(robot: FxRobot) {
+        setUp(robot)
+        hold = true
+        robot.interact { popup.add(listOf(hitsA)) }
+        robot.interact { popup.hide() }
+        robot.interact {
+            assertEquals(1, pending.size)
+            pending.single().second(texts[a])
+            assertEquals(null, popup.preview.shownFile)
+        }
+    }
+
+    @Test
+    fun `a header without a line row leaves no selection`(robot: FxRobot) {
+        setUp(robot)
+        val bare = FileHits(root.resolve("bare.kt"), root, emptyList(), 0, false)
+        robot.interact { popup.add(listOf(bare)) }
+        robot.interact {
+            popup.list.selectionModel.select(0)
+            assertEquals(-1, popup.list.selectionModel.selectedIndex)
+            assertEquals(null, popup.preview.shownFile)
+        }
+    }
+
+    @Test
+    fun `adding no rows selects nothing`(robot: FxRobot) {
+        setUp(robot)
+        robot.interact { popup.add(listOf(hitsA)) }
+        waitUntil { popup.preview.shownFile == a }
+        robot.interact {
+            popup.list.selectionModel.clearSelection()
+            popup.add(emptyList())
+            assertEquals(-1, popup.list.selectionModel.selectedIndex)
+        }
+    }
+
+    /** The index of the first row the list shows. */
+    private fun firstVisibleRow(): Int = (popup.list.lookup(".virtual-flow") as VirtualFlow<*>).firstVisibleCell.index
+
+    @Test
+    fun `Page Down and Page Up keep the selected line in view`(robot: FxRobot) {
+        setUp(robot)
+        val many = FileHits(a, root, (0 until 60).map(::hit), 60, false)
+        robot.interact { popup.add(listOf(many)) }
+        // Page Down walks to the last line row, Page Up back to row 1 below the header.
+        pressUntil(robot, KeyCode.PAGE_DOWN) { popup.list.selectionModel.selectedIndex >= 60 }
+        waitUntil { firstVisibleRow() > 20 }
+        pressUntil(robot, KeyCode.PAGE_UP) { popup.list.selectionModel.selectedIndex <= 1 }
+        waitUntil { firstVisibleRow() == 0 }
+    }
+
+    @Test
+    fun `a key that moves the selection on a list without line rows leaves the scroll alone`(robot: FxRobot) {
+        setUp(robot)
+        val bare = (0 until 60).map { FileHits(root.resolve("bare$it.kt"), root, emptyList(), 0, false) }
+        robot.interact { popup.add(bare) }
+        robot.interact { popup.list.scrollTo(40) }
+        waitUntil { firstVisibleRow() > 20 }
+        val before = fx { firstVisibleRow() }
+        key(robot, KeyCode.DOWN)
+        robot.interact { assertEquals(before, firstVisibleRow()) }
     }
 }

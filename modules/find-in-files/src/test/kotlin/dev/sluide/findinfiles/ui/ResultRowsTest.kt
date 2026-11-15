@@ -173,5 +173,11 @@ internal class ResultRowsTest {
         )
         assertEquals(listOf(SnippetSegment("abc", false)), snippetSegments("abc", emptyList()))
         assertEquals(listOf(SnippetSegment("ab", true)), snippetSegments("ab", listOf(0 until 10)))
+        // Overlapping ranges do not repeat text; a range past the end is left out.
+        assertEquals(
+            listOf(SnippetSegment("abcde", true), SnippetSegment("fg", true), SnippetSegment("hij", false)),
+            snippetSegments("abcdefghij", listOf(0 until 5, 3 until 7)),
+        )
+        assertEquals(listOf(SnippetSegment("abc", false)), snippetSegments("abc", listOf(20 until 22)))
     }
 }

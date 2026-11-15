@@ -90,7 +90,7 @@ internal class FindInFilesPopup(
             isManaged = false
         }
 
-    private val statusLabel =
+    internal val statusLabel =
         Label().apply {
             styleClass += "find-in-files-dim"
             maxWidth = Double.MAX_VALUE
