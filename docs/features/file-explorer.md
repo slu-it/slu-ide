@@ -342,7 +342,8 @@ has no roots.
 - **While searching**: Select Opened File, Select in Explorer and entries the explorer created, renamed, pasted or moved
   join the results and are selected, until the text changes. Files changing in loaded folders, F5 / Refresh and toggling
   Compact Middle Folders or Hide Generated Files search again, keeping selection and extras.
-- **Keys**: Shortcut+F in the tree focuses the field and selects its text. In the field: Escape clears the text, or
+- **Keys**: Shortcut+F in the tree focuses the field and selects its text (a click does too; Tab does not stop there,
+  so a window starts with the focus on the tree). In the field: Escape clears the text, or
   focuses the tree when it is empty; Down selects the first match and focuses the tree; Enter opens the first matching
   file, or selects the first match when only folders match. Both wait for the results of the text typed so far. Opening other roots (another project) clears the field.
 - **Code**: `search/ExplorerSearch` (state: minimum, debounce, stale results, status; unit-tested), `NameQuery` and

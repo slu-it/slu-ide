@@ -38,6 +38,10 @@ internal class ExplorerSearchBar(
     val field: TextField =
         TextField().apply {
             id = "explorer-search"
+            // Like the bar's buttons, the field is no stop of the focus traversal: a window starts with the focus on the
+            // tree (the first node taking it would be the field above), and so does the scene's fallback when the focus
+            // owner leaves it. A click and Shortcut+F reach the field; Tab does not.
+            isFocusTraversable = false
             promptText = "Search files"
             disableProperty().bind(Bindings.not(hasRoots))
             textProperty().addListener { _, _, text -> search.textChanged(text) }

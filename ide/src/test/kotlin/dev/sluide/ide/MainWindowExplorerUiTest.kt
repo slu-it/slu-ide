@@ -12,6 +12,7 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.ide.explorer.ExplorerPanel
 import javafx.event.Event
 import javafx.scene.Node
+import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
@@ -43,6 +44,8 @@ class MainWindowExplorerUiTest : MainWindowUiFixture() {
     @Start
     fun start(stage: Stage) {
         convertingFamilies = listOf(ShoutingFamily)
+        // A folder is open before the window shows, as in the app: the search field is enabled and could take the focus.
+        projectService.open(project)
         startView(stage)
     }
 
@@ -189,6 +192,45 @@ class MainWindowExplorerUiTest : MainWindowUiFixture() {
     }
 
     @Test
+    fun `a window starts with the focus on the tree, and the search field is reached by a click, not by Tab`(
+        robot: FxRobot,
+    ) {
+        val field = onFx(robot) { panel.content.lookup("#explorer-search") as TextField }
+
+        assertTrue(onFx(robot) { fileExplorer.isFocused }, "the tree has the initial focus")
+        assertFalse(onFx(robot) { field.isFocused })
+        assertFalse(onFx(robot) { field.isFocusTraversable })
+
+        // The press that a click sends: the text field takes the focus although it is no stop of the traversal.
+        robot.interact {
+            Event.fireEvent(
+                field,
+                MouseEvent(
+                    MouseEvent.MOUSE_PRESSED,
+                    5.0,
+                    5.0,
+                    5.0,
+                    5.0,
+                    MouseButton.PRIMARY,
+                    1,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    null,
+                ),
+            )
+        }
+        assertTrue(onFx(robot) { field.isFocused })
+    }
+
+    @Test
     fun `collapsing with the focus inside focuses the editor, and expanding focuses the tree`(robot: FxRobot) {
         val file = project.resolve("note.txt").also { it.writeText("text") }
         robot.interact { editorArea.open(file) }
@@ -225,7 +267,6 @@ class MainWindowExplorerUiTest : MainWindowUiFixture() {
         robot: FxRobot,
     ) {
         val folder = project.resolve("backend").also { it.createDirectories() }
-        robot.interact { projectService.open(project) }
         robot.interact {
             fileExplorer.selectionModel.clearSelection()
             panel.expanded.set(false)
@@ -240,7 +281,6 @@ class MainWindowExplorerUiTest : MainWindowUiFixture() {
     @Test
     fun `Select Opened File and the tab menu expand a collapsed column and select the file`(robot: FxRobot) {
         val file = project.resolve("Opened.kt").also { it.createFile() }
-        robot.interact { projectService.open(project) }
         robot.interact { editorArea.open(file) }
         val select = menu(robot, "View").items.single { it.text == "Select Opened File" }
         val triggers =
@@ -271,7 +311,6 @@ class MainWindowExplorerUiTest : MainWindowUiFixture() {
     ) {
         val source = project.resolve("a.low").apply { writeText("hello") }
         project.resolve("b.txt").createFile()
-        robot.interact { projectService.open(project) }
         val offer = checkNotNull(fileExplorer.conversionTargets)
 
         assertEquals(listOf("LOUD"), offer(source))
@@ -288,7 +327,6 @@ class MainWindowExplorerUiTest : MainWindowUiFixture() {
     @Test
     fun `Convert to asks first when a tab holds unsaved changes of the file, Cancel converts nothing`(robot: FxRobot) {
         val source = project.resolve("a.low").apply { writeText("hello") }
-        robot.interact { projectService.open(project) }
         robot.interact { editorArea.open(source) }
         eventually(robot) { assertEquals(source, editorArea.selectedPath) }
         val area = robot.lookup(".code-area").queryAs(org.fxmisc.richtext.CodeArea::class.java)
