@@ -1,6 +1,7 @@
 package dev.sluide.languageservers.connection
 
 import com.google.gson.Gson
+import com.google.gson.JsonElement
 import dev.sluide.languageservers.LspUris
 import dev.sluide.languageservers.RefreshKind
 import dev.sluide.languageservers.ServerFeatures
@@ -55,6 +56,23 @@ internal interface ClientEvents {
     fun refresh(kind: RefreshKind)
 
     fun featuresChanged()
+
+    /**
+     * A notification of a method the session's extension may take ([LspConnection]'s routing); whether it took it.
+     */
+    fun notification(
+        method: String,
+        params: Any?,
+    ): Boolean = false
+
+    /** Whether [progress] is wanted; without, progress is not even read. */
+    val wantsProgress: Boolean get() = false
+
+    /** A `$/progress` value with its token as text (a number token too). */
+    fun progress(
+        token: String,
+        value: JsonElement,
+    ) = Unit
 }
 
 /**
@@ -105,7 +123,25 @@ internal class SessionClient(
     override fun createProgress(params: WorkDoneProgressCreateParams): CompletableFuture<Void?> =
         CompletableFuture.completedFuture(null)
 
-    override fun notifyProgress(params: ProgressParams) = Unit
+    override fun notifyProgress(params: ProgressParams) {
+        if (!events.wantsProgress) return
+        val token = params.token ?: return
+        val value =
+            try {
+                // The whole params: the progress kind comes from the value field's adapter.
+                protocolGson.toJsonTree(params).asJsonObject.get("value")
+            } catch (e: RuntimeException) {
+                log.log(System.Logger.Level.WARNING, "lsp $name: progress not read: $e")
+                null
+            } ?: return
+        events.progress(if (token.isLeft) token.left else token.right.toString(), value)
+    }
+
+    /** A notification `LanguageClient` may not declare, offered before lsp4j handles it; whether it was taken. */
+    fun customNotification(
+        method: String,
+        params: Any?,
+    ): Boolean = events.notification(method, params)
 
     override fun refreshDiagnostics(): CompletableFuture<Void?> = refreshed(RefreshKind.DIAGNOSTICS)
 

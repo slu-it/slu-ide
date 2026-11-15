@@ -186,6 +186,18 @@ interface LanguageServerSpec {
         file: Path,
         projectFolder: Path,
     ): EnvironmentProblem? = null
+
+    /**
+     * What this spec adds to the session of the window folder [projectFolder] (ADR 0179): server notifications,
+     * progress, folder announcements, commands through [access]. Called on the FX thread once per window folder, at the
+     * first start of the session's server with that folder (before its steps, so the extension hears of that server);
+     * a start with another folder closes the previous extension first. `null`, the default, or an exception (logged)
+     * means none.
+     */
+    fun sessionExtension(
+        projectFolder: Path,
+        access: SessionAccess,
+    ): SessionExtension? = null
 }
 
 /**

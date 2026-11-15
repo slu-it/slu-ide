@@ -11,12 +11,14 @@ import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams
 import org.eclipse.lsp4j.DidCloseTextDocumentParams
 import org.eclipse.lsp4j.DidOpenTextDocumentParams
 import org.eclipse.lsp4j.DidSaveTextDocumentParams
+import org.eclipse.lsp4j.ExecuteCommandParams
 import org.eclipse.lsp4j.InitializeParams
 import org.eclipse.lsp4j.InitializeResult
 import org.eclipse.lsp4j.InitializedParams
 import org.eclipse.lsp4j.Location
 import org.eclipse.lsp4j.LocationLink
 import org.eclipse.lsp4j.ServerCapabilities
+import org.eclipse.lsp4j.jsonrpc.Endpoint
 import org.eclipse.lsp4j.jsonrpc.Launcher
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.eclipse.lsp4j.services.LanguageClient
@@ -40,16 +42,41 @@ import kotlin.time.Duration
 
 /**
  * A language server in the test JVM that records what it receives and lets the test answer or call back. Open: a
- * test overrides the `textDocument/…` methods it needs (hover, completion, references…).
+ * test overrides the `textDocument/…` methods it needs (hover, completion, references…). Requests and notifications
+ * lsp4j does not know reach it as an [Endpoint]: recorded in [customMessages], requests answered by [customAnswer].
  */
 open class FakeServer :
     LanguageServer,
     LanguageClientAware,
     TextDocumentService,
-    WorkspaceService {
+    WorkspaceService,
+    Endpoint {
     /** The client proxy: sends server-to-client requests and notifications. */
     @Volatile
     lateinit var client: LanguageClient
+
+    /** The client as a raw endpoint: sends notifications and requests lsp4j's `LanguageClient` does not declare. */
+    @Volatile
+    lateinit var clientEndpoint: Endpoint
+
+    /** The requests and notifications of methods lsp4j does not know, in order: method and parameters as received. */
+    val customMessages = CopyOnWriteArrayList<Pair<String, Any?>>()
+
+    /** What a request of a method lsp4j does not know answers. */
+    @Volatile
+    var customAnswer: (method: String, params: Any?) -> CompletableFuture<*> = { _, _ ->
+        CompletableFuture.completedFuture(null)
+    }
+
+    /** The `workspace/executeCommand` requests received, in order. */
+    val executedCommands = CopyOnWriteArrayList<ExecuteCommandParams>()
+
+    /** What `workspace/executeCommand` answers. */
+    @Volatile
+    var commandAnswer: (ExecuteCommandParams) -> CompletableFuture<Any> = { CompletableFuture.completedFuture(null) }
+
+    /** The parameters of the `workspace/didChangeConfiguration` notifications received, in order. */
+    val configurationChanges = CopyOnWriteArrayList<DidChangeConfigurationParams>()
 
     /** Methods received, in order; `didOpen` with the document's text. */
     val calls = CopyOnWriteArrayList<String>()
@@ -149,7 +176,31 @@ open class FakeServer :
     }
 
     override fun didChangeConfiguration(params: DidChangeConfigurationParams) {
+        configurationChanges += params
         calls += "didChangeConfiguration"
+    }
+
+    override fun executeCommand(params: ExecuteCommandParams): CompletableFuture<Any> {
+        executedCommands += params
+        calls += "executeCommand ${params.command}"
+        return commandAnswer(params)
+    }
+
+    override fun request(
+        method: String,
+        parameter: Any?,
+    ): CompletableFuture<*> {
+        customMessages += method to parameter
+        calls += "request $method"
+        return customAnswer(method, parameter)
+    }
+
+    override fun notify(
+        method: String,
+        parameter: Any?,
+    ) {
+        customMessages += method to parameter
+        calls += "notify $method"
     }
 
     override fun didChangeWorkspaceFolders(params: DidChangeWorkspaceFoldersParams) {
@@ -202,6 +253,7 @@ internal class FakeProcess(
                 .setExecutorService(serverReader)
                 .create()
         server.connect(launcher.remoteProxy)
+        server.clientEndpoint = launcher.remoteEndpoint
         server.onExit = { end(0) }
         launcher.startListening()
     }

@@ -1,5 +1,6 @@
 package dev.sluide.languageservers
 
+import com.google.gson.JsonElement
 import dev.sluide.languageservers.connection.ClientEvents
 import dev.sluide.languageservers.connection.RunningServer
 import dev.sluide.languageservers.connection.Scheduler
@@ -107,6 +108,12 @@ class LanguageServerSession internal constructor(
 
                     override fun changed() = workspaceChanged()
 
+                    override fun folderSent(
+                        epoch: Int,
+                        folder: Path,
+                        added: Boolean,
+                    ) = extensions.folderSent(epoch, folder, added)
+
                     override fun watchedFilesChanged(changes: List<FileChange>) =
                         this@LanguageServerSession.watchedFilesChanged(changes)
                 },
@@ -128,11 +135,15 @@ class LanguageServerSession internal constructor(
                     Runnable {
                         stateWrapper.set(state)
                         // Pushes for files no editor shows belong to the server that sent them.
-                        if (state != ServerState.Running && !isClosed) kept.clear()
+                        if (state != ServerState.Running && !isClosed) {
+                            kept.clear()
+                            extensions.stopped()
+                        }
                         if (epoch != null && !isClosed) {
                             connectedEpoch = epoch
                             // Before the listeners: the roots reach the server before the documents open again.
                             workspace.connected()
+                            extensions.connected(epoch)
                             connectedListeners.callEach("connected") { it() }
                             featureListeners.callEach("features") { it() }
                         }
@@ -200,11 +211,27 @@ class LanguageServerSession internal constructor(
      */
     fun ensureStarted() {
         if (spec.gatesDocuments && !documents.anyServed()) return
-        lifecycle.ensureStarted(evenIfRefused = true)
+        start(evenIfRefused = true)
     }
 
     /** A gating spec's document became served: start the server as [ensureStarted] does. FX thread. */
-    internal fun startServed() = lifecycle.ensureStarted(evenIfRefused = true)
+    internal fun startServed() = start(evenIfRefused = true)
+
+    /**
+     * Starts the server as [ServerLifecycle.ensureStarted] does; a start that will begin first makes the spec's
+     * extension for the window folder (it hears of that server). It decides by the state the FX thread last saw: an
+     * extra `prepare` is a no-op, and a folder the FX thread does not see yet would start without an extension until the
+     * next restart (not in the IDE, where files open only once the window has its folder). FX thread.
+     */
+    private fun start(evenIfRefused: Boolean) {
+        val startable =
+            state.value.let {
+                it == ServerState.Stopped ||
+                    (evenIfRefused && (it == ServerState.Unavailable || it == ServerState.Untrusted))
+            }
+        if (startable) extensions.prepare()
+        lifecycle.ensureStarted(evenIfRefused)
+    }
 
     /**
      * Stops the server and starts it again ("Restart … Language Server", after an update). For a spec that gates
@@ -216,7 +243,10 @@ class LanguageServerSession internal constructor(
             state.value.let {
                 it == ServerState.Stopped || it == ServerState.Unavailable || it == ServerState.Untrusted
             }
-        if (!notStarted || mayStart()) lifecycle.restart()
+        if (!notStarted || mayStart()) {
+            extensions.prepare()
+            lifecycle.restart()
+        }
     }
 
     /**
@@ -232,9 +262,17 @@ class LanguageServerSession internal constructor(
         call: (LanguageServer) -> CompletableFuture<T>,
         onResult: (T) -> Unit,
         onError: (Throwable) -> Unit = logRequestError,
+    ): PendingRequest = requestRunning(start = true, { call(it.server) }, onResult, onError)
+
+    /** Like [request], with the connection; without [start], a server that does not run gets not running. */
+    internal fun <T> requestRunning(
+        start: Boolean,
+        call: (RunningServer) -> CompletableFuture<T>,
+        onResult: (T) -> Unit,
+        onError: (Throwable) -> Unit,
     ): PendingRequest {
         val pending = PendingRequest()
-        if (mayStart()) lifecycle.ensureStarted(evenIfRefused = false)
+        if (start && mayStart()) start(evenIfRefused = false)
         lifecycle.onServer { running ->
             if (pending.isCancelled) return@onServer
             if (running == null) {
@@ -243,7 +281,7 @@ class LanguageServerSession internal constructor(
             }
             val future =
                 try {
-                    call(running.server)
+                    call(running)
                 } catch (e: RuntimeException) {
                     deliver(pending) { onError(e) }
                     return@onServer
@@ -281,7 +319,7 @@ class LanguageServerSession internal constructor(
         action: (RunningServer) -> Unit,
     ) {
         val epoch = connectedEpoch
-        if (start && mayStart()) lifecycle.ensureStarted(evenIfRefused = false)
+        if (start && mayStart()) start(evenIfRefused = false)
         if (epoch == null) return
         lifecycle.onServer { running ->
             if (running == null || running.epoch != epoch) return@onServer
@@ -350,6 +388,7 @@ class LanguageServerSession internal constructor(
 
     /** Ends the server with its window; nothing is delivered afterwards. */
     internal fun close() {
+        extensions.close()
         lifecycle.close()
         workspace.close()
         kept.clear(fire = false)
@@ -382,6 +421,18 @@ class LanguageServerSession internal constructor(
             override fun featuresChanged() {
                 if (current()) fx { featureListeners.callEach("features") { it() } }
             }
+
+            override fun notification(
+                method: String,
+                params: Any?,
+            ): Boolean = extensions.notification(method, params, current)
+
+            override val wantsProgress: Boolean get() = extensions.active
+
+            override fun progress(
+                token: String,
+                value: JsonElement,
+            ) = extensions.progress(token, value, current)
         }
 
     /** Whether the spec keeps the pushes for [uri]'s file; a spec that throws keeps nothing (logged). */
@@ -404,6 +455,9 @@ class LanguageServerSession internal constructor(
     internal val logRequestError: (Throwable) -> Unit = { error ->
         log.log(System.Logger.Level.INFO, "lsp ${spec.id} request: $error")
     }
+
+    /** The spec's extension; created last, so that it finds the session complete. */
+    private val extensions = SessionExtensions(this, projectFolder, dispatch)
 
     private fun deliver(
         pending: PendingRequest,

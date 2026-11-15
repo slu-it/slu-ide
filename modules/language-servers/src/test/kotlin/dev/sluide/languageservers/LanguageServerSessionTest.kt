@@ -10,6 +10,7 @@ import org.eclipse.lsp4j.DiagnosticRegistrationOptions
 import org.eclipse.lsp4j.DidChangeWatchedFilesRegistrationOptions
 import org.eclipse.lsp4j.FileSystemWatcher
 import org.eclipse.lsp4j.Location
+import org.eclipse.lsp4j.LocationLink
 import org.eclipse.lsp4j.MarkupKind
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.PublishDiagnosticsParams
@@ -27,9 +28,11 @@ import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -41,7 +44,11 @@ class LanguageServerSessionTest {
     lateinit var folder: Path
 
     private val starter = FakeStarter()
+    private val scheduler = FakeScheduler()
     private val dispatched = AtomicInteger()
+
+    /** Whether the current thread runs something the session dispatched: what the session hands to the FX thread. */
+    private val inDispatch = ThreadLocal.withInitial { false }
     private var servers: LanguageServers? = null
 
     @AfterEach
@@ -52,18 +59,25 @@ class LanguageServerSessionTest {
     private fun session(
         spec: TestSpec = TestSpec(),
         timing: ServerTiming = ServerTiming(shutdown = 200.milliseconds, exit = 200.milliseconds),
+        projectFolder: () -> Path? = { folder },
+        trustGate: TrustGate = TrustGate { _, _ -> true },
     ): LanguageServerSession {
         val created =
             LanguageServers(
                 listOf(spec),
-                { folder },
-                { _, _ -> true },
+                projectFolder,
+                trustGate,
                 { runnable ->
                     dispatched.incrementAndGet()
-                    runnable.run()
+                    inDispatch.set(true)
+                    try {
+                        runnable.run()
+                    } finally {
+                        inDispatch.set(false)
+                    }
                 },
                 starter,
-                FakeScheduler(),
+                scheduler,
                 timing,
                 System::nanoTime,
             )
@@ -328,6 +342,285 @@ class LanguageServerSessionTest {
         awaitTrue("error") { errors.isNotEmpty() }
         assertEquals(LanguageServerNotRunningException::class, errors.single()::class)
         assertEquals("Test language server stopped", errors.single().message)
+    }
+
+    @Test
+    fun `the extension is made once for the window folder, hears of each connect and stop, and is closed once`() {
+        val made = AtomicInteger()
+        val extension = RecordingExtension(isDispatched = { inDispatch.get() })
+        val session =
+            session(
+                TestSpec(
+                    extension = { projectFolder, _ ->
+                        made.incrementAndGet()
+                        extension.projectFolder = projectFolder
+                        extension
+                    },
+                ),
+            )
+        running(session)
+
+        starter.last.crash()
+        awaitTrue("restarting") { session.state.value == ServerState.Restarting(1) }
+        scheduler.runNext()
+        awaitTrue("connected again") { extension.events.size == 3 }
+        starter.last.crash()
+        awaitTrue("restarting again") { session.state.value == ServerState.Restarting(2) }
+        // Restarting, then Starting: one stop.
+        session.restart()
+        awaitTrue("connected a third time") { extension.events.size == 5 }
+        servers!!.close()
+        servers!!.close()
+
+        assertEquals(1, made.get())
+        assertEquals(folder, extension.projectFolder)
+        assertEquals(
+            listOf("connected", "stopped", "connected", "stopped", "connected", "close"),
+            extension.events,
+        )
+        assertEquals(0, extension.undispatched.get(), "every call through dispatch")
+    }
+
+    @Test
+    fun `the extension is made at the first start with a window folder, never without one, and hears of that server`() {
+        val window = AtomicReference<Path?>(null)
+        val made = CopyOnWriteArrayList<Path>()
+        val extension = RecordingExtension(setOf("language/status"))
+        val app = folder.resolve("app")
+        val spec =
+            TestSpec(
+                workspaceFolderMode = WorkspaceFolderMode.ROOTS_ONLY,
+                folders = { _, _ -> app },
+                extension = { projectFolder, access ->
+                    made.add(projectFolder)
+                    extension.also { it.access = access }
+                },
+            )
+        // The window gets its folder only after its language servers were made (ProjectWindows.show).
+        val session = session(spec, projectFolder = { window.get() })
+        val withoutFolder = CompletableFuture<Throwable>()
+        session.request({ it.shutdown() }, {}, { withoutFolder.complete(it) })
+        assertIs<LanguageServerNotRunningException>(withoutFolder.get(5, TimeUnit.SECONDS))
+        val askedWithoutFolder = made.toList()
+
+        window.set(folder)
+        session.documents.open(app.resolve("A.py"), "python", "a")
+        awaitTrue("the root reported") { "added $app" in extension.events }
+        starter.last.server.clientEndpoint
+            .notify("language/status", mapOf("type" to "Started"))
+        awaitTrue("the notification") { extension.events.size == 3 }
+
+        assertEquals(emptyList(), askedWithoutFolder)
+        assertEquals(listOf(folder), made)
+        assertEquals(
+            listOf("connected", "added $app", "notification language/status {\"type\":\"Started\"}"),
+            extension.events,
+        )
+    }
+
+    @Test
+    fun `a start with another window folder closes the old folder's extension and makes one, a closed session none`() {
+        val window = AtomicReference<Path?>(folder)
+        val made = CopyOnWriteArrayList<Path>()
+        val extensions = CopyOnWriteArrayList<RecordingExtension>()
+        val spec =
+            TestSpec(
+                extension = { projectFolder, _ ->
+                    made.add(projectFolder)
+                    RecordingExtension().also { extensions += it }
+                },
+            )
+        val session = session(spec, projectFolder = { window.get() })
+        running(session)
+        val other = folder.resolve("other")
+
+        window.set(other)
+        // What only sends to the running server starts nothing, so it makes no extension either.
+        session.notify { }
+        val beforeTheStart = made.toList()
+        session.restart()
+        awaitTrue("the new extension connected") { extensions.size == 2 && "connected" in extensions[1].events }
+        servers!!.close()
+        // A closed session makes none, whatever folder its window has then.
+        window.set(folder.resolve("third"))
+        session.ensureStarted()
+
+        assertEquals(listOf(folder), beforeTheStart)
+        assertEquals(listOf(folder, other), made)
+        assertEquals(listOf("connected", "close"), extensions[0].events)
+        assertEquals(listOf("connected", "close"), extensions[1].events)
+    }
+
+    @Test
+    fun `a start after the trust refused, with another window folder, makes the extension for the new folder`() {
+        val window = AtomicReference<Path?>(folder)
+        val other = folder.resolve("other")
+        val made = CopyOnWriteArrayList<Path>()
+        val extensions = CopyOnWriteArrayList<RecordingExtension>()
+        val spec =
+            TestSpec(
+                runsProjectCode = true,
+                trustCheckId = "check",
+                extension = { projectFolder, _ ->
+                    made.add(projectFolder)
+                    RecordingExtension().also { extensions += it }
+                },
+            )
+        // Refused for the first folder, allowed for the second.
+        val session =
+            session(spec, projectFolder = { window.get() }, trustGate = TrustGate { _, _ -> window.get() == other })
+        session.ensureStarted()
+        awaitTrue("untrusted") { session.state.value == ServerState.Untrusted }
+
+        window.set(other)
+        session.ensureStarted()
+        awaitTrue("the latest extension connected") { "connected" in extensions.last().events }
+
+        assertEquals(listOf(folder, other), made)
+        assertEquals(listOf("close"), extensions[0].events)
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `an extension that throws, or a spec that fails to make one, leaves the session working`(failsToMake: Boolean) {
+        val extension = RecordingExtension(failing = true)
+        val spec =
+            if (failsToMake) {
+                TestSpec(extension = { _, _ -> error("spec bug") })
+            } else {
+                extendedSpec(extension)
+            }
+        val session = session(spec)
+        val connected = CopyOnWriteArrayList<String>()
+        session.onConnected { connected += "connected" }
+
+        val server = running(session)
+        val definition = session.requestDefinition()
+        awaitTrue("request at the server") { server.definitions.size == 1 }
+        server.definitions.single().complete(Either.forLeft<List<Location>, List<LocationLink>>(emptyList()))
+
+        assertEquals(emptyList<Location>(), definition.get(5, TimeUnit.SECONDS))
+        assertEquals(listOf("connected"), connected)
+        assertEquals(if (failsToMake) emptyList() else listOf("connected"), extension.events)
+    }
+
+    /** Sends a definition request through the session; its result. */
+    private fun LanguageServerSession.requestDefinition(): CompletableFuture<Any?> {
+        val result = CompletableFuture<Any?>()
+        request({ it.textDocumentService.definition(definitionParams()) }, { result.complete(it.left) }, {
+            result.completeExceptionally(it)
+        })
+        return result
+    }
+
+    @Test
+    fun `commands and requests of the extension reach the running server and answer on the FX thread`() {
+        val extension = RecordingExtension()
+        val session = session(extendedSpec(extension))
+        val server = running(session)
+        val commandAnswer = CompletableFuture<Any>()
+        val requestAnswer = CompletableFuture<Any?>()
+        server.commandAnswer = { commandAnswer }
+        server.customAnswer = { _, _ -> requestAnswer }
+        val onFx = CopyOnWriteArrayList<Boolean>()
+
+        val command = extension.access.executeCommand("java.project.getAll", listOf("a", 1, StringBuilder("no JSON")))
+        val request = extension.access.request("java/projectSettings", mapOf("uri" to "file:///p", "keys" to listOf(1)))
+        command.whenComplete { _, _ -> onFx += inDispatch.get() }
+        request.whenComplete { _, _ -> onFx += inDispatch.get() }
+        awaitTrue("both at the server") { server.executedCommands.size == 1 && server.customMessages.size == 1 }
+        commandAnswer.complete(listOf("file:///p"))
+        requestAnswer.complete(mapOf("compliance" to "17"))
+        // Before get(): a thread waiting in get() may run the callbacks itself once the result is set.
+        awaitTrue("both answered") { onFx.size == 2 }
+
+        // lsp4j reads the untyped result of executeCommand with Gson's plain types.
+        assertEquals(listOf("file:///p"), command.get(5, TimeUnit.SECONDS))
+        assertEquals("{\"compliance\":\"17\"}", request.get(5, TimeUnit.SECONDS).toString())
+        assertEquals(listOf(true, true), onFx)
+        assertEquals(
+            "[\"a\", 1, null]",
+            server.executedCommands
+                .single()
+                .arguments
+                .toString(),
+        )
+        assertEquals(
+            "java/projectSettings {\"uri\":\"file:///p\",\"keys\":[1]}",
+            server.customMessages.single().let { "${it.first} ${it.second}" },
+        )
+        assertEquals(1, starter.processes.size)
+    }
+
+    @Test
+    fun `the extension's requests and notifications start no server and fail as not running, the session's do`() {
+        val extension = RecordingExtension()
+        // The extension is made for the window folder, the start then finds none and settles Stopped.
+        val session =
+            session(extendedSpec(extension), projectFolder = {
+                folder.takeUnless { Thread.currentThread().name == "sluide-lsp-test" }
+            })
+        val starts = AtomicInteger()
+        session.state.addListener { _, _, state -> if (state == ServerState.Starting) starts.incrementAndGet() }
+        session.ensureStarted()
+        awaitTrue("stopped again") { session.state.value == ServerState.Stopped }
+
+        val command = extension.access.executeCommand("java.project.getAll", emptyList())
+        val request = extension.access.request("java/projectSettings", null)
+        extension.access.notify("java/projectConfigurationUpdate", null)
+        extension.access.configurationChanged(emptyMap<String, Any>())
+        awaitTrue("both answered") { command.isDone && request.isDone }
+        val startsByTheExtension = starts.get() - 1
+        session.requestDefinition()
+
+        assertIs<LanguageServerNotRunningException>(command.exceptionNow())
+        assertIs<LanguageServerNotRunningException>(request.exceptionNow())
+        assertEquals(0, startsByTheExtension)
+        assertEquals(2, starts.get(), "the session's own request starts it")
+    }
+
+    @Test
+    fun `the extension's notifications and configuration changes reach the running server as JSON`() {
+        val extension = RecordingExtension()
+        val session = session(extendedSpec(extension))
+        val server = running(session)
+
+        extension.access.notify("java/projectConfigurationUpdate", mapOf("uri" to "file:///p/settings.gradle"))
+        extension.access.configurationChanged(mapOf("java" to mapOf("home" to "/jdk", "jdks" to listOf("17", 21))))
+        extension.access.configurationChanged(StringBuilder("no JSON"))
+        awaitTrue("both changes at the server") { server.configurationChanges.size == 2 }
+
+        assertEquals(
+            listOf("java/projectConfigurationUpdate {\"uri\":\"file:///p/settings.gradle\"}"),
+            server.customMessages.map { "${it.first} ${it.second}" },
+        )
+        assertEquals(
+            listOf("{\"java\":{\"home\":\"/jdk\",\"jdks\":[\"17\",21]}}", "null"),
+            server.configurationChanges.map { it.settings?.toString() ?: "null" },
+        )
+        assertEquals(ServerState.Running, session.state.value)
+    }
+
+    @Test
+    fun `the extension reads kept diagnostics, fires workspace changes and restarts the server`() {
+        val extension = RecordingExtension()
+        val spec =
+            TestSpec(keeps = { true }, extension = { _, access -> extension.also { it.access = access } })
+        val session = session(spec)
+        val server = running(session)
+        val fired = AtomicInteger()
+        session.workspaceChanges.addListener { fired.incrementAndGet() }
+        val build = folder.resolve("build.gradle")
+        server.client.publishDiagnostics(diagnostics(LspUris.of(build), "Can't use Java 25"))
+        awaitTrue("kept") { session.keptDiagnostics(build).isNotEmpty() }
+
+        val kept = extension.access.keptDiagnostics(build).map { it.message.left }
+        extension.access.workspaceChanged()
+        extension.access.restart()
+
+        assertEquals(listOf("Can't use Java 25"), kept)
+        assertEquals(1, fired.get())
+        awaitTrue("restarted") { starter.processes.size == 2 && session.state.value == ServerState.Running }
     }
 
     private fun section(name: String) = ConfigurationItem().apply { section = name }

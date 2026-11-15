@@ -66,6 +66,16 @@ internal interface WorkspaceHost {
     /** Tells the listeners of `workspaceChanges`. */
     fun changed()
 
+    /**
+     * [folder] was sent to the server of connection [epoch] in a `didChangeWorkspaceFolders`, [added] or removed (for
+     * the session's extension). Outbound thread, after the write.
+     */
+    fun folderSent(
+        epoch: Int,
+        folder: Path,
+        added: Boolean,
+    )
+
     /** Changes in a folder a gate watches, for the server's file watchers (`didChangeWatchedFiles`). */
     fun watchedFilesChanged(changes: List<FileChange>)
 }
@@ -352,6 +362,7 @@ internal class WorkspaceFolders(
     ) {
         val params = if (added) change(added = folder) else change(removed = folder)
         running.server.workspaceService.didChangeWorkspaceFolders(params)
+        host.folderSent(running.epoch, folder, added)
     }
 
     /** The folder that serves a document without one of its own: the window folder, none in roots-only mode. */

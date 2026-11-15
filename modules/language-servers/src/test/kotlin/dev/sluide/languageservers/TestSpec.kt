@@ -21,6 +21,8 @@ internal class TestSpec(
     private val gates: (file: Path, projectFolder: Path) -> DocumentGate = { _, _ -> DocumentGate.SERVED },
     private val keeps: (file: Path) -> Boolean = { false },
     override val workspaceFolderMode: WorkspaceFolderMode = WorkspaceFolderMode.WINDOW_FIRST,
+    /** The session extension; `null` keeps the default (none). */
+    private val extension: ((projectFolder: Path, access: SessionAccess) -> SessionExtension?)? = null,
 ) : LanguageServerSpec {
     override val name = "Test"
 
@@ -51,4 +53,9 @@ internal class TestSpec(
     ) = gates(file, projectFolder)
 
     override fun keepsDiagnostics(file: Path) = keeps(file)
+
+    override fun sessionExtension(
+        projectFolder: Path,
+        access: SessionAccess,
+    ): SessionExtension? = extension?.invoke(projectFolder, access) ?: super.sessionExtension(projectFolder, access)
 }

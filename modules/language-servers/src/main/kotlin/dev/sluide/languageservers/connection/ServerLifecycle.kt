@@ -12,7 +12,7 @@ import org.eclipse.lsp4j.ClientInfo
 import org.eclipse.lsp4j.InitializeParams
 import org.eclipse.lsp4j.InitializeResult
 import org.eclipse.lsp4j.InitializedParams
-import org.eclipse.lsp4j.services.LanguageClient
+import org.eclipse.lsp4j.jsonrpc.Endpoint
 import org.eclipse.lsp4j.services.LanguageServer
 import java.io.IOException
 import java.nio.file.Path
@@ -63,7 +63,7 @@ internal class ServerLifecycle(
         features: ServerFeatures,
         name: String,
         current: () -> Boolean,
-    ) -> LanguageClient,
+    ) -> SessionClient,
 ) {
     private val outbound = NamedThreads.single("sluide-lsp-${spec.id}")
     private val lock = Any()
@@ -187,15 +187,9 @@ internal class ServerLifecycle(
                 return
             }
         val features = ServerFeatures()
+        val client = newClient(features, name) { isCurrent(gen) }
         val conn =
-            LspConnection(
-                process,
-                newClient(features, name) {
-                    isCurrent(gen)
-                },
-                features,
-                "${spec.name} language server stopped",
-            )
+            LspConnection(process, client, features, "${spec.name} language server stopped", client::customNotification)
         synchronized(lock) {
             if (!isCurrentLocked(gen)) {
                 conn.kill()
@@ -391,6 +385,9 @@ internal class RunningServer(
     val epoch: Int,
 ) {
     val server: LanguageServer get() = connection.server
+
+    /** Sends requests and notifications of any method (a session extension's). */
+    val endpoint: Endpoint get() = connection.endpoint
 
     /** Keeps a request sent to this server, so that it fails when the server stops. */
     fun track(future: CompletableFuture<*>) = connection.track(future)

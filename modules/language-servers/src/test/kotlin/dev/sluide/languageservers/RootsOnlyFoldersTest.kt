@@ -36,12 +36,20 @@ class RootsOnlyFoldersTest {
     private val starter = FakeStarter()
     private var servers: LanguageServers? = null
 
+    /** Runs once on the session's outbound thread right before its next hand-over to the FX thread. */
+    @Volatile
+    private var onOutboundDispatch: (() -> Unit)? = null
+
     /** Holds the spec's answer for `slow.java`. */
     private val slow = CountDownLatch(1)
+
+    /** Hears of the folders, on the FX thread. */
+    private val extension = RecordingExtension(isDispatched = { Thread.currentThread().name == "test-fx" })
 
     private val spec =
         TestSpec(
             workspaceFolderMode = WorkspaceFolderMode.ROOTS_ONLY,
+            extension = { _, access -> extension.also { it.access = access } },
             folders = { file, projectFolder ->
                 when (file.fileName.toString()) {
                     "slow.java" -> slow.await(5, TimeUnit.SECONDS)
@@ -71,7 +79,12 @@ class RootsOnlyFoldersTest {
                 listOf(spec),
                 { folder },
                 { _, _ -> true },
-                fx::execute,
+                { runnable ->
+                    if (Thread.currentThread().name == "sluide-lsp-test") {
+                        onOutboundDispatch?.also { onOutboundDispatch = null }?.invoke()
+                    }
+                    fx.execute(runnable)
+                },
                 starter,
                 scheduler,
                 timing,
@@ -204,6 +217,64 @@ class RootsOnlyFoldersTest {
             second.sync(),
         )
         assertEquals(listOf(1, 1), second.folderCounts())
+    }
+
+    @Test
+    fun `the extension hears of each root sent in order, again after a restart, and of a refresh as removed, added`() {
+        val app = root("app")
+        val lib = root("lib")
+        val session = session()
+        val first = session.running()
+        session.open("app/A.java")
+        session.open("lib/B.java")
+        session.flush(first)
+        onFx { extension.access.refreshFolder(lib) }
+        session.flush(first)
+
+        onFx { extension.access.restart() }
+        awaitTrue("connected again") { connects.get() == 2 }
+        val second = starter.last.server
+        session.flush(second)
+        onFx {}
+
+        assertEquals(
+            listOf(
+                "connected",
+                "added $app",
+                "added $lib",
+                "removed $lib",
+                "added $lib",
+                "stopped",
+                "connected",
+                "added $app",
+                "added $lib",
+            ),
+            extension.events,
+        )
+        assertEquals(0, extension.undispatched.get())
+        assertEquals(listOf(removed(lib), added(lib), "didClose", "didOpen B"), first.sync().drop(4))
+    }
+
+    @Test
+    fun `the extension does not hear of a folder sent to a server that was replaced before the report`() {
+        val app = root("app")
+        val lib = root("lib")
+        val session = session()
+        val first = session.running()
+        session.open("app/A.java")
+        session.flush(first)
+
+        // Between writing lib's notification and reporting it, a restart replaces the server.
+        onOutboundDispatch = { session.restart() }
+        session.open("lib/B.java")
+        awaitTrue("connected again") { connects.get() == 2 }
+        session.flush(starter.last.server)
+        onFx {}
+
+        assertEquals(
+            listOf("connected", "added $app", "stopped", "connected", "added $app", "added $lib"),
+            extension.events,
+        )
     }
 
     @Test
