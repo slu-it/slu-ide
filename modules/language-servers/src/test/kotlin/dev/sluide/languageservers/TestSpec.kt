@@ -20,6 +20,7 @@ internal class TestSpec(
     override val gatesDocuments: Boolean = false,
     private val gates: (file: Path, projectFolder: Path) -> DocumentGate = { _, _ -> DocumentGate.SERVED },
     private val keeps: (file: Path) -> Boolean = { false },
+    override val workspaceFolderMode: WorkspaceFolderMode = WorkspaceFolderMode.WINDOW_FIRST,
 ) : LanguageServerSpec {
     override val name = "Test"
 

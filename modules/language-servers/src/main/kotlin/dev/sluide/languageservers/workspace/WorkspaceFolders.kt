@@ -3,12 +3,13 @@ package dev.sluide.languageservers.workspace
 import dev.sluide.languageservers.DocumentGate
 import dev.sluide.languageservers.FileChange
 import dev.sluide.languageservers.LanguageServerSpec
+import dev.sluide.languageservers.WorkspaceFolderMode
+import dev.sluide.languageservers.connection.RunningServer
 import dev.sluide.languageservers.connection.Scheduler
 import dev.sluide.languageservers.connection.workspaceFolder
 import dev.sluide.languageservers.files.DirectoryWatcher
 import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams
 import org.eclipse.lsp4j.WorkspaceFoldersChangeEvent
-import org.eclipse.lsp4j.services.LanguageServer
 import java.nio.file.Path
 import java.util.Collections
 import java.util.IdentityHashMap
@@ -47,14 +48,20 @@ internal interface WorkspaceHost {
     /** The open documents. */
     fun documents(): Collection<WorkspaceDocument>
 
-    /** Sends to the announced server in order with everything else (`LanguageServerSession.notify`). */
-    fun notify(action: (LanguageServer) -> Unit)
+    /**
+     * Sends to the announced server in order with everything else (`LanguageServerSession.notifyRunning`); starts a
+     * stopped server if [start].
+     */
+    fun notify(
+        start: Boolean = true,
+        action: (RunningServer) -> Unit,
+    )
 
     /**
      * Runs [action] on the outbound thread in order with everything sent, whatever server runs then (`null`: none),
      * also one not announced yet: for what must happen even while the server restarts.
      */
-    fun onOutbound(action: (LanguageServer?) -> Unit)
+    fun onOutbound(action: (RunningServer?) -> Unit)
 
     /** Tells the listeners of `workspaceChanges`. */
     fun changed()
@@ -66,7 +73,9 @@ internal interface WorkspaceHost {
 /**
  * The workspace folders of one session's servers (ADR 0151): the window folder first, then each folder the spec
  * names for an open document ([LanguageServerSpec.workspaceFolder]), added before that document's `didOpen` and kept
- * across restarts, until the window folder changes or the session closes.
+ * across restarts, until the window folder changes or the session closes. In [WorkspaceFolderMode.ROOTS_ONLY] (ADR
+ * 0179) only the folders the spec names: none in `initialize`, each added in a notification of its own, after every
+ * start again ([connected]); a document without a folder is served by none (loose).
  *
  * The set changes on the outbound thread only (at a start, before a `didOpen`, when a folder is removed), where it is
  * in order with what the server got; any thread reads it ([current]). The spec is asked on the session's [worker]. A
@@ -94,6 +103,12 @@ internal class WorkspaceFolders(
 ) {
     private val lock = Any()
 
+    private val rootsOnly = spec.workspaceFolderMode == WorkspaceFolderMode.ROOTS_ONLY
+
+    /** The window folder the folders are for; set at each start, `null` before the first. */
+    @Volatile
+    private var windowFolder: Path? = null
+
     @Volatile
     private var known: List<Path> = emptyList()
 
@@ -119,26 +134,42 @@ internal class WorkspaceFolders(
     /** Resolutions a `didOpen` stopped waiting for; their answer re-opens the document when it comes. */
     private val late = Collections.synchronizedSet(Collections.newSetFromMap(IdentityHashMap<Any, Boolean>()))
 
-    /** The workspace folders now, the window folder first; any thread, never blocks (`workspace/workspaceFolders`). */
+    /**
+     * The workspace folders now, the window folder first (none in roots-only mode); any thread, never blocks
+     * (`workspace/workspaceFolders`).
+     */
     val current: List<Path> get() = known
 
     /**
      * The folders a server started for the window folder [root] gets in `initialize`: those known, or only [root] if
-     * the window folder changed (its watches end). Outbound thread.
+     * the window folder changed (its watches end); none in roots-only mode, whose roots follow with [connected].
+     * Outbound thread.
      */
     fun foldersFor(root: Path): List<Path> {
         val window = root.toAbsolutePath().normalize()
         val reset =
             synchronized(lock) {
-                if (known.firstOrNull() == window) return known
-                known = listOf(window)
-                true
+                val changed = windowFolder != window
+                if (changed) {
+                    windowFolder = window
+                    known = if (rootsOnly) emptyList() else listOf(window)
+                }
+                changed
             }
         if (reset) {
             watches.closeAll()
-            watchLater(window)
+            if (!rootsOnly) watchLater(window)
         }
-        return known
+        return if (rootsOnly) emptyList() else known
+    }
+
+    /**
+     * A new server was announced: in roots-only mode it gets every known folder, one notification each, in the order
+     * they became known, before what is sent after this call (the documents opened again). FX thread.
+     */
+    fun connected() {
+        if (!rootsOnly) return
+        host.notify(start = false) { running -> known.forEach { send(running, it, added = true) } }
     }
 
     /**
@@ -167,16 +198,16 @@ internal class WorkspaceFolders(
      */
     fun announce(
         folder: CompletableFuture<Resolution>,
-        server: LanguageServer,
+        running: RunningServer,
     ) {
         val path = await(folder)?.folder ?: return
         synchronized(lock) {
-            val window = known.firstOrNull()
+            val window = windowFolder
             if (closed || window == null || !path.startsWith(window) || path in known) return
             // listOf: a Path is an Iterable of its names, `known + path` would add those.
             known = known + listOf(path)
         }
-        server.workspaceService.didChangeWorkspaceFolders(change(added = path))
+        send(running, path, added = true)
         watchLater(path)
     }
 
@@ -214,10 +245,9 @@ internal class WorkspaceFolders(
      * the folder) and asks the spec again what to watch for it. FX thread.
      */
     internal fun refresh(folder: Path) {
-        val window = known.firstOrNull() ?: return
         if (folder !in known) return
         reAdd(folder)
-        host.documents().filter { servedBy(it, folder, window) }.forEach(WorkspaceDocument::reopenOnServer)
+        host.documents().filter { servedBy(it, folder, fallback()) }.forEach(WorkspaceDocument::reopenOnServer)
         host.changed()
     }
 
@@ -253,7 +283,8 @@ internal class WorkspaceFolders(
         root: Path,
     ) {
         // No server ran yet (a gating spec whose documents are not served): nothing is known, the answers still count.
-        val window = known.firstOrNull() ?: root
+        // In roots-only mode no folder serves a document without one.
+        val window = if (rootsOnly) null else windowFolder ?: root
         val open = host.documents()
         val moved = LinkedHashSet<WorkspaceDocument>()
         val synced = HashSet<WorkspaceDocument>()
@@ -282,39 +313,55 @@ internal class WorkspaceFolders(
     }
 
     /**
-     * Removes [folder] from the set, and from the server that runs, and ends its watches; never the window folder.
-     * Decided on the outbound thread, in order with the adds before it, and done whatever server runs: one that runs
-     * got the folder (in `initialize` or added since, both on that thread), one that starts later does not.
+     * Removes [folder] from the set, and from the server that runs, and ends its watches; never the window folder in
+     * window-first mode. Decided on the outbound thread, in order with the adds before it, and done whatever server
+     * runs: one that runs got the folder (in `initialize`, with [connected] or added since, all on that thread), one
+     * that starts later does not.
      */
     private fun remove(folder: Path) {
         watches.remove(folder)
-        host.onOutbound { server ->
+        host.onOutbound { running ->
             synchronized(lock) {
-                if (folder !in known || folder == known.first()) return@onOutbound
+                // A folder only a document the server never saw resolved to was never sent. The window folder is never
+                // removed, which re-resolution already makes sure of: that operand only guards.
+                if (folder !in known || folder == fallback()) return@onOutbound
                 known = known - setOf(folder)
             }
             // Again: a watch the worker registered while the folder was still known.
             watches.remove(folder)
-            server?.workspaceService?.didChangeWorkspaceFolders(change(removed = folder))
+            if (running != null) send(running, folder, added = false)
         }
     }
 
     /** Removes [folder] from the server and adds it again, and asks what to watch for it again. */
     private fun reAdd(folder: Path) {
-        host.notify { server ->
+        host.notify { running ->
             if (folder in known) {
-                server.workspaceService.didChangeWorkspaceFolders(change(removed = folder))
-                server.workspaceService.didChangeWorkspaceFolders(change(added = folder))
+                send(running, folder, added = false)
+                send(running, folder, added = true)
             }
         }
         watchLater(folder)
     }
 
+    /** Tells [running] that [folder] was added or removed, one folder per notification. Outbound thread. */
+    private fun send(
+        running: RunningServer,
+        folder: Path,
+        added: Boolean,
+    ) {
+        val params = if (added) change(added = folder) else change(removed = folder)
+        running.server.workspaceService.didChangeWorkspaceFolders(params)
+    }
+
+    /** The folder that serves a document without one of its own: the window folder, none in roots-only mode. */
+    private fun fallback(): Path? = if (rootsOnly) null else windowFolder
+
     /** Whether [folder] serves [document]: its folder, or one still being resolved (its didOpen may come first). */
     private fun servedBy(
         document: WorkspaceDocument,
         folder: Path,
-        window: Path,
+        window: Path?,
     ): Boolean {
         val resolution = document.resolution
         return !resolution.isDone || (resolution.getNow(null)?.folder ?: window) == folder
@@ -415,7 +462,7 @@ internal class WorkspaceFolders(
     ) {
         late.remove(resolution)
         val path = answer.folder
-        if (path == null || path == known.firstOrNull()) return
+        if (path == null || path == fallback()) return
         host.documents().filter { it.resolution === resolution }.forEach(WorkspaceDocument::reopenOnServer)
         host.changed()
     }

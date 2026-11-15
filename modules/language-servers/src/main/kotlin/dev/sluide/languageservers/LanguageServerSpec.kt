@@ -86,6 +86,13 @@ interface LanguageServerSpec {
     ): Path? = null
 
     /**
+     * Whether the window folder is the first workspace folder ([WorkspaceFolderMode.WINDOW_FIRST], the default, ADR
+     * 0151) or the server gets only the folders [workspaceFolder] names, one notification each
+     * ([WorkspaceFolderMode.ROOTS_ONLY], ADR 0179).
+     */
+    val workspaceFolderMode: WorkspaceFolderMode get() = WorkspaceFolderMode.WINDOW_FIRST
+
+    /**
      * Folders whose entries the session watches (not their subfolders) for the workspace [folder], which may lie
      * outside the project watch (a venv's `site-packages`): a change there refreshes [folder] on the server (removed,
      * then added) and re-opens its documents. Asked for every workspace folder, the window folder too, again after

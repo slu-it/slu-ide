@@ -91,12 +91,15 @@ class LanguageServerSession internal constructor(
                 object : WorkspaceHost {
                     override fun documents(): Collection<WorkspaceDocument> = documents.workspaceDocuments()
 
-                    override fun notify(action: (LanguageServer) -> Unit) = this@LanguageServerSession.notify(action)
+                    override fun notify(
+                        start: Boolean,
+                        action: (RunningServer) -> Unit,
+                    ) = notifyRunning(start, action)
 
-                    override fun onOutbound(action: (LanguageServer?) -> Unit) =
+                    override fun onOutbound(action: (RunningServer?) -> Unit) =
                         lifecycle.onServer { running ->
                             try {
-                                action(running?.server)
+                                action(running)
                             } catch (e: RuntimeException) {
                                 log.log(System.Logger.Level.INFO, "lsp ${spec.id} workspace folders: $e")
                             }
@@ -128,6 +131,8 @@ class LanguageServerSession internal constructor(
                         if (state != ServerState.Running && !isClosed) kept.clear()
                         if (epoch != null && !isClosed) {
                             connectedEpoch = epoch
+                            // Before the listeners: the roots reach the server before the documents open again.
+                            workspace.connected()
                             connectedListeners.callEach("connected") { it() }
                             featureListeners.callEach("features") { it() }
                         }
@@ -296,7 +301,7 @@ class LanguageServerSession internal constructor(
         folder: CompletableFuture<Resolution>,
         action: (RunningServer) -> Unit,
     ) = notifyRunning { running ->
-        workspace.announce(folder, running.server)
+        workspace.announce(folder, running)
         action(running)
     }
 

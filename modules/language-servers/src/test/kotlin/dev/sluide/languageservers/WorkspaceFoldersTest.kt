@@ -15,6 +15,8 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
@@ -267,6 +269,31 @@ class WorkspaceFoldersTest {
         folders.shutdownNow()
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `a late answer that is the window folder or none leaves the document as it was opened`(
+        windowIsProject: Boolean,
+    ) {
+        if (windowIsProject) project(folder)
+        val folders = Executors.newSingleThreadExecutor { Thread(it, "test-folders").apply { isDaemon = true } }
+        val timing =
+            ServerTiming(shutdown = 200.milliseconds, exit = 200.milliseconds, workspaceFolderWait = 100.milliseconds)
+        val session = session(folderWorker = folders::execute, timing = timing)
+        val server = session.running()
+        session.open("slow.py", "slow")
+        session.flush(server)
+
+        slow.countDown()
+        // The folder worker answers in order: once other's didOpen arrived, slow's answer was handed to the FX thread,
+        // so a second flush comes after whatever that answer sent.
+        session.open("other.py", "other")
+        session.flush(server)
+        session.flush(server)
+
+        assertEquals(listOf("didOpen slow", "didOpen other"), server.sync())
+        folders.shutdownNow()
+    }
+
     @Test
     fun `a spec that keeps the defaults has only the window folder and watches nothing`() {
         project("backend")
@@ -453,6 +480,22 @@ class WorkspaceFoldersTest {
     }
 
     @Test
+    fun `a refresh of the window folder opens its native documents again, not those of other folders`() {
+        project("backend")
+        val session = session()
+        val server = session.running()
+        session.open("backend/x.py", "x")
+        session.open("native.py", "native")
+        session.flush(server)
+        val before = server.calls.size
+
+        onFx { session.workspace.refresh(folder) }
+        session.flush(server)
+
+        assertEquals(listOf(removed(folder), added(folder), "didClose", "didOpen native"), server.sync(before))
+    }
+
+    @Test
     fun `a project no open document resolves to any more is removed, its documents re-opened in their new folder`() {
         val backend = project("backend")
         val other = project("other")
@@ -477,6 +520,30 @@ class WorkspaceFoldersTest {
         assertNull(session.folderOf("backend/x.py"))
         assertEquals(listOf(folder, other), session.workspace.current, "a folder whose documents closed stays")
         assertFalse(backend.resolve(".venv/site") in watcher.listeners)
+    }
+
+    @Test
+    fun `a folder only a document the server never saw resolved to is never removed from the server`() {
+        val backend = project("backend")
+        val hiding =
+            TestSpec(
+                gatesDocuments = true,
+                folders = spec::workspaceFolder,
+                gates = { file, _ -> DocumentGate(file.fileName.toString() != "hidden.py") },
+                affects = { true },
+            )
+        val session = session(spec = hiding)
+        session.open("native.py", "native")
+        val server = connected()
+        session.open("backend/hidden.py", "hidden")
+        session.flush(server)
+        val before = server.calls.size
+
+        backend.resolve("uv.lock").deleteExisting()
+        changed(deleted(backend.resolve("uv.lock")))
+        session.flush(server)
+
+        assertEquals(emptyList(), server.sync(before))
     }
 
     @Test

@@ -44,6 +44,7 @@ class LanguageServerSpecTest {
         val window = Path.of("/work/mono")
         val file = window.resolve("deployables/backend_one/app.py")
 
+        assertEquals(WorkspaceFolderMode.WINDOW_FIRST, plain.workspaceFolderMode)
         assertNull(plain.workspaceFolder(file, window))
         assertEquals(emptyList(), plain.watchedFolders(window))
         assertFalse(plain.affectsWorkspaceFolders(window.resolve("uv.lock")))

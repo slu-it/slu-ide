@@ -6,6 +6,7 @@ import dev.sluide.languageservers.LspUris
 import dev.sluide.languageservers.ServerFeatures
 import dev.sluide.languageservers.ServerState
 import dev.sluide.languageservers.TrustGate
+import dev.sluide.languageservers.WorkspaceFolderMode
 import dev.sluide.languageservers.process.ServerStarter
 import org.eclipse.lsp4j.ClientInfo
 import org.eclipse.lsp4j.InitializeParams
@@ -288,7 +289,8 @@ internal class ServerLifecycle(
         // The version in the manifest of this module's jar, if it names one.
         clientInfo = ClientInfo("Thoreau", ServerLifecycle::class.java.`package`?.implementationVersion)
         @Suppress("DEPRECATION")
-        rootUri = LspUris.of(root)
+        // Roots only (ADR 0179): no root either, jdtls would import the window folder from it.
+        rootUri = if (spec.workspaceFolderMode == WorkspaceFolderMode.ROOTS_ONLY) null else LspUris.of(root)
         workspaceFolders = folders.map(::workspaceFolder)
         initializationOptions = initializationOptions(root)
         capabilities = clientCapabilities().also(spec::adjustCapabilities)
