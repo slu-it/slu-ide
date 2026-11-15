@@ -171,7 +171,7 @@ internal class ServerLifecycle(
             settle(gen, ServerState.Stopped)
             return
         }
-        val command = spec.command()
+        val command = spec.command(root.toAbsolutePath().normalize())
         if (command == null) {
             log.log(System.Logger.Level.INFO, "lsp ${spec.id}: no server available")
             settle(gen, ServerState.Unavailable)

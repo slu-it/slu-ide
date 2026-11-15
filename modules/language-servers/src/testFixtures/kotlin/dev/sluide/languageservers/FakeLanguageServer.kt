@@ -311,6 +311,7 @@ internal class FakeStarter(
 ) : ServerStarter {
     val processes = CopyOnWriteArrayList<FakeProcess>()
     val roots = CopyOnWriteArrayList<Path>()
+    val commands = CopyOnWriteArrayList<ServerCommand>()
     private val starts =
         java.util.concurrent.atomic
             .AtomicInteger()
@@ -325,6 +326,7 @@ internal class FakeStarter(
         val index = starts.getAndIncrement()
         beforeStart(index)
         roots.add(root)
+        commands.add(command)
         return FakeProcess(name, newServer(index)).also { processes += it }
     }
 }

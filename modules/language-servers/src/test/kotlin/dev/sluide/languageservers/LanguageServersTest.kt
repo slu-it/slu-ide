@@ -206,6 +206,25 @@ class LanguageServersTest {
     }
 
     @Test
+    fun `a server starts with the command the spec gives for the window folder`() {
+        val spec =
+            TestSpec(
+                commandFor = { projectFolder ->
+                    ServerCommand(Path.of("jdtls"), listOf("-data", projectFolder.resolve("data").toString()))
+                },
+            )
+        val servers = servers(spec)
+
+        servers.session(spec).ensureStarted()
+
+        servers.awaitState(spec, ServerState.Running)
+        assertEquals(
+            listOf(ServerCommand(Path.of("jdtls"), listOf("-data", folder.resolve("data").toString()))),
+            starter.commands,
+        )
+    }
+
+    @Test
     fun `closing sends shutdown and exit and leaves the exiting server alone`() {
         val spec = TestSpec()
         val servers = servers(spec)

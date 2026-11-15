@@ -28,6 +28,12 @@ interface LanguageServerSpec {
     fun command(): ServerCommand?
 
     /**
+     * How to start the server for the window of [projectFolder] (a data folder per window), or `null` if it is not
+     * available; by default [command]. The session calls this one, at each start, off the FX thread.
+     */
+    fun command(projectFolder: Path): ServerCommand? = command()
+
+    /**
      * The `initializationOptions` of the `initialize` request for the project folder [root], a JSON value as for
      * [configuration]; another type is left out (logged).
      */

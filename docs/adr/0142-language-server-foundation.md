@@ -6,7 +6,8 @@
   `LanguageServerSpec.isIdentifier`), [0160](0160-document-gate-and-kept-diagnostics.md) (a gate per document, lazy
   start for gated specs, `didClose` only to the connection that got the `didOpen`, kept diagnostics of unopened files),
   [0179](0179-java-via-jdtls.md) (session extensions: `SessionExtension` and `SessionAccess` for notifications lsp4j
-  does not know, progress, folder announcements and commands; several trust checks with `trustCheckIds`)
+  does not know, progress, folder announcements and commands; several trust checks with `trustCheckIds`; the command
+  per window folder, `command(projectFolder)`, which the session calls and which defaults to `command()`)
 - Date: 2026-11-07
 
 ## Context

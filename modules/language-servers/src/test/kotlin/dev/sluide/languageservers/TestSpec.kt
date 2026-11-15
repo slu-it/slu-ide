@@ -5,6 +5,8 @@ import java.nio.file.Path
 
 internal class TestSpec(
     @Volatile var command: ServerCommand? = ServerCommand(Path.of("fake-server")),
+    /** The command for a window folder; `null` keeps the default ([command]). */
+    private val commandFor: ((projectFolder: Path) -> ServerCommand?)? = null,
     override val runsProjectCode: Boolean = false,
     override val trustCheckId: String? = null,
     /** The trust checks; `null` keeps the default (the [trustCheckId] alone). */
@@ -35,6 +37,8 @@ internal class TestSpec(
     override fun languageId(file: Path) = "python"
 
     override fun command() = command
+
+    override fun command(projectFolder: Path) = commandFor?.invoke(projectFolder) ?: super.command(projectFolder)
 
     override fun configuration(item: ConfigurationItem) = config(item)
 
