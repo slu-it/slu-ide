@@ -318,3 +318,31 @@
     whole window and take Shortcut+C from the editor and the terminal. The explorer's key handler
     (`ExplorerKeys.kt`) takes the keys while it has the focus.
   - Project data (such as the argument histories of runs) is not carried over to copies.
+
+## Search
+
+A field above the tree (`search/ExplorerSearchBar`, placed by the window's `ExplorerPanel` between the button bar and the
+tree; magnifier, prompt "Search files", a status line under it that takes no room while empty) filters the tree by
+file and folder names, in every top-level node ([ADR 0176](../adr/0176-explorer-search.md)). Disabled while the explorer
+has no roots.
+
+- **Text**: under 3 characters nothing is searched (status "Type at least 3 characters"; an empty field shows no status);
+  from 3 on, typing is debounced (250 ms) and a background walk reads the disk with the tree's own listing rule (Hide
+  Generated Files, never `.git`, symlinked folders not followed). Case-insensitive; a text without `/` matches the
+  name, with `/` the path relative to the root (`main/App` finds `src/main/App.kt`, a leading `/` means "a name
+  starting with": `/build`). Status: "Searching…", "No matches", "1 match", "N matches", "First 100 matches, type more
+  to narrow" at 100 matches; when the walk stopped after 200 000 visited entries with fewer, "N matches in the first
+  200 000 entries, type more to narrow". Searching again after a change keeps the count until the new result.
+- **Result**: the matches with their folders expanded; a matched folder shows collapsed and its whole content when
+  expanded. The matching part of each name is highlighted (`explorer-search-hit`).
+- **Clear** (Escape, empty field, under 3 characters): the folders expanded before the search expand again and the
+  selection stays selected and visible; the focus does not move.
+- **While searching**: Select Opened File, Select in Explorer and entries the explorer created, renamed, pasted or moved
+  join the results and are selected, until the text changes. Files changing in loaded folders, F5 / Refresh and toggling
+  Compact Middle Folders or Hide Generated Files search again, keeping selection and extras.
+- **Keys**: Shortcut+F in the tree focuses the field and selects its text. In the field: Escape clears the text, or
+  focuses the tree when it is empty; Down selects the first match and focuses the tree; Enter opens the first matching
+  file, or selects the first match when only folders match. Both wait for the results of the text typed so far. Opening other roots (another project) clears the field.
+- **Code**: `search/ExplorerSearch` (state: minimum, debounce, stale results, status; unit-tested), `NameQuery` and
+  `searchNames` (match rule and walk), `ExplorerSearchWiring` (view wiring), `tree/TreeSearch` and `TreeSearchFilter`
+  (the filter inside the lazy tree), `tree/PathCell` (highlight).

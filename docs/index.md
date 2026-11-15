@@ -200,6 +200,7 @@ updated when the summary or keywords no longer fit.
 | [0173](adr/0173-pushing-tags-and-tag-submenus.md) | Push Tag in the tag menus; tags at a commit get submenus, several under Tags | push tags, Push Tag, `pushTags`, `PushTags`, tag submenu, Tags submenu, commit menu, `already exists`, remote | amends 0049, 0078, 0171, 0172 |
 | [0174](adr/0174-barcodes-tool.md) | Barcodes tool with ZXing core: crisp module grids, ECI only beyond Latin-1, multi-code reading | `barcodes`, QR code, ZXing, Data Matrix, Aztec, PDF417, EAN-13, UPC-A, Code 128, ECI, read barcode | amends 0047; amended by 0175; see 0110, 0112 |
 | [0175](adr/0175-image-size-caps.md) | Image size caps: shared header reader refuses images too large to decode, before JavaFX allocates them | `image-limits`, image size, decompression bomb, megapixels, `ImageHeaders`, `ImageLimits`, WebP, ICO, animated GIF, progressive JPEG | amends 0174 |
+| [0176](adr/0176-explorer-search.md) | Explorer search: background walk with the tree's listing rule, filter inside the lazy tree, restore on clear | explorer search, `ExplorerSearch`, `NameQuery`, `searchNames`, `TreeSearchFilter`, `TreeSearch`, name filter, Shortcut+F, 100 matches, debounce | see 0095, 0096, 0158, 0168 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -218,7 +219,7 @@ updated when the summary or keywords no longer fit.
 ### Explorer
 | Feature | Summary | Keywords |
 |---|---|---|
-| [file-explorer.md](features/file-explorer.md) | Project tree with file operations, multi-selection and moves, a Compact Middle Folders and a Hide Generated Files toggle | tree, New File, Rename F2, drag move, paste image, compact folders, Hide Generated Files, `folder-cog`, Select Opened File, Reveal, Open in Terminal, Alt+1 |
+| [file-explorer.md](features/file-explorer.md) | Project tree with file operations, multi-selection and moves, a Compact Middle Folders and a Hide Generated Files toggle | New File, Rename F2, drag move, paste image, compact folders, Hide Generated Files, `folder-cog`, Select Opened File, Open in Terminal, Alt+1, search files, Shortcut+F |
 | [scratch-files.md](features/scratch-files.md) | Scratch files of any type under the explorer's Scratches root, also generated ones | New Scratch File, Shortcut+Shift+N, `~/.sluide/scratches`, type picker, generated scratch files, Shortcut+Shift+G, UUID, ULID, password, encrypted scratch files |
 | [file-watching.md](features/file-watching.md) | `FileWatcher` reports folder changes to explorer, editor and git | `FileWatcher`, watches, combined events, macOS polling |
 | [generated-folders.md](features/generated-folders.md) | Which folders count as generated, how the explorer hides them with git, generated files, the toggle and icons | generated folders, generated files, .DS_Store, `file-cog`, node_modules, .venv, CACHEDIR.TAG, pyvenv.cfg, `generatedReason`, `explorer.hideGeneratedFolders`, hide, `folder-cog` |

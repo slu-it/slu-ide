@@ -253,6 +253,10 @@ focus ([ADR 0126](../adr/0126-translate-tool.md)). Typing filters the list.
 | Shortcut+V | Paste into the selected folder, the folder of the selected file, or the project folder: copies, or moves cut entries; an image on the clipboard is pasted as a PNG |
 | Escape | Cancel a cut (when no drag runs) |
 | Shortcut+Shift+D | Compare the two selected files side by side (exactly two files; otherwise View → Show Changes) |
+| Shortcut+F | Focus the search field above the tree and select its text (consumed, so no other Shortcut+F binding sees it) |
+| Escape in the search field | Clear the text; with an empty field, focus the tree |
+| Down in the search field | Select the first match and focus the tree |
+| Enter in the search field | Open the first matching file; with only folders matching, select the first |
 | Drag entries onto a folder or the empty area | Move them (after a confirmation) |
 | Option+drag (macOS) / Ctrl+drag (Windows, Linux) entries onto a folder or the empty area | Copy them instead of moving (after a confirmation) |
 | Escape while dragging entries | Cancel the drag |
