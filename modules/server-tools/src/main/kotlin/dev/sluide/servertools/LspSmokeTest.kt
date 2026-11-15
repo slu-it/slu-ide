@@ -8,6 +8,7 @@ import tools.jackson.databind.json.JsonMapper
 import java.io.IOException
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
@@ -29,11 +30,15 @@ private const val INITIALIZE =
 /** The most messages read while waiting for the `initialize` answer (log lines, progress, server requests). */
 private const val MAX_MESSAGES = 1000
 
+/** How long a killed server and its children are waited for. */
+private val KILL_WAIT = 5.seconds
+
 /**
  * Checks that a language server's executable works before it is installed (ADR 0144, ADR 0159, ADR 0179):
  * `<executable> <versionArguments>` (skipped when null: no version command) must print a first line starting with
  * [versionPrefix] within [versionTimeout] and exit 0, and the server's [command] (executable, arguments, environment
- * and working directory; null: it cannot be started) must answer an `initialize` request within [handshakeTimeout].
+ * and working directory, created if missing; null: it cannot be started) must answer an `initialize` request within
+ * [handshakeTimeout].
  * The messages show the commands with [commandName] (`` `ty version` ``, `` `tsc --version` ``) and name the tool by
  * [name] ("not a TypeScript version"). [check] blocks the calling thread and starts the processes from an argument
  * list in the executable's folder (the server in its command's working directory if it has one). The version command
@@ -104,6 +109,8 @@ class LspSmokeTest(
         val serverCommand = "`${(listOf(commandName) + launch.arguments).joinToString(" ")}`"
         val process =
             try {
+                // A server that names a working directory of its own (jdtls's data folder) may not have one yet.
+                launch.workingDirectory?.let(Files::createDirectories)
                 ProcessBuilder(listOf(launch.executable.toString()) + launch.arguments)
                     .directory((launch.workingDirectory ?: executable.parent)?.toFile())
                     .redirectError(ProcessBuilder.Redirect.DISCARD)
@@ -159,8 +166,25 @@ class LspSmokeTest(
     private fun reason(e: ExecutionException) = e.cause?.message ?: e.cause?.javaClass?.simpleName ?: "unknown"
 
     private fun kill(process: Process) {
-        process.descendants().forEach { it.destroyForcibly() }
+        val descendants = process.descendants().toList()
+        descendants.forEach { it.destroyForcibly() }
         process.destroyForcibly()
+        // Waits (bounded) until they are gone, so that the caller can delete what they wrote.
+        val deadline = System.nanoTime() + KILL_WAIT.inWholeNanoseconds
+        try {
+            for (handle in descendants + process.toHandle()) {
+                val left = (deadline - System.nanoTime()).coerceAtLeast(0)
+                try {
+                    handle.onExit().get(left, TimeUnit.NANOSECONDS)
+                } catch (_: TimeoutException) {
+                    return
+                } catch (_: ExecutionException) {
+                    // Gone.
+                }
+            }
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
         try {
             process.outputStream.close()
         } catch (_: IOException) {

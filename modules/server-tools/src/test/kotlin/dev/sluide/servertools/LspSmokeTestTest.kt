@@ -11,6 +11,7 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
+import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -228,6 +229,44 @@ class LspSmokeTestTest {
             "`acme-ls -z` gave no answer: the output ended",
             LspSmokeTest("acme-ls", null, "", { command.copy(arguments = listOf("-z")) }).check(marker),
         )
+    }
+
+    @Test
+    fun `a working directory of the launch command that does not exist yet is created for the handshake`() {
+        val server = fakeServer("exit 7", answer("""{"jsonrpc":"2.0","id":1,"result":{}}"""))
+        val work = dir.resolve("deep/work")
+        val tool =
+            acmeTool(dir, versionArguments = null, launch = {
+                ServerCommand(it, listOf("serve", "--stdio"), workingDirectory = work)
+            })
+
+        assertNull(tool.smokeTest().check(server))
+        assertTrue(Files.isDirectory(work))
+    }
+
+    @Test
+    fun `the server and its children are gone when the check returns`() {
+        assumeTrue(!System.getProperty("os.name").startsWith("Windows"), "shell script")
+        val pids = dir.resolve("pids")
+        val server =
+            fakeServer(
+                "exit 7",
+                "echo $$ > $pids; sleep 30 & echo $! >> $pids; ${answer(
+                    """{"jsonrpc":"2.0","id":1,"result":{}}""",
+                )}; sleep 30",
+            )
+
+        assertNull(acmeTool(dir, versionArguments = null).smokeTest().check(server))
+
+        val alive =
+            pids
+                .readText()
+                .lines()
+                .filter {
+                    it.isNotBlank()
+                }.map { ProcessHandle.of(it.toLong()).map(ProcessHandle::isAlive).orElse(false) }
+        assertEquals(2, alive.size)
+        assertEquals(listOf(false, false), alive)
     }
 
     @Test
