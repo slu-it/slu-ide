@@ -36,6 +36,8 @@ update, docs to read, the master commit and your display.
    the Bash call's default timeout) until its exit code is not 5.
    Fix survivors as the rule says in `fixup!` commits (after `verify.sh --changed`), then rerun only them: the same
    call with `--survivors` added (a file whose production code the fix changed gets all its mutants again).
+   A `--unit-only` run followed by a plain `--survivors` run counts as the full run (the second adds the UI tests for
+   the unit run's survivors); never report a unit-only line alone.
 
 In a worktree (`.claude/worktrees/...`):
 - Before the first edit: `.claude/scripts/worktree-check.sh start <master commit from the brief>`. On a conflict
@@ -61,5 +63,6 @@ that added that code (a `fixup!`), not into the test commit. Check with `git sho
 
 Report briefly: commits, the verify command and its last line, per new test its red line (test name and the failing
 assertion from the digest; for a test of existing behavior, what you broke instead), the break-check summary lines (the
-full run's and the last rerun's), each survivor and timeout you left with its reason and the hand break checks of the
-lines it did not mutate, deviations from the brief, what needs a real-app look. No code dumps.
+full run's and the last rerun's, the last one from a run without `--unit-only`), each survivor and timeout you left with
+its reason and the hand break checks of the lines it did not mutate, deviations from the brief, what needs a real-app
+look. No code dumps.

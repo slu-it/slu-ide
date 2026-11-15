@@ -26,8 +26,8 @@
 # and the mutant in place are recorded in build/break-check/restore/: after a hard kill (SIGKILL) the next start
 # restores a file that holds exactly that mutant and refuses one that differs otherwise. Refuses while a file to
 # mutate has uncommitted changes, while another run is active in this tree, and when <base> is not an ancestor of HEAD.
-# Usage: .claude/scripts/break-check.sh [--display N] [--list] [--detach] [--survivors] <base> [file...]
-#                                        [-- verify-target...]
+# Usage: .claude/scripts/break-check.sh [--display N] [--list] [--detach] [--survivors] [--unit-only] <base>
+#                                        [file...] [-- verify-target...]
 #        .claude/scripts/break-check.sh --wait [seconds]
 #   --list    print each file's tests, the mutants and the guard-like lines left unmutated; run nothing
 #   --survivors  only the mutants that SURVIVED or timed out in this tree's last runs (build/break-check/survivors.json,
@@ -35,6 +35,10 @@
 #             tests. A file whose content changed since its finished run (a deleted or rewritten guard), or that has
 #             no entry (never run, or its run was aborted), gets all its mutants and its unmutated guard-like lines.
 #             Each run replaces only its own files' entries, and only when it finishes (exit 0 or 1).
+#   --unit-only  run the unit tests only, no UI stage: a quick look while iterating (a view file's full run is mostly
+#             UI time). Its survivors include mutants only a UI test can kill, and its summary says "unit tests
+#             only": finish with a plain --survivors run, which runs the UI tests for just those survivors and gives
+#             the complete result.
 #   --detach  start the run in the background and return; collect it with --wait
 #   --wait    print what the last detached run printed since the last --wait, waiting up to `seconds` (default 100,
 #             below the Bash tool's default 2-minute timeout); its exit code once finished, 5 while it still runs
@@ -62,7 +66,7 @@ logs = os.path.join(work, "logs")
 pid_file, status_file = os.path.join(work, "run.pid"), os.path.join(work, "status")
 survivors_file = os.path.join(work, "survivors.json")
 output_file, cursor_file = os.path.join(work, "output.txt"), os.path.join(work, "wait-offset")
-USAGE = ("Usage: break-check.sh [--display N] [--list] [--detach] [--survivors] <base> [file...]"
+USAGE = ("Usage: break-check.sh [--display N] [--list] [--detach] [--survivors] [--unit-only] <base> [file...]"
          " [-- verify-target...]\n"
          "       break-check.sh --wait [seconds]")
 
@@ -113,7 +117,7 @@ if args[:1] == ["--wait"]:
     wait(int(args[1]) if len(args) == 2 else 100)
 
 # --- Arguments -------------------------------------------------------------------------------------------------
-display, list_only, detach, survivors_only, base, only, extra = "", False, False, False, None, [], []
+display, list_only, detach, survivors_only, unit_only, base, only, extra = "", False, False, False, False, None, [], []
 i = 0
 while i < len(args):
     a = args[i]
@@ -123,6 +127,7 @@ while i < len(args):
     elif a == "--list": list_only = True
     elif a == "--detach": detach = True
     elif a == "--survivors": survivors_only = True
+    elif a == "--unit-only": unit_only = True
     elif a == "--":
         extra = args[i + 1:]; break
     elif a.startswith("-"): fail("Unknown option %s.\n%s" % (a, USAGE))
@@ -456,6 +461,7 @@ def run(plan, unmutated, targets):
     try:
         for path, t in targets.items():
             unit, ui = stages_for(t)
+            if unit_only: ui = []
             stages[path] = (unit, ui)
             invalidate_results(unit, ui)
             for kind, group in (("unit", unit), ("ui", ui)):
@@ -511,8 +517,9 @@ def run(plan, unmutated, targets):
         clear_restore_dir()
     run_left.extend(left)
     print("break-check: %d mutants, %d killed, %d SURVIVED, %d timeout, %d no compile; %d guard-like lines not "
-          "mutated%s" % (len(plan), counts["killed"], counts["SURVIVED"], counts["timeout"], counts["no compile"],
-                         len(unmutated), " (--list shows them)" if unmutated else ""))
+          "mutated%s%s" % (len(plan), counts["killed"], counts["SURVIVED"], counts["timeout"], counts["no compile"],
+                           len(unmutated), " (--list shows them)" if unmutated else "",
+                           "; unit tests only: finish with --survivors" if unit_only else ""))
     return 1 if counts["SURVIVED"] or counts["timeout"] else 0
 
 def load_survivors():

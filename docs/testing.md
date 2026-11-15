@@ -108,7 +108,9 @@ A behavior is tested once, at the lowest level that can see it
   Bash call: start it with `--detach` and call `--wait` until the exit code is not 5. It refuses uncommitted changes
   in the files it mutates, so a survivor's fix is a `fixup!` commit before the next run; `--survivors` reruns only
   the last run's survivors and timeouts, and all mutants of a file whose production code changed since or that has no
-  finished run (82 s for the popup's 9 survivors against 18 min for all 72 mutants). A survivor is a
+  finished run (82 s for the popup's 9 survivors against 18 min for all 72 mutants). `--unit-only` skips the UI
+  stages for a quick look while iterating; its survivors include what only a UI test can kill, so a plain
+  `--survivors` run afterwards gives the complete result, with UI tests only for those. A survivor is a
   vacuous test or dead code (a guard no input can reach); an equivalent one is a defensive call the caller already
   made.
 - `.claude/scripts/check-tests.sh [files]` reports fixed sleeps without a reason (poll intervals inside a `while`
