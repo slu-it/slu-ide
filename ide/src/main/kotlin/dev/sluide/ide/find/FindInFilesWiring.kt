@@ -27,8 +27,9 @@ interface FindInFilesEntry {
 
 /**
  * Find in Files of one window (ADR 0177) wired to the window's explorer (what is searched, where Find in Folder
- * starts), editors (unsaved texts, opening a match) and code intelligence (a match opened from an editor is recorded
- * for Back). Closed with the window's scope, like [CodeIntelligenceWiring].
+ * starts), editors (unsaved texts, opening a match) and code intelligence (a match is recorded for Back when the popup
+ * was opened from an editor with code intelligence, as Go to Symbol). Closed with the window's scope, like
+ * [CodeIntelligenceWiring].
  */
 @Component
 @Scope(WINDOW_SCOPE)

@@ -6,7 +6,7 @@ search in `search`, the popup in `ui`); decisions in [ADR 0177](../adr/0177-find
 
 Searches the text of every file the explorer tree shows, in the window's folders, and opens a match at its line. Open
 editors count with their unsaved text. The window's `ide` wiring passes in the folders, the tree's listing, the unsaved
-texts and the jump (so that Back and Forward return to where the search started).
+texts and the jump (Back returns to where the search started when it was opened from an editor with code intelligence).
 
 ## What is searched
 - The files the tree would show: Hide Generated Files applies, `.git` is skipped, symlinked folders are not followed.
@@ -21,7 +21,8 @@ texts and the jump (so that Back and Forward return to where the search started)
   grouped by file, and a preview of the selected match. Up/Down/PageUp/PageDown move over the matches, Enter or a
   double-click opens one, Escape hides it. The popup also hides on a click outside it.
 - Opening a match closes the popup, opens the file at the line and puts the caret on the first match of that line; the
-  jump is recorded in Back/Forward.
+  jump is recorded for Back when the popup was opened from an editor with code intelligence (as Go to Symbol); from
+  a plain or Markdown editor, the explorer, Find in Folder or a terminal nothing is recorded.
 - The key is added to the Navigate menu (Find in Files…, disabled without a folder, with no reason in the label, as
   Go to Symbol… is) by the window wiring.
 

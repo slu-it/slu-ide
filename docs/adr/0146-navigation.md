@@ -95,6 +95,6 @@ Rejected:
 - The focus check reads the scene's focus owner through `popupOwner`, the node ADR 0145 names for popups.
 - The chooser's line texts of other files are read from disk, so a file open with unsaved changes shows its saved line.
 - Window-wide popups outside the module (Find in Files, [ADR 0177](0177-find-in-files.md)) jump through `jumpStart()`
-  (captured when the popup opens, before it takes the focus) and `jump(...)`, and are recorded in the history like
-  Go to Symbol.
+  (captured when the popup opens, before it takes the focus) and `jump(...)`; the jump is recorded for Back when the
+  popup was opened from an editor with code intelligence (as Go to Symbol), otherwise nothing is recorded.
 - Listed in [../index.md](../index.md).

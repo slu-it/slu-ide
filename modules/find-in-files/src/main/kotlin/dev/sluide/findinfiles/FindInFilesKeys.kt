@@ -6,6 +6,6 @@ import javafx.scene.input.KeyCombination
 
 /**
  * Shortcut+Shift+F: Navigate → Find in Files… (ADR 0177). The explorer's folder menu shows the same combination
- * (its `FIND_IN_FOLDER_KEYS`); keep both equal.
+ * (`FIND_IN_FOLDER_KEYS` in the file-explorer module); keep both equal.
  */
 val FIND_IN_FILES_KEYS = KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)

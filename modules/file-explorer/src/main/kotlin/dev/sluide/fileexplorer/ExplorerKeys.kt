@@ -22,7 +22,10 @@ internal val PASTE_KEYS = KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_
  */
 internal val COMPARE_KEYS = KeyCodeCombination(KeyCode.D, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
 
-/** Shortcut+Shift+F: only shown by the Find in Folder item; the window's Navigate menu owns the key. */
+/**
+ * Shortcut+Shift+F: only shown by the Find in Folder item; the window's Navigate menu owns the key. Keep in sync with
+ * `FIND_IN_FILES_KEYS` in the find-in-files module.
+ */
 internal val FIND_IN_FOLDER_KEYS =
     KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
 

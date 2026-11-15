@@ -31,7 +31,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Alt+1 (Cmd+1 on macOS) | View → Explorer (expand or collapse the explorer column; not while a terminal has the focus on Linux and Windows) |
 | Alt+9 (Cmd+9 on macOS) | View → Git Log (expand or collapse) |
 | Alt+6 (Cmd+6 on macOS) | View → TODOs (expand or collapse the TODO panel; not while a terminal has the focus on Linux and Windows) |
-| Shortcut+Alt+Left (Cmd+Option+Left on macOS) | Navigate → Back (to where the last go to definition or usage jump started, [code-intelligence.md](code-intelligence.md); not while a terminal has the focus on Linux and Windows) |
+| Shortcut+Alt+Left (Cmd+Option+Left on macOS) | Navigate → Back (to where the last recorded jump started: go to definition, usages, Go to Symbol, Find in Files; [code-intelligence.md](code-intelligence.md); not while a terminal has the focus on Linux and Windows) |
 | Shortcut+Alt+Right (Cmd+Option+Right on macOS) | Navigate → Forward (not while a terminal has the focus on Linux and Windows) |
 | Shortcut+B / Alt+F7 | Navigate → Go to Definition / Find Usages, at the caret of the focused editor with code intelligence (the editor's own bindings, see [Code intelligence](#code-intelligence)) |
 | Shortcut+F12 (Cmd+F12 on macOS, which may need Fn when the F keys control the Mac) | Navigate → File Structure of the focused editor with code intelligence (the editor's own binding, see [Code intelligence](#code-intelligence)) |

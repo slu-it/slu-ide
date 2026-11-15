@@ -12,14 +12,16 @@ the unsaved text of open editors.
 ## Decision
 - **Module `find-in-files`** (package `dev.sluide.findinfiles`, editor family: it shows files and works inside the
   editors). It depends on `file-viewers` (`CodeEditorExtension`, `CodeEditors`, `FileViewers`), `file-icons`,
-  `text-editing` (`TextSearch`, the encodings) and `background-tasks` (`NamedThreads`), not on `file-explorer` or
-  `code-intelligence`: those are unrelated feature modules, so `ide` wires them through callbacks (the listing, the
-  roots, the focused folder, the jump with Back/Forward history), as the module rules ask.
+  `text-editing` (`TextSearch`, the encodings), `settings` (`api`, `FontSettings` for the editor font) and
+  `background-tasks` (`NamedThreads`), not on `file-explorer` or `code-intelligence`: those are unrelated feature
+  modules, so `ide` wires them through callbacks (the listing, the roots, the focused folder, the jump with
+  Back/Forward history), as the module rules ask.
 - **Files searched: exactly what the tree would show.** The walk lists folders with a function `ide` passes in (the
   explorer's `shownEntries`: Hide Generated Files, revealed folders, sorting), depth-first in tree order, roots (project
   and scratches) in tree order. `.git` entries are skipped, symlinked folders are not followed (a symlinked file is
   searched), only regular files are read; dotfiles are searched. A folder that cannot be listed is skipped.
-- **Opening a match** goes through `CodeIntelligence.jump` (Back/Forward history); it returns `false` when it
+- **Opening a match** goes through `CodeIntelligence.jump` (Back/Forward history, recorded only from an editor with code
+  intelligence, see Popup below); it returns `false` when it
   could not open the file: no host (a window where no code editor was ever opened) or the host could not open it. `ide`'s
   `FindInFilesWiring` then opens it with `EditorArea.open(file, line, column)`, which also fails for the second reason.
 - **Reading like the editor**: a dirty open editor's buffer is searched instead of the file (a snapshot taken on the FX
@@ -52,9 +54,10 @@ the unsaved text of open editors.
 - **Popup**: a focus-taking `javafx.stage.Popup` owned by the window (the rules of the popups you type into,
   [0149](0149-rename-file-structure-go-to-symbol.md)), centred at the top of the window: query field, toggles Aa / W /
   .*, file mask, scope chip; status line; the results grouped by file (header rows are not selectable); a read-only
-  preview of the selected match. Enter or double-click opens the match at its line and column, recorded in the
-  Back/Forward history ([0146](0146-navigation.md)); Escape hides. Query, toggles and mask are remembered per window
-  for its lifetime; the scope never is.
+  preview of the selected match. Enter or double-click opens the match at its line and column, recorded for Back
+  when the popup was opened from an editor with code intelligence, as Go to Symbol
+  ([0146](0146-navigation.md)); Escape hides. Query, toggles and mask are remembered per window for its lifetime; the
+  scope never is.
 - **Scope chip**: `FindInFiles` hands the view the scope as the folder's path relative to its root (its name for a
   root); the popup shows the last segment and the full relative path as tooltip. With more than one root searched the
   file headers are prefixed with the root's folder name (`severalRoots`).
@@ -70,4 +73,6 @@ the unsaved text of open editors.
   with the matches found again on that line); reads are sequential (parallel reads only if a warm search of this
   repository takes over a second); left-out features are listed in
   [../ideas/find-in-files-later.md](../ideas/find-in-files-later.md).
+- Accepted limit: the `ide` fixture has no language server, so `FindInFilesWiring`'s use of `matchOpener` is covered
+  by reading, `matchOpener` itself by `NavigateMenuUiTest`.
 - Listed in [../index.md](../index.md).
