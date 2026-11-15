@@ -5,6 +5,7 @@ import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.control.ListCell
+import javafx.scene.control.OverrunStyle
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
@@ -55,9 +56,24 @@ internal class ResultCell(
 
     private fun headerRow(row: ResultRow.Header): Node {
         val parts = headerParts(row.hits, severalRoots())
-        val name = Label(parts.name).apply { styleClass += "find-in-files-name" }
-        val folder = Label(parts.folder).apply { styleClass += "find-in-files-dim" }
-        val count = Label(parts.count).apply { styleClass += "find-in-files-dim" }
+        // A long folder gives way first, cut at its start so the folders nearest the file stay; name and count never
+        // shrink.
+        val name =
+            Label(parts.name).apply {
+                styleClass += "find-in-files-name"
+                minWidth = Region.USE_PREF_SIZE
+            }
+        val folder =
+            Label(parts.folder).apply {
+                styleClass += "find-in-files-dim"
+                textOverrun = OverrunStyle.LEADING_ELLIPSIS
+                minWidth = 0.0
+            }
+        val count =
+            Label(parts.count).apply {
+                styleClass += "find-in-files-dim"
+                minWidth = Region.USE_PREF_SIZE
+            }
         val children = listOfNotNull(icon(row.hits.file), name, folder, count)
         return HBox(6.0, *children.toTypedArray()).apply { alignment = Pos.CENTER_LEFT }
     }

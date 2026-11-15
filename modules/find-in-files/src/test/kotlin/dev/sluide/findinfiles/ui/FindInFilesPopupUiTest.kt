@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -405,6 +406,26 @@ internal class FindInFilesPopupUiTest {
         robot.interact { assertFalse("project" in headerLabels()) }
         robot.interact { popup.severalRoots = true }
         waitUntil { "project" in headerLabels() }
+    }
+
+    @Test
+    fun `a long folder gives way in the header, the name and the count keep their width`(robot: FxRobot) {
+        setUp(robot)
+        val deep = root.resolve("a".repeat(60) + "/" + "b".repeat(60) + "/" + "c".repeat(60) + "/Name.kt")
+        robot.interact { popup.add(listOf(FileHits(deep, root, listOf(hit(0)), 120, true))) }
+        waitUntil { popup.list.lookupAll(".find-in-files-cell").any { (it as? ListCell<*>)?.index == 0 } }
+
+        robot.interact {
+            val labels = cell(0).lookupAll(".label").filterIsInstance<Label>().associateBy { it.text }
+            for (text in listOf("Name.kt", "(120+)")) {
+                val label = assertNotNull(labels[text], "label $text")
+                // A label narrower than its text shows it cut with an ellipsis.
+                assertTrue(
+                    label.width >= label.prefWidth(-1.0),
+                    "$text is cut: ${label.width} < ${label.prefWidth(-1.0)}",
+                )
+            }
+        }
     }
 
     @Test
