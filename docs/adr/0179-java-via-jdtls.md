@@ -73,8 +73,11 @@ new foundation mode, `WorkspaceFolderMode.ROOTS_ONLY`: `initialize` gets no work
 the server in a `didChangeWorkspaceFolders` of its own, in order, also after a restart. The build root of a `.java`
 file, inside the window folder: for Gradle the nearest folder upwards with `settings.gradle(.kts)`, else the nearest
 with `build.gradle(.kts)`; for Maven the nearest `pom.xml` folder, then upwards while the parent's `pom.xml` lists the
-folder in `<modules>` (parsed without DTDs, size-limited); a folder with both is Gradle. Files with no root are loose:
-the default project, JDK-level hover and completion, syntax-only diagnostics. Folders whose documents all closed stay
+folder in `<modules>` (parsed without DTDs, size-limited); a folder with both is Gradle. The build root the rules
+pick must be covered, as the trust checks see folders (at most 8 deep below the window folder, no hidden, output or
+link segment; Java also skips `target` and `bin`); otherwise the file is loose and nothing is imported, and the build
+further up is not used instead. The Maven check also fingerprints the poms of the modules a reactor lists, wherever
+they are. Files with no root are loose: the default project, JDK-level hover and completion, syntax-only diagnostics. Folders whose documents all closed stay
 until the window closes (ADR 0151).
 
 **Separation.** Gradle builds stay apart; Maven builds that depend on each other by coordinates see each other's
