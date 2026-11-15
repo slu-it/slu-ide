@@ -4,6 +4,7 @@ import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.control.TextField
+import javafx.scene.control.TreeCell
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.HBox
@@ -104,6 +105,12 @@ class ExplorerSearchBarUiTest : FileExplorerViewUiFixture() {
 
     private fun hits(robot: FxRobot): List<Label> =
         robot.lookup(".explorer-search-hit").queryAllAs(Label::class.java).toList()
+
+    /** The hit in the selected row (the one of `App.kt`); the lookup's order says nothing about the rows. */
+    private fun selectedHit(robot: FxRobot): Label =
+        hits(robot).single { hit ->
+            generateSequence<Node>(hit) { it.parent }.filterIsInstance<TreeCell<*>>().first().isSelected
+        }
 
     @Test
     fun `typing three characters filters the tree and shows the count`(robot: FxRobot) {
@@ -304,6 +311,39 @@ class ExplorerSearchBarUiTest : FileExplorerViewUiFixture() {
                         .apply { font = parts[it].font }
                 assertEquals(text.layoutBounds.width, parts[it].width, 1.0, "width of ${parts[it].text}")
             }
+        }
+    }
+
+    @Test
+    fun `the hit on a selected row is washed dark only while the tree has the focus`(robot: FxRobot) {
+        open(robot)
+        type(robot, "app")
+        eventually(robot) { assertEquals("2 matches", status().text) }
+        robot.interact {
+            val row = (0 until view.expandedItemCount).first { view.getTreeItem(it).value.name == "App.kt" }
+            view.selectionModel.select(row)
+            view.requestFocus()
+        }
+
+        eventually(robot) {
+            val wash =
+                selectedHit(robot)
+                    .background.fills
+                    .first()
+                    .fill as Color
+            assertTrue(wash.red < 0.1, "the focused selection has the dark wash: $wash")
+        }
+
+        // The unfocused selection is light grey in the light theme: the amber stays.
+        robot.interact { field.requestFocus() }
+
+        eventually(robot) {
+            val wash =
+                selectedHit(robot)
+                    .background.fills
+                    .first()
+                    .fill as Color
+            assertTrue(wash.red > 0.9, "the unfocused selection keeps the amber wash: $wash")
         }
     }
 

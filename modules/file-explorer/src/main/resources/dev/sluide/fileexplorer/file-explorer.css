@@ -142,8 +142,11 @@
     -fx-background-insets: 0 -1 0 -1;
 }
 
-/* On the selection bar the wash is dark, as the text there is light in both themes. */
-.tree-cell:selected .explorer-search-hit {
+/*
+ * On the selection of the focused tree (blue, light text in both themes) the wash is dark; on the unfocused selection
+ * (light grey in the light theme, dark grey in the dark one) the amber stays readable.
+ */
+.tree-view:focused .tree-cell:selected .explorer-search-hit {
     -fx-background-color: rgba(0, 0, 0, 0.4);
 }
 
