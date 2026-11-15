@@ -201,6 +201,7 @@ updated when the summary or keywords no longer fit.
 | [0174](adr/0174-barcodes-tool.md) | Barcodes tool with ZXing core: crisp module grids, ECI only beyond Latin-1, multi-code reading | `barcodes`, QR code, ZXing, Data Matrix, Aztec, PDF417, EAN-13, UPC-A, Code 128, ECI, read barcode | amends 0047; amended by 0175; see 0110, 0112 |
 | [0175](adr/0175-image-size-caps.md) | Image size caps: shared header reader refuses images too large to decode, before JavaFX allocates them | `image-limits`, image size, decompression bomb, megapixels, `ImageHeaders`, `ImageLimits`, WebP, ICO, animated GIF, progressive JPEG | amends 0174 |
 | [0176](adr/0176-explorer-search.md) | Explorer search: background walk with the tree's listing rule, filter inside the lazy tree, restore on clear | explorer search, `ExplorerSearch`, `NameQuery`, `searchNames`, `TreeSearchFilter`, `TreeSearch`, name filter, Shortcut+F, 100 matches, debounce | see 0095, 0096, 0158, 0168 |
+| [0177](adr/0177-find-in-files.md) | Find in Files: background content search with the tree's listing rule, streamed into a focus-taking popup | find in files, `FindInFiles`, `FindInFilesSearch`, `searchContents`, `FileMask`, `SearchLimits`, Shortcut+Shift+F, Find in Folder, file mask, find-in-files | see 0176, 0146, 0149, 0108 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -326,3 +327,4 @@ Explored but not decided or built; options and trade-offs, no commitment.
 | [editor-split-later.md](ideas/editor-split-later.md) | Split editor area ideas left for later: keys to move and focus sides, same file on both sides, vertical split | split, Shortcut+\, focus side, vertical split, divider |
 | [image-limits.md](ideas/image-limits.md) | Image cap ideas left for later: Markdown preview and ebook images, SVG raster sizes, viewer read, TODO decode width | image size, decompression bomb, `<img>`, WebKit, ebook, SVG raster, `readFile`, decode width |
 | [games.md](ideas/games.md) | Game ideas left for later: statistics, no-guess boards, resuming after a restart, further games, a WebView variant | statistics, Word Guess, no-guess, daily word, Doubles, Sudoku, Solitaire, Orbit Guard, Block Breaker, Mini Golf, Pipe Puzzle, WebView |
+| [find-in-files-later.md](ideas/find-in-files-later.md) | Find in Files ideas left for later: Replace in Files, result panel, live re-run, parallel reads | Find in Files, Replace in Files, result panel, live re-run, editable preview, parallel reads, query history |
