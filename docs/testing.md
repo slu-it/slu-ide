@@ -95,8 +95,18 @@ A behavior is tested once, at the lowest level that can see it
   the wiring between modules.
 - **Same test, other input:** one `@ParameterizedTest` (`@ValueSource`, `@MethodSource`, `@CsvSource`) instead of
   copies.
-- **It must fail without the code.** For a test whose failure is not obvious (wiring, races, negative checks),
-  break the code once, see the test fail, restore it.
+- **Red before green** ([ADR 0178](adr/0178-red-before-green.md)). Stubs of the brief's new signatures return a
+  neutral value (an empty list, `null`, `false`, an empty body), not `TODO()`, so a test's first run with
+  `.claude/scripts/verify.sh <TestClass>` fails on its assertion. Order matters for guards: a test of a range check
+  written while `modeOf` already rejected the same input stayed green with the check removed. A break check by hand:
+  copy the file, break it, see the test fail, restore from the copy.
+- **The break-check script.** `.claude/scripts/break-check.sh <base> [-- <classes>]` (what it changes and skips: its
+  header) runs each changed file's module unit tests and the related test classes it finds; name the classes it
+  cannot find after `--`, or their wiring shows as false survivors. `--list` first shows the mutants, the tests and
+  the guard-like lines it does not mutate (`?: return`, `when` branches, multi-line conditions). A run can outlast one
+  Bash call: start it with `--detach` and call `--wait` until the exit code is not 5. It refuses uncommitted changes
+  in the files it mutates, so a survivor's fix is a `fixup!` commit before the next run. A survivor is a vacuous test
+  or dead code (a guard no input can reach); an equivalent one is a defensive call the caller already made.
 - `.claude/scripts/check-tests.sh [files]` reports fixed sleeps without a reason (poll intervals inside a `while`
   loop do not count), synthetic OS input without a `//` reason, `waitForFxEvents()` right after `interact` and test
   classes over 800 lines; a hook runs it on newly written test code. `.claude/scripts/test-times.sh` lists task

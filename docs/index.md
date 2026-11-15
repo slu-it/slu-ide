@@ -108,7 +108,7 @@ updated when the summary or keywords no longer fit.
 | [0081](adr/0081-parallel-ui-tests-on-a-display-pool.md) | Modules' `uiTest` tasks run in parallel on a display pool | `uiTest`, `DisplayService`, `sluide.uiDisplays`, Xvfb, `full-build.sh` | amended by 0082 |
 | [0082](adr/0082-split-ui-tests-of-long-modules.md) | Long modules' UI tests split into two parts | `uiTestSplits`, `uiTestPart1`, `uiTestPart2`, git-log, previews | amends 0081 |
 | [0083](adr/0083-zooming-document-previews.md) | Document previews zoom with `WebView.zoom` | zoom, `WebView.zoom`, document previews, Shortcut+wheel | amends 0033 |
-| [0084](adr/0084-testability-logic-out-of-controls.md) | Controls are thin adapters; test each behavior at the lowest level | testability, pure functions, host interface, UI test level, wiring test | |
+| [0084](adr/0084-testability-logic-out-of-controls.md) | Controls are thin adapters; test each behavior at the lowest level | testability, pure functions, host interface, UI test level, wiring test | amended by 0178 |
 | [0085](adr/0085-gradle-integration.md) | Gradle integration: wrapper detection, trust, task tree, runs | `gradle` module, `gradlew`, `GradleTrustCheck`, init script, `GradleSession` | amended by 0087, 0088 |
 | [0086](adr/0086-embedded-command-terminals.md) | Other views embed one-command terminals | `Terminals.embed`, `EmbeddedTerminal`, exit code, Ctrl+C | amends 0007; amended by 0087, 0088 |
 | [0087](adr/0087-commands-in-an-interactive-login-shell.md) | Commands run in an interactive login shell (`$SHELL -l -i -c`) | login shell, `.zshrc`, `loginShellFinds`, SDKMAN, nvm | amends 0010, 0085, 0086; amended by 0117 |
@@ -202,6 +202,7 @@ updated when the summary or keywords no longer fit.
 | [0175](adr/0175-image-size-caps.md) | Image size caps: shared header reader refuses images too large to decode, before JavaFX allocates them | `image-limits`, image size, decompression bomb, megapixels, `ImageHeaders`, `ImageLimits`, WebP, ICO, animated GIF, progressive JPEG | amends 0174 |
 | [0176](adr/0176-explorer-search.md) | Explorer search: background walk with the tree's listing rule, filter inside the lazy tree, restore on clear | explorer search, `ExplorerSearch`, `NameQuery`, `searchNames`, `TreeSearchFilter`, `TreeSearch`, name filter, Shortcut+F, 100 matches, debounce | see 0095, 0096, 0158, 0168 |
 | [0177](adr/0177-find-in-files.md) | Find in Files: background content search with the tree's listing rule, streamed into a focus-taking popup | find in files, `FindInFiles`, `FindInFilesSearch`, `searchContents`, `FileMask`, `SearchLimits`, Shortcut+Shift+F, Find in Folder, file mask, find-in-files | see 0176, 0146, 0149, 0108 |
+| [0178](adr/0178-red-before-green.md) | Red before green: each test fails before its code, and `break-check.sh` mutates every change once | TDD, test first, red, vacuous test, break check, mutation, fakes of external tools, fix test fails first | amends 0084 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features

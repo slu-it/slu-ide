@@ -34,7 +34,8 @@ about 2:15 together with [ADR 0082](0082-split-ui-tests-of-long-modules.md)'s pr
   logic (the call must happen; the logic's cases are the unit test's job). Feature behavior is tested in its module;
   `ide` tests the wiring between modules. Shared code is tested in one place, with one smoke test per user.
 - **A test fails without the code it covers.** For a test whose failure is not obvious, break the code once and see
-  it fail.
+  it fail. Amended by [ADR 0178](0178-red-before-green.md): every test runs red before its code exists, and a script
+  removes each new guard once.
 
 ## Consequences
 - Most new behavior gets unit tests; a new `@Tag("ui")` test needs a reason a unit test cannot cover it.

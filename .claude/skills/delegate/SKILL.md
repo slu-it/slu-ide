@@ -53,9 +53,11 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
 4. Tests, with the level per behavior (`docs/testing.md`, "Choosing the test level"): unit, naming the function or
    class to extract when the logic sits in a control, or `@Tag("ui")` with the reason it needs a scene, plus the one
    wiring test an extraction keeps. Name the existing test classes that cover neighbouring behavior, to extend
-   rather than duplicate. Agents skip what a brief does not name, so name: the break check of every new guard,
-   wiring and race; the paint check of what the user sees; the hostile inputs for untrusted content; fixtures built
-   with the real builder of the output they fake; `docs/testing.md`, "Portability" for tests that depend on the OS.
+   rather than duplicate. Agents skip what a brief does not name, so name: for every new guard, wiring line and
+   race, the input on which only it decides the outcome; for a fix, the test that fails on master; the paint check
+   of what the user sees; the hostile inputs for untrusted content; fixtures built with the real builder of the
+   output they fake, and for fakes of external tools the real behavior they must copy (exit codes, driver modes);
+   `docs/testing.md`, "Portability" for tests that depend on the OS.
 5. Test classes to run. `verify.sh --changed` already runs the touched modules' unit tests and every class
    `.claude/scripts/related-tests.sh` finds for the changed files, so name only what that search cannot see: a
    behavior tested through another class, consumers in other modules, `:ide`'s `SpringWiringTest` when an API
@@ -78,13 +80,16 @@ stayed unchanged may find it removed when it resumes; send a new agent with a ne
 ## Reviewer brief
 - What to review: `git diff master...<branch>` in the package's worktree (path and branch from the implementer's
   report), or a commit range on master.
-- The implementer's brief or the plan section, and the implementer's report (test commands, break checks).
+- The implementer's brief or the plan section, and the implementer's report (test commands, red lines, break-check
+  summary and survivors).
 - A display of its own, if it may confirm a suspected failure with a test.
 - Not the main session's conclusions: give it the code and docs to judge.
 
 ## Review loop
 The reviewer labels each finding Blocker, Should or Nit (definitions in `.claude/agents/reviewer.md`).
-- Blockers and Shoulds go back to the same implementer with SendMessage (it keeps its context).
+- Blockers and Shoulds go back to the same implementer with SendMessage (it keeps its context). The message asks
+  for the fix's test red first: failing on the unfixed code for a bug, failing with the guard removed for a vacuous
+  test; then `break-check.sh` again.
 - A re-review only when a Blocker was fixed; for fixed Shoulds the main session reads the fix diff itself.
 - Nits: the main session fixes the ones worth a line itself, or drops them; the final report names what was dropped.
   Nits never start another implementer round.
@@ -141,6 +146,9 @@ the gate again. Hand back to the implementer only when the failure turns out to 
   `.claude/scripts/test-times.sh` reads the times afterwards.
 
 When the main session fixes something itself:
+- Red before green holds for the main session's fixes too. Once a fix is committed, `break-check.sh <base> <file>`
+  on the touched files replaces the hand break check (it refuses uncommitted files), except for the lines it lists
+  as not mutated.
 - Read a break check's result as a pass or fail of its own. Spotless reformats code after an edit, so a marker or a
   `sed` restore can stop matching: check the restored line with `grep` before committing.
 - Restore a break check from a copy of the file (`cp` before breaking), never with `git checkout -- <file>`: while

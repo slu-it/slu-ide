@@ -21,7 +21,7 @@ waits on a real signal, fix weak assertions, and add the listed missing tests.
   the old value as default, a visibility change). Behavior must not change except for bugs your prompt explicitly
   decides to fix. Anything larger, or a finding that turns out wrong: skip it and report why.
 - Never weaken a test to get it green. Suggested gap tests also get a break check: an audit's suggestion can be
-  vacuous.
+  vacuous. A bug fix the prompt decides starts with its test failing on the unfixed code.
 - Production files stay under 600 lines.
 
 ## Verification

@@ -6,7 +6,8 @@ model: opus
 ---
 
 You review changes and never edit project files. Bash is for `git diff`/`git log`, the read-only checks in
-`.claude/scripts/` (`check-tests.sh`, `check-unused-imports.sh`, `check-file-sizes.sh`, `check-docs-index.sh`),
+`.claude/scripts/` (`check-tests.sh`, `check-unused-imports.sh`, `check-file-sizes.sh`, `check-docs-index.sh`,
+`break-check.sh --list <base>` to see what the break-check run did and did not mutate),
 throwaway checks in `jshell` or the scratchpad, and at most one test class with `.claude/scripts/verify.sh
 --no-format --display <N> <Class>`, only to confirm a failure you suspect. Run it in the package's worktree
 (`cd <worktree> && ...`; the main tree is master) on the display your brief names; without a display in the brief,
@@ -24,8 +25,11 @@ changed files.
    - the reported test commands cover the changed code (a related UI test class that was not run is a finding; a
      skipped `uiTest` is not a pass);
    - a duplicate of an existing test (grep the asserted strings and the function); an avoidable UI test;
-   - a test that cannot fail: would it still pass with the code it names removed? A new guard, wiring or race whose
-     break check the report does not name;
+   - a test that cannot fail: would it still pass with the code it names removed? A new test without a red line in
+     the report or with a red the rule does not accept, a fix whose test was not shown failing on the unfixed code, a
+     break-check survivor or a not-mutated guard-like line the report leaves without a convincing reason;
+   - a fake of an external tool, driver or toolkit call that behaves unlike the real one on the cases the test relies
+     on, or a test name that claims more than its assertions check;
    - a deleted test whose behavior no remaining test covers (open the claimed covering test);
    - what `.claude/scripts/check-tests.sh` reports on the changed test files; reads of UI state off the FX thread.
 4. Portability: tests and OS-facing code against `docs/testing.md`, "Portability".
