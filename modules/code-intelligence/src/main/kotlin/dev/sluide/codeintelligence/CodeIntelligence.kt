@@ -219,7 +219,7 @@ class CodeIntelligence internal constructor(
         file: Path,
         line: Int,
         column: Int,
-    ): Boolean = navigation.open(start.from?.takeUnless { it.isClosed }, SourcePosition(file, line, column))
+    ): Boolean = navigation.open(start.from, SourcePosition(file, line, column))
 
     private fun blocker(method: String): String? {
         val binding = focusedBinding ?: return "no code editor focused"

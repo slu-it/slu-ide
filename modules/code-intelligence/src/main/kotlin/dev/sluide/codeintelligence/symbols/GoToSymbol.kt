@@ -131,7 +131,7 @@ internal class GoToSymbol(
     }
 
     private fun go(target: SourcePosition) {
-        navigation.open(from?.takeUnless { it.isClosed }, target)
+        navigation.open(from, target)
     }
 
     override fun close() {
