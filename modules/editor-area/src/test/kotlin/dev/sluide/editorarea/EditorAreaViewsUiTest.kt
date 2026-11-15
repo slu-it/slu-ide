@@ -198,6 +198,9 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         assertEquals(99, code.currentParagraph, "beyond the end: the last line")
         robot.interact { assertTrue(host.openFile(text, 41, 3)) }
         assertEquals(41 to 3, code.currentParagraph to code.caretColumn, "at a line and column")
+        robot.interact { assertTrue(area.open(text, 7, 2), "the area's own entry, used by Find in Files") }
+        assertEquals(7 to 2, code.currentParagraph to code.caretColumn)
+        robot.interact { assertFalse(area.open(dir.resolve("missing.txt"), 1, 1)) }
 
         val markdown = textFile("notes.md", (1..200).joinToString("\n\n") { "Paragraph $it" })
         robot.interact { host.openFile(markdown) }

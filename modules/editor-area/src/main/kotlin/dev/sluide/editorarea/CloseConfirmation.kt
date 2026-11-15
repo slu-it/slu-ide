@@ -115,6 +115,15 @@ internal fun gitChangeChoiceOf(answer: ButtonType): SaveChoice =
 internal fun closeTabsTexts(count: Int): Pair<String, String> =
     if (count == 1) "Close Tab" to "Close this tab anyway?" else "Close Tabs" to "Close these tabs anyway?"
 
+/** Asks whether to close tabs with [warnings] ([EditorArea.confirmClose]'s default). */
+internal fun askToCloseTabs(
+    owner: Window?,
+    warnings: List<String>,
+): Boolean {
+    val (title, header) = closeTabsTexts(warnings.size)
+    return askToClose(owner, title, header, warnings)
+}
+
 /** The dialog of [askToSaveBeforeGitChange], not shown yet. */
 internal fun gitChangeSaveConfirmation(
     owner: Window?,

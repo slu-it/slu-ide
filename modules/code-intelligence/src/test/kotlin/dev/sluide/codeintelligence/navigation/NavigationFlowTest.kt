@@ -94,22 +94,26 @@ class NavigationFlowTest {
         supported: Set<String> = setOf(DEFINITION, REFERENCES, DOCUMENT_HIGHLIGHT),
         name: String = "a.py",
     ): FakeCodeEditor {
-        if (!::fx.isInitialized) {
-            fx = FxServers(folder, spec) { NavigationServer(supported) }
-            server = fx.fake.awaitRunning(spec) as NavigationServer
-            intelligence =
-                fx.onFx {
-                    CodeIntelligence(fx.servers, FXCollections.observableSet()) {
-                        listOf(NavigationFeature(navigation, lines) { view })
-                    }.apply { navigation.isFocused = { it.editor === focused } }
-                }
-        }
+        start(supported)
         val path = folder.resolve(name)
         path.writeText(text)
         val editor = FakeCodeEditor(path, text, host).apply { this.caret = caret }
         fx.onFx { intelligence.extend(editor) }
         focused = editor
         return editor
+    }
+
+    /** The servers and the code intelligence, started once; the first editor starts them, a test may do it without. */
+    private fun start(supported: Set<String> = setOf(DEFINITION, REFERENCES, DOCUMENT_HIGHLIGHT)) {
+        if (::fx.isInitialized) return
+        fx = FxServers(folder, spec) { NavigationServer(supported) }
+        server = fx.fake.awaitRunning(spec) as NavigationServer
+        intelligence =
+            fx.onFx {
+                CodeIntelligence(fx.servers, FXCollections.observableSet()) {
+                    listOf(NavigationFeature(navigation, lines) { view })
+                }.apply { navigation.isFocused = { it.editor === focused } }
+            }
     }
 
     private fun actions(editor: FakeCodeEditor) =
@@ -320,7 +324,7 @@ class NavigationFlowTest {
         val editor = editor(caret = 34)
         val start = fx.onFx { intelligence.jumpStart() }
         focused = null
-        fx.onFx { intelligence.jump(start, file, 2, 4) }
+        assertTrue(fx.onFx { intelligence.jump(start, file, 2, 4) }, "opened through the host")
         assertEquals(listOf(SourcePosition(file, 2, 4)), opened)
         assertEquals(listOf(SourcePosition(file, 3, 12)), intelligence.history.places.first)
 
@@ -346,6 +350,14 @@ class NavigationFlowTest {
         fx.onFx { intelligence.jump(start, file, 2, 4) }
         assertEquals(listOf(SourcePosition(file, 2, 4)), opened)
         assertEquals(emptyList(), intelligence.history.places.first)
+    }
+
+    @Test
+    fun `a jump in a window where no editor was ever bound goes nowhere and says so`() {
+        start()
+        val start = fx.onFx { intelligence.jumpStart() }
+        assertFalse(fx.onFx { intelligence.jump(start, file, 2, 4) }, "no host to open it through")
+        assertEquals(emptyList(), opened)
     }
 
     @Test

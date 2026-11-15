@@ -51,7 +51,7 @@ class EditorArea(
      * Asked before tabs are closed from the UI if some of them have a [EditorTab.closeWarning]; returns whether to
      * close them. Shows a confirmation dialog; tests replace it.
      */
-    var confirmClose: (warnings: List<String>) -> Boolean = ::showCloseDialog
+    var confirmClose: (warnings: List<String>) -> Boolean = { warnings -> askToCloseTabs(scene?.window, warnings) }
 
     /**
      * Asked before files with unsaved changes are closed, with their paths in the [projectFolder] (full paths outside of
@@ -175,6 +175,13 @@ class EditorArea(
         focus(openFile)
         return true
     }
+
+    /** Opens [file] like [open], then puts the caret at the 0-based [line] and [column]; `false` if it cannot be shown. */
+    fun open(
+        file: Path,
+        line: Int,
+        column: Int,
+    ): Boolean = viewHost.openFile(file, line, column)
 
     /**
      * Opens a new tab for [path], which is not open, with the first viewer that can show it, selected if [select];
@@ -496,7 +503,7 @@ class EditorArea(
     ): Boolean {
         val dirty = editorTabs.filesUnder(folder).filter { it.isDirty }
         if (dirty.isEmpty()) return true
-        return when (confirmSaveBeforeGitChange(dirty.map(::shownPath), action)) {
+        return when (confirmSaveBeforeGitChange(dirty.map { shownPath(it.path, projectFolder()) }, action)) {
             SaveChoice.SAVE -> dirty.map(::save).all { it }
             SaveChoice.DISCARD -> true
             SaveChoice.CANCEL -> false
@@ -507,19 +514,11 @@ class EditorArea(
     private fun saveBeforeClosing(tabs: List<EditorTab>): Boolean {
         val dirty = tabs.filterIsInstance<OpenFile>().filter { it.isDirty }
         if (dirty.isEmpty()) return true
-        return when (confirmSave(dirty.map(::shownPath))) {
+        return when (confirmSave(dirty.map { shownPath(it.path, projectFolder()) })) {
             SaveChoice.SAVE -> dirty.map(::save).all { it }
             SaveChoice.DISCARD -> true
             SaveChoice.CANCEL -> false
         }
-    }
-
-    /** The path of [openFile] as questions show it: within the project folder, or in full outside of it. */
-    private fun shownPath(openFile: OpenFile): String = shownPath(openFile.path, projectFolder())
-
-    private fun showCloseDialog(warnings: List<String>): Boolean {
-        val (title, header) = closeTabsTexts(warnings.size)
-        return askToClose(scene?.window, title, header, warnings)
     }
 
     /**

@@ -70,21 +70,20 @@ internal class Navigation(
     fun jump(
         from: DocumentBinding,
         to: SourcePosition,
-    ) {
+    ): Boolean {
         history.record(caretPosition(from), to)
-        go(to, from)
+        return go(to, from)
     }
 
     /**
      * Jumps to [to] from the caret of [from] (recorded in the history), or, without a bound editor to start from, opens
-     * it through the host without a place to come back to (go to symbol from the explorer).
+     * it through the host without a place to come back to (go to symbol from the explorer). `false` if it went
+     * nowhere: no editor of the window ever had a host to open it through, or the host could not show the file.
      */
     fun open(
         from: DocumentBinding?,
         to: SourcePosition,
-    ) {
-        if (from != null && !from.isClosed) jump(from, to) else go(to, null)
-    }
+    ): Boolean = if (from != null && !from.isClosed) jump(from, to) else go(to, null)
 
     /** Goes back to the place before the last jump; `false` if there is none. */
     fun back(): Boolean = step(history::back)
@@ -101,19 +100,19 @@ internal class Navigation(
 
     /**
      * Shows [target]: in the editor of [from] if it has the focus and shows that file (the caret moved there), else
-     * through the host, which selects the file's tab (or opens it) and puts the caret there.
+     * through the host, which selects the file's tab (or opens it) and puts the caret there. `false` without a host.
      */
     private fun go(
         target: SourcePosition,
         from: DocumentBinding?,
-    ) {
+    ): Boolean {
         if (from != null && !from.isClosed && sameFile(from.file, target.file) && isFocused(from)) {
             from.editor.jumpTo(from.offsetOf(Position(target.line, target.column)))
             from.editor.popupOwner?.requestFocus()
-            return
+            return true
         }
         val host = from?.editor?.host ?: bindings().firstOrNull()?.editor?.host ?: fallbackHost()
-        host?.openFile(target.file, target.line, target.column)
+        return host?.openFile(target.file, target.line, target.column) ?: false
     }
 }
 

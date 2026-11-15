@@ -211,14 +211,15 @@ class CodeIntelligence internal constructor(
     /**
      * Opens [file] at the 0-based [line] and [column] (UTF-16 units) like Go to Symbol does. A [start] that holds an
      * editor still open records the jump in [history], so Back returns to that editor's caret as of this call; without
-     * one the file just opens through the host and nothing is recorded.
+     * one the file just opens through the host and nothing is recorded. `false` if it could not open the file: no editor
+     * of the window ever had a host to open it through, or the host could not open it (the caller may try itself).
      */
     fun jump(
         start: JumpStart,
         file: Path,
         line: Int,
         column: Int,
-    ) = navigation.open(start.from?.takeUnless { it.isClosed }, SourcePosition(file, line, column))
+    ): Boolean = navigation.open(start.from?.takeUnless { it.isClosed }, SourcePosition(file, line, column))
 
     private fun blocker(method: String): String? {
         val binding = focusedBinding ?: return "no code editor focused"
