@@ -15,9 +15,9 @@
 # Tests per file: the unit `test` task of its module, the classes `related-tests.sh --names <file>` finds and the
 # verify.sh targets after `--` (the classes a brief names). The baseline runs them unmutated with Gradle's cached
 # results invalidated, so its time is a real run; a red baseline stops the run. Each mutant runs in stages with
-# Gradle's fail-fast on, each stage ending the mutant at its first failing test: the UI class that killed the
-# previous mutant of the file, then the unit tests, then the other UI classes. (Running only the killing test
-# methods first measured 5% faster without a daemon, within noise, and was dropped, ADR 0178.)
+# Gradle's fail-fast on, each stage ending the mutant at its first failing test: the UI test method that killed the
+# previous mutant of the file (its class for a parameterized case), then the unit tests, then the UI classes. On the
+# run's daemon that is 22% faster than the killing class first (ADR 0178).
 # A mutant counts as killed (a test failed), SURVIVED (all green), timeout (a stage ran past 4x its baseline plus
 # 60 s; not a kill: an endless loop, or load that hid a survivor, so read its log and rerun the file) or no compile
 # (ignored). Any other outcome (INCOMPLETE, NOT RUN, a Gradle failure without a failing test) stops the run with
@@ -49,7 +49,7 @@
 # Output: per mutant `killed|SURVIVED|timeout|no compile  path:line  what was changed [first failing test]`, then
 # `break-check: N mutants, K killed, S SURVIVED, T timeout, C no compile; G guard-like lines not mutated`. Each
 # verify run's output: build/break-check/logs/. About 1 s per unit-test stage on the run's daemon; a UI stage adds its
-# classes' time (the Find in Files popup: 72 mutants in 696 s), so --list and the estimate after the baseline come
+# classes' time (the Find in Files popup: 72 mutants in 541 s), so --list and the estimate after the baseline come
 # first.
 # Exit: 0 no survivor and no timeout, 1 survivors or timeouts, 2 usage or refusal, 3 a run neither passed nor
 # failed (or a detached run died), 4 internal error, 5 (--wait) still running, 128+signal when interrupted.
@@ -439,6 +439,18 @@ def verify(targets, name, timeout, gradle_args=()):
     if any(l.startswith("e: ") for l in out): return "nocompile", "", elapsed
     return "error", (out[-1] if out else "no output"), elapsed
 
+def no_tests_found(killers, name):
+    """True only for Gradle's own "no test matched the filter" with a method killer; any other error is a real one."""
+    with open(os.path.join(logs, name + ".log")) as f: log = f.read()
+    return all("#" in k for k in killers) and "No tests found for given includes" in log
+
+def killed_by(detail):
+    """`Class#method` for a digest's `Class.method(params)`, the class alone when the case has no method name Gradle
+    can filter on (a parameterized case's display name). JVM names hold no `.`, so the first dot ends the class."""
+    cls, _, rest = detail.partition(".")
+    m = re.match(r"^([^()\[\]]+)\([\w$., ]*\)$", rest)
+    return "%s#%s" % (cls, m.group(1)) if m else cls
+
 def invalidate_results(unit, ui):
     """Removes the results of the test tasks the targets resolve to (uiTest with its uiTestPart1/2), so that Gradle
     runs the baseline's tests (with --no-build-cache) instead of reusing results: its time sets the timeouts."""
@@ -504,16 +516,19 @@ def run(plan, unmutated, targets):
             unit, ui = stages[path]
             ui_timeout = int(4 * base_time.get((path, "ui"), 0) + 60)
             runs = []
-            killer = last_killer.get(path)
-            if killer: runs.append(("first", [killer], ui_timeout))
+            killers = last_killer.get(path, [])
+            if killers: runs.append(("first", killers, ui_timeout))
             if unit: runs.append(("unit", unit, int(4 * base_time[(path, "unit")] + 60)))
-            rest = [c for c in ui if c != killer]
+            rest = [c for c in ui if c not in killers]  # a method killer leaves its whole class in the UI stage
             if rest: runs.append(("ui", rest, ui_timeout))
             for kind, group, timeout in runs:
                 state, detail, _ = verify(group, "mutant-%03d-%s" % (k, kind), timeout)
+                if kind == "first" and state == "error" and no_tests_found(killers, "mutant-%03d-first" % k):
+                    del last_killer[path]  # the method filter matched no test (renamed?): the classes still run
+                    continue
                 if state == "red":
                     cls = detail.split(".")[0]
-                    if cls in ui: last_killer[path] = cls
+                    if cls in ui: last_killer[path] = [killed_by(detail)]
                     return state, detail
                 if state != "green": return state, detail
             return "green", ""

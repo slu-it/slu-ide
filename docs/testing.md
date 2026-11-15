@@ -111,9 +111,9 @@ A behavior is tested once, at the lowest level that can see it
   run (the popup without a daemon: 82 s for its 9 survivors against 1109 s for all 72 mutants). `--unit-only` skips the
   UI stages for a quick look while iterating; its survivors include what only a UI test can kill, so a plain
   `--survivors` run afterwards gives the complete result, with UI tests only for those. Each run uses a Gradle daemon of
-  its own (37% faster than `--no-daemon` in a worktree, about 1.2 GB while it runs) and stops it at the end. A survivor
-  is a vacuous test or dead code (a guard no input can reach); an equivalent one is a defensive call the caller already
-  made.
+  its own (about 1.2 GB while it runs) and stops it at the end; with it, and the test method that killed the previous
+  mutant run first, the popup's full run takes 541 s instead of 1109 s. A survivor is a vacuous test or dead code (a
+  guard no input can reach); an equivalent one is a defensive call the caller already made.
 - `.claude/scripts/check-tests.sh [files]` reports fixed sleeps without a reason (poll intervals inside a `while`
   loop do not count), synthetic OS input without a `//` reason, `waitForFxEvents()` right after `interact` and test
   classes over 800 lines; a hook runs it on newly written test code. `.claude/scripts/test-times.sh` lists task
