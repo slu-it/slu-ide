@@ -31,6 +31,11 @@ internal data class SearchRequest(
     val mask: String,
     val unsaved: Map<Path, String>,
     val limits: SearchLimits = SearchLimits(),
+    /**
+     * When set, the walk covers only this folder, which lies inside one of [roots]; [mask] and [FileHits.root] still
+     * use that root. A scope outside every root is walked as a root of its own (defensive).
+     */
+    val scope: Path? = null,
 )
 
 /**
@@ -85,8 +90,8 @@ private const val CANCEL_CHECK_EVERY = 256
 internal const val TEXT_SAMPLE_BYTES = 8 * 1024
 
 /**
- * Walks [request]'s roots with [entries] (the tree's listing; may throw IOException → folder skipped), calls
- * [onFile] for every file with hits in walk order; `null` when [cancelled]. Off the FX thread.
+ * Walks [request]'s roots (or only its scope) with [entries] (the tree's listing; may throw IOException → folder
+ * skipped), calls [onFile] for every file with hits in walk order; `null` when [cancelled]. Off the FX thread.
  *
  * Depth-first in the order [entries] lists, roots in the given order. A `.git` entry is skipped, a symbolic link to a
  * folder is not followed (a link to a file is searched), anything but regular files is ignored. Every visited entry
@@ -111,10 +116,15 @@ internal fun searchContents(
         totalCapped: Boolean = false,
         visitCapped: Boolean = false,
     ) = SearchOutcome.Done(listed, files, skipped, totalCapped, visitCapped)
-    for (givenRoot in request.roots) {
-        val root = givenRoot.toAbsolutePath().normalize()
+    val scope = request.scope?.toAbsolutePath()?.normalize()
+    val roots = request.roots.map { it.toAbsolutePath().normalize() }
+    // Each walk is (the root masks and headers use, the folder walked).
+    val walks =
+        scope?.let { listOf((roots.firstOrNull { scope.startsWith(it) } ?: scope) to scope) }
+            ?: roots.map { it to it }
+    for ((root, start) in walks) {
         val folders = ArrayDeque<Iterator<Path>>()
-        readEntries(entries, root)?.let { folders.addLast(it.iterator()) }
+        readEntries(entries, start)?.let { folders.addLast(it.iterator()) }
         while (folders.isNotEmpty()) {
             val folder = folders.last()
             if (!folder.hasNext()) {

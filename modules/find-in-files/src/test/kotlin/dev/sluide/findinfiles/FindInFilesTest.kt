@@ -219,6 +219,19 @@ class FindInFilesTest {
     }
 
     @Test
+    fun `a scoped search walks the folder but reports hits under the root`() {
+        val root = project()
+        val second = dir.resolve("second").also { it.createDirectories() }
+        roots = listOf(root, second)
+        find.openWith(anchor, root.resolve("sub"), "needle")
+        drain()
+
+        assertEquals(listOf(root.resolve("sub")), walked.take(1))
+        assertEquals(listOf("sub/b.txt"), view.files.map { root.relativize(it).toString().replace('\\', '/') })
+        assertEquals(listOf(root), view.hitRoots)
+    }
+
+    @Test
     fun `the editor menu item has four states and a limit`() {
         val editor = FakeEditor()
         find.extend(editor)

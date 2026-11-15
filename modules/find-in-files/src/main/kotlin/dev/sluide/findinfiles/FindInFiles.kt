@@ -177,14 +177,15 @@ class FindInFiles internal constructor(
 
     /** The request for the popup's state now; also tells the view whether its headers need the root's name. */
     private fun searchRequest(): SearchRequest {
-        val searched = scope?.let(::listOf) ?: roots()
-        popup.severalRoots = searched.size > 1
-        return request(searched)
+        val all = roots()
+        popup.severalRoots = scope == null && all.size > 1
+        return request(all)
     }
 
-    private fun request(searched: List<Path>) =
+    private fun request(allRoots: List<Path>) =
         SearchRequest(
-            roots = searched,
+            roots = allRoots,
+            scope = scope,
             query = query,
             options = options,
             mask = mask,

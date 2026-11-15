@@ -35,6 +35,7 @@ internal class FakeFindView : FindView {
     override var onOpen: (FileHits, LineHit) -> Unit = { _, _ -> }
     override var onHidden: () -> Unit = {}
     val files = mutableListOf<Path>()
+    val hitRoots = mutableListOf<Path>()
     var status = ""
     var anchors = 0
     var lastAnchor: FindAnchor? = null
@@ -48,11 +49,13 @@ internal class FakeFindView : FindView {
 
     override fun clear() {
         files.clear()
+        hitRoots.clear()
         calls += "clear"
     }
 
     override fun add(files: List<FileHits>) {
         this.files += files.map { it.file }
+        hitRoots += files.map { it.root }
     }
 
     override fun status(text: String) {

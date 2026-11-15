@@ -40,10 +40,14 @@ class SearchContentsTest {
         mask: String = "",
         unsaved: Map<Path, String> = emptyMap(),
         limits: SearchLimits = SearchLimits(),
+        scope: Path? = null,
         entries: (Path) -> List<Path> = list,
         cancelled: () -> Boolean = { false },
     ): SearchOutcome? =
-        searchContents(SearchRequest(roots, query, options, mask, unsaved, limits), entries, cancelled) { found += it }
+        searchContents(SearchRequest(roots, query, options, mask, unsaved, limits, scope), entries, cancelled) {
+            found +=
+                it
+        }
 
     private fun done(outcome: SearchOutcome?) = assertIs<SearchOutcome.Done>(outcome)
 
@@ -206,6 +210,51 @@ class SearchContentsTest {
         search("needle", mask = "*.kt, !*Test.kt")
 
         assertEquals(listOf("Main.kt"), names())
+    }
+
+    @Test
+    fun `a scoped walk covers only the scope but keeps the root for masks and headers`() {
+        file("docs/a.md")
+        file("docs/adr/x.md")
+        file("src/b.md")
+
+        search("needle", scope = root.resolve("docs"), mask = "!docs/adr/*")
+
+        assertEquals(listOf("docs/a.md"), names())
+        assertEquals(root, found.single().root)
+    }
+
+    @Test
+    fun `a scope under the second root reports that root`() {
+        val other = root.resolve("other")
+        file("other/docs/a.md")
+
+        search("needle", roots = listOf(root.resolve("first"), other), scope = other.resolve("docs"))
+
+        assertEquals(other, found.single().root)
+    }
+
+    @Test
+    fun `a leading slash anchors a glob at the root, not at the scope`() {
+        file("docs/a.md")
+        file("docs/adr/x.md")
+
+        search("needle", scope = root.resolve("docs"), mask = "/a.md")
+        assertEquals(emptyList(), names())
+
+        search("needle", scope = root.resolve("docs"), mask = "/docs/a.md")
+        assertEquals(listOf("docs/a.md"), names())
+    }
+
+    @Test
+    fun `a scope outside every root is walked as a root of its own`() {
+        file("a.md")
+        val elsewhere = outside.resolve("o.md").apply { writeText("needle") }
+
+        search("needle", scope = outside)
+
+        assertEquals(listOf(elsewhere), found.map { it.file })
+        assertEquals(outside.toAbsolutePath().normalize(), found.single().root)
     }
 
     @Test
