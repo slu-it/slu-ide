@@ -75,6 +75,7 @@ import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.scratches.ScratchFiles
 import dev.sluide.settings.FontSettings
+import dev.sluide.settings.ProjectSettings
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
@@ -156,12 +157,18 @@ class MainWindow(
     private val codeIntelligence: CodeIntelligenceWiring,
     private val findInFiles: FindInFilesWiring,
     reviews: Reviews,
+    projectSettings: ProjectSettings,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
 
     /** Shows the settings dialog and waits until it is closed; tests replace it, since it blocks. */
     internal var showSettings: (Stage) -> Unit = { stage -> SettingsDialog(settingsPages.pages, stage).showAndWait() }
+
+    private val projectSettingsOpener = ProjectSettingsOpener(projectSettings, projectService.projectFolder)
+
+    /** Shows the project settings dialog and waits until it is closed; tests replace it, since it blocks. */
+    internal var showProjectSettings by projectSettingsOpener::showDialog
 
     /** Shows an error message and waits until it is closed; tests replace it, since it blocks. */
     internal var showError: (Stage, String) -> Unit = { stage, message ->
@@ -342,6 +349,7 @@ class MainWindow(
 
     fun show(stage: Stage) {
         shownStage = stage
+        projectSettingsOpener.install(stage)
         themedWindows.install()
         val explorerBar =
             ExplorerBar(
@@ -367,6 +375,8 @@ class MainWindow(
                                 chooseFolder = { chooseFolder(stage) },
                                 pickProject = projectWindows::pickProject,
                                 showSettings = { showSettings(stage) },
+                                showProjectSettings = projectSettingsOpener::open,
+                                projectSettingsAvailable = projectSettingsOpener.available,
                                 stage = stage,
                                 recentProjects = recentProjects,
                                 openRecent = projectWindows::open,

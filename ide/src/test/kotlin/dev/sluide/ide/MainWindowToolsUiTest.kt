@@ -66,6 +66,19 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         assertEquals(stage, shownFor)
     }
 
+    // Here and not in MainWindowProjectSettingsUiTest: this fixture window has no project settings pages.
+    @Test
+    fun `File - Project Settings stays disabled and show does nothing while no module offers a page`(robot: FxRobot) {
+        robot.interact { projectService.open(project) }
+        var opened = 0
+        mainWindow.showProjectSettings = { opened++ }
+
+        robot.interact { projectSettings.show(null) }
+
+        assertTrue(fileMenuItem(robot, "Project Settings…").isDisable)
+        assertEquals(0, opened)
+    }
+
     @Test
     fun `Open in Terminal in the explorer opens a terminal tab in the clicked folder`(robot: FxRobot) {
         val sub = project.resolve("sub").createDirectories()

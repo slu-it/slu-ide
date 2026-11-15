@@ -210,6 +210,7 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
                 "Close Tab shortcut+W",
                 "-",
                 "Settings… shortcut+COMMA",
+                "Project Settings…",
                 "-",
                 "Close Project",
             ),

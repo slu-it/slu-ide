@@ -2,6 +2,7 @@ package dev.sluide.ide.files
 
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.projects.RecentProjects
+import javafx.beans.value.ObservableValue
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
@@ -16,6 +17,7 @@ import java.nio.file.Path
  * The File menu of one window: the [scratchItems] (new scratch files), Open Folder… ([chooseFolder]), Open Project…
  * ([pickProject], Shortcut+Shift+O) and the Open Recent Project submenu (the [recentProjects] without the window's
  * own, opened by [openRecent]) | Save and Save All of the [editorArea] | Close Tab | Settings… ([showSettings]) |
+ * Project Settings… ([showProjectSettings], no key, enabled while [projectSettingsAvailable]) |
  * Close Project (fires a close request on the [stage], like the window's close button). Used on the JavaFX thread.
  */
 internal fun fileMenu(
@@ -24,6 +26,8 @@ internal fun fileMenu(
     chooseFolder: () -> Unit,
     pickProject: () -> Unit,
     showSettings: () -> Unit,
+    showProjectSettings: () -> Unit,
+    projectSettingsAvailable: ObservableValue<Boolean>,
     stage: Stage,
     recentProjects: RecentProjects,
     openRecent: (Path) -> Unit,
@@ -64,6 +68,11 @@ internal fun fileMenu(
             accelerator = KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN)
             setOnAction { showSettings() }
         }
+    val projectSettings =
+        MenuItem("Project Settings…").apply {
+            disableProperty().bind(projectSettingsAvailable.map { !it })
+            setOnAction { showProjectSettings() }
+        }
     val closeProject =
         MenuItem("Close Project").apply {
             setOnAction { stage.fireEvent(WindowEvent(stage, WindowEvent.WINDOW_CLOSE_REQUEST)) }
@@ -82,6 +91,7 @@ internal fun fileMenu(
         closeTab,
         SeparatorMenuItem(),
         settings,
+        projectSettings,
         SeparatorMenuItem(),
         closeProject,
     )

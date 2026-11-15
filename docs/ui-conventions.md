@@ -140,6 +140,7 @@ Safety of file operations, runs, secrets and network: `safety.md`.
 | What | Where | API |
 |---|---|---|
 | User settings, applied live | `~/.sluide/settings.properties` | `SettingsStore` + a settings bean and `SettingsPage` in the feature module (ADR 0008, 0067) |
+| Per-project settings the user edits | `~/.sluide/projects/<uuid>.json` | a `ProjectSettingsPage` window bean in the feature module (File → Project Settings…), storing through `ProjectDataStore`; a page throws an `IOException` when `update` returns false |
 | Per project, or per file in a project | `~/.sluide/projects/<uuid>.json` | `ProjectDataStore`, one top-level field per module (ADR 0090); option stores write only values that differ from the defaults (`ComposeStore`) |
 | User-wide, and files outside any project | `~/.sluide/shared.json` | `readShared()` / `updateShared { }` (ADR 0101) |
 | Modes, zoom, tool texts | view or window lifetime | none |

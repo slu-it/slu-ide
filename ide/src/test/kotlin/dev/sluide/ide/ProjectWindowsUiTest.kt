@@ -89,6 +89,7 @@ import dev.sluide.scratches.SCRATCH_TYPES
 import dev.sluide.scratches.ScratchFiles
 import dev.sluide.secrets.Secrets
 import dev.sluide.settings.FontSettings
+import dev.sluide.settings.ProjectSettings
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
 import dev.sluide.settings.ThemeSettings
@@ -275,6 +276,7 @@ class ProjectWindowsUiTest {
                     CommandRunSession::class.java,
                     ProjectTrust::class.java,
                     BackgroundTasks::class.java,
+                    ProjectSettings::class.java,
                     TodoPanel::class.java,
                     Coloring::class.java,
                     Barcodes::class.java,

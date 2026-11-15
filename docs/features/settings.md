@@ -78,5 +78,15 @@
   [ADR 0067](../adr/0067-feature-settings-in-their-module.md)): `TerminalScrollSettings` (Spring bean, trackpad and
   wheel speed), `TerminalScrollPage` with `TerminalScrollPageModel`; they are stored in the same file under the same
   keys and the page is a `SettingsPage` bean like the others.
-- Not yet implemented: font settings for menus and dialogs, line spacing, per-project settings, a light terminal,
-  custom colours.
+- Not yet implemented: font settings for menus and dialogs, line spacing, a light terminal, custom colours.
+
+## Project Settings
+- File → Project Settings… (no key binding) opens a dialog like the Settings dialog for settings stored per project
+  in `~/.sluide/projects/<uuid>.json` ([ADR 0090](../adr/0090-per-project-metadata-store.md)); e.g. Java. Title "Project
+  Settings", the tree of pages left, the selected page right, OK / Apply / Cancel and the error report as in the
+  Settings dialog (it is the same `SettingsDialog`, with a title parameter). The item is disabled while the window has
+  no project folder or no module offers a page.
+- Pages come from modules: a window bean (`@Scope("window")`) implementing `ProjectSettingsPage` (`path`, `node`,
+  `load(folder)`, `apply(folder)`). They are loaded with the window's project folder each time the dialog opens.
+  `ProjectSettings` (window bean) holds the pages ordered by path; `ProjectSettings.show(path)` opens the dialog at
+  a page (`null` or an unknown path: the first page) and does nothing without folder or pages. `MainWindow` sets it.

@@ -91,6 +91,8 @@ import dev.sluide.projecttrust.TrustedProjects
 import dev.sluide.scratches.ScratchFiles
 import dev.sluide.secrets.Secrets
 import dev.sluide.settings.FontSettings
+import dev.sluide.settings.ProjectSettings
+import dev.sluide.settings.ProjectSettingsPage
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
 import dev.sluide.settings.ThemeSettings
@@ -262,6 +264,11 @@ abstract class MainWindowUiFixture {
     /** The git log views of the windows a test created, the main window's first; closed after it. */
     internal val gitLogViews = mutableListOf<GitLogView>()
     internal val reviewWindows = mutableListOf<Reviews>()
+
+    /** The project settings pages the windows get; a test sets them before it starts the window. */
+    internal var projectSettingsPages: List<ProjectSettingsPage> = emptyList()
+    internal val projectSettingsWindows = mutableListOf<ProjectSettings>()
+    internal val projectSettings get() = projectSettingsWindows.first()
     internal val reviews get() = reviewWindows.first()
 
     /** What the windows' reviews read; the main window's `Reviews` read it through this. */
@@ -515,6 +522,7 @@ abstract class MainWindowUiFixture {
             FindInFilesWiring(fileExplorer, editorArea, codeIntelligence, fileViewers, fontSettings)
                 .also(findInFilesWirings::add),
             Reviews(reviewSource, fontSettings, projectData, fileViewers).also(reviewWindows::add),
+            ProjectSettings(projectSettingsPages).also(projectSettingsWindows::add),
         )
     }
 

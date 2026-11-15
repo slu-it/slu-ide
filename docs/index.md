@@ -215,7 +215,7 @@ updated when the summary or keywords no longer fit.
 | [project-picker.md](features/project-picker.md) | Picker of remembered projects at startup and after the last window | `projects` module, Open Project…, recent projects, missing folders |
 | [project-trust.md](features/project-trust.md) | Folders whose git config or hooks would run commands ask once | Trust Folder?, git hooks, findings, Review… bar |
 | [todos.md](features/todos.md) | TODO panel at the right: Shared and Project tabs of Markdown cards | TODO panel, Shared/Project tabs, Markdown cards, drag to reorder, Alt+6, `shared.json` |
-| [settings.md](features/settings.md) | Settings dialog with appearance and font pages | File → Settings… (Ctrl+,), theme, fonts, OK/Apply/Cancel |
+| [settings.md](features/settings.md) | Settings dialog with appearance and font pages, Project Settings dialog | File → Settings… (Ctrl+,), File → Project Settings…, `ProjectSettingsPage`, theme, fonts, OK/Apply/Cancel |
 | [keyboard-shortcuts.md](features/keyboard-shortcuts.md) | Every key binding in one overview | key bindings, shortcuts, Shortcut = Ctrl/Cmd, `.claude/rules/key-bindings.md` |
 | [background-tasks.md](features/background-tasks.md) | Longer work listed under the explorer with progress and cancel | background tasks, progress bar, ✕ cancel, "+N more" |
 
