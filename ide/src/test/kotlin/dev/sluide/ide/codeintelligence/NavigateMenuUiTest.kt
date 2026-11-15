@@ -11,6 +11,7 @@ import dev.sluide.fileviewers.WindowServices
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.findinfiles.FIND_IN_FILES_KEYS
 import dev.sluide.ide.find.FindInFilesEntry
+import dev.sluide.ide.find.matchOpener
 import dev.sluide.languageservers.FakeLanguageServers
 import dev.sluide.languageservers.FakeServer
 import dev.sluide.languageservers.LanguageServerSpec
@@ -322,6 +323,23 @@ internal class NavigateMenuUiTest {
         assertEquals(23, fx { editor.caretOffset })
         press(robot, KeyCode.RIGHT, alt = true)
         assertEquals(4, fx { editor.caretOffset })
+    }
+
+    @Test
+    fun `a match opened from a focused bound editor through the Find in Files opener is recorded for Back`(
+        robot: FxRobot,
+    ) {
+        setUp(robot)
+        val back = menu().items.single { it.text == "Back" }
+        assertTrue(fx { back.isDisable }, "nothing to go back to yet")
+        // The popup's opening captures the focused editor; the match is opened later, with the focus elsewhere.
+        val opener = fx { matchOpener(intelligence) { _, _, _ -> } }
+        // The focus leaves the editor before the match opens, as when the popup takes it.
+        robot.interact { elsewhere.requestFocus() }
+
+        robot.interact { opener.open(file, 0, 4) }
+
+        assertFalse(fx { back.isDisable }, "the jump is recorded")
     }
 
     @Test

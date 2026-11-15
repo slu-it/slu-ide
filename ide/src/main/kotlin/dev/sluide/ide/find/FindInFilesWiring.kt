@@ -1,5 +1,6 @@
 package dev.sluide.ide.find
 
+import dev.sluide.codeintelligence.CodeIntelligence
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.CodeEditorExtension
@@ -48,14 +49,7 @@ class FindInFilesWiring(
         findInFiles.roots = fileExplorer::searchRoots
         findInFiles.entries = fileExplorer::shownEntries
         findInFiles.unsavedTexts = ::unsavedTexts
-        findInFiles.opener = {
-            val start = intelligence.jumpStart()
-            // Intended retry: code intelligence cannot open the file without a host (no code editor was ever opened
-            // in the window), then the editor area opens it; if the file cannot be shown at all both say no.
-            MatchOpener { file, line, column ->
-                if (!intelligence.jump(start, file, line, column)) editorArea.open(file, line, column)
-            }
-        }
+        findInFiles.opener = { matchOpener(intelligence) { file, line, column -> editorArea.open(file, line, column) } }
         fileExplorer.findInFolder = { folder -> fileExplorer.scene?.window?.let { findInFiles.open(it, folder) } }
     }
 
@@ -77,4 +71,20 @@ class FindInFilesWiring(
             }.toMap()
 
     override fun close() = findInFiles.close()
+}
+
+/**
+ * The opener of one popup opening: captures the focused bound editor now (before the popup takes the focus) and opens
+ * a match through [intelligence], which records the jump for Back when that editor is still open. Intended retry:
+ * code intelligence cannot open the file without a host (no code editor was ever opened in the window), then [open]
+ * (the editor area) does; if the file cannot be shown at all both say no.
+ */
+internal fun matchOpener(
+    intelligence: CodeIntelligence,
+    open: (Path, Int, Int) -> Unit,
+): MatchOpener {
+    val start = intelligence.jumpStart()
+    return MatchOpener { file, line, column ->
+        if (!intelligence.jump(start, file, line, column)) open(file, line, column)
+    }
 }
