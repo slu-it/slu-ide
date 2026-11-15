@@ -8,6 +8,7 @@ import dev.sluide.converting.ReadResult
 import dev.sluide.converting.TextFormat
 import dev.sluide.converting.WriteResult
 import dev.sluide.fileexplorer.ExplorerBar
+import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.ide.explorer.ExplorerPanel
 import javafx.event.Event
 import javafx.scene.Node
@@ -107,6 +108,15 @@ class MainWindowExplorerUiTest : MainWindowUiFixture() {
                 ),
             )
         }
+
+    @Test
+    fun `the search row sits between the button bar and the tree`(robot: FxRobot) {
+        val children = onFx(robot) { (panel.content as VBox).children.toList() }
+
+        assertTrue(children[0] is ExplorerBar)
+        assertTrue(children[1].styleClass.contains("explorer-search"))
+        assertTrue(children[2] is FileExplorerView)
+    }
 
     @Test
     fun `the Collapse button collapses the column to its stripe, which a click, Enter or Space expands`(

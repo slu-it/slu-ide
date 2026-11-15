@@ -146,7 +146,7 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         val view = left.children.filterIsInstance<BackgroundTasksView>().single()
         val bar = left.children.first()
         assertIs<ExplorerBar>(bar, "the button bar is above the explorer")
-        assertEquals(listOf<Node>(bar, fileExplorer, view), left.children)
+        assertEquals(listOf(bar, fileExplorer.searchBar, fileExplorer, view), left.children)
         assertFalse(view.isVisible, "idle")
         assertFalse(view.isManaged)
         val minWidth = left.minWidth(-1.0)
@@ -164,7 +164,11 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         )
         assertTrue(view.height > 0)
         assertEquals(fileExplorer.layoutY + fileExplorer.height, view.layoutY, 1.0, "below the explorer")
-        assertEquals(left.height, bar.layoutBounds.height + fileExplorer.height + view.height, 1.0)
+        assertEquals(
+            left.height,
+            bar.layoutBounds.height + fileExplorer.searchBar.layoutBounds.height + fileExplorer.height + view.height,
+            1.0,
+        )
         assertEquals(minWidth, left.minWidth(-1.0), "a narrow explorer stays narrow")
 
         task.close()

@@ -20,8 +20,9 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignC
 private const val STRIPE_WIDTH = 26.0
 
 /**
- * The left column of the main window (ADR 0104): expanded, the file explorer under its button [bar], and below it the
- * background tasks running for a while (ADR 0061), which take no room while there are none; collapsed, a stripe.
+ * The left column of the main window (ADR 0104): expanded, the search field and the file explorer under its button
+ * [bar], and below it the background tasks running for a while (ADR 0061), which take no room while there are none;
+ * collapsed, a stripe.
  */
 internal class ExplorerPanel(
     bar: ExplorerBar,
@@ -52,7 +53,7 @@ internal class ExplorerPanel(
         }
 
     val content: Region =
-        VBox(bar, fileExplorer, BackgroundTasksView(backgroundTasks)).apply {
+        VBox(bar, fileExplorer.searchBar, fileExplorer, BackgroundTasksView(backgroundTasks)).apply {
             VBox.setVgrow(fileExplorer, Priority.ALWAYS)
         }
 
