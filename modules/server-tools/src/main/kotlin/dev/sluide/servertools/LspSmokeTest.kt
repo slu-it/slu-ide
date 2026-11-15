@@ -1,6 +1,7 @@
 package dev.sluide.servertools
 
 import dev.sluide.backgroundtasks.NamedThreads
+import dev.sluide.languageservers.ServerCommand
 import tools.jackson.core.JacksonException
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
@@ -29,31 +30,36 @@ private const val INITIALIZE =
 private const val MAX_MESSAGES = 1000
 
 /**
- * Checks that a language server's executable works before it is installed (ADR 0144, ADR 0159): `<executable>
- * <versionArguments>` must print a first line starting with [versionPrefix] within [versionTimeout] and exit 0, and
- * `<executable> <serverArguments>` must answer an `initialize` request within [handshakeTimeout]. The messages show
- * the commands with [commandName] (`` `ty version` ``, `` `tsc --version` ``) and name the tool by [name] ("not a
- * TypeScript version"). [check] blocks the calling thread and starts the processes from an argument list
- * in the executable's folder. The version command gets a closed standard input; the server gets the request and keeps
- * its standard input open until the answer arrives or the time is up (ty ends at the end of its input, sometimes
+ * Checks that a language server's executable works before it is installed (ADR 0144, ADR 0159, ADR 0179):
+ * `<executable> <versionArguments>` (skipped when null: no version command) must print a first line starting with
+ * [versionPrefix] within [versionTimeout] and exit 0, and the server's [command] (executable, arguments, environment
+ * and working directory; null: it cannot be started) must answer an `initialize` request within [handshakeTimeout].
+ * The messages show the commands with [commandName] (`` `ty version` ``, `` `tsc --version` ``) and name the tool by
+ * [name] ("not a TypeScript version"). [check] blocks the calling thread and starts the processes from an argument
+ * list in the executable's folder (the server in its command's working directory if it has one). The version command
+ * gets a closed standard input; the server gets the request and keeps its standard input open until the answer
+ * arrives or the time is up (ty ends at the end of its input, sometimes
  * before its answer is written). Both are killed with their descendants at the end.
  */
 class LspSmokeTest(
     private val name: String,
-    private val versionArguments: List<String>,
+    private val versionArguments: List<String>?,
     private val versionPrefix: String,
-    private val serverArguments: List<String>,
+    private val command: (executable: Path) -> ServerCommand?,
     private val commandName: String = name,
     private val versionTimeout: Duration = 10.seconds,
     private val handshakeTimeout: Duration = 5.seconds,
 ) {
-    private val versionCommand = "`${(listOf(commandName) + versionArguments).joinToString(" ")}`"
-    private val serverCommand = "`${(listOf(commandName) + serverArguments).joinToString(" ")}`"
+    private val versionCommand = "`${(listOf(commandName) + versionArguments.orEmpty()).joinToString(" ")}`"
 
     /** Null when [executable] works, else the reason it does not, for the user. */
-    fun check(executable: Path): String? = version(executable) ?: handshake(executable)
+    fun check(executable: Path): String? =
+        (if (versionArguments == null) null else version(executable, versionArguments)) ?: handshake(executable)
 
-    private fun version(executable: Path): String? {
+    private fun version(
+        executable: Path,
+        versionArguments: List<String>,
+    ): String? {
         val process =
             try {
                 ProcessBuilder(listOf(executable.toString()) + versionArguments)
@@ -94,12 +100,18 @@ class LspSmokeTest(
     }
 
     private fun handshake(executable: Path): String? {
+        val launch = command(executable) ?: return "$name cannot be started from $executable"
+        val serverCommand = "`${(listOf(commandName) + launch.arguments).joinToString(" ")}`"
         val process =
             try {
-                ProcessBuilder(listOf(executable.toString()) + serverArguments)
-                    .directory(executable.parent?.toFile())
+                ProcessBuilder(listOf(launch.executable.toString()) + launch.arguments)
+                    .directory((launch.workingDirectory ?: executable.parent)?.toFile())
                     .redirectError(ProcessBuilder.Redirect.DISCARD)
-                    .start()
+                    .also { builder ->
+                        for ((key, value) in launch.environment) {
+                            if (value == null) builder.environment().remove(key) else builder.environment()[key] = value
+                        }
+                    }.start()
             } catch (e: IOException) {
                 return "cannot start $serverCommand: ${e.message}"
             }

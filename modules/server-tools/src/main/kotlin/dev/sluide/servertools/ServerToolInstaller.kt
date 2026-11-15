@@ -89,13 +89,17 @@ open class ServerToolInstaller(
             Bindings.createObjectBinding(
                 Callable {
                     val custom = setting.path.get()
+                    val current = tools.current.get()
+                    val customProblem = customProblem(custom)
+                    val launchProblem = current?.takeIf { custom.isEmpty() }?.let { installedProblem() }
                     availabilityOf(
                         custom,
-                        customPathProblem(custom),
+                        customProblem,
                         tools.state.get(),
-                        tools.current.get(),
+                        current,
                         pinnedDownloadBytes,
                         tool.noBuild,
+                        launchProblem,
                     )
                 },
                 setting.path,
@@ -103,6 +107,25 @@ open class ServerToolInstaller(
                 tools.current,
             )
     }
+
+    /** Why the custom executable [path] (null if empty) cannot be used: not executable, or the tool cannot start it. */
+    fun customProblem(path: String): String? =
+        if (path.isEmpty()) null else customPathProblem(path) ?: cannotLaunch(path)
+
+    /** Why Thoreau's installed version cannot be started (the tool's launch rejects it); null if it can or none is. */
+    fun installedProblem(): String? =
+        tools.current
+            .get()
+            ?.executable
+            ?.let { cannotLaunch(it.toString()) }
+
+    /** Why the tool's command gives nothing for the executable [path], null if it does. */
+    private fun cannotLaunch(path: String): String? =
+        if (tool.command(Path.of(path)) == null) {
+            "${tool.name} cannot be started from $path"
+        } else {
+            null
+        }
 
     /** Checks again whether the custom executable exists and is executable (the settings page calls it on load). */
     fun recheckCustomPath() = availabilityBinding.invalidate()
@@ -130,9 +153,9 @@ open class ServerToolInstaller(
     fun deleteAll() = tools.deleteAll()
 
     /**
-     * The executable with the tool's server arguments: the custom executable if one is set (null if it is not an
-     * executable file), else Thoreau's download (null if none is installed); any thread. The environment is inherited
-     * unchanged.
+     * How the tool runs as a server: the custom executable if one is set (null if it is not an executable file), else
+     * Thoreau's download (null if none is installed), with the tool's command ([ServerTool.command]; null if it
+     * cannot run); any thread.
      */
     fun command(): ServerCommand? {
         val custom = setting.currentPath()
@@ -145,7 +168,7 @@ open class ServerToolInstaller(
             } else {
                 installedExecutable
             }
-        return executable?.let { ServerCommand(it, tool.serverArguments) }
+        return executable?.let(tool::command)
     }
 
     override fun onCommandChanged(listener: () -> Unit): AutoCloseable {
@@ -192,7 +215,9 @@ open class ServerToolInstaller(
          * Whether the server can run: a set [customPath] decides alone (Failed with its [customProblem]); else an
          * installed version is Ready (also while an update downloads or after one failed), then the download's
          * [state], then Missing with the size of the pinned download, or Failed with [noBuild] without a build for
-         * this platform. Only a failed download can be retried; the custom path and the missing build are fixed in
+         * this platform. An installed version the tool's launch rejects ([launchProblem]) is broken: Failed with it,
+         * or Installing while a reinstall runs and its failure after a failed one. A failed download, and an installed
+         * version the launch rejects, can be retried (Install); the custom path and the missing build are fixed in
          * Settings.
          */
         fun availabilityOf(
@@ -202,11 +227,20 @@ open class ServerToolInstaller(
             current: InstalledTool?,
             pinnedBytes: Long?,
             noBuild: String,
+            launchProblem: String? = null,
         ): ServerAvailability =
             when {
                 customPath.isNotEmpty() -> {
                     customProblem?.let { ServerAvailability.Failed(it, canRetry = false) }
                         ?: ServerAvailability.Ready
+                }
+
+                current != null && launchProblem != null -> {
+                    when (state) {
+                        is InstallState.Downloading -> ServerAvailability.Installing(state.progress)
+                        is InstallState.Failed -> ServerAvailability.Failed(state.message)
+                        else -> ServerAvailability.Failed(launchProblem)
+                    }
                 }
 
                 current != null -> {

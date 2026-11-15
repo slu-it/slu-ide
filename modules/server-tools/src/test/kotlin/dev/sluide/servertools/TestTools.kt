@@ -1,5 +1,6 @@
 package dev.sluide.servertools
 
+import dev.sluide.languageservers.ServerCommand
 import dev.sluide.localmodels.ArchiveFormat
 import dev.sluide.localmodels.Checksum
 import dev.sluide.settings.SettingsStore
@@ -20,6 +21,8 @@ internal fun acmeTool(
     pinned: String = "0.0.99",
     name: String = "acme-ls",
     commandName: String = name,
+    versionArguments: List<String>? = listOf("--version"),
+    launch: ((Path) -> ServerCommand?)? = null,
 ) = ServerTool(
     name = name,
     root = dir.resolve("tools/acme-ls"),
@@ -40,9 +43,10 @@ internal fun acmeTool(
     format = ArchiveFormat.TAR_GZ,
     executableIn = { "${it.removeSuffix(".tar.gz")}/acme-ls" },
     serverArguments = listOf("serve", "--stdio"),
-    versionArguments = listOf("--version"),
+    versionArguments = versionArguments,
     versionPrefix = "acme-ls ",
     commandName = commandName,
+    launch = launch,
 )
 
 /** The custom path setting of the fake tool, `acme.ls.path` in a settings file in [dir]. */

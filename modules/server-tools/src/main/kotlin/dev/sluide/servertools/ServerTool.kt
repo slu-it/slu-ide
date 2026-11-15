@@ -1,5 +1,6 @@
 package dev.sluide.servertools
 
+import dev.sluide.languageservers.ServerCommand
 import dev.sluide.localmodels.ArchiveFormat
 import dev.sluide.localmodels.ToolRelease
 import java.nio.file.Path
@@ -13,7 +14,12 @@ import java.nio.file.Path
  * - [format] and [executableIn]: how a release file holds the executable (its path inside the archive, by the asset's
  *   name);
  * - [serverArguments]: how it runs as a language server on standard input and output (`server`);
- * - [versionArguments] and [versionPrefix]: the smoke test's version command and the start of its first line;
+ * - [launch]: instead of `executable serverArguments`, the whole [ServerCommand] for an executable that needs more
+ *   (jdtls, ADR 0179); null from it means the executable cannot run. It is called on the FX thread (availability),
+ *   on any thread ([command], from the server lifecycle) and on the install executor (smoke test): it must be cheap
+ *   and must not throw (return null instead); it may read settings and list a folder;
+ * - [versionArguments] and [versionPrefix]: the smoke test's version command and the start of its first line; null
+ *   arguments: there is no version command;
  * - [commandName]: the executable in the smoke test's messages (`` `tsc --version` ``), the [name] by default.
  */
 class ServerTool(
@@ -24,10 +30,15 @@ class ServerTool(
     val format: ArchiveFormat,
     val executableIn: (asset: String) -> String,
     val serverArguments: List<String>,
-    val versionArguments: List<String>,
+    val versionArguments: List<String>?,
     val versionPrefix: String,
     val commandName: String = name,
+    val launch: ((executable: Path) -> ServerCommand?)? = null,
 ) {
+    /** How [executable] runs as a language server; null if it cannot run (the [launch] function says so). */
+    fun command(executable: Path): ServerCommand? =
+        if (launch != null) launch(executable) else ServerCommand(executable, serverArguments)
+
     /** The pinned file for [platform]; null when there is no build for it. */
     val pinnedAsset: ToolAsset? get() = pin.asset(platform)
 
@@ -53,6 +64,6 @@ class ServerTool(
             else -> "Downloading $name ${release.version} $percent %"
         }
 
-    /** The check an install runs before it switches: the version command, then one `initialize`. */
-    fun smokeTest() = LspSmokeTest(name, versionArguments, versionPrefix, serverArguments, commandName)
+    /** The check an install runs before it switches: the version command, if any, then one `initialize`. */
+    fun smokeTest() = LspSmokeTest(name, versionArguments, versionPrefix, ::command, commandName)
 }

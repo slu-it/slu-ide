@@ -1,6 +1,7 @@
 # 0159. Shared server-tool layer and checksum algorithms
 
-- Status: accepted; amends [0143](0143-tool-installs.md) (checksums by algorithm) and
+- Status: accepted; amended by [0179](0179-java-via-jdtls.md) (a launch function and an optional version command);
+  amends [0143](0143-tool-installs.md) (checksums by algorithm) and
   [0144](0144-python-via-ty.md) (ty's install, update check, smoke test and page move to `server-tools`); see
   [0142](0142-language-server-foundation.md), [0047](0047-module-dependencies-and-shared-modules.md),
   [0055](0055-sub-packages-within-modules.md), [0084](0084-testability-logic-out-of-controls.md)
@@ -26,21 +27,30 @@ a Subresource Integrity value, `sha512-<base64>`, while `local-models` only knew
   - `ServerTool`: the tool's name (in every text: `ty`, `TypeScript`), root folder, `ToolPin` and platform, archive
     format, the executable's path in an asset, the server arguments, the version arguments, the expected start of the
     version line, and the command name the smoke test's messages show (`` `tsc --version` ``; the name by default);
-    it builds `ToolRelease`s and the task row names.
+    it builds `ToolRelease`s and the task row names. Optionally (ADR 0179) a launch function gives the whole
+    `ServerCommand` for an executable (jdtls: a folder started through `java -jar`; null means it cannot run) and the
+    version arguments may be null (no version command: the smoke test only runs the handshake).
   - `ToolPin` and `ToolAsset`: the pin resource (`version`; per platform of `ToolPin.PLATFORMS`: `.asset`, `.bytes`
     and either `.sha256` or `.integrity`; both, or a value that is no digest of its algorithm, is a build error), with
     the download URL from a function of version, platform and asset name that the tool supplies;
     `ToolPin.platform(os.name, os.arch)`.
   - `ServerPathSetting(store, key)`: the custom executable in `settings.properties`.
-  - `ServerToolInstaller` (`ServerInstaller` over a `ToolInstaller`): availability, the command with the tool's
-    server arguments (a volatile copy for any thread, updated by an invalidation listener before the availability
-    binding), the custom path, install, update, rollback, delete, `onCommandChanged`.
+  - `ServerToolInstaller` (`ServerInstaller` over a `ToolInstaller`): availability, the command through the tool's
+    launch (`executable serverArguments` by default; a volatile copy for any thread, updated by an invalidation
+    listener before the availability binding), the custom path, install, update, rollback, delete,
+    `onCommandChanged`. An executable the tool's launch
+    rejects (null) is broken: a custom path is `Failed(…, canRetry = false)`, an installed version `Failed(…,
+    canRetry = true)` (Install reinstalls; `Installing` while it runs, its failure after a failed one). This is only
+    noticed when the availability is computed again (install, setting change, the page load's recheck); a folder
+    damaged later while nothing recomputes is found then. The settings page shows the same verdict: the custom
+    path's hint, and "Installed: …, but it cannot be started from …; Install it again." (Install stays enabled).
   - `UpdateSource` and `ToolUpdates`: a source answers the latest release (`LatestRelease.Release` with version,
     release notes, prerelease flag and a function that finds a platform's `ToolAsset`, called only when the version is
     newer) or `Failed`; `ToolUpdates` runs the check off the FX thread, refuses a version that cannot name a folder,
     compares with the installed version or the pin, and words network failures with the source's name. Shared
     helpers: `fetchText` (one `GET` as `User-Agent: Thoreau`, 15 s), `HttpAnswer`, `webPage`, `compareVersions`.
-  - `LspSmokeTest`: the version command must print the expected prefix and exit 0, then the server must answer one
+  - `LspSmokeTest`: the version command (optional: none for jdtls) must print the expected prefix and exit 0, then
+    the server, started as the tool's command says (arguments, environment, working directory), must answer one
     `initialize`, with ty's timeouts and rules (ADR 0144).
   - `ServerToolSettingsPage` with its model (`ServerToolPageModel`, `ServerToolDialogs`) and `ServerToolPageTexts`
     (the language in the delete question, the heading, the closing note); the page's path is the subclass's.

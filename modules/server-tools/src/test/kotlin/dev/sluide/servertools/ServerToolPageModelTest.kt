@@ -2,6 +2,7 @@ package dev.sluide.servertools
 
 import dev.sluide.localmodels.InstallState
 import dev.sluide.localmodels.InstalledTool
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.net.URI
 import java.nio.file.Files
@@ -235,6 +236,51 @@ class ServerToolPageModelTest {
 
         model.customPath.set(dir.resolve("missing").toString())
         assertEquals("${dir.resolve("missing")} is not an executable file", model.customHint())
+    }
+
+    /** A page over a tool whose launch rejects every executable. */
+    private fun rejectingModel(): Triple<ServerToolFakes, ServerToolInstaller, ServerToolPageModel> {
+        val rejecting = ServerToolFakes(acmeTool(dir, launch = { null }))
+        val rejectingInstaller = ServerToolInstaller(rejecting.tool, setting, rejecting.tools())
+        return Triple(
+            rejecting,
+            rejectingInstaller,
+            ServerToolPageModel("Acme", setting, rejectingInstaller, updates, dialogs) { },
+        )
+    }
+
+    @Test
+    fun `the hint also says when the launch cannot start a custom path that is an executable file`() {
+        assumeTrue(!System.getProperty("os.name").startsWith("Windows"), "POSIX permissions")
+        val custom = dir.resolve("my-acme-ls")
+        custom.writeText("#!/bin/sh\n")
+        Files.setPosixFilePermissions(custom, PosixFilePermissions.fromString("rwxr-xr-x"))
+        val (_, _, rejecting) = rejectingModel()
+
+        rejecting.useCustom.set(true)
+        rejecting.customPath.set(custom.toString())
+
+        assertEquals("acme-ls cannot be started from $custom", rejecting.customHint())
+        model.useCustom.set(true)
+        model.customPath.set(custom.toString())
+        assertEquals("", model.customHint(), "a tool without a launch function starts it")
+    }
+
+    @Test
+    fun `an installed version the launch cannot start says so and offers Install again`() {
+        val (rejecting, rejectingInstaller, page) = rejectingModel()
+        page.installOrCancel()
+        rejecting.runQueued()
+        val executable = checkNotNull(rejectingInstaller.installed.get()).executable
+
+        val controls = page.controls()
+
+        assertEquals(
+            "Installed: acme-ls 0.0.99, but it cannot be started from $executable; Install it again.",
+            controls.status,
+        )
+        assertEquals("Install", controls.installText)
+        assertFalse(controls.installDisabled)
     }
 
     @Test

@@ -205,6 +205,95 @@ class ServerToolInstallerTest {
     }
 
     @Test
+    fun `a launch function decides the command of the installed version and of a custom path`() {
+        val launch = { executable: Path ->
+            ServerCommand(
+                Path.of("/launcher"),
+                listOf("-jar", executable.toString()),
+                mapOf("A" to "1", "B" to null),
+                executable.parent,
+            )
+        }
+        val launching = ServerToolFakes(acmeTool(dir, launch = launch))
+        val installer = ServerToolInstaller(launching.tool, setting, launching.tools())
+        installer.install(null)
+        launching.runQueued()
+        val installed = checkNotNull(installer.installed.get()).executable
+
+        assertEquals(launch(installed), installer.command())
+
+        val custom = executableFile()
+        setting.apply(custom.toString())
+
+        assertEquals(launch(custom), installer.command())
+    }
+
+    @Test
+    fun `an installed version or custom path whose launch gives null has no command and fails the availability`() {
+        val launching = ServerToolFakes(acmeTool(dir, launch = { null }))
+        val installer = ServerToolInstaller(launching.tool, setting, launching.tools())
+        installer.install(null)
+        launching.runQueued()
+        val installed = checkNotNull(installer.installed.get()).executable
+        assertNull(installer.command())
+        assertEquals(
+            ServerAvailability.Failed("acme-ls cannot be started from $installed", canRetry = true),
+            installer.availability.value,
+        )
+
+        val custom = executableFile()
+        setting.apply(custom.toString())
+
+        assertNull(installer.command())
+        assertEquals(
+            ServerAvailability.Failed("acme-ls cannot be started from $custom", canRetry = false),
+            installer.availability.value,
+        )
+    }
+
+    @Test
+    fun `the launch function is not asked while no custom path is set and nothing is installed`() {
+        val launching = ServerToolFakes(acmeTool(dir, launch = { error("asked for ${it.parent.parent}") }))
+        val installer = ServerToolInstaller(launching.tool, setting, launching.tools())
+
+        assertNull(installer.command())
+        assertEquals(ServerAvailability.Missing(13_659_057), installer.availability.value)
+    }
+
+    @Test
+    fun `the launch function is asked about the custom path only, while one is set`() {
+        val asked = mutableListOf<Path>()
+        val launching =
+            ServerToolFakes(
+                acmeTool(dir, launch = { executable -> ServerCommand(executable).also { asked.add(executable) } }),
+            )
+        val installer = ServerToolInstaller(launching.tool, setting, launching.tools())
+        installer.install(null)
+        launching.runQueued()
+        val custom = executableFile()
+        asked.clear()
+
+        setting.apply(custom.toString())
+        installer.availability.value
+
+        assertEquals(listOf(custom), asked.distinct())
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("launchRejections")
+    fun `an installed version the launch rejects is broken, reinstalling or a failed reinstall shows as usual`(
+        case: String,
+        state: InstallState,
+        expected: ServerAvailability,
+    ) {
+        assertEquals(
+            expected,
+            ServerToolInstaller.availabilityOf("", null, state, tool, 1L, NO_BUILD, "acme-ls cannot be started"),
+            case,
+        )
+    }
+
+    @Test
     fun `a custom path that is not executable gives no command and fails the availability`() {
         val installer = defaultInstaller()
         installer.install(null)
@@ -277,6 +366,26 @@ class ServerToolInstallerTest {
         private const val NO_BUILD = "No acme-ls build for this platform"
 
         private val tool = InstalledTool("0.0.99", Path.of("/x/acme-ls"))
+
+        @JvmStatic
+        fun launchRejections(): List<Arguments> =
+            listOf(
+                Arguments.of(
+                    "installed",
+                    InstallState.Installed,
+                    ServerAvailability.Failed("acme-ls cannot be started"),
+                ),
+                Arguments.of(
+                    "reinstalling",
+                    InstallState.Downloading(0.3),
+                    ServerAvailability.Installing(0.3),
+                ),
+                Arguments.of(
+                    "reinstall failed",
+                    InstallState.Failed("download broke"),
+                    ServerAvailability.Failed("download broke"),
+                ),
+            )
 
         @JvmStatic
         fun availabilities(): List<Arguments> =

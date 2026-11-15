@@ -1,5 +1,6 @@
 package dev.sluide.servertools
 
+import dev.sluide.languageservers.ServerCommand
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -26,7 +27,8 @@ class LspSmokeTestTest {
     lateinit var dir: Path
 
     /** The real timeouts for scripts that pass or fail at once (slow CI runners start shells slowly too). */
-    private val smokeTest = LspSmokeTest("acme-ls", listOf("--version"), "acme-ls ", listOf("serve", "--stdio"))
+    private val smokeTest =
+        LspSmokeTest("acme-ls", listOf("--version"), "acme-ls ", { ServerCommand(it, listOf("serve", "--stdio")) })
 
     /** Short timeouts for the scripts that hang: they are killed after them. */
     private val hanging =
@@ -34,7 +36,7 @@ class LspSmokeTestTest {
             "acme-ls",
             listOf("--version"),
             "acme-ls ",
-            listOf("serve", "--stdio"),
+            { ServerCommand(it, listOf("serve", "--stdio")) },
             versionTimeout = 500.milliseconds,
             handshakeTimeout = 500.milliseconds,
         )
@@ -163,6 +165,78 @@ class LspSmokeTestTest {
         assertEquals("Installing Acme 0.1.0", tool.taskName(release, null))
         assertEquals("Acme", ServerToolInstaller(tool, acmeSetting(dir), ServerToolFakes(tool).tools()).toolName)
         assertEquals("No Acme build for this platform", tool.noBuild)
+    }
+
+    @Test
+    fun `without a version command only the handshake runs`() {
+        // The script answers initialize but fails on any other arguments, also on --version.
+        val server = fakeServer("exit 7", answer("""{"jsonrpc":"2.0","id":1,"result":{}}"""))
+        val tool = acmeTool(dir, versionArguments = null)
+
+        assertNull(tool.smokeTest().check(server))
+        assertEquals("`acme-ls --version` ended with exit code 7", smokeTest.check(server))
+    }
+
+    @Test
+    fun `the handshake runs the launch command with its arguments, environment and working directory`() {
+        assumeTrue(System.getenv("HOME") != null, "the test removes the inherited HOME")
+        val work = Files.createDirectory(dir.resolve("work"))
+        val script = dir.resolve("launcher")
+        script.writeText(
+            """
+            |#!/bin/sh
+            |[ "${'$'}*" = "-x y" ] && [ "${'$'}SET_ME" = "yes" ] && [ -z "${'$'}{HOME+x}" ] && [ "${'$'}(pwd -P)" = "${'$'}EXPECT" ] \
+            |  && ${answer("""{"jsonrpc":"2.0","id":1,"result":{}}""")}
+            |
+            """.trimMargin(),
+        )
+        Files.setPosixFilePermissions(script, PosixFilePermissions.fromString("rwxr-xr-x"))
+        val marker = dir.resolve("marker")
+        val command =
+            ServerCommand(
+                script,
+                listOf("-x", "y"),
+                mapOf("SET_ME" to "yes", "HOME" to null, "EXPECT" to work.toRealPath().toString()),
+                work,
+            )
+        val withEnvironment = LspSmokeTest("acme-ls", null, "", { command })
+
+        assertNull(withEnvironment.check(marker))
+        assertEquals(
+            "`acme-ls -x y` gave no answer: the output ended",
+            LspSmokeTest("acme-ls", null, "", { command.copy(workingDirectory = null) }).check(marker),
+        )
+        assertEquals(
+            "`acme-ls -x y` gave no answer: the output ended",
+            LspSmokeTest(
+                "acme-ls",
+                null,
+                "",
+                { command.copy(environment = command.environment - "SET_ME") },
+            ).check(marker),
+        )
+        assertEquals(
+            "`acme-ls -x y` gave no answer: the output ended",
+            LspSmokeTest(
+                "acme-ls",
+                null,
+                "",
+                { command.copy(environment = command.environment - "HOME") },
+            ).check(marker),
+        )
+        assertEquals(
+            "`acme-ls -z` gave no answer: the output ended",
+            LspSmokeTest("acme-ls", null, "", { command.copy(arguments = listOf("-z")) }).check(marker),
+        )
+    }
+
+    @Test
+    fun `an executable whose launch gives no command cannot be started`() {
+        val tool = acmeTool(dir, launch = { null })
+
+        val server = fakeServer("echo 'acme-ls 1'", "exit 0")
+
+        assertEquals("acme-ls cannot be started from $server", tool.smokeTest().check(server))
     }
 
     @Test

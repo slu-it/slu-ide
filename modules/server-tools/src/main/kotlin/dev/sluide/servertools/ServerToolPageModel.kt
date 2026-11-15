@@ -151,6 +151,7 @@ internal class ServerToolPageModel(
         val previous = installer.previous.get()
         val busy = state is InstallState.Downloading
         val check = updateCheck.get()
+        val cannotStart = installer.installedProblem() != null
         return ServerToolPageControls(
             status =
                 statusText(
@@ -159,9 +160,10 @@ internal class ServerToolPageModel(
                     installed,
                     installer.pinnedVersion,
                     installer.pinnedDownloadBytes,
+                    cannotStart,
                 ),
             installText = if (busy) "Cancel" else "Install",
-            installDisabled = !busy && (installed != null || !installer.platformSupported),
+            installDisabled = !busy && ((installed != null && !cannotStart) || !installer.platformSupported),
             checkDisabled = checking.get(),
             result = if (checking.get()) "Checking for updates…" else check?.let { resultText(name, it) },
             releaseNotesShown = !checking.get() && releaseNotes(check) != null,
@@ -187,7 +189,7 @@ internal class ServerToolPageModel(
                 false
             }
         if (!absolute) return "Use an absolute path."
-        return ServerToolInstaller.customPathProblem(path) ?: ""
+        return installer.customProblem(path) ?: ""
     }
 
     companion object {
@@ -212,6 +214,7 @@ internal class ServerToolPageModel(
             installed: InstalledTool?,
             pinnedVersion: String,
             pinnedBytes: Long?,
+            cannotStart: Boolean = false,
         ): String {
             val name = tool.name
             return when {
@@ -225,6 +228,11 @@ internal class ServerToolPageModel(
 
                 state is InstallState.Failed -> {
                     "Failed: ${state.message}"
+                }
+
+                installed != null && cannotStart -> {
+                    "Installed: $name ${installed.version}, but it cannot be started from ${installed.executable}; " +
+                        "Install it again."
                 }
 
                 installed != null && installed.version == pinnedVersion -> {

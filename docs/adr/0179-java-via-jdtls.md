@@ -3,8 +3,8 @@
 - Status: accepted; amends [0142](0142-language-server-foundation.md) (session extensions, several trust checks,
   workspace folders announced one by one), [0151](0151-workspace-folders-per-project.md) (no window folder for
   specs in roots-only mode), [0160](0160-document-gate-and-kept-diagnostics.md) (several actions per environment
-  problem), [0150](0150-library-code-read-only.md) (Java library classes); see [0159](0159-shared-server-tool-layer.md),
-  [0053](0053-project-trust.md), [0085](0085-gradle-integration.md), [0090](0090-per-project-metadata-store.md)
+  problem), [0150](0150-library-code-read-only.md) (Java library classes),
+  [0159](0159-shared-server-tool-layer.md) (a launch function, no version command); see [0053](0053-project-trust.md), [0085](0085-gradle-integration.md), [0090](0090-per-project-metadata-store.md)
 - Date: 2026-11-15
 
 ## Context
@@ -60,9 +60,11 @@ JDK or a library returns `jdt://` URIs, whose text `java/classFileContents` retu
 **Server and install.** Thoreau runs jdtls on its own JVM (`java.home`/bin/java) with `-Xmx` from Settings → Languages
 → Java → Maximum memory (default 2 GB), `-Djava.import.generatesMetadataFilesAtProjectRoot=false`, and a data folder
 per project `~/.sluide/jdtls/workspaces/<folder name>-<12 hex of sha256(window folder)>/` (`data/`, a copy of
-`config_<os>`, `project-path.txt`). It installs like ty and TypeScript (ADR 0159): the pinned milestone on a click,
+`config_<os>`, `project-path.txt`). It installs like ty and TypeScript (ADR 0159), launched through the tool's
+launch function with no version command (the smoke test only runs the handshake): the pinned milestone on a click,
 size and sha256 checked; Check for Updates parses the milestones index (versions sorted as numbers) and
-`<version>/latest.txt`; Update, Roll Back, Delete and a custom jdtls folder (`java.jdtls.path`). A pinned Lombok jar
+`<version>/latest.txt`; Update, Roll Back, Delete and a custom jdtls (`java.jdtls.path`, the `bin/jdtls` file of an
+unpacked jdtls, from which Thoreau finds the folder). A pinned Lombok jar
 from Maven Central (sha256 pinned; Maven Central publishes only sha1, checked when the pin is bumped) is installed and
 deleted with it. Hosts: `download.eclipse.org`, `repo1.maven.org`, only on a click.
 
