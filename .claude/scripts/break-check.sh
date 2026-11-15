@@ -17,11 +17,14 @@
 # results invalidated, so its time is a real run; a red baseline stops the run. Each mutant runs in stages with
 # Gradle's fail-fast on, each stage ending the mutant at its first failing test: the UI class that killed the
 # previous mutant of the file, then the unit tests, then the other UI classes. (Running only the killing test
-# methods first measured 5% faster, within noise, and was dropped: each stage pays Gradle's start, ADR 0178.)
+# methods first measured 5% faster without a daemon, within noise, and was dropped, ADR 0178.)
 # A mutant counts as killed (a test failed), SURVIVED (all green), timeout (a stage ran past 4x its baseline plus
 # 60 s; not a kill: an endless loop, or load that hid a survivor, so read its log and rerun the file) or no compile
 # (ignored). Any other outcome (INCOMPLETE, NOT RUN, a Gradle failure without a failing test) stops the run with
 # exit 3.
+# Gradle runs on a daemon of this run alone (verify.sh's SLUIDE_PRIVATE_DAEMON), stopped when the run ends or a
+# mutant times out; it holds about 1.2 GB meanwhile (the project's -Xmx1g wins over a larger one in the user's
+# ~/.gradle/gradle.properties), and full-build.sh refuses to start while a run's daemon is up.
 # Files are replaced atomically and restored after every mutant and on exit, Ctrl-C, SIGTERM and SIGHUP. The originals
 # and the mutant in place are recorded in build/break-check/restore/: after a hard kill (SIGKILL) the next start
 # restores a file that holds exactly that mutant and refuses one that differs otherwise. Refuses while a file to
@@ -45,8 +48,8 @@
 #   file...   only these production files (default: every one the commits since <base> change)
 # Output: per mutant `killed|SURVIVED|timeout|no compile  path:line  what was changed [first failing test]`, then
 # `break-check: N mutants, K killed, S SURVIVED, T timeout, C no compile; G guard-like lines not mutated`. Each
-# verify run's output: build/break-check/logs/. About 1-2 s per unit-test stage with a warm daemon, about 7 s in a
-# worktree (`--no-daemon`); a UI stage adds its classes' time, so --list and the estimate after the baseline come
+# verify run's output: build/break-check/logs/. About 1 s per unit-test stage on the run's daemon; a UI stage adds its
+# classes' time (the Find in Files popup: 72 mutants in 696 s), so --list and the estimate after the baseline come
 # first.
 # Exit: 0 no survivor and no timeout, 1 survivors or timeouts, 2 usage or refusal, 3 a run neither passed nor
 # failed (or a detached run died), 4 internal error, 5 (--wait) still running, 128+signal when interrupted.
@@ -55,7 +58,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd -P)"
 cd "$root"
 exec python3 -I - "$root" "$root/.claude/scripts/break-check.sh" "$@" <<'PY'
-import json, os, re, signal, subprocess, sys, time, traceback
+import hashlib, json, os, re, signal, subprocess, sys, time, traceback
 
 root, self_path, args = sys.argv[1], sys.argv[2], sys.argv[3:]
 detached = os.environ.pop("BREAK_CHECK_DETACHED", None) == "1"  # not passed on to verify.sh and Gradle
@@ -373,6 +376,25 @@ def stages_for(targets):
 
 # --- Runs ------------------------------------------------------------------------------------------------------
 current_proc = None
+# Gradle runs on a daemon of this run alone (verify.sh's SLUIDE_PRIVATE_DAEMON): 37% faster than --no-daemon in a
+# worktree. The id starts with this run's pid, so full-build.sh can tell a live run's daemon from a leftover one.
+daemon_tag = "sluide-private-daemon-%d-%s-" % (os.getpid(), hashlib.sha1(root.encode()).hexdigest()[:8])
+# /tmp, not TMPDIR: a path with spaces would split inside org.gradle.jvmargs. The file is only written on a JVM crash.
+daemon_option = "-XX:ErrorFile=/tmp/%s%%p.log" % daemon_tag
+
+def stop_private_daemon():
+    """Kills this run's Gradle daemon (and a client still talking to it): `gradlew --stop` would stop every daemon."""
+    def tagged():
+        out = subprocess.run(["ps", "-eo", "pid=,args="], capture_output=True, text=True).stdout
+        return [int(line.split(None, 1)[0]) for line in out.splitlines()
+                if daemon_tag in line and int(line.split(None, 1)[0]) != os.getpid()]
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        # Looked up again before the KILL: a pid freed by the TERM may belong to another process by then.
+        pids = tagged()
+        for pid in pids:
+            try: os.kill(pid, sig)
+            except ProcessLookupError: pass
+        if sig == signal.SIGTERM and pids: time.sleep(3)
 fail_fast = os.path.join(work, "fail-fast.gradle")
 
 def on_signal(signum, _frame):
@@ -406,9 +428,8 @@ def verify(targets, name, timeout, gradle_args=()):
     with open(os.path.join(logs, name + ".log"), "w") as f:
         f.write(output + ("\n[break-check: killed after %d s]\n" % timeout if timed_out else ""))
     if timed_out:
-        # A hung test can keep a shared daemon busy; stop the daemons only when no other Gradle client runs anywhere.
-        if subprocess.run([".claude/scripts/gradle-running.sh", "--any"], capture_output=True).returncode != 0:
-            subprocess.run(["./gradlew", "--stop", "-q"], capture_output=True)
+        # A hung test keeps the daemon busy: stop it, the next call starts a fresh one.
+        stop_private_daemon()
         return "timeout", "timeout after %d s" % timeout, elapsed
     out = output.splitlines()
     fails = [l for l in out if l.startswith("FAIL ")]
@@ -434,6 +455,7 @@ def invalidate_results(unit, ui):
 run_left = []  # the finished run's survivors and timeouts, for the survivors list
 
 def run(plan, unmutated, targets):
+    os.environ["SLUIDE_PRIVATE_DAEMON"] = daemon_option
     os.makedirs(logs, exist_ok=True)
     for name in os.listdir(logs): os.remove(os.path.join(logs, name))
     with open(fail_fast, "w") as f:
@@ -513,6 +535,7 @@ def run(plan, unmutated, targets):
             print("%-10s  %s:%d  %s%s" % (label, path, n, what, "  [%s]" % detail if detail else ""), flush=True)
     finally:
         stop_children()
+        stop_private_daemon()
         restore()
         clear_restore_dir()
     run_left.extend(left)

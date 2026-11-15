@@ -22,6 +22,8 @@
 # the format step, the display setup and Gradle (the check for another Gradle build does not apply to it).
 # UI test classes on Linux get a virtual display from setup-display.sh (:N from --display, else $DISPLAY, else :99);
 # if that fails they are reported as NOT RUN and the run ends INCOMPLETE (exit 1).
+# SLUIDE_PRIVATE_DAEMON (set by break-check.sh: one JVM option, -XX:ErrorFile=...) runs Gradle on a daemon of that run
+# alone instead of --no-daemon in worktrees or the shared daemon in the main tree.
 # Usage: .claude/scripts/verify.sh [--no-format] [--changed] [--list] [--display N] [target...] [-- gradle-args]
 # Gradle arguments that skip tasks (`-- -x uiTest`) let old passing results of the skipped classes count: don't.
 # The check for another Gradle build (gradle-running.sh) reads /proc, so it works on Linux only: a client in this tree
@@ -197,7 +199,18 @@ if [ "$(git rev-parse --absolute-git-dir)" != "$(git rev-parse --path-format=abs
   in_worktree=1
 fi
 gradlew=(./gradlew)
-if [ "$in_worktree" -eq 1 ]; then gradlew+=(--no-daemon); fi
+if [ -n "${SLUIDE_PRIVATE_DAEMON:-}" ]; then
+  # A daemon of break-check.sh's run alone: a JVM option no other build passes (its -XX:ErrorFile) makes Gradle start
+  # one for this option and reuse it only for builds that pass it too (a -D property would not: Gradle sets those at
+  # runtime and shares the daemon). break-check stops it; the idle timeout ends one a hard kill left behind.
+  # A command-line jvmargs replaces the user's (~/.gradle/gradle.properties, e.g. -Xmx4g): keep their options and add
+  # the project's after them, so the project's -Xmx1g wins on purpose (three parallel runs, about 1.2 GB each).
+  user_props="${GRADLE_USER_HOME:-$HOME/.gradle}/gradle.properties"
+  jvmargs="$( { [ -f "$user_props" ] && sed -n 's/^org\.gradle\.jvmargs=//p' "$user_props" | tail -n 1; sed -n 's/^org\.gradle\.jvmargs=//p' gradle.properties | tail -n 1; } | tr '\n' ' ')"
+  gradlew+=(--daemon "-Dorg.gradle.jvmargs=$jvmargs $SLUIDE_PRIVATE_DAEMON" -Dorg.gradle.daemon.idletimeout=600000)
+elif [ "$in_worktree" -eq 1 ]; then
+  gradlew+=(--no-daemon)
+fi
 
 # 2. Format. Changed files = Kotlin files whose content differs before and after.
 snapshot() {
@@ -267,7 +280,17 @@ touch "$marker"
 rerun=0
 refusal=""
 if grep -qF 'Build_gradle$DisplayService' "$log"; then
-  if running="$("$root/.claude/scripts/gradle-running.sh" --any)"; then
+  if [ -n "${SLUIDE_PRIVATE_DAEMON:-}" ]; then
+    # break-check's daemon serves this run alone: stopping it touches no other build.
+    rerun=1
+    tag="$(sed -nE 's/.*(sluide-private-daemon-[0-9]+-[0-9a-f]+-).*/\1/p' <<<"$SLUIDE_PRIVATE_DAEMON")"
+    echo "DisplayService cast error: stopping this run's daemon, then rerun"
+    if [ -n "$tag" ]; then ps -eo pid=,args= | awk -v t="$tag" 'index($0, t) { print $1 }' | xargs -r kill 2>/dev/null || true; fi
+    sleep 3
+    status=0
+    touch "$marker"
+    "${cmd[@]}" >"$log" 2>&1 || status=$?
+  elif running="$("$root/.claude/scripts/gradle-running.sh" --any)"; then
     refusal="DisplayService cast error; another Gradle build runs (pid ${running%% *} in $(printf '%s\n' "$running" | head -n 1 | cut -d' ' -f2-)), so the daemons were not stopped: run again when it has finished"
   else
     rerun=1

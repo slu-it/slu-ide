@@ -102,16 +102,17 @@ A behavior is tested once, at the lowest level that can see it
   written while `modeOf` already rejected the same input stayed green with the check removed. A break check by hand:
   copy the file, break it, see the test fail, restore from the copy.
 - **The break-check script.** `.claude/scripts/break-check.sh <base> [-- <classes>]` (what it changes and skips: its
-  header) runs each changed file's module unit tests and the related test classes it finds; name the classes it
-  cannot find after `--`, or their wiring shows as false survivors. `--list` first shows the mutants, the tests and
-  the guard-like lines it does not mutate (`?: return`, `when` branches, multi-line conditions). A run can outlast one
-  Bash call: start it with `--detach` and call `--wait` until the exit code is not 5. It refuses uncommitted changes
-  in the files it mutates, so a survivor's fix is a `fixup!` commit before the next run; `--survivors` reruns only
-  the last run's survivors and timeouts, and all mutants of a file whose production code changed since or that has no
-  finished run (82 s for the popup's 9 survivors against 18 min for all 72 mutants). `--unit-only` skips the UI
-  stages for a quick look while iterating; its survivors include what only a UI test can kill, so a plain
-  `--survivors` run afterwards gives the complete result, with UI tests only for those. A survivor is a
-  vacuous test or dead code (a guard no input can reach); an equivalent one is a defensive call the caller already
+  header) runs each changed file's module unit tests and the related test classes it finds; name the classes it cannot
+  find after `--`, or their wiring shows as false survivors. `--list` first shows the mutants, the tests and the
+  guard-like lines it does not mutate (`?: return`, `when` branches, multi-line conditions). A run can outlast one Bash
+  call: start it with `--detach` and call `--wait` until the exit code is not 5. It refuses uncommitted changes in the
+  files it mutates, so a survivor's fix is a `fixup!` commit before the next run; `--survivors` reruns only the last
+  run's survivors and timeouts, and all mutants of a file whose production code changed since or that has no finished
+  run (the popup without a daemon: 82 s for its 9 survivors against 1109 s for all 72 mutants). `--unit-only` skips the
+  UI stages for a quick look while iterating; its survivors include what only a UI test can kill, so a plain
+  `--survivors` run afterwards gives the complete result, with UI tests only for those. Each run uses a Gradle daemon of
+  its own (37% faster than `--no-daemon` in a worktree, about 1.2 GB while it runs) and stops it at the end. A survivor
+  is a vacuous test or dead code (a guard no input can reach); an equivalent one is a defensive call the caller already
   made.
 - `.claude/scripts/check-tests.sh [files]` reports fixed sleeps without a reason (poll intervals inside a `while`
   loop do not count), synthetic OS input without a `//` reason, `waitForFxEvents()` right after `interact` and test

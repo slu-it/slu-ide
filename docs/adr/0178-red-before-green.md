@@ -41,17 +41,17 @@ because nothing exists, not because the one guard is missing.
 - **Reports quote the red**: per new test, the failing assertion line from `verify.sh`'s digest.
 
 ## Consequences
-- More `verify.sh` runs per package (one per behavior and guard), plus the break-check run before reporting: about
-  1-2 s per unit-test mutant with a warm daemon, about 7 s in a worktree, more where UI test classes cover the file
-  (the Find in Files feature: about 230 mutants). Each mutant runs in fail-fast stages (the UI class that killed the
-  previous mutant, the unit tests, the other UI classes), so most mutants never pay for the full UI test set; only
-  survivors do, and the rerun after fixing tests (`--survivors`) runs only those, plus every mutant of a file whose
-  production code changed: 82 s for the popup's 9 survivors against 1109 s (18 min) for all 72 mutants in a
-  worktree. Running only the killing test method first (1052 s, 5% faster, within run-to-run noise) or the last 8
-  killing methods (1168 s) was measured and dropped: each stage pays Gradle's start without a daemon (about 3-5 s),
-  so a miss costs what the hits save. Runs outlast one Bash call, so
-  agents start them detached and collect them with `--wait`; skipping presentation lines (style classes, sizes,
-  prompt texts) keeps the count down.
+- More `verify.sh` runs per package (one per behavior and guard), plus the break-check run before reporting. Each mutant
+  runs in fail-fast stages (the UI class that killed the previous mutant, the unit tests, the other UI classes), so most
+  mutants never pay for the full UI test set; only survivors do, and the rerun after fixing tests (`--survivors`) runs
+  only those, plus every mutant of a file whose production code changed. Measured on the Find in Files popup (72
+  mutants, 9 survivors) in a worktree: 1109 s without a daemon, 696 s on a daemon of the run alone (break-check stops it
+  at the end; about 1.2 GB while it runs, so up to 3.5 GB with three parallel implementers, and `full-build.sh` refuses
+  to start while one is up), 82 s for the `--survivors` rerun. Running only the killing test method first (1052 s, 5%
+  faster, within noise) or the last 8 killing methods (1168 s) was measured without a daemon and dropped: each stage
+  paid Gradle's start (about 3-5 s), so a miss cost what the hits saved; with the daemon's cheap start that might
+  change. Runs outlast one Bash call, so agents start them detached and collect them with `--wait`; skipping
+  presentation lines (style classes, sizes, prompt texts) keeps the count down.
 - Reviewers check the red lines and the break-check survivors instead of reconstructing every test's failure by
   reading.
 - A red is never committed: tests and code still land in one commit, so git does not show the red; the report and

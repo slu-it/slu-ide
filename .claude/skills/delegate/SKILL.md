@@ -132,7 +132,8 @@ package that changes what the user sees and once more at the end:
 ## Final gate
 Once the cross-package review has no Blockers and no agent runs Gradle in the main tree, the main session runs
 `.claude/scripts/full-build.sh` in the background (what it runs and checks: its header). Never start it while an
-implementer still edits or builds in the main tree: both share `build/`.
+implementer still edits or builds in the main tree: both share `build/`. It refuses while a break-check run keeps its
+own Gradle daemon (about 1.2 GB), and stops the daemons killed runs left behind.
 
 The main session fixes gate failures itself instead of starting another implementer round: rerun the failing class
 with `.claude/scripts/verify.sh <Class>`, fix the cause (never by weakening the test), fold the fix into the matching
