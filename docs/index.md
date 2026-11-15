@@ -221,6 +221,7 @@ updated when the summary or keywords no longer fit.
 | Feature | Summary | Keywords |
 |---|---|---|
 | [file-explorer.md](features/file-explorer.md) | Project tree with file operations, multi-selection and moves, a Compact Middle Folders and a Hide Generated Files toggle | New File, Rename F2, drag move, paste image, compact folders, Hide Generated Files, `folder-cog`, Select Opened File, Open in Terminal, Alt+1, search files, Shortcut+F |
+| [find-in-files.md](features/find-in-files.md) | Find in Files: content search of the tree's files in a popup, scope chip, selection as query, file mask | Find in Files, Shortcut+Shift+F, Find in Folder, Find Selection in Files, file mask, scope chip, `FindInFiles`, `MatchOpener` |
 | [scratch-files.md](features/scratch-files.md) | Scratch files of any type under the explorer's Scratches root, also generated ones | New Scratch File, Shortcut+Shift+N, `~/.sluide/scratches`, type picker, generated scratch files, Shortcut+Shift+G, UUID, ULID, password, encrypted scratch files |
 | [file-watching.md](features/file-watching.md) | `FileWatcher` reports folder changes to explorer, editor and git | `FileWatcher`, watches, combined events, macOS polling |
 | [generated-folders.md](features/generated-folders.md) | Which folders count as generated, how the explorer hides them with git, generated files, the toggle and icons | generated folders, generated files, .DS_Store, `file-cog`, node_modules, .venv, CACHEDIR.TAG, pyvenv.cfg, `generatedReason`, `explorer.hideGeneratedFolders`, hide, `folder-cog` |

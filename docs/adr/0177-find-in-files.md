@@ -52,6 +52,9 @@ the unsaved text of open editors.
   preview of the selected match. Enter or double-click opens the match at its line and column, recorded in the
   Back/Forward history ([0146](0146-navigation.md)); Escape hides. Query, toggles and mask are remembered per window
   for its lifetime; the scope never is.
+- **Scope chip**: `FindInFiles` hands the view the scope as the folder's path relative to its root (its name for a
+  root); the popup shows the last segment and the full relative path as tooltip. With more than one root searched the
+  file headers are prefixed with the root's folder name (`severalRoots`).
 - **Entry points**: Shortcut+Shift+F (Navigate → Find in Files…); with the explorer focused and one folder selected it
   searches that folder; a single-line editor selection becomes the query. The explorer's folder menu has Find in
   Folder…, the code editor's context menu Find Selection in Files ([0108](0108-code-editor-extensions-and-context-menu.md)).
