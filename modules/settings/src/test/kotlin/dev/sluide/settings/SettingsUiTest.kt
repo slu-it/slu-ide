@@ -161,6 +161,7 @@ class SettingsUiTest {
         assertEquals(1, other.applied, "the other pages are applied")
         lateinit var pane: DialogPane
         lateinit var message: String
+        lateinit var alertTitle: String
         robot.interact {
             val alert =
                 Window
@@ -169,7 +170,9 @@ class SettingsUiTest {
                     .single { it.owner === dialog.dialogPane.scene.window }
             pane = alert.scene.root as DialogPane
             message = pane.contentText
+            alertTitle = alert.title
         }
+        assertEquals("Settings", alertTitle)
         assertTrue("Broken › Page: Cannot save settings to /nowhere" in message, message)
 
         robot.interact { (pane.lookupButton(ButtonType.OK) as Button).fire() }
@@ -329,6 +332,108 @@ class SettingsUiTest {
         close(robot, dialog, ButtonType.OK)
         assertFalse(dialog.isShowing)
         assertEquals(1, other.applied)
+    }
+
+    /** A project page that records the folders it is loaded and applied with. */
+    private class RecordingProjectPage(
+        override val path: List<String>,
+    ) : ProjectSettingsPage {
+        val loaded = mutableListOf<Path>()
+        val applied = mutableListOf<Path>()
+        override val node = Label(path.joinToString(" › "))
+
+        override fun load(folder: Path) {
+            loaded.add(folder)
+        }
+
+        override fun apply(folder: Path) {
+            applied.add(folder)
+        }
+    }
+
+    // UI tests: a Dialog can only be created on the FX thread.
+    @Test
+    fun `the project dialog is titled Project Settings, the settings dialog Settings`(robot: FxRobot) {
+        val project = ProjectSettings(listOf(RecordingProjectPage(listOf("A"))))
+        val settingsDialog = open(robot, NamedPage(listOf("A")))
+        lateinit var projectDialog: SettingsDialog
+        robot.interact { projectDialog = project.dialog(dir, stage) }
+
+        assertEquals("Settings", settingsDialog.title)
+        assertEquals("Project Settings", projectDialog.title)
+        close(robot, settingsDialog, ButtonType.CANCEL)
+    }
+
+    @Test
+    fun `project pages are loaded and applied with the folder, the path selects the page`(robot: FxRobot) {
+        val first = RecordingProjectPage(listOf("Alpha"))
+        val second = RecordingProjectPage(listOf("Java"))
+        val project = ProjectSettings(listOf(first, second))
+        lateinit var dialog: SettingsDialog
+        robot.interact {
+            dialog = project.dialog(dir, stage, listOf("Java"))
+            dialog.show()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf(dir), second.loaded)
+        assertEquals(listOf(dir), first.loaded)
+        assertEquals(listOf("Java"), dialog.shownPage?.path)
+        close(robot, dialog, ButtonType.OK)
+        assertEquals(listOf(dir), first.applied)
+        assertEquals(listOf(dir), second.applied)
+    }
+
+    @Test
+    fun `the error of a project page is reported in an alert titled Project Settings`(robot: FxRobot) {
+        val failing =
+            object : ProjectSettingsPage {
+                override val path = listOf("Broken")
+                override val node by lazy { Label("broken") }
+
+                override fun load(folder: Path) {}
+
+                override fun apply(folder: Path) = throw IOException("Cannot store in $folder")
+            }
+        lateinit var dialog: SettingsDialog
+        robot.interact {
+            dialog = ProjectSettings(listOf(failing)).dialog(dir, stage)
+            dialog.show()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        close(robot, dialog, ButtonType.OK)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        lateinit var alertTitle: String
+        lateinit var message: String
+        robot.interact {
+            val alert =
+                Window
+                    .getWindows()
+                    .filterIsInstance<Stage>()
+                    .single { it.owner === dialog.dialogPane.scene.window }
+            alertTitle = alert.title
+            message = (alert.scene.root as DialogPane).contentText
+            alert.close()
+        }
+        assertEquals("Project Settings", alertTitle)
+        assertTrue("Cannot store in $dir" in message, message)
+        close(robot, dialog, ButtonType.CANCEL)
+    }
+
+    @Test
+    fun `an unknown path or none opens the first project page`(robot: FxRobot) {
+        val pages = listOf(RecordingProjectPage(listOf("Alpha")), RecordingProjectPage(listOf("Java")))
+        val project = ProjectSettings(pages)
+        lateinit var unknown: SettingsDialog
+        lateinit var none: SettingsDialog
+        robot.interact {
+            unknown = project.dialog(dir, stage, listOf("Nope"))
+            none = project.dialog(dir, stage)
+        }
+        assertEquals(listOf("Alpha"), unknown.shownPage?.path)
+        assertEquals(listOf("Alpha"), none.shownPage?.path)
     }
 
     private fun enter(node: Node) =

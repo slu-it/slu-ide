@@ -24,6 +24,7 @@ private val log = System.getLogger(SettingsDialog::class.java.name)
 class SettingsDialog(
     private val pages: List<SettingsPage>,
     owner: Window? = null,
+    title: String = "Settings",
 ) : Dialog<ButtonType>() {
     /** A tree node: a group like "Display" (no page) or a page; a page's item also holds the pages below its path. */
     internal class Entry(
@@ -48,7 +49,7 @@ class SettingsDialog(
 
     init {
         owner?.let(::initOwner)
-        title = "Settings"
+        this.title = title
         isResizable = true
         pages.forEach { it.load() }
         pages.forEach(::addToTree)
@@ -101,7 +102,7 @@ class SettingsDialog(
         val window = dialogPane.scene?.window
         Alert(Alert.AlertType.ERROR, failures.joinToString("\n")).apply {
             initOwner(window)
-            title = "Settings"
+            title = this@SettingsDialog.title
             headerText = "These settings could not be saved and are not applied."
             show()
         }
