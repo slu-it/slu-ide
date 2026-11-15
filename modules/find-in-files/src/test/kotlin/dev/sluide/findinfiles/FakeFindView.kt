@@ -67,8 +67,9 @@ internal class FakeFindView : FindView {
         onHidden()
     }
 
+    /** As the real popup: hiding it for an opening still hides it, so [onHidden] runs before the opener. */
     override fun hideForOpen() {
-        isShowing = false
         calls += "hideForOpen"
+        hide()
     }
 }

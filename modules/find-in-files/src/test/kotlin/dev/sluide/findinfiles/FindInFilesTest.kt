@@ -197,6 +197,9 @@ class FindInFilesTest {
         val hits = FileHits(Path.of("/p/a.txt"), Path.of("/p"), emptyList(), 1, false)
         view.onOpen(hits, LineHit(3, 5, "x", emptyList()))
 
+        assertFalse(view.isShowing)
+        drain()
+        assertEquals(emptyList(), view.files, "the running walk was cancelled before the opener ran")
         assertEquals(1, openerCalls)
         assertEquals(listOf("hideForOpen", "opened 1:a.txt:3:5"), view.calls.takeLast(2))
         find.openWith(anchor, null, null)
