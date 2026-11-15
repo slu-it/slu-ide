@@ -4,7 +4,9 @@
   workspace hooks), [0145](0145-code-intelligence-module.md) (`ServerInstaller.toolName`, `ServerAvailability.Failed.canRetry`),
   [0149](0149-rename-file-structure-go-to-symbol.md) (`workspaceSymbol/resolve` in `ServerFeatures.supports`,
   `LanguageServerSpec.isIdentifier`), [0160](0160-document-gate-and-kept-diagnostics.md) (a gate per document, lazy
-  start for gated specs, `didClose` only to the connection that got the `didOpen`, kept diagnostics of unopened files)
+  start for gated specs, `didClose` only to the connection that got the `didOpen`, kept diagnostics of unopened files),
+  [0179](0179-java-via-jdtls.md) (session extensions: `SessionExtension` and `SessionAccess` for notifications lsp4j
+  does not know, progress, folder announcements and commands; several trust checks with `trustCheckIds`)
 - Date: 2026-11-07
 
 ## Context
