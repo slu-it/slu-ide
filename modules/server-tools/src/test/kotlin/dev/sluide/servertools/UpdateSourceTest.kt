@@ -38,6 +38,30 @@ class UpdateSourceTest {
     }
 
     @Test
+    fun `a head request reads the status and headers and no body`() {
+        val methods = mutableListOf<String>()
+        val server = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0)
+        server.createContext("/archive") { exchange ->
+            methods += exchange.requestMethod
+            // A HEAD answer states the size of the GET answer and sends no body.
+            exchange.responseHeaders.add("Content-Length", "51143565")
+            exchange.sendResponseHeaders(200, -1)
+            exchange.close()
+        }
+        server.start()
+        try {
+            val answer = fetchHead(URI("http://127.0.0.1:${server.address.port}/archive"), mapOf("Accept" to "*/*"))
+
+            assertEquals(listOf("HEAD"), methods)
+            assertEquals(200, answer.status)
+            assertEquals("51143565", answer.headers["content-length"])
+            assertEquals("", answer.body)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun `a web page is an https URI with a host`() {
         assertEquals(URI("https://example.com/notes"), webPage("https://example.com/notes"))
         assertNull(webPage("http://example.com/notes"))

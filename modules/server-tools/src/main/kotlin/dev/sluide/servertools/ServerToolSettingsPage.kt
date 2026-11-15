@@ -54,19 +54,46 @@ open class ServerToolSettingsPage(
     private val heading = texts.heading
     private val note = texts.note
 
-    private val dialogs: ServerToolDialogs = dialogs ?: FxDialogs(name) { node.scene?.window }
+    /** The questions the page asks; a subclass's extra parts ask through it too. */
+    protected val dialogs: ServerToolDialogs = dialogs ?: FxDialogs(name) { node.scene?.window }
 
     internal val model =
         ServerToolPageModel(texts.language, setting, installer, updates, this.dialogs) { openWebPage(it) }
 
     private val observed: List<Observable> =
-        listOf(installer.state, installer.installed, installer.previous, model.updateCheck, model.checking)
+        listOf(
+            installer.state,
+            installer.installed,
+            installer.previous,
+            installer.statusNote,
+            model.updateCheck,
+            model.checking,
+        )
 
     final override val node: Node by lazy(::createNode)
 
-    final override fun load() = model.load()
+    /** Parts below the standard ones (the Java page's memory and workspaces); null for none. Called once, on the FX thread. */
+    protected open fun extraContent(): Node? = null
 
-    final override fun apply() = model.apply()
+    /** Shows the extra parts' current values; called from [load], also before the node exists. */
+    protected open fun loadExtra() {}
+
+    /** Applies the extra parts' edits; called from [apply]. */
+    protected open fun applyExtra() {}
+
+    final override fun load() {
+        model.load()
+        loadExtra()
+    }
+
+    final override fun apply() =
+        applyAll {
+            model.apply()
+            applyExtra()
+        }
+
+    /** Wraps everything [apply] stores, so that a subclass can act once for all of it (one restart for two changes). */
+    protected open fun applyAll(stores: () -> Unit) = stores()
 
     /** The page's controls, created with the node on the FX thread; for tests. */
     internal class Widgets(
@@ -139,7 +166,10 @@ open class ServerToolSettingsPage(
             custom,
             customHint,
             caption(note),
-        ).apply { styleClass += "server-tool-settings-page" }
+        ).apply {
+            styleClass += "server-tool-settings-page"
+            extraContent()?.let { children += it }
+        }
     }
 
     private fun Widgets.refresh() {
@@ -184,12 +214,17 @@ open class ServerToolSettingsPage(
         private val owner: () -> Window?,
     ) : ServerToolDialogs {
         /** A confirmation with Cancel as the default button and focused. */
-        override fun confirmDelete(question: String): Boolean {
+        override fun confirmDelete(question: String): Boolean = confirmDelete("Delete $name", question)
+
+        override fun confirmDelete(
+            title: String,
+            question: String,
+        ): Boolean {
             val delete = ButtonType("Delete", ButtonBar.ButtonData.OK_DONE)
             val alert =
                 Alert(Alert.AlertType.CONFIRMATION, null, delete, ButtonType.CANCEL).apply {
                     owner()?.let(::initOwner)
-                    title = "Delete $name"
+                    this.title = title
                     headerText = question
                     val cancel = dialogPane.lookupButton(ButtonType.CANCEL) as Button
                     (dialogPane.lookupButton(delete) as Button).isDefaultButton = false

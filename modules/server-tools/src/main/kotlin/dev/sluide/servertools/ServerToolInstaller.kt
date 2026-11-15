@@ -12,6 +12,7 @@ import javafx.beans.InvalidationListener
 import javafx.beans.binding.Bindings
 import javafx.beans.binding.ObjectBinding
 import javafx.beans.property.ReadOnlyObjectProperty
+import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.value.ObservableValue
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
@@ -66,6 +67,12 @@ open class ServerToolInstaller(
 
     /** The version [rollback] goes back to, null when there is none. */
     val previous: ReadOnlyObjectProperty<InstalledTool?> get() = tools.previous
+
+    /**
+     * A sentence the settings page appends to its status line while a version is installed (jdtls: "Lombok could not be
+     * installed: …"); null for none. A tool with companions of its own overrides it; FX thread.
+     */
+    open val statusNote: ObservableValue<String?> get() = NO_NOTE
 
     private val availabilityBinding: ObjectBinding<ServerAvailability>
 
@@ -139,7 +146,7 @@ open class ServerToolInstaller(
     }
 
     /** Installs [release] (a newer version the user asked for) and makes it current; the old one stays as previous. */
-    fun update(
+    open fun update(
         release: ToolRelease,
         tasks: BackgroundTasks?,
     ) = tools.install(release, tasks)
@@ -150,26 +157,33 @@ open class ServerToolInstaller(
     fun rollback() = tools.rollback()
 
     /** Deletes every downloaded version (the caller asks the user first). */
-    fun deleteAll() = tools.deleteAll()
+    open fun deleteAll() = tools.deleteAll()
 
     /**
      * How the tool runs as a server: the custom executable if one is set (null if it is not an executable file), else
      * Thoreau's download (null if none is installed), with the tool's command ([ServerTool.command]; null if it
      * cannot run); any thread.
      */
-    fun command(): ServerCommand? {
+    open fun command(): ServerCommand? = executable()?.let(tool::command)
+
+    /**
+     * The tool's executable (for jdtls its `bin/jdtls` marker): the custom one if one is set (null if it is not an
+     * executable file), else Thoreau's download (null if none is installed); any thread.
+     */
+    fun executable(): Path? {
         val custom = setting.currentPath()
-        val executable =
-            if (custom.isNotEmpty()) {
-                custom
-                    .takeIf {
-                        customPathProblem(it) == null
-                    }?.let(Path::of)
-            } else {
-                installedExecutable
-            }
-        return executable?.let(tool::command)
+        return if (custom.isNotEmpty()) {
+            custom.takeIf { customPathProblem(it) == null }?.let(Path::of)
+        } else {
+            installedExecutable
+        }
     }
+
+    /**
+     * Whether [install] has something to do although a version is installed (a companion file that is missing, as
+     * jdtls's Lombok jar): the page then keeps its Install button enabled. FX thread.
+     */
+    open fun needsInstall(): Boolean = false
 
     override fun onCommandChanged(listener: () -> Unit): AutoCloseable {
         listeners += listener
@@ -196,6 +210,8 @@ open class ServerToolInstaller(
     }
 
     companion object {
+        private val NO_NOTE: ObservableValue<String?> = SimpleObjectProperty(null)
+
         /** Null when [path] (non-empty) names an executable file by an absolute path, else why it does not. */
         fun customPathProblem(path: String): String? {
             if (path.isEmpty()) return null

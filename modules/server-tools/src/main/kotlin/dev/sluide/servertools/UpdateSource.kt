@@ -145,6 +145,44 @@ fun fetchText(
         }
 }
 
+/**
+ * One `HEAD` of [uri], like [fetchText] but without a body: the status and the headers (a download's `content-length`
+ * without reading the download).
+ *
+ * @throws IOException when it cannot be sent or is interrupted; [java.net.http.HttpTimeoutException] on the timeout.
+ */
+fun fetchHead(
+    uri: URI,
+    headers: Map<String, String> = emptyMap(),
+): HttpAnswer {
+    HttpClient
+        .newBuilder()
+        .followRedirects(HttpClient.Redirect.NORMAL)
+        .connectTimeout(UPDATE_TIMEOUT.toJavaDuration())
+        .build()
+        .use { client ->
+            val request =
+                HttpRequest
+                    .newBuilder(uri)
+                    .apply { headers.forEach { (name, value) -> header(name, value) } }
+                    .header("User-Agent", "Thoreau")
+                    .timeout(UPDATE_TIMEOUT.toJavaDuration())
+                    .method("HEAD", HttpRequest.BodyPublishers.noBody())
+                    .build()
+            val response =
+                try {
+                    client.send(request, HttpResponse.BodyHandlers.discarding())
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    throw IOException("interrupted", e)
+                }
+            return HttpAnswer(response.statusCode(), lowerCased(response.headers().map()), "")
+        }
+}
+
+private fun lowerCased(headers: Map<String, List<String>>): Map<String, String> =
+    headers.mapKeys { it.key.lowercase(Locale.ROOT) }.mapValues { it.value.firstOrNull().orEmpty() }
+
 /** [text] as an `https` URI with a host, or null. */
 fun webPage(text: String): URI? =
     try {

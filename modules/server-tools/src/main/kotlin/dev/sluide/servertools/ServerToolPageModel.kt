@@ -20,6 +20,12 @@ interface ServerToolDialogs {
     /** Asks [question] with a Delete button and Cancel, which is the default; true for Delete. */
     fun confirmDelete(question: String): Boolean
 
+    /** The same with a dialog [title] of its own (a page's other destructive actions); tests record it. */
+    fun confirmDelete(
+        title: String,
+        question: String,
+    ): Boolean = confirmDelete(question)
+
     /** Lets the user pick the tool's executable, starting at [current] if it names one; null when cancelled. */
     fun chooseExecutable(current: String): Path?
 }
@@ -161,9 +167,11 @@ internal class ServerToolPageModel(
                     installer.pinnedVersion,
                     installer.pinnedDownloadBytes,
                     cannotStart,
-                ),
+                ) + noteSuffix(installer.statusNote.value, state, installed, cannotStart),
             installText = if (busy) "Cancel" else "Install",
-            installDisabled = !busy && ((installed != null && !cannotStart) || !installer.platformSupported),
+            installDisabled =
+                !busy &&
+                    ((installed != null && !cannotStart && !installer.needsInstall()) || !installer.platformSupported),
             checkDisabled = checking.get(),
             result = if (checking.get()) "Checking for updates…" else check?.let { resultText(name, it) },
             releaseNotesShown = !checking.get() && releaseNotes(check) != null,
@@ -193,6 +201,21 @@ internal class ServerToolPageModel(
     }
 
     companion object {
+        /** `; <note>` after the status of an installed, startable version, else nothing. */
+        private fun noteSuffix(
+            note: String?,
+            state: InstallState,
+            installed: InstalledTool?,
+            cannotStart: Boolean,
+        ): String =
+            if (note != null && installed != null && state is InstallState.Installed &&
+                !cannotStart
+            ) {
+                "; $note"
+            } else {
+                ""
+            }
+
         /**
          * The label of the button that installs the pinned version: offered when Thoreau's download is in use and the
          * installed version is older than the pin (a newer Thoreau was installed); not for a custom path, nothing

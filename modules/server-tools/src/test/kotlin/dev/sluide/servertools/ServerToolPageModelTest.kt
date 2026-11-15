@@ -2,6 +2,7 @@ package dev.sluide.servertools
 
 import dev.sluide.localmodels.InstallState
 import dev.sluide.localmodels.InstalledTool
+import javafx.beans.property.SimpleObjectProperty
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.net.URI
@@ -21,7 +22,15 @@ class ServerToolPageModelTest {
 
     private val fakes by lazy { ServerToolFakes(acmeTool(dir)) }
     private val setting by lazy { acmeSetting(dir) }
-    private val installer by lazy { ServerToolInstaller(fakes.tool, setting, fakes.tools()) }
+    private val note = SimpleObjectProperty<String?>(null)
+    private var needsInstall = false
+    private val installer by lazy {
+        object : ServerToolInstaller(fakes.tool, setting, fakes.tools()) {
+            override val statusNote get() = note
+
+            override fun needsInstall() = needsInstall
+        }
+    }
     private val questions = mutableListOf<String>()
     private var deleteAnswer = false
     private var chosen: Path? = null
@@ -73,6 +82,58 @@ class ServerToolPageModelTest {
         assertFalse(controls.updateShown)
         assertNull(controls.rollbackText)
         assertTrue(controls.deleteDisabled)
+    }
+
+    @Test
+    fun `the installer's note follows an installed version in the status line and only then`() {
+        note.set("Acme's companion could not be installed: no network")
+        assertEquals("Not installed (14 MB download)", model.controls().status)
+
+        installPinned()
+
+        assertEquals(
+            "Installed: acme-ls 0.0.99; Acme's companion could not be installed: no network",
+            model.controls().status,
+        )
+        note.set(null)
+        assertEquals("Installed: acme-ls 0.0.99", model.controls().status)
+    }
+
+    @Test
+    fun `the installer's note is not appended to a download, a failure or an installed version that cannot start`() {
+        installPinned()
+        note.set("Companion missing")
+
+        installer.update(fakes.release("0.1.0"), null)
+        assertEquals("Downloading 0 %", model.controls().status)
+        fakes.runQueued()
+        assertEquals(
+            "Installed: acme-ls 0.1.0 (this Thoreau was tested with 0.0.99); Companion missing",
+            model.controls().status,
+        )
+
+        fakes.smoke = { "does not work" }
+        installer.update(fakes.release("0.2.0"), null)
+        fakes.runQueued()
+        assertEquals("Failed: Version 0.2.0 does not work: does not work", model.controls().status)
+
+        val (rejecting, rejectingInstaller, rejectingModel) = rejectingModel()
+        rejectingInstaller.install(null)
+        rejecting.runQueued()
+        assertTrue(rejectingModel.controls().status.contains("cannot be started"), rejectingModel.controls().status)
+        assertFalse(rejectingModel.controls().status.contains("Companion"))
+    }
+
+    @Test
+    fun `Install stays enabled for an installed version while the installer has something to install`() {
+        installPinned()
+        assertTrue(model.controls().installDisabled)
+
+        needsInstall = true
+        assertFalse(model.controls().installDisabled)
+
+        needsInstall = false
+        assertTrue(model.controls().installDisabled)
     }
 
     @Test

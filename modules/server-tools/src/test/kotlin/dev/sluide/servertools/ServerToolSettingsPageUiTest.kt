@@ -1,5 +1,6 @@
 package dev.sluide.servertools
 
+import javafx.beans.property.SimpleObjectProperty
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Label
@@ -144,5 +145,67 @@ class ServerToolSettingsPageUiTest {
         }
         assertEquals("", setting.path.get())
         assertTrue(w.customField.isDisable)
+
+        robot.interact {
+            setting.apply("/opt/acme/acme-ls")
+            page.load()
+        }
+        assertEquals("/opt/acme/acme-ls", w.customField.text, "load shows what is stored now")
+        assertTrue(w.customRadio.isSelected)
+    }
+
+    @Test
+    fun `a subclass's extra content sits in the page and follows load and apply, its note follows the status`(
+        robot: FxRobot,
+    ) {
+        val calls = mutableListOf<String>()
+        val note = SimpleObjectProperty<String?>(null)
+        val extraInstaller =
+            object : ServerToolInstaller(fakes.tool, setting, fakes.tools()) {
+                override val statusNote get() = note
+            }
+        val texts = ServerToolPageTexts("Acme", "acme-ls heading", "Downloads only on click.")
+        val extraPage =
+            object : ServerToolSettingsPage(
+                listOf("Languages", "Acme"),
+                texts,
+                setting,
+                extraInstaller,
+                ToolUpdates(fakes.tool, FakeSource { acmeRelease("0.1.0") }, { checks += it }, { it.run() }),
+                null,
+            ) {
+                override fun extraContent(): Node = Label("extra part")
+
+                override fun loadExtra() {
+                    calls += "load"
+                }
+
+                override fun applyExtra() {
+                    calls += "apply"
+                }
+
+                override fun applyAll(stores: () -> Unit) {
+                    calls += "all:start"
+                    stores()
+                    calls += "all:end"
+                }
+            }
+        robot.interact {
+            root.children += extraPage.node
+            extraPage.load()
+            extraPage.apply()
+        }
+
+        val labels = robot.lookup(".label").queryAllAs(Label::class.java).map { it.text }
+        assertTrue("extra part" in labels, labels.toString())
+        assertTrue(labels.indexOf("extra part") > labels.indexOf("Downloads only on click."), labels.toString())
+        assertEquals(listOf("load", "all:start", "apply", "all:end"), calls)
+
+        robot.interact {
+            extraPage.widgets.installButton.fire()
+            fakes.runQueued()
+            note.set("Companion missing")
+        }
+        assertEquals("Installed: acme-ls 0.0.99; Companion missing", extraPage.widgets.status.text)
     }
 }
