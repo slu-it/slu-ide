@@ -316,6 +316,39 @@ class NavigationFlowTest {
     }
 
     @Test
+    fun `a jump from a captured focused editor is recorded and Back returns to its caret`() {
+        val editor = editor(caret = 34)
+        val start = fx.onFx { intelligence.jumpStart() }
+        focused = null
+        fx.onFx { intelligence.jump(start, file, 2, 4) }
+        assertEquals(listOf(SourcePosition(file, 2, 4)), opened)
+        assertEquals(listOf(SourcePosition(file, 3, 12)), intelligence.history.places.first)
+
+        assertTrue(fx.onFx { intelligence.back() })
+        assertEquals(listOf(SourcePosition(file, 2, 4), SourcePosition(file, 3, 12)), opened)
+    }
+
+    @Test
+    fun `a jump from a captured editor that closed meanwhile opens without a record`() {
+        editor(caret = 34)
+        val start = fx.onFx { intelligence.jumpStart() }
+        fx.onFx { intelligence.attached.single().close() }
+        fx.onFx { intelligence.jump(start, file, 2, 4) }
+        assertEquals(listOf(SourcePosition(file, 2, 4)), opened)
+        assertEquals(emptyList(), intelligence.history.places.first)
+    }
+
+    @Test
+    fun `a jump without a focused editor opens without a record`() {
+        editor(caret = 34)
+        focused = null
+        val start = fx.onFx { intelligence.jumpStart() }
+        fx.onFx { intelligence.jump(start, file, 2, 4) }
+        assertEquals(listOf(SourcePosition(file, 2, 4)), opened)
+        assertEquals(emptyList(), intelligence.history.places.first)
+    }
+
+    @Test
     fun `an answer that arrives after an edit is dropped`() {
         val editor = editor(caret = 34)
         heldDefinition(editor)

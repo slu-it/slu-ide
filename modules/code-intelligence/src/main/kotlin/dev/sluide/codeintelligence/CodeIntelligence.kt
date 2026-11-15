@@ -4,6 +4,7 @@ import dev.sluide.codeintelligence.binding.BindingFeature
 import dev.sluide.codeintelligence.binding.DocumentBinding
 import dev.sluide.codeintelligence.binding.EditorAttachment
 import dev.sluide.codeintelligence.binding.ServedFeatures
+import dev.sluide.codeintelligence.binding.SourcePosition
 import dev.sluide.codeintelligence.completion.CompletionFeature
 import dev.sluide.codeintelligence.diagnostics.DiagnosticsFeature
 import dev.sluide.codeintelligence.navigation.BindingNavigation
@@ -200,6 +201,24 @@ class CodeIntelligence internal constructor(
 
     /** Goes forward again after [back]; `false` if there is nothing ahead. */
     fun forward(): Boolean = navigation.forward()
+
+    /**
+     * Captures where a jump of a window-wide popup (Find in Files, ADR 0177) starts: the focused bound editor. Call
+     * it when the popup opens, before it takes the focus; [jump] uses it later.
+     */
+    fun jumpStart(): JumpStart = JumpStart(navigation.focused())
+
+    /**
+     * Opens [file] at the 0-based [line] and [column] (UTF-16 units) like Go to Symbol does. A [start] that holds an
+     * editor still open records the jump in [history], so Back returns to that editor's caret as of this call; without
+     * one the file just opens through the host and nothing is recorded.
+     */
+    fun jump(
+        start: JumpStart,
+        file: Path,
+        line: Int,
+        column: Int,
+    ) = navigation.open(start.from?.takeUnless { it.isClosed }, SourcePosition(file, line, column))
 
     private fun blocker(method: String): String? {
         val binding = focusedBinding ?: return "no code editor focused"
