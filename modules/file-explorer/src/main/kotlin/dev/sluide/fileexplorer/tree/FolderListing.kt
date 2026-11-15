@@ -20,8 +20,9 @@ internal class FolderListing(
 internal fun listFolder(
     folder: Path,
     generated: GeneratedFolderFilter?,
+    list: (Path) -> List<Path> = ::listDirectory,
 ): FolderListing {
-    val paths = listDirectory(folder)
+    val paths = list(folder)
     if (generated == null) return FolderListing(paths.map { it to null }, emptyMap())
     val names = paths.mapTo(HashSet()) { it.fileName.toString() }
     val candidates = paths.mapNotNull { path -> generated.structural(path, names)?.let { path to it } }.toMap()
@@ -31,4 +32,18 @@ internal fun listFolder(
             if (generated.isHidden(path, why)) null else path to why
         }
     return FolderListing(shown, candidates)
+}
+
+/**
+ * What the tree lists in [folder] without the search filter, for the search's walk: [listFolder], classifying nothing
+ * inside a generated folder the user revealed ([GeneratedFolderFilter.insideRevealed]), as the tree does not (with the
+ * setting on, revealing is the only way a generated folder shows). Throws for an unreadable folder instead of logging it,
+ * as the walk skips it on every run ([readDirectory]). Safe off the FX thread as far as [generated] is.
+ */
+internal fun walkedEntries(
+    folder: Path,
+    generated: GeneratedFolderFilter,
+): List<Path> {
+    val classifying = generated.takeUnless { it.insideRevealed(folder) }
+    return listFolder(folder, classifying, ::readDirectory).shown.map { it.first }
 }

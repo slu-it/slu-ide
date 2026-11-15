@@ -26,19 +26,23 @@ private val entryOrder: Comparator<Entry> =
  *
  * Hidden files and dot-files are included; only `.git` (the repository folder, or the file pointing to it in
  * worktrees and submodules) is left out.
- * Unreadable or vanished directories yield an empty list instead of failing.
+ * Unreadable or vanished directories yield an empty list instead of failing, and are logged.
  */
 internal fun listDirectory(directory: Path): List<Path> =
     try {
-        Files.list(directory).use { entries ->
-            entries
-                .filter { it.fileName.toString() != GIT_ENTRY }
-                .map(::Entry)
-                .sorted(entryOrder)
-                .map { it.path }
-                .toList()
-        }
+        readDirectory(directory)
     } catch (e: IOException) {
         log.log(System.Logger.Level.WARNING, "Cannot list $directory, showing it as empty", e)
         emptyList()
+    }
+
+/** [listDirectory] without catching: throws for an unreadable or vanished directory, logging nothing. */
+internal fun readDirectory(directory: Path): List<Path> =
+    Files.list(directory).use { entries ->
+        entries
+            .filter { it.fileName.toString() != GIT_ENTRY }
+            .map(::Entry)
+            .sorted(entryOrder)
+            .map { it.path }
+            .toList()
     }

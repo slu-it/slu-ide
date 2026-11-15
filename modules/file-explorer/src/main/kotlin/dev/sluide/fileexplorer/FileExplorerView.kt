@@ -29,6 +29,7 @@ import dev.sluide.fileexplorer.tree.keepSelection
 import dev.sluide.fileexplorer.tree.selectRow
 import dev.sluide.fileexplorer.tree.selectRows
 import dev.sluide.fileexplorer.tree.startWidth
+import dev.sluide.fileexplorer.tree.walkedEntries
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.librarycode.LibraryCode
@@ -272,8 +273,12 @@ class FileExplorerView(
     /** Whether generated folders are hidden (ADR 0158); shared by all windows, bound by the explorer bar's toggle. */
     internal val hideGeneratedFolders: BooleanProperty get() = settings.hideGeneratedFolders
 
+    // The setting for shownEntries off the FX thread, updated before the change listeners run (invalidation first).
+    @Volatile private var hidingGenerated = settings.hideGeneratedFolders.get()
+    private val hidingMirror = InvalidationListener { hidingGenerated = settings.hideGeneratedFolders.get() }
+
     /** Which generated folders are hidden (ADR 0158); the revealed ones are forgotten when the setting changes. */
-    private val generated = GeneratedFolderFilter { settings.hideGeneratedFolders.get() }
+    private val generated = GeneratedFolderFilter { hidingGenerated }
     private val hideGeneratedUpdater =
         ChangeListener<Boolean> { _, _, _ ->
             generated.clearRevealed()
@@ -285,11 +290,12 @@ class FileExplorerView(
 
     /**
      * Whether git ignores a folder: true/false when the window's git status covers it, null when it does not (no
-     * repository, no status yet, untrusted). FX thread.
+     * repository, no status yet, untrusted). Set on the FX thread; also called off it ([shownEntries]), so it must be safe
+     * there (e.g. reading an immutable status snapshot).
      */
     var ignoredByGit: (Path) -> Boolean? by generated::ignoredByGit
 
-    /** Whether git tracks a file: true when tracked, false when untracked or ignored, null when git has no say. FX thread. */
+    /** Whether git tracks a file: true when tracked, false when untracked or ignored, null when git has no say; as [ignoredByGit]. */
     var trackedByGit: (Path) -> Boolean? by generated::trackedByGit
 
     /**
@@ -345,6 +351,7 @@ class FileExplorerView(
         focusedProperty().addListener { _, _, focused -> if (focused) clipboard.checkCut() }
         windowFocused.addListener { _, _, focused -> if (focused == true) clipboard.checkCut() }
         compactFolders.addListener(WeakChangeListener(compactUpdater))
+        settings.hideGeneratedFolders.addListener(WeakInvalidationListener(hidingMirror))
         settings.hideGeneratedFolders.addListener(WeakChangeListener(hideGeneratedUpdater))
         // The cells inherit the font.
         styleProperty().bind(font.map(FontSpec::toCss))
@@ -499,6 +506,14 @@ class FileExplorerView(
      * so that a few short names still leave room and a long one does not take the window.
      */
     fun startWidth(): Double = startWidth(topLevel(), font.value)
+
+    /**
+     * What the tree lists in [folder] without the search filter ([walkedEntries]): sorted as the tree sorts, generated
+     * entries hidden as it hides them. Throws for an unreadable folder. Safe off the FX thread: it reads the files, the
+     * setting's current value, the revealed entries and git's answers ([ignoredByGit], [trackedByGit]), which must be
+     * safe to call there.
+     */
+    internal fun shownEntries(folder: Path): List<Path> = walkedEntries(folder, generated)
 
     /** Asks [markers] again for every shown entry. */
     fun refreshMarkers() {

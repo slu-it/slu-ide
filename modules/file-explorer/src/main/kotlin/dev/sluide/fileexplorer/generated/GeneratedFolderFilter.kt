@@ -4,22 +4,29 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Decides which folders and files of an explorer window are left out as generated (ADR 0158): the structural reason of
- * [generatedReason], corrected by git, and the entries the user revealed. Shared by all items of one view; FX thread.
+ * [generatedReason], corrected by git, and the entries the user revealed. Shared by all items of one view.
+ *
+ * Its decisions may be asked off the FX thread (the explorer search lists folders in the background): the revealed
+ * entries are a concurrent set and the git callbacks volatile, so this holds as far as [enabled], [ignoredByGit] and
+ * [trackedByGit] are safe to call there. Changes ([unhide], [clearRevealed], setting the callbacks) stay on the FX thread.
  */
 internal class GeneratedFolderFilter(
     /** Whether generated folders and files are hidden; read at every decision. */
     private val enabled: () -> Boolean,
 ) {
     /** Whether git ignores a folder; `null` if its status does not cover it. */
+    @Volatile
     var ignoredByGit: (Path) -> Boolean? = { null }
 
     /** Whether git tracks a file: true when tracked, false when untracked or ignored, `null` if its status does not cover it. */
+    @Volatile
     var trackedByGit: (Path) -> Boolean? = { null }
 
-    private val revealed = mutableSetOf<Path>()
+    private val revealed: MutableSet<Path> = ConcurrentHashMap.newKeySet()
 
     /** Whether [path] is a file of the file catalogue, by name alone. */
     fun isCatalogueFile(path: Path): Boolean = generatedFileReason(path) != null
@@ -71,6 +78,9 @@ internal class GeneratedFolderFilter(
         path: Path,
         reason: GeneratedReason?,
     ): Boolean = reason != null && enabled() && path !in revealed
+
+    /** Whether [folder] or a folder holding it was revealed ([unhide]): the tree classifies nothing inside it. */
+    fun insideRevealed(folder: Path): Boolean = generateSequence(folder) { it.parent }.any { it in revealed }
 
     /** Shows [path] although it is generated, until the exceptions are cleared. */
     fun unhide(path: Path) {

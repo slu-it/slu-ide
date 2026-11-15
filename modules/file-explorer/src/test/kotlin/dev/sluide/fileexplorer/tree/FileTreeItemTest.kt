@@ -7,6 +7,7 @@ import dev.sluide.fileicons.FileIcon
 import javafx.scene.control.TreeItem
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -16,6 +17,7 @@ import kotlin.io.path.deleteExisting
 import kotlin.io.path.name
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotSame
 import kotlin.test.assertNull
@@ -503,6 +505,51 @@ class FileTreeItemTest {
         filter.clearRevealed()
         item.refresh()
         assertEquals(listOf("package.json"), names(item))
+    }
+
+    @Test
+    fun `walkedEntries, which the search walks with, lists exactly what the tree lists`() {
+        withPackageJson("node_modules", "dist", "src", "B", "a")
+        root.resolve(".DS_Store").createFile()
+        root.resolve("Z.txt").createFile()
+        val filter = filter()
+        filter.unhide(root.resolve("dist"))
+        filter.ignoredByGit = { if (it.name == "dist") true else null }
+        val item = FileTreeItem(root, generated = filter)
+
+        val listed = walkedEntries(root, filter)
+
+        assertEquals(item.children.map { it.value }, listed)
+        assertEquals(listOf("a", "B", "dist", "src", "package.json", "Z.txt"), listed.map { it.name })
+    }
+
+    @Test
+    fun `walkedEntries classifies nothing inside a revealed generated folder, as the tree`() {
+        withPackageJson("node_modules/pkg/node_modules")
+        root.resolve("node_modules/pkg/package.json").createFile()
+        val filter = filter()
+        filter.unhide(root.resolve("node_modules"))
+        val pkg =
+            (
+                FileTreeItem(root, generated = filter)
+                    .children
+                    .first()
+                    .children
+                    .single()
+            ) as FileTreeItem
+
+        val listed = walkedEntries(pkg.value, filter)
+
+        assertEquals(listOf("node_modules", "package.json"), listed.map { it.name })
+        assertEquals(pkg.children.map { it.value }, listed)
+    }
+
+    @Test
+    fun `walkedEntries throws for a folder it cannot read, where the tree shows it empty`() {
+        val missing = root.resolve("missing")
+
+        assertFailsWith<IOException> { walkedEntries(missing, filter()) }
+        assertEquals(emptyList(), listDirectory(missing))
     }
 
     @Test
