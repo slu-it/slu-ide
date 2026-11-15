@@ -424,6 +424,21 @@ internal class NavigateMenuUiTest {
     }
 
     @Test
+    fun `Go to Symbol is disabled while the menu shows with no editor bound, and enabled again after it hides`(
+        robot: FxRobot,
+    ) {
+        setUp(robot)
+        val item = menu().items.single { it.text == "Go to Symbol…" }
+        robot.interact { view?.dispose() }
+        view = null
+
+        robot.interact { menu().onShowing.handle(null) }
+        assertTrue(item.isDisable, "no editor bound: nothing to ask the server through")
+        robot.interact { menu().onHidden.handle(null) }
+        assertFalse(item.isDisable, "enabled again so that the accelerator always acts")
+    }
+
+    @Test
     fun `Find in Files has Shortcut+Shift+F, opens, and is disabled only while the menu shows without a folder`(
         robot: FxRobot,
     ) {
