@@ -28,13 +28,21 @@ private const val LOCK_POLL_MILLIS = 100L
 private val VERSION = Regex("[0-9]{1,6}(\\.[0-9]{1,6}){1,3}")
 private val ASSET = Regex("jdt-language-server-[0-9.]{1,40}-[0-9]{12}\\.tar\\.gz")
 
+/** Whether [text] is a milestone version: two to four dot-separated numbers of at most six digits. */
+internal fun isVersion(text: String) = VERSION.matches(text)
+
+/** Whether [asset] is the archive file name of the milestone [version] (`jdt-language-server-<v>-<timestamp>.tar.gz`). */
+internal fun isArchiveOf(
+    version: String,
+    asset: String,
+) = isVersion(version) && ASSET.matches(asset) && asset.startsWith("jdt-language-server-$version-")
+
 /** The URL of [asset] of the milestone [version]. */
 internal fun milestoneUrl(
     version: String,
     asset: String,
 ): URI {
-    require(VERSION.matches(version)) { "unexpected jdtls version $version" }
-    require(ASSET.matches(asset)) { "unexpected jdtls archive $asset" }
+    require(isArchiveOf(version, asset)) { "unexpected jdtls archive $asset of version $version" }
     return URI("$MILESTONES$version/$asset")
 }
 
