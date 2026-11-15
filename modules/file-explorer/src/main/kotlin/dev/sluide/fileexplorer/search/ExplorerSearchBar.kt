@@ -49,6 +49,10 @@ internal class ExplorerSearchBar(
             id = "explorer-search-status"
             styleClass += "explorer-search-status"
             textProperty().bind(status)
+            // The text wraps in the row's width instead of being cut off.
+            isWrapText = true
+            minWidth = 0.0
+            maxWidth = Double.MAX_VALUE
             visibleProperty().bind(status.map { it.isNotEmpty() })
             managedProperty().bind(visibleProperty())
         }

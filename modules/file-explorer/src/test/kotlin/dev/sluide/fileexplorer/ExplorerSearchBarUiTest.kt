@@ -348,6 +348,25 @@ class ExplorerSearchBarUiTest : FileExplorerViewUiFixture() {
     }
 
     @Test
+    fun `the status line wraps in a narrow row instead of being cut off`(robot: FxRobot) {
+        open(robot)
+        robot.interact {
+            (view.searchBar as VBox).apply {
+                prefWidth = 90.0
+                maxWidth = 90.0
+            }
+        }
+        type(robot, "ab")
+
+        eventually(robot) {
+            view.scene.root.layout()
+            assertEquals("Type at least 3 characters", status().text)
+            assertTrue(status().width <= 90.0, "the label stays within the row: ${status().width}")
+            assertTrue(status().height > 30.0, "two lines or more: ${status().height}")
+        }
+    }
+
+    @Test
     fun `opening other roots clears the field without touching the new tree`(robot: FxRobot) {
         open(robot)
         type(robot, "app")
