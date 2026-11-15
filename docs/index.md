@@ -203,6 +203,7 @@ updated when the summary or keywords no longer fit.
 | [0176](adr/0176-explorer-search.md) | Explorer search: background walk with the tree's listing rule, filter inside the lazy tree, restore on clear | explorer search, `ExplorerSearch`, `NameQuery`, `searchNames`, `TreeSearchFilter`, `TreeSearch`, name filter, Shortcut+F, 100 matches, debounce | see 0095, 0096, 0158, 0168 |
 | [0177](adr/0177-find-in-files.md) | Find in Files: background content search with the tree's listing rule, streamed into a focus-taking popup | find in files, `FindInFiles`, `FindInFilesSearch`, `searchContents`, `FileMask`, `SearchLimits`, Shortcut+Shift+F, Find in Folder, file mask, find-in-files | see 0176, 0146, 0149, 0108 |
 | [0178](adr/0178-red-before-green.md) | Red before green: each test fails before its code, and `break-check.sh` mutates every change once | TDD, test first, red, vacuous test, break check, mutation, fakes of external tools, fix test fails first | amends 0084 |
+| [0179](adr/0179-java-via-jdtls.md) | Java through jdtls: one server per window, a workspace folder per build root imported lazily, JDK per project | Java, jdtls, monorepo, build root, Maven, Gradle, `WorkspaceFolderMode`, `SessionExtension`, Project Settings, Lombok, `jdt://`, gitignore | amends 0142, 0150, 0151, 0160; see 0053, 0085, 0090, 0159 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features

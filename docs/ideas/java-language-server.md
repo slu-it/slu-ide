@@ -1,6 +1,7 @@
 # Idea: Java through jdtls
 
-**Status:** idea; spike done 2026-11-15, nothing decided or built. Follows the candidate list in
+**Status:** decided in [ADR 0179](../adr/0179-java-via-jdtls.md) (2026-11-15) after a second spike on a scratch
+monorepo, whose findings are in the ADR's context; this page keeps the first spike and what was left out. Follows the candidate list in
 [language-servers-later.md](language-servers-later.md) ("More languages on the foundation").
 
 ## Server choice
@@ -78,3 +79,17 @@ config_<os>> -data <workspace dir>` plus `--add-modules=ALL-SYSTEM` and two `--a
 - A project with both `pom.xml` and `build.gradle`: which importer wins.
 - Large multi-module builds (import time, memory).
 - Lombok (`-javaagent`), annotation processors, and Kotlin and Java mixed in one Gradle build.
+
+## Left out of the first round (ADR 0179)
+- A Reimport Build action for one build root (today: Retry Import after a failure, automatic reimport on build file
+  changes, Clean Java Workspace).
+- Kotlin sources in Java builds (needs a Kotlin server next to jdtls) and Kotlin code intelligence itself.
+- Choosing a Gradle-compatible JDK automatically from the wrapper's version.
+- Full diagnostics for loose `.java` files: an invisible project per folder compiles everything below it and writes its
+  output there.
+- Formatting through jdtls; refactorings that need `workspace/applyEdit` or client-side commands
+  (`java.action.applyRefactoringCommand`: Change signature).
+- Code intelligence inside library classes opened from `jdt://` URIs.
+- Keeping Maven builds that depend on each other by coordinates apart (m2e's `resolveWorkspaceProjects` also cuts
+  reactor links; one server per build would cost a JVM each).
+- `workspace/textDocumentContent` (LSP 3.18; jdtls declares the `jdt` scheme) instead of `java/classFileContents`.
