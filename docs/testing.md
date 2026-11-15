@@ -26,7 +26,8 @@ Subagents verify with subsets; the full `./gradlew build` is the main session's 
 targets and prints a short digest (compile errors, counts per task, failures with their `dev.sluide` frames,
 `check-tests.sh` findings), the full log in `build/verify/verify.log`. Targets are test class names or globs, matched
 against the test file's name and the class in it that holds the tests (sent to `test` or `uiTest` by `@Tag("ui")`; a
-name that exists in two modules runs in both), `:module` paths for a module's unit tests, and `--changed` for the
+name that exists in two modules runs in both), `'Class#test method name'` for one test method (not a parameterized
+case), `:module` paths for a module's unit tests, and `--changed` for the
 unit tests of every module changed against master plus the related test classes. `--list` prints what the targets
 resolve to and stops before formatting and Gradle.
 It sets up the display (`--display N`), uses `--no-daemon` in worktrees and ends with `verify: OK`, `FAILED` (also

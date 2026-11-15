@@ -9,14 +9,17 @@
 #                    test file's base name or its test class (the class that holds the first test method, as in
 #                    related-tests.sh --test-classes: ShotSearch.kt declares ShotSearch and ShotSearchTest, both
 #                    targets run ShotSearchTest); it goes to uiTest when the file contains @Tag("ui"), else to test
+#   'FindInFilesPopupUiTest#open focuses the query field'   one test method of a class: the class part as above,
+#                    the method by its JVM name (a Kotlin backtick name as written), passed to Gradle's --tests; a
+#                    parameterized test's cases cannot be named this way (a name that matches no test fails the run)
 # An unknown target, or a file without @Test, ends with exit 2 before Gradle starts.
 # --changed adds the unit tests of every module with changed files (against master, uncommitted, untracked) and the
 # classes `related-tests.sh --names` finds; more than 12 UI test classes stop the run (name classes instead).
 # Names that related-tests.sh skipped as too common are shown on stderr (their tests in other modules are not run by
 # --changed and must be named explicitly).
-# --list resolves the targets (--changed included), prints one line per test class as
-# `<gradle module path> <task> <fully qualified class or *>` and exits 0, before the format step, the display setup
-# and Gradle (the check for another Gradle build does not apply to it).
+# --list resolves the targets (--changed included), prints one line per test class or method as
+# `<gradle module path> <task> <fully qualified class, class#method name (may hold spaces) or *>` and exits 0, before
+# the format step, the display setup and Gradle (the check for another Gradle build does not apply to it).
 # UI test classes on Linux get a virtual display from setup-display.sh (:N from --display, else $DISPLAY, else :99);
 # if that fails they are reported as NOT RUN and the run ends INCOMPLETE (exit 1).
 # Usage: .claude/scripts/verify.sh [--no-format] [--changed] [--list] [--display N] [target...] [-- gradle-args]
@@ -98,10 +101,20 @@ build_test_index() {
   "$root/.claude/scripts/related-tests.sh" --test-classes <"$work/tests" >"$work/test-index"
 }
 
-# Spec lines: module dir <TAB> task <TAB> fully qualified class, or * for the whole task.
+# Spec lines: module dir <TAB> task <TAB> fully qualified class, class#method, or * for the whole task.
 : >"$work/specs"
 add_target() {
-  local target="$1" dir found=0 test_found=0 f base cls hastest pkg task
+  local target="$1" dir found=0 test_found=0 f base cls hastest pkg task method=""
+  case "$target" in
+    *#*)
+      method="${target#*#}"; target="${target%%#*}"
+      # A method needs exactly one class: not a module, not a glob, not an empty name.
+      if [ -z "$method" ] || [[ "$target" == :* || "$target" == *[*?[]* ]]; then
+        echo "Bad method target $1: name one test class (no glob, no :module) and a method" >&2
+        exit 2
+      fi
+      ;;
+  esac
   case "$target" in
     :*)
       dir="$(echo "${target#:}" | tr : /)"
@@ -124,7 +137,7 @@ add_target() {
     pkg="$(sed -nE 's/^package[[:space:]]+([A-Za-z0-9_.]+).*/\1/p' "$f" | head -n 1)"
     task=test
     if grep -q '^@Tag("ui")' "$f"; then task=uiTest; fi
-    printf '%s\t%s\t%s\n' "${f%%/src/*}" "$task" "${pkg:+$pkg.}$cls" >>"$work/specs"
+    printf '%s\t%s\t%s\n' "${f%%/src/*}" "$task" "${pkg:+$pkg.}$cls${method:+#$method}" >>"$work/specs"
   done <"$work/test-index"
   if [ "$found" -eq 0 ]; then
     echo "Unknown target $target: no test file with that name" >&2
@@ -154,7 +167,7 @@ if [ "$changed" -eq 1 ]; then
     fi
   fi
   for name in $related; do add_target "$name"; done
-  ui_count="$(awk -F'\t' '$2 == "uiTest"' "$work/specs" | sort -u | wc -l | tr -d ' ')"
+  ui_count="$(awk -F'\t' '$2 == "uiTest" { sub(/#.*/, "", $3); print $1, $3 }' "$work/specs" | sort -u | wc -l | tr -d ' ')"
   if [ "$ui_count" -gt 12 ]; then
     echo "--changed would run $ui_count UI test classes (limit 12):" >&2
     awk -F'\t' '$2 == "uiTest" { print "  " $3 }' "$work/specs" | sort -u >&2
@@ -236,7 +249,9 @@ while IFS=$'\t' read -r dir task; do
   tasks+=("$gpath")
   if ! awk -F'\t' -v d="$dir" -v t="$task" '$1 == d && $2 == t && $3 == "*" { found = 1 } END { exit !found }' "$work/runspecs"; then
     # `Outer$*` covers the @Nested classes; a filter that matches nothing is harmless next to another that does.
-    while IFS= read -r cls; do tasks+=(--tests "$cls" --tests "$cls\$*"); done < <(awk -F'\t' -v d="$dir" -v t="$task" '$1 == d && $2 == t { print $3 }' "$work/runspecs")
+    while IFS= read -r cls; do
+      if [[ "$cls" == *#* ]]; then tasks+=(--tests "${cls/\#/.}"); else tasks+=(--tests "$cls" --tests "$cls\$*"); fi
+    done < <(awk -F'\t' -v d="$dir" -v t="$task" '$1 == d && $2 == t { print $3 }' "$work/runspecs")
   fi
 done < <(cut -f1,2 "$work/runspecs" | sort -u)
 
@@ -315,7 +330,7 @@ if not compile_errors:
         else:
             files = []
             missing = []
-            for cls in classes:
+            for cls in sorted({c.split("#")[0] for c in classes}):  # a method target's results are its class's
                 # The class itself and its @Nested classes (TEST-pkg.Outer$Inner.xml) count as its results.
                 found = glob.glob(os.path.join(glob.escape(results), "TEST-%s.xml" % glob.escape(cls)))
                 found += glob.glob(os.path.join(glob.escape(results), "TEST-%s$*.xml" % glob.escape(cls)))
