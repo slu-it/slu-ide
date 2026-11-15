@@ -28,10 +28,10 @@ installs what is missing:
 | libsecret-tools, gnome-keyring, dbus | Saved secrets on Linux (`secret-tool`) |
 | nodejs, npm | The real-tsc tests (`SLUIDE_TEST_TSC`) |
 
-It also builds the JDK's trust store `/etc/ssl/certs/java/cacerts` from the system CAs and the sandbox proxy's CA
-when `ca-certificates-java` left it missing (the default image lacks the links it builds from; without the store
-Gradle cannot download), and writes an empty `~/.zshrc` (zsh's new-user menu would hang the terminal tests). Displays are not started at
-boot: `.claude/scripts/setup-display.sh` and `run-app.sh` start Xvfb and openbox when needed and repair hung ones.
+It also builds the JDK's trust store `/etc/ssl/certs/java/cacerts` from the system CAs when `ca-certificates-java`
+left it missing (the default image lacks the links it builds from; without the store Gradle cannot download), adds
+the sandbox proxy's CA to it, and writes an empty `~/.zshrc` (zsh's new-user menu would hang the terminal tests).
+Displays are not started at boot: `.claude/scripts/setup-display.sh` and `run-app.sh` start Xvfb and openbox when needed and repair hung ones.
 The kit's network policy opens the apt mirrors only while the install hook runs, and, for the whole sandbox lifetime,
 `packages.jetbrains.team` and its CloudFront download host (`db2uklzeiyqq6.cloudfront.net`), where Gradle resolves
 jediterm.

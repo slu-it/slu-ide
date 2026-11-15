@@ -1,6 +1,6 @@
 # 0169. Development sandbox kit and `sbxenv.yaml`
 
-- Status: accepted; amended 2026-11-14 (git built from source)
+- Status: accepted; amended 2026-11-14 (git built from source), 2026-11-15 (Java trust store)
 - Date: 2026-11-13
 
 ## Context
@@ -32,10 +32,11 @@ of them, and the default `claude` image moved from Ubuntu with a JDK to Debian 1
 - **The JDK's trust store, built by the script** (amended 2026-11-15): `ca-certificates-java` builds
   `/etc/ssl/certs/java/cacerts` from the per-certificate `*.pem` links in `/etc/ssl/certs`. The default image has
   none (only the bundle and the proxy CA's hash link), so it wrote no store: the JDK trusted nothing and Gradle could
-  not download. When the store is missing, `install.sh` feeds the CA files of `/etc/ca-certificates.conf` and
-  `/usr/local/share/ca-certificates` (the sandbox proxy's CA) to the package's own tool. It does not run
-  `update-ca-certificates`, which would rewrite the bundle without the sandbox's marker comments around the proxy CA.
-  A failure only warns.
+  not download. When the store is missing or unreadable, `install.sh` feeds the CA files of `/etc/ca-certificates.conf`
+  to the package's own tool; it always feeds those of `/usr/local/share/ca-certificates` (the sandbox proxy's CA),
+  which a store built from `*.pem` links may lack. It uses the password from `/etc/default/cacerts`, as the package
+  does. It does not run `update-ca-certificates`, which would rewrite the bundle without the sandbox's marker comments
+  around the proxy CA. A failure only warns.
 - **Network:** the kit opens the Ubuntu, Debian, Docker and `dhi.io` apt hosts, and `github.com` for git's sources,
   in the install phase only (`network-policy@2`). At runtime it allows `packages.jetbrains.team` and the CloudFront
   host it redirects downloads to (`db2uklzeiyqq6.cloudfront.net`), where Gradle resolves jediterm.

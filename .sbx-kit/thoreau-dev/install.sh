@@ -86,24 +86,41 @@ fi
 # the default image does not have (only the bundle and the proxy CA's hash link), so it writes no store at all: the JDK
 # then trusts nothing and Gradle cannot download. Built here from the same CA files instead, leaving /etc/ssl/certs as
 # the sandbox set it up (its bundle carries the proxy CA between marker comments that update-ca-certificates drops).
+# A store that exists gets the local CAs (the sandbox proxy's) added anyway: ca-certificates-java may have built it
+# without them, from *.pem links only. Adding a CA the store has replaces it, so this is safe to run again.
 install_java_cacerts() {
   local store=/etc/ssl/certs/java/cacerts jar=/usr/share/ca-certificates-java/ca-certificates-java.jar
-  if [ -s "$store" ]; then
-    echo "thoreau-dev: Java trust store present"
-    return 0
-  fi
+  local storepass entries
   if [ ! -f "$jar" ] || ! command -v java >/dev/null; then
     echo "Warning: no ca-certificates-java or java; the JDK has no trust store and Gradle cannot download" >&2
     return 0
   fi
+  # The password ca-certificates-java's own script uses, so its later runs can open the store.
+  storepass=$(
+    storepass=changeit
+    if [ -f /etc/default/cacerts ]; then . /etc/default/cacerts; fi
+    echo "$storepass"
+  )
+  entries=$(keytool -list -keystore "$store" -storepass "$storepass" 2>/dev/null | grep -c trustedCertEntry || true)
+  # A store keytool cannot read (cut short while written) would make the tool fail; it is built anew.
+  if [ -e "$store" ] && [ "$entries" -eq 0 ]; then
+    rm -f "$store"
+  fi
   # C.UTF-8 as in ca-certificates-java's own script, for the non-ASCII certificate file names.
   if {
-    sed -n 's|^\([^#!].*\)$|/usr/share/ca-certificates/\1|p' /etc/ca-certificates.conf 2>/dev/null || true
+    if [ "$entries" -eq 0 ]; then
+      sed -n 's|^\([^#!].*\)$|/usr/share/ca-certificates/\1|p' /etc/ca-certificates.conf 2>/dev/null || true
+    fi
     find /usr/local/share/ca-certificates -type f -name '*.crt' 2>/dev/null || true
-  } | sed 's/^/+/' | LC_ALL='' LC_CTYPE=C.UTF-8 java -Xmx64m -jar "$jar" -storepass changeit >/dev/null; then
-    echo "thoreau-dev: built the Java trust store $store"
+  } | sed 's/^/+/' | LC_ALL='' LC_CTYPE=C.UTF-8 java -Xmx64m -jar "$jar" -storepass "$storepass" >/dev/null; then
+    entries=$(keytool -list -keystore "$store" -storepass "$storepass" 2>/dev/null | grep -c trustedCertEntry || true)
   else
-    echo "Warning: building the Java trust store failed; Gradle cannot download" >&2
+    entries=0
+  fi
+  if [ "$entries" -gt 1 ]; then
+    echo "thoreau-dev: Java trust store $store holds $entries certificates"
+  else
+    echo "Warning: the Java trust store $store holds $entries certificates; Gradle cannot download" >&2
   fi
 }
 install_java_cacerts
