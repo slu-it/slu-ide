@@ -201,6 +201,10 @@
     folder (also a top-level one) the shell starts in it, for exactly one regular file in its folder, on the empty
     area (while a folder is open) in the project folder; disabled for several entries. It opens a normal terminal tab
     as Terminal → New Terminal does ([terminal.md](terminal.md)); if the shell cannot start, the same error is shown.
+  - Find in Folder…, right after Open in Terminal, only while the window sets `findInFolder` and exactly one folder
+    is selected (a top-level row counts, a compacted row stands for its last folder); otherwise it is left out. It
+    shows Shortcut+Shift+F, which the window's Navigate menu owns, and opens Find in Files for that folder, see
+    [find-in-files.md](find-in-files.md). `focusedFolder()` gives the window that folder while the tree has the focus.
   - Refresh is always enabled.
   - The name dialog checks the name while typing (not empty, no `/`, `\` or NUL, not `.`/`..`, no leading or
     trailing whitespace, no characters the file system cannot store, not taken, on case-insensitive file systems also

@@ -22,6 +22,10 @@ internal val PASTE_KEYS = KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_
  */
 internal val COMPARE_KEYS = KeyCodeCombination(KeyCode.D, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
 
+/** Shortcut+Shift+F: only shown by the Find in Folder item; the window's Navigate menu owns the key. */
+internal val FIND_IN_FOLDER_KEYS =
+    KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
+
 /** Shortcut+F: focuses the search field and selects its text; consumed, so no other Shortcut+F binding sees it. */
 internal val SEARCH_KEYS = KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN)
 

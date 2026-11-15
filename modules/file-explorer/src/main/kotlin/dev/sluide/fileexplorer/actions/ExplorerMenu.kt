@@ -3,6 +3,7 @@ package dev.sluide.fileexplorer.actions
 import dev.sluide.fileexplorer.COMPARE_KEYS
 import dev.sluide.fileexplorer.COPY_KEYS
 import dev.sluide.fileexplorer.CUT_KEYS
+import dev.sluide.fileexplorer.FIND_IN_FOLDER_KEYS
 import dev.sluide.fileexplorer.FileAction
 import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.PASTE_KEYS
@@ -35,6 +36,8 @@ internal data class MenuState(
     val reveal: Boolean,
     /** Open in Terminal: exactly one entry (a folder, or a regular file for its folder), or the empty area with a project. */
     val terminal: Boolean,
+    /** Find in Folder: exactly one folder (a root or compacted row included). */
+    val findInFolder: Boolean,
     val cut: Boolean,
     val copy: Boolean,
     val paste: Boolean,
@@ -64,6 +67,7 @@ internal fun menuState(
         fileManager = create,
         reveal = single?.isRegularFile == true,
         terminal = if (targets.isEmpty()) projectOpen else single?.let { it.isDirectory || it.isRegularFile } == true,
+        findInFolder = single?.isDirectory == true,
         cut = targets.isNotEmpty() && targets.all { it.canChange },
         copy = targets.isNotEmpty(),
         paste = canPaste,
@@ -162,6 +166,10 @@ internal class ExplorerMenuHost(
     val terminalOffered: () -> Boolean,
     /** Opens a terminal in the folder (for a file, its folder; for the empty area, the project folder). */
     val openInTerminal: (FileTreeItem?) -> Unit,
+    /** Whether Find in Folder is offered at all. */
+    val findInFolderOffered: () -> Boolean,
+    /** Finds in the folder of the row (for a compacted row, its last folder). */
+    val findInFolder: (Path) -> Unit,
     val refreshAll: () -> Unit,
 )
 
@@ -200,6 +208,14 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
         MenuItem(
             "Open in Terminal",
         ).apply { setOnAction { host.openInTerminal(host.targets().singleOrNull()) } }
+    val findInFolder =
+        shortcutItem("Find in Folder…", FIND_IN_FOLDER_KEYS) {
+            host
+                .targets()
+                .singleOrNull()
+                ?.takeIf { it.isDirectory }
+                ?.let { host.findInFolder(it.value) }
+        }
     val historySeparator = SeparatorMenuItem()
     val actionItems = mutableListOf<MenuItem>()
     val fileActionItems = mutableListOf<MenuItem>()
@@ -222,6 +238,7 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
         SeparatorMenuItem(),
         fileManager,
         terminal,
+        findInFolder,
         SeparatorMenuItem(),
         MenuItem("Refresh").apply { setOnAction { host.refreshAll() } },
     ).apply {
@@ -280,6 +297,7 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
             fileManager.isDisable = !(state.fileManager || state.reveal)
             terminal.isVisible = host.terminalOffered()
             terminal.isDisable = !state.terminal
+            findInFolder.isVisible = host.findInFolderOffered() && state.findInFolder
         }
     }
 }

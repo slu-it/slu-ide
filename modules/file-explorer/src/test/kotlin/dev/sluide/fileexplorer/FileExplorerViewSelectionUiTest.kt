@@ -11,6 +11,8 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.input.PickResult
+import javafx.scene.layout.Priority
+import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -24,6 +26,8 @@ import kotlin.io.path.exists
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** Multi-selection, the context menu rules and multi-delete of the explorer. Needs a display, see `uiTest`. */
@@ -37,7 +41,11 @@ class FileExplorerViewSelectionUiTest : FileExplorerViewUiFixture() {
 
     @Start
     fun start(stage: Stage) =
-        startView(stage, configure = {
+        startView(stage, wrap = {
+            VBox(it.searchBar, it).also {
+                VBox.setVgrow(it, Priority.ALWAYS)
+            }
+        }, configure = {
             it.onOpenFile = { path -> opened.add(path) }
             it.onDeleted = { path, unsaved -> deleted.add(path to unsaved) }
             it.confirmDelete = { question ->
@@ -241,5 +249,46 @@ class FileExplorerViewSelectionUiTest : FileExplorerViewUiFixture() {
         )
         assertFalse(project.resolve("dir").exists())
         robot.interact { assertEquals(listOf("b.txt"), selectedNames()) }
+    }
+
+    @Test
+    fun `focusedFolder is the one selected folder while the tree has the focus`(robot: FxRobot) {
+        layout()
+        open(robot)
+        robot.interact { view.requestFocus() }
+        select(robot, "dir")
+        robot.interact { assertEquals(project.resolve("dir"), view.focusedFolder()) }
+
+        select(robot, "a.txt")
+        robot.interact { assertNull(view.focusedFolder()) }
+        select(robot, "dir", "a.txt")
+        robot.interact { assertNull(view.focusedFolder()) }
+        robot.interact { view.selectionModel.clearSelection() }
+        robot.interact { assertNull(view.focusedFolder()) }
+    }
+
+    @Test
+    fun `focusedFolder of a compacted row is its last folder`(robot: FxRobot) {
+        project.resolve("one/two/three/x.txt").createParentDirectories().createFile()
+        explorerSettings.compactFolders.set(true)
+        open(robot, expand = false)
+        robot.interact {
+            view.requestFocus()
+            view.selectionModel.select(view.projectNode.children.single())
+        }
+
+        robot.interact { assertEquals(project.resolve("one/two/three"), view.focusedFolder()) }
+    }
+
+    @Test
+    fun `focusedFolder is null while the focus is in the search field`(robot: FxRobot) {
+        layout()
+        open(robot)
+        select(robot, "dir")
+        robot.interact { view.requestFocus() }
+        robot.interact { assertNotNull(view.focusedFolder()) }
+        robot.interact { view.focusSearch() }
+
+        robot.interact { assertNull(view.focusedFolder()) }
     }
 }

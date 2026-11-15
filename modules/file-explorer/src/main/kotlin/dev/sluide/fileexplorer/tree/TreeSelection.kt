@@ -58,3 +58,11 @@ internal fun TreeView<Path>.keepSelection(
             }.distinct(),
     )
 }
+
+/** The folder of the only entry in [selected] (a compacted row: its last folder), `null` for none, several or a file. */
+internal fun singleFolder(selected: List<FileTreeItem>): Path? =
+    selected.singleOrNull()?.takeIf { it.isDirectory }?.value
+
+/** Whether the keyboard focus of the scene is on [tree] or a node inside it (a cell). */
+internal fun hasFocus(tree: TreeView<Path>): Boolean =
+    generateSequence(tree.scene?.focusOwner) { it.parent }.any { it === tree }

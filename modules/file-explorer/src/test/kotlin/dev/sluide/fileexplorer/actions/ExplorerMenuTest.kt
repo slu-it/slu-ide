@@ -38,6 +38,7 @@ class ExplorerMenuTest {
                 fileManager = false,
                 reveal = true,
                 terminal = true,
+                findInFolder = false,
                 cut = true,
                 copy = true,
                 paste = false,
@@ -59,6 +60,7 @@ class ExplorerMenuTest {
                 fileManager = true,
                 reveal = false,
                 terminal = true,
+                findInFolder = true,
                 cut = true,
                 copy = true,
                 paste = false,
@@ -80,6 +82,7 @@ class ExplorerMenuTest {
                 fileManager = true,
                 reveal = false,
                 terminal = true,
+                findInFolder = true,
                 cut = false,
                 copy = true,
                 paste = false,
@@ -101,6 +104,7 @@ class ExplorerMenuTest {
                 fileManager = true,
                 reveal = false,
                 terminal = true,
+                findInFolder = false,
                 cut = false,
                 copy = false,
                 paste = false,
@@ -123,6 +127,7 @@ class ExplorerMenuTest {
                 fileManager = false,
                 reveal = false,
                 terminal = false,
+                findInFolder = false,
                 cut = true,
                 copy = true,
                 paste = false,
@@ -140,6 +145,7 @@ class ExplorerMenuTest {
                 fileManager = false,
                 reveal = false,
                 terminal = false,
+                findInFolder = false,
                 cut = true,
                 copy = true,
                 paste = false,
@@ -213,6 +219,16 @@ class ExplorerMenuTest {
         assertEquals(false, state(projectOpen = false).terminal)
         assertEquals(false, state(file, file).terminal)
         assertEquals(false, state(folder, file).terminal)
+    }
+
+    @Test
+    fun `Find in Folder is for exactly one folder, a top-level row included`() {
+        assertEquals(true, state(folder).findInFolder)
+        assertEquals(true, state(topLevel).findInFolder)
+        assertEquals(false, state(file).findInFolder)
+        assertEquals(false, state(folder, folder).findInFolder)
+        assertEquals(false, state(folder, file).findInFolder)
+        assertEquals(false, state().findInFolder)
     }
 
     @Test

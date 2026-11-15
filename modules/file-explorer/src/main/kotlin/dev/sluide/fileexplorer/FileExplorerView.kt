@@ -24,9 +24,11 @@ import dev.sluide.fileexplorer.tree.TreeOperations
 import dev.sluide.fileexplorer.tree.TreeSearch
 import dev.sluide.fileexplorer.tree.TreeWatches
 import dev.sluide.fileexplorer.tree.defaultCopyModifier
+import dev.sluide.fileexplorer.tree.hasFocus
 import dev.sluide.fileexplorer.tree.isShown
 import dev.sluide.fileexplorer.tree.keepSelection
 import dev.sluide.fileexplorer.tree.selectRows
+import dev.sluide.fileexplorer.tree.singleFolder
 import dev.sluide.fileexplorer.tree.startWidth
 import dev.sluide.fileexplorer.tree.walkedEntries
 import dev.sluide.fileicons.FILE_ICONS_CSS
@@ -127,6 +129,12 @@ class FileExplorerView(
      * Opens a terminal in a folder (ADR 0093); `null` leaves Open in Terminal out of the context menu. Set by the window.
      */
     var openInTerminal: ((Path) -> Unit)? = null
+
+    /**
+     * Finds in a folder: the context menu shows Find in Folder… for exactly one selected folder; `null` leaves it out.
+     * Set by the window, whose Navigate menu owns Shortcut+Shift+F.
+     */
+    var findInFolder: ((Path) -> Unit)? = null
 
     /**
      * Compares two files, the upper one in the tree first (ADR 0113); `null` leaves Compare Files out of the context menu.
@@ -397,6 +405,8 @@ class FileExplorerView(
                     openInFileManager = { fileManagerActions.open(it?.value) },
                     terminalOffered = { openInTerminal != null },
                     openInTerminal = { fileManagerActions.openTerminal(it?.value) },
+                    findInFolderOffered = { findInFolder != null },
+                    findInFolder = { findInFolder?.invoke(it) },
                     refreshAll = { refreshAll() },
                 ),
             )
@@ -504,8 +514,8 @@ class FileExplorerView(
     /** Whether a search filter is applied. */
     internal val searchActive: Boolean get() = search.filter != null
 
-    /** The paths of the top-level rows, in row order. */
-    internal fun searchRoots(): List<Path> = topLevel().map { it.value }
+    /** The folders of the top-level rows, in tree order. FX thread. */
+    fun searchRoots(): List<Path> = topLevel().map { it.value }
 
     /**
      * Fires (FX thread) after files changed in loaded folders, after [refreshAll], and after the Compact or Hide Generated
@@ -522,11 +532,15 @@ class FileExplorerView(
 
     /**
      * What the tree lists in [folder] without the search filter ([walkedEntries]): sorted as the tree sorts, generated
-     * entries hidden as it hides them. Throws for an unreadable folder. Safe off the FX thread: it reads the files, the
-     * setting's current value, the revealed entries and git's answers ([ignoredByGit], [trackedByGit]), which must be
-     * safe to call there.
+     * entries hidden as it hides them (Hide Generated Files, revealed folders), `.git` dropped. Throws
+     * [java.io.IOException], [java.io.UncheckedIOException] (mid-listing) or [SecurityException] for an unreadable
+     * folder. Safe off the FX thread (ADR 0176): it reads the files, the setting's current value, the revealed entries
+     * and git's answers ([ignoredByGit], [trackedByGit]), which must be safe to call there.
      */
-    internal fun shownEntries(folder: Path): List<Path> = walkedEntries(folder, generated)
+    fun shownEntries(folder: Path): List<Path> = walkedEntries(folder, generated)
+
+    /** The one selected folder (compacted row: its last folder) while the tree has the focus, else `null`. FX thread. */
+    fun focusedFolder(): Path? = if (hasFocus(this)) singleFolder(selectedEntries()) else null
 
     /** Asks [markers] again for every shown entry. */
     fun refreshMarkers() {

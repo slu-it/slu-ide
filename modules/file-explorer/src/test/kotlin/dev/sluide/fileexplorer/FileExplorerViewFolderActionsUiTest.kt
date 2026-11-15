@@ -5,6 +5,7 @@ import javafx.scene.Node
 import javafx.scene.control.Labeled
 import javafx.scene.control.MenuItem
 import javafx.scene.input.ContextMenuEvent
+import javafx.scene.input.KeyCode
 import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
@@ -132,6 +133,41 @@ class FileExplorerViewFolderActionsUiTest : FileExplorerViewUiFixture() {
             )
         }
         assertTrue(actionItem(robot, view, "Do it", keyboard = true).isDisable)
+    }
+
+    @Test
+    fun `Find in Folder is offered for one folder only when the hook is set and gives it the folder`(robot: FxRobot) {
+        openProject(robot)
+        robot.interact {
+            view.projectNode.children
+                .single()
+                .isExpanded = true
+        }
+        assertFalse(actionItem(robot, cellNamed(robot, "sub"), "Find in Folder…").isVisible)
+        val found = mutableListOf<Path>()
+        view.findInFolder = { found.add(it) }
+
+        val item = actionItem(robot, cellNamed(robot, "sub"), "Find in Folder…")
+        assertTrue(item.isVisible)
+        assertEquals(FIND_IN_FOLDER_KEYS.displayText, item.accelerator.displayText)
+        robot.interact { item.fire() }
+        assertEquals(listOf(project.resolve("sub")), found)
+
+        // The key stays with the window's accelerator: the explorer neither takes it nor runs the hook.
+        var reached = 0
+        robot.interact {
+            view.selectionModel.clearAndSelect(view.getRow(view.projectNode.children.single()))
+            // A real accelerator would sit in the scene (JavaFX installs the menu's); the shown-only one does not.
+            assertFalse(view.scene.accelerators.containsKey(FIND_IN_FOLDER_KEYS))
+            view.scene.accelerators[FIND_IN_FOLDER_KEYS] = Runnable { reached++ }
+            pressKey(KeyCode.F, shortcut = true, shift = true)
+            view.scene.accelerators.remove(FIND_IN_FOLDER_KEYS)
+        }
+        assertEquals(1, reached)
+        assertEquals(1, found.size)
+
+        assertFalse(actionItem(robot, cellNamed(robot, "inner.txt"), "Find in Folder…").isVisible)
+        assertFalse(actionItem(robot, view, "Find in Folder…").isVisible, "the empty area is no folder")
     }
 
     @Test
