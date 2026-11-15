@@ -333,8 +333,10 @@ has no roots.
   starting with": `/build`). Status: "Searching…", "No matches", "1 match", "N matches", "First 100 matches, type more
   to narrow" at 100 matches; when the walk stopped after 200 000 visited entries with fewer, "N matches in the first
   200 000 entries, type more to narrow". Searching again after a change keeps the count until the new result.
-- **Result**: the matches with their folders expanded; a matched folder shows collapsed and its whole content when
-  expanded. The matching part of each name is highlighted (`explorer-search-hit`).
+- **Result**: the matches with their folders expanded. A matched folder holding no further match shows collapsed and
+  its whole content when expanded; a matched folder holding further matches is expanded like the other folders on the
+  way and shows only the matches inside (searching `app` lists `kotlin/app` expanded with `App.kt` and `AppConfig.kt`,
+  not its other files). A compacted row is decided by what lies below its last folder. The matching part of each name is highlighted (`explorer-search-hit`).
 - **Clear** (Escape, empty field, under 3 characters): the folders expanded before the search expand again and the
   selection stays selected and visible; the focus does not move.
 - **While searching**: Select Opened File, Select in Explorer and entries the explorer created, renamed, pasted or moved

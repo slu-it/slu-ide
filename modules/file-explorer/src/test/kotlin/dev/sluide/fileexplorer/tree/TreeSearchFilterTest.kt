@@ -35,17 +35,23 @@ class TreeSearchFilterTest {
         "kept,true", // the folder holding an extra
         "kept/deep/other.txt,false", // beside an extra
         "kept-folder/inner/x.txt,true", // below a kept folder
+        "pkg/Pkg.kt,true", // a match in a matched folder
+        "pkg/Other.kt,false", // beside it: a matched folder holding a match is filtered
+        "pkg/sub/x.txt,false",
+        "kept-holder/hit.txt,true", // a match in a kept folder
+        "kept-holder/other.txt,false", // beside it: a kept folder holding a match is filtered
         "src/Other.kt,false", // beside a match
         "lib,false",
         "extra-root/x.txt,false",
     )
-    fun `shows roots, matches, their folders, extras with theirs, and everything below a folder hit or a kept folder`(
+    fun `shows roots, matches, their folders, extras with theirs, and all below an open hit`(
         entry: String,
         shown: Boolean,
     ) {
-        val filter = filter("src/App.kt", "docs")
+        val filter = filter("src/App.kt", "docs", "pkg", "pkg/Pkg.kt", "kept-holder/hit.txt")
         filter.keep(path("kept/deep/file.txt"))
         filter.keep(path("kept-folder"))
+        filter.keep(path("kept-holder"))
 
         assertEquals(shown, filter.shows(path(entry).normalize()))
     }
@@ -66,7 +72,7 @@ class TreeSearchFilterTest {
     }
 
     @Test
-    fun `a compacted row is a folder hit when a middle folder of its chain matches, a matched file is none`() {
+    fun `a compacted row is an open hit when a folder of its chain matches and nothing below its last folder does`() {
         path("src/main/kotlin/App.kt").createParentDirectories().createFile()
         val top = topLevel(FileTreeItem(root, compact = { true }))
         val row = top.children.single() as FileTreeItem
@@ -74,8 +80,14 @@ class TreeSearchFilterTest {
         assertEquals(listOf("src", "src/main", "src/main/kotlin").map(::path), row.chain)
 
         assertTrue(filter("src/main").isFolderHit(row))
+        assertFalse(filter("src/main").holdsMatch(row))
         assertFalse(filter("src/main/kotlin/App.kt").isFolderHit(row))
         assertFalse(filter("src/main/kotlin/App.kt").isFolderHit(file))
+        // A hit holding a match below the row's last folder is like a folder holding one.
+        val holding = filter("src/main", "src/main/kotlin/App.kt")
+        assertFalse(holding.isFolderHit(row))
+        assertTrue(holding.holdsMatch(row))
+        assertFalse(holding.holdsMatch(file))
     }
 
     /** Puts [top] below a hidden root, like the explorer's top-level folders. */

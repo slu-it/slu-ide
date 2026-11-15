@@ -138,25 +138,30 @@ class FileExplorerViewSearchUiTest : FileExplorerViewUiFixture() {
     }
 
     @Test
-    fun `a matched folder holding a deeper match stays collapsed`(robot: FxRobot) {
+    fun `a matched folder holding a deeper match is expanded and shows only the matches inside`(robot: FxRobot) {
         open(robot)
 
-        robot.interact { view.applySearch(listOf(p("src"), p("src/main/App.kt"))) }
+        robot.interact { view.applySearch(listOf(p("src/main"), p("src/main/App.kt"))) }
 
-        assertEquals(listOf(project.name, "src"), renderedNames(robot))
+        assertEquals(listOf(project.name, "src", "main", "App.kt"), renderedNames(robot))
     }
 
     @Test
-    fun `a folder expanded as the ancestor of an earlier match collapses when it becomes a match itself`(
+    fun `a search run again sets the expansion of a matched folder that starts or stops holding matches`(
         robot: FxRobot,
     ) {
         open(robot)
         robot.interact { view.applySearch(listOf(p("src/main/App.kt"))) }
         assertEquals(listOf(project.name, "src", "main", "App.kt"), renderedNames(robot))
 
-        robot.interact { view.applySearch(listOf(p("src/main"))) }
+        robot.interact { view.applySearch(listOf(p("src/main"), p("src/main/App.kt"))) }
+        assertEquals(listOf(project.name, "src", "main", "App.kt"), renderedNames(robot))
 
+        robot.interact { view.applySearch(listOf(p("src/main"))) }
         assertEquals(listOf(project.name, "src", "main"), renderedNames(robot))
+
+        robot.interact { view.applySearch(listOf(p("src/main"), p("src/main/App.kt"))) }
+        assertEquals(listOf(project.name, "src", "main", "App.kt"), renderedNames(robot))
     }
 
     @Test
@@ -176,6 +181,22 @@ class FileExplorerViewSearchUiTest : FileExplorerViewUiFixture() {
         robot.interact { view.applySearch(listOf(p("README.md"))) }
         robot.interact { view.applySearch(listOf(p("README.md"), p("src/main"))) }
         assertEquals(listOf(project.name, "src/main/kotlin", "README.md"), renderedNames(robot))
+    }
+
+    @Test
+    fun `a compacted row whose last folder matches and holds matches is expanded with only them`(robot: FxRobot) {
+        listOf("App.kt", "AppConfig.kt", "Other.kt").forEach {
+            p("src/main/kotlin/app/$it").createParentDirectories().createFile()
+        }
+        robot.interact {
+            explorerSettings.compactFolders.set(true)
+            view.open(project)
+        }
+
+        val app = "src/main/kotlin/app"
+        robot.interact { view.applySearch(listOf(p(app), p("$app/App.kt"), p("$app/AppConfig.kt"))) }
+
+        assertEquals(listOf(project.name, app, "App.kt", "AppConfig.kt"), renderedNames(robot))
     }
 
     @Test

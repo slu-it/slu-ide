@@ -15,7 +15,7 @@ show only what the tree itself would show.
   Hide Generated Files, revealed generated folders), never goes into `.git` and does not follow symlinked folders (a link
   matches by its name). An unreadable folder is skipped.
 - **The tree filters itself**: `TreeSearchFilter` says which entries show (a match, a folder holding one, an extra, or
-  anything under a folder hit); `FileTreeItem` lists through it, so lazy loading, watches and compaction keep working
+  anything under an open hit, see below); `FileTreeItem` lists through it, so lazy loading, watches and compaction keep working
   (`TreeSearch` applies and restores it).
 - **Match rule** (`NameQuery`): case-insensitive; without `/` the name contains the text; with `/` the path relative
   to the root, with a `/` put in front, contains it and the match ends inside the name. A leading `/` therefore means
@@ -26,8 +26,13 @@ show only what the tree itself would show.
 - **Caps**: 100 matches or 200 000 visited entries end the walk; the status line says "First 100 matches, type more to
   narrow", or with fewer matches "N matches in the first 200 000 entries, type more to narrow". The 100 is one constant
   (`ExplorerSearch.LIMIT`) passed to the walk.
-- **Folder hits show collapsed with their full content** when expanded (also kept folders, see extras). A compacted
-  row is a hit when any folder of its chain is one.
+- **Matched folders, two kinds**: a matched folder holding no further match (an open hit) shows collapsed, with its
+  full content when expanded; a matched folder holding further matches is treated like any folder holding a match:
+  expanded, showing only the matches inside (with their folders and extras). Exactly: an entry shows below a match or
+  a kept folder only if that folder is not an ancestor of another match. A compacted row whose chain holds a match is
+  decided by whether a match lies below its last folder. A re-run expands the folders of new matches and sets the
+  expansion of a row that changed between the two kinds; other rows keep what the user did. The status counts every
+  match, so with this rule every counted match is a shown row (unless the user collapsed its folder).
 - **Restore on clear**: the folders expanded before the search expand again; the selection stays selected and is
   revealed; the focus does not move.
 - **Extras**: entries the explorer reveals, creates, renames, pastes or moves while searching join the results until
@@ -47,7 +52,6 @@ show only what the tree itself would show.
 ## Consequences
 - Names in unexpanded folders are found without loading the whole tree; the walk costs disk reads, bounded by the caps.
 - Accepted limits:
-  - a matched folder holding a deeper match stays collapsed (its full content is one click away);
   - a revealed generated folder that git later un-ignores is classified by the tree but not by the walk until Refresh
     or Collapse All;
   - the git callbacks of `GeneratedFolderFilter` run off the FX thread during the walk (the window's `GitMarkers` reads

@@ -36,11 +36,11 @@ internal class TreeSearch(
 
     /**
      * Narrows the tree to [matches] (absolute paths, as the tree holds them) and their folders, or restores it for
-     * `null`, see [restore]. The first one remembers the expanded folders and expands the folders holding a match, a
-     * matched folder (a folder hit) collapsed; the others collapse. A later one keeps the extras, the expansion the user
-     * did and the remembered one, expands only the folders of new matches and collapses the rows that became folder hits
-     * (an ancestor of an earlier match now matched itself). The selection stays where it is still
-     * shown; a row no longer shown is unselected.
+     * `null`, see [restore]. The first one remembers the expanded folders and expands the folders holding a match (also
+     * a matched one), the others collapse, an open hit too ([TreeSearchFilter.isFolderHit]). A later one keeps the
+     * extras, the expansion the user did and the remembered one; it expands the folders of new matches and sets the
+     * expansion of the rows that changed between holding a match and being an open hit. The selection stays where it
+     * is still shown; a row no longer shown is unselected.
      */
     fun apply(matches: List<Path>?) {
         if (matches == null) return restore()
@@ -55,12 +55,20 @@ internal class TreeSearch(
             topLevel().forEach(FileTreeItem::refreshTree)
             val ways = fresh.flatMap(::foldersHolding).toSet()
             val loaded = topLevel().flatMap(FileTreeItem::loadedFolders)
-            // A later run touches only the folders of new matches and the rows that became folder hits.
-            val rows = if (previous == null) loaded else ways + loaded.filter { row -> row.chain.any { it in fresh } }
-            rows.forEach { it.isExpanded = it in ways && !next.isFolderHit(it) }
+            // A later run touches only the folders of new matches and the rows that changed between the two kinds.
+            val rows = if (previous == null) loaded else ways + loaded.filter { changedKind(previous, next, it) }
+            rows.forEach { it.isExpanded = next.holdsMatch(it) }
             closeVanishedWatches()
         }
     }
+
+    /** Whether [row] became a folder holding a match or an open hit with [next]: a matched folder whose kind changed. */
+    private fun changedKind(
+        previous: TreeSearchFilter,
+        next: TreeSearchFilter,
+        row: FileTreeItem,
+    ): Boolean =
+        (next.holdsMatch(row) && !previous.holdsMatch(row)) || (next.isFolderHit(row) && !previous.isFolderHit(row))
 
     /** Adds [path] to the results while a search is applied, so the explorer can show and select it. */
     fun keep(path: Path) {
