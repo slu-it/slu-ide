@@ -4,11 +4,9 @@ import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.fileexplorer.actions.CopyQuestion
 import dev.sluide.fileexplorer.actions.DeleteQuestion
 import dev.sluide.fileexplorer.actions.ExplorerCopies
-import dev.sluide.fileexplorer.actions.ExplorerEditHost
 import dev.sluide.fileexplorer.actions.ExplorerEdits
 import dev.sluide.fileexplorer.actions.ExplorerMenuHost
 import dev.sluide.fileexplorer.actions.ExplorerMoves
-import dev.sluide.fileexplorer.actions.FileManagerActions
 import dev.sluide.fileexplorer.actions.MoveQuestion
 import dev.sluide.fileexplorer.actions.askForName
 import dev.sluide.fileexplorer.actions.askToCopy
@@ -27,7 +25,6 @@ import dev.sluide.fileexplorer.tree.TreeWatches
 import dev.sluide.fileexplorer.tree.defaultCopyModifier
 import dev.sluide.fileexplorer.tree.isShown
 import dev.sluide.fileexplorer.tree.keepSelection
-import dev.sluide.fileexplorer.tree.selectRow
 import dev.sluide.fileexplorer.tree.selectRows
 import dev.sluide.fileexplorer.tree.startWidth
 import dev.sluide.fileexplorer.tree.walkedEntries
@@ -202,14 +199,7 @@ class FileExplorerView(
     }
 
     /** Open in File Manager, Reveal and Open in Terminal; its seams are replaced by tests. */
-    internal val fileManagerActions =
-        FileManagerActions(
-            projectFolder = { projectItem?.value },
-            showError = { showError(it) },
-            runInBackground = { runInBackground(it) },
-            dispatch = { dispatch(it) },
-            openInTerminal = { openInTerminal },
-        )
+    internal val fileManagerActions = buildFileManagerActions()
 
     // Loaded folders and the middle folders of compacted rows (ADR 0096).
     private val watches: TreeWatches =
@@ -222,32 +212,7 @@ class FileExplorerView(
     private val search: TreeSearch = TreeSearch(this, ::topLevel) { watches.closeVanished() }
 
     // The hooks and test seams are read when an edit runs, not now, so later changes take effect.
-    private val editHost =
-        ExplorerEditHost(
-            projectItem = { projectItem },
-            askName = { title, initial, validate -> askName(title, initial, validate) },
-            askImageName = { initial, validate, note -> askImageName(initial, validate, note) },
-            showError = { showError(it) },
-            showInfo = { showInfo(it) },
-            confirmDelete = { confirmDelete(it) },
-            confirmMove = { confirmMove(it) },
-            confirmCopy = { confirmCopy(it) },
-            runInBackground = { runInBackground(it) },
-            dispatch = { dispatch(it) },
-            onMoved = { from, to -> onMoved(from, to) },
-            unsavedUnder = { unsavedUnder(it) },
-            onDeleted = { path, unsaved -> onDeleted(path, unsaved) },
-            requestOpen = { requestOpen(it) },
-            select = { parent, path -> operations.select(parent, path) },
-            selectRow = { selectRow(it) },
-            selectRows = { selectRows(it) },
-            selectedItems = { selectionModel.selectedItems.filterNotNull() },
-            rows = { (0 until expandedItemCount).mapNotNull { getTreeItem(it) } },
-            isShown = { isShown(it) },
-            closeWatchesUnder = { watches.closeUnder(it) },
-            closeWatchesOfVanishedFolders = { watches.closeVanished() },
-            keepFound = { search.keep(it) },
-        )
+    private val editHost = buildEditHost(watches, search) { parent, path -> operations.select(parent, path) }
     private val edits = ExplorerEdits(editHost)
     private val moves = ExplorerMoves(editHost, edits::canChange, edits::isBeingDeleted, edits::canChangePath)
 
