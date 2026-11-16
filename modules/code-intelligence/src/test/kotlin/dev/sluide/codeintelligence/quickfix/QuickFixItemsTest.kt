@@ -54,6 +54,28 @@ class QuickFixItemsTest {
     }
 
     @Test
+    fun `entries whose command is not offered are left out, with or without an edit`() {
+        val fixes =
+            quickFixesOf(
+                listOf(
+                    Either.forRight(CodeAction("known").apply { command = Command("k", "x.known") }),
+                    Either.forRight(CodeAction("unknown").apply { command = Command("u", "x.unknown") }),
+                    Either.forRight(
+                        CodeAction("edit and unknown").apply {
+                            edit = WorkspaceEdit(emptyMap())
+                            command = Command("u", "x.unknown")
+                        },
+                    ),
+                    action("edit only"),
+                    Either.forLeft(Command("bare unknown", "x.unknown")),
+                    Either.forLeft(Command("bare known", "x.known")),
+                ),
+            ) { it == "x.known" }
+
+        assertEquals(listOf("known", "edit only", "bare known"), fixes.map { it.title })
+    }
+
+    @Test
     fun `an action without edit and command is resolved first if the server resolves`() {
         val bare = CodeAction("bare")
         assertTrue(needsResolve(bare, serverResolves = true))

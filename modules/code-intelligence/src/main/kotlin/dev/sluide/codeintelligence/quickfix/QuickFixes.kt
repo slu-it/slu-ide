@@ -119,7 +119,7 @@ internal class QuickFixes(
         slot.send(
             session,
             { it.textDocumentService.codeAction(params) },
-            { result -> if (!closed) answer(quickFixesOf(result), null) },
+            { result -> if (!closed) answer(quickFixesOf(result, session.features::offersCommand), null) },
             { error ->
                 if (!closed) {
                     answer(
@@ -149,6 +149,10 @@ internal class QuickFixes(
                 { resolved ->
                     if (resolved == null) {
                         tell("The server did not resolve the quick fix.")
+                    } else if (resolved.command?.let { !session.features.offersCommand(it.command.orEmpty()) } ==
+                        true
+                    ) {
+                        tell("The server does not offer the quick fix's command.")
                     } else {
                         perform(resolved.edit, resolved.command)
                     }

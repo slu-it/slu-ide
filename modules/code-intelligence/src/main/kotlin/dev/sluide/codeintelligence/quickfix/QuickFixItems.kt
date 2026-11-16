@@ -21,9 +21,13 @@ internal data class QuickFix(
 
 /**
  * The entries of a `textDocument/codeAction` answer in the order shown: preferred ones first, then the others, then
- * the disabled ones, each in the server's order. Entries without a title are left out.
+ * the disabled ones, each in the server's order. Entries without a title are left out, and those whose command
+ * [offers] says the server does not offer (ADR 0179: a client-side command the server answers with).
  */
-internal fun quickFixesOf(answer: List<Either<Command, CodeAction>?>?): List<QuickFix> {
+internal fun quickFixesOf(
+    answer: List<Either<Command, CodeAction>?>?,
+    offers: (command: String) -> Boolean = { true },
+): List<QuickFix> {
     val fixes =
         answer.orEmpty().filterNotNull().mapNotNull { entry ->
             if (entry.isLeft) {
@@ -37,6 +41,7 @@ internal fun quickFixesOf(answer: List<Either<Command, CodeAction>?>?): List<Qui
         }
     return fixes
         .filter { it.title.isNotBlank() }
+        .filter { fix -> fix.command?.let { offers(it.command.orEmpty()) } ?: true }
         .sortedBy {
             when {
                 !it.enabled -> 2

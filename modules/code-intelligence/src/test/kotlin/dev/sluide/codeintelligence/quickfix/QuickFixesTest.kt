@@ -17,8 +17,11 @@ import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DiagnosticRegistrationOptions
 import org.eclipse.lsp4j.DiagnosticSeverity
 import org.eclipse.lsp4j.DocumentDiagnosticReport
+import org.eclipse.lsp4j.ExecuteCommandOptions
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
+import org.eclipse.lsp4j.Registration
+import org.eclipse.lsp4j.RegistrationParams
 import org.eclipse.lsp4j.RelatedFullDocumentDiagnosticReport
 import org.eclipse.lsp4j.ServerCapabilities
 import org.eclipse.lsp4j.TextDocumentEdit
@@ -145,7 +148,10 @@ class QuickFixesTest {
 
     @Test
     fun `an action without edit and command is resolved first, then its edit applied and its command run`() {
-        bind("x\n") { codeActionProvider = Either.forRight(CodeActionOptions().apply { resolveProvider = true }) }
+        bind("x\n") {
+            codeActionProvider = Either.forRight(CodeActionOptions().apply { resolveProvider = true })
+            executeCommandProvider = ExecuteCommandOptions(listOf("x.tidy"))
+        }
         val server = harness.server
         server.codeActions = listOf(Either.forRight(CodeAction("bare")))
         val fileUri = uri
@@ -170,7 +176,10 @@ class QuickFixesTest {
 
     @Test
     fun `the command of a fix whose edit is refused is not run, and a resolve without answer says so`() {
-        bind("x\n") { codeActionProvider = Either.forRight(CodeActionOptions().apply { resolveProvider = true }) }
+        bind("x\n") {
+            codeActionProvider = Either.forRight(CodeActionOptions().apply { resolveProvider = true })
+            executeCommandProvider = ExecuteCommandOptions(listOf("x.tidy"))
+        }
         val server = harness.server
         val stale =
             TextDocumentEdit(VersionedTextDocumentIdentifier(uri, 99), listOf(Either.forLeft(insert("# "))))
@@ -208,5 +217,81 @@ class QuickFixesTest {
         choose(fix)
         assertEquals(listOf("The text changed. Ask for the quick fixes again."), told.toList())
         assertEquals(emptyList(), harness.editor.appliedBatches)
+    }
+
+    private fun withCommand(
+        title: String,
+        command: String?,
+        edit: Boolean = false,
+    ): Either<Command, CodeAction> =
+        Either.forRight(
+            CodeAction(title).apply {
+                if (command != null) this.command = Command(title, command)
+                if (edit) this.edit = WorkspaceEdit(mapOf(uri to listOf(insert("x"))))
+            },
+        )
+
+    @Test
+    fun `an action whose command the server does not offer is not shown, the others are`() {
+        bind("x\n") {
+            setCodeActionProvider(true)
+            executeCommandProvider = ExecuteCommandOptions(listOf("java.known"))
+        }
+        harness.server.codeActions =
+            listOf(
+                withCommand("known", "java.known"),
+                withCommand("unknown", "java.action.applyRefactoringCommand"),
+                withCommand("edit and unknown", "java.action.applyRefactoringCommand", edit = true),
+                withCommand("edit only", null, edit = true),
+                withCommand("resolvable", null),
+                Either.forLeft(Command("bare unknown", "java.bare")),
+                Either.forLeft(Command("bare known", "java.known")),
+            )
+
+        assertEquals(listOf("known", "edit only", "resolvable", "bare known"), ask(0).map { it.title })
+    }
+
+    @Test
+    fun `a server that declares no commands offers none of its command actions`() {
+        bind("x\n")
+        harness.server.codeActions = listOf(withCommand("command", "x.run"), withCommand("edit", null, edit = true))
+
+        assertEquals(listOf("edit"), ask(0).map { it.title })
+    }
+
+    @Test
+    fun `a command that only the resolved action carries is checked too, and nothing of that action is applied`() {
+        bind("x\n") {
+            codeActionProvider = Either.forRight(CodeActionOptions().apply { resolveProvider = true })
+            executeCommandProvider = ExecuteCommandOptions(listOf("x.tidy"))
+        }
+        val server = harness.server
+        server.codeActions = listOf(withCommand("bare", null))
+        val fileUri = uri
+        server.resolve = { action ->
+            CodeAction(action.title).apply {
+                edit = WorkspaceEdit(mapOf(fileUri to listOf(insert("# "))))
+                command = Command("Other", "x.unknown")
+            }
+        }
+
+        choose(ask(0).single())
+
+        awaitTrue("told") { told.isNotEmpty() }
+        assertEquals(listOf("The server does not offer the quick fix's command."), told.toList())
+        assertEquals("x\n", harness.editor.currentText, "the edit was not applied either")
+        assertTrue(server.commands.isEmpty())
+    }
+
+    @Test
+    fun `a command registered dynamically for workspace-executeCommand counts as offered`() {
+        bind("x\n")
+        harness.server.codeActions = listOf(withCommand("registered", "x.dynamic"), withCommand("other", "x.other"))
+        val options = ExecuteCommandOptions(listOf("x.dynamic"))
+        harness.server.client
+            .registerCapability(RegistrationParams(listOf(Registration("e", "workspace/executeCommand", options))))
+            .get()
+
+        assertEquals(listOf("registered"), ask(0).map { it.title })
     }
 }

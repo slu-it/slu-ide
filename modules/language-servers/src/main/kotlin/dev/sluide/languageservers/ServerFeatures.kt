@@ -3,6 +3,7 @@ package dev.sluide.languageservers
 import com.google.gson.JsonElement
 import dev.sluide.languageservers.connection.protocolGson
 import org.eclipse.lsp4j.DidChangeWatchedFilesRegistrationOptions
+import org.eclipse.lsp4j.ExecuteCommandOptions
 import org.eclipse.lsp4j.FileSystemWatcher
 import org.eclipse.lsp4j.Registration
 import org.eclipse.lsp4j.SaveOptions
@@ -35,6 +36,17 @@ class ServerFeatures internal constructor() {
      * `completionItem/resolve`, `workspace/didChangeWatchedFiles`…): declared at `initialize` or registered since.
      */
     fun supports(method: String): Boolean = registered.values.any { it.method == method } || declares(method)
+
+    /**
+     * Whether the server offers [command] to `workspace/executeCommand`: in the `commands` of its static
+     * `executeCommandProvider`, or of a dynamic registration of `workspace/executeCommand`. An unreadable registration
+     * counts for nothing (logged). A command the server does not offer is one for the client to run.
+     */
+    fun offersCommand(command: String): Boolean =
+        command in capabilities?.executeCommandProvider?.commands.orEmpty() ||
+            registrations(EXECUTE_COMMAND).any { registration ->
+                command in registration.options(ExecuteCommandOptions::class.java)?.commands.orEmpty()
+            }
 
     /** The dynamic registrations of [method], with their options (Gson's JSON tree, as the server sent them). */
     fun registrations(method: String): List<Registration> = registered.values.filter { it.method == method }
@@ -207,6 +219,7 @@ class ServerFeatures internal constructor() {
         const val DID_CHANGE_WATCHED_FILES = "workspace/didChangeWatchedFiles"
         const val DID_CHANGE = "textDocument/didChange"
         const val DID_SAVE = "textDocument/didSave"
+        const val EXECUTE_COMMAND = "workspace/executeCommand"
 
         /** While no server runs: supports nothing. */
         val NONE = ServerFeatures()
