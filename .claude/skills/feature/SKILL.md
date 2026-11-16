@@ -17,7 +17,8 @@ user approves.
   handles secrets), then grep `docs/index.md` for the feature's words and read only the ADRs and feature pages of the
   matching rows.
 - Wide research goes to `explorer`, with numbered questions, what the answer feeds into and how thorough to be;
-  read the few files that matter yourself.
+  read the few files that matter yourself. How a foreign tool behaves (a server, a CLI, a library the design rests
+  on) goes to `spiker` before the plan decides on it (`delegate` skill, "Spiker brief").
 - Look for what can be reused: a similar view, tool, dialog or runner the feature should behave like (the user often
   says "like the shell scripts" or "like the Codecs tool"; read that one).
 
@@ -59,8 +60,9 @@ Write the plan to the plan file plan mode names:
   included (a download host often redirects to a CDN host), and asks the user once before the round starts. The
   real-model or real-service check runs right after the engine package, before packages build on its assumptions.
   A feature around an external server (a language server, a protocol) records the server's traffic for the cases
-  the tests will fake, in the spike or the engine package (`docs/testing.md`, "Fakes of external servers"), and the
-  briefs of the packages with fakes name those recordings.
+  the tests will fake, in the spike (`spiker`) or the engine package (`docs/testing.md`, "Fakes of external
+  servers"). The plan names the owner package that commits the recordings and their fake contracts (the engine
+  package writes the contracts itself when it records), and the briefs of the packages with fakes cite them.
 Then `ExitPlanMode`.
 
 ## 6. Round note

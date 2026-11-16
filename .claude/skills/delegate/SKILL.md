@@ -29,8 +29,10 @@ Pass `model: "opus"` to an `implementer` only when one of these applies, and put
 - a Sonnet implementer stopped on a design gap that a better brief cannot close;
 - a Sonnet attempt failed review twice.
 
+A `spiker` gets Opus only for the spike a round's foundation ADR rests on, with the same `[opus: <reason>]` label.
+
 Prefer fixing the brief over escalating: a stop-and-report usually means the plan was incomplete. The round's final
-report to the user gives the number of Sonnet and Opus implementer runs.
+report to the user gives the number of Sonnet and Opus implementer and spiker runs.
 
 ## Displays
 One place for the numbers; briefs hand them out.
@@ -44,6 +46,16 @@ One place for the numbers; briefs hand them out.
 ## Explorer brief
 Numbered questions, what the answer feeds into (the plan, a brief, a bug hunt) and how thorough to be.
 
+## Spiker brief
+For how a foreign tool behaves (`spiker`):
+- Numbered questions, the plan section the answers feed, and a time box (a cold Gradle import alone took 9 minutes).
+- The tool with its version and where it is, or how to get it (the hosts the user allowed).
+- The scratch folder (`<scratchpad>/<spike>`), and what is already set up there (a client, scratch projects).
+- For a server: the `initialize` Thoreau will send (capabilities, `initializationOptions`, settings; the plan's frozen
+  one), and the cases to record for the fakes (`docs/testing.md`, "Fakes of external servers").
+- The main session then checks the fake contracts against the recordings' cited lines, and notes the recordings'
+  scratch path in the round note until the owner package (the plan names it) has committed them.
+
 ## Implementer brief
 Sonnet does well with a precise brief and guesses without one. Every implementer brief states:
 1. Goal and acceptance criteria (observable behavior). Designed content (levels, puzzles) gets measurable targets
@@ -51,9 +63,9 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
 2. Files and classes to touch; anything outside them needs a stop-and-report. A new module dependency the brief
    names is checked against "Module rules" in `docs/architecture.md` first (same family or a foundation module, else
    `ide` wires it): a brief once cited editor-family modules as precedent for a language module.
-3. Signatures and behavior of new or changed API, including threading (FX thread or not). A design that rests on
-   how an external tool behaves (a lock file it holds, the order of its messages, what it cancels) states that
-   behavior as measured against the real tool before the brief, not as read from its code or assumed: a lock that
+3. Signatures and behavior of new or changed API, including threading (FX thread or not). A design that rests on how an
+   external tool behaves (a lock file it holds, the order of its messages, what it cancels) states that behavior as
+   measured against the real tool before the brief (a `spiker` run), not as read from its code or assumed: a lock that
    jdtls never takes and a job order its own race decides each cost a failed implementer round.
 4. Tests, with the level per behavior (`docs/testing.md`, "Choosing the test level"): unit, naming the function or
    class to extract when the logic sits in a control, or `@Tag("ui")` with the reason it needs a scene, plus the one
@@ -62,7 +74,9 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
    race, the input on which only it decides the outcome; for a fix, the test that fails on master; the paint check
    of what the user sees; the hostile inputs for untrusted content; fixtures built with the real builder of the
    output they fake, and for fakes of external tools the real behavior they must copy (exit codes, driver modes); for
-   a fake of an external server, the recordings it replays (`docs/testing.md`, "Fakes of external servers");
+   a fake of an external server, the recordings it replays and their fake contracts (the owner package the plan
+   names copies them from the spike's scratch folder into `src/test/resources/<tool>/` with their README lines; later
+   briefs cite the committed paths; `docs/testing.md`, "Fakes of external servers");
    `docs/testing.md`, "Portability" for tests that depend on the OS.
 5. Test classes to run. `verify.sh --changed` already runs the touched modules' unit tests and every class
    `.claude/scripts/related-tests.sh` finds for the changed files, so name only what that search cannot see: a

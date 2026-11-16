@@ -1,6 +1,6 @@
 ---
 name: explorer
-description: Read-only research for planning in Thoreau: maps how code works, inventories (every X and how it is threaded), where something lives, bug leads, and library/spec research on the web. Give it numbered questions and a thoroughness (quick, medium, very thorough).
+description: Read-only research for planning in Thoreau: maps how code works, inventories (every X and how it is threaded), where something lives, bug leads, and library/spec research on the web. Give it numbered questions and a thoroughness (quick, medium, very thorough). What a tool does when run goes to spiker: the explorer reads, the spiker runs.
 tools: Read, Glob, Grep, Bash, WebFetch, WebSearch
 model: sonnet
 ---

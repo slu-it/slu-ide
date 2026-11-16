@@ -164,19 +164,21 @@ A behavior is tested once, at the lowest level that can see it
 A fake that behaves unlike the real server (ADR 0178, "Evaluation") makes tests and code agree on the same wrong
 picture, which neither a red step nor break-check can see. A fake of a server is therefore built from what the
 server really sent:
-- Record once against the real server, in the spike or the engine package:
-  `.claude/scripts/record-lsp.sh <module>/src/test/resources/<tool>/<case>.jsonl -- <server command>` passes the
-  traffic through unchanged and logs each message with its direction (`in` to the server, `out` from it) and time,
-  in a fresh file per run. Run it where the client can name the server command (a custom server path, the spike's
-  own client), on a throwaway project in `/tmp`. Record the cases the tests rely on: import a project, change a build
-  file, remove and re-add a folder, a failing request.
-- The log is scrubbed for committing: `--placeholder /tmp/demo=PROJECT` (one per path: the project, a JDK) turns a
-  path and its file URI into `${PROJECT}`, the home folder always becomes `${HOME}`, and `processId` becomes null.
-  The fake puts its own paths in, so the recording replays on any machine and OS. Grep the log for your user name
-  before committing it.
+- Record once against the real server: in the spike (the `spiker` records into its scratch folder, and the owner package
+  the plan names copies the recordings in) or in the engine package (it records in place). The client starts
+  `.claude/scripts/record-lsp.sh <log>.jsonl -- <server command>` as its server command (the script only sees traffic
+  it sits between) and sends the `initialize` Thoreau sends, since a server answers other clients differently. The
+  script passes the traffic through unchanged and logs each message with its direction (`in` to the server, `out` from
+  it) and time, in a fresh file per run; exit 3 means a cut recording. Record the cases the tests rely on: import a
+  project, change a build file, remove and re-add a folder, a failing request.
+- The log is scrubbed for committing: `--placeholder /tmp/demo=PROJECT` (one per path: the project, a JDK, the spike's
+  scratch folder, whose path holds the user's name) turns a path and its file URI into `${PROJECT}`, the home folder
+  always becomes `${HOME}`, and `processId` becomes null. The fake puts its own paths in, so the recording replays on
+  any machine and OS. Grep the log for your user name before committing it.
 - Commit the recordings with a `README.md` line per file: the tool's version, the command, what was done.
-- The fake replays a recording's `out` messages in their order and counts, keyed by the `in` messages the test sends;
-  assertions about "what the server does" cite the recording. A behavior no recording shows gets a new recording.
+- The recording is the source of truth; a spike's fake contract is a reading aid that cites its lines. The fake replays
+  a recording's `out` messages in their order and counts, keyed by the `in` messages the test sends; assertions about
+  "what the server does" cite the recording. A behavior no recording shows gets a new recording.
 - When the server changes version, record again and let the tests show what moved.
 
 ## WebView pages
