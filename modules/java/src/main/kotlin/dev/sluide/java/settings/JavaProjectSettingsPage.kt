@@ -3,9 +3,14 @@ package dev.sluide.java.settings
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.java.JavaHomes
 import dev.sluide.java.JavaProjectSettings
+import dev.sluide.java.JdtlsSpec
 import dev.sluide.settings.ProjectSettingsPage
 import javafx.application.Platform
 import javafx.scene.Node
+import javafx.scene.control.Alert
+import javafx.scene.control.Button
+import javafx.scene.control.ButtonBar
+import javafx.scene.control.ButtonType
 import javafx.scene.control.ComboBox
 import javafx.scene.control.Label
 import javafx.scene.control.ListCell
@@ -31,6 +36,30 @@ private fun chooseFolder(owner: Window?): Path? =
         .showDialog(owner)
         ?.toPath()
 
+/** The destructive question of Clean Java Workspace: Clean and Cancel, with Cancel the default and focused. */
+private fun confirmClean(
+    owner: Window?,
+    question: String,
+): Boolean = cleanConfirmation(owner, question).showAndWait().orElse(ButtonType.CANCEL) == CLEAN_BUTTON
+
+internal val CLEAN_BUTTON = ButtonType("Clean", ButtonBar.ButtonData.OK_DONE)
+
+/** The dialog of [confirmClean], not yet shown; for tests too. */
+internal fun cleanConfirmation(
+    owner: Window?,
+    question: String,
+): Alert =
+    Alert(Alert.AlertType.CONFIRMATION, null, CLEAN_BUTTON, ButtonType.CANCEL).apply {
+        owner?.let(::initOwner)
+        title = "Clean Java Workspace"
+        headerText = question
+        val cancel = dialogPane.lookupButton(ButtonType.CANCEL) as Button
+        (dialogPane.lookupButton(CLEAN_BUTTON) as Button).isDefaultButton = false
+        cancel.isDefaultButton = true
+        // Later, since the dialog focuses a button of its own once shown.
+        setOnShown { Platform.runLater(cancel::requestFocus) }
+    }
+
 /**
  * Project Settings → Java: the JDK of the project (ADR 0179). The rules are in [JavaProjectSettingsPageModel]; this
  * is its combo box, the error under it and the note below. [chooser] asks for the folder of Other… (the window is the
@@ -46,16 +75,20 @@ class JavaProjectSettingsPage internal constructor(
     io: Executor,
     dispatch: (Runnable) -> Unit,
     private val chooser: (Window?) -> Path?,
+    cleaner: WorkspaceCleaner,
+    private val confirmer: (Window?, String) -> Boolean,
 ) : ProjectSettingsPage {
     @Autowired
-    constructor(settings: JavaProjectSettings) : this(
+    constructor(settings: JavaProjectSettings, spec: JdtlsSpec) : this(
         settings,
         sharedHomes,
         Path.of(System.getProperty("user.home")),
         System.getProperty("os.name").lowercase().contains("mac"),
-        Executor { NamedThreads.virtual("java-project-jdk", it) },
+        Executor { NamedThreads.virtual("java-project-settings", it) },
         Platform::runLater,
         ::chooseFolder,
+        WorkspaceCleaner(spec::workspaceRuns, spec::cleanRunning, spec::cleanStopped),
+        ::confirmClean,
     )
 
     override val path = listOf("Java")
@@ -69,6 +102,8 @@ class JavaProjectSettingsPage internal constructor(
             Path.of(System.getProperty("java.home")),
             io = io,
             dispatch = dispatch,
+            cleaner = cleaner,
+            confirmClean = { question -> confirmer(node.scene?.window, question) },
         )
 
     /** The JDK field, created with the node on the FX thread; for tests. */
@@ -153,6 +188,36 @@ class JavaProjectSettingsPage internal constructor(
             combo,
             error,
             note,
+            Label("Java workspace").apply { styleClass += "label-heading" },
+            cleanButton,
+            cleanNote(),
+            cleanResult(),
         )
     }
+
+    /** The Clean Java Workspace button, created with the node on the FX thread; for tests. */
+    internal val cleanButton: Button by lazy {
+        Button("Clean Java Workspace…").apply {
+            id = "java-project-clean"
+            setOnAction { model.clean() }
+        }
+    }
+
+    private fun cleanNote() =
+        Label(
+            "Deletes jdtls's index and imported project data of this project; jdtls restarts and imports the " +
+                "open builds again.",
+        ).apply {
+            styleClass += "preview-caption"
+            isWrapText = true
+        }
+
+    private fun cleanResult() =
+        Label().apply {
+            id = "java-project-clean-result"
+            isWrapText = true
+            textProperty().bind(model.cleanMessage)
+            visibleProperty().bind(model.cleanMessage.isNotEmpty)
+            managedProperty().bind(visibleProperty())
+        }
 }

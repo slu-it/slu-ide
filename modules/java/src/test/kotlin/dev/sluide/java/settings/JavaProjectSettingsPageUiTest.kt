@@ -2,8 +2,13 @@ package dev.sluide.java.settings
 
 import dev.sluide.java.JavaHomes
 import dev.sluide.java.JavaProjectSettings
+import dev.sluide.java.awaitCondition
 import dev.sluide.projectdata.ProjectDataStore
 import javafx.scene.Scene
+import javafx.scene.control.Alert
+import javafx.scene.control.Button
+import javafx.scene.control.ButtonBar
+import javafx.scene.control.ButtonType
 import javafx.scene.control.Label
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
@@ -66,8 +71,18 @@ class JavaProjectSettingsPageUiTest {
                 askedFrom = owner
                 picked
             },
+            WorkspaceCleaner({ true }, { cleanedFolders.add(it) }, {}),
+            { owner, question ->
+                confirmedBy = owner
+                questionsAsked += question
+                answer
+            },
         )
     }
+    private val cleanedFolders = mutableListOf<Path>()
+    private val questionsAsked = mutableListOf<String>()
+    private var confirmedBy: Window? = null
+    private var answer = true
 
     private fun jdk(
         home: Path,
@@ -128,6 +143,68 @@ class JavaProjectSettingsPageUiTest {
         assertEquals(null, askedDuring, "not inside the selecting event")
         assertFalse(showingDuring, "the popup has hidden")
         assertEquals(page.combo.scene.window, askedFrom, "but right after it")
+    }
+
+    @Test
+    fun `the Clean button asks, cleans the loaded folder and paints the answer`(robot: FxRobot) {
+        robot.interact {
+            root.children.setAll(page.node)
+            page.load(project)
+        }
+        runFx(robot)
+        val result = root.lookup("#java-project-clean-result") as Label
+        assertFalse(result.isVisible, "no answer before the first Clean")
+        assertFalse(result.isManaged, "and it takes no room")
+
+        robot.interact { page.cleanButton.fire() }
+
+        assertEquals("Clean Java Workspace…", page.cleanButton.text)
+        assertEquals(1, questionsAsked.size)
+        assertEquals(page.cleanButton.scene.window, confirmedBy, "the settings dialog owns the question")
+        assertEquals(listOf(project), cleanedFolders)
+        robot.interact { result.applyCss() }
+        assertTrue(result.isVisible)
+        assertTrue(result.isManaged)
+        assertEquals("Cleaned: jdtls restarts and imports the builds again.", result.text)
+
+        answer = false
+        robot.interact { page.load(project) }
+        runFx(robot)
+        cleanedFolders.clear()
+        robot.interact { page.cleanButton.fire() }
+
+        assertEquals(emptyList(), cleanedFolders, "Cancel cleans nothing")
+        assertFalse(result.isVisible, "and loading cleared the old answer")
+    }
+
+    @Test
+    fun `the Clean question is owned by the window, names the question, and Cancel is the default and focused`(
+        robot: FxRobot,
+    ) {
+        lateinit var dialog: Alert
+        robot.interact {
+            dialog = cleanConfirmation(root.scene.window, "Delete it?")
+            // Windows puts the affirmative button first, where the dialog's own focus would land on it.
+            (dialog.dialogPane.lookup(".button-bar") as ButtonBar).buttonOrder = ButtonBar.BUTTON_ORDER_WINDOWS
+            dialog.show()
+        }
+        val clean = dialog.dialogPane.lookupButton(CLEAN_BUTTON) as Button
+        val cancel = dialog.dialogPane.lookupButton(ButtonType.CANCEL) as Button
+
+        assertEquals("Clean Java Workspace", dialog.title)
+        assertEquals("Delete it?", dialog.headerText)
+        assertEquals("Clean", clean.text)
+        assertEquals(root.scene.window, dialog.owner)
+        assertTrue(cancel.isDefaultButton)
+        assertFalse(clean.isDefaultButton)
+        // Probed: even with the Windows order and without the dialog's own later request, Cancel (the default button)
+        // holds the focus on JavaFX 25 here; the request stays as the guarantee the rule asks for.
+        awaitCondition("the focus on Cancel") {
+            var focused = false
+            robot.interact { focused = dialog.dialogPane.scene.focusOwner === cancel }
+            focused
+        }
+        robot.interact { dialog.close() }
     }
 
     private fun runFx(robot: FxRobot) = robot.interact { while (fx.isNotEmpty()) fx.removeFirst().run() }
