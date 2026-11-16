@@ -468,17 +468,18 @@ class OutputIgnoreOffersTest {
     }
 
     @Test
-    fun `Not Now holds until the window's session is cleared`() {
+    fun `Not Now holds through the server's stop, which forgets the roots`() {
         val root = root()
         done(root)
         answer(listOf(build(root)))
         (offered(root).actions[1] as ProblemAction.Callback).perform()
 
         offers.clear()
+        assertNull(offers.problem(root))
         done(root)
         answer(listOf(build(root)))
 
-        assertNotNull(offers.problem(root))
+        assertNull(offers.problem(root))
     }
 
     @Test

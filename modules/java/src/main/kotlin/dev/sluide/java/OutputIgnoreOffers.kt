@@ -51,7 +51,7 @@ internal class OutputIgnoreOffers(
     private val serials = HashMap<Path, Int>()
     private var asks = 0
 
-    /** The roots whose banner "Not Now" hid, until the session ends. */
+    /** The roots whose banner "Not Now" hid, for the life of this object: the window's session, not the server's. */
     private val notNow = HashSet<Path>()
     private var declinedHere = false
 
@@ -128,13 +128,15 @@ internal class OutputIgnoreOffers(
         serials.remove(root)
     }
 
-    /** The session ended: every root is forgotten, and so is "Not Now". */
+    /**
+     * The server stopped: every root, answer and offer is forgotten, but "Not Now" stays, as it lasts for the window's
+     * session, which outlives the server (restarts, a memory change, Clean Java Workspace, crashes).
+     */
     fun clear() {
         folders.clear()
         answers.clear()
         offers.clear()
         serials.clear()
-        notNow.clear()
         titles.clear()
         declinedHere = false
     }
