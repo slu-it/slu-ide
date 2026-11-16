@@ -54,7 +54,7 @@ imports, banners and status lines refresh once a second.
   the window folder, or the folder's name when the root is the window folder). It has no button, not even Not Now or
   Don't Ask Again, and goes when the import is done.
 - **Failed:** "Import of services/billing failed: <detail>" with **Retry Import** (removes the folder from jdtls and
-  adds it again, in one notification), **Show Log** (opens jdtls's log file of the window) and **Choose JDK…** (Project Settings → Java), then
+  adds it again, in one notification), **Show Log** (opens jdtls's log file of the window, read-only with a banner and the caret at its end so the last lines show: `JdtlsLogExtension`, no Edit Anyway; later reloads keep the editor's behaviour, and a second Show Log on the open tab only selects it) and **Choose JDK…** (Project Settings → Java), then
   Not Now and Don't Ask Again. The detail is, in this order: for Gradle that cannot run on the JDK, "Gradle 8.14.3
   can't run on JDK 25 (newest: 24). Choose another JDK in Project Settings → Java, or upgrade the Gradle wrapper to
   9.7.1." (the Gradle version comes from the wrapper's `distributionUrl`, a part that is unknown is left out); else the

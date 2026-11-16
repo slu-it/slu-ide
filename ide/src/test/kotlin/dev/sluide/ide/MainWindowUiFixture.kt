@@ -76,6 +76,7 @@ import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
+import dev.sluide.ide.codeintelligence.JdtlsLogExtension
 import dev.sluide.ide.find.FindInFilesWiring
 import dev.sluide.ide.speech.NoSpeechEngine
 import dev.sluide.ide.translation.NoLanguageDetector
@@ -495,6 +496,7 @@ abstract class MainWindowUiFixture {
             ).also(translates::add),
             Barcodes(BarcodeOptionsStore(projectData)).also(barcodes::add),
             LibraryCodeExtension(LibraryCodeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
+            JdtlsLogExtension(),
             GitFileComparison(git),
             Docker(dockerSession, terminals, tasks, DockerRunStore(projectData)).also(dockers::add),
             dockerSession,

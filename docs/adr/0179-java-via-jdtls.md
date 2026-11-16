@@ -136,6 +136,9 @@ folder, one notification), **Show Log** (opens jdtls's log), **Choose JDK…** (
 `src/<set>/kotlin` or a build file mentioning `org.jetbrains.kotlin`/`kotlin(`) appended; the tooltip names the build
 root and the JDK with its source. Build file changes reimport automatically; `settings.gradle(.kts)` and
 `gradle-wrapper.properties` changes send `java/projectConfigurationUpdate`.
+jdtls's log (`<workspaces>/<name>/data/.metadata/.log`) opens read-only with the caret at its end: `JdtlsLogExtension`, a
+`CodeEditorExtension` in `ide` (`java` stays free of `file-viewers`; it holds the path rule `isJdtlsLog`, ADR 0108), locks it with `readOnlyLock` always and says so in a
+banner; a second Show Log on the open tab only selects it.
 
 **Lombok.** When an imported build's build files mention Lombok, jdtls restarts once with `-javaagent:<pinned jar>`.
 

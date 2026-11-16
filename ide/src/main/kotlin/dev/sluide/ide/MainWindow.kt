@@ -43,6 +43,7 @@ import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpClientSetup
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
+import dev.sluide.ide.codeintelligence.JdtlsLogExtension
 import dev.sluide.ide.codeintelligence.navigateMenu
 import dev.sluide.ide.compare.WindowFileComparison
 import dev.sluide.ide.conversions.WindowConversions
@@ -140,6 +141,7 @@ class MainWindow(
     private val translate: Translate,
     private val barcodes: Barcodes,
     private val libraryCode: LibraryCodeExtension,
+    private val jdtlsLog: JdtlsLogExtension,
     gitFileComparison: GitFileComparison,
     private val docker: Docker,
     private val dockerSession: DockerSession,
@@ -486,6 +488,7 @@ class MainWindow(
                 add(codeIntelligence.editorExtension)
                 add(findInFiles.editorExtension)
                 add(libraryCode)
+                add(jdtlsLog)
             },
         )
         editorArea.windowServices.register(SoftWrap::class.java, softWrap)

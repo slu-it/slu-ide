@@ -14,6 +14,7 @@ import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.githubactions.RemoteSources
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.ide.codeintelligence.JdtlsLogExtension
 import dev.sluide.ide.github.WindowWorkflowSources
 import dev.sluide.languageservers.LanguageServers
 import dev.sluide.librarycode.LibraryCodeSettings
@@ -95,6 +96,12 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertContains(
             checkNotNull(editorArea.windowServices.get(CodeEditorExtensions::class.java)).extensions,
             codeIntelligence.editorExtension,
+        )
+        // jdtls's log opens read-only (ADR 0179).
+        assertTrue(
+            checkNotNull(editorArea.windowServices.get(CodeEditorExtensions::class.java)).extensions.any {
+                it is JdtlsLogExtension
+            },
         )
 
         val opened = mutableListOf<URI>()

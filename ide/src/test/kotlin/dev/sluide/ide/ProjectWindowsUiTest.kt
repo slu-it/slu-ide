@@ -72,6 +72,7 @@ import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
+import dev.sluide.ide.codeintelligence.JdtlsLogExtension
 import dev.sluide.ide.find.FindInFilesWiring
 import dev.sluide.ide.git.GitReviewSource
 import dev.sluide.ide.speech.NoSpeechEngine
@@ -287,6 +288,7 @@ class ProjectWindowsUiTest {
                     ReadAloud::class.java,
                     Translate::class.java,
                     LibraryCodeExtension::class.java,
+                    JdtlsLogExtension::class.java,
                     DockerSession::class.java,
                     Docker::class.java,
                     Databases::class.java,

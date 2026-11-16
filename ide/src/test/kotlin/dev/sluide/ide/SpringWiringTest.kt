@@ -89,6 +89,7 @@ import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
+import dev.sluide.ide.codeintelligence.JdtlsLogExtension
 import dev.sluide.ide.find.FindInFilesWiring
 import dev.sluide.ide.git.GitReviewSource
 import dev.sluide.java.JavaProjectSettings
@@ -297,6 +298,7 @@ class SpringWiringTest {
                         FindInFilesWiring::class.java,
                         EditorSettingsPage::class.java,
                         LibraryCodeExtension::class.java,
+                        JdtlsLogExtension::class.java,
                         LibraryCodeSettings::class.java,
                         EncryptedFiles::class.java,
                         EncryptedFileViewer::class.java,
@@ -315,6 +317,8 @@ class SpringWiringTest {
                 // Two constructors as well; creating it reads nothing (shared.json is read on first use).
                 context.getBean(MediaPreferences::class.java)
                 context.getBean(SoftWrap::class.java)
+                // The @Autowired no-argument constructor takes the default jdtls workspaces root; no Path bean is looked up.
+                context.getBean(JdtlsLogExtension::class.java)
                 // Takes the SettingsStore; reads settings.properties on first use only.
                 context.getBean(LibraryCodeSettings::class.java)
                 // The cheap speech beans; KokoroEngine and the speech settings page are left out (they read the
