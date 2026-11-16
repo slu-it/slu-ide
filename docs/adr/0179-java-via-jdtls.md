@@ -110,18 +110,32 @@ next to ADR 0085's).
 **Gradle daemons** get `-Dorg.gradle.daemon.idletimeout=900000` (15 minutes) as a build argument; closing the server
 kills them as its descendants (ADR 0142).
 
-**Import feedback.** Thoreau tracks each root itself: importing from its folder's announcement until the next
-"Updating workspace folders" progress token ends; done if `java.project.getAll` then has a project under the root,
-else failed. The detail of a failure: event 300 ("Gradle 8.14.3 can't run on JDK 25 (newest: 24). Choose another JDK
-in Project Settings → Java, or upgrade the Gradle wrapper to 9.7.1."), else the root's severity-1 diagnostics (kept,
-ADR 0160), else "No project was found; see the log". Banners in the build's editors: "Importing services/billing
-(Gradle)… 0:42" while it runs; on failure the detail with **Retry Import** (removes and adds the folder), **Show Log**
-(jdtls's log, read-only), **Choose JDK…** (Project Settings → Java). The status line: `Java project: services/billing ·
-Gradle · Java 17` (compliance from `java.project.getSettings`), `No Java build · JDK 25`, with `· importing…`,
-`· import failed` and `· Kotlin sources not visible` (the file's module or build root has `src/<set>/kotlin` or a
-build file mentioning `org.jetbrains.kotlin`/`kotlin(`) appended; the tooltip names the build root and the JDK with
-its source. Build file changes reimport automatically; `settings.gradle(.kts)` and `gradle-wrapper.properties` changes
-send `java/projectConfigurationUpdate`.
+**Import feedback.** Thoreau tracks each root itself: importing from its folder's announcement (an add, or a refresh:
+Retry and the JDK change send one notification that removes and adds the folder, amending ADR 0151 decision 4) until no
+job that adds it is left; done if `java.project.getAll` then has a project under the root, else failed. jdtls 1.63.0
+(`ProjectsManager.updateWorkspaceFolders`, and traces of every case, P7b) sends a `language/status` for each
+notification, cancels the jobs that have not started and whose added folders equal its removed ones, and schedules a job
+titled "Updating workspace folders"; the jobs hold the workspace root, run one after another, and each sends one
+progress token, its end before the next one's begin. Thoreau mirrors that queue (`UpdateJobs`): the k-th status answers
+the k-th notification (both arrive in order, a status may come first and then waits for its notification, with what came
+after it); a status cancels the matching jobs behind the oldest one, never one whose token began. Whether the oldest
+job, its begin not yet come, had started when a status cancelled it is a race inside jdtls (the same input gave both
+outcomes in the traces), so the mirror keeps it: if it was cancelled, the verdicts come one job late, and the last job
+is settled once jdtls sent nothing and had no token open for 10 seconds, while that doubt is open. That is the one
+time-based rule; two guards use the same 10 seconds for what never happened in the traces: a status that waits that long
+for its notification is dropped as a mismatch, and a `getAll` that fails is asked once more after it (a second failure
+fails the roots waiting for their verdict: "jdtls did not list its projects: …"). A failed root (not by event 300) whose
+project a later `getAll` lists is done. Counts that do not fit start the mirror over (the begun jobs keep their tokens,
+the importing roots are queued). The detail of a failure: event 300 ("Gradle 8.14.3 can't run on JDK 25 (newest: 24).
+Choose another JDK in Project Settings → Java, or upgrade the Gradle wrapper to 9.7.1."), else the root's severity-1
+diagnostics (kept, ADR 0160), else "No project was found; see the log". Banners in the build's editors: "Importing
+services/billing (Gradle)… 0:42" while it runs; on failure the detail with **Retry Import** (removes and adds the
+folder, one notification), **Show Log** (opens jdtls's log), **Choose JDK…** (Project Settings → Java). The status line:
+`Java project: services/billing · Gradle · Java 17` (compliance from `java.project.getSettings`), `No Java build · JDK
+25`, with `· importing…`, `· import failed` and `· Kotlin sources not visible` (the file's module or build root has
+`src/<set>/kotlin` or a build file mentioning `org.jetbrains.kotlin`/`kotlin(`) appended; the tooltip names the build
+root and the JDK with its source. Build file changes reimport automatically; `settings.gradle(.kts)` and
+`gradle-wrapper.properties` changes send `java/projectConfigurationUpdate`.
 
 **Lombok.** When an imported build's build files mention Lombok, jdtls restarts once with `-javaagent:<pinned jar>`.
 
@@ -132,8 +146,8 @@ send `java/projectConfigurationUpdate`.
 **Code actions** whose command the server does not offer (`executeCommandProvider`) are not shown.
 
 **Foundation changes** (`language-servers`, `code-intelligence`, `library-code`): `trustCheckIds`,
-`WorkspaceFolderMode`, `SessionExtension` and `SessionAccess` (custom notifications, progress, folder announcements,
-commands, notifications, kept diagnostics, refresh of a folder, restart), `ProblemAction` as `Terminal`, `OpenFile` or
+`WorkspaceFolderMode`, `SessionExtension` and `SessionAccess` (custom notifications, progress, folder announcements
+with a refresh as one call, commands, notifications, kept diagnostics, refresh of a folder, restart), `ProblemAction` as `Terminal`, `OpenFile` or
 `Callback` with several per problem, `libraryDocument` for non-file URIs, `LibraryKind.JAVA_CLASS`. New: File →
 Project Settings… (`ProjectSettingsPage`), no key binding.
 
@@ -151,4 +165,7 @@ separating Maven builds that link by coordinates, eager import, Windows and Inte
   `gradle clean` deletes jdtls's output, which it compiles again.
 - A malformed pom gives only "No project was found" and the log.
 - Loose files show no type errors.
+- A removal and an add sent together (a re-resolution of the roots) can leave the last import's verdict 10 seconds
+  after jdtls went quiet, when jdtls dropped the removal's job; it also leaves the removed folder's project in jdtls
+  (jdtls's own behaviour, seen in the P7b traces).
 - Listed in [../index.md](../index.md).

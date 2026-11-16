@@ -111,7 +111,8 @@ Measured with the pinned ty 0.0.99 through a scratch LSP client (2026-11-09):
    is a constant and the folder only the working directory. **Not Now** hides it for this window and folder,
    **Don't Ask Again** for all projects (stored like the install prompts, id `python.environment`). It goes by itself
    once a venv appears (decision 4). The spec says it through `environmentProblem(file, projectFolder)`
-   (`EnvironmentProblem` with an optional `ProblemAction`).
+   (`EnvironmentProblem` with an optional `ProblemAction`). A problem with `dismissible = false` (Java's "Importing …",
+   [ADR 0179](0179-java-via-jdtls.md)) has neither Not Now nor Don't Ask Again.
 7. **Unchanged:** files outside the window folder are not served; library code is told as in
    [ADR 0150](0150-library-code-read-only.md); ty keeps `runsProjectCode = false` (Thoreau reads only names and
    `pyvenv.cfg`; ty with `environment.python` set is to be confirmed with strace to start no process).

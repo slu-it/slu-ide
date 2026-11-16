@@ -13,7 +13,7 @@ decisions in [ADR 0145](../adr/0145-code-intelligence-module.md), [ADR 0146](../
 
 Code editors of files a language server serves get code intelligence from it: Python (`.py`, `.pyi`, `.pyw`)
 through ty ([python.md](python.md)), and TypeScript and JavaScript (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`,
-`.mjs`, `.cjs`) of TypeScript 6 or later projects through the TypeScript 7 server ([typescript.md](typescript.md)).
+`.mjs`, `.cjs`) of TypeScript 6 or later projects through the TypeScript 7 server ([typescript.md](typescript.md)), and Java (`.java`) through jdtls ([java.md](java.md)).
 The sections below use Python's texts as examples. Only files inside the window's project folder are served; a window without a
 folder, scratch files and files outside the project get none. Highlighting and editing work as before in every state
 below, with or without a server.
@@ -49,15 +49,19 @@ a server that ran restarts with the new ty.
 A bar below the text of a bound editor says which project the file belongs to, when the language server's spec has
 something to say (`workspaceStatus`) and only while the server runs: for Python `Python project:
 deployables/backend_one · .venv · Python 3.12`, or `No Python project · default Python` (the texts:
-[python.md](python.md)). It follows the file's project when `pyproject.toml`, `uv.lock` or the venv changes, and goes
+[python.md](python.md)), for Java `Java project: services/billing · Gradle · Java 17` or `No Java build · JDK 25`
+([java.md](java.md)). It follows the file's project when `pyproject.toml`, `uv.lock` or the venv changes, and goes
 away when the server stops or fails. A line with a project folder is a link: a click selects the folder in the explorer and
 expands the column. The tooltip shows the absolute paths. `WorkspaceStatusFeature`; ADR 0151.
 
 ## Missing virtual environment
 A banner above the text of a bound editor when the spec reports an environment problem (`environmentProblem`), only
 while the server runs; for Python "No virtual environment for backend_one, so its packages cannot be resolved."
-(when: [python.md](python.md)). Buttons: one per action of the problem (`EnvironmentProblem.actions`, in the spec's
-order, after the message), then Not Now and Don't Ask Again. An action is one of three kinds (`ProblemAction`): a
+(when: [python.md](python.md)); for Java "Importing services/billing (Gradle)… 0:42" and "Import of services/billing
+failed: …" ([java.md](java.md)). Buttons: one per action of the problem (`EnvironmentProblem.actions`, in the spec's
+order, after the message), then Not Now and Don't Ask Again, unless the problem is not `dismissible` (Java's
+"Importing …", which only reports progress: Don't Ask Again would hide the spec's later problems too); such a banner
+updates its message in place. An action is one of three kinds (`ProblemAction`): a
 **terminal command**, as **Run uv sync**, which runs the spec's constant command in a new terminal tab named
 `uv sync (backend_one)` in the project folder and adds it to the editor area (a shell that cannot start shows the
 terminal error); a **file to open** in an editor tab; a **callback** the spec gives, run on the FX thread (one that
