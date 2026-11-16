@@ -61,18 +61,24 @@ class Terminals(
 
     /**
      * Starts the user's shell in [folder] and returns the tab showing it, named "Terminal 1", "Terminal 2", …
-     * Closing the tab ends the shell. Must be called on the FX thread.
+     * Closing the tab ends the shell; the tab closes itself when the shell exits with code 0, and otherwise shows
+     * "(exited N)". Must be called on the FX thread.
      *
      * @throws TerminalStartException if the shell cannot be started; the next terminal gets the same number.
      */
     fun open(folder: Path): EditorTab =
-        open(folder, "Terminal ${started + 1}", TerminalSession.defaultShell(environment), environment)
-            .also { started++ }
+        open(
+            folder,
+            "Terminal ${started + 1}",
+            TerminalSession.defaultShell(environment),
+            environment,
+            closeOnSuccess = true,
+        ).also { started++ }
 
     /**
      * Runs [command] in the user's login shell (`SHELL` in [environment]) in [folder] and returns the tab showing it,
-     * named [name]. The tab shows "(exited)" when the command ends; closing the tab ends it. Must be called on the FX
-     * thread.
+     * named [name]. Closing the tab ends the command. With [closeOnSuccess] the tab closes itself when the command exits
+     * with 0; otherwise, and on any other code, it shows "(exited)" / "(exited N)". Must be called on the FX thread.
      *
      * @throws TerminalStartException if the shell cannot be started.
      */
@@ -81,7 +87,16 @@ class Terminals(
         name: String,
         command: String,
         environment: Map<String, String> = this.environment,
-    ): EditorTab = open(folder, name, TerminalSession.loginShellRunning(command, environment), environment, command)
+        closeOnSuccess: Boolean = false,
+    ): EditorTab =
+        open(
+            folder,
+            name,
+            TerminalSession.loginShellRunning(command, environment),
+            environment,
+            command,
+            closeOnSuccess,
+        )
 
     /**
      * Runs [command] in the user's login shell in [folder], like [open] with a command, but returns an [EmbeddedTerminal]
@@ -114,9 +129,10 @@ class Terminals(
         command: List<String>,
         environment: Map<String, String>,
         shownCommand: String? = null,
+        closeOnSuccess: Boolean = false,
     ): EditorTab {
         val (view, settingsSubscription) = startView(folder, command, environment)
-        return TerminalTab(name, folder, view, shownCommand) { tab ->
+        return TerminalTab(name, folder, view, shownCommand, closeOnSuccess) { tab ->
             settingsSubscription.unsubscribe()
             open.remove(tab)
         }.also(open::add)

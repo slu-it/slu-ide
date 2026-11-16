@@ -12,10 +12,20 @@ internal class TerminalTab(
     folder: Path,
     val view: TerminalView,
     private val command: String? = null,
+    private val closeOnSuccess: Boolean = false,
     private val onDisposed: (TerminalTab) -> Unit = {},
 ) : EditorTab {
     override val title: ObservableValue<String> =
-        Bindings.createStringBinding({ if (view.exited.get()) "$name (exited)" else name }, view.exited)
+        Bindings.createStringBinding(
+            { terminalTitle(name, view.exited.get(), view.session.exitCode) },
+            view.exited,
+        )
+
+    override val closeRequested: ObservableValue<Boolean> =
+        Bindings.createBooleanBinding(
+            { view.exited.get() && closeOnSuccess && view.session.exitCode == 0 },
+            view.exited,
+        )
 
     override val tooltip: String = "Terminal in $folder" + (command?.let { ": $it" } ?: "")
 
@@ -55,3 +65,15 @@ internal fun closeWarning(
         .takeIf { it.isNotEmpty() }
         ?.let { "$name is still running ${it.joinToString(", ")}." }
 }
+
+/** The title of a terminal tab [name]: with "(exited)" once it ended, with "(exited N)" for a non-zero [exitCode]. */
+internal fun terminalTitle(
+    name: String,
+    exited: Boolean,
+    exitCode: Int?,
+): String =
+    when {
+        !exited -> name
+        exitCode == null || exitCode == 0 -> "$name (exited)"
+        else -> "$name (exited $exitCode)"
+    }

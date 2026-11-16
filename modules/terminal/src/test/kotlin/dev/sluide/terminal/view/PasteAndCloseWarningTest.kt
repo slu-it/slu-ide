@@ -33,4 +33,12 @@ class PasteAndCloseWarningTest {
         )
         assertNull(closeWarning("Build", "make", alive = false) { error("not asked") })
     }
+
+    @Test
+    fun `a title names the exit code of an ended terminal unless it is 0 or unknown`() {
+        assertEquals("Terminal 1", terminalTitle("Terminal 1", exited = false, exitCode = null))
+        assertEquals("Terminal 1 (exited)", terminalTitle("Terminal 1", exited = true, exitCode = 0))
+        assertEquals("Terminal 1 (exited 3)", terminalTitle("Terminal 1", exited = true, exitCode = 3))
+        assertEquals("Terminal 1 (exited)", terminalTitle("Terminal 1", exited = true, exitCode = null))
+    }
 }

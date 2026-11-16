@@ -540,6 +540,26 @@ class TerminalUiTest {
     }
 
     @Test
+    fun `a command tab asks to close after exit 0 only with closeOnSuccess, and shows a failing code`(robot: FxRobot) {
+        lateinit var closing: TerminalTab
+        lateinit var failing: TerminalTab
+        lateinit var staying: TerminalTab
+        robot.interact {
+            closing = terminals.open(dir, "Closing", "exit 0", environment, closeOnSuccess = true) as TerminalTab
+            failing = terminals.open(dir, "Failing", "exit 3", environment, closeOnSuccess = true) as TerminalTab
+            staying = terminals.open(dir, "Staying", "exit 0", environment) as TerminalTab
+        }
+
+        eventually {
+            assertTrue(closing.closeRequested.value)
+            assertEquals("Failing (exited 3)", failing.title.value)
+            assertEquals("Staying (exited)", staying.title.value)
+        }
+        assertFalse(failing.closeRequested.value)
+        assertFalse(staying.closeRequested.value)
+    }
+
+    @Test
     fun `a shell that cannot be started opens no tab and uses up no number`(robot: FxRobot) {
         val failingEnvironment = System.getenv().toMutableMap()
         val failing = Terminals(fontSettings, scrollSettings, failingEnvironment)
@@ -573,6 +593,7 @@ class TerminalUiTest {
         assertTrue(first.closableByShortcut.value, "a plain terminal tab closes by shortcut")
         type(robot, first.view, "exit")
         eventually { assertEquals("Terminal 1 (exited)", first.title.value) }
+        assertTrue(first.closeRequested.value, "a shell that exits with 0 asks to be closed")
 
         val second = open(robot)
         assertEquals("Terminal 2", second.title.value)
