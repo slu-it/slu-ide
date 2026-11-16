@@ -29,6 +29,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -105,6 +106,7 @@ class DockerSandboxUiTest {
         val tab = run(robot, SandboxAction.CLAUDE_CODE)
 
         assertEquals("Claude Code 1 (exited)", tab.title.value)
+        assertTrue(tab.closeRequested.value, "the stub sbx exits with 0, so the tab asks to be closed")
         assertEquals(listOf("${project.toRealPath()}: run claude ."), calls.readLines())
     }
 
@@ -115,6 +117,7 @@ class DockerSandboxUiTest {
         val tab = run(robot, SandboxAction.ENVIRONMENT)
 
         assertEquals("Claude Code 1 (exited)", tab.title.value)
+        assertTrue(tab.closeRequested.value, "the stub sbx exits with 0, so the tab asks to be closed")
         assertEquals(listOf("${project.toRealPath()}: env run"), calls.readLines())
     }
 
@@ -137,6 +140,7 @@ class DockerSandboxUiTest {
         val tab = run(robot) { sandbox.openConsole() }
 
         assertEquals("SBX (exited)", tab.title.value)
+        assertTrue(tab.closeRequested.value, "the stub sbx exits with 0, so the tab asks to be closed")
         assertEquals(listOf("${home.toRealPath()}: "), calls.readLines())
     }
 

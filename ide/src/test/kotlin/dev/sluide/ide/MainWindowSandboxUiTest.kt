@@ -127,11 +127,12 @@ class MainWindowSandboxUiTest : MainWindowUiFixture() {
     fun `the Management Console keeps one SBX tab, selects it while running, reopens once closed, replaces once ended`(
         robot: FxRobot,
     ) {
-        // A stub sbx that runs until the file "stop" exists, found through the .profile of the test home folder.
+        // A stub sbx that runs until the file "stop" exists and then exits with the code in it, found through the
+        // .profile of the test home folder.
         val bin = home.resolve("bin").createDirectories()
         val stop = home.resolve("stop")
         bin.resolve("sbx").apply {
-            writeText("#!/bin/sh\nwhile [ ! -e '$stop' ]; do sleep 0.1; done\n")
+            writeText("#!/bin/sh\nwhile [ ! -e '$stop' ]; do sleep 0.1; done\nexit \$(cat '$stop')\n")
             toFile().setExecutable(true)
         }
         home.resolve(".profile").writeText("PATH=\"$bin:\$PATH\"\nexport PATH\n")
@@ -166,7 +167,7 @@ class MainWindowSandboxUiTest : MainWindowUiFixture() {
         assertEquals("SBX", onFx { second.title.value })
         assertEquals(2, onFx { editorArea.tabs.size })
 
-        stop.createFile()
+        stop.writeText("1")
         eventually(robot) { assertTrue(terminals.hasEnded(second)) }
         robot.interact { consoleItem(robot).fire() }
 
@@ -175,5 +176,20 @@ class MainWindowSandboxUiTest : MainWindowUiFixture() {
         assertEquals(1, onFx { editorArea.tabs.count { it.title.value.startsWith("SBX") } })
         assertEquals(2, onFx { editorArea.tabs.size })
         assertFalse(onFx { editorArea.tabs.contains(second) })
+
+        eventually(robot) { assertTrue(terminals.hasEnded(fresh)) }
+
+        // Exiting with 0 closes the tab: it leaves the editor area and the item opens a new one.
+        stop.deleteExisting()
+        robot.interact { consoleItem(robot).fire() }
+        val running = checkNotNull(onFx { editorArea.selectedTab })
+        assertNotSame(fresh, running)
+        stop.writeText("0")
+        eventually(robot) { assertFalse(onFx { editorArea.tabs.contains(running) }) }
+        assertEquals(0, onFx { editorArea.tabs.count { it.title.value.startsWith("SBX") } })
+
+        stop.deleteExisting()
+        robot.interact { consoleItem(robot).fire() }
+        assertEquals(1, onFx { editorArea.tabs.count { it.title.value.startsWith("SBX") } })
     }
 }

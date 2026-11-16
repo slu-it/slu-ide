@@ -93,7 +93,7 @@ class DockerSandbox(
 
     /**
      * Runs [action] in a terminal tab in [folder], named "Claude Code 1", "Claude Code 2", … (one counter for all
-     * actions), and returns the tab. Must be called on the FX thread.
+     * actions), and returns the tab; the tab closes itself when `sbx` exits with 0. Must be called on the FX thread.
      *
      * @throws SandboxNotAllowedException if [problem] reports one (e.g. "No folder is open."), also when the menu
      *   should not have offered it.
@@ -109,12 +109,13 @@ class DockerSandbox(
         problem(action, folder)?.let { throw SandboxNotAllowedException(it) }
         val number = started + 1
         return terminals
-            .open(folder, "${SandboxAction.TAB_NAME} $number", action.command, environment)
+            .open(folder, "${SandboxAction.TAB_NAME} $number", action.command, environment, closeOnSuccess = true)
             .also { started = number }
     }
 
     /**
-     * Runs bare `sbx` (its management console) in the home folder in a terminal tab named "SBX" and returns the tab.
+     * Runs bare `sbx` (its management console) in the home folder in a terminal tab named "SBX" and returns the tab,
+     * which closes itself when `sbx` exits with 0.
      * Not subject to the below-home rule, which protects folders that sbx mounts. Must be called on the FX thread.
      *
      * @throws SandboxNotAllowedException if [consoleProblem] reports one (`sbx` not found).
@@ -122,7 +123,7 @@ class DockerSandbox(
      */
     fun openConsole(): EditorTab {
         consoleProblem()?.let { throw SandboxNotAllowedException(it) }
-        return terminals.open(home, "SBX", "sbx", environment)
+        return terminals.open(home, "SBX", "sbx", environment, closeOnSuccess = true)
     }
 }
 
