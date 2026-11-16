@@ -13,8 +13,10 @@ Details, examples and the stories behind these rules: `docs/testing.md`, ADR 008
   it missing; a fix's test fails on the unfixed code first. A test that passes at once gets a sharper input, never a
   weaker assertion. Existing behavior (refactors, gap tests) gets a break check instead.
 - `.claude/scripts/break-check.sh` after the last commit: fix each survivor (sharper input, or delete the dead code)
-  or explain it as equivalent; the guard-like lines it lists as not mutated get a break check by hand. A timeout is
-  not a kill: read its log, rerun the file, or break it by hand.
+  or explain it as equivalent by naming why no input can tell it apart (the caller already guarantees it; the
+  platform does it anyway on every OS, with the source that shows it); "no test reaches it" is a gap, not an
+  equivalence. The guard-like lines it lists as not mutated get a break check by hand, each named in the report. A
+  timeout is not a kill: read its log, rerun the file, or break it by hand.
 - Unit tests over UI tests. A `@Tag("ui")` test only for what needs a scene: rendering, focus, event routing,
   bindings, WebKit.
 - Logic in a control is extracted (an `internal` pure function, a plain class, an FX-free host with a fake),

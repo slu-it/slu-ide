@@ -22,12 +22,14 @@ changed files.
 2. Architecture: `docs/architecture.md` and `modularization.md` (module direction, package, versions in the
    catalog). Where a package plugs into another's hooks, check the interplay the plan decided.
 3. Tests against `.claude/rules/testing.md`: new behavior covered, no weakened assertions, and specifically
+   - first, every break-check survivor or timeout the report calls equivalent or leaves, and every not-mutated
+     guard-like line: look for an input that tells the mutant apart (or for the hand break check the report must
+     name); name that input in the finding (why first: ADR 0178, "Evaluation");
    - the reported test commands cover the changed code (a related UI test class that was not run is a finding; a
      skipped `uiTest` is not a pass);
    - a duplicate of an existing test (grep the asserted strings and the function); an avoidable UI test;
    - a test that cannot fail: would it still pass with the code it names removed? A new test without a red line in
-     the report or with a red the rule does not accept, a fix whose test was not shown failing on the unfixed code, a
-     break-check survivor or a not-mutated guard-like line the report leaves without a convincing reason;
+     the report or with a red the rule does not accept, a fix whose test was not shown failing on the unfixed code;
    - a fake of an external tool, driver or toolkit call that behaves unlike the real one on the cases the test relies
      on, or a test name that claims more than its assertions check;
    - a deleted test whose behavior no remaining test covers (open the claimed covering test);
