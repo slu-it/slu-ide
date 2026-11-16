@@ -29,6 +29,14 @@ private const val TOOLTIP_DELAY_MILLIS = 250.0
 /** A tooltip for a header action, shown after [TOOLTIP_DELAY_MILLIS]. */
 private fun actionTooltip(text: String) = Tooltip(text).apply { showDelay = Duration.millis(TOOLTIP_DELAY_MILLIS) }
 
+/** The tooltip of the header's Pop button (ADR 0182), naming the [count] of stashes: "Pop Latest Stash (3 stashes)". */
+internal fun popTooltip(count: Int): String =
+    when (count) {
+        0 -> "Pop Latest Stash"
+        1 -> "Pop Latest Stash (1 stash)"
+        else -> "Pop Latest Stash ($count stashes)"
+    }
+
 /**
  * Whether the header may rebase onto `origin`'s default branch: a remote named `origin` ([hasOrigin]), `HEAD` on a
  * branch ([onBranch], not detached) and a commit ([hasCommit]).
