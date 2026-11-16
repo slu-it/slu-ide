@@ -1,6 +1,7 @@
 package dev.sluide.librarycode
 
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
 import java.nio.file.Path
 import kotlin.io.path.Path
@@ -26,20 +27,69 @@ class LibraryCodeTest {
     fun `a file is library code by its path`(case: Case) {
         val files = case.files.map(::Path).toSet()
 
-        val location = LibraryCode.locate(Path(case.file), case.project?.let(::Path)) { it in files }
+        val location = LibraryCode.locate(Path(case.file), case.project?.let(::Path), isFile = { it in files })
 
         assertEquals(case.expected, location)
         assertEquals(case.description, location?.description)
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "/home/u/.sluide/cache/java-classes/java.base/java/lang/String.java, /p, true",
+        "/home/u/.sluide/cache/java-classes, /p, false",
+        "/home/u/.sluide/cache/java-classes-other/A.java, /p, false",
+        "/home/u/.sluide/cache/java-classes/../x/A.java, /p, false",
+        "/home/u/work/A.java, /p, false",
+    )
+    fun `a file below the Java classes root is a Java library class`(
+        file: String,
+        project: String,
+        expected: Boolean,
+    ) {
+        val root = Path("/home/u/.sluide/cache/java-classes")
+
+        val location = LibraryCode.locate(Path(file), Path(project), isFile = { false }, javaClassesRoot = root)
+
+        assertEquals(if (expected) LibraryLocation(root, LibraryKind.JAVA_CLASS) else null, location)
+        assertEquals(if (expected) "Java library class" else null, location?.description)
+    }
+
+    @Test
+    fun `the Java classes root wins over a venv or site-packages in its path`() {
+        val root = Path("/home/u/.venv/cache/java-classes")
+
+        val location =
+            LibraryCode.locate(
+                Path("/home/u/.venv/cache/java-classes/site-packages/A.java"),
+                Path("/p"),
+                isFile = { it == Path("/home/u/.venv/pyvenv.cfg") },
+                javaClassesRoot = root,
+            )
+
+        assertEquals(LibraryLocation(root, LibraryKind.JAVA_CLASS), location)
+    }
+
+    @Test
+    fun `the default Java classes root is the cache folder of the user's data`() {
+        assertEquals(
+            Path(System.getProperty("user.home"), ".sluide", "cache", "java-classes"),
+            LibraryCode.JAVA_CLASSES_ROOT,
+        )
     }
 
     @Test
     fun `relative paths are made absolute and normalized`() {
         val cwd = Path("").toAbsolutePath()
 
-        val location = LibraryCode.locate(Path("x/../site-packages/./requests/api.py"), Path("project")) { false }
+        val location =
+            LibraryCode.locate(
+                Path("x/../site-packages/./requests/api.py"),
+                Path("project"),
+                isFile = { false },
+            )
 
         assertEquals(LibraryLocation(cwd.resolve("site-packages"), LibraryKind.SITE_PACKAGES), location)
-        assertNull(LibraryCode.locate(Path("site-packages/api.py"), Path("x/../site-packages")) { false })
+        assertNull(LibraryCode.locate(Path("site-packages/api.py"), Path("x/../site-packages"), isFile = { false }))
     }
 
     @Test

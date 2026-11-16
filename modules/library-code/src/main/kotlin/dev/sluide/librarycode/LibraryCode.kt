@@ -3,8 +3,11 @@ package dev.sluide.librarycode
 import java.nio.file.Files
 import java.nio.file.Path
 
-/** The rule by which a file is library code (ADR 0150); the order is the precedence when several match. */
-enum class LibraryKind { VIRTUAL_ENV, SITE_PACKAGES, PYPACKAGES, STANDARD_LIBRARY, TYPESHED }
+/**
+ * The rule by which a file is library code (ADR 0150, 0179); the order is the precedence when several match, except
+ * [JAVA_CLASS], which is checked first.
+ */
+enum class LibraryKind { VIRTUAL_ENV, SITE_PACKAGES, PYPACKAGES, STANDARD_LIBRARY, TYPESHED, JAVA_CLASS }
 
 /** Where a library file lies: [root] is the library folder (the venv folder, site-packages, …), [kind] its rule. */
 data class LibraryLocation(
@@ -32,6 +35,10 @@ data class LibraryLocation(
 
                 LibraryKind.STANDARD_LIBRARY -> {
                     "Python standard library"
+                }
+
+                LibraryKind.JAVA_CLASS -> {
+                    "Java library class"
                 }
 
                 LibraryKind.TYPESHED -> {
@@ -62,6 +69,8 @@ private val PYTHON_VERSION_FOLDER = Regex("""python\d+\.\d+[a-z]*""")
  * - [LibraryKind.TYPESHED]: the nearest `typeshed` folder in a `vendored` folder (ty's cache) or holding the next
  *   folder `stdlib` or `stubs`.
  *
+ * [LibraryKind.JAVA_CLASS] is a file below the Java classes cache folder, checked before everything else (ADR 0179).
+ *
  * The first matching rule in [LibraryKind]'s order wins, so a venv's site-packages reads as the venv, and a
  * site-packages inside the standard library folder as site-packages. No file is library code when one of its matching
  * roots is the project folder or contains it: the user opened that library as a project, or keeps the project inside
@@ -70,6 +79,9 @@ private val PYTHON_VERSION_FOLDER = Regex("""python\d+\.\d+[a-z]*""")
  * Paths are made absolute and normalized, symbolic links are not followed: no I/O but the [isFile] lookups.
  */
 object LibraryCode {
+    /** The cache folder of library classes fetched from a Java language server (ADR 0179). */
+    val JAVA_CLASSES_ROOT: Path = Path.of(System.getProperty("user.home"), ".sluide", "cache", "java-classes")
+
     /**
      * The library [file] lies in, or null; null too when the library root contains [projectFolder] (or is it). Pure
      * path logic plus [isFile] lookups for pyvenv.cfg. Any thread.
@@ -78,8 +90,15 @@ object LibraryCode {
         file: Path,
         projectFolder: Path?,
         isFile: (Path) -> Boolean = Files::isRegularFile,
+        javaClassesRoot: Path = JAVA_CLASSES_ROOT,
     ): LibraryLocation? {
         val absolute = file.toAbsolutePath().normalize()
+        val javaRoot = javaClassesRoot.toAbsolutePath().normalize()
+        if (absolute != javaRoot &&
+            absolute.startsWith(javaRoot)
+        ) {
+            return LibraryLocation(javaRoot, LibraryKind.JAVA_CLASS)
+        }
         val project = projectFolder?.toAbsolutePath()?.normalize()
         val found = mutableMapOf<LibraryKind, Path>()
         var child: Path = absolute
