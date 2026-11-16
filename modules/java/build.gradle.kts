@@ -29,6 +29,9 @@ dependencies {
     // Deliberate module dependency: the project JDK is JAVA_HOME of the user's login shell (loginShellPrints,
     // ADR 0087, ADR 0179).
     implementation(project(":modules:terminal"))
+    // Deliberate module dependency: the workspace listing and deleting of the settings page run on logged NamedThreads
+    // (ADR 0060).
+    implementation(project(":modules:background-tasks"))
     // Reads the milestones index of download.eclipse.org (HTML) in the update check.
     implementation(libs.jsoup)
     implementation(libs.spring.context)
