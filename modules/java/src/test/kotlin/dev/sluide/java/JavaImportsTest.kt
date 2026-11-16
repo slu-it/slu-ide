@@ -4,6 +4,7 @@ import com.google.gson.JsonParser
 import dev.sluide.languageservers.LanguageServerNotRunningException
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -80,7 +81,7 @@ internal class JavaImportsTest : JavaImportsFixture() {
 
         end("1")
 
-        assertEquals(ImportState.Done("21"), states[a])
+        assertEquals(ImportState.Done("21", listOf(a.resolve("core"), a.resolve("app"))), states[a])
         assertEquals(
             "java.project.getSettings" to listOf<Any?>(uri, listOf("org.eclipse.jdt.core.compiler.compliance")),
             access.commands.last(),
@@ -98,7 +99,7 @@ internal class JavaImportsTest : JavaImportsFixture() {
 
         end("1")
 
-        assertEquals(ImportState.Done(null), states[a])
+        assertEquals(ImportState.Done(null, listOf(a)), states[a])
     }
 
     @ParameterizedTest
@@ -545,6 +546,23 @@ internal class JavaImportsTest : JavaImportsFixture() {
     }
 
     @Test
+    fun `a compliance that comes after the root failed does not make it done again`() {
+        val a = root("a")
+        val answer = CompletableFuture<Any?>()
+        access.answers["java.project.getSettings"] = { answer }
+        projects("file:$a/")
+        add(a)
+        begin("1")
+        end("1")
+        event300("file://$a/")
+        assertIs<ImportState.Failed>(states[a])
+
+        answer.complete(mapOf("org.eclipse.jdt.core.compiler.compliance" to "21"))
+
+        assertIs<ImportState.Failed>(states[a])
+    }
+
+    @Test
     fun `the compliance of an earlier import or of a closed session is not taken`() {
         val a = root("a")
         val answers = ArrayDeque<CompletableFuture<Any?>>()
@@ -563,11 +581,11 @@ internal class JavaImportsTest : JavaImportsFixture() {
         assertEquals(2, answers.size)
 
         answers.first().complete(compliance)
-        assertEquals(ImportState.Done(null), states[a])
+        assertEquals(ImportState.Done(null, listOf(a)), states[a])
         imports.close()
         answers.last().complete(mapOf("org.eclipse.jdt.core.compiler.compliance" to "21"))
 
-        assertEquals(ImportState.Done(null), states[a])
+        assertEquals(ImportState.Done(null, listOf(a)), states[a])
     }
 
     @Test
@@ -610,5 +628,139 @@ internal class JavaImportsTest : JavaImportsFixture() {
         event300("file://$a/")
 
         assertEquals(listOf(a), imports.failedRoots())
+    }
+
+    /** Gives the offer a Gradle root whose import is done with [listed] listed below it; git has not answered. */
+    private fun done(
+        a: Path,
+        vararg listed: Path,
+    ) {
+        outputTools[a] = BuildTool.GRADLE
+        // Git is asked about folders with a file only.
+        listed.forEach { it.resolve("build/jdtls-bin/A.class").file("x") }
+        add(a)
+        begin("import-$a")
+        projects(*listed.map { "file:$it/" }.toTypedArray())
+        end("import-$a")
+    }
+
+    private fun answerOutput(unignored: List<Path>?) {
+        assertTrue(outputAnswers.isNotEmpty(), "git was asked")
+        outputAnswers.removeFirst()(unignored)
+    }
+
+    private fun buildEnds(token: String) {
+        begin(token, "Building")
+        end(token)
+    }
+
+    @Test
+    fun `a done root keeps the project folders getAll listed below it and no others`() {
+        val a = root("a")
+
+        done(a, root("a/core"), a, root("other"))
+
+        assertEquals(listOf(root("a/core"), a), assertIs<ImportState.Done>(states[a]).projects)
+    }
+
+    @Test
+    fun `a root that is done asks git about the output folders of its projects`() {
+        val a = root("a")
+
+        done(a, root("a/core"), a)
+
+        assertEquals(listOf(listOf(root("a/core/build/jdtls-bin"), root("a/build/jdtls-bin"))), outputAsked)
+    }
+
+    @Test
+    fun `a root that is importing or failed is not asked about`() {
+        val a = root("a")
+        outputTools[a] = BuildTool.GRADLE
+        add(a)
+        assertEquals(emptyList(), outputAsked)
+
+        projects()
+        begin("1")
+        end("1")
+
+        assertIs<ImportState.Failed>(states[a])
+        assertEquals(emptyList(), outputAsked)
+    }
+
+    @Test
+    fun `the end of a build token asks the done roots that have no answer`() {
+        val a = root("a")
+        done(a, a)
+        answerOutput(null)
+
+        buildEnds("b")
+
+        assertEquals(2, outputAsked.size)
+    }
+
+    @Test
+    fun `an answer of git settles the root until it is done again`() {
+        val a = root("a")
+        done(a, a)
+        answerOutput(emptyList())
+
+        buildEnds("b")
+        assertEquals(1, outputAsked.size)
+        refresh(a)
+        buildEnds("c")
+        assertEquals(1, outputAsked.size, "importing again, not done")
+        begin("refresh")
+        end("refresh")
+
+        assertEquals(2, outputAsked.size, "done again")
+    }
+
+    @Test
+    fun `a root that imports again is not asked about at a build's end until it is done`() {
+        val a = root("a")
+        done(a, a)
+        answerOutput(null)
+
+        refresh(a)
+        buildEnds("b")
+
+        assertEquals(1, outputAsked.size)
+    }
+
+    @Test
+    fun `a done root that fails by event 300 is no longer asked about at a build's end`() {
+        val a = root("a")
+        done(a, a)
+        answerOutput(null)
+
+        event300("file://$a/")
+        assertIs<ImportState.Failed>(states[a])
+        buildEnds("b")
+
+        assertEquals(1, outputAsked.size)
+    }
+
+    @Test
+    fun `a removed root is no longer asked about at a build's end`() {
+        val a = root("a")
+        done(a, a)
+        answerOutput(null)
+
+        remove(a)
+        buildEnds("b")
+
+        assertEquals(1, outputAsked.size)
+    }
+
+    @Test
+    fun `a stopped server leaves nothing to ask about at a build's end`() {
+        val a = root("a")
+        done(a, a)
+        answerOutput(null)
+
+        imports.onStopped()
+        buildEnds("b")
+
+        assertEquals(1, outputAsked.size)
     }
 }

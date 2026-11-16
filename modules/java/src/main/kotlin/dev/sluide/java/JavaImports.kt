@@ -19,8 +19,10 @@ internal sealed interface ImportState {
         val since: Instant,
     ) : ImportState
 
+    /** [projects] are the project folders `java.project.getAll` listed below the root. */
     data class Done(
         val compliance: String?,
+        val projects: List<Path> = emptyList(),
     ) : ImportState
 
     /** [actions] are made once per failure, so that an unchanged failure compares equal. */
@@ -58,6 +60,8 @@ private val FOLDERS_STATUS = Regex("""Updating workspace folders: Adding (\d+) f
  * @param jdkVersion the version of the JDK jdtls runs Gradle with, if resolved.
  * @param actionsFor the buttons of a failed root's banner.
  * @param settleAfter the silence after which a job the mirror is in doubt about is settled ([UpdateJobs]).
+ * @param outputs the offer to ignore jdtls's compiled output in git: told of each root that is done, of a root that
+ *   no longer is, and of the progress tokens, which tell when a build ended.
  */
 internal class JavaImports(
     private val access: SessionAccess,
@@ -70,6 +74,7 @@ internal class JavaImports(
     private val actionsFor: (Path) -> List<ProblemAction>,
     private val settleAfter: Duration = SETTLE_AFTER,
     private val warn: (String) -> Unit = { log.log(System.Logger.Level.WARNING, it) },
+    private val outputs: OutputIgnoreOffers? = null,
 ) {
     private val announcements = HashMap<Path, Int>()
 
@@ -112,6 +117,7 @@ internal class JavaImports(
         jobs.sent(FolderNotification(root, adds = false, removes = true))
         eventFailed.remove(root)
         val removed = states.remove(root) != null
+        outputs?.forget(root)
         drain()
         if (removed) changed()
     }
@@ -126,6 +132,7 @@ internal class JavaImports(
         jobs.sent(FolderNotification(root, adds = true, removes = removes))
         eventFailed.remove(root)
         states[root] = ImportState.Importing(clock.instant())
+        outputs?.forget(root)
         drain()
         changed()
     }
@@ -137,8 +144,23 @@ internal class JavaImports(
         if (closed) return
         val progress = value as? JsonObject ?: return
         when (progress.text("kind")) {
-            "begin" -> receive { true.also { jobs.begin(token, progress.text("title")) } }
-            "end" -> receive { true.also { jobs.end(token) } }
+            "begin" -> {
+                receive {
+                    true.also {
+                        jobs.begin(token, progress.text("title"))
+                        outputs?.progressBegan(token, progress.text("title"))
+                    }
+                }
+            }
+
+            "end" -> {
+                receive {
+                    true.also {
+                        jobs.end(token)
+                        outputs?.progressEnded(token)
+                    }
+                }
+            }
         }
     }
 
@@ -174,6 +196,7 @@ internal class JavaImports(
         heldSince = null
         askAgainAt = null
         jobs.clear()
+        outputs?.clear()
         generation++
         // The announcement numbers go on counting, so an answer of the old server never matches a new announcement.
         changed()
@@ -262,7 +285,9 @@ internal class JavaImports(
                 if (!waited && !upgradable(root)) continue
                 val first = projects.firstOrNull { uri -> LspUris.toPath(uri)?.startsWith(root) == true }
                 if (first != null) {
-                    states[root] = ImportState.Done(null)
+                    val below = projects.mapNotNull(LspUris::toPath).filter { it.startsWith(root) }
+                    states[root] = ImportState.Done(null, below)
+                    outputs?.rootDone(root, below)
                     askCompliance(root, first)
                     changed = true
                 } else if (waited) {
@@ -311,10 +336,9 @@ internal class JavaImports(
             .whenComplete { result, _ ->
                 if (closed || announcements[root] != number) return@whenComplete
                 val compliance = (result as? Map<*, *>)?.get(COMPLIANCE_KEY) as? String ?: return@whenComplete
-                if (states[root] is ImportState.Done) {
-                    states[root] = ImportState.Done(compliance)
-                    changed()
-                }
+                val done = states[root] as? ImportState.Done ?: return@whenComplete
+                states[root] = done.copy(compliance = compliance)
+                changed()
             }
     }
 
@@ -323,6 +347,7 @@ internal class JavaImports(
         detail: String,
     ) {
         states[root] = ImportState.Failed(detail, actionsFor(root))
+        outputs?.forget(root)
         changed()
     }
 

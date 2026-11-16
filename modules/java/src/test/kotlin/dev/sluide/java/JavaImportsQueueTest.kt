@@ -245,7 +245,7 @@ internal class JavaImportsQueueTest : JavaImportsFixture() {
         begin("1")
         end("1")
 
-        assertEquals(ImportState.Done(null), states[a])
+        assertEquals(ImportState.Done(null, listOf(a)), states[a])
     }
 
     @ParameterizedTest

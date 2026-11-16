@@ -45,6 +45,19 @@ internal abstract class JavaImportsFixture {
     protected var jdk: String? = "25.0.5"
     protected val actionsMade = mutableListOf<Path>()
     protected val warnings = mutableListOf<String>()
+    protected val outputTools = mutableMapOf<Path, BuildTool>()
+
+    /** The output folders the offer asked git about, and the answers still to give. */
+    protected val outputAsked = mutableListOf<List<Path>>()
+    protected val outputAnswers = mutableListOf<(List<Path>?) -> Unit>()
+    protected val outputOffers by lazy {
+        val checks = OutputIgnoreChecks()
+        checks.register(dir) { folders, done ->
+            outputAsked += folders
+            outputAnswers += done
+        }
+        OutputIgnoreOffers(dir, checks, outputTools::get, { false }, {}, Runnable::run, Runnable::run) {}
+    }
     protected val imports by lazy {
         JavaImports(
             access,
@@ -63,6 +76,7 @@ internal abstract class JavaImportsFixture {
             },
             SETTLE,
             { warnings.add(it) },
+            outputOffers,
         )
     }
 
