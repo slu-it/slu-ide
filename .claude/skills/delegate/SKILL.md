@@ -48,8 +48,13 @@ Numbered questions, what the answer feeds into (the plan, a brief, a bug hunt) a
 Sonnet does well with a precise brief and guesses without one. Every implementer brief states:
 1. Goal and acceptance criteria (observable behavior). Designed content (levels, puzzles) gets measurable targets
    and a required look at a render, not "make it hard".
-2. Files and classes to touch; anything outside them needs a stop-and-report.
-3. Signatures and behavior of new or changed API, including threading (FX thread or not).
+2. Files and classes to touch; anything outside them needs a stop-and-report. A new module dependency the brief
+   names is checked against "Module rules" in `docs/architecture.md` first (same family or a foundation module, else
+   `ide` wires it): a brief once cited editor-family modules as precedent for a language module.
+3. Signatures and behavior of new or changed API, including threading (FX thread or not). A design that rests on
+   how an external tool behaves (a lock file it holds, the order of its messages, what it cancels) states that
+   behavior as measured against the real tool before the brief, not as read from its code or assumed: a lock that
+   jdtls never takes and a job order its own race decides each cost a failed implementer round.
 4. Tests, with the level per behavior (`docs/testing.md`, "Choosing the test level"): unit, naming the function or
    class to extract when the logic sits in a control, or `@Tag("ui")` with the reason it needs a scene, plus the one
    wiring test an extraction keeps. Name the existing test classes that cover neighbouring behavior, to extend
@@ -174,6 +179,8 @@ and `git branch -D`.
   two packages that each extend the same fake can merge without a textual conflict into duplicate members.
 - When several packages add entries to the same registry or list (file types, menus, a doc table), the brief names
   each package's anchor ("right after the Bicep rows"), so the inserts don't touch.
+- A file that several packages grow and that is near the 600-line limit (`MainWindow`) gets its split planned before
+  the wave: each package alone stays under it, and the merge of the last one does not.
 - Worktrees (`isolation: "worktree"`) start at the session's first commit, not current master; `worktree-check.sh
   start` brings them onto master.
 - Each agent gets its own display and its own scratchpad subfolder, and kills only processes it started.
