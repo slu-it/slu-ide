@@ -73,6 +73,20 @@ internal fun GitCli.localBranches(root: Path): String? {
 }
 
 /**
+ * The commit of every local branch of the repository at [root] by short name (`feature/x`); `null` if git is not
+ * available, fails or takes longer than 3 s.
+ */
+internal fun GitCli.localBranchTips(root: Path): Map<String, String>? {
+    if (!available) return null
+    val arguments = listOf("--no-optional-locks", "for-each-ref", "--format=%(refname)%1f%(objectname)", "refs/heads")
+    return run(arguments, root, 3.seconds)
+        ?.lineSequence()
+        ?.map { it.split('\u001f') }
+        ?.filter { it.size == 2 }
+        ?.associate { it[0].removePrefix("refs/heads/") to it[1] }
+}
+
+/**
  * The objects the refs starting with [prefixes] (such as `refs/tags/`) of the repository at [root] point at, by
  * full refname, without symbolic refs (`refs/remotes/origin/HEAD`); `null` if git is not available, fails or takes
  * longer than 10 s.

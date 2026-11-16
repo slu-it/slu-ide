@@ -42,6 +42,7 @@ class GitBranchesTest {
     private fun git(
         vararg arguments: String,
         directory: Path = repo,
+        mayFail: Boolean = false,
     ): String {
         val process =
             ProcessBuilder(listOf("git") + arguments)
@@ -53,7 +54,8 @@ class GitBranchesTest {
                 }.start()
         process.outputStream.close()
         val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
+        val exit = process.waitFor()
+        if (!mayFail) assertEquals(0, exit, "git ${arguments.joinToString(" ")}: $output")
         return output.trim()
     }
 
@@ -228,6 +230,60 @@ class GitBranchesTest {
         assertTrue(reset.success, reset.message)
         assertEquals("feature", currentBranch())
         assertEquals(first, head())
+    }
+
+    @Test
+    fun `noTrack decides whether a branch from a remote-tracking ref gets an upstream`() {
+        val first = commit("First")
+        git("update-ref", "refs/remotes/origin/main", first)
+        git("config", "remote.origin.url", "https://example.invalid/repo.git")
+        git("config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")
+        git("config", "branch.autoSetupMerge", "always")
+
+        val tracking = branches.createBranch(repo, "tracked", "refs/remotes/origin/main", false, false)
+        val untracked =
+            branches.createBranch(repo, "loose", "refs/remotes/origin/main", false, false, noTrack = true)
+
+        assertTrue(tracking.success && untracked.success, tracking.message + untracked.message)
+        assertEquals("refs/heads/main", git("config", "branch.tracked.merge"))
+        assertEquals("origin", git("config", "branch.tracked.remote"))
+        assertEquals("", gitConfig("branch.loose.merge"))
+        assertEquals("", gitConfig("branch.loose.remote"))
+    }
+
+    /** `git config --get`, empty if the key is unset. */
+    private fun gitConfig(key: String) = git("config", "--get", key, mayFail = true)
+
+    @Test
+    fun `reads the commit of every local branch by short name`() {
+        val first = commit("First")
+        git("branch", "feature/deep/x")
+        val second = commit("Second")
+        git("branch", "topic", first)
+        git("update-ref", "refs/remotes/origin/other", second)
+
+        assertEquals(
+            mapOf("main" to second, "feature/deep/x" to first, "topic" to first),
+            branches.localBranchTips(repo),
+        )
+    }
+
+    @Test
+    fun `local branch tips are null outside a repository`() {
+        val plain = folder.resolve("plain").createDirectories()
+        // The ceiling keeps git from finding a repository above the temporary folder.
+        val ceiled = GitBranches(GitCli("git", testGitEnvironment() + ("GIT_CEILING_DIRECTORIES" to folder.toString())))
+
+        assertNull(ceiled.localBranchTips(plain))
+    }
+
+    @Test
+    fun `local branch tips are null when git is not available`() {
+        commit("First")
+        // The wrapper fails only the startup probe `--version`; every other call works.
+        val unavailable = wrapped(failing = " --version ")
+
+        assertNull(unavailable.localBranchTips(repo))
     }
 
     @Test

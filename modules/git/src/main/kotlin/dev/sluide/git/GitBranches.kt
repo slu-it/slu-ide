@@ -9,6 +9,7 @@ import dev.sluide.git.cli.headBranch
 import dev.sluide.git.cli.headCommit
 import dev.sluide.git.cli.isAncestor
 import dev.sluide.git.cli.leftBehindCount
+import dev.sluide.git.cli.localBranchTips
 import dev.sluide.git.cli.localBranches
 import dev.sluide.git.cli.refusal
 import org.springframework.stereotype.Component
@@ -129,7 +130,8 @@ class GitBranches(
 
     /**
      * Creates the branch [name] at [startPoint] (a hash or full refname), moving an existing one if [overwrite]: `git
-     * branch` (`-f`); git refuses to move the checked-out branch. If [checkout], then checks it out (`git switch`).
+     * branch` (`-f`); git refuses to move the checked-out branch. With [noTrack] the branch gets no upstream whatever
+     * `branch.autoSetupMerge` says (`--no-track`). If [checkout], then checks it out (`git switch`).
      *
      * Where the branch pointed before is read first; if that fails, nothing is done. If git fails after all the same
      * (the branch was written, but tracking could not be set up; or the checkout failed), a branch that did not exist
@@ -142,7 +144,20 @@ class GitBranches(
         startPoint: String,
         checkout: Boolean,
         overwrite: Boolean,
-    ): GitResult = create(root, name, startPoint, if (overwrite) listOf("-f") else emptyList(), checkout)
+        noTrack: Boolean = false,
+    ): GitResult =
+        create(
+            root,
+            name,
+            startPoint,
+            listOfNotNull("-f".takeIf { overwrite }, "--no-track".takeIf { noTrack }),
+            checkout,
+        )
+
+    /**
+     * The commit of every local branch by short name (`feature/x`), from `git for-each-ref`; `null` if git fails.
+     */
+    fun localBranchTips(root: Path): Map<String, String>? = git.localBranchTips(root)
 
     /** `git branch <options> <name> <startPoint>`, then `git switch <name>` if [checkout], undone on failure. */
     private fun create(
