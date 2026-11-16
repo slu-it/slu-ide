@@ -1,24 +1,15 @@
 package dev.sluide.java
 
-import com.google.gson.JsonParser
 import dev.sluide.languageservers.EnvironmentProblem
 import dev.sluide.languageservers.LspUris
 import dev.sluide.languageservers.ProblemAction
-import dev.sluide.languageservers.SessionAccess
 import dev.sluide.languageservers.WorkspaceFolderMode
 import dev.sluide.languageservers.WorkspaceStatus
-import dev.sluide.projectdata.ProjectDataStore
-import dev.sluide.settings.ProjectSettingsOpeners
 import org.eclipse.lsp4j.ConfigurationItem
-import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Files
 import java.nio.file.Path
-import java.time.Clock
-import java.time.Instant
-import java.time.ZoneOffset
-import java.util.concurrent.CompletableFuture
 import kotlin.io.path.exists
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,50 +20,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-class JdtlsSpecTest {
-    @TempDir
-    lateinit var dir: Path
-
-    private val fakes by lazy { JdtlsFakes(dir) }
-    private val installer by lazy { fakes.installer() }
-    private val projectSettings by lazy {
-        JavaProjectSettings(ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())) {
-            it.run()
-        }
-    }
-    private val use by lazy { JavaWorkspaceUse { it.run() } }
-    private var duringDelete: () -> Unit = {}
-    private val workspaces by lazy {
-        object : JavaWorkspaces(dir.resolve("workspaces")) {
-            override fun deleteData(windowFolder: Path) {
-                duringDelete()
-                super.deleteData(windowFolder)
-            }
-        }
-    }
-    private val thoreauJdk by lazy { fakeJdk(dir.resolve("thoreau-jdk"), 25) }
-    private val homes by lazy { JavaHomes({ _, _ -> null }, emptyMap(), thoreauJdk) }
-    private val openers = ProjectSettingsOpeners()
-    private val now = Instant.parse("2026-01-01T10:00:00Z")
-    private val clock = MutableClock(now)
-    private val classes by lazy { dir.resolve("classes") }
-    private val window by lazy { Files.createDirectories(dir.resolve("work")) }
-    private val spec by lazy {
-        JdtlsSpec(
-            installer,
-            fakes.settings,
-            projectSettings,
-            use,
-            homes,
-            workspaces,
-            openers,
-            classes,
-            Runnable::run,
-            30,
-            clock,
-        )
-    }
-
+internal class JdtlsSpecTest : JdtlsSpecFixture() {
     private fun dataOf(folder: Path) = workspaces.folderFor(folder).resolve("data")
 
     /** A prepared workspace of [window] whose data holds a marker. */
@@ -80,16 +28,6 @@ class JdtlsSpecTest {
         fakes.settings.apply(fakeJdtlsHome(dir.resolve("jdtls-1.63")).toString())
         assertNotNull(spec.command(window))
         dataOf(window).resolve("marker").file("old index")
-    }
-
-    /** `work/app` (Maven), `work/g` (Gradle) and `work/loose`. */
-    private fun fixtures(): Triple<Path, Path, Path> {
-        window.resolve("app/pom.xml").file("<project/>")
-        val maven = window.resolve("app/src/main/java/A.java").file("class A {}")
-        window.resolve("g/settings.gradle").file()
-        val gradle = window.resolve("g/src/main/java/B.java").file("class B {}")
-        val loose = window.resolve("loose/C.java").file("class C {}")
-        return Triple(maven, gradle, loose)
     }
 
     @ParameterizedTest
@@ -387,46 +325,6 @@ class JdtlsSpecTest {
 
         assertNull(spec.session(window))
         assertFalse(use.isInUse(workspaces.folderFor(window)))
-    }
-
-    private fun javaSession(access: SessionAccess): JavaSession =
-        assertIs<JavaSession>(spec.sessionExtension(window, access))
-
-    private val begin = JsonParser.parseString("""{"kind":"begin","title":"Updating workspace folders"}""")
-    private val end = JsonParser.parseString("""{"kind":"end"}""")
-    private val added =
-        JsonParser.parseString(
-            """{"type":"Message","message":"Updating workspace folders: Adding 1 folder(s), removing 0 folders."}""",
-        )
-
-    /** Announces [root] and ends its import without a project: it fails with the log text. */
-    private fun fail(
-        session: JavaSession,
-        access: ScriptedAccess,
-        root: Path,
-        announce: Boolean = true,
-    ) {
-        access.answers["java.project.getAll"] = { CompletableFuture.completedFuture(emptyList<Any?>()) }
-        if (announce) session.imports.onFolderAdded(root)
-        session.imports.onStatus(added)
-        session.imports.onProgress("t$root", begin)
-        session.imports.onProgress("t$root", end)
-    }
-
-    private fun finish(
-        session: JavaSession,
-        access: ScriptedAccess,
-        root: Path,
-        compliance: String? = null,
-        announce: Boolean = true,
-    ) {
-        access.answers["java.project.getAll"] = { CompletableFuture.completedFuture(listOf("file:$root/")) }
-        access.answers["java.project.getSettings"] =
-            { CompletableFuture.completedFuture(mapOf("org.eclipse.jdt.core.compiler.compliance" to compliance)) }
-        if (announce) session.imports.onFolderAdded(root)
-        session.imports.onStatus(added)
-        session.imports.onProgress("t$root", begin)
-        session.imports.onProgress("t$root", end)
     }
 
     @Test
@@ -753,14 +651,4 @@ class JdtlsSpecTest {
         assertFalse(Files.exists(dataOf(window)))
         assertTrue(Files.exists(workspaces.folderFor(window).resolve("project-path.txt")))
     }
-}
-
-private class MutableClock(
-    var current: Instant,
-) : Clock() {
-    override fun instant(): Instant = current
-
-    override fun getZone() = ZoneOffset.UTC
-
-    override fun withZone(zone: java.time.ZoneId?): Clock = this
 }

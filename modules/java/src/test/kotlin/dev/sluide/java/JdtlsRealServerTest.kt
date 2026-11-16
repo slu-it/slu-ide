@@ -329,6 +329,7 @@ class JdtlsRealServerTest {
                 JavaHomes({ _, _ -> null }, emptyMap(), Path.of(System.getProperty("java.home"))),
                 JavaWorkspaces(dir.resolve("workspaces")),
                 ProjectSettingsOpeners(),
+                OutputIgnoreChecks(),
                 dir.resolve("classes"),
                 fx::execute,
                 1000,

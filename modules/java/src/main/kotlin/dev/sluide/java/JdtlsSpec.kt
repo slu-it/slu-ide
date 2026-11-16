@@ -41,6 +41,7 @@ class JdtlsSpec internal constructor(
     private val javaHomes: JavaHomes,
     private val workspaces: JavaWorkspaces,
     private val projectSettingsOpeners: ProjectSettingsOpeners,
+    private val outputIgnoreChecks: OutputIgnoreChecks,
     private val classesRoot: Path,
     private val dispatch: (Runnable) -> Unit,
     private val debounceMillis: Long,
@@ -53,6 +54,7 @@ class JdtlsSpec internal constructor(
         projectSettings: JavaProjectSettings,
         workspaceUse: JavaWorkspaceUse,
         projectSettingsOpeners: ProjectSettingsOpeners,
+        outputIgnoreChecks: OutputIgnoreChecks,
     ) : this(
         installer,
         settings,
@@ -61,6 +63,7 @@ class JdtlsSpec internal constructor(
         JavaHomes(),
         JavaWorkspaces(),
         projectSettingsOpeners,
+        outputIgnoreChecks,
         LibraryCode.JAVA_CLASSES_ROOT,
         Platform::runLater,
         DEBOUNCE_MILLIS,
@@ -263,7 +266,11 @@ class JdtlsSpec internal constructor(
                 EnvironmentProblem(root, "Import of $label failed: ${import.detail}", import.actions)
             }
 
-            is ImportState.Done, null -> {
+            is ImportState.Done -> {
+                outputOffers[key(projectFolder)]?.problem(root)
+            }
+
+            null -> {
                 null
             }
         }
@@ -277,6 +284,18 @@ class JdtlsSpec internal constructor(
         val state = stateOf(folder)
         val scheduler = NamedThreads.scheduled("sluide-java-debounce")
         val worker = NamedThreads.single("sluide-java-session")
+        val offers =
+            OutputIgnoreOffers(
+                folder,
+                outputIgnoreChecks,
+                { root -> state.tools[root] },
+                { projectSettings.outputIgnoreDeclined(folder) },
+                { projectSettings.declineOutputIgnore(folder) },
+                worker,
+                dispatch,
+                access::workspaceChanged,
+            )
+        outputOffers[folder] = offers
         val imports =
             JavaImports(
                 access,
@@ -290,6 +309,7 @@ class JdtlsSpec internal constructor(
                 },
                 { state.jdk?.jdk?.version },
                 { root -> failureActions(folder, access, root) },
+                outputs = offers,
             )
         val session =
             JavaSession(
@@ -309,6 +329,7 @@ class JdtlsSpec internal constructor(
             ) {
                 sessions.remove(folder)
                 states.remove(folder)
+                outputOffers.remove(folder)
             }
         sessions[folder] = session
         return session
@@ -343,6 +364,7 @@ class JdtlsSpec internal constructor(
 
     private val states = ConcurrentHashMap<Path, JavaWindowState>()
     private val sessions = ConcurrentHashMap<Path, JavaSession>()
+    private val outputOffers = ConcurrentHashMap<Path, OutputIgnoreOffers>()
 
     private fun key(folder: Path) = folder.toAbsolutePath().normalize()
 
