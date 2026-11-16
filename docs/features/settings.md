@@ -93,11 +93,19 @@
   `load(folder)`, `apply(folder)`). They are loaded with the window's project folder each time the dialog opens.
   `ProjectSettings` (window bean) holds the pages ordered by path; `ProjectSettings.show(path)` opens the dialog at
   a page (`null` or an unknown path: the first page) and does nothing without folder or pages. `MainWindow` sets it.
-- Pages come from modules: a window bean (`@Scope("window")`) implementing `ProjectSettingsPage` (`path`, `node`,
-  `load(folder)`, `apply(folder)`). They are loaded with the window's project folder each time the dialog opens.
-  `ProjectSettings` (window bean) holds the pages ordered by path; `ProjectSettings.show(path)` opens the dialog at
-  a page (`null` or an unknown path: the first page) and does nothing without folder or pages. `MainWindow` sets it.
 - Code that is not a page opens the dialog through `ProjectSettingsOpeners` (singleton, FX thread): each window
   registers its opener for its folder (`register(folder, show)`, closed when the window closes) and
   `show(folder, path)` calls the latest registration of that folder, `false` when no window has the folder. A language
   server's "Choose JDK…" notice uses it ([ADR 0179](../adr/0179-java-via-jdtls.md)).
+- **Java** page (`JavaProjectSettingsPage` and `JavaProjectSettingsPageModel` in `modules/java`, package
+  `dev.sluide.java.settings`): the project's JDK, a combo box. Entries: "JAVA_HOME: <version> (<path>)" (the login
+  shell's, else Thoreau's environment's; stores no setting; without a usable one it reads "JAVA_HOME: not set or
+  not a JDK (Thoreau's JDK is used)"), the JDKs found in the well-known folders
+  (`Jdks.installed`), "Thoreau's JDK: ...", then **Other…**, which asks for a folder; a folder that is no JDK shows
+  "<path> isn't a JDK: no bin/java or release file" under the field and goes back to the previous entry. A stored JDK
+  that no entry lists is shown as its own entry, or as "<path> (not found)" when it is gone, so OK never changes the
+  setting silently. The login shell and the folder scan run off the FX thread; until they finish the field is disabled
+  and reads "Looking for JDKs…". Paths and versions are shown on one line (control characters become `?`, long values
+  are cut); when looking for JDKs fails, "Cannot look for JDKs: <reason>" shows under the field, which is then
+  enabled and empty. OK stores the choice in the project data (`java.jdk`, `JavaProjectSettings.setJdk`), and writes
+  nothing when it is the one loaded; the running Java language server picks a change up at once.

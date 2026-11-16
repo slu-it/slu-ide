@@ -93,6 +93,7 @@ import dev.sluide.ide.find.FindInFilesWiring
 import dev.sluide.ide.git.GitReviewSource
 import dev.sluide.java.JavaProjectSettings
 import dev.sluide.java.JdtlsSpec
+import dev.sluide.java.settings.JavaProjectSettingsPage
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.MediaFileViewer
 import dev.sluide.media.MediaPreferences
@@ -289,6 +290,7 @@ class SpringWiringTest {
                         // and the installed tools. Its logic is in JdtlsSpecTest.
                         JdtlsSpec::class.java,
                         JavaProjectSettings::class.java,
+                        JavaProjectSettingsPage::class.java,
                         ProjectSettingsOpeners::class.java,
                         InstallPrompts::class.java,
                         CodeIntelligenceWiring::class.java,
@@ -349,6 +351,7 @@ class SpringWiringTest {
                         ProjectTrust::class.java,
                         BackgroundTasks::class.java,
                         ProjectSettings::class.java,
+                        JavaProjectSettingsPage::class.java,
                         TodoPanel::class.java,
                         Coloring::class.java,
                         Barcodes::class.java,
