@@ -87,7 +87,7 @@ updated when the summary or keywords no longer fit.
 | [0060](adr/0060-logging-conventions.md) | Logging conventions; every git command numbered | logging, log levels, `git#n`, stderr, FX watchdog | amends 0013; see 0051, 0061 |
 | [0061](adr/0061-background-tasks.md) | Per-window background-task registry shown under the explorer | `BackgroundTasks`, `background-tasks`, cancel, `withdrawCancel`, `BackgroundTasks.forTests`, progress, `BackgroundTask.progress` | amended by 0106 |
 | [0062](adr/0062-git-concurrency.md) | Which git work runs in parallel and which is queued | git concurrency, threads, `sluide-git-diff`, `diffAsync`, `GitCancellation`, `.git` stamps, write holds | amends 0013, 0015, 0021, 0035, 0041, 0053 |
-| [0063](adr/0063-git-log-rebase.md) | Rebase the current branch onto another, with Continue/Skip/Abort | `GitRebases`, rebase, `GitPendingRebase`, pending bar, conflicts, rebase onto origin's default branch, header quick action | amends 0042; amended by 0106 |
+| [0063](adr/0063-git-log-rebase.md) | Rebase the current branch onto another, with Continue/Skip/Abort | `GitRebases`, rebase, `GitPendingRebase`, pending bar, conflicts, rebase onto origin's default branch, header quick action | amends 0042; amended by 0106; see 0181 |
 | [0064](adr/0064-json-preview.md) | JSON Source/Split/Preview with a foldable tree | JSON preview, Jackson, folds, JSON Pointer, `Preview.folds` | |
 | [0065](adr/0065-xml-preview.md) | XML preview on shared fold parts, StAX with XXE off | XML preview, StAX, XXE, `fold-tree.js`, `FoldState`, `data-path` | see 0064 |
 | [0066](adr/0066-scratch-files.md) | Scratch files in `~/.sluide/scratches`, shown as an explorer root | scratch files, `ExplorerRoot`, Shortcut+Shift+N, type picker | amended by 0114 |
@@ -205,6 +205,7 @@ updated when the summary or keywords no longer fit.
 | [0178](adr/0178-red-before-green.md) | Red before green: each test fails before its code, and `break-check.sh` mutates every change once | TDD, test first, red, vacuous test, break check, mutation, fakes of external tools, fix test fails first | amends 0084 |
 | [0179](adr/0179-java-via-jdtls.md) | Java through jdtls: one server per window, a workspace folder per build root imported lazily, JDK per project | Java, jdtls, monorepo, build root, Maven, Gradle, `WorkspaceFolderMode`, `SessionExtension`, Project Settings, Lombok, `jdt://`, gitignore | amends 0142, 0150, 0151, 0160; see 0053, 0085, 0090, 0159 |
 | [0180](adr/0180-terminal-tabs-close-on-success.md) | Shell and Docker sandbox tabs close themselves when their process exits with 0; other exits show "(exited N)" | `closeRequested`, `closeOnSuccess`, exit code, "(exited N)", auto close, `terminalTitle`, `EditorTabs`, `CloseRequests`, `ConstantValue`, shared defaults, listener leak | amends 0007, 0010, 0170 |
+| [0181](adr/0181-new-branch-from-origin-default.md) | Header quick action: fetch origin, then the New Branch dialog at its default branch, without upstream | quick action, new branch, origin's default branch, `--no-track`, `PrepareNewBranchFromDefault`, header button, `QuickActionsState` | see 0063, 0041, 0043 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -264,7 +265,7 @@ updated when the summary or keywords no longer fit.
 | [git-status.md](features/git-status.md) | Git status colours and bubbles in the explorer | status colours, unversioned, modified, ignored, folder bubbles |
 | [gitignore-line-effects.md](features/gitignore-line-effects.md) | Gutter dots showing which `.gitignore` lines have an effect | `.gitignore`, gutter dots, tracked-only matches, tooltips |
 | [git-diff.md](features/git-diff.md) | Change markers in the gutter and a side-by-side diff against `HEAD` | change markers, Show Changes, Shortcut+Shift+D, changed words |
-| [git-log.md](features/git-log.md) | Git log area: commits, graph, details, filters, branch, tag and commit operations | Alt+9, commit graph, filters, branches pane, checkout, cherry-pick, rebase, merge, fetch, pull, stash, Mark Resolved |
+| [git-log.md](features/git-log.md) | Git log area: commits, graph, details, filters, branch, tag and commit operations | Alt+9, commit graph, filters, branches pane, checkout, cherry-pick, rebase, new branch from default, merge, fetch, pull, Mark Resolved |
 | [code-review.md](features/code-review.md) | Review window: a branch, commits or uncommitted changes like a pull request, in one scroll with a filterable tree | Review Branch, Review Commits, Shortcut+Shift+R, base picker, commit picker, unified, split, hide whitespace, expand context, Viewed, Load diff, Reload |
 | [file-history.md](features/file-history.md) | A file's history as a tab in the git log area | Show History, `History:` tab, renames, Compare with Local |
 | [commit-and-push.md](features/commit-and-push.md) | Commit tab and Push dialog | Commit (Shortcut+K), Amend, Push (Shortcut+Shift+K), Force Push, Commit and Push, Pull after a rejection, Stash Checked Files |

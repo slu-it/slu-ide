@@ -38,9 +38,10 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
 - **Collapsed by default:** only its header bar shows: a chevron, "Git Log" and Review Branch (an
   eye-on-a-file icon; off without a repository; it reviews `HEAD`'s branch, see
   [code-review.md](code-review.md)), "Fetch origin and Rebase onto its Default Branch" (the
-  source-branch-sync icon), Push (an up arrow), Pull (the source-pull icon), Fetch (a down arrow) and Refresh buttons
-  on the right, all outlined alike, in three groups one button width apart: Review Branch | Fetch and Rebase | Push,
-  Pull, Fetch, Refresh. Their tooltips show after 250 ms. Clicking the header (not its buttons)
+  source-branch-sync icon), "Fetch origin and Create new Branch from its Default Branch" (the source-branch-plus icon),
+  Push (an up arrow), Pull (the source-pull icon), Fetch (a down arrow) and Refresh buttons
+  on the right, all outlined alike, in three groups one button width apart: Review Branch | Fetch and Rebase, Fetch and New
+  Branch | Push, Pull, Fetch, Refresh. Their tooltips show after 250 ms. Clicking the header (not its buttons)
   expands or collapses it, and so does **View → Git Log** (Alt+9, Cmd+9 on macOS), which is disabled when there is no
   area. Expanding moves the focus to the commit table; collapsing while the table has the focus gives it back to the
   editor (the selected tab, or the editor area without tabs). While the Commit tab
@@ -120,7 +121,7 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
   the selection changed while the diff was read, nothing is said. Open Local File (F4 or the context menu) opens the
   file as it is now in the editor; it is disabled for files not in the working tree (e.g. deleted). Copy Path copies the
   path relative to the repository. Enter on a folder opens or closes it.
-- **Loading:** nothing is read before the area is first expanded (except what the header's rebase button needs,
+- **Loading:** nothing is read before the area is first expanded (except what the header's rebase and new branch buttons need,
   below). Then 500 commits load in the background; scrolling to within 50 rows of the last one loads the next 500,
   until there are no more. In very large repositories without
   a commit-graph file (`git gc` writes one), git sorts the whole history for every page, so the first page can hit the
@@ -131,7 +132,7 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
   header).
 - **Refresh:** the Refresh button, and changes directly in `.git` or `.git/refs` (commits, checkouts, staging, fetches,
   merges, rebases, stashes) reload the first page and the refs; while collapsed the log only notes it and reloads on
-  the next expand (apart from the rebase button's state, which is read again at once).
+  the next expand (apart from the rebase and new branch buttons' state, which is read again at once).
   Changes of `.git` that change nothing the log reads (new objects, reflogs) do not reload it
   ([ADR 0062](../adr/0062-git-concurrency.md)). Selected commits stay selected if they are still in the first page; the
   details and changed files of a commit that stays selected are not read again (a commit cannot change them; after a
@@ -301,6 +302,14 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     A failed fetch rebases nothing ("origin could not be fetched; nothing was rebased."); if the default branch cannot
     be found: "origin's default branch could not be found (no origin/HEAD, main or master)." No menu item and no key
     binding.
+  - **New branch from origin's default branch** (header button, [ADR 0181](../adr/0181-new-branch-from-origin-default.md)):
+    fetches `origin` (cancellable; "Fetching origin…"), finds its default branch as the rebase above does, then opens
+    the New Branch dialog titled "New Branch from origin/main" (name checks, Checkout checked, Overwrite unchecked);
+    Create makes the branch there (and checks it out with Checkout checked), without an upstream (the first Push sets
+    one), Cancel does nothing more. Enabled with a remote named `origin`, no running operation and nothing pending; a detached `HEAD`
+    or an unborn branch do not disable it. Read while collapsed like the rebase button. A failed fetch creates
+    nothing ("origin could not be fetched; no branch was created."), also "New branch cancelled." and "origin's
+    default branch could not be found (no origin/HEAD, main or master)." No menu item and no key binding.
   - **Merge** ([ADR 0105](../adr/0105-git-log-merge.md)): after Rebase, "Merge 'main' into 'feature'…", shown and
     greyed out exactly as Rebase. A dialog "Merge"
     ("Merge 'main' into 'feature'") offers Fast-forward if possible (preselected), Always create a merge commit,
