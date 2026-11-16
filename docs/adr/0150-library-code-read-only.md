@@ -1,6 +1,7 @@
 # 0150. Library code opens read-only
 
-- Status: accepted; see [0146](0146-navigation.md), [0148](0148-diagnostics-quick-fixes-semantic-highlighting.md),
+- Status: accepted; amended by [0179](0179-java-via-jdtls.md) (`LibraryKind.JAVA_CLASS`: a file below
+  `~/.sluide/cache/java-classes` is library code, checked first, "Java library class"); see [0146](0146-navigation.md), [0148](0148-diagnostics-quick-fixes-semantic-highlighting.md),
   [0149](0149-rename-file-structure-go-to-symbol.md), [0144](0144-python-via-ty.md), [0008](0008-settings.md),
   [0047](0047-module-dependencies-and-shared-modules.md)
 - Date: 2026-11-08

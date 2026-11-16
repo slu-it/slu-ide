@@ -9,13 +9,18 @@ therefore open locked, however they are opened (Go to Definition, the explorer, 
 
 ## What counts
 
-Decided by the file's path alone (Python only; the rules are a list, so other ecosystems can be added later):
+Decided by the file's path alone (Python, and Java classes fetched by a language server; the rules are a list, so
+other ecosystems can be added later):
 
 - inside a virtual environment: an ancestor folder with a `pyvenv.cfg` (`.venv`, `venv`, `.tox/*`, Poetry's);
 - under a `site-packages` or `dist-packages` folder;
 - under `__pypackages__`;
 - the Python standard library (`lib/pythonX.Y`, also outside venvs);
-- ty's typeshed stubs.
+- ty's typeshed stubs;
+- Java library classes: a file below `~/.sluide/cache/java-classes` (`LibraryKind.JAVA_CLASS`, described as "Java
+  library class"), the documents Go to Definition fetches from a Java language server for the JDK and libraries
+  ([code-intelligence.md](code-intelligence.md), ADR 0179). It is checked before the other rules; the banner says
+  "`String.java` is library code (Java library class): read-only…".
 
 Not library code: a file whose library folder contains the project folder (the venv or the standard library opened as
 a project on purpose), and editable installs, which point at project sources.

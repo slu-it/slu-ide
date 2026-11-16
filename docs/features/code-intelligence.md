@@ -56,9 +56,12 @@ expands the column. The tooltip shows the absolute paths. `WorkspaceStatusFeatur
 ## Missing virtual environment
 A banner above the text of a bound editor when the spec reports an environment problem (`environmentProblem`), only
 while the server runs; for Python "No virtual environment for backend_one, so its packages cannot be resolved."
-(when: [python.md](python.md)). Buttons: the problem's action, **Run uv sync**, which runs the spec's constant command
-in a new terminal tab named `uv sync (backend_one)` in the project folder and adds it to the editor area (a shell that
-cannot start shows the terminal error); **Not Now**, which hides the notice of that folder in this window until the app
+(when: [python.md](python.md)). Buttons: one per action of the problem (`EnvironmentProblem.actions`, in the spec's
+order, after the message), then Not Now and Don't Ask Again. An action is one of three kinds (`ProblemAction`): a
+**terminal command**, as **Run uv sync**, which runs the spec's constant command in a new terminal tab named
+`uv sync (backend_one)` in the project folder and adds it to the editor area (a shell that cannot start shows the
+terminal error); a **file to open** in an editor tab; a **callback** the spec gives, run on the FX thread (one that
+throws is logged and the banner stays). **Not Now**, which hides the notice of that folder in this window until the app
 restarts; **Don't Ask Again**, which hides it in every window for good (id `python.environment` in the
 declined prompts, see Banners). There is no trust question: the command runs on an explicit click (ADR 0089). The
 banner stays while the terminal runs and disappears by itself once the venv appears (the project is re-resolved).
@@ -99,6 +102,14 @@ while the document is served. `ConfigProblemsModel`, `ConfigProblemsBanner`; ADR
   Several (overloads, `posixpath.py` and `ntpath.py`) are offered in a list at the name: `file.py:LINE`, the path
   (relative to the project, absolute outside it) and the line's text; **Enter** or a double-click jumps. None says
   "No declaration found" at the name until the next key or click. On macOS Ctrl+click still opens the context menu.
+  A declaration the server names by a URI that is no file (the JDK or a library, `jdt://…`) is followed when the
+  language's spec says how to fetch such a document (`libraryDocument`): the editor sends the spec's request, writes
+  the text it answers (a JSON string, at most 16 MiB, exactly as received) to the cache file the spec names, and goes
+  there; the file is outside the project, opens read-only as library code, and no server serves it. A target whose
+  fetch fails is left out (logged); when none is left it says "No declaration found". Several targets are fetched
+  together and listed as usual. A new Go to Definition, Find Usages, an edit of the text, hiding the list or closing
+  the editor drops everything of the request still on its way, a write already started included: nothing is opened,
+  noted or listed for it, and a text not yet written is not written.
 - **Find usages:** **Alt+F7** at the caret, **Navigate → Find Usages** or **Find Usages** in the context menu lists the
   usages of the name (without its declaration) at it: "Finding usages…" while the server answers, then those in the
   file first, then by path and line, with each line's text. One usage is jumped to; none says "No usages found".
@@ -144,8 +155,11 @@ Decision in [ADR 0148](../adr/0148-diagnostics-quick-fixes-semantic-highlighting
 - **Quick fixes:** **Alt+Enter**, or **Show Quick Fixes** in the context menu, lists the server's fixes for the caret
   or the selection at the caret (ty: add an import, ignore the rule for this line); preferred ones first, ones that
   cannot be applied now greyed with the reason. **Enter** applies the selected one as one undo step. A fix taken after
-  the text changed is refused ("Ask for the quick fixes again"). The menu item is disabled "(server not running)" while
-  the server does not run.
+  the text changed is refused ("Ask for the quick fixes again"). An action that carries a command the server does not
+  offer (not in its `executeCommandProvider`, nor registered dynamically for `workspace/executeCommand`; a command
+  meant for the client) is not listed; actions with only an edit, or resolved later, are. A command that appears only
+  when the action is resolved is checked then: the action is not applied and the popup says the server does not offer
+  its command. The menu item is disabled "(server not running)" while the server does not run.
 - **Edits in other files** (from a fix or a rename): an open editor gets them unsaved, as one undo step; a
   closed file in the project is changed on disk in one step, keeping its line breaks, its permissions and a BOM.
   Nothing changes when one of the files cannot be edited: it changed since the server made the edit or while the

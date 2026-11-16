@@ -3,7 +3,8 @@
 - Status: accepted; amended by [0160](0160-document-gate-and-kept-diagnostics.md) (the gate is asked with the
   workspace folder, watched folders per gate answer, the status line per file), [0179](0179-java-via-jdtls.md)
   (`WorkspaceFolderMode.ROOTS_ONLY`: no window folder and no root in `initialize`, each named folder in a
-  `didChangeWorkspaceFolders` of its own, again after every start; documents without a folder open without one); amends
+  `didChangeWorkspaceFolders` of its own, again after every start; documents without a folder open without one;
+  the environment notice has one button per `ProblemAction`, not one fixed action); amends
   [0142](0142-language-server-foundation.md) (several workspace folders per session, the
   spec's workspace hooks, folders watched outside the project), [0144](0144-python-via-ty.md) (project roots and
   `environment.python` per folder), [0141](0141-editor-api-for-language-features.md) (`addStatusItem`),

@@ -1,6 +1,7 @@
 # 0148. Diagnostics, quick fixes, workspace edits and semantic highlighting
 
-- Status: accepted; amends [0145](0145-code-intelligence-module.md) (`CaretPopup` `choosable`,
+- Status: accepted; amended by [0179](0179-java-via-jdtls.md) (code actions whose command the server does not offer
+  are not listed); amends [0145](0145-code-intelligence-module.md) (`CaretPopup` `choosable`,
   `DocumentBinding.bindingOf`); see [0141](0141-editor-api-for-language-features.md),
   [0142](0142-language-server-foundation.md), [0144](0144-python-via-ty.md), [0115](0115-converting-tool.md),
   [0084](0084-testability-logic-out-of-controls.md)

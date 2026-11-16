@@ -1,7 +1,8 @@
 # 0160. Language servers: a gate per document, lazy start for gated specs, kept diagnostics of unopened files
 
-- Status: accepted; amended by [0179](0179-java-via-jdtls.md) (no change here: a session extension reads the kept
-  diagnostics through `SessionAccess.keptDiagnostics`); amends [0142](0142-language-server-foundation.md) (documents a server never sees, start only once a
+- Status: accepted; amended by [0179](0179-java-via-jdtls.md) (`EnvironmentProblem.actions`: several buttons per
+  problem, a terminal command, a file to open or a callback; a session extension reads the kept diagnostics through
+  `SessionAccess.keptDiagnostics`); amends [0142](0142-language-server-foundation.md) (documents a server never sees, start only once a
   document is served, `didClose` only to the connection that got the `didOpen`, diagnostics of files no editor shows),
   [0151](0151-workspace-folders-per-project.md) (the gate is asked with the workspace folder, watched folders per
   answer, the status line per file)
