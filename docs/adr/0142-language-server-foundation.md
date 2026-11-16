@@ -7,7 +7,8 @@
   start for gated specs, `didClose` only to the connection that got the `didOpen`, kept diagnostics of unopened files),
   [0179](0179-java-via-jdtls.md) (session extensions: `SessionExtension` and `SessionAccess` for notifications lsp4j
   does not know, progress, folder announcements and commands; several trust checks with `trustCheckIds`; the command
-  per window folder, `command(projectFolder)`, which the session calls and which defaults to `command()`)
+  per window folder, `command(projectFolder)`, which the session calls and which defaults to `command()`; the next
+  start waits until the process it replaces has ended)
 - Date: 2026-11-07
 
 ## Context
@@ -63,11 +64,20 @@ belong to the Python ADR (0144). What the spikes showed about servers in general
   once. Requests still waiting for a server that stops (crash, restart) fail with
   `LanguageServerNotRunningException`: lsp4j leaves them incomplete when a connection ends, so each connection keeps
   its sent requests.
+- **One process at a time:** a start calls `command(projectFolder)` and starts a process only once the process the
+  lifecycle let go of last (restart, crash, failed or replaced start) has ended; until then it stays `Starting` (or
+  `Restarting`) and asks every 100 ms whether a restart or close replaced it. Ending that process is the bound of the
+  wait, there is no timeout of its own: a restart's `shutdown`/`exit` with the kill after them, a crash's kill, each
+  followed by up to 1 s (the exit wait) for the killed process to be gone; a process still there then is logged at
+  INFO and the start goes on. The old process ends on a thread of its own, never under the lifecycle's lock or on the
+  FX thread. Why: jdtls must not run twice on one data folder (the Lombok restart), and Clean Java Workspace deletes
+  that folder in `command(projectFolder)`, so it must know the old jdtls is gone (ADR 0179); jdtls holds no lock on
+  the folder that could tell. The other servers get the same order at the cost of a few milliseconds per restart.
 - **Close:** `close()` (window close) sends `shutdown`, waits up to 2 s for the answer, sends `exit` (also without
-  an answer), and kills the process with its descendants if it has not ended 1 s later. The processes the server had
-  started when the close began are killed in any case, since a server that exits by itself leaves them behind. One
-  JVM shutdown hook (`LiveServerProcesses`, a registry of the live server processes of all windows) kills the
-  remaining servers and their descendants when the JVM exits.
+  an answer), and kills the process with its descendants if it has not ended 1 s later, waiting up to 1 s more for it
+  to be gone. The processes the server had started when the close began are killed in any case, since a server that
+  exits by itself leaves them behind. One JVM shutdown hook (`LiveServerProcesses`, a registry of the live server
+  processes of all windows) kills the remaining servers and their descendants when the JVM exits.
 - **Trust ([ADR 0053](0053-project-trust.md)):** a server that runs code or tools the project configures
   (`runsProjectCode`) starts only once `TrustGate.awaitAllows(trustCheckId)` says yes, waited for off the FX thread
   and given up when the start is replaced; `ide` passes the window's `ProjectTrust::awaitAllows`. Each language's ADR
@@ -165,6 +175,9 @@ belong to the Python ADR (0144). What the spikes showed about servers in general
   lifecycle are shared, and features in the editor work for every language a server supports.
 - The app carries lsp4j and Gson (about 1 MB).
 - A server that never answers `initialize` holds its session's outbound thread for 30 s; requests sent meanwhile wait.
+- A restart of a server that answers neither `shutdown` nor `exit` starts the next one up to 5 s later (the
+  polite thread is joined for shutdown plus exit, 3 s, then 1 s waiting for the exit and 1 s for the killed process
+  to be gone); requests sent meanwhile wait.
 - Server-initiated edits (`workspace/applyEdit`), dialogs (`window/showMessageRequest`, answered as dismissed) and
   `window/showDocument` are not supported yet.
 - Every change copies part of the document's text and sends one `didChange`; a long Replace All sends many. Ranges
