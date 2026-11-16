@@ -89,11 +89,48 @@ sources while both are imported (accepted; Eclipse and VS Code behave the same).
 `bin/`; a lazy `Directory` property in Gradle 9 and a `File` property in 8.x, so the script sets it by type; the default
 output folder `jdtls-bin/default` is set after the build script ran). Measured with 8.5, 8.14.3 and 9.5.1: classes land
 in `build/jdtls-bin/main|test`, no `bin/`, and no `.project`, `.classpath` or `.settings` in the project. Maven compiles
-into `target/`. After a build's import, Thoreau asks git (`git check-ignore`) whether its output folder is ignored; if
-not, the build's editors show a banner "<folder> isn't ignored by git; jdtls compiles into it." with **Add to
-.gitignore** (a line anchored to the folder, appended to the nearest `.gitignore` from the build root up to the
-repository root, or a new `.gitignore` in the build root; asks first when that file has unsaved changes), Not Now, Don't
-Ask Again. Thoreau never writes into `.git`.
+into `target/`.
+
+**Compiled output and `.gitignore`.** The output is `build/jdtls-bin` (Gradle) or `target` (Maven) of every project
+folder `java.project.getAll` lists below the build root. If git does not ignore it, the build's editors offer a line for
+it.
+- *The rule, exact:* git ignores the output when it shows no untracked, not-ignored file inside the folder, that is
+  `git ls-files --others --exclude-standard -z -- <folders>` (with `--literal-pathspecs`) lists no path under it. Git
+  decides, so `*.class` patterns, a `build/` line, `/target`, negations and global excludes all count. Git lists files,
+  never a folder, so on the session's worker Thoreau first looks for a regular file in each output folder (at most 64
+  levels down and 10,000 entries; links are not followed, and an output folder that is itself a link has none, since
+  git lists the link as one entry that does not match `folder/`) and asks git only about the unanswered folders that
+  have one. A folder that is missing, empty or holds only empty folders is not asked about: git's `[]` for it would
+  not mean "ignored".
+- *When:* once a root's import is done, and again each time a jdtls token titled `Building` ends (the auto-build writes
+  the output then, seen in the P7b traces) while a done root has an output folder without an answer. A real answer of git
+  settles the folders it was asked about, unignored or ignored (`[]`), until the root's next done verdict, and the offer
+  is the unignored ones among the answered folders. No folder with a file yet (a fresh clone, where the import ends
+  before the first build; a subproject added later), no repository, trust keeping git off, or a failure give no answer,
+  and the next `Building` end asks about the folders still unanswered. A root counts as answered only when every output
+  folder is: an aggregator project whose own folder never gets a file costs one file walk per build end and no git
+  call. A root that fails is forgotten.
+- *Where git runs:* the java module may not run git (ADR 0047). It asks through `OutputIgnoreChecks`, which each window
+  fills with `GitStatusService.unignoredFoldersAsync`: the status service's executor, cancellation, trust check
+  (ADR 0053) and followed-repository check. `GitStatusService` follows only a window folder that is itself a
+  repository root, so a build in a nested repository, or in a window folder that is no repository, gets no offer.
+- *The banner:* "build/jdtls-bin isn't ignored by git; jdtls compiles into it." (several folders: "a and b aren't
+  ignored by git; jdtls compiles into them."), with **Add to .gitignore**, **Not Now** (until the window's next session)
+  and **Don't Ask Again** (`java.outputIgnore.declined` in the project's data, for the project in every window). These
+  are the banner's own callbacks: the generic Don't Ask Again is per spec and would also hide the import failures.
+  Importing and failed banners win over it.
+- *Add to .gitignore:* the first regular `.gitignore` from the build root up to the repository root (the window
+  folder), else a new one in the build root (`CREATE_NEW`). One anchored line per folder ending in `/`
+  (`/build/jdtls-bin/`), gitignore specials escaped, a line already present exactly not added again; the file's line
+  ending (CRLF if its first line ends so) and BOM are kept, a missing last newline is added first, and it is replaced
+  through a temp file and `ATOMIC_MOVE` with its permissions. It is refused ("Cannot add to <path>: <reason>") for a
+  symbolic link, a path under any `.git` folder (also the real path of a folder reached through a link), or one not
+  inside the repository root (also by real path). Thoreau never writes into `.git`. After the write the root is checked
+  again; the banner goes once git agrees, and if git still lists a folder (a deeper `.gitignore` negates the line, say) it
+  says "Added to <path>, but git still doesn't ignore <folders>."
+- *Unsaved editor:* an open tab with unsaved edits of that `.gitignore` keeps them and offers Reload or Keep mine when
+  the file changes on disk (editor-tabs.md), so nothing is lost. The plan was to ask first in that case; decided
+  against, since the java module has no view of editors and the write is an explicit click that only appends lines.
 
 **JDK.** The project JDK is `JAVA_HOME` from the login shell (read once per app run, 10 s timeout), else Thoreau's
 environment, else Thoreau's JDK; File → Project Settings… → Java overrides it per project (`java.jdk` in the project's

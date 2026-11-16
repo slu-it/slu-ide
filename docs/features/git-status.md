@@ -52,5 +52,11 @@
   stays). Its filters still run (`git status` runs a clean filter for files whose index entry does not match them).
   And git always works on the opened folder: variables such as `GIT_DIR` or `GIT_INDEX_FILE` that Thoreau may have
   been started with are not passed on ([ADR 0052](../adr/0052-hardening-how-git-is-started.md)).
+- `GitStatusService.unignoredFoldersAsync(folders, done)` answers, for the Java module's offer to ignore jdtls's
+  compiled output ([java.md](java.md)), which of the folders hold untracked files git does not ignore
+  (`git ls-files --others --exclude-standard -z` with `--literal-pathspecs`, so `*.class` lines, a `build/` line and
+  negations count as git decides; a missing or empty folder is not listed). It runs like `ignoreRulesAsync` on the diff
+  thread, newest request per folder list, after the trust check, and answers `null` without a followed repository, for
+  a folder outside it, with git kept off or failing.
 - Not yet implemented: blame, git commands from the IDE, repositories in subfolders or above the
   opened folder.

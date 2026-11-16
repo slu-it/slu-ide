@@ -101,6 +101,27 @@ Gradle imports get an init script that compiles into `<build directory>/jdtls-bi
 `.project`, `.classpath` or `.settings` in the project; Maven compiles into `target/`. `gradle clean` deletes jdtls's
 output, which it builds again.
 
+## Compiled output and .gitignore
+When git does not ignore the output (`build/jdtls-bin` of each Gradle project, `target` of each Maven project below the
+build root), the build's editors show a banner "build/jdtls-bin isn't ignored by git; jdtls compiles into it." (several
+folders: "build/jdtls-bin and app/build/jdtls-bin aren't ignored by git; jdtls compiles into them.") with three buttons:
+- **Add to .gitignore** appends one anchored line per folder (`/build/jdtls-bin/`) to the nearest `.gitignore` from the
+  build root up to the project folder, or creates one in the build root. It keeps the file's line ending and byte order
+  mark, adds no line that is already there, and refuses a symbolic link, a file under `.git` and one that is not inside
+  the repository ("Cannot add to <path>: <reason>" in the banner). The banner goes once git agrees; if git still lists
+  a folder it says "Added to <path>, but git still doesn't ignore <folders>." An open tab with unsaved edits of that
+  file keeps them and offers Reload or Keep mine, as for any change on disk.
+- **Not Now** hides it for that build until the window's next session.
+- **Don't Ask Again** hides it for the project in every window (`java.outputIgnore.declined` in the project's data).
+
+Git decides what is ignored, so `*.class` patterns, a `build/` line, negations and global excludes count; the question is
+whether git shows any untracked, not-ignored file in the folder. Git is asked once a build's import is done and again
+when jdtls finishes a build, but only about output folders that already hold a file: on a fresh clone the folder does
+not exist at the end of the import, and the first build creates it; so does a subproject added later. Each output
+folder is settled by git's answer for it, and the offer is the unignored ones. It works
+only for a project folder that is itself a git repository root, with git trusted (ADR 0053): a build in a nested
+repository gets no offer. The import and failure banners come first.
+
 ## Network
 A trusted import fetches without a click: the build's dependencies and source jars, the Gradle distribution and its
 plugins. This is a decided exception ([safety.md](../safety.md), ADR 0179); nothing else is fetched in the background.
