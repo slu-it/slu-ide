@@ -21,11 +21,14 @@ data class WorkspaceStatus(
  * @property folder the project folder the problem belongs to; "Not Now" is remembered per folder.
  * @property message the notice's text.
  * @property actions what the notice's buttons do, in the order of the buttons; none for a notice without one.
+ * @property dismissible whether the notice has Not Now and Don't Ask Again; `false` for one that only reports progress
+ *   (Java's "Importing …"): "Don't Ask Again" would hide every later problem of the spec too.
  */
 data class EnvironmentProblem(
     val folder: Path,
     val message: String,
     val actions: List<ProblemAction> = emptyList(),
+    val dismissible: Boolean = true,
 )
 
 /** A button of an environment notice (ADR 0179). */

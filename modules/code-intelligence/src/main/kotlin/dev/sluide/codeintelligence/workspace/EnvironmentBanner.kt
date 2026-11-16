@@ -16,7 +16,9 @@ import java.nio.file.Path
 
 /**
  * The environment banner of a bound editor (ADR 0151), looking like the server banners: the problem's message with
- * the action's button (Run uv sync), Not Now and Don't Ask Again, above the text while there is a problem. FX thread.
+ * the action's button (Run uv sync), Not Now and Don't Ask Again (not for a problem that is not
+ * [dismissible][EnvironmentProblem.dismissible]), above the text while there is a problem. A problem that differs from
+ * the shown one only in its message changes the label's text in place. FX thread.
  */
 internal class EnvironmentBanner(
     private val editor: ExtensibleCodeEditor,
@@ -26,9 +28,17 @@ internal class EnvironmentBanner(
     private var shown: EnvironmentProblem? = null
     private val subscription = model.problem.subscribe { problem -> render(problem) }
 
+    private var label: Label? = null
+
     private fun render(problem: EnvironmentProblem?) {
         if (problem == shown) return
+        val before = shown
         shown = problem
+        // A message that changes by itself (a running clock) updates its label: a rebuilt banner loses a click and the hover.
+        if (before != null && problem != null && before.copy(message = problem.message) == problem) {
+            label?.text = problem.message
+            return
+        }
         handle?.close()
         handle = null
         if (problem == null) return
@@ -38,21 +48,25 @@ internal class EnvironmentBanner(
                 alignment = Pos.CENTER_LEFT
                 id = "code-intelligence-environment"
             }
+        val messageLabel =
+            Label(problem.message).apply {
+                isWrapText = true
+                minWidth = 0.0
+            }
+        label = messageLabel
         banner.children +=
-            listOf(
-                Label(problem.message).apply {
-                    isWrapText = true
-                    minWidth = 0.0
-                },
-                Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-            ) +
+            listOf(messageLabel, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }) +
             problem.actions.mapIndexed { index, action ->
                 button(action.label, "environment-action-$index") { model.run(action) }
             } +
-            listOf(
-                button("Not Now", "environment-not-now", model::notNow),
-                button("Don't Ask Again", "environment-dont-ask", model::dontAskAgain),
-            )
+            if (problem.dismissible) {
+                listOf(
+                    button("Not Now", "environment-not-now", model::notNow),
+                    button("Don't Ask Again", "environment-dont-ask", model::dontAskAgain),
+                )
+            } else {
+                emptyList()
+            }
         handle = editor.addBanner(banner)
     }
 
