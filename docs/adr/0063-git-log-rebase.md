@@ -1,7 +1,8 @@
 # 0063. Git log rebases the current branch onto another branch; a stopped rebase is continued, skipped or aborted
 
 - Status: accepted; amended by [0106](0106-git-log-pull.md) (a stash git keeps is told after Continue, Skip and
-  Abort; pulls rebase with the fork point and `--autostash`)
+  Abort; pulls rebase with the fork point and `--autostash`; the header's groups by
+  [0182](0182-header-stash-and-pop.md))
 - Date: 2026-10-19
 
 ## Context
@@ -101,9 +102,10 @@ Git 2.53 behaves as follows (checked in tests, `GitRebasesTest`):
   ADR 0181) reads this itself (`git remote`, the current branch, `HEAD`; local, no fetch) on open and on every refresh
   while collapsed (while expanded the pages' own read sets it); an answer overtaken by a newer open, refresh or read
   is dropped.
-- The header has three groups, one button width apart (2026-11-16): tooling for the current state (Review Branch),
+- The header has four groups, one button width apart (2026-11-16): tooling for the current state (Review Branch),
   actions that move or start a local branch (this button and Fetch and New Branch,
-  [0181](0181-new-branch-from-origin-default.md)), and the remote round trip (Push, Pull, Fetch, Refresh). The
+  [0181](0181-new-branch-from-origin-default.md)), putting local changes aside and back (Stash, Pop,
+  [0182](0182-header-stash-and-pop.md)), and the remote round trip (Push, Pull, Fetch, Refresh). The
   header sets the margins before each layout from the Refresh button's preferred width, so they hold from the first
   layout on. All its buttons are outlined alike and show their tooltips after 250 ms (other tooltips keep JavaFX's
   1 s).

@@ -1,7 +1,7 @@
 # 0181. Header quick action: fetch origin and create a new branch from its default branch
 
-- Status: accepted; see [0063](0063-git-log-rebase.md), [0041](0041-git-write-operations.md) and
-  [0043](0043-git-log-fetch.md)
+- Status: accepted; amended by [0182](0182-header-stash-and-pop.md); see [0063](0063-git-log-rebase.md),
+  [0041](0041-git-write-operations.md) and [0043](0043-git-log-fetch.md)
 - Date: 2026-11-16
 
 ## Context
@@ -30,7 +30,8 @@ Starting work usually means: fetch, then branch off `origin`'s default branch. T
   branch do not disable it (unlike the rebase). `QuickActionsState` (formerly `QuickRebaseState`) reads it also while
   the area is collapsed, like the rebase state, with the same overtaken-answer rules.
 - It sits in the header's middle group right after the rebase button: Review Branch | Fetch and Rebase, Fetch and New
-  Branch | Push, Pull, Fetch, Refresh; the one-button gap follows it, none follows the rebase button.
+  Branch | Push, Pull, Fetch, Refresh; the one-button gap follows it, none follows the rebase button. A fourth group
+  (Stash, Pop) comes between this one and the remote group ([0182](0182-header-stash-and-pop.md)).
 - A header button only: no menu item and no key binding.
 
 ## Consequences

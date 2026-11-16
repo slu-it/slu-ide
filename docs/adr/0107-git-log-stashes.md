@@ -4,6 +4,7 @@
   [0042](0042-git-log-commit-operations.md) (unmerged paths outside an operation show in the bar) and
   [0062](0062-git-concurrency.md) and [0013](0013-git-status.md) (`.git/refs` is watched too)
 - Date: 2026-10-28
+- See also: [0182](0182-header-stash-and-pop.md) (header buttons for Stash and Pop)
 
 ## Context
 Merging and pulling stash local changes with git's `--autostash` ([ADR 0105](0105-git-log-merge.md), [ADR

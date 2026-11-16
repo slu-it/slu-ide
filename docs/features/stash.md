@@ -40,6 +40,13 @@ the log's bar. Git commands, threads and the question about unsaved editors are 
 - **Git menu:** after Pull…, a separator, "Stash Changes…" and "Pop Latest Stash" (no shortcuts), disabled like the
   other Git items while the git log has no repository. Pop Latest Stash reads the stashes first, also with the log
   collapsed: "No stashes to pop." without one, else the pop of `stash@{0}` as above.
+- **Header buttons:** Stash (archive-arrow-down icon, "Stash Changes with Untracked Files") stashes everything at one
+  click, untracked files included, with git's own message and no dialog, after the question about unsaved editors
+  ([ADR 0182](../adr/0182-header-stash-and-pop.md)); "No local changes to stash." if git finds none (also for a
+  submodule with only new content). It is enabled with a repository shown, no operation running, nothing pending in the
+  bar and local changes in the window's git status. Pop (archive-arrow-up icon, tooltip
+  "Pop Latest Stash (3 stashes)") is Pop Latest Stash, enabled while a stash exists, no operation runs and nothing is
+  pending in the bar; it knows the stashes also with the log collapsed.
 - **Commit tab:** "Stash Checked Files…" next to the commit buttons, enabled with at least one checked file while no
   operation runs and nothing blocks committing: the same dialog, "Stash 3 checked files of 'feature'", without the
   untracked checkbox; exactly the checked files are stashed (a renamed file with its old path too), unversioned ones
