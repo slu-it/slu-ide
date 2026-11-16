@@ -101,6 +101,30 @@ class JdtlsRealServerTest {
     }
 
     @Test
+    fun `Clean while jdtls runs restarts it on fresh data and the import ends done again`() {
+        val window = Files.createDirectories(dir.resolve("clean-work"))
+        window.resolve("pom.xml").file(validPom())
+        val a = window.resolve("src/main/java/p/A.java").file(emptyClass)
+        val data = JavaWorkspaces(dir.resolve("workspaces")).folderFor(window).resolve("data")
+        val marker = data.resolve("marker")
+
+        withServer(window) { servers, spec ->
+            onFx { servers.session(spec).documents.open(a, "java", emptyClass) }
+            awaitImported(servers, spec, window)
+            marker.file("old")
+
+            onFx { spec.cleanRunning(window) }
+
+            // The new start's command runs only after the old process ended (ADR 0142) and deletes the data first.
+            awaitCondition("the old data to be deleted before the new start") { !Files.exists(marker) }
+            awaitImported(servers, spec, window)
+            assertIs<ImportState.Done>(awaitImportState(spec, window) { it is ImportState.Done })
+            assertTrue(Files.isDirectory(data.resolve(".metadata")), "jdtls wrote into the recreated data folder")
+            assertFalse(spec.stateOf(window).cleanPending.get())
+        }
+    }
+
+    @Test
     fun `a Gradle build compiles into build jdtls-bin and leaves no bin folder`() {
         val started = System.nanoTime()
         val window = Files.createDirectories(dir.resolve("gradle-work"))
