@@ -246,4 +246,18 @@ class GitCommandLogTest {
         assertTrue("https://***@host.example/x.git ssh://***@h/y git@host:z https://h/p" in text, text)
         assertTrue("s3cret" !in text && "user" !in text, text)
     }
+
+    @Test
+    fun `the credentials in a failure message and in a transport address are not logged either`() {
+        val git =
+            fakeGit(
+                "echo \"fatal: could not set 'remote.o.url' to 'https://user:s3cret@h.example/x'\" >&2; exit 128",
+            )
+        git.write(folder, listOf("marker-msg", "hg::https://tok3n:pw0rd@h/r"))
+
+        val text = lines("marker-msg").joinToString("\n") { it.second }
+        assertTrue("https://***@h.example/x" in text, text)
+        assertTrue("hg::https://***@h/r" in text, text)
+        assertTrue(listOf("s3cret", "user:", "tok3n", "pw0rd").none { it in text }, text)
+    }
 }

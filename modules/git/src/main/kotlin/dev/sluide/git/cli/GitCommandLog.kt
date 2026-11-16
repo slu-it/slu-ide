@@ -1,6 +1,7 @@
 package dev.sluide.git.cli
 
 import dev.sluide.git.withoutUserinfo
+import dev.sluide.git.withoutUserinfoIn
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.nio.file.Path
@@ -94,10 +95,13 @@ internal object GitCommandLog {
     internal fun size(bytes: Int): String =
         if (bytes < 1024) "$bytes bytes" else String.format(Locale.ROOT, "%.1f KB", bytes / 1024.0)
 
-    /** The message of git as one short line: first lines, newlines shown as ` | `. */
+    /**
+     * The message of git as one short line: first lines, newlines shown as ` | `, the credentials of the URLs in it
+     * hidden (git repeats the URL it was given in some failures).
+     */
     internal fun message(text: String): String =
         truncate(
-            text
+            withoutUserinfoIn(text, "***")
                 .trim()
                 .lines()
                 .filter { it.isNotBlank() }

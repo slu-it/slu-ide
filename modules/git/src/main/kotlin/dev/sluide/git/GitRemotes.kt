@@ -1,13 +1,18 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.configMatching
 import dev.sluide.git.cli.configValues
 import dev.sluide.git.cli.fetchEnvironment
 import dev.sluide.git.cli.refTips
+import dev.sluide.git.cli.refspecsFollowRename
 import dev.sluide.git.cli.refusal
 import dev.sluide.git.cli.remoteNames
+import dev.sluide.git.cli.remoteRefNames
 import dev.sluide.git.cli.remotesSkippedByFetchAll
+import dev.sluide.git.cli.removedRefs
 import dev.sluide.git.cli.sshConfigured
+import dev.sluide.git.cli.unsetPushUrls
 import dev.sluide.git.parse.RefspecDestination
 import dev.sluide.git.parse.refspecDestinations
 import org.springframework.stereotype.Component
@@ -46,6 +51,145 @@ class GitRemotes(
         if (refusal(remote) != null) return null
         return git.configValues(root, "remote.$remote.url")?.firstOrNull()
     }
+
+    /**
+     * Adds the remote [name] with [url] (`git remote add --end-of-options <name> <url>`); a name that cannot be passed
+     * to git ([refusal]) fails without running git. Git refuses a taken name and one that is a path prefix of another
+     * remote's name or has it as one: dialogs check [GitRefNames.isValidRemoteName] and
+     * [GitRefNames.remoteNameConflict] first. The URL may start with `-` and may hold credentials: never log or show
+     * it.
+     */
+    fun add(
+        root: Path,
+        name: String,
+        url: String,
+    ): GitResult {
+        refusal(name)?.let { return GitResult(false, it) }
+        return git.write(root, listOf("remote", "add", "--end-of-options", name, url)).masking(url)
+    }
+
+    /**
+     * This result with each of [urls] in its message replaced by its [maskedUrl]: git repeats the URL it was given in
+     * its failure messages (`could not set 'remote.o.url' to 'https://user:token@…'`).
+     */
+    private fun GitResult.masking(vararg urls: String?): GitResult =
+        urls.filterNotNull().filter(String::isNotBlank).let { passed ->
+            copy(message = passed.fold(message) { text, url -> text.replace(url, maskedUrl(url)) })
+        }
+
+    /**
+     * Renames the remote [old] to [new] (`git remote rename`): its configuration, its remote branches (`HEAD` too),
+     * the `branch.<b>.remote` and `pushRemote` of branches and `remote.pushDefault`. Git does not refuse a name that
+     * conflicts with another remote as a path prefix: callers check [GitRefNames.remoteNameConflict]. Fetch refspecs
+     * that are negative or write outside `refs/remotes/<old>/` stay as they are ([GitRemoteRename.refspecsUpdated],
+     * read before git runs). If git fails after it renamed the configuration but before it moved the refs, the result
+     * is [partial][GitRemoteRename.partial]. A name that cannot be passed to git ([refusal]) fails without running git.
+     */
+    fun rename(
+        root: Path,
+        old: String,
+        new: String,
+    ): GitRemoteRename {
+        (refusal(old) ?: refusal(new))?.let { return GitRemoteRename(GitResult(false, it), refspecsUpdated = false) }
+        val refspecs = git.configValues(root, "remote.$old.fetch")
+        val updated = refspecs != null && refspecsFollowRename(refspecs, old)
+        val result = git.write(root, listOf("remote", "rename", "--end-of-options", old, new))
+        if (result.success) return GitRemoteRename(result, updated)
+        val names = git.remoteNames(root)
+        return GitRemoteRename(result, updated, partial = names != null && new in names && old !in names)
+    }
+
+    /**
+     * Removes the remote [name] (`git remote remove`): its configuration, the remote branches its refspecs write and
+     * the upstream and push remote settings that name it; [removal] says what that is. Local branches and tags stay.
+     */
+    fun remove(
+        root: Path,
+        name: String,
+    ): GitResult {
+        refusal(name)?.let { return GitResult(false, it) }
+        return git.write(root, listOf("remote", "remove", "--end-of-options", name))
+    }
+
+    /**
+     * Changes the URLs of the remote [name]: [url] and [pushUrl], `null` keeps the value; [removePushUrl] removes all
+     * push URLs (and [pushUrl] is then ignored). Git cannot change a key with several values: callers leave such a
+     * field alone ([GitRemoteUrls.severalUrls]); the first failing step stops the rest. A name that cannot be passed to
+     * git ([refusal]) fails without running git. The URLs may hold credentials: never log or show them.
+     */
+    fun setUrls(
+        root: Path,
+        name: String,
+        url: String?,
+        pushUrl: String?,
+        removePushUrl: Boolean,
+    ): GitResult {
+        refusal(name)?.let { return GitResult(false, it) }
+        if (url != null) {
+            val changed = git.write(root, listOf("remote", "set-url", "--end-of-options", name, url)).masking(url)
+            if (!changed.success) return changed
+        }
+        if (removePushUrl) return git.unsetPushUrls(root, name)
+        if (pushUrl == null) return GitResult(true, "")
+        return git
+            .write(
+                root,
+                listOf("remote", "set-url", "--push", "--end-of-options", name, pushUrl),
+            ).masking(pushUrl)
+    }
+
+    /**
+     * The URLs of the remote [name] for an edit dialog; `null` if the name cannot be passed to git ([refusal]) or git
+     * fails. The URLs may hold credentials: show them only through [maskedUrl].
+     */
+    fun urls(
+        root: Path,
+        name: String,
+    ): GitRemoteUrls? {
+        if (refusal(name) != null) return null
+        val urls = git.configValues(root, "remote.$name.url") ?: return null
+        val pushUrls = git.configValues(root, "remote.$name.pushurl") ?: return null
+        return GitRemoteUrls(urls.firstOrNull(), pushUrls.firstOrNull(), urls.size > 1, pushUrls.size > 1)
+    }
+
+    /**
+     * What removing the remote [name] would delete and unset ([GitRemoteRemoval]), counted by the rule of `git remote
+     * remove` (see [removedRefs]); `null` if the name cannot be passed to git ([refusal]) or git fails.
+     */
+    fun removal(
+        root: Path,
+        name: String,
+    ): GitRemoteRemoval? {
+        if (refusal(name) != null) return null
+        val fetchSpecs = remoteValues(root, "fetch") ?: return null
+        val refs = git.remoteRefNames(root) ?: return null
+        val branches = git.configMatching(root, "^branch\\..*\\.(remote|pushremote)$") ?: return null
+        val pushDefault = git.configValues(root, "remote.pushDefault") ?: return null
+        val tracking =
+            branches
+                .filter { it.second == name }
+                .map { it.first.removePrefix("branch.").substringBeforeLast('.') }
+                .distinct()
+                .sorted()
+        val deleted = removedRefs(name, fetchSpecs, refs) - "refs/remotes/$name/HEAD"
+        return GitRemoteRemoval(deleted.size, tracking, pushDefault.lastOrNull() == name)
+    }
+
+    /**
+     * Where each remote with a URL of the repository at [root] is, by name ([remoteLocation] of its first URL: scheme
+     * and host only), read with one `git config`; `null` if git fails. Full URLs never leave this module.
+     */
+    fun locations(root: Path): Map<String, String>? =
+        remoteValues(root, "url")?.mapValues { (_, urls) -> remoteLocation(urls.first()) }
+
+    /** The values of `remote.<name>.<variable>` of every remote, by name (as written, also with dots and `/`). */
+    private fun remoteValues(
+        root: Path,
+        variable: String,
+    ): Map<String, List<String>>? =
+        git
+            .configMatching(root, "^remote\\..*\\.$variable$")
+            ?.groupBy({ it.first.removePrefix("remote.").removeSuffix(".$variable") }, { it.second })
 
     /**
      * The remotes of the repository at [root] that fetching all of them fetches, in git's order: all but those with
