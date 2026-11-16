@@ -108,10 +108,10 @@ internal class WindowGitLog(
 
     /**
      * The status changed: the Commit tab lists what can be committed (ADR 0048), and the review windows check whether
-     * theirs changed (ADR 0168).
+     * theirs changed (ADR 0168); the header's Stash is on while there are local changes (ADR 0182).
      */
     fun workingTreeChanged() {
-        gitLogView.workingTreeChanged(false)
+        gitLogView.workingTreeChanged(gitStatus.snapshot.get().hasLocalChanges)
         reviewWindows.repositoryChanged()
     }
 

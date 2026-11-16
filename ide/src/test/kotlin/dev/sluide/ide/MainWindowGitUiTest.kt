@@ -56,6 +56,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -468,6 +469,26 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         robot.interact { gitLogView.onWriteFinished() }
 
         eventually(robot) { assertEquals(listOf("Two", "One"), shownSubjects(robot)) }
+    }
+
+    @Test
+    fun `the window's git status enables the header's Stash while there are local changes`(robot: FxRobot) {
+        assumeTrue(git.available, "git is not installed")
+        runGit("init", "-q")
+        project.resolve("tracked.md").writeText("one\n")
+        runGit("add", ".")
+        runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "Initial commit")
+        robot.interact { projectService.open(project) }
+        val stash = robot.lookup(".git-log-stash").queryAs(Button::class.java)
+
+        // A real read first (the empty snapshot before it has no local changes either): a clean repository has
+        // nothing to stash.
+        eventually(robot) { assertNotNull(gitStatus.snapshot.get().head) }
+        robot.interact { assertTrue(stash.isDisable) }
+
+        project.resolve("tracked.md").writeText("two\n")
+        gitStatus.refresh()
+        eventually(robot) { assertFalse(stash.isDisable) }
     }
 
     @Test
