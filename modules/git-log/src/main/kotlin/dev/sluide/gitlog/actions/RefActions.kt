@@ -28,6 +28,7 @@ import dev.sluide.gitlog.operations.FORCE_DELETE_BUTTON
 import dev.sluide.gitlog.operations.MergeBranch
 import dev.sluide.gitlog.operations.MergeDialog
 import dev.sluide.gitlog.operations.NewBranchDialog
+import dev.sluide.gitlog.operations.NewBranchPrompt
 import dev.sluide.gitlog.operations.NewTagDialog
 import dev.sluide.gitlog.operations.PUSH_BUTTON
 import dev.sluide.gitlog.operations.PickCommit
@@ -312,6 +313,10 @@ internal class RefActions(
             pull(prompt)
             return
         }
+        outcome.newBranch?.let { prompt ->
+            newBranch(prompt)
+            return
+        }
         outcome.next?.let { next ->
             start(next)
             return
@@ -378,14 +383,36 @@ internal class RefActions(
         startPoint: String,
         startLabel: String,
     ) {
-        val existing = refNames(GitRefKind.LOCAL_BRANCH)
-        val current = pages.refs?.currentBranch?.removePrefix("refs/heads/")
         val tips =
             pages.refs
                 ?.refs
                 .orEmpty()
                 .filter { it.kind == GitRefKind.LOCAL_BRANCH }
                 .associate { it.shortName to it.commit }
+        val current = pages.refs?.currentBranch?.removePrefix("refs/heads/")
+        askNewBranch(tips, current, "New Branch", startPoint, startLabel, noTrack = false)
+    }
+
+    /** The New Branch dialog of the header's quick action, after its fetch (ADR 0181). */
+    private fun newBranch(prompt: NewBranchPrompt) =
+        askNewBranch(
+            prompt.tips,
+            prompt.current,
+            "New Branch from ${prompt.startLabel}",
+            prompt.startPoint,
+            prompt.startLabel,
+            noTrack = true,
+        )
+
+    private fun askNewBranch(
+        tips: Map<String, String>,
+        current: String?,
+        title: String,
+        startPoint: String,
+        startLabel: String,
+        noTrack: Boolean,
+    ) {
+        val existing = tips.keys
         val dialog =
             NewBranchDialog(
                 window(),
@@ -393,9 +420,10 @@ internal class RefActions(
                     nameProblem(name, RefNameKind.BRANCH, existing, writes::canPass, overwrite, current = current)
                 },
                 { name, overwrite -> overwriteNote(name, overwrite, tips) },
+                title,
             )
         val branch = dialog.showAndWait().orElse(null) ?: return
-        start(CreateBranch(branch.name, startPoint, branch.checkout, branch.overwrite, startLabel))
+        start(CreateBranch(branch.name, startPoint, branch.checkout, branch.overwrite, startLabel, noTrack = noTrack))
     }
 
     /**

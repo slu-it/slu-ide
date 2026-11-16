@@ -1,6 +1,8 @@
 package dev.sluide.gitlog.area
 
 import dev.sluide.git.GitRefs
+import dev.sluide.gitlog.data.GitLogSource
+import dev.sluide.gitlog.data.GitLogWrites
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper
 import java.nio.file.Path
@@ -90,3 +92,19 @@ internal class QuickActionsState(
         }
     }
 }
+
+/** The [QuickActionsState] reading through [source] and [writes]. */
+internal fun quickActionsState(
+    source: GitLogSource,
+    writes: GitLogWrites,
+    expanded: () -> Boolean,
+    background: (Runnable) -> Unit,
+    dispatch: (Runnable) -> Unit,
+) = QuickActionsState(
+    { root -> source.remotes(root) },
+    { root -> writes.currentBranch(root) },
+    { root -> source.headCommit(root) },
+    expanded,
+    background,
+    dispatch,
+)

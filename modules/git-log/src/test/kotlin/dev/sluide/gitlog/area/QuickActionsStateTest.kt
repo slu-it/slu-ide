@@ -9,7 +9,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** The header's rebase and new branch state read while the log is collapsed (ADR 0063), with reads run when the test says so. */
+/**
+ * The header's rebase and new branch state (ADRs 0063, 0181) read while the log is collapsed, with reads run when the
+ * test says so.
+ */
 class QuickActionsStateTest {
     private val repo = Path.of("/repo")
     private val other = Path.of("/other")

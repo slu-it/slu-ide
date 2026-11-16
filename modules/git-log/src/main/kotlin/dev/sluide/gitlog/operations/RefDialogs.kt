@@ -97,7 +97,8 @@ internal class NewBranchDialog(
     owner: Window?,
     private val validate: (name: String, overwrite: Boolean) -> String?,
     private val note: (name: String, overwrite: Boolean) -> String? = { _, _ -> null },
-) : RefNameDialog<NewBranch>(owner, "New Branch", "", CREATE_BUTTON) {
+    title: String = "New Branch",
+) : RefNameDialog<NewBranch>(owner, title, "", CREATE_BUTTON) {
     val checkout =
         CheckBox("Checkout branch").apply {
             styleClass += "git-ref-checkout"

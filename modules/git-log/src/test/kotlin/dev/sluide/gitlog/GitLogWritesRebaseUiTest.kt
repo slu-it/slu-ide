@@ -21,6 +21,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -237,6 +238,32 @@ class GitLogWritesRebaseUiTest : GitLogWritesUiFixture() {
     }
 
     @Test
+    fun `a closed view's late header read changes no button`(robot: FxRobot) {
+        robot.interact { view.open(repo) }
+        eventually { assertFalse(view.newBranchDefaultButton.isDisable) }
+        eventually { assertFalse(view.rebaseDefaultButton.isDisable) }
+
+        // A refresh reads origin gone, but its read is held until the view is closed.
+        currentRemotes = listOf("upstream")
+        val gate = CountDownLatch(1)
+        remotesGate = gate
+        val entered = CountDownLatch(1)
+        remotesEntered = entered
+        robot.interact { view.refresh() }
+        // Closing drops a read that did not start yet; the late answer must be one that was under way.
+        assertTrue(entered.await(10, TimeUnit.SECONDS), "the refresh's read started")
+        robot.interact { view.close() }
+        gate.countDown()
+
+        // No signal tells that a dropped answer was dropped: give the late dispatch time to show up.
+        Thread.sleep(300)
+        robot.interact {
+            assertFalse(view.newBranchDefaultButton.isDisable)
+            assertFalse(view.rebaseDefaultButton.isDisable)
+        }
+    }
+
+    @Test
     fun `the header's quick rebase is off without an origin remote`(robot: FxRobot) {
         currentRemotes = listOf("upstream")
         openAndExpand(robot)
@@ -245,12 +272,15 @@ class GitLogWritesRebaseUiTest : GitLogWritesUiFixture() {
     }
 
     @Test
-    fun `the header's quick rebase is off while something is pending or an operation runs`(robot: FxRobot) {
+    fun `the header's quick rebase and new branch are off while something is pending or an operation runs`(
+        robot: FxRobot,
+    ) {
         pending = GitPendingRebase("feature", onto, stopped, 3, 7, listOf("a.txt"))
         writes.inProgress = pending
         openAndExpand(robot)
         eventually { assertTrue(view.pendingBar.isVisible) }
         eventually { assertTrue(view.rebaseDefaultButton.isDisable, "off while a rebase is pending") }
+        eventually { assertTrue(view.newBranchDefaultButton.isDisable, "new branch off while a rebase is pending") }
 
         // With nothing pending, a running operation (a fetch held at the gate) turns it off, the end on again.
         pending = null
@@ -261,8 +291,10 @@ class GitLogWritesRebaseUiTest : GitLogWritesUiFixture() {
         fire(robot, view.fetchButton)
         eventually { assertTrue(view.cancelButton.isVisible) }
         robot.interact { assertTrue(view.rebaseDefaultButton.isDisable, "off while an operation runs") }
+        robot.interact { assertTrue(view.newBranchDefaultButton.isDisable, "new branch off while an operation runs") }
 
         writes.gate?.countDown()
         eventually { assertFalse(view.rebaseDefaultButton.isDisable) }
+        eventually { assertFalse(view.newBranchDefaultButton.isDisable) }
     }
 }

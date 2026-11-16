@@ -43,6 +43,8 @@ class HeaderBarUiTest {
                 {},
                 off,
                 {},
+                off,
+                {},
                 {},
                 {},
                 {},
@@ -75,6 +77,7 @@ class HeaderBarUiTest {
                 listOf(
                     bar.reviewButton,
                     bar.rebaseDefaultButton,
+                    bar.newBranchDefaultButton,
                     bar.pushButton,
                     bar.pullButton,
                     bar.fetchButton,
@@ -88,7 +91,10 @@ class HeaderBarUiTest {
         }
     }
 
-    /** Review | Fetch and Rebase | Push, Pull, Fetch, Refresh: one button width between the groups. FX thread. */
+    /**
+     * Review | Fetch and Rebase, Fetch and New Branch | Push, Pull, Fetch, Refresh: one button width between the
+     * groups, the spacing within one. FX thread.
+     */
     private fun assertGroups() {
         fun gap(
             left: Node,
@@ -96,7 +102,8 @@ class HeaderBarUiTest {
         ) = right.boundsInParent.minX - left.boundsInParent.maxX
         val width = bar.refreshButton.width
         assertEquals(width, gap(bar.reviewButton, bar.rebaseDefaultButton), 1.0)
-        assertEquals(width, gap(bar.rebaseDefaultButton, bar.pushButton), 1.0)
+        assertEquals(bar.node.spacing, gap(bar.rebaseDefaultButton, bar.newBranchDefaultButton), 0.5)
+        assertEquals(width, gap(bar.newBranchDefaultButton, bar.pushButton), 1.0)
         assertEquals(bar.node.spacing, gap(bar.pushButton, bar.pullButton), 0.5)
     }
 

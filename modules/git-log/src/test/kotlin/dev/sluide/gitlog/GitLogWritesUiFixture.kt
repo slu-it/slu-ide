@@ -88,6 +88,14 @@ abstract class GitLogWritesUiFixture {
     @Volatile
     internal var currentRemotes: List<String>? = listOf("origin")
 
+    /** Counted down when a read of the remotes starts, before it waits for [remotesGate]. */
+    @Volatile
+    internal var remotesEntered: CountDownLatch? = null
+
+    /** Holds the next read of the remotes until it is counted down, `null` for none. */
+    @Volatile
+    internal var remotesGate: CountDownLatch? = null
+
     /** What git is in the middle of, as the source reads it (a cherry-pick, revert, rebase, ...). */
     @Volatile
     internal var pending: GitInProgress? = null
@@ -204,7 +212,14 @@ abstract class GitLogWritesUiFixture {
                 override fun remotes(
                     root: Path,
                     cancellation: GitCancellation?,
-                ) = currentRemotes
+                ): List<String>? {
+                    val answer = currentRemotes
+                    remotesEntered?.countDown()
+                    // Held until the test says so; a closing view may interrupt the wait, the answer is given anyway.
+                    runCatching { remotesGate?.await(10, TimeUnit.SECONDS) }
+                    remotesGate = null
+                    return answer
+                }
 
                 override fun stashes(
                     root: Path,

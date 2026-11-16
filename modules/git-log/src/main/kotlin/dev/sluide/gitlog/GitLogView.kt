@@ -20,8 +20,8 @@ import dev.sluide.gitlog.area.CompareBar
 import dev.sluide.gitlog.area.GO_TO
 import dev.sluide.gitlog.area.HeaderBar
 import dev.sluide.gitlog.area.HeaderStatus
-import dev.sluide.gitlog.area.QuickActionsState
 import dev.sluide.gitlog.area.endMessage
+import dev.sluide.gitlog.area.quickActionsState
 import dev.sluide.gitlog.branches.BranchesPane
 import dev.sluide.gitlog.branches.branchCommands
 import dev.sluide.gitlog.branches.branchMenus
@@ -40,6 +40,7 @@ import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.PULL_WAITS
 import dev.sluide.gitlog.operations.PendingBar
 import dev.sluide.gitlog.operations.PopLatestStash
+import dev.sluide.gitlog.operations.PrepareNewBranchFromDefault
 import dev.sluide.gitlog.operations.RebaseOntoOriginDefault
 import dev.sluide.gitlog.table.CommitTable
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
@@ -237,16 +238,8 @@ class GitLogView internal constructor(
     /** Whether the last read found no remote to fetch; `false` while that is not known (ADR 0043). */
     private val noRemotes = SimpleBooleanProperty(false)
 
-    /** Whether the header's rebase onto origin's default branch may start; read also while collapsed (ADR 0063). */
-    private val quickActions =
-        QuickActionsState(
-            { root -> source.remotes(root) },
-            { root -> writes.currentBranch(root) },
-            { root -> source.headCommit(root) },
-            { expanded.get() },
-            readers.logReads,
-            dispatch,
-        )
+    /** Whether the header's quick actions may start; read also while collapsed (ADRs 0063, 0181). */
+    private val quickActions = quickActionsState(source, writes, { expanded.get() }, readers.logReads, dispatch)
 
     /** Whether the log shows a repository; the review window reports an unborn `HEAD` itself (ADR 0168). */
     private val hasRepository = SimpleBooleanProperty(false)
@@ -405,6 +398,8 @@ class GitLogView internal constructor(
             { onReview(ReviewRequest.Branch("HEAD")) },
             { actions.start(RebaseOntoOriginDefault()) },
             Bindings.or(Bindings.or(actions.running, pendingBar.busy), quickActions.rebasePossible.not()),
+            { actions.start(PrepareNewBranchFromDefault()) },
+            Bindings.or(Bindings.or(actions.running, pendingBar.busy), quickActions.newBranchPossible.not()),
             ::refresh,
             { actions.start(Fetch()) },
             ::showPush,
@@ -414,6 +409,7 @@ class GitLogView internal constructor(
     internal val header: HBox get() = headerBar.node
     internal val refreshButton get() = headerBar.refreshButton
     internal val rebaseDefaultButton get() = headerBar.rebaseDefaultButton
+    internal val newBranchDefaultButton get() = headerBar.newBranchDefaultButton
     internal val fetchButton get() = headerBar.fetchButton
     internal val pushButton get() = headerBar.pushButton
     internal val pullButton get() = headerBar.pullButton
@@ -567,7 +563,7 @@ class GitLogView internal constructor(
      * Loads the first page again now if [expanded], else the next time it is expanded; keeps the selection by hash.
      * Called for the Refresh button and for changes in `.git`, after which `HEAD`'s tree is read again too. The file
      * histories and the Commit tab read again as well, now if shown, else when shown next. Only what the header's
-     * rebase button needs is read now also while collapsed (local, no fetch; [quickActions]).
+     * rebase and new branch buttons need is read now also while collapsed (local, no fetch; [quickActions]).
      */
     fun refresh() {
         // The tree may have changed: read again when the path popup is shown next.
