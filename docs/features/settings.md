@@ -108,4 +108,10 @@
   and reads "Looking for JDKs…". Paths and versions are shown on one line (control characters become `?`, long values
   are cut); when looking for JDKs fails, "Cannot look for JDKs: <reason>" shows under the field, which is then
   enabled and empty. OK stores the choice in the project data (`java.jdk`, `JavaProjectSettings.setJdk`), and writes
-  nothing when it is the one loaded; the running Java language server picks a change up at once.
+  nothing when it is the one loaded; the running Java language server picks a change up at once. Below it, **Clean
+  Java Workspace…** with the note "Deletes jdtls's index and imported project data of this project; jdtls restarts and
+  imports the open builds again." Clicking asks "Delete jdtls's workspace data of <window folder name>? Its index and
+  imported project models are deleted permanently; jdtls imports the builds again." (title "Clean Java Workspace",
+  buttons Clean and Cancel, Cancel default and focused). Clean acts at once, not on OK or Apply, and the dialog stays
+  open; under the button: "Cleaned: jdtls restarts and imports the builds again." when jdtls ran, "Cleaned." when it did
+  not, "Cannot clean: <reason>" on failure; loading the page clears it.

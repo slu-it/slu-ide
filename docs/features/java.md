@@ -80,6 +80,17 @@ running server at once. Thoreau does not choose a JDK a Gradle version can run o
 When an imported build's build files mention Lombok, jdtls restarts once for the window with the pinned Lombok jar as
 its agent.
 
+## Clean Java Workspace
+File → Project Settings… → Java has **Clean Java Workspace…**, which deletes jdtls's data folder of the project
+(`<workspace folder>/data`: its index and imported project models; `project-path.txt`, the config copy and the Gradle
+init script stay). It asks first, with Cancel as the default, and acts at once (not on OK). While jdtls runs, the
+server restarts and the delete happens before its next start: the language-server lifecycle calls `command` only after
+the process it replaced has ended (ADR 0142), so nothing uses the folder, and the open builds import again. Without a
+running jdtls the folder is deleted directly. A delete that fails while jdtls runs is only logged, and jdtls starts on
+what is left. The page answers "Cleaned: jdtls restarts and imports the builds again.",
+"Cleaned." or "Cannot clean: <reason>". Known limit: a window that closed a moment ago may have its jdtls exiting for
+a few seconds after its workspace stopped counting as in use; a Clean in that gap could delete under it.
+
 ## Library classes
 Definitions in JDK and dependency classes open the source or decompiled text jdtls returns (`jdt:` URIs), written to
 `~/.sluide/cache/java-classes/` and opened read-only with the library banner ([library-code.md](library-code.md)). They

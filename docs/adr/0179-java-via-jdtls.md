@@ -139,6 +139,15 @@ root and the JDK with its source. Build file changes reimport automatically; `se
 
 **Lombok.** When an imported build's build files mention Lombok, jdtls restarts once with `-javaagent:<pinned jar>`.
 
+**Clean Java Workspace.** Project Settings → Java deletes only `<workspace folder>/data`. While jdtls runs, Thoreau sets a
+per-window flag and restarts the session; the next `command(projectFolder)` deletes the data folder, clears the flag
+and prepares as usual. That is safe because the lifecycle starts after the old process exited (ADR 0142), so no lock
+or timer is needed (an Eclipse lock on `data/.metadata/.lock` was the first idea; jdtls's application never takes it,
+checked on jdtls 1.63.0). Without a running jdtls the folder is deleted directly. Known limit: a closed window releases
+its workspace lease at session close while its jdtls may still be exiting for up to about 5 s; a Clean in that gap could
+delete under it. The reachable path: reopen the folder within about 5 s and run Clean; the new window's lifecycle waits
+only for its own earlier processes, not for the closed window's jdtls. It is unlikely and no signal is built for it.
+
 **Library classes.** Definition, declaration and type definition results with a `jdt:` URI are fetched with
 `java/classFileContents`, written to `~/.sluide/cache/java-classes/` and opened read-only with a library banner
 ("Java library class"), without code intelligence.
