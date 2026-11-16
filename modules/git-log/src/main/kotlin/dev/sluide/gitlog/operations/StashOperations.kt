@@ -200,6 +200,27 @@ internal data object PopLatestStash : RefOperation {
     }
 }
 
+/**
+ * The header's Stash button (ADR 0182): reads what git is in the middle of, then stashes all local changes, untracked
+ * files included, with git's own message, with no dialog. [RefOutcome.next] asks about unsaved editors first; the
+ * header says why if nothing can be stashed now.
+ */
+internal data object StashAllChanges : RefOperation {
+    override val progress get() = "Reading the repository…"
+    override val errorTitle get() = STASH_FAILED
+    override val failure get() = "The local changes could not be stashed."
+    override val fileChange get() = null
+
+    override fun run(
+        writes: GitLogWrites,
+        root: Path,
+    ): RefOutcome {
+        val sources = writes.stashSources(root)
+        sources.busy?.let { return RefOutcome(GitResult(true, ""), it) }
+        return RefOutcome(GitResult(true, ""), null, next = StashChanges(null, includeUntracked = true))
+    }
+}
+
 /** Drops [stash] (ADR 0107), once confirmed ([dropConfirmation]). */
 internal data class DropStash(
     val stash: GitStash,

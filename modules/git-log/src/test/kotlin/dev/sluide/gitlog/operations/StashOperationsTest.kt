@@ -144,6 +144,26 @@ class StashOperationsTest {
     }
 
     @Test
+    fun `Stash All Changes stashes with untracked files and git's message, asking about unsaved editors then`() {
+        val outcome = StashAllChanges.run(writes, root)
+
+        assertEquals(StashChanges(null, includeUntracked = true), outcome.next)
+        assertEquals("Stash", outcome.next?.fileChange)
+        assertNull(outcome.done)
+        assertNull(StashAllChanges.fileChange, "it only reads; the stash it starts asks")
+    }
+
+    @Test
+    fun `Stash All Changes says why nothing can be stashed now instead of going on`() {
+        writes.stash.sources = GitStashSources("main", "A merge is in progress; finish or abort it first.")
+
+        val outcome = StashAllChanges.run(writes, root)
+
+        assertEquals(RefOutcome(GitResult(true, ""), "A merge is in progress; finish or abort it first."), outcome)
+        assertNull(outcome.next)
+    }
+
+    @Test
     fun `dropping asks first, Cancel the default, and changes no files`() {
         val confirmation = dropConfirmation(stash)
 
