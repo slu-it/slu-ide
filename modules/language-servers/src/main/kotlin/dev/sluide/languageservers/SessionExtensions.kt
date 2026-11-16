@@ -5,6 +5,7 @@ import com.google.gson.JsonNull
 import dev.sluide.languageservers.connection.RunningServer
 import dev.sluide.languageservers.connection.jsonTree
 import dev.sluide.languageservers.connection.protocolGson
+import dev.sluide.languageservers.workspace.FolderSent
 import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DidChangeConfigurationParams
 import org.eclipse.lsp4j.ExecuteCommandParams
@@ -108,18 +109,21 @@ internal class SessionExtensions(
         session.fx { if (current()) call("onProgress") { it.onProgress(token, value) } }
     }
 
-    /** [folder] was sent to the server of connection [epoch], added or removed. Outbound thread, after the write. */
+    /**
+     * [folder] was sent to the server of connection [epoch] as [sent] says. Outbound thread, after the write: one
+     * notification, one call, posted in the order they were written.
+     */
     fun folderSent(
         epoch: Int,
         folder: Path,
-        added: Boolean,
+        sent: FolderSent,
     ) {
         session.fx {
             if (connected != epoch) return@fx
-            if (added) {
-                call("onFolderAdded") { it.onFolderAdded(folder) }
-            } else {
-                call("onFolderRemoved") { it.onFolderRemoved(folder) }
+            when (sent) {
+                FolderSent.ADDED -> call("onFolderAdded") { it.onFolderAdded(folder) }
+                FolderSent.REMOVED -> call("onFolderRemoved") { it.onFolderRemoved(folder) }
+                FolderSent.REFRESHED -> call("onFolderRefreshed") { it.onFolderRefreshed(folder) }
             }
         }
     }

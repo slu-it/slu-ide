@@ -70,7 +70,12 @@ Measured with the pinned ty 0.0.99 through a scratch LSP client (2026-11-09):
 4. **Automatic refresh per project**, debounced 1 s per folder (`ServerTiming.workspaceDebounce`). A refresh removes
    the folder and adds it again (two notifications; ty then reads its venv again), then opens the open documents it
    serves again (`didClose`, `didOpen` with their current text), only those, and asks the spec again what to watch for
-   it. The window folder is refreshed and watched like any other folder.
+   it. The window folder is refreshed and watched like any other folder. Amended by
+   [ADR 0179](0179-java-via-jdtls.md): in `WorkspaceFolderMode.ROOTS_ONLY` a refresh is one notification that removes
+   and adds the folder (jdtls schedules one job per notification and cancels the waiting jobs whose added folders equal
+   a later notification's removed ones, so two notifications gave a removal job that the add cancelled or not,
+   depending on whether it had started; measured with jdtls 1.63.0). The session's extension hears of it as one
+   `onFolderRefreshed` call; window-first mode keeps two notifications.
    - The folders `LanguageServerSpec.watchedFolders(folder)` names for a workspace folder (for Python its venv's
      `lib/python*/site-packages`, Windows `Lib/site-packages`) are watched non-recursively with the window's
      `FileWatcher`, also outside the project watch; a change there refreshes the folder. The watches end when the

@@ -49,6 +49,8 @@ internal class RecordingExtension(
 
     override fun onFolderRemoved(folder: Path) = record("removed $folder")
 
+    override fun onFolderRefreshed(folder: Path) = record("refreshed $folder")
+
     override fun onConnected() = record("connected")
 
     override fun onStopped() = record("stopped")

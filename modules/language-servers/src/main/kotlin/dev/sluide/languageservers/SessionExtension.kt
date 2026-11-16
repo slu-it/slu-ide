@@ -31,11 +31,24 @@ interface SessionExtension {
         value: JsonElement,
     ) {}
 
-    /** A folder reached the current server (added); after the notification was written. */
+    /**
+     * A folder reached the current server (added). Each of [onFolderAdded], [onFolderRemoved] and [onFolderRefreshed]
+     * stands for exactly one `workspace/didChangeWorkspaceFolders` with that one folder, comes after the notification
+     * was written, and the calls come in the order the notifications were written. They are posted from the thread that
+     * wrote them, so a server notification answering one (jdtls's `language/status`) may arrive before its call; in
+     * that order, though: the k-th answer belongs to the k-th call since the last [onConnected].
+     */
     fun onFolderAdded(folder: Path) {}
 
-    /** A folder was removed from the current server; after the notification was written. */
+    /** A folder was removed from the current server ([onFolderAdded] says what one call stands for). */
     fun onFolderRemoved(folder: Path) {}
+
+    /**
+     * A folder was removed from the current server and added again in one notification: a refresh in
+     * [WorkspaceFolderMode.ROOTS_ONLY] ([SessionAccess.refreshFolder]); in [WorkspaceFolderMode.WINDOW_FIRST] a refresh
+     * is [onFolderRemoved] and then [onFolderAdded].
+     */
+    fun onFolderRefreshed(folder: Path) {}
 
     /** A new server is initialized (same FX step as the session's own onConnected listeners). */
     fun onConnected() {}
@@ -81,7 +94,10 @@ interface SessionAccess {
     /** The kept diagnostics of [file] (ADR 0160), as `LanguageServerSession.keptDiagnostics`. */
     fun keptDiagnostics(file: Path): List<Diagnostic>
 
-    /** Refreshes a known workspace folder as ADR 0151 decision 4 does (removed, added, its documents reopened). */
+    /**
+     * Refreshes a known workspace folder as ADR 0151 decision 4 does: removed and added (in one notification in
+     * [WorkspaceFolderMode.ROOTS_ONLY]), its documents reopened.
+     */
     fun refreshFolder(folder: Path)
 
     /** Makes the session fire `workspaceChanges` (status lines and banners ask the spec again). */

@@ -43,6 +43,15 @@ internal interface WorkspaceDocument {
     fun reopenOnServer()
 }
 
+/** What one `didChangeWorkspaceFolders` did with a folder. */
+internal enum class FolderSent {
+    ADDED,
+    REMOVED,
+
+    /** Removed and added again in the same notification: a refresh in [WorkspaceFolderMode.ROOTS_ONLY]. */
+    REFRESHED,
+}
+
 /** What [WorkspaceFolders] needs from its session; FX thread. */
 internal interface WorkspaceHost {
     /** The open documents. */
@@ -67,13 +76,13 @@ internal interface WorkspaceHost {
     fun changed()
 
     /**
-     * [folder] was sent to the server of connection [epoch] in a `didChangeWorkspaceFolders`, [added] or removed (for
-     * the session's extension). Outbound thread, after the write.
+     * [folder] was sent to the server of connection [epoch] in a `didChangeWorkspaceFolders`, as [sent] says (for the
+     * session's extension); one call per notification. Outbound thread, after the write.
      */
     fun folderSent(
         epoch: Int,
         folder: Path,
-        added: Boolean,
+        sent: FolderSent,
     )
 
     /** Changes in a folder a gate watches, for the server's file watchers (`didChangeWatchedFiles`). */
@@ -90,7 +99,8 @@ internal interface WorkspaceHost {
  * The set changes on the outbound thread only (at a start, before a `didOpen`, when a folder is removed), where it is
  * in order with what the server got; any thread reads it ([current]). The spec is asked on the session's [worker]. A
  * folder is refreshed (removed and added again, its documents re-opened: ty then reads its venv again) when a folder
- * the spec watches for it changes, or when the spec names other folders to watch than before. A project change the
+ * the spec watches for it changes, or when the spec names other folders to watch than before; in roots-only mode both
+ * go in one notification, so that jdtls schedules one job for it (ADR 0151 decision 4). A project change the
  * spec names ([LanguageServerSpec.affectsWorkspaceFolders]) asks the folders of the open documents below it again.
  * Both wait [debounce] for the changes of a burst.
  *
@@ -179,7 +189,7 @@ internal class WorkspaceFolders(
      */
     fun connected() {
         if (!rootsOnly) return
-        host.notify(start = false) { running -> known.forEach { send(running, it, added = true) } }
+        host.notify(start = false) { running -> known.forEach { send(running, it, FolderSent.ADDED) } }
     }
 
     /**
@@ -217,7 +227,7 @@ internal class WorkspaceFolders(
             // listOf: a Path is an Iterable of its names, `known + path` would add those.
             known = known + listOf(path)
         }
-        send(running, path, added = true)
+        send(running, path, FolderSent.ADDED)
         watchLater(path)
     }
 
@@ -251,8 +261,9 @@ internal class WorkspaceFolders(
     }
 
     /**
-     * Removes [folder] from the server and adds it again, then re-opens the documents it serves (ty forgets them with
-     * the folder) and asks the spec again what to watch for it. FX thread.
+     * Removes [folder] from the server and adds it again (one notification in roots-only mode, two otherwise), then
+     * re-opens the documents it serves (ty forgets them with the folder) and asks the spec again what to watch for it.
+     * FX thread.
      */
     internal fun refresh(folder: Path) {
         if (folder !in known) return
@@ -339,30 +350,43 @@ internal class WorkspaceFolders(
             }
             // Again: a watch the worker registered while the folder was still known.
             watches.remove(folder)
-            if (running != null) send(running, folder, added = false)
+            if (running != null) send(running, folder, FolderSent.REMOVED)
         }
     }
 
-    /** Removes [folder] from the server and adds it again, and asks what to watch for it again. */
+    /**
+     * Removes [folder] from the server and adds it again, and asks what to watch for it again. In roots-only mode in one
+     * notification: jdtls cancels the waiting jobs whose added folders equal a notification's removed ones, so a
+     * removal sent apart would leave an add that cancels the removal's job or not, depending on whether that job
+     * started yet; one notification is one job.
+     */
     private fun reAdd(folder: Path) {
         host.notify { running ->
             if (folder in known) {
-                send(running, folder, added = false)
-                send(running, folder, added = true)
+                if (rootsOnly) {
+                    send(running, folder, FolderSent.REFRESHED)
+                } else {
+                    send(running, folder, FolderSent.REMOVED)
+                    send(running, folder, FolderSent.ADDED)
+                }
             }
         }
         watchLater(folder)
     }
 
-    /** Tells [running] that [folder] was added or removed, one folder per notification. Outbound thread. */
+    /** Tells [running] what happened to [folder], one folder per notification. Outbound thread. */
     private fun send(
         running: RunningServer,
         folder: Path,
-        added: Boolean,
+        sent: FolderSent,
     ) {
-        val params = if (added) change(added = folder) else change(removed = folder)
+        val params =
+            change(
+                added = folder.takeIf { sent != FolderSent.REMOVED },
+                removed = folder.takeIf { sent != FolderSent.ADDED },
+            )
         running.server.workspaceService.didChangeWorkspaceFolders(params)
-        host.folderSent(running.epoch, folder, added)
+        host.folderSent(running.epoch, folder, sent)
     }
 
     /** The folder that serves a document without one of its own: the window folder, none in roots-only mode. */

@@ -144,6 +144,9 @@ class RootsOnlyFoldersTest {
 
     private fun removed(path: Path) = "didChangeWorkspaceFolders -${LspUris.of(path)}"
 
+    /** One notification that removes [path] and adds it again. */
+    private fun refreshed(path: Path) = "didChangeWorkspaceFolders -${LspUris.of(path)} +${LspUris.of(path)}"
+
     /** What the server hears when it asks for the workspace folders. */
     private fun FakeServer.askedFolders() = client.workspaceFolders().get(5, TimeUnit.SECONDS).map { it.uri }
 
@@ -220,7 +223,7 @@ class RootsOnlyFoldersTest {
     }
 
     @Test
-    fun `the extension hears of each root sent in order, again after a restart, and of a refresh as removed, added`() {
+    fun `the extension hears of each root sent in order, again after a restart, and of a refresh as one call`() {
         val app = root("app")
         val lib = root("lib")
         val session = session()
@@ -242,8 +245,7 @@ class RootsOnlyFoldersTest {
                 "connected",
                 "added $app",
                 "added $lib",
-                "removed $lib",
-                "added $lib",
+                "refreshed $lib",
                 "stopped",
                 "connected",
                 "added $app",
@@ -252,7 +254,7 @@ class RootsOnlyFoldersTest {
             extension.events,
         )
         assertEquals(0, extension.undispatched.get())
-        assertEquals(listOf(removed(lib), added(lib), "didClose", "didOpen B"), first.sync().drop(4))
+        assertEquals(listOf(refreshed(lib), "didClose", "didOpen B"), first.sync().drop(4))
     }
 
     @Test
@@ -278,7 +280,7 @@ class RootsOnlyFoldersTest {
     }
 
     @Test
-    fun `a refresh removes the root and adds it again, one notification each, and reopens only its documents`() {
+    fun `a refresh removes the root and adds it again in one notification and reopens only its documents`() {
         folder.resolve("build.gradle").writeText("")
         val session = session()
         val server = session.running()
@@ -291,8 +293,9 @@ class RootsOnlyFoldersTest {
         onFx { session.workspace.refresh(folder) }
         session.flush(server)
 
-        assertEquals(listOf(removed(folder), added(folder), "didClose", "didOpen A"), server.sync(before))
-        assertEquals(listOf(1, 1), server.folderCounts().drop(changesBefore))
+        // One job in jdtls, one status, and nothing for a second notification to cancel (ADR 0151 decision 4).
+        assertEquals(listOf(refreshed(folder), "didClose", "didOpen A"), server.sync(before))
+        assertEquals(listOf(2), server.folderCounts().drop(changesBefore))
     }
 
     @Test

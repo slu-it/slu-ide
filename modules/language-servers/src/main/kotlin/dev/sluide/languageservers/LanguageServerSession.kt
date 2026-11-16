@@ -13,6 +13,7 @@ import dev.sluide.languageservers.connection.protocolGson
 import dev.sluide.languageservers.files.DirectoryWatcher
 import dev.sluide.languageservers.files.WatcherFilter
 import dev.sluide.languageservers.process.ServerStarter
+import dev.sluide.languageservers.workspace.FolderSent
 import dev.sluide.languageservers.workspace.Resolution
 import dev.sluide.languageservers.workspace.Signal
 import dev.sluide.languageservers.workspace.WorkspaceDocument
@@ -114,8 +115,8 @@ class LanguageServerSession internal constructor(
                     override fun folderSent(
                         epoch: Int,
                         folder: Path,
-                        added: Boolean,
-                    ) = extensions.folderSent(epoch, folder, added)
+                        sent: FolderSent,
+                    ) = extensions.folderSent(epoch, folder, sent)
 
                     override fun watchedFilesChanged(changes: List<FileChange>) =
                         this@LanguageServerSession.watchedFilesChanged(changes)
