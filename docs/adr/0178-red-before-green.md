@@ -58,3 +58,33 @@ because nothing exists, not because the one guard is missing.
   the break-check run do.
 - Amends [ADR 0084](0084-testability-logic-out-of-controls.md) (its "A test fails without the code it covers").
   Rules: `.claude/rules/testing.md`; how: `docs/testing.md` ("Red before green", "The break-check script").
+
+## Evaluation (2026-11-16)
+The first round under this decision, Java code intelligence ([ADR 0179](0179-java-via-jdtls.md), 64
+commits, 6,900 production and 15,600 test lines), against Nov 2-15. Its 24 review turns were all read; the baseline
+reports were filtered by wording, and a random sample of 25 of the reports the filter skipped corrected that estimate
+(so the baseline numbers carry several points of uncertainty).
+
+| Per review | Nov 2-15 (corrected) | Java round |
+|---|---|---|
+| Reviews with a vacuous test | ~38% | 33% |
+| Vacuous tests | ~0.46 | 0.46 |
+| Bugs under a green test | ~0.15 | 0.42 |
+| Vacuous tests per 1,000 test lines | ~1.4 | 0.7 |
+| Vacuous tests that were Blockers | ~16% | 0 |
+
+- **The classic vacuous tests are gone**: an input that cannot tell the guard from the default, an assertion true by
+  construction. What remained: 5 of 11 were break-check survivors the implementer called equivalent and the reviewer
+  killed with a concrete input; guard-like lines break-check does not mutate and nobody checked by hand (a Blocker:
+  `same()` reduced to `a == b` stayed green); names that claim more than the test checks.
+- **Bugs under a green test rose**, nearly all from fakes that behaved unlike jdtls (token counts, status order, a
+  response body) or inputs that could not reach the bug: 6 of the round's 13 Blockers. Neither a red step nor a
+  mutant catches a fake that is wrong the same way as the code.
+- **The cost**: implementers spent about 4.6 times as many active minutes per production line (7.4 instead of 34
+  production lines a minute), and wrote 2.26 test lines per production line instead of 0.82; reviewers 7.7 instead of
+  3.4 active minutes per run, and 10 of 12 first reviews said "merge: no". The round was one large, concurrency-heavy
+  feature around an external server, so the ratios are rough.
+
+Follow-ups decided from it: reviewers check every survivor called equivalent first; break-check mutates `?: return`
+exits, conditions of a `when` without subject, boolean expressions outside `if` and Boolean expression bodies; fakes of
+an external server are built from recorded real traffic.
