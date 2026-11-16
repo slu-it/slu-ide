@@ -23,3 +23,11 @@
     -fx-background-color: #1e1e1e;
     -fx-padding: 6;
 }
+
+/* The scrolling page area blends into the dialog. */
+.settings-page-scroll,
+.settings-page-scroll > .viewport {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}

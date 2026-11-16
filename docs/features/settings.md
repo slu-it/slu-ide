@@ -86,6 +86,13 @@
   Settings", the tree of pages left, the selected page right, OK / Apply / Cancel and the error report as in the
   Settings dialog (it is the same `SettingsDialog`, with a title parameter). The item is disabled while the window has
   no project folder or no module offers a page.
+- Page area (both dialogs): every page sits in a scroll pane (width fitted, no horizontal bar). A page taller than the
+  area scrolls vertically instead of squeezing its wrapped text to one line; a page that fits grows to the area's
+  height, so a growing table still fills it.
+- Pages come from modules: a window bean (`@Scope("window")`) implementing `ProjectSettingsPage` (`path`, `node`,
+  `load(folder)`, `apply(folder)`). They are loaded with the window's project folder each time the dialog opens.
+  `ProjectSettings` (window bean) holds the pages ordered by path; `ProjectSettings.show(path)` opens the dialog at
+  a page (`null` or an unknown path: the first page) and does nothing without folder or pages. `MainWindow` sets it.
 - Pages come from modules: a window bean (`@Scope("window")`) implementing `ProjectSettingsPage` (`path`, `node`,
   `load(folder)`, `apply(folder)`). They are loaded with the window's project folder each time the dialog opens.
   `ProjectSettings` (window bean) holds the pages ordered by path; `ProjectSettings.show(path)` opens the dialog at

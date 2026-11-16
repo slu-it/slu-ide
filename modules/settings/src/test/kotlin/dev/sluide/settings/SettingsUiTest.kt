@@ -10,9 +10,13 @@ import javafx.scene.control.Button
 import javafx.scene.control.ButtonType
 import javafx.scene.control.DialogPane
 import javafx.scene.control.Label
+import javafx.scene.control.ScrollPane
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.layout.Priority
+import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
+import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import javafx.stage.Window
 import org.junit.jupiter.api.Tag
@@ -434,6 +438,68 @@ class SettingsUiTest {
         }
         assertEquals(listOf("Alpha"), unknown.shownPage?.path)
         assertEquals(listOf("Alpha"), none.shownPage?.path)
+    }
+
+    /** A page of wrapped text and a tall block, taller than a small dialog. */
+    private class TallPage(
+        name: String = "Tall",
+    ) : SettingsPage {
+        override val path = listOf(name)
+        val note =
+            Label("A long note that has to wrap over several lines. ".repeat(12)).apply { isWrapText = true }
+        val block = Region().apply { setPrefSize(100.0, 800.0) }
+        override val node = VBox(note, block)
+
+        override fun load() {}
+
+        override fun apply() {}
+    }
+
+    @Test
+    fun `a page taller than the dialog scrolls and its wrapped text keeps its height`(robot: FxRobot) {
+        val page = TallPage()
+        val dialog = open(robot, page, TallPage("Tall 2"))
+        robot.interact {
+            dialog.width = 600.0
+            dialog.height = 400.0
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        var expected = 0.0
+        var viewportBottom = 0.0
+        var blockBottom = 0.0
+        robot.interact {
+            expected = page.note.prefHeight(page.note.width)
+            dialog.pageScroll.vvalue = dialog.pageScroll.vmax
+            viewportBottom = dialog.pageScroll.localToScene(dialog.pageScroll.boundsInLocal).maxY
+            blockBottom = page.block.localToScene(page.block.boundsInLocal).maxY
+        }
+        assertTrue(expected > 40.0, "the note wraps over several lines: $expected")
+        assertEquals(expected, page.note.height, 0.5, "the wrapped note keeps its full height")
+        assertEquals(viewportBottom, blockBottom, 20.0, "the page can be scrolled to its bottom")
+        assertTrue(dialog.pageScroll.hbarPolicy == ScrollPane.ScrollBarPolicy.NEVER)
+        robot.interact { dialog.select(listOf("Tall 2")) }
+        assertEquals(0.0, dialog.pageScroll.vvalue, "the next page opens at its top")
+        close(robot, dialog, ButtonType.CANCEL)
+    }
+
+    @Test
+    fun `a short page still fills the height of the page area`(robot: FxRobot) {
+        val grower = Region()
+        val page =
+            object : SettingsPage {
+                override val path = listOf("Short")
+                override val node = VBox(Label("short"), grower.also { VBox.setVgrow(it, Priority.ALWAYS) })
+
+                override fun load() {}
+
+                override fun apply() {}
+            }
+        val dialog = open(robot, page)
+
+        val area = dialog.dialogPane.content.layoutBounds.height
+        assertTrue(grower.height > area - 150.0, "the growing child fills the area: ${grower.height} of $area")
+        close(robot, dialog, ButtonType.CANCEL)
     }
 
     private fun enter(node: Node) =

@@ -6,6 +6,7 @@ import javafx.scene.control.ButtonBar
 import javafx.scene.control.ButtonType
 import javafx.scene.control.Dialog
 import javafx.scene.control.Label
+import javafx.scene.control.ScrollPane
 import javafx.scene.control.SplitPane
 import javafx.scene.control.TreeItem
 import javafx.scene.control.TreeView
@@ -41,7 +42,25 @@ class SettingsDialog(
             minWidth = 160.0
         }
     private val pageTitle = Label().apply { styleClass += "settings-page-title" }
-    private val content = StackPane()
+
+    /**
+     * Holds the page; never smaller than the page needs, so that a scroll pane scrolls instead of squeezing text. The
+     * minimum height follows the preferred one for page roots with a horizontal content bias (VBox, GridPane); a
+     * BorderPane root has none and is squeezed again.
+     */
+    private val content =
+        object : StackPane() {
+            override fun computeMinHeight(width: Double) = prefHeight(width)
+        }
+
+    /** Scrolls the page area when a page is taller than it; here for tests. */
+    internal val pageScroll =
+        ScrollPane(content).apply {
+            isFitToWidth = true
+            isFitToHeight = true // a page that fits grows to the area, so that a vgrow child fills it
+            hbarPolicy = ScrollPane.ScrollBarPolicy.NEVER
+            styleClass += "settings-page-scroll"
+        }
 
     /** The page whose content is shown. */
     var shownPage: SettingsPage? = null
@@ -57,7 +76,7 @@ class SettingsDialog(
         tree.selectionModel.select(firstPageItem(tree.root))
 
         val pageArea =
-            BorderPane(content).apply {
+            BorderPane(pageScroll).apply {
                 top = pageTitle
                 styleClass += "settings-page"
             }
@@ -132,6 +151,7 @@ class SettingsDialog(
         shownPage = page
         pageTitle.text = page?.path?.joinToString(" › ") ?: ""
         content.children.setAll(listOfNotNull(page?.node))
+        pageScroll.vvalue = 0.0
     }
 
     private fun firstPageItem(item: TreeItem<Entry>): TreeItem<Entry>? =
