@@ -46,6 +46,13 @@ class GitStatusSnapshot internal constructor(
         }
     }
 
+    /**
+     * Whether some path has a status other than [GitStatus.IGNORED], untracked ones included. A submodule with only
+     * new content or a moved commit counts as changed, as git reports it as modified, although `git stash` leaves
+     * submodules alone.
+     */
+    val hasLocalChanges: Boolean = entries.values.any { it != GitStatus.IGNORED }
+
     /** The status of the file at [path]; inside an untracked or ignored folder, that folder's. `null`: clean. */
     fun fileStatus(path: Path): GitStatus? = files[path] ?: folderEntry(path.parent)
 

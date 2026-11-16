@@ -4,8 +4,10 @@ import java.nio.file.Path
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class GitStatusSnapshotTest {
     private val root = Path.of("/work/project")
@@ -58,6 +60,16 @@ class GitStatusSnapshotTest {
         )
         assertEquals(emptySet(), snapshot.folderStatuses(path("docs")))
         assertEquals(emptySet(), snapshot.folderStatuses(root.parent))
+    }
+
+    @Test
+    fun `local changes are any status but ignored, untracked ones included`() {
+        fun changes(vararg entries: Pair<String, GitStatus>) = GitStatusSnapshot(root, mapOf(*entries)).hasLocalChanges
+
+        assertFalse(changes("out.log" to GitStatus.IGNORED, "build/" to GitStatus.IGNORED), "only ignored")
+        assertTrue(changes("out.log" to GitStatus.IGNORED, "scratch.kt" to GitStatus.UNVERSIONED), "untracked")
+        assertTrue(changes("README.md" to GitStatus.MODIFIED), "modified")
+        assertFalse(GitStatusSnapshot.EMPTY.hasLocalChanges, "empty")
     }
 
     @Test
