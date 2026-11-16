@@ -79,6 +79,7 @@ import dev.sluide.ide.speech.NoSpeechEngine
 import dev.sluide.ide.translation.NoLanguageDetector
 import dev.sluide.ide.translation.NoTranslationEngine
 import dev.sluide.ide.translation.noModelInstaller
+import dev.sluide.java.OutputIgnoreChecks
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.PlaybackCoordinator
 import dev.sluide.projectdata.ProjectDataStore
@@ -257,6 +258,7 @@ class ProjectWindowsUiTest {
                 registerBean(TranslationPreferences::class.java, Supplier { TranslationPreferences(projectData) })
                 register(SavedPassphrases::class.java)
                 register(ProjectSettingsOpeners::class.java)
+                register(OutputIgnoreChecks::class.java)
                 registerBean(
                     RemoteSourceCache::class.java,
                     Supplier { RemoteSourceCache(getBean(GitCli::class.java), dir.resolve("cache/git")) },
@@ -280,6 +282,7 @@ class ProjectWindowsUiTest {
                     ProjectTrust::class.java,
                     BackgroundTasks::class.java,
                     ProjectSettings::class.java,
+                    FolderRegistrations::class.java,
                     TodoPanel::class.java,
                     Coloring::class.java,
                     Barcodes::class.java,

@@ -82,6 +82,7 @@ import dev.sluide.ide.speech.NoSpeechEngine
 import dev.sluide.ide.translation.NoLanguageDetector
 import dev.sluide.ide.translation.NoTranslationEngine
 import dev.sluide.ide.translation.noModelInstaller
+import dev.sluide.java.OutputIgnoreChecks
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.PlaybackCoordinator
 import dev.sluide.projectdata.ProjectDataStore
@@ -271,6 +272,7 @@ abstract class MainWindowUiFixture {
     internal var projectSettingsPages: List<ProjectSettingsPage> = emptyList()
     internal val projectSettingsWindows = mutableListOf<ProjectSettings>()
     internal val projectSettingsOpeners = ProjectSettingsOpeners()
+    internal val outputIgnoreChecks = OutputIgnoreChecks()
     internal val projectSettings get() = projectSettingsWindows.first()
     internal val reviews get() = reviewWindows.first()
 
@@ -526,8 +528,13 @@ abstract class MainWindowUiFixture {
             FindInFilesWiring(fileExplorer, editorArea, codeIntelligence, fileViewers, fontSettings)
                 .also(findInFilesWirings::add),
             Reviews(reviewSource, fontSettings, projectData, fileViewers).also(reviewWindows::add),
-            ProjectSettings(projectSettingsPages).also(projectSettingsWindows::add),
-            projectSettingsOpeners,
+            FolderRegistrations(
+                ProjectSettings(projectSettingsPages).also(projectSettingsWindows::add),
+                projectService,
+                projectSettingsOpeners,
+                outputIgnoreChecks,
+                gitStatus,
+            ),
         )
     }
 

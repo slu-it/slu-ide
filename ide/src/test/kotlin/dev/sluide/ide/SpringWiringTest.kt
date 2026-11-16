@@ -94,6 +94,7 @@ import dev.sluide.ide.find.FindInFilesWiring
 import dev.sluide.ide.git.GitReviewSource
 import dev.sluide.java.JavaProjectSettings
 import dev.sluide.java.JdtlsSpec
+import dev.sluide.java.OutputIgnoreChecks
 import dev.sluide.java.settings.JavaProjectSettingsPage
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.MediaFileViewer
@@ -293,6 +294,7 @@ class SpringWiringTest {
                         JavaProjectSettings::class.java,
                         JavaProjectSettingsPage::class.java,
                         ProjectSettingsOpeners::class.java,
+                        OutputIgnoreChecks::class.java,
                         InstallPrompts::class.java,
                         CodeIntelligenceWiring::class.java,
                         FindInFilesWiring::class.java,
@@ -355,6 +357,7 @@ class SpringWiringTest {
                         ProjectTrust::class.java,
                         BackgroundTasks::class.java,
                         ProjectSettings::class.java,
+                        FolderRegistrations::class.java,
                         JavaProjectSettingsPage::class.java,
                         TodoPanel::class.java,
                         Coloring::class.java,
