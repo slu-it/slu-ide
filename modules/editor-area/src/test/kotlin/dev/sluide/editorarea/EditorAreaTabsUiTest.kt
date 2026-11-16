@@ -567,6 +567,38 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
 
         assertEquals(listOf("a.txt", "b.txt"), tabTitles(robot))
         assertEquals(files[1], editor.selectedPath)
+
+        robot.interact { items.single { it.text == "Close Tabs to the Left" }.fire() }
+
+        assertEquals(listOf("b.txt"), tabTitles(robot))
+    }
+
+    @Test
+    fun `a context menu close action does nothing when its tab closed during the confirmation`(robot: FxRobot) {
+        // One loop instead of three tests: the same setup and check for each of the three actions.
+        listOf("Close Others", "Close Tabs to the Left", "Close Tabs to the Right").forEach { action ->
+            val before = WarningTab("before", "before is busy.")
+            val anchor = WarningTab("anchor", "anchor is busy.")
+            val after = WarningTab("after", "after is busy.")
+            robot.interact {
+                editor.open(before)
+                editor.open(anchor)
+                editor.open(after)
+                // The tab asks to close itself while the user is still answering the question.
+                editor.confirmClose = { _ ->
+                    editor.close(anchor)
+                    true
+                }
+                editor.tabStrip
+                    .contextMenuOf(anchor)
+                    .items
+                    .single { it.text == action }
+                    .fire()
+            }
+
+            assertEquals(listOf("before", "after"), tabTitles(robot), action)
+            robot.interact { editor.closeAll() }
+        }
     }
 
     @Test

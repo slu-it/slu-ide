@@ -60,6 +60,12 @@ interface EditorTab {
      */
     fun icon(): Node? = null
 
+    /**
+     * Becomes true (on the FX thread) when the tab wants to close itself, e.g. a terminal whose command ended
+     * successfully; the editor area then closes it without asking.
+     */
+    val closeRequested: ObservableValue<Boolean> get() = NEVER_CLOSE_REQUESTED
+
     /** Releases the tab's resources. Called once, when the tab is closed. */
     fun dispose() {}
 }
@@ -97,6 +103,8 @@ internal class EditorTabs {
 
     /** Whether [publish] is notifying the listeners; [makeCurrent] is ignored meanwhile. */
     private var publishing = false
+
+    private val closeRequests = CloseRequests(::close)
 
     /**
      * All tabs: the left side's in order, then the right side's. A move, also to the other side, is a permutation,
@@ -174,11 +182,14 @@ internal class EditorTabs {
         sides.getValue(side).let { it[it.indexOf(tab)] = replacement }
         if (chosen[side] === tab) chosen[side] = replacement
         publish()
+        closeRequests.unwatch(tab)
         try {
             disposeQuietly(tab)
         } finally {
             afterDispose()
         }
+        // Last: a replacement that asks to close at once is closed after the replace is complete.
+        closeRequests.watch(replacement)
     }
 
     /**
@@ -196,6 +207,7 @@ internal class EditorTabs {
         if (select) chosenSide = Side.LEFT
         if (select || chosen[Side.LEFT] == null) chosen[Side.LEFT] = tab
         publish()
+        closeRequests.watch(tab)
     }
 
     /** Selects [tab] on its side and makes that side current. */
@@ -261,6 +273,7 @@ internal class EditorTabs {
         val index = list.indexOf(tab)
         _tabs.remove(tab)
         list.removeAt(index)
+        closeRequests.unwatch(tab)
         if (chosen[side] === tab) chosen[side] = neighbour(list, index)
         publish()
         try {
@@ -324,6 +337,7 @@ internal class EditorTabs {
         val closing = toClose.toSet()
         if (closing.isNotEmpty()) {
             _tabs.removeAll(closing)
+            closing.forEach(closeRequests::unwatch)
             sides.values.filter { list -> list.any { it in closing } }.forEach { it.removeAll(closing) }
             Side.entries.filter { chosen[it] in closing }.forEach { chosen[it] = keep }
         }
@@ -405,3 +419,6 @@ private val NO_ACTIVITY: ObservableValue<ViewActivity> = ReadOnlyObjectWrapper(V
 
 /** The default [EditorTab.closableByShortcut]. */
 private val CLOSABLE: ObservableValue<Boolean> = ReadOnlyBooleanWrapper(true).readOnlyProperty
+
+/** The default [EditorTab.closeRequested]; shared by all tabs, so [CloseRequests] never listens to it. */
+internal val NEVER_CLOSE_REQUESTED: ObservableValue<Boolean> = ReadOnlyBooleanWrapper(false).readOnlyProperty

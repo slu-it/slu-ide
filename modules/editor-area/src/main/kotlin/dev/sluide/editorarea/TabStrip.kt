@@ -484,11 +484,21 @@ internal class TabStrip(
                 text: String,
                 action: () -> Unit,
             ) = MenuItem(text).apply { setOnAction { action() } }
-            val closeOthers = item("Close Others") { close(editorTabs.othersOf(tab)) { editorTabs.closeOthers(tab) } }
+
+            // The confirmation can take long enough for the tab to close itself (EditorTab.closeRequested) meanwhile.
+            fun ifOpen(action: () -> Unit) {
+                if (tab in editorTabs.tabs) action()
+            }
+            val closeOthers =
+                item("Close Others") { close(editorTabs.othersOf(tab)) { ifOpen { editorTabs.closeOthers(tab) } } }
             val closeLeft =
-                item("Close Tabs to the Left") { close(editorTabs.leftOf(tab)) { editorTabs.closeLeftOf(tab) } }
+                item(
+                    "Close Tabs to the Left",
+                ) { close(editorTabs.leftOf(tab)) { ifOpen { editorTabs.closeLeftOf(tab) } } }
             val closeRight =
-                item("Close Tabs to the Right") { close(editorTabs.rightOf(tab)) { editorTabs.closeRightOf(tab) } }
+                item(
+                    "Close Tabs to the Right",
+                ) { close(editorTabs.rightOf(tab)) { ifOpen { editorTabs.closeRightOf(tab) } } }
             val moveRight =
                 item("Move to Right Side") { moveTo(tab, Side.RIGHT, editorTabs.tabsOf(Side.RIGHT).size) }
             val moveLeft =
