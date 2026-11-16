@@ -18,12 +18,16 @@ import javafx.scene.input.MouseButton
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
+import javafx.util.Duration
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
 import org.kordamp.ikonli.materialdesign2.MaterialDesignR
 
-/** The gap between the quick git actions (Review Branch, Rebase onto origin's default) and Push. */
-private const val QUICK_ACTIONS_GAP = 12.0
+/** How long the pointer rests on a header action before its tooltip shows; shorter than JavaFX's 1 s default. */
+private const val TOOLTIP_DELAY_MILLIS = 250.0
+
+/** A tooltip for a header action, shown after [TOOLTIP_DELAY_MILLIS]. */
+private fun actionTooltip(text: String) = Tooltip(text).apply { showDelay = Duration.millis(TOOLTIP_DELAY_MILLIS) }
 
 /**
  * Whether the header may rebase onto `origin`'s default branch: a remote named `origin` ([hasOrigin]), `HEAD` on a
@@ -50,9 +54,10 @@ internal fun rebaseOntoOriginPossible(
  * The header bar of the git log area (ADRs 0035, 0046): a chevron that follows [expanded], the tabs' [titles], the
  * [status] message, Cancel (only while the operation going on is [cancellable], ADR 0043) and, on the right, Review
  * Branch (ADR 0168; off with [noRepository], it calls [review]) and Fetch origin and Rebase onto its Default Branch
- * (ADR 0063; off with [noRebaseOntoDefault], it calls [rebaseOntoDefault]), the quick git actions, then Push, Pull,
- * Fetch All Remotes and Refresh. Fetch and Pull are off while an operation is [running] or there are [noRemotes],
- * Push without a remote. Clicking the bar (but not its buttons) expands or collapses the area.
+ * (ADR 0063; off with [noRebaseOntoDefault], it calls [rebaseOntoDefault]), then Push, Pull, Fetch All Remotes and
+ * Refresh: three groups one button width apart, all outlined alike, with tooltips after 250 ms. Fetch and Pull are
+ * off while an operation is [running] or there are [noRemotes], Push without a remote. Clicking the bar (but not its
+ * buttons) expands or collapses the area.
  */
 internal class HeaderBar(
     titles: Node,
@@ -75,8 +80,8 @@ internal class HeaderBar(
 
     val refreshButton =
         Button(null, FontIcon(MaterialDesignR.REFRESH)).apply {
-            styleClass += "git-log-refresh"
-            tooltip = Tooltip("Refresh")
+            styleClass += listOf("git-log-action", "git-log-refresh")
+            tooltip = actionTooltip("Refresh")
             isFocusTraversable = false
             // Always whole: the tabs left of it give way first.
             minWidth = Region.USE_PREF_SIZE
@@ -86,8 +91,8 @@ internal class HeaderBar(
     /** Fetches all remotes (ADR 0043); not while an operation runs or there is no remote. */
     val fetchButton =
         Button(null, FontIcon(GitLogIcons.fetch)).apply {
-            styleClass += "git-log-fetch"
-            tooltip = Tooltip("Fetch All Remotes")
+            styleClass += listOf("git-log-action", "git-log-fetch")
+            tooltip = actionTooltip("Fetch All Remotes")
             isFocusTraversable = false
             minWidth = Region.USE_PREF_SIZE
             setOnAction { fetch() }
@@ -97,8 +102,8 @@ internal class HeaderBar(
     /** Reviews `HEAD`'s branch like a pull request (ADR 0168); only while the log shows a repository. */
     val reviewButton =
         Button(null, FontIcon(GitLogIcons.review)).apply {
-            styleClass += "git-log-review"
-            tooltip = Tooltip("Review Branch (${REVIEW_BRANCH_KEYS.displayText})")
+            styleClass += listOf("git-log-action", "git-log-review")
+            tooltip = actionTooltip("Review Branch (${REVIEW_BRANCH_KEYS.displayText})")
             isFocusTraversable = false
             minWidth = Region.USE_PREF_SIZE
             setOnAction { review() }
@@ -108,8 +113,8 @@ internal class HeaderBar(
     /** Fetches `origin` and rebases the current branch onto its default branch (ADR 0063). */
     val rebaseDefaultButton =
         Button(null, FontIcon(GitLogIcons.rebase)).apply {
-            styleClass += "git-log-rebase-default"
-            tooltip = Tooltip("Fetch origin and Rebase onto its Default Branch")
+            styleClass += listOf("git-log-action", "git-log-rebase-default")
+            tooltip = actionTooltip("Fetch origin and Rebase onto its Default Branch")
             isFocusTraversable = false
             minWidth = Region.USE_PREF_SIZE
             setOnAction { rebaseOntoDefault() }
@@ -119,8 +124,8 @@ internal class HeaderBar(
     /** Opens the Push dialog (ADR 0049); not without a remote, but while an operation runs. */
     val pushButton =
         Button(null, FontIcon(GitLogIcons.push)).apply {
-            styleClass += "git-log-push"
-            tooltip = Tooltip("Push… (${PUSH_KEYS.displayText})")
+            styleClass += listOf("git-log-action", "git-log-push")
+            tooltip = actionTooltip("Push… (${PUSH_KEYS.displayText})")
             isFocusTraversable = false
             minWidth = Region.USE_PREF_SIZE
             setOnAction { push() }
@@ -130,8 +135,8 @@ internal class HeaderBar(
     /** Opens the Pull dialog (ADR 0106); not while an operation runs or without a remote. */
     val pullButton =
         Button(null, FontIcon(GitLogIcons.pull)).apply {
-            styleClass += "git-log-pull"
-            tooltip = Tooltip("Pull…")
+            styleClass += listOf("git-log-action", "git-log-pull")
+            tooltip = actionTooltip("Pull…")
             isFocusTraversable = false
             minWidth = Region.USE_PREF_SIZE
             setOnAction { pull() }
@@ -150,7 +155,7 @@ internal class HeaderBar(
         }
 
     val node: HBox =
-        HBox(
+        object : HBox(
             chevron,
             titles,
             status,
@@ -162,7 +167,22 @@ internal class HeaderBar(
             pullButton,
             fetchButton,
             refreshButton,
-        ).apply {
+        ) {
+            /**
+             * Three groups, one button width apart: tooling for the current state (Review), moving the local branch
+             * (Rebase), the remote round trip (Push, Pull, Fetch, Refresh). The margin after a group's last button
+             * makes up the rest of the gap; it is set before each layout from Refresh's preferred width (its icon and
+             * the stylesheet's padding, known after the CSS pass) and the stylesheet's spacing, so it is right from
+             * the first layout on and follows changes without listeners.
+             */
+            override fun layoutChildren() {
+                val margin = maxOf(0.0, refreshButton.prefWidth(-1.0) - spacing)
+                listOf(reviewButton, rebaseDefaultButton).forEach {
+                    if (getMargin(it)?.right != margin) setMargin(it, Insets(0.0, margin, 0.0, 0.0))
+                }
+                super.layoutChildren()
+            }
+        }.apply {
             styleClass += "git-log-header"
             alignment = Pos.CENTER_LEFT
             setOnMouseClicked { event ->
@@ -183,13 +203,6 @@ internal class HeaderBar(
         }
 
     init {
-        // The spacing comes from the stylesheet: the margin makes up the rest of the wider gap after the quick actions.
-        node.spacingProperty().subscribe { spacing ->
-            HBox.setMargin(
-                rebaseDefaultButton,
-                Insets(0.0, maxOf(0.0, QUICK_ACTIONS_GAP - spacing.toDouble()), 0.0, 0.0),
-            )
-        }
         expanded.subscribe { isExpanded ->
             chevron.iconCode = if (isExpanded) MaterialDesignC.CHEVRON_DOWN else MaterialDesignC.CHEVRON_RIGHT
         }

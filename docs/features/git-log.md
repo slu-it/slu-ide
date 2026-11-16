@@ -38,8 +38,9 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
 - **Collapsed by default:** only its header bar shows: a chevron, "Git Log" and Review Branch (an
   eye-on-a-file icon; off without a repository; it reviews `HEAD`'s branch, see
   [code-review.md](code-review.md)), "Fetch origin and Rebase onto its Default Branch" (the
-  source-branch-sync icon; the two are the quick git actions, a wider gap after that group, before Push), Push (an up
-  arrow), Pull (the source-pull icon), Fetch (a down arrow) and Refresh buttons on the right. Clicking the header (not its buttons)
+  source-branch-sync icon), Push (an up arrow), Pull (the source-pull icon), Fetch (a down arrow) and Refresh buttons
+  on the right, all outlined alike, in three groups one button width apart: Review Branch | Fetch and Rebase | Push,
+  Pull, Fetch, Refresh. Their tooltips show after 250 ms. Clicking the header (not its buttons)
   expands or collapses it, and so does **View → Git Log** (Alt+9, Cmd+9 on macOS), which is disabled when there is no
   area. Expanding moves the focus to the commit table; collapsing while the table has the focus gives it back to the
   editor (the selected tab, or the editor area without tabs). While the Commit tab

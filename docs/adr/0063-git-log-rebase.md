@@ -100,8 +100,11 @@ Git 2.53 behaves as follows (checked in tests, `GitRebasesTest`):
   nothing pending. Pages load only when the area is expanded, so `QuickRebaseState` reads this itself (`git remote`,
   the current branch, `HEAD`; local, no fetch) on open and on every refresh while collapsed (while expanded the
   pages' own read sets it); an answer overtaken by a newer open, refresh or read is dropped.
-- The header has two groups: the quick git actions (Review Branch, this button) with the normal spacing, and Push,
-  Pull, Fetch, Refresh; the wider 12 px gap sits between the groups.
+- The header has three groups, one button width apart (2026-11-16): tooling for the current state (Review Branch),
+  actions that move the local branch (this button), and the remote round trip (Push, Pull, Fetch, Refresh). The
+  header sets the margins before each layout from the Refresh button's preferred width, so they hold from the first
+  layout on. All its buttons are outlined alike and show their tooltips after 250 ms (other tooltips keep JavaFX's
+  1 s).
 
 ## Consequences
 - The current branch can be rebased onto any branch from the log, without the user's rebase settings changing what
