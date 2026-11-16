@@ -12,13 +12,15 @@
 - The session opens a terminal tab ([terminal.md](terminal.md)) named "Claude Code 1", "Claude Code 2", … for both
   actions (one counter per window: Claude Code, Claude Code, Environment give 1, 2, 3), whose tooltip shows folder
   and command. The command runs in the user's interactive login shell (`$SHELL -l -i -c`, the startup files of a
-  terminal tab), so `sbx` must be on its `PATH`. When `sbx` ends, the tab shows
-  "(exited)".
+  terminal tab), so `sbx` must be on its `PATH`. When `sbx` exits with 0 the tab closes itself
+  ([ADR 0180](../adr/0180-terminal-tabs-close-on-success.md)); after any other code it stays open as "Claude Code 1
+  (exited N)".
 - The second item, **Management Console** (no accelerator), runs bare `sbx` in the user's home folder in a terminal tab
   named "SBX" ([ADR 0170](../adr/0170-sbx-management-console.md)). Bare `sbx` mounts no folder, so the below-home
   rule below does not apply: the item is enabled whenever `sbx` was found, also with no project folder open. There is
-  one SBX tab per window: firing the item while that tab's command runs selects it; once the command has ended the tab
-  is closed and a fresh one opens; if it was closed, a new one opens. If it cannot be started, an error dialog says
+  one SBX tab per window: firing the item while that tab's command runs selects it; the tab closes itself when `sbx` exits with 0 and a
+  new one opens next time; if it ended with another code the tab stays as "SBX (exited N)" and is replaced by a fresh
+  one; if it was closed, a new one opens. If it cannot be started, an error dialog says
   "The Management Console cannot be started. …" and no tab opens.
 - Copying in Claude Code puts the text on the system clipboard (OSC 52,
   [ADR 0133](../adr/0133-terminal-osc-52-clipboard.md)). Claude Code takes the mouse, so to copy with Thoreau's own
@@ -30,7 +32,7 @@
 - If the shell itself cannot be started, an error dialog says so ("Claude Code cannot be started. /bin/nosh could not
   be started in …") and no tab opens; the failed start uses up no number.
 - Closing a tab while `sbx` still runs (×, middle click, context menu) asks first; Cancel keeps the sandbox running.
-  After it has ended, the tab closes without asking, and Shortcut+W closes it too; while the sandbox runs, File →
+  After it has ended with a code other than 0, the tab closes without asking, and Shortcut+W closes it too; while the sandbox runs, File →
   Close Tab is disabled. Closing the window asks once for all its running tabs, like for
   every terminal.
 - Sandboxes run **only in folders below the user's home folder**: never in the home folder itself, a folder above it

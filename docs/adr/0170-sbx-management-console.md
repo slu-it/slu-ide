@@ -1,6 +1,7 @@
 # 0170. Management Console: bare `sbx` in the home folder, and one "Claude Code" tab title
 
-- Status: accepted; amends [0010](0010-docker-sandbox.md) and [0156](0156-menu-overhaul.md)
+- Status: accepted; amends [0010](0010-docker-sandbox.md) and [0156](0156-menu-overhaul.md); amended by
+  [0180](0180-terminal-tabs-close-on-success.md) (an SBX tab that ended with 0 is closed, not "ended")
 - Date: 2026-11-13
 
 ## Context

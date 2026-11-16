@@ -1,7 +1,8 @@
 # 0007. Terminals with pty4j and the JediTerm core, drawn by our own JavaFX view
 
 - Status: accepted; amended by [0086](0086-embedded-command-terminals.md) (one-command terminals embedded in other
-  views), [0133](0133-terminal-osc-52-clipboard.md) (programs write the clipboard with OSC 52)
+  views), [0133](0133-terminal-osc-52-clipboard.md) (programs write the clipboard with OSC 52),
+  [0180](0180-terminal-tabs-close-on-success.md) (shell tabs close on exit code 0)
 - Date: 2026-10-13
 
 ## Context

@@ -15,7 +15,9 @@
   cannot be started. /bin/nosh could not be started in …") and no tab opens; `Terminals.open` throws
   `TerminalStartException`.
 - Tabs are named "Terminal 1", "Terminal 2", … (a failed start uses up no number); the tooltip shows the start
-  folder. When the shell exits, the tab shows "(exited)" and stays open until it is closed.
+  folder. When the shell exits with code 0 the tab closes itself, without asking and selecting its neighbour like any close
+  ([ADR 0180](../adr/0180-terminal-tabs-close-on-success.md)); after any other code it stays open as "Terminal 1
+  (exited N)" until it is closed ("exit" after a failed command returns that command's code and so keeps the tab).
 - Closing the tab ends the shell. Programs it runs get a hangup (SIGHUP) from the closed pseudo terminal: most end,
   a JVM runs its shutdown hooks. bash also hangs up on its background jobs; `sh` does not, and `nohup` jobs keep
   running.
@@ -68,7 +70,9 @@
 - Other modules can run a command in a terminal tab: `Terminals.open(folder, name, command)` runs it with
   `$SHELL -l -i -c` (an interactive login shell, so the same startup files as a tab apply, e.g. `.zshrc`;
   [ADR 0087](../adr/0087-commands-in-an-interactive-login-shell.md)) in a tab with the given name; the tab shows
-  "(exited)" when the command ends (used by [docker-sandbox.md](docker-sandbox.md)). `loginShellRunning(command,
+  "(exited)" when the command ends with 0 or an unknown code and "(exited N)" for a non-zero code N, and stays open;
+  with `closeOnSuccess = true` it closes itself when the command exits with 0 instead (the Docker sandbox tabs,
+  [docker-sandbox.md](docker-sandbox.md); other callers, such as the Docker tabs, keep the default). `loginShellRunning(command,
   environment)` returns that shell's command line. `loginShellFinds(program, environment)` asks that shell whether it
   finds a program (`command -v`; the `sbx` and `gradle` checks), in a pseudo terminal of its own, so the interactive
   shell never touches the terminal Thoreau was started from.

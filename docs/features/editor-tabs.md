@@ -78,7 +78,9 @@
   single command (Docker sandbox, Docker shell and run), which it closes only once the command has exited; File →
   Close Tab is disabled until then (the observable `EditorTab.closableByShortcut`, `EditorArea.closeSelected`). On
   Linux and Windows, Ctrl+W inside a focused terminal still goes to the shell. Closing the selected tab selects its
-  right neighbour, or the left one if there is none.
+  right neighbour, or the left one if there is none. A tab may also close itself, without asking, when its observable
+  `EditorTab.closeRequested` turns true (a terminal whose shell or sandbox command exited with 0, ADR 0180); `EditorTabs`
+  watches every tab it holds.
 - Right-clicking a tab opens a context menu: Close, Close Others, Close Tabs to the Left, Close Tabs to the Right,
   Close All, with Move to Right Side (left tabs) or Move to Left Side (right tabs) right after Close. Entries that
   would close nothing are disabled. Close Others selects the clicked tab; closing to the
