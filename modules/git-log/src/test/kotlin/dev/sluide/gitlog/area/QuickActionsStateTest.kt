@@ -9,8 +9,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** The header's rebase state read while the log is collapsed (ADR 0063), with reads run when the test says so. */
-class QuickRebaseStateTest {
+/** The header's rebase and new branch state read while the log is collapsed (ADR 0063), with reads run when the test says so. */
+class QuickActionsStateTest {
     private val repo = Path.of("/repo")
     private val other = Path.of("/other")
 
@@ -22,7 +22,7 @@ class QuickRebaseStateTest {
     private val readRoots = mutableListOf<Path>()
 
     private val state =
-        QuickRebaseState(
+        QuickActionsState(
             { root ->
                 readRoots.add(root)
                 remotes
@@ -41,11 +41,11 @@ class QuickRebaseStateTest {
     @Test
     fun `it is off until read, then on with origin, a branch and a commit`() {
         state.open(repo)
-        assertFalse(state.possible.get(), "not before the read ran")
+        assertFalse(state.rebasePossible.get(), "not before the read ran")
 
         runReads()
 
-        assertTrue(state.possible.get())
+        assertTrue(state.rebasePossible.get())
         assertEquals(listOf(repo), readRoots)
     }
 
@@ -54,41 +54,71 @@ class QuickRebaseStateTest {
         remotes = listOf("upstream")
         state.open(repo)
         runReads()
-        assertFalse(state.possible.get(), "no origin")
+        assertFalse(state.rebasePossible.get(), "no origin")
 
         remotes = null
         state.refresh()
         runReads()
-        assertFalse(state.possible.get(), "remotes unreadable")
+        assertFalse(state.rebasePossible.get(), "remotes unreadable")
 
         remotes = listOf("origin")
         branch = null
         state.refresh()
         runReads()
-        assertFalse(state.possible.get(), "detached")
+        assertFalse(state.rebasePossible.get(), "detached")
 
         branch = "refs/heads/main"
         head = null
         state.refresh()
         runReads()
-        assertFalse(state.possible.get(), "no commit")
+        assertFalse(state.rebasePossible.get(), "no commit")
 
         head = "h1"
         state.refresh()
         runReads()
-        assertTrue(state.possible.get(), "a refresh reads again")
+        assertTrue(state.rebasePossible.get(), "a refresh reads again")
+    }
+
+    @Test
+    fun `the new branch needs only origin, also on a detached HEAD or without a commit`() {
+        remotes = listOf("upstream")
+        state.open(repo)
+        runReads()
+        assertFalse(state.newBranchPossible.get(), "no origin")
+
+        remotes = listOf("origin")
+        branch = null
+        head = null
+        state.refresh()
+        runReads()
+        assertTrue(state.newBranchPossible.get(), "detached and without a commit")
+        assertFalse(state.rebasePossible.get())
+
+        remotes = null
+        state.refresh()
+        runReads()
+        assertFalse(state.newBranchPossible.get(), "remotes unreadable")
+
+        // The expanded log's read: no HEAD ref, nothing checked out.
+        state.refsRead(listOf("origin"), GitRefs(emptyList(), null))
+        assertTrue(state.newBranchPossible.get(), "from the pages' read")
+        assertFalse(state.rebasePossible.get())
+        state.refsRead(listOf("upstream"), null)
+        assertFalse(state.newBranchPossible.get(), "pages without origin")
     }
 
     @Test
     fun `no repository turns it off and reads nothing`() {
         state.open(repo)
         runReads()
-        assertTrue(state.possible.get())
+        assertTrue(state.rebasePossible.get())
+        assertTrue(state.newBranchPossible.get())
 
         state.open(null)
         state.refresh()
 
-        assertFalse(state.possible.get())
+        assertFalse(state.rebasePossible.get())
+        assertFalse(state.newBranchPossible.get())
         assertTrue(reads.isEmpty())
     }
 
@@ -101,10 +131,12 @@ class QuickRebaseStateTest {
         remotes = listOf("origin")
         state.open(other)
         reads.last().run()
-        assertTrue(state.possible.get())
+        assertTrue(state.rebasePossible.get())
+        assertTrue(state.newBranchPossible.get())
         remotes = listOf("upstream")
         firstRead.run()
-        assertTrue(state.possible.get(), "the stale read, which finds no origin, was ignored")
+        assertTrue(state.rebasePossible.get(), "the stale read, which finds no origin, was ignored")
+        assertTrue(state.newBranchPossible.get(), "also for the new branch")
 
         // The same for an older refresh finishing after a newer one.
         reads.clear()
@@ -114,32 +146,36 @@ class QuickRebaseStateTest {
         remotes = listOf("origin")
         state.refresh()
         reads.last().run()
-        assertTrue(state.possible.get())
+        assertTrue(state.rebasePossible.get())
         remotes = listOf("upstream")
         older.run()
-        assertTrue(state.possible.get())
+        assertTrue(state.rebasePossible.get())
+        assertTrue(state.newBranchPossible.get())
     }
 
     @Test
     fun `nothing is read while expanded, collapsing keeps the state and a refresh then reads`() {
         state.open(repo)
         runReads()
-        assertTrue(state.possible.get())
+        assertTrue(state.rebasePossible.get())
 
         expanded = true
         remotes = listOf("upstream")
         state.refresh()
         state.open(other)
         assertTrue(reads.isEmpty(), "expanded: the pages read it")
-        assertFalse(state.possible.get(), "a newly opened root is not known until the pages read")
+        assertFalse(state.rebasePossible.get(), "a newly opened root is not known until the pages read")
+        assertFalse(state.newBranchPossible.get(), "nor for the new branch")
 
         state.refsRead(listOf("origin"), GitRefs(listOf(GitRef("HEAD", GitRefKind.HEAD, "h1")), "refs/heads/main"))
         expanded = false
-        assertTrue(state.possible.get(), "collapsing keeps what the pages read")
+        assertTrue(state.rebasePossible.get(), "collapsing keeps what the pages read")
+        assertTrue(state.newBranchPossible.get())
 
         state.refresh()
         runReads()
-        assertFalse(state.possible.get(), "collapsed, a refresh reads again")
+        assertFalse(state.rebasePossible.get(), "collapsed, a refresh reads again")
+        assertFalse(state.newBranchPossible.get())
     }
 
     @Test
@@ -162,11 +198,12 @@ class QuickRebaseStateTest {
         state.open(repo)
         val refs = GitRefs(listOf(GitRef("HEAD", GitRefKind.HEAD, "h1")), "refs/heads/main")
         state.refsRead(listOf("origin"), refs)
-        assertTrue(state.possible.get())
+        assertTrue(state.rebasePossible.get())
 
         remotes = listOf("upstream")
         runReads()
 
-        assertTrue(state.possible.get(), "the read started before the pages' was overtaken")
+        assertTrue(state.rebasePossible.get(), "the read started before the pages' was overtaken")
+        assertTrue(state.newBranchPossible.get())
     }
 }

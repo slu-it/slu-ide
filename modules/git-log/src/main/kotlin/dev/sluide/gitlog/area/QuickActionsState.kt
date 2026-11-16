@@ -7,14 +7,16 @@ import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Whether the header's rebase onto origin's default branch may start (ADR 0063), also while the log is collapsed and
- * its pages are not loaded: [open] and [refresh] read what the button needs, local and without fetching (`git remote`,
- * the current branch, `HEAD`), with [background] off the JavaFX thread, and hand the answer to [dispatch], which runs
- * on it. Nothing is read while the log is [expanded]: its pages read the same ([refsRead]), and collapsing keeps what
- * was known. An answer that a newer [open], [refresh], [refsRead] or [close] has overtaken is dropped, and its read
- * skips git if it did not start yet. [open], [refresh], [refsRead] and [close] are for the JavaFX thread.
+ * Whether the header's quick actions may start, also while the log is collapsed and its pages are not loaded: the
+ * rebase onto origin's default branch ([rebasePossible], ADR 0063: `origin`, a branch, a commit) and the new branch
+ * from it ([newBranchPossible], ADR 0181: `origin` only). [open] and [refresh] read what the buttons need, local and
+ * without fetching (`git remote`, the current branch, `HEAD`), with [background] off the JavaFX thread, and hand the
+ * answer to [dispatch], which runs on it. Nothing is read while the log is [expanded]: its pages read the same
+ * ([refsRead]), and collapsing keeps what was known. An answer that a newer [open], [refresh], [refsRead] or [close]
+ * has overtaken is dropped, and its read skips git if it did not start yet. [open], [refresh], [refsRead] and [close]
+ * are for the JavaFX thread.
  */
-internal class QuickRebaseState(
+internal class QuickActionsState(
     private val remotes: (Path) -> List<String>?,
     private val currentBranch: (Path) -> String?,
     private val headCommit: (Path) -> String?,
@@ -22,10 +24,14 @@ internal class QuickRebaseState(
     private val background: (Runnable) -> Unit,
     private val dispatch: (Runnable) -> Unit,
 ) {
-    private val state = ReadOnlyBooleanWrapper(false)
+    private val rebase = ReadOnlyBooleanWrapper(false)
+    private val newBranch = ReadOnlyBooleanWrapper(false)
 
     /** Whether the rebase is possible as far as is known; `false` until read. */
-    val possible: ReadOnlyBooleanProperty = state.readOnlyProperty
+    val rebasePossible: ReadOnlyBooleanProperty = rebase.readOnlyProperty
+
+    /** Whether a new branch from origin's default branch is possible as far as is known; `false` until read. */
+    val newBranchPossible: ReadOnlyBooleanProperty = newBranch.readOnlyProperty
 
     private var root: Path? = null
     private val generation = AtomicInteger()
@@ -34,7 +40,8 @@ internal class QuickRebaseState(
     fun open(root: Path?) {
         this.root = root
         generation.incrementAndGet()
-        state.set(false)
+        rebase.set(false)
+        newBranch.set(false)
         read()
     }
 
@@ -50,7 +57,8 @@ internal class QuickRebaseState(
         readRefs: GitRefs?,
     ) {
         generation.incrementAndGet()
-        state.set(rebaseOntoOriginPossible(readRemotes, readRefs))
+        rebase.set(rebaseOntoOriginPossible(readRemotes, readRefs))
+        newBranch.set(readRemotes.orEmpty().contains("origin"))
     }
 
     /** Forgets the repository; reads that are still to run do nothing. */
@@ -65,13 +73,19 @@ internal class QuickRebaseState(
         val mine = generation.get()
         background {
             if (mine == generation.get()) {
-                val possible =
+                val hasOrigin = remotes(root).orEmpty().contains("origin")
+                val rebasePossible =
                     rebaseOntoOriginPossible(
-                        hasOrigin = remotes(root).orEmpty().contains("origin"),
+                        hasOrigin = hasOrigin,
                         onBranch = currentBranch(root) != null,
                         hasCommit = headCommit(root) != null,
                     )
-                dispatch { if (mine == generation.get()) state.set(possible) }
+                dispatch {
+                    if (mine == generation.get()) {
+                        rebase.set(rebasePossible)
+                        newBranch.set(hasOrigin)
+                    }
+                }
             }
         }
     }
