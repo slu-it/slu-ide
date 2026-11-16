@@ -19,6 +19,7 @@ import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
 import java.util.concurrent.CompletableFuture
+import kotlin.io.path.exists
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -40,7 +41,15 @@ class JdtlsSpecTest {
         }
     }
     private val use by lazy { JavaWorkspaceUse { it.run() } }
-    private val workspaces by lazy { JavaWorkspaces(dir.resolve("workspaces")) }
+    private var duringDelete: () -> Unit = {}
+    private val workspaces by lazy {
+        object : JavaWorkspaces(dir.resolve("workspaces")) {
+            override fun deleteData(windowFolder: Path) {
+                duringDelete()
+                super.deleteData(windowFolder)
+            }
+        }
+    }
     private val thoreauJdk by lazy { fakeJdk(dir.resolve("thoreau-jdk"), 25) }
     private val homes by lazy { JavaHomes({ _, _ -> null }, emptyMap(), thoreauJdk) }
     private val openers = ProjectSettingsOpeners()
@@ -62,6 +71,15 @@ class JdtlsSpecTest {
             30,
             clock,
         )
+    }
+
+    private fun dataOf(folder: Path) = workspaces.folderFor(folder).resolve("data")
+
+    /** A prepared workspace of [window] whose data holds a marker. */
+    private fun workspaceWithData() {
+        fakes.settings.apply(fakeJdtlsHome(dir.resolve("jdtls-1.63")).toString())
+        assertNotNull(spec.command(window))
+        dataOf(window).resolve("marker").file("old index")
     }
 
     /** `work/app` (Maven), `work/g` (Gradle) and `work/loose`. */
@@ -623,6 +641,117 @@ class JdtlsSpecTest {
         assertEquals("No Java build · JDK 25", status.text)
         assertNull(status.folder)
         assertEquals("No build: JDK classes only\nJDK 25.0.1: $thoreauJdk (Thoreau's own JDK)", status.tooltip)
+    }
+
+    @Test
+    fun `a pending clean deletes the data folder once, keeps the rest of the workspace and clears the flag`() {
+        workspaceWithData()
+        val folder = workspaces.folderFor(window)
+        spec.stateOf(window).cleanPending.set(true)
+
+        assertNotNull(spec.command(window))
+
+        assertFalse(dataOf(window).resolve("marker").exists(), "the old data is gone")
+        assertTrue(Files.isDirectory(dataOf(window)), "and the folder is there for jdtls")
+        assertTrue(Files.exists(folder.resolve("project-path.txt")))
+        assertTrue(Files.isDirectory(folder.resolve("config-jdtls-1.63")))
+        assertTrue(Files.exists(folder.resolve("thoreau-output.gradle")))
+        assertFalse(spec.stateOf(window).cleanPending.get())
+    }
+
+    @Test
+    fun `a command after the clean does not delete again`() {
+        workspaceWithData()
+        spec.stateOf(window).cleanPending.set(true)
+        assertNotNull(spec.command(window))
+        dataOf(window).resolve("marker").file("new index")
+
+        assertNotNull(spec.command(window))
+
+        assertTrue(dataOf(window).resolve("marker").exists())
+    }
+
+    @Test
+    fun `a pending clean deletes the data also when jdtls has no usable path, and the command is null`() {
+        val prepared = workspaces.prepare(window, Files.createDirectories(dir.resolve("config")), "k")
+        prepared.data.resolve("marker").file("old index")
+        spec.stateOf(window).cleanPending.set(true)
+
+        assertNull(spec.command(window), "no jdtls is installed")
+
+        assertFalse(prepared.data.resolve("marker").exists())
+        assertFalse(spec.stateOf(window).cleanPending.get())
+    }
+
+    @Test
+    fun `a clean requested while the delete runs is kept for the next start`() {
+        workspaceWithData()
+        val state = spec.stateOf(window)
+        state.cleanPending.set(true)
+        duringDelete = { state.cleanPending.set(true) }
+
+        assertNotNull(spec.command(window))
+
+        assertTrue(state.cleanPending.get())
+        duringDelete = {}
+        dataOf(window).resolve("marker").file("index of the first start")
+        assertNotNull(spec.command(window))
+        assertFalse(dataOf(window).resolve("marker").exists(), "the second Clean deleted it")
+        assertFalse(state.cleanPending.get())
+    }
+
+    @Test
+    fun `a clean of another window does not delete this window's data`() {
+        workspaceWithData()
+        spec.stateOf(dir.resolve("other-window")).cleanPending.set(true)
+
+        assertNotNull(spec.command(window))
+
+        assertTrue(dataOf(window).resolve("marker").exists())
+    }
+
+    @Test
+    fun `cleanRunning sets the flag of the window and restarts its session`() {
+        val access = RecordingAccess()
+        val extension = assertNotNull(spec.sessionExtension(window, access))
+        val other = assertNotNull(spec.sessionExtension(dir.resolve("other-window"), RecordingAccess()))
+
+        spec.cleanRunning(window)
+
+        assertTrue(spec.stateOf(window).cleanPending.get())
+        assertEquals(1, access.restarts.size)
+        assertFalse(spec.stateOf(dir.resolve("other-window")).cleanPending.get())
+        extension.close()
+        other.close()
+    }
+
+    @Test
+    fun `cleanRunning without a session only sets the flag`() {
+        spec.cleanRunning(window)
+
+        assertTrue(spec.stateOf(window).cleanPending.get())
+    }
+
+    @Test
+    fun `a workspace runs while a session of its window lives`() {
+        assertFalse(spec.workspaceRuns(window))
+
+        val extension = assertNotNull(spec.sessionExtension(window, RecordingAccess()))
+
+        assertTrue(spec.workspaceRuns(window))
+        assertFalse(spec.workspaceRuns(dir.resolve("other-window")))
+        extension.close()
+        assertFalse(spec.workspaceRuns(window))
+    }
+
+    @Test
+    fun `cleanStopped deletes the data folder and keeps the rest`() {
+        workspaceWithData()
+
+        spec.cleanStopped(window)
+
+        assertFalse(Files.exists(dataOf(window)))
+        assertTrue(Files.exists(workspaces.folderFor(window).resolve("project-path.txt")))
     }
 }
 

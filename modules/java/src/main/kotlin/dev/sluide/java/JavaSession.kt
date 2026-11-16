@@ -32,6 +32,9 @@ internal class JavaWindowState {
 
     /** The JDK the settings were last resolved with, with its source. */
     @Volatile var jdk: ProjectJdk? = null
+
+    /** Whether the next command of this window's server first deletes jdtls's data folder (Clean Java Workspace). */
+    val cleanPending = AtomicBoolean()
 }
 
 /**
@@ -125,6 +128,11 @@ class JavaSession internal constructor(
     private fun restartForLombok() {
         if (closed.get()) return
         if (state.lombokRestarted.compareAndSet(false, true)) access.restart()
+    }
+
+    /** Restarts the server, as the user's "Restart Java Language Server"; nothing once the session is closed. */
+    fun restart() {
+        if (!closed.get()) access.restart()
     }
 
     private fun jdkChanged() {

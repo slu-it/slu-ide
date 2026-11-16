@@ -89,6 +89,8 @@ class JdtlsSpec internal constructor(
      * agent. Null when jdtls is not installed or not usable. Off the FX thread.
      */
     override fun command(projectFolder: Path): ServerCommand? {
+        // First: the page said "Cleaned" when it asked, whether or not jdtls can start.
+        states[key(projectFolder)]?.let { cleanBeforeStart(projectFolder, it) }
         val home = installer.executable()?.let(JdtlsLaunch::home) ?: return null
         val config = JdtlsLaunch.configFolder(home) ?: return null
         val prepared =
@@ -102,6 +104,43 @@ class JdtlsSpec internal constructor(
             }
         val lombok = installer.lombokJar().takeIf { states[key(projectFolder)]?.lombokRestarted?.get() == true }
         return JdtlsLaunch.command(home, prepared.config, prepared.data, settings.currentMaxMemoryMb(), lombok)
+    }
+
+    /** Whether a jdtls of some window uses the workspace folder of [windowFolder]; any thread. */
+    fun workspaceRuns(windowFolder: Path): Boolean = workspaceUse.isInUse(workspaces.folderFor(windowFolder))
+
+    /**
+     * Clean Java Workspace while jdtls runs: the next start of the window's server deletes the data folder, and the
+     * server restarts now. The lifecycle calls [command] for the new start only after the old process ended (ADR 0142),
+     * so nothing uses the folder then; FX thread.
+     */
+    fun cleanRunning(windowFolder: Path) {
+        stateOf(windowFolder).cleanPending.set(true)
+        session(windowFolder)?.restart()
+    }
+
+    /**
+     * Clean Java Workspace while no jdtls runs: deletes the data folder; off the FX thread. A window that closed just
+     * now may still have its jdtls exiting for a few seconds (known limit, ADR 0179).
+     */
+    @Throws(IOException::class)
+    fun cleanStopped(windowFolder: Path) = workspaces.deleteData(windowFolder)
+
+    /**
+     * The delete a pending clean does before a start; the old process of the lifecycle is gone by then. The flag is
+     * taken before the delete, so a Clean requested meanwhile stays pending for the next start. A failed delete is only
+     * logged: jdtls starts on what is left.
+     */
+    private fun cleanBeforeStart(
+        projectFolder: Path,
+        state: JavaWindowState,
+    ) {
+        if (!state.cleanPending.compareAndSet(true, false)) return
+        try {
+            workspaces.deleteData(projectFolder)
+        } catch (e: IOException) {
+            log.log(System.Logger.Level.WARNING, "jdtls's data of $projectFolder could not be deleted", e)
+        }
     }
 
     override fun workspaceFolder(

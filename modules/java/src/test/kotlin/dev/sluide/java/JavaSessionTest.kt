@@ -208,6 +208,23 @@ class JavaSessionTest {
     }
 
     @Test
+    fun `restart restarts the server as the user's restart does, and not the Lombok flag`() {
+        session.restart()
+
+        assertEquals(1, access.restarts.size)
+        assertFalse(state.lombokRestarted.get())
+    }
+
+    @Test
+    fun `restart of a closed session restarts nothing`() {
+        session.close()
+
+        session.restart()
+
+        assertEquals(0, access.restarts.size)
+    }
+
+    @Test
     fun `a refresh of a root whose build now uses Lombok restarts the server once`() {
         val root = root("a")
         session.onFolderAdded(root)
