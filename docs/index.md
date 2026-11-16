@@ -309,7 +309,7 @@ Explored but not decided or built; options and trade-offs, no commitment.
 
 | Idea | Summary | Keywords |
 |---|---|---|
-| [code-navigation.md](ideas/code-navigation.md) | Go to Definition options compared; LSP taken for Python, Kotlin open | Go to Definition, tree-sitter, name index, ctags, LSP, kotlin-lsp |
+| [code-navigation.md](ideas/code-navigation.md) | Go to Definition options compared; LSP taken; Kotlin put to rest after a kotlin-lsp spike (expiring EAP builds) | Go to Definition, tree-sitter, name index, ctags, LSP, kotlin-lsp, Kotlin, mixed Java/Kotlin, EAP licence, intellij-server |
 | [java-language-server.md](ideas/java-language-server.md) | Spike of Java through jdtls: Maven, Gradle and plain folders, timings, memory, findings | Java, jdtls, Eclipse JDT LS, spike, Maven, m2e, Gradle daemon, Buildship, toolchain, `jdt://`, `java/classFileContents` |
 | [language-servers-later.md](ideas/language-servers-later.md) | Language server follow-ups left out: inlay hints, Problems tab, Ruff, more languages | inlay hints, Problems tab, Ruff, sigstore, kotlin-lsp, `LanguageServerSpec`, site-packages |
 | [generated-folders-later.md](ideas/generated-folders-later.md) | Generated folders ideas left for later: per-folder always show, own folder names, Gradle build directory | generated folders, always show, `layout.buildDirectory`, `ProjectWatchOptions`, nested project |

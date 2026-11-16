@@ -83,7 +83,8 @@ config_<os>> -data <workspace dir>` plus `--add-modules=ALL-SYSTEM` and two `--a
 ## Left out of the first round (ADR 0179)
 - A Reimport Build action for one build root (today: Retry Import after a failure, automatic reimport on build file
   changes, Clean Java Workspace).
-- Kotlin sources in Java builds (needs a Kotlin server next to jdtls) and Kotlin code intelligence itself.
+- Kotlin sources in Java builds (needs a Kotlin server next to jdtls) and Kotlin code intelligence itself; kotlin-lsp
+  serves no Java, see [code-navigation.md](code-navigation.md#spike-of-kotlin-lsp-2026-11-16).
 - Choosing a Gradle-compatible JDK automatically from the wrapper's version.
 - Full diagnostics for loose `.java` files: an invisible project per folder compiles everything below it and writes its
   output there.
