@@ -216,14 +216,26 @@ open class FakeServer :
     }
 }
 
-/** A [ServerProcess] whose other end is a [FakeServer] on in-memory pipes. */
+/**
+ * A [ServerProcess] whose other end is a [FakeServer] on in-memory pipes. [holdsEnd]: it does not end on `exit`, a
+ * crash or a kill until the test calls [release], like a process that takes its time to die; [waitFor], [isEnded] and
+ * the streams stay those of a live process until then, as `Process.waitFor` and `isAlive` do for an OS process.
+ */
 internal class FakeProcess(
     override val name: String,
     val server: FakeServer,
+    holdsEnd: Boolean = false,
 ) : ServerProcess {
     private val toServer = BytePipe()
     private val toClient = BytePipe()
     private val ended = CountDownLatch(1)
+    private val endAsked = CountDownLatch(1)
+
+    @Volatile
+    private var held = holdsEnd
+
+    /** The exit code of the end asked for while [held]. */
+    private var heldCode: Int? = null
     private val serverReader = Executors.newSingleThreadExecutor { Thread(it, "fake-$name").apply { isDaemon = true } }
 
     @Volatile
@@ -289,9 +301,27 @@ internal class FakeProcess(
         return waiter?.isAlive == false
     }
 
+    /** Waits until something asked it to end (`exit`, a crash, a kill); `false` if nothing did within five seconds. */
+    fun awaitEndAsked(): Boolean = endAsked.await(5, TimeUnit.SECONDS)
+
+    /** Lets a held process end: now if its end was asked for, else when it is. */
+    fun release() {
+        val code =
+            synchronized(this) {
+                held = false
+                heldCode
+            }
+        if (code != null) end(code)
+    }
+
     private fun end(code: Int) {
         synchronized(this) {
             if (isEnded) return
+            endAsked.countDown()
+            if (held) {
+                if (heldCode == null) heldCode = code
+                return
+            }
             exitCode = code
             ended.countDown()
         }
@@ -303,11 +333,12 @@ internal class FakeProcess(
 
 /**
  * Starts a [FakeProcess] with the server [newServer] makes for start number `index` (from 0); [beforeStart] runs on
- * the starting thread first, to hold a start.
+ * the starting thread first, to hold a start; [holdsEnd] says whether that process ends only on [FakeProcess.release].
  */
 internal class FakeStarter(
     private val newServer: (index: Int) -> FakeServer = { FakeServer() },
     private val beforeStart: (index: Int) -> Unit = {},
+    private val holdsEnd: (index: Int) -> Boolean = { false },
 ) : ServerStarter {
     val processes = CopyOnWriteArrayList<FakeProcess>()
     val roots = CopyOnWriteArrayList<Path>()
@@ -327,7 +358,7 @@ internal class FakeStarter(
         beforeStart(index)
         roots.add(root)
         commands.add(command)
-        return FakeProcess(name, newServer(index)).also { processes += it }
+        return FakeProcess(name, newServer(index), holdsEnd(index)).also { processes += it }
     }
 }
 

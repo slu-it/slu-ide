@@ -159,7 +159,7 @@ internal class ServerLifecycle(
                     setState(ServerState.Failed("${spec.name} language server could not start: ${e.message ?: e}"))
                     detach()
                 }
-            old?.kill()
+            old?.kill(timing.exit.inWholeMilliseconds)
         }
     }
 
@@ -192,7 +192,7 @@ internal class ServerLifecycle(
             LspConnection(process, client, features, "${spec.name} language server stopped", client::customNotification)
         synchronized(lock) {
             if (!isCurrentLocked(gen)) {
-                conn.kill()
+                conn.kill(timing.exit.inWholeMilliseconds)
                 return
             }
             connection = conn
@@ -324,7 +324,7 @@ internal class ServerLifecycle(
                 }
                 detach()
             }
-        old?.kill()
+        old?.kill(timing.exit.inWholeMilliseconds)
     }
 
     private fun retryDue(gen: Int) {

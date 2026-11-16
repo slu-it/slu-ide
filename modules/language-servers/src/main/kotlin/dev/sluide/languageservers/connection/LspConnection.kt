@@ -119,9 +119,9 @@ internal class LspConnection(
 
     /**
      * Fails the requests still waiting, then ends the server politely: `shutdown`, at most [shutdownMillis] for its
-     * answer, then `exit` (also without an answer), and kills it if it has not ended [exitMillis] later. The processes
-     * it had started when this began are killed in any case: once the server has ended they are no longer its
-     * descendants. Blocks; never on the FX thread.
+     * answer, then `exit` (also without an answer), and kills it if it has not ended [exitMillis] later, waiting as
+     * long again for it to be gone. The processes it had started when this began are killed in any case: once the
+     * server has ended they are no longer its descendants. Blocks; never on the FX thread.
      */
     fun shutdown(
         shutdownMillis: Long,
@@ -146,17 +146,25 @@ internal class LspConnection(
         polite.join(shutdownMillis + exitMillis)
         if (!process.waitFor(exitMillis)) {
             log.log(System.Logger.Level.INFO, "lsp ${process.name} did not exit after shutdown, killed")
-            process.destroyTree()
+            destroyAndWait(exitMillis)
         }
         descendants.filter { it.isAlive }.forEach { it.destroyForcibly() }
         polite.interrupt()
         reader.shutdownNow()
     }
 
-    /** Kills the server with its descendants at once. */
-    fun kill() {
+    /** Kills the server with its descendants at once and waits at most [exitMillis] for it to be gone. Blocks. */
+    fun kill(exitMillis: Long) {
         abandon(stoppedMessage)
-        process.destroyTree()
+        destroyAndWait(exitMillis)
         reader.shutdownNow()
+    }
+
+    /** Kills the server with its descendants and waits at most [exitMillis] for it to be gone: a kill takes a moment. */
+    private fun destroyAndWait(exitMillis: Long) {
+        process.destroyTree()
+        if (!process.waitFor(exitMillis)) {
+            log.log(System.Logger.Level.INFO, "lsp ${process.name} still runs $exitMillis ms after it was killed")
+        }
     }
 }

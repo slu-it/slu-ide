@@ -23,8 +23,6 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import java.util.logging.Handler
-import java.util.logging.LogRecord
 import java.util.logging.Logger
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.milliseconds
@@ -266,28 +264,4 @@ class LanguageServerNotificationsTest {
         DidOpenTextDocumentParams(TextDocumentItem(LspUris.of(folder.resolve("a.py")), "python", 1, text))
 
     private fun range() = Range(Position(0, 0), Position(0, 1))
-}
-
-/** The messages [logger] logs while this is open; holds the logger, which java.util.logging keeps only weakly. */
-private class LogRecords(
-    private val logger: Logger,
-) : Handler(),
-    AutoCloseable {
-    private val records = CopyOnWriteArrayList<LogRecord>()
-
-    init {
-        logger.addHandler(this)
-    }
-
-    fun messages(): List<String> = records.map { it.message }
-
-    override fun publish(record: LogRecord) {
-        records += record
-    }
-
-    override fun flush() = Unit
-
-    override fun close() {
-        logger.removeHandler(this)
-    }
 }
