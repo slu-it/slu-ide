@@ -31,7 +31,8 @@ changed files.
    - a test that cannot fail: would it still pass with the code it names removed? A new test without a red line in
      the report or with a red the rule does not accept, a fix whose test was not shown failing on the unfixed code;
    - a fake of an external tool, driver or toolkit call that behaves unlike the real one on the cases the test relies
-     on, or a test name that claims more than its assertions check;
+     on (for a server: compare it with the recordings it should replay, and a case none shows is a finding), or a
+     test name that claims more than its assertions check;
    - a deleted test whose behavior no remaining test covers (open the claimed covering test);
    - what `.claude/scripts/check-tests.sh` reports on the changed test files; reads of UI state off the FX thread.
 4. Portability: tests and OS-facing code against `docs/testing.md`, "Portability".

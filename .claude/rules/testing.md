@@ -37,6 +37,9 @@ Details, examples and the stories behind these rules: `docs/testing.md`, ADR 008
   component's real builder where one exists. A fake of an external tool, driver or toolkit call (a CLI's exit
   codes, JDBC in auto-commit, `RadioMenuItem.fire()`) behaves like the real one on the cases the test relies on:
   check them once against the real thing (the sandbox's tool, jshell) and name that check in a `//` comment.
+- A fake of an external server (a language server, anything speaking a protocol over time) replays recorded real
+  traffic (`.claude/scripts/record-lsp.sh`, `docs/testing.md` "Fakes of external servers"): its messages, order and
+  counts come from a recording under `src/test/resources/`; a case no recording shows gets a recording, not a guess.
 - Code that reads untrusted input gets hostile tests (`.claude/rules/safety.md`, "Untrusted input").
 - Deleting a test: open the test that keeps it covered first. Remove the imports a deletion leaves behind.
 - Test classes stay under about 800 lines; split by topic (`docs/testing.md`, "Writing UI tests").

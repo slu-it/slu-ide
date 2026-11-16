@@ -61,7 +61,8 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
    rather than duplicate. Agents skip what a brief does not name, so name: for every new guard, wiring line and
    race, the input on which only it decides the outcome; for a fix, the test that fails on master; the paint check
    of what the user sees; the hostile inputs for untrusted content; fixtures built with the real builder of the
-   output they fake, and for fakes of external tools the real behavior they must copy (exit codes, driver modes);
+   output they fake, and for fakes of external tools the real behavior they must copy (exit codes, driver modes); for
+   a fake of an external server, the recordings it replays (`docs/testing.md`, "Fakes of external servers");
    `docs/testing.md`, "Portability" for tests that depend on the OS.
 5. Test classes to run. `verify.sh --changed` already runs the touched modules' unit tests and every class
    `.claude/scripts/related-tests.sh` finds for the changed files, so name only what that search cannot see: a

@@ -27,7 +27,8 @@
       "Bash(.claude/scripts/related-tests.sh*)",
       "Bash(.claude/scripts/worktree-check.sh*)",
       "Bash(.claude/scripts/merge-package.sh*)",
-      "Bash(.claude/scripts/break-check.sh*)"
+      "Bash(.claude/scripts/break-check.sh*)",
+      "Bash(.claude/scripts/record-lsp.sh*)"
     ]
   },
   "hooks": {

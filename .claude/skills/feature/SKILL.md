@@ -58,6 +58,9 @@ Write the plan to the plan file plan mode names:
 - **Network**: a feature that downloads (models, packages) names every host the sandbox must allow, redirect targets
   included (a download host often redirects to a CDN host), and asks the user once before the round starts. The
   real-model or real-service check runs right after the engine package, before packages build on its assumptions.
+  A feature around an external server (a language server, a protocol) records the server's traffic for the cases
+  the tests will fake, in the spike or the engine package (`docs/testing.md`, "Fakes of external servers"), and the
+  briefs of the packages with fakes name those recordings.
 Then `ExitPlanMode`.
 
 ## 6. Round note

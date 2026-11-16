@@ -17,7 +17,7 @@ updated when the summary or keywords no longer fit.
 | Document | Summary | Keywords |
 |---|---|---|
 | [architecture.md](architecture.md) | Modules, their dependency rules, runtime startup, CI and releases | module table, dependencies, Gradle modules, startup, CI, release |
-| [testing.md](testing.md) | Unit vs. UI tests, running a subset, displays, portability for macOS/x64 CI, running the app headless | `uiTest`, TestFX, `@Tag("ui")`, ALSA, `verify.sh`, `related-tests.sh`, Xvfb, display pool, `run-app.sh`, screenshot, heap dump, `jcmd` |
+| [testing.md](testing.md) | Unit vs. UI tests, running a subset, displays, fake servers, portability for macOS/x64 CI, running the app headless | `uiTest`, TestFX, `@Tag("ui")`, ALSA, `verify.sh`, `related-tests.sh`, Xvfb, display pool, `run-app.sh`, screenshot, `record-lsp.sh`, `jcmd` |
 | [safety.md](safety.md) | Conventions that protect the user's files, commands and secrets, with the patterns to copy and known deviations | overwrite, `ATOMIC_MOVE`, confirmation, Cancel default, `ProjectTrust`, quoting, secrets, untrusted input |
 | [external-artifacts.md](external-artifacts.md) | Bundled and downloaded external artifacts: models, vendored JS, word lists, wrapper, with their pins | external artifacts, `libs.versions.toml`, vendor, Kokoro, Opus-MT, KaTeX, Mermaid, `update-external-artifacts`, ty, TypeScript server, npm |
 | [ui-conventions.md](ui-conventions.md) | Conventions new UI follows: view modes, toolbars, tool tabs, menus, run panes, dialogs, storage, theming | Source/Split, `SourceSplit`, `FileAction`, `WindowTool`, Tools menu, Services menu, Games menu, `RealtimeSession`, `ProjectDataStore`, unsaved changes, `BackgroundTasks`, `theme.css` |

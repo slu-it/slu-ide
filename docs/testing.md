@@ -160,6 +160,25 @@ A behavior is tested once, at the lowest level that can see it
   timing. Wait for each request to arrive before the next step cancels it (`CompletionModelTest`), or assert on the
   last request only.
 
+## Fakes of external servers
+A fake that behaves unlike the real server (ADR 0178, "Evaluation") makes tests and code agree on the same wrong
+picture, which neither a red step nor break-check can see. A fake of a server is therefore built from what the
+server really sent:
+- Record once against the real server, in the spike or the engine package:
+  `.claude/scripts/record-lsp.sh <module>/src/test/resources/<tool>/<case>.jsonl -- <server command>` passes the
+  traffic through unchanged and logs each message with its direction (`in` to the server, `out` from it) and time,
+  in a fresh file per run. Run it where the client can name the server command (a custom server path, the spike's
+  own client), on a throwaway project in `/tmp`. Record the cases the tests rely on: import a project, change a build
+  file, remove and re-add a folder, a failing request.
+- The log is scrubbed for committing: `--placeholder /tmp/demo=PROJECT` (one per path: the project, a JDK) turns a
+  path and its file URI into `${PROJECT}`, the home folder always becomes `${HOME}`, and `processId` becomes null.
+  The fake puts its own paths in, so the recording replays on any machine and OS. Grep the log for your user name
+  before committing it.
+- Commit the recordings with a `README.md` line per file: the tool's version, the command, what was done.
+- The fake replays a recording's `out` messages in their order and counts, keyed by the `in` messages the test sends;
+  assertions about "what the server does" cite the recording. A behavior no recording shows gets a new recording.
+- When the server changes version, record again and let the tests show what moved.
+
 ## WebView pages
 What a WebView or a stylesheet paints can be wrong while every data check passes. In the ebook round, tests that
 asked WebKit "is the highlight set?" passed while removed highlights stayed painted, search snippets were black on
