@@ -240,6 +240,12 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         eventually { assertTrue(view.fetchButton.isDisable) }
 
+        // Without a repository there is nothing known about remotes again.
+        robot.interact { view.open(null) }
+        eventually { assertFalse(view.fetchButton.isDisable) }
+        robot.interact { view.open(repo) }
+        eventually { assertTrue(view.fetchButton.isDisable) }
+
         currentRemotes = listOf("origin")
         robot.interact { view.refresh() }
         eventually { assertFalse(view.fetchButton.isDisable) }

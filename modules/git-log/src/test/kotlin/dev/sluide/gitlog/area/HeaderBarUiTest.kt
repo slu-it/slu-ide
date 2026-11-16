@@ -2,6 +2,7 @@ package dev.sluide.gitlog.area
 
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.property.SimpleIntegerProperty
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Label
@@ -16,6 +17,7 @@ import org.testfx.util.WaitForAsyncUtils
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -26,6 +28,10 @@ import kotlin.test.assertTrue
 @ExtendWith(ApplicationExtension::class)
 class HeaderBarUiTest {
     private lateinit var bar: HeaderBar
+    private val stashOff = SimpleBooleanProperty(false)
+    private val popOff = SimpleBooleanProperty(false)
+    private val stashCount = SimpleIntegerProperty(0)
+    private val stashRuns = mutableListOf<String>()
 
     @Start
     fun start(stage: Stage) {
@@ -41,6 +47,9 @@ class HeaderBarUiTest {
                 HeaderAction({}, off),
                 HeaderAction({}, off),
                 HeaderAction({}, off),
+                HeaderAction({ stashRuns += "stash" }, stashOff),
+                HeaderAction({ stashRuns += "pop" }, popOff),
+                stashCount,
                 {},
                 {},
                 {},
@@ -75,6 +84,8 @@ class HeaderBarUiTest {
                     bar.reviewButton,
                     bar.rebaseDefaultButton,
                     bar.newBranchDefaultButton,
+                    bar.stashButton,
+                    bar.popButton,
                     bar.pushButton,
                     bar.pullButton,
                     bar.fetchButton,
@@ -85,12 +96,39 @@ class HeaderBarUiTest {
             assertTrue(fills.all { it == fills.first() }, "the same background on every action: $fills")
             assertTrue(fills.first().size > 1, "an outlined button, not a flat one: ${fills.first()}")
             actions.forEach { assertEquals(250.0, it.tooltip.showDelay.toMillis(), it.tooltip.text) }
+            assertEquals("Stash Changes with Untracked Files", bar.stashButton.tooltip.text)
+        }
+    }
+
+    @Test
+    fun `Stash and Pop follow their header actions, and Pop's tooltip follows the count`(robot: FxRobot) {
+        robot.interact { root.bottom = bar.node }
+        robot.interact {
+            assertEquals("Pop Latest Stash", bar.popButton.tooltip.text)
+            assertFalse(bar.stashButton.isDisable)
+            assertFalse(bar.popButton.isDisable)
+            bar.stashButton.fire()
+            bar.popButton.fire()
+            assertEquals(listOf("stash", "pop"), stashRuns)
+
+            stashOff.set(true)
+            assertTrue(bar.stashButton.isDisable)
+            assertFalse(bar.popButton.isDisable, "each button has its own rule")
+            stashOff.set(false)
+            popOff.set(true)
+            assertTrue(bar.popButton.isDisable)
+            assertFalse(bar.stashButton.isDisable)
+
+            stashCount.set(1)
+            assertEquals("Pop Latest Stash (1 stash)", bar.popButton.tooltip.text)
+            stashCount.set(3)
+            assertEquals("Pop Latest Stash (3 stashes)", bar.popButton.tooltip.text)
         }
     }
 
     /**
-     * Review | Fetch and Rebase, Fetch and New Branch | Push, Pull, Fetch, Refresh: one button width between the
-     * groups, the spacing within one. FX thread.
+     * Review | Fetch and Rebase, Fetch and New Branch | Stash, Pop | Push, Pull, Fetch, Refresh: one button width
+     * between the groups, the spacing within one. FX thread.
      */
     private fun assertGroups() {
         fun gap(
@@ -100,7 +138,9 @@ class HeaderBarUiTest {
         val width = bar.refreshButton.width
         assertEquals(width, gap(bar.reviewButton, bar.rebaseDefaultButton), 1.0)
         assertEquals(bar.node.spacing, gap(bar.rebaseDefaultButton, bar.newBranchDefaultButton), 0.5)
-        assertEquals(width, gap(bar.newBranchDefaultButton, bar.pushButton), 1.0)
+        assertEquals(width, gap(bar.newBranchDefaultButton, bar.stashButton), 1.0)
+        assertEquals(bar.node.spacing, gap(bar.stashButton, bar.popButton), 0.5)
+        assertEquals(width, gap(bar.popButton, bar.pushButton), 1.0)
         assertEquals(bar.node.spacing, gap(bar.pushButton, bar.pullButton), 0.5)
     }
 

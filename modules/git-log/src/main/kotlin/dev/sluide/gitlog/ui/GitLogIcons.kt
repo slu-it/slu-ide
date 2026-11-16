@@ -19,6 +19,8 @@ internal object GitLogIcons {
     val rebase: Ikon = MaterialDesignS.SOURCE_BRANCH_SYNC
     val pull: Ikon = MaterialDesignS.SOURCE_PULL
     val newBranch: Ikon = MaterialDesignS.SOURCE_BRANCH_PLUS
+    val stash: Ikon = MaterialDesignA.ARCHIVE_ARROW_DOWN_OUTLINE
+    val pop: Ikon = MaterialDesignA.ARCHIVE_ARROW_UP_OUTLINE
     val checkout: Ikon = MaterialDesignS.SOURCE_BRANCH_CHECK
     val merge: Ikon = MaterialDesignS.SOURCE_MERGE
     val compare: Ikon = MaterialDesignC.COMPARE_HORIZONTAL

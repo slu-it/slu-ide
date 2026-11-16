@@ -9,6 +9,7 @@ import dev.sluide.gitlog.ui.contains
 import javafx.beans.binding.Bindings
 import javafx.beans.property.BooleanProperty
 import javafx.beans.value.ObservableBooleanValue
+import javafx.beans.value.ObservableIntegerValue
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Node
@@ -69,9 +70,10 @@ internal fun rebaseOntoOriginPossible(
  * [status] message, Cancel (only while the operation going on is [cancellable], ADR 0043) and, on the right, Review
  * Branch (ADR 0168, [review]) and Fetch origin and Rebase onto its Default Branch (ADR 0063, [rebaseOntoDefault]) and
  * Fetch origin and Create new Branch from its Default Branch (ADR 0181, [newBranchFromDefault]), each a
- * [HeaderAction] with its own rule for being off, then Push,
- * Pull, Fetch All Remotes and Refresh: three groups one button width apart, all outlined alike, with tooltips after
- * 250 ms. Fetch and Pull are off while an operation is [running] or there are [noRemotes], Push without a remote.
+ * [HeaderAction] with its own rule for being off, then Stash Changes with Untracked Files ([stash]) and Pop Latest
+ * Stash ([pop], its tooltip names the [stashCount], ADR 0182), then Push, Pull, Fetch All Remotes and Refresh: four
+ * groups one button width apart, all outlined alike, with tooltips after 250 ms. Fetch and Pull are off while an
+ * operation is [running] or there are [noRemotes], Push without a remote.
  * Clicking the bar (but not its buttons) expands or collapses the area.
  */
 internal class HeaderBar(
@@ -84,6 +86,9 @@ internal class HeaderBar(
     review: HeaderAction,
     rebaseOntoDefault: HeaderAction,
     newBranchFromDefault: HeaderAction,
+    stash: HeaderAction,
+    pop: HeaderAction,
+    stashCount: ObservableIntegerValue,
     refresh: () -> Unit,
     fetch: () -> Unit,
     push: () -> Unit,
@@ -146,6 +151,31 @@ internal class HeaderBar(
             disableProperty().bind(newBranchFromDefault.disabled)
         }
 
+    /** Stashes all local changes, untracked files included, with no dialog (ADR 0182). */
+    val stashButton =
+        Button(null, FontIcon(GitLogIcons.stash)).apply {
+            styleClass += listOf("git-log-action", "git-log-stash")
+            tooltip = actionTooltip("Stash Changes with Untracked Files")
+            isFocusTraversable = false
+            minWidth = Region.USE_PREF_SIZE
+            setOnAction { stash.run() }
+            disableProperty().bind(stash.disabled)
+        }
+
+    /** Pops the latest stash (ADR 0182). */
+    val popButton =
+        Button(null, FontIcon(GitLogIcons.pop)).apply {
+            styleClass += listOf("git-log-action", "git-log-pop")
+            tooltip =
+                actionTooltip("").apply {
+                    textProperty().bind(Bindings.createStringBinding({ popTooltip(stashCount.get()) }, stashCount))
+                }
+            isFocusTraversable = false
+            minWidth = Region.USE_PREF_SIZE
+            setOnAction { pop.run() }
+            disableProperty().bind(pop.disabled)
+        }
+
     /** Opens the Push dialog (ADR 0049); not without a remote, but while an operation runs. */
     val pushButton =
         Button(null, FontIcon(GitLogIcons.push)).apply {
@@ -189,21 +219,24 @@ internal class HeaderBar(
             reviewButton,
             rebaseDefaultButton,
             newBranchDefaultButton,
+            stashButton,
+            popButton,
             pushButton,
             pullButton,
             fetchButton,
             refreshButton,
         ) {
             /**
-             * Three groups, one button width apart: tooling for the current state (Review), moving or starting a local
-             * branch (Rebase, New Branch), the remote round trip (Push, Pull, Fetch, Refresh). The margin after a
-             * group's last button makes up the rest of the gap; it is set before each layout from Refresh's preferred
-             * width (its icon and the stylesheet's padding, known after the CSS pass) and the stylesheet's spacing, so
-             * it is right from the first layout on and follows changes without listeners.
+             * Four groups, one button width apart: tooling for the current state (Review), moving or starting a local
+             * branch (Rebase, New Branch), putting local changes aside and back (Stash, Pop), the remote round trip
+             * (Push, Pull, Fetch, Refresh). The margin after a group's last button makes up the rest of the gap; it is
+             * set before each layout from Refresh's preferred width (its icon and the stylesheet's padding, known
+             * after the CSS pass) and the stylesheet's spacing, so it is right from the first layout on and follows
+             * changes without listeners.
              */
             override fun layoutChildren() {
                 val margin = maxOf(0.0, refreshButton.prefWidth(-1.0) - spacing)
-                listOf(reviewButton, newBranchDefaultButton).forEach {
+                listOf(reviewButton, newBranchDefaultButton, popButton).forEach {
                     if (getMargin(it)?.right != margin) setMargin(it, Insets(0.0, margin, 0.0, 0.0))
                 }
                 super.layoutChildren()
@@ -218,6 +251,8 @@ internal class HeaderBar(
                         reviewButton,
                         rebaseDefaultButton,
                         newBranchDefaultButton,
+                        stashButton,
+                        popButton,
                         pushButton,
                         pullButton,
                         fetchButton,

@@ -111,7 +111,7 @@ internal class WindowGitLog(
      * theirs changed (ADR 0168).
      */
     fun workingTreeChanged() {
-        gitLogView.workingTreeChanged()
+        gitLogView.workingTreeChanged(false)
         reviewWindows.repositoryChanged()
     }
 

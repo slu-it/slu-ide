@@ -308,7 +308,7 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
                 files = tracked + GitChangedFile(GitChange.ADDED, "Build.kt"),
                 untracked = listOf("notes.txt", "tmp/scratch.txt", "other.txt"),
             )
-        robot.interact { view.workingTreeChanged() }
+        robot.interact { view.workingTreeChanged(false) }
 
         eventually {
             assertEquals(
@@ -360,19 +360,19 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         assertFalse(commitDisabled())
 
         commitChanges = changes().copy(inProgress = GitPendingMerge(listOf("h1"), null, emptyList()))
-        robot.interact { view.workingTreeChanged() }
+        robot.interact { view.workingTreeChanged(false) }
         eventually { assertTrue(commitView().blockedNote.isVisible) }
         assertEquals("A merge is in progress; continue or abort it in the log first.", commitView().blockedNote.text)
         assertTrue(commitDisabled(), "a merge in progress")
         commitChanges = changes().copy(inProgress = GitPendingConflicts(listOf("README.md")))
-        robot.interact { view.workingTreeChanged() }
+        robot.interact { view.workingTreeChanged(false) }
         eventually {
             assertEquals("Files have conflicts; mark them resolved in the log first.", commitView().blockedNote.text)
         }
         assertTrue(commitDisabled(), "conflicts")
         assertTrue(commitView().stashButton.isDisabled, "git refuses a stash with conflicts too")
         commitChanges = changes()
-        robot.interact { view.workingTreeChanged() }
+        robot.interact { view.workingTreeChanged(false) }
         eventually { assertFalse(commitView().blockedNote.isVisible) }
         assertFalse(commitDisabled())
 
@@ -496,7 +496,7 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         assertEquals(2, headMessageReads.size, "not read for a message")
 
         commitChanges = changes(headPushed = true)
-        robot.interact { view.workingTreeChanged() }
+        robot.interact { view.workingTreeChanged(false) }
         eventually { assertTrue(draft.pushedNote.isVisible) }
         assertEquals("This commit is already pushed: amending it needs a force push.", draft.pushedNote.text)
 
@@ -508,7 +508,7 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
 
         // Without a commit there is nothing to amend.
         headCommit = null
-        robot.interact { view.workingTreeChanged() }
+        robot.interact { view.workingTreeChanged(false) }
         eventually { assertTrue(draft.amendBox.isDisabled) }
     }
 
@@ -560,7 +560,7 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
 
         // Without a commit there is nothing to compare with: the file opens.
         headCommit = null
-        robot.interact { view.workingTreeChanged() }
+        robot.interact { view.workingTreeChanged(false) }
         eventually { assertTrue(commitView().amendBox.isDisabled) }
         select(robot, "Util.kt")
         press(commitView().tree, KeyCode.D, shortcut = true)
@@ -619,7 +619,7 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         val reads = commitReads.size
         headMessageGate?.countDown()
         // A read after it on the tab's thread: HEAD's message has been handed over by then.
-        robot.interact { view.workingTreeChanged() }
+        robot.interact { view.workingTreeChanged(false) }
         eventually { assertEquals(reads + 1, commitReads.size) }
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals("Typed", draft.messageArea.text)
@@ -646,7 +646,7 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
 
         // E.g. git checkout --orphan.
         headCommit = null
-        robot.interact { view.workingTreeChanged() }
+        robot.interact { view.workingTreeChanged(false) }
         eventually { assertTrue(draft.amendBox.isDisabled) }
         assertFalse(draft.amendBox.isSelected)
         assertTrue(commitDisabled())
@@ -667,7 +667,7 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
     fun `workingTreeChanged reads the changes again only while the tab is shown`(robot: FxRobot) {
         robot.interact {
             view.open(repo)
-            view.workingTreeChanged()
+            view.workingTreeChanged(false)
         }
         WaitForAsyncUtils.waitForFxEvents()
         assertTrue(commitReads.isEmpty(), "no tab")
@@ -677,20 +677,20 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         robot.interact { view.showCommit() }
         eventually { assertEquals("The changes could not be read.", commitView().placeholder.text) }
         commitChanges = changes()
-        robot.interact { view.workingTreeChanged() }
+        robot.interact { view.workingTreeChanged(false) }
         eventually { assertEquals(initialTree, treeLines()) }
         val reads = commitReads.size
 
         robot.interact { view.expanded.set(false) }
-        robot.interact { view.workingTreeChanged() }
-        robot.interact { view.workingTreeChanged() }
+        robot.interact { view.workingTreeChanged(false) }
+        robot.interact { view.workingTreeChanged(false) }
         view.tabs.commitReaderIdle().get(10, TimeUnit.SECONDS)
         assertEquals(reads, commitReads.size, "collapsed")
         robot.interact { view.expanded.set(true) }
         eventually { assertEquals(reads + 1, commitReads.size) }
 
         robot.interact { view.tabs.logTab.onSelect() }
-        robot.interact { view.workingTreeChanged() }
+        robot.interact { view.workingTreeChanged(false) }
         view.tabs.commitReaderIdle().get(10, TimeUnit.SECONDS)
         assertEquals(reads + 1, commitReads.size, "the Log is shown")
         robot.interact { view.tabs.commitAreaTab.onSelect() }
@@ -698,7 +698,7 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
 
         // A failed read with the tree kept says so in the header, also when the tab is selected again.
         commitChanges = null
-        robot.interact { view.workingTreeChanged() }
+        robot.interact { view.workingTreeChanged(false) }
         eventually { assertEquals("The changes could not be read.", status(robot)) }
         assertEquals(initialTree, treeLines())
         robot.interact { view.tabs.logTab.onSelect() }

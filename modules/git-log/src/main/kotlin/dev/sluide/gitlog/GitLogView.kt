@@ -20,6 +20,7 @@ import dev.sluide.gitlog.area.CompareBar
 import dev.sluide.gitlog.area.GO_TO
 import dev.sluide.gitlog.area.HeaderAction
 import dev.sluide.gitlog.area.HeaderBar
+import dev.sluide.gitlog.area.HeaderFlags
 import dev.sluide.gitlog.area.HeaderStatus
 import dev.sluide.gitlog.area.endMessage
 import dev.sluide.gitlog.area.quickActionsState
@@ -43,6 +44,7 @@ import dev.sluide.gitlog.operations.PendingBar
 import dev.sluide.gitlog.operations.PopLatestStash
 import dev.sluide.gitlog.operations.PrepareNewBranchFromDefault
 import dev.sluide.gitlog.operations.RebaseOntoOriginDefault
+import dev.sluide.gitlog.operations.StashAllChanges
 import dev.sluide.gitlog.table.CommitTable
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import dev.sluide.gitlog.ui.SharedSplit
@@ -88,7 +90,7 @@ import java.util.concurrent.CompletableFuture
  * closed, until another folder (ADR 0048); [workingTreeChanged] has it read the changes again. [showPush] (and Push in
  * the header, Commit and Push in the Commit tab) opens the Push dialog, which pushes the current branch (ADR 0049);
  * [showPull] (and Pull in the header) the Pull dialog (ADR 0106); [showStashChanges] and [popLatestStash] stash and pop
- * (ADR 0107), whose stashes the branches pane shows.
+ * (ADR 0107; the header's Stash and Pop, ADR 0182), whose stashes the branches pane shows.
  *
  * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log` (a history, the
  * Commit tab and the Push dialog on threads of their own); [writes] changes the repository on the thread
@@ -236,14 +238,10 @@ class GitLogView internal constructor(
             openFile = { file -> onOpenFile(file) }
         }
 
-    /** Whether the last read found no remote to fetch; `false` while that is not known (ADR 0043). */
-    private val noRemotes = SimpleBooleanProperty(false)
+    private val flags = HeaderFlags()
 
     /** Whether the header's quick actions may start; read also while collapsed (ADRs 0063, 0181). */
     private val quickActions = quickActionsState(source, writes, { expanded.get() }, readers.logReads, dispatch)
-
-    /** Whether the log shows a repository; the review window reports an unborn `HEAD` itself (ADR 0168). */
-    private val hasRepository = SimpleBooleanProperty(false)
 
     /** The bar of what git is in the middle of, below the filter bar (ADR 0042); the table's menu reads its `busy`. */
     internal val pendingBar =
@@ -386,7 +384,6 @@ class GitLogView internal constructor(
             openFile = { file -> onOpenFile(file) }
         }
 
-    /** An operation runs or the pending bar is busy: the quick actions wait. */
     private val blocked = Bindings.or(actions.running, pendingBar.busy)
 
     /** The header bar; clicking it (but not its buttons or tabs) expands or collapses the log. */
@@ -397,16 +394,13 @@ class GitLogView internal constructor(
             expanded,
             actions.running,
             actions.cancellable,
-            noRemotes,
-            HeaderAction({ onReview(ReviewRequest.Branch("HEAD")) }, hasRepository.not()),
-            HeaderAction(
-                { actions.start(RebaseOntoOriginDefault()) },
-                Bindings.or(blocked, quickActions.rebasePossible.not()),
-            ),
-            HeaderAction(
-                { actions.start(PrepareNewBranchFromDefault()) },
-                Bindings.or(blocked, quickActions.newBranchPossible.not()),
-            ),
+            flags.noRemotes,
+            HeaderAction({ onReview(ReviewRequest.Branch("HEAD")) }, flags.noRepository),
+            HeaderAction({ actions.start(RebaseOntoOriginDefault()) }, flags.rebaseOff(quickActions, blocked)),
+            HeaderAction({ actions.start(PrepareNewBranchFromDefault()) }, flags.newBranchOff(quickActions, blocked)),
+            HeaderAction({ actions.start(StashAllChanges) }, flags.stashOff(blocked)),
+            HeaderAction(::popLatestStash, flags.popOff(quickActions, blocked)),
+            quickActions.stashCount,
             ::refresh,
             { actions.start(Fetch()) },
             ::showPush,
@@ -418,6 +412,8 @@ class GitLogView internal constructor(
     internal val rebaseDefaultButton get() = headerBar.rebaseDefaultButton
     internal val newBranchDefaultButton get() = headerBar.newBranchDefaultButton
     internal val fetchButton get() = headerBar.fetchButton
+    internal val stashButton get() = headerBar.stashButton
+    internal val popButton get() = headerBar.popButton
     internal val pushButton get() = headerBar.pushButton
     internal val pullButton get() = headerBar.pullButton
     internal val cancelButton get() = headerBar.cancelButton
@@ -449,7 +445,7 @@ class GitLogView internal constructor(
             when (state) {
                 GitLogState.IDLE -> {
                     pendingBar.show(null)
-                    noRemotes.set(false)
+                    flags.noRemotes.set(false)
                     branchesPane.remotes = emptyList()
                 }
 
@@ -462,7 +458,7 @@ class GitLogView internal constructor(
                     branchesPane.show(pages.refs, pages.stashes)
                     compareBar.update()
                     pendingBar.show(pages.pending, pages.refs)
-                    noRemotes.set(pages.remotes?.isEmpty() == true)
+                    flags.noRemotes.set(pages.remotes?.isEmpty() == true)
                     quickActions.refsRead(pages.remotes, pages.refs, pages.stashes)
                     branchesPane.remotes = pages.remotes.orEmpty()
                 }
@@ -531,10 +527,13 @@ class GitLogView internal constructor(
     }
 
     /**
-     * The working tree changed (the window's git status, ADR 0013): the Commit tab reads its changes again, at once if
-     * shown, else when it is shown next; nothing without one.
+     * The working tree changed (the window's git status, ADR 0013), with [hasLocalChanges] for the header's Stash: the
+     * Commit tab reads its changes again, at once if shown, else when shown next; nothing without one.
      */
-    fun workingTreeChanged() = tabs.workingTreeChanged()
+    fun workingTreeChanged(hasLocalChanges: Boolean) {
+        flags.localChanges.set(hasLocalChanges)
+        tabs.workingTreeChanged()
+    }
 
     /**
      * Shows the history of [file] (ADR 0046), a file below the opened repository, from `HEAD` on, in a tab of the area:
@@ -555,7 +554,7 @@ class GitLogView internal constructor(
         branchesPane.reset()
         // Resets the filter and ends a comparison too, before the bar, which then tells no change.
         pages.open(root)
-        hasRepository.set(root != null)
+        flags.hasRepository.set(root != null)
         quickActions.open(root)
         tabs.closeAll()
         filterBar.reset()

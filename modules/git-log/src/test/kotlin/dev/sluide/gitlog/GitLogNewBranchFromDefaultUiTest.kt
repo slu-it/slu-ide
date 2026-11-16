@@ -1,33 +1,17 @@
 package dev.sluide.gitlog
 
-import dev.sluide.backgroundtasks.BackgroundTasks
-import dev.sluide.git.GitBranches
-import dev.sluide.git.GitCommits
-import dev.sluide.git.GitLog
-import dev.sluide.git.GitMerges
-import dev.sluide.git.GitPulls
-import dev.sluide.git.GitPush
-import dev.sluide.git.GitRebases
-import dev.sluide.git.GitRemotes
-import dev.sluide.git.GitRewords
-import dev.sluide.git.GitStashes
-import dev.sluide.git.cli.GitCli
 import dev.sluide.gitlog.operations.CREATE_BUTTON
 import javafx.application.Platform
-import javafx.scene.Scene
 import javafx.scene.control.CheckBox
 import javafx.scene.control.Label
 import javafx.scene.control.TextField
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
-import org.junit.jupiter.api.io.TempDir
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
-import java.nio.file.Path
 import kotlin.io.path.createDirectories
-import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -40,74 +24,9 @@ import kotlin.test.assertTrue
  */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
-class GitLogNewBranchFromDefaultUiTest : GitLogWritesUiFixture() {
-    @TempDir
-    lateinit var folder: Path
-
-    private val environment =
-        System.getenv().filterKeys { !it.startsWith("GIT_") } +
-            mapOf(
-                "GIT_CONFIG_GLOBAL" to "/dev/null",
-                "GIT_CONFIG_NOSYSTEM" to "1",
-                "GIT_AUTHOR_NAME" to "Test",
-                "GIT_AUTHOR_EMAIL" to "test@example.com",
-                "GIT_COMMITTER_NAME" to "Test",
-                "GIT_COMMITTER_EMAIL" to "test@example.com",
-            )
-
+class GitLogNewBranchFromDefaultUiTest : GitLogRealGitUiFixture() {
     @Start
-    fun start(stage: Stage) {
-        val git = GitCli("git", environment)
-        val rebases = GitRebases(git)
-        view =
-            GitLogView(
-                GitLog(git),
-                GitBranches(git),
-                GitCommits(git),
-                rebases,
-                GitMerges(git),
-                GitPulls(git, rebases),
-                GitRewords(git),
-                GitRemotes(git),
-                GitPush(git),
-                GitStashes(git),
-                BackgroundTasks.forTests(),
-            )
-        stage.scene = Scene(view, 900.0, 500.0)
-        stage.show()
-    }
-
-    private fun git(
-        directory: Path,
-        vararg arguments: String,
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(environment)
-                }.start()
-        process.outputStream.close()
-        val output =
-            process.inputStream
-                .readAllBytes()
-                .decodeToString()
-                .trim()
-        process.waitFor()
-        return output
-    }
-
-    private fun commit(
-        directory: Path,
-        file: String,
-    ): String {
-        directory.resolve(file).writeText(file)
-        git(directory, "add", file)
-        git(directory, "commit", "-q", "-m", "Add $file")
-        return git(directory, "rev-parse", "HEAD")
-    }
+    fun start(stage: Stage) = startRealGit(stage)
 
     @Test
     fun `the quick action fetches origin, asks for a name and creates a branch at its default, untracked`(
