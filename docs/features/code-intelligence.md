@@ -58,10 +58,12 @@ expands the column. The tooltip shows the absolute paths. `WorkspaceStatusFeatur
 A banner above the text of a bound editor when the spec reports an environment problem (`environmentProblem`), only
 while the server runs; for Python "No virtual environment for backend_one, so its packages cannot be resolved."
 (when: [python.md](python.md)); for Java "Importing services/billing (Gradle)… 0:42" and "Import of services/billing
-failed: …" ([java.md](java.md)). Buttons: one per action of the problem (`EnvironmentProblem.actions`, in the spec's
+failed: …", and the offer to ignore jdtls's compiled output ([java.md](java.md)). Buttons: one per action of the problem (`EnvironmentProblem.actions`, in the spec's
 order, after the message), then Not Now and Don't Ask Again, unless the problem is not `dismissible` (Java's
 "Importing …", which only reports progress: Don't Ask Again would hide the spec's later problems too); such a banner
-updates its message in place. An action is one of three kinds (`ProblemAction`): a
+updates its message in place. A problem that is not `dismissible` is shown whether or not its folder is in Not Now
+and whether or not the spec is declined, so a Not Now or Don't Ask Again on Java's failure hides neither the later
+Importing banner nor Java's gitignore offer (both in [java.md](java.md)). An action is one of three kinds (`ProblemAction`): a
 **terminal command**, as **Run uv sync**, which runs the spec's constant command in a new terminal tab named
 `uv sync (backend_one)` in the project folder and adds it to the editor area (a shell that cannot start shows the
 terminal error); a **file to open** in an editor tab; a **callback** the spec gives, run on the FX thread (one that

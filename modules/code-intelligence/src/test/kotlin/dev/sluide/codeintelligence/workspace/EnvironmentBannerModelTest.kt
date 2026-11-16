@@ -188,6 +188,45 @@ class EnvironmentBannerModelTest {
     }
 
     @Test
+    fun `a problem that is not dismissible shows although its folder is in Not Now`() {
+        problem = problemOf(backend)
+        val model = model()
+        model.notNow()
+        assertNull(model.problem.value)
+
+        problem = problemOf(backend).copy(dismissible = false)
+        changes.set(changes.get() + 1)
+
+        assertEquals(problem, model.problem.value)
+    }
+
+    @Test
+    fun `a problem that is not dismissible shows although the spec is declined`() {
+        problem = problemOf(backend)
+        val prompts = prompts()
+        val model = model(prompts)
+        model.dontAskAgain()
+        assertNull(model.problem.value)
+
+        problem = problemOf(backend).copy(dismissible = false)
+        changes.set(changes.get() + 1)
+
+        assertEquals(problem, model.problem.value)
+        assertEquals(problem, model(prompts).problem.value)
+    }
+
+    @Test
+    fun `a dismissible problem stays hidden by Not Now and by a declined spec`() {
+        problem = problemOf(backend).copy(dismissible = true)
+        val model = model()
+        model.notNow()
+        assertNull(model.problem.value)
+
+        val declined = model(prompts().also { it.decline("python.environment") })
+        assertNull(declined.problem.value)
+    }
+
+    @Test
     fun `a terminal action opens its constant command in the problem's folder`() {
         problem = problemOf(backend)
         val model = model()

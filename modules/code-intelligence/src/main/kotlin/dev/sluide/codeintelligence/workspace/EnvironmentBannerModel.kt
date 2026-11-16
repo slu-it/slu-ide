@@ -19,7 +19,8 @@ private val log = System.getLogger(EnvironmentBannerModel::class.java.name)
  * What a bound editor's environment banner says (ADR 0151, 0160): for a document the server does not serve, the
  * [reason][DocumentGate.reason] of its gate whatever the server's state (nothing while the gate has not answered);
  * otherwise the spec's [EnvironmentProblem] of the file, only while the server runs. Shown only if the user has not
- * put it off (Not Now for the problem's folder in this window, Don't Ask Again for the spec in every window); `null`
+ * put it off (Not Now for the problem's folder in this window, Don't Ask Again for the spec in every window); a
+ * problem that is not [dismissible][EnvironmentProblem.dismissible] is shown whatever the user put off. `null`
  * otherwise. Recomputed when the server's [state], the file's [folder], [changes] of the workspace folders, [notNow]
  * or the declined ids fire. FX thread.
  *
@@ -84,7 +85,6 @@ internal class EnvironmentBannerModel(
 
     private fun compute(): EnvironmentProblem? {
         val project = projectFolder ?: return null
-        if (declineId in prompts.declined) return null
         val gate = gateOf() ?: return null
         val found: EnvironmentProblem?
         if (gate.served) {
@@ -94,7 +94,8 @@ internal class EnvironmentBannerModel(
             found = gate.reason
         }
         if (found == null) return null
-        return found.takeUnless { it.folder in notNow }
+        if (!found.dismissible) return found
+        return found.takeUnless { declineId in prompts.declined || it.folder in notNow }
     }
 
     override fun close() = observed.forEach { it.removeListener(listener) }
