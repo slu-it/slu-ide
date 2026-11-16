@@ -26,6 +26,12 @@ dependencies {
     // Deliberate module dependency: the custom jdtls path and the maximum memory are stored in settings.properties
     // (ADR 0008, ADR 0067).
     implementation(project(":modules:settings"))
+    // Deliberate module API dependency: JavaProjectSettings keeps the project's JDK in its project data; its public
+    // constructor takes the ProjectDataStore (ADR 0090, ADR 0179).
+    api(project(":modules:project-data"))
+    // Deliberate module dependency: the library classes jdtls returns are cached below LibraryCode.JAVA_CLASSES_ROOT
+    // (ADR 0150, ADR 0179).
+    implementation(project(":modules:library-code"))
     // Deliberate module dependency: the project JDK is JAVA_HOME of the user's login shell (loginShellPrints,
     // ADR 0087, ADR 0179).
     implementation(project(":modules:terminal"))

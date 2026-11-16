@@ -87,6 +87,9 @@ dependencies {
     // Settings → Languages → TypeScript are found by component scan; the page opens release notes in the system
     // browser (ADR 0159).
     implementation(project(":modules:typescript"))
+    // Java through the language server jdtls: JdtlsSpec, JdtlsInstaller, JdtlsUpdates, JavaProjectSettings, the trust
+    // check for Maven builds and Settings → Languages → Java are found by component scan (ADR 0179).
+    implementation(project(":modules:java"))
     // Every window has its LanguageServers (specs from Spring, its folder, trust and the FileWatcher), registered as a
     // window service and closed with the window (ADR 0142).
     implementation(project(":modules:language-servers"))
