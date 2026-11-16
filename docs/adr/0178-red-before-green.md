@@ -35,9 +35,10 @@ because nothing exists, not because the one guard is missing.
   once against the real thing and named in a comment.
 - **After the last commit, `.claude/scripts/break-check.sh` mutates the guards and calls the change adds, one at a
   time,** and runs the tests: a source-level mutation run limited to the change, on top of `verify.sh`, instead of a
-  bytecode tool (pitest) with its Kotlin and JavaFX friction and a new Gradle plugin. It catches what a red step done
-  in the wrong order misses, without relying on the implementer's account. Its line-based mutations miss some guards
-  (`?: return`, `when` branches, multi-line conditions); it lists those, and they keep a break check by hand.
+  bytecode tool (pitest) with its Kotlin and JavaFX friction and a new Gradle plugin. It catches what a red step done in
+  the wrong order misses, without relying on the implementer's account. Its line-based mutations miss some guards
+  (multi-line conditions, `when (x)` branches, block-bodied Boolean functions; `?: return` exits and bare `when`
+  branches are mutated since the evaluation below); it lists those, and they keep a break check by hand.
 - **Reports quote the red**: per new test, the failing assertion line from `verify.sh`'s digest.
 
 ## Consequences

@@ -4,14 +4,20 @@
 # Mutations, per line added in */src/main/kotlin/**/*.kt (moved files count only their changed lines):
 #   if (c), while (c)      -> false; for `if`, also true when the same line has an `else`
 #   if (a || b), (a && b)  -> each top-level operand dropped once
-#   .filter { ... }        -> removed; also filterNot, takeIf, takeUnless, coerceIn, coerceAtLeast, coerceAtMost
+#   .filter { ... }        -> removed; also filterNot, takeIf, takeUnless (with a lambda or a function reference),
+#                             coerceIn, coerceAtLeast, coerceAtMost
 #                             (on one line, brackets balanced)
 #   a call or an assignment that is a whole statement on one line -> removed (wiring, stop(), require())
+#   x ?: return|continue|break|throw ...   -> (x)!! (the exit or throw on null removed: a null now throws an NPE)
+#   return a && b, val v = a || b, = ...   -> each top-level operand dropped once (boolean expressions outside if,
+#                                             on one line)
+#   cond -> ... in a `when` without subject -> false -> ..., and each top-level operand of cond dropped once
+#   fun f(...): Boolean = expr (one line)   -> = true and = false
 # Not mutated: comments, imports, declarations, logging, lines in multi-line strings, lines that continue or open a
 # multi-line expression or follow a brace-less if/else, and presentation (string literals, style classes, sizes,
 # padding, spacing, alignment, prompt texts: paint checks cover what the user sees). Guard-like added lines that got
-# no mutant (`?: return`, `when`, multi-line conditions, ...) are listed by --list and counted in the summary: they
-# keep a hand break check.
+# no mutant (multi-line conditions, a `when (x)` branch, a block-bodied Boolean function, ...) are listed by --list
+# and counted in the summary: they keep a hand break check.
 # Tests per file: the unit `test` task of its module, the classes `related-tests.sh --names <file>` finds and the
 # verify.sh targets after `--` (the classes a brief names). The baseline runs them unmutated with Gradle's cached
 # results invalidated, so its time is a real run; a red baseline stops the run. Each mutant runs in stages with
@@ -229,9 +235,11 @@ PRESENTATION_NAMES = {"styleClass", "promptText", "prefWidth", "prefHeight", "mi
                       "fixedCellSize", "stylesheets"}
 PRESENTATION_CALL = re.compile(r"(^|\.)(styleClass|getStyleClass\(\))\.(add|addAll|remove|removeAll|setAll)\(|"
                                r"(^|\.)(setPrefSize|setMinSize|setMaxSize|setHgrow|setVgrow|setMargin)\(")
+BOOLEAN_BLOCK = re.compile(r"\bfun\b.*\)\s*:\s*Boolean\b[^=]*\{$")
 GUARD_LIKE = re.compile(r"\?:\s*(return|continue|break|throw)\b|&&|\|\||\bif\b|\bwhile\b|\bcoerce|"
                         r"\brequire|\bcheck(NotNull)?\s*\(|\btake(If|Unless)\b|\bfilter(Not)?\b")
-FILTERS = re.compile(r"\??\.(filter|filterNot|takeIf|takeUnless)\s*\{|\??\.(coerceIn|coerceAtLeast|coerceAtMost)\s*\(")
+FILTERS = re.compile(r"\??\.(filter|filterNot|takeIf|takeUnless)\s*[{(]"
+                     r"|\??\.(coerceIn|coerceAtLeast|coerceAtMost)\s*\(")
 
 def code_mask(s):
     """The line with string literal contents and line comments blanked."""
@@ -291,11 +299,85 @@ def presentation(smask, stripped):
     name = m.group(1).split(".")[-1].split("?")[-1]
     return name in PRESENTATION_NAMES or bool(LITERAL.match(m.group(3).strip()))
 
-def mutants(text, prev, nxt):
+def top_level_index(mask, pattern, start=0):
+    """Index of the first match of pattern at bracket depth 0 (counted from start), or -1."""
+    depth = 0
+    for i in range(start, len(mask)):
+        c = mask[i]
+        if c in "([{": depth += 1
+        elif c in ")]}": depth -= 1
+        elif depth == 0 and re.match(pattern, mask[i:]): return i
+    return -1
+
+def elvis_left(text, mask, at):
+    """The line with `?: exit...` (from index at) replaced by `!!` on its left side: in parentheses after the last of
+    `return`, an assignment (also `+=` and the like) or a top-level `->`; without them on a chain continuation line.
+    None when the left side is an if/when expression (`!!` would reach into its branches)."""
+    indent = len(text) - len(text.lstrip())
+    if text.lstrip().startswith((".", "?.")): return text[:at].rstrip() + "!!"
+    start = indent
+    r = re.match(r"\s*return(@\w+)?\s+", mask)
+    if r and r.end() <= at: start = r.end()
+    eq = top_level_index(mask, r"=(?![=>])")
+    if 0 < eq < at and mask[eq - 1] not in "!<>=": start = max(start, eq + 1)
+    arrow = top_level_index(mask, r"->")
+    if 0 < arrow < at: start = max(start, arrow + 2)
+    left = text[start:at].strip()
+    if not left or re.match(r"(if|when)\b", left): return None
+    head = text[:start]
+    return (head if not head.strip() else head.rstrip() + " ") + "(%s)!!" % left
+
+def operand_drops(text, mask, start, end, label):
+    """Each top-level operand of the boolean expression text[start:end] dropped once (|| first: it binds weaker)."""
+    expr, emask = text[start:end], mask[start:end]
+    for op in ("||", "&&"):
+        parts = split_top(emask, expr, op)
+        if len(parts) > 1:
+            if any(not q for q in parts): return  # an operand on another line: the expression is not all here
+            for j, part in enumerate(parts):
+                rest = (" %s " % op).join(q for k, q in enumerate(parts) if k != j)
+                head = text[:start] if not text[:start].strip() else text[:start].rstrip() + " "
+                tail = text[end:] if not text[end:] or text[end:].startswith(" ") else " " + text[end:]
+                yield head + rest.strip() + tail, "operand `%s` of %s dropped (%s)" % (part, op, label)
+            return
+
+def mutants(text, prev, nxt, when_kind=None):
     stripped, indent = text.strip(), text[:len(text) - len(text.lstrip())]
     if not stripped or stripped.startswith(("//", "/*", "*", "import ", "package ", "@")): return
     mask = code_mask(text)
     found = False
+    # x ?: return / continue / break / throw ... -> x!! : the exit or throw on null goes, a null now throws an NPE.
+    m = re.search(r"\?:\s*(return|continue|break|throw)\b", mask)
+    if m and balanced(mask[m.start():].rstrip()) and top_level_index(mask, r"\?:") == m.start():
+        left = elvis_left(text, mask, m.start())
+        if left is not None:
+            found = True
+            yield left, "`%s` -> !!" % text[m.start():].strip()
+    # A one-line Boolean expression body -> true and false.
+    m = re.search(r"\bfun\b.*\)\s*:\s*Boolean\s*=\s*", mask)
+    if m and mask[m.end():].strip() and balanced(mask[m.end():]):
+        found = True
+        body = text[m.end():].strip()
+        for value in ("true", "false"):
+            if body != value: yield text[:m.end()] + value, "Boolean body `%s` -> %s" % (body, value)
+    # A branch condition of a `when` without subject -> false, and its operands dropped.
+    arrow = top_level_index(mask, r"->")
+    if when_kind == "bare" and arrow > 0 and "{" not in mask[:arrow] and not stripped.startswith("else"):
+        cond_start = len(text) - len(text.lstrip())
+        found = True
+        yield text[:cond_start] + "false " + text[arrow:], "when branch `%s` -> false" % text[cond_start:arrow].strip()
+        yield from operand_drops(text, mask, cond_start, arrow, "when branch")
+    # A boolean expression outside if/while: after `return` or a top-level `=`.
+    continued = mask.rstrip().endswith(CONTINUES) or nxt.lstrip().startswith(("&&", "||", ".", "?.", "?:"))
+    if not re.search(r"\b(if|while)\s*\(", mask) and arrow < 0 and not continued and ("&&" in mask or "||" in mask):
+        r = re.match(r"\s*return\s+", mask)
+        eq = top_level_index(mask, r"=(?![=>])")
+        start = r.end() if r else (eq + 1 if eq > 0 and mask[eq - 1] not in "!<>=+-*/%" else -1)
+        end = len(mask.rstrip())
+        if start > 0 and balanced(mask[start:end]) and not mask[start:end].rstrip().endswith("{"):
+            drops = list(operand_drops(text, mask, start, end, "boolean expression"))
+            if drops: found = True
+            yield from drops
     for m in re.finditer(r"\b(if|while)\s*\(", mask):
         open_at = m.end() - 1
         close = match_close(mask, open_at)
@@ -328,6 +410,20 @@ def mutants(text, prev, nxt):
     if STATEMENT.match(smask) or (ASSIGNMENT.match(smask) and "==" not in smask):
         yield indent, "statement removed: " + stripped
 
+def when_kind(lines, n):
+    """"bare" if line n (1-based) sits directly in a `when {` without subject, "subject" in a `when (x) {`, else None:
+    the nearest less indented line decides (ktlint indents a when's branches one level deeper)."""
+    own = len(lines[n - 1]) - len(lines[n - 1].lstrip())
+    for line in reversed(lines[:n - 1]):
+        if not line.strip(): continue
+        indent = len(line) - len(line.lstrip())
+        if indent < own:
+            head = code_mask(line).rstrip()
+            if re.search(r"\bwhen\s*\{$", head): return "bare"
+            if re.search(r"\bwhen\s*\(.*\)\s*\{$", head): return "subject"
+            return None
+    return None
+
 def in_raw_strings(lines):
     """Per line: True if any part of it lies inside a multi-line raw string."""
     inside, result = False, []
@@ -346,10 +442,17 @@ def plan_for(added):
             if n > len(lines) or raw[n - 1]: continue
             prev = next((l for l in reversed(lines[:n - 1]) if l.strip()), "")
             nxt = next((l for l in lines[n:] if l.strip()), "")
-            found = list(mutants(lines[n - 1], prev, nxt))
+            kind = when_kind(lines, n)
+            found = [(new, what) for new, what in mutants(lines[n - 1], prev, nxt, kind) if new != lines[n - 1]]
             plan.extend((path, n, new, what) for new, what in found)
             stripped = lines[n - 1].strip()
-            if not found and not stripped.startswith(("//", "*", "/*")) and GUARD_LIKE.search(code_mask(stripped)):
+            smask = code_mask(stripped).rstrip()
+            arrow = top_level_index(smask, r"->")
+            # A branch whose result is a string literal is presentation (paint checks cover it, as for assignments).
+            branch = (kind is not None and arrow > 0 and not stripped.startswith("else")
+                      and not LITERAL.match(stripped[arrow + 2:].strip()))
+            guard_like = GUARD_LIKE.search(smask) or branch or BOOLEAN_BLOCK.search(smask)
+            if not found and not stripped.startswith(("//", "*", "/*")) and guard_like:
                 unmutated.append((path, n, stripped))
     return plan, unmutated
 
