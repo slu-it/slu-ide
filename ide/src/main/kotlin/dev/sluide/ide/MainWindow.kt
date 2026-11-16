@@ -76,6 +76,7 @@ import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.scratches.ScratchFiles
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.ProjectSettings
+import dev.sluide.settings.ProjectSettingsOpeners
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
@@ -158,6 +159,7 @@ class MainWindow(
     private val findInFiles: FindInFilesWiring,
     reviews: Reviews,
     projectSettings: ProjectSettings,
+    projectSettingsOpeners: ProjectSettingsOpeners,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -165,7 +167,8 @@ class MainWindow(
     /** Shows the settings dialog and waits until it is closed; tests replace it, since it blocks. */
     internal var showSettings: (Stage) -> Unit = { stage -> SettingsDialog(settingsPages.pages, stage).showAndWait() }
 
-    private val projectSettingsOpener = ProjectSettingsOpener(projectSettings, projectService.projectFolder)
+    private val projectSettingsOpener =
+        ProjectSettingsOpener(projectSettings, projectService.projectFolder, projectSettingsOpeners)
 
     /** Shows the project settings dialog and waits until it is closed; tests replace it, since it blocks. */
     internal var showProjectSettings by projectSettingsOpener::showDialog
@@ -586,5 +589,6 @@ class MainWindow(
         gitLog.dispose()
         todos.dispose()
         projectTrust.open(null)
+        projectSettingsOpener.close()
     }
 }

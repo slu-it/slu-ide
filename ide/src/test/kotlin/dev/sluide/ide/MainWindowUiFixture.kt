@@ -92,6 +92,7 @@ import dev.sluide.scratches.ScratchFiles
 import dev.sluide.secrets.Secrets
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.ProjectSettings
+import dev.sluide.settings.ProjectSettingsOpeners
 import dev.sluide.settings.ProjectSettingsPage
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
@@ -268,6 +269,7 @@ abstract class MainWindowUiFixture {
     /** The project settings pages the windows get; a test sets them before it starts the window. */
     internal var projectSettingsPages: List<ProjectSettingsPage> = emptyList()
     internal val projectSettingsWindows = mutableListOf<ProjectSettings>()
+    internal val projectSettingsOpeners = ProjectSettingsOpeners()
     internal val projectSettings get() = projectSettingsWindows.first()
     internal val reviews get() = reviewWindows.first()
 
@@ -523,6 +525,7 @@ abstract class MainWindowUiFixture {
                 .also(findInFilesWirings::add),
             Reviews(reviewSource, fontSettings, projectData, fileViewers).also(reviewWindows::add),
             ProjectSettings(projectSettingsPages).also(projectSettingsWindows::add),
+            projectSettingsOpeners,
         )
     }
 

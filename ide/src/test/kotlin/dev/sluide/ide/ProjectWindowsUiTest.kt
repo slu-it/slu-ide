@@ -90,6 +90,7 @@ import dev.sluide.scratches.ScratchFiles
 import dev.sluide.secrets.Secrets
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.ProjectSettings
+import dev.sluide.settings.ProjectSettingsOpeners
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
 import dev.sluide.settings.ThemeSettings
@@ -254,6 +255,7 @@ class ProjectWindowsUiTest {
                 )
                 registerBean(TranslationPreferences::class.java, Supplier { TranslationPreferences(projectData) })
                 register(SavedPassphrases::class.java)
+                register(ProjectSettingsOpeners::class.java)
                 registerBean(
                     RemoteSourceCache::class.java,
                     Supplier { RemoteSourceCache(getBean(GitCli::class.java), dir.resolve("cache/git")) },

@@ -78,6 +78,37 @@ class MainWindowProjectSettingsUiTest : MainWindowUiFixture() {
     }
 
     @Test
+    fun `the window registers its opener for its folder and shows its dialog through it`(robot: FxRobot) {
+        robot.interact { projectService.open(project) }
+        var dialog: SettingsDialog? = null
+        mainWindow.showProjectSettings = { dialog = it }
+
+        var shown = false
+        robot.interact { shown = projectSettingsOpeners.show(project, listOf("Y")) }
+
+        assertTrue(shown)
+        assertEquals(listOf("Y"), dialog?.shownPage?.path)
+        var other = true
+        robot.interact { other = projectSettingsOpeners.show(project.resolve("other"), null) }
+        assertFalse(other)
+    }
+
+    @Test
+    fun `disposing the window ends its registration`(robot: FxRobot) {
+        robot.interact { projectService.open(project) }
+        // Without the registration ending the show below would open the real, blocking dialog.
+        mainWindow.showProjectSettings = {}
+
+        var shown = true
+        robot.interact {
+            mainWindow.dispose()
+            shown = projectSettingsOpeners.show(project, null)
+        }
+
+        assertFalse(shown)
+    }
+
+    @Test
     fun `show does nothing without a folder`(robot: FxRobot) {
         var opened = 0
         mainWindow.showProjectSettings = { opened++ }
