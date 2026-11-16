@@ -8,6 +8,7 @@ import dev.sluide.git.cli.diffToHead
 import dev.sluide.git.cli.headContent
 import dev.sluide.git.cli.ignoreRules
 import dev.sluide.git.cli.status
+import dev.sluide.git.cli.unignoredFolders
 import dev.sluide.git.parse.GitDiffParser
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.textediting.decodeTextLeniently
@@ -134,11 +135,14 @@ class GitStatusService(
     /** Runs the diffs of [diffAsync], so that they never wait behind a slow status run or trust check (ADR 0062). */
     private val diffExecutor = NamedThreads.single("sluide-git-diff")
 
-    /** The newest request of [diffAsync] by file, which alone is answered; used on the thread [dispatch] runs on. */
-    private val diffRequests = HashMap<Path, GitCancellation>()
+    /** The newest request of [diffAsync] by file, which alone is answered. */
+    private val diffs = NewestRequests<Path>(diffExecutor, dispatch)
 
-    /** The newest request of [ignoreRulesAsync] by file, apart from the diffs; used on the thread [dispatch] runs on. */
-    private val ignoreRulesRequests = HashMap<Path, GitCancellation>()
+    /** The newest request of [ignoreRulesAsync] by file, apart from the diffs. */
+    private val ignoreRulesRequests = NewestRequests<Path>(diffExecutor, dispatch)
+
+    /** The newest request of [unignoredFoldersAsync] by its folders. */
+    private val unignored = NewestRequests<List<Path>>(diffExecutor, dispatch)
 
     /** The repository being followed; a new object for every [open], so results for an older one are dropped. */
     @Volatile private var target: Target? = null
@@ -428,31 +432,14 @@ class GitStatusService(
         done: (GitDiff?) -> Unit,
     ) {
         val path = file.toAbsolutePath().normalize()
-        val request = GitCancellation()
-        diffRequests.put(path, request)?.cancel()
         val current = target
-        try {
-            diffExecutor.execute {
-                if (request.cancelled) return@execute
-                val diff = diff(current, path, request)
-                dispatch(
-                    Runnable {
-                        if (diffRequests[path] !== request) return@Runnable
-                        diffRequests.remove(path)
-                        // Not for a repository no longer followed: [open] emptied the snapshot, which asks anew.
-                        if (target === current) done(diff)
-                    },
-                )
-            }
-        } catch (_: RejectedExecutionException) {
-            // Closed.
-            diffRequests.remove(path, request)
-        }
+        // Not for a repository no longer followed: [open] emptied the snapshot, which asks anew.
+        diffs.submit(path, { target === current }, { diff(current, path, it) }, done)
     }
 
     /** Drops the request for the diff of [file], if any, e.g. once it has no diff anyway; its git is stopped. */
     fun cancelDiff(file: Path) {
-        diffRequests.remove(file.toAbsolutePath().normalize())?.cancel()
+        diffs.cancel(file.toAbsolutePath().normalize())
     }
 
     /**
@@ -468,30 +455,37 @@ class GitStatusService(
         done: (GitIgnoreRules?) -> Unit,
     ) {
         val path = file.toAbsolutePath().normalize()
-        val request = GitCancellation()
-        ignoreRulesRequests.put(path, request)?.cancel()
         val current = target
-        try {
-            diffExecutor.execute {
-                if (request.cancelled) return@execute
-                val rules = current?.takeIf(::allowsGit)?.let { git.ignoreRules(it.root, path, request) }
-                dispatch(
-                    Runnable {
-                        if (ignoreRulesRequests[path] !== request) return@Runnable
-                        ignoreRulesRequests.remove(path)
-                        if (target === current) done(rules)
-                    },
-                )
-            }
-        } catch (_: RejectedExecutionException) {
-            // Closed.
-            ignoreRulesRequests.remove(path, request)
-        }
+        ignoreRulesRequests.submit(
+            path,
+            { target === current },
+            { request -> current?.takeIf(::allowsGit)?.let { git.ignoreRules(it.root, path, request) } },
+            done,
+        )
     }
 
     /** Drops the request of [ignoreRulesAsync] for [file], if any; its git is stopped. */
     fun cancelIgnoreRules(file: Path) {
-        ignoreRulesRequests.remove(file.toAbsolutePath().normalize())?.cancel()
+        ignoreRulesRequests.cancel(file.toAbsolutePath().normalize())
+    }
+
+    /**
+     * Finds which of [folders] hold untracked files git does not ignore ([unignoredFolders]) on the thread of
+     * [diffAsync], and gives them to [done] through [dispatch]; the answer of [ignoreRulesAsync] otherwise: `null` if no
+     * repository is followed, a folder is not in it, git is kept off or fails. The newest request for the same
+     * [folders] is answered; an older one is stopped.
+     */
+    fun unignoredFoldersAsync(
+        folders: List<Path>,
+        done: (List<Path>?) -> Unit,
+    ) {
+        val current = target
+        unignored.submit(
+            folders,
+            { target === current },
+            { request -> current?.takeIf(::allowsGit)?.let { git.unignoredFolders(it.root, folders, request) } },
+            done,
+        )
     }
 
     /** Whether git may run for [current] on the thread of [diffAsync]: it is followed and allowed to run. */

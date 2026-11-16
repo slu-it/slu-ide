@@ -145,4 +145,86 @@ class GitStatusServiceIgnoreRulesTest {
         gated.close()
         trust.close()
     }
+
+    /** The answer of [GitStatusService.unignoredFoldersAsync] for [folders], which arrives through dispatch. */
+    private fun unignoredOf(
+        vararg folders: Path,
+        service: GitStatusService = this.service,
+    ): List<Path>? {
+        val answers = mutableListOf<List<Path>?>()
+        service.unignoredFoldersAsync(folders.toList()) { answers += it }
+        assertEquals(emptyList(), answers, "not answered at once")
+        await("No answer for ${folders.toList()}") { answers.isNotEmpty() }
+        return answers.single()
+    }
+
+    private fun output(
+        folder: String,
+        vararg names: String,
+    ): Path = repo.resolve(folder).createDirectories().also { dir -> names.forEach { dir.resolve(it).writeText("x") } }
+
+    // Checked against the sandbox's git: `git ls-files --others --exclude-standard -z -- <folder>` lists the untracked,
+    // not-ignored files below a folder and nothing for a missing or empty one; a `build/` line and a `*.class` line
+    // decide as they do in a status.
+    @Test
+    fun `lists the folders with untracked files that git does not ignore`() {
+        service.open(repo)
+        val ignored = output("build/jdtls-bin", "A.class")
+        val open = output("app/build/jdtls-bin", "B.class")
+        repo.resolve(".gitignore").writeText("/build/\n")
+
+        assertEquals(listOf(open), unignoredOf(ignored, open))
+    }
+
+    @Test
+    fun `a folder whose files are all ignored by a pattern is not listed`() {
+        service.open(repo)
+        val classes = output("target", "A.class", "B.class")
+        repo.resolve(".gitignore").writeText("*.class\n")
+
+        assertEquals(emptyList(), unignoredOf(classes))
+    }
+
+    @Test
+    fun `one file that no pattern ignores lists the folder`() {
+        service.open(repo)
+        val classes = output("target", "A.class", "classes.idx")
+        repo.resolve(".gitignore").writeText("*.class\n")
+
+        assertEquals(listOf(classes), unignoredOf(classes))
+    }
+
+    @Test
+    fun `a folder that is missing or empty is not listed`() {
+        service.open(repo)
+        val empty = repo.resolve("target").createDirectories()
+
+        assertEquals(emptyList(), unignoredOf(empty, repo.resolve("build/jdtls-bin")))
+    }
+
+    @Test
+    fun `no answer for no followed repository or a folder outside it`() {
+        val inside = output("target", "A.class")
+        assertNull(unignoredOf(inside), "no repository followed yet")
+        service.open(repo)
+
+        assertEquals(listOf(inside), unignoredOf(inside))
+        assertNull(unignoredOf(inside, folder.resolve("elsewhere").createDirectories()), "one folder outside")
+    }
+
+    @Test
+    fun `no unignored answer while the repository's configuration is not trusted`() {
+        git("config", "core.fsmonitor", "./watch.sh")
+        val trust = testTrust(repo, listOf(GitTrustCheck(git)))
+        val gated = GitStatusService(git, watcher, trust, BackgroundTasks.forTests()) { dispatched += it }
+        gated.open(repo)
+        val inside = output("target", "A.class")
+
+        assertNull(unignoredOf(inside, service = gated))
+
+        assertTrue(trust.decide(trust.state.get(), trusted = true, remember = false))
+        assertEquals(listOf(inside), unignoredOf(inside, service = gated))
+        gated.close()
+        trust.close()
+    }
 }

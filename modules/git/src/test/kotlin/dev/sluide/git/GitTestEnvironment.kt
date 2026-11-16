@@ -15,4 +15,18 @@ internal const val FAKE_GIT_START =
  */
 internal fun testGitEnvironment(): Map<String, String> =
     System.getenv().filterKeys { !it.startsWith("GIT_") } +
-        mapOf("GIT_CONFIG_GLOBAL" to "/dev/null", "GIT_CONFIG_NOSYSTEM" to "1")
+        mapOf(
+            "GIT_CONFIG_GLOBAL" to "/dev/null",
+            "GIT_CONFIG_NOSYSTEM" to "1",
+            "XDG_CONFIG_HOME" to emptyConfigHome.toString(),
+        )
+
+/**
+ * An empty folder for `XDG_CONFIG_HOME`: git reads the global excludes (`core.excludesFile`, by default
+ * `$XDG_CONFIG_HOME/git/ignore`) even without a global configuration, and a Java developer's list often has `*.class`.
+ */
+private val emptyConfigHome: java.nio.file.Path by lazy {
+    java.nio.file.Files.createTempDirectory("sluide-git-config").also { folder ->
+        Runtime.getRuntime().addShutdownHook(Thread { folder.toFile().deleteRecursively() })
+    }
+}
