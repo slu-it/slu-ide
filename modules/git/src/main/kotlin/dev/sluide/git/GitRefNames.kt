@@ -25,5 +25,24 @@ object GitRefNames {
         return components.none { it.isEmpty() || it.startsWith('.') || it.endsWith(".lock") }
     }
 
+    /**
+     * Whether [name] is a valid remote name, as git takes it: [name] with a folder below it is a valid ref name
+     * (`refs/remotes/<name>/test`), so `HEAD`, `@`, `a.` and `\u00e9` are valid. Whether it can be passed to git as an
+     * argument is another question (a name starting with `-` is, after `--end-of-options`, but not by our callers).
+     */
+    fun isValidRemoteName(name: String): Boolean = isValidTagName("$name/test")
+
+    /**
+     * The one of the [remotes] that [name] conflicts with, or `null`: git refuses to add a remote whose name is a
+     * path prefix of another remote's name or has it as one (`a` and `a/b`, either way), but not to rename onto it, so
+     * callers check both. [except] is the remote being renamed, which does not conflict with its new name. The same
+     * name is not a conflict here (it is "taken").
+     */
+    fun remoteNameConflict(
+        name: String,
+        remotes: List<String>,
+        except: String? = null,
+    ): String? = remotes.firstOrNull { it != except && (name.startsWith("$it/") || it.startsWith("$name/")) }
+
     private const val FORBIDDEN = " ~^:?*[\\"
 }

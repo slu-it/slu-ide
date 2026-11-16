@@ -226,4 +226,24 @@ class GitCommandLogTest {
         marker: String,
         what: String,
     ) = commandLines(marker).single { " $what: " in it.second }.first
+
+    @Test
+    fun `the credentials of a URL argument are not logged, in no line of the command`() {
+        val git = fakeGit("echo 'fatal: nope' >&2; exit 128")
+        git.write(
+            folder,
+            listOf(
+                "marker-url",
+                "https://user:s3cret@host.example/x.git",
+                "ssh://git@h/y",
+                "git@host:z",
+                "https://h/p",
+            ),
+        )
+
+        val text = lines("marker-url").joinToString("\n") { it.second }
+        assertTrue(lines("marker-url").size >= 2, text)
+        assertTrue("https://***@host.example/x.git ssh://***@h/y git@host:z https://h/p" in text, text)
+        assertTrue("s3cret" !in text && "user" !in text, text)
+    }
 }
