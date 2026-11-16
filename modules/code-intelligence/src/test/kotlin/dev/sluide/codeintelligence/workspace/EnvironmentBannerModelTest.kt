@@ -31,6 +31,7 @@ class EnvironmentBannerModelTest {
     private val changes = SimpleIntegerProperty()
     private val notNow = FXCollections.observableSet<Path>()
     private val runs = mutableListOf<Triple<Path, String, String>>()
+    private val opened = mutableListOf<Path>()
     private var problem: EnvironmentProblem? = null
 
     private fun prompts() =
@@ -42,7 +43,13 @@ class EnvironmentBannerModelTest {
     ) = EnvironmentProblem(
         at,
         "No virtual environment for ${at.fileName}.",
-        if (withAction) ProblemAction("Run uv sync", "uv sync (${at.fileName})", "uv sync") else null,
+        if (withAction) {
+            listOf(
+                ProblemAction.Terminal("Run uv sync", "uv sync (${at.fileName})", "uv sync"),
+            )
+        } else {
+            emptyList()
+        },
     )
 
     private var gate: DocumentGate? = DocumentGate.SERVED
@@ -58,6 +65,7 @@ class EnvironmentBannerModelTest {
             prompts,
             { problem },
             { gate },
+            { opened.add(it) },
         ) { f, n, c -> runs += Triple(f, n, c) }
 
     @Test
@@ -180,19 +188,64 @@ class EnvironmentBannerModelTest {
     }
 
     @Test
-    fun `Run opens the action's constant command in the problem's folder`() {
+    fun `a terminal action opens its constant command in the problem's folder`() {
         problem = problemOf(backend)
-        model().run()
+        val model = model()
+        model.run(
+            model.problem.value!!
+                .actions
+                .single(),
+        )
         assertEquals(listOf(Triple(backend, "uv sync (backend)", "uv sync")), runs)
+        assertEquals(emptyList(), opened)
     }
 
     @Test
-    fun `a problem without an action has nothing to run`() {
-        problem = problemOf(backend, withAction = false)
+    fun `an open-file action opens its file and runs nothing in a terminal`() {
+        val log = backend.resolve("log")
+        problem = EnvironmentProblem(backend, "Import failed.", listOf(ProblemAction.OpenFile("Show Log", log)))
         val model = model()
-        assertNull(model.problem.value?.action)
-        model.run()
+        model.run(
+            model.problem.value!!
+                .actions
+                .single(),
+        )
+        assertEquals(listOf(log), opened)
         assertEquals(emptyList(), runs)
+    }
+
+    @Test
+    fun `a callback action runs its callback once, and one that throws is contained and the notice stays`() {
+        var calls = 0
+        problem =
+            EnvironmentProblem(
+                backend,
+                "Import failed.",
+                listOf(
+                    ProblemAction.Callback("Retry Import") { calls++ },
+                    ProblemAction.Callback("Boom") { error("x") },
+                ),
+            )
+        val model = model()
+        val (retry, boom) = model.problem.value!!.actions
+
+        model.run(retry)
+        model.run(boom)
+
+        assertEquals(1, calls)
+        assertEquals(emptyList(), runs)
+        assertEquals(
+            listOf("Retry Import", "Boom"),
+            model.problem.value
+                ?.actions
+                ?.map { it.label },
+        )
+    }
+
+    @Test
+    fun `a problem without an action has none to run`() {
+        problem = problemOf(backend, withAction = false)
+        assertEquals(emptyList(), model().problem.value?.actions)
     }
 
     @Test

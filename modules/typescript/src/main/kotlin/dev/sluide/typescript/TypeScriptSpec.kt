@@ -185,7 +185,6 @@ class TypeScriptSpec internal constructor(
         EnvironmentProblem(
             source.config.parent,
             "This is a Deno project (${source.config.fileName}); Thoreau doesn't run Deno's language server.",
-            null,
         )
 
     private fun installedProblem(
@@ -203,7 +202,6 @@ class TypeScriptSpec internal constructor(
                 EnvironmentProblem(
                     folder,
                     "This project uses TypeScript ${source.version} (${display(modules, projectFolder)}). $NEEDS_6.",
-                    null,
                 )
             }
 
@@ -212,7 +210,6 @@ class TypeScriptSpec internal constructor(
                     folder,
                     "Can't tell which TypeScript ${label(folder, projectFolder)} uses (\"${source.version}\" in " +
                         "${display(source.packageJson, projectFolder)}). $NEEDS_6; pin a range such as ^7.0.0.",
-                    null,
                 )
             }
         }
@@ -237,7 +234,6 @@ class TypeScriptSpec internal constructor(
                         where,
                         projectFolder,
                     )}. $NEEDS_6.",
-                    null,
                 )
             }
 
@@ -254,7 +250,6 @@ class TypeScriptSpec internal constructor(
                     folder,
                     "Can't tell which TypeScript ${label(folder, projectFolder)} uses (\"${source.range}\" in " +
                         "$json$detail). $NEEDS_6; pin a range such as ^7.0.0.",
-                    null,
                 )
             }
         }

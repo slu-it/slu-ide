@@ -39,13 +39,17 @@ internal class EnvironmentBanner(
                 id = "code-intelligence-environment"
             }
         banner.children +=
-            listOfNotNull(
+            listOf(
                 Label(problem.message).apply {
                     isWrapText = true
                     minWidth = 0.0
                 },
                 Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-                problem.action?.let { button(it.label, "environment-run", model::run) },
+            ) +
+            problem.actions.mapIndexed { index, action ->
+                button(action.label, "environment-action-$index") { model.run(action) }
+            } +
+            listOf(
                 button("Not Now", "environment-not-now", model::notNow),
                 button("Don't Ask Again", "environment-dont-ask", model::dontAskAgain),
             )
@@ -95,6 +99,7 @@ internal class EnvironmentBannerFeature(
                 prompts,
                 { project -> spec.environmentProblem(file, project) },
                 { session.gateOf(binding.file) },
+                { target -> binding.editor.host.openFile(target) },
                 runInTerminal,
             )
         return EnvironmentBanner(binding.editor, model)

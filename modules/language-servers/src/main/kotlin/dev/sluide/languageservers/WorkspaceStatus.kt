@@ -20,23 +20,38 @@ data class WorkspaceStatus(
  *
  * @property folder the project folder the problem belongs to; "Not Now" is remembered per folder.
  * @property message the notice's text.
- * @property action what a button of the notice runs, or `null` for none.
+ * @property actions what the notice's buttons do, in the order of the buttons; none for a notice without one.
  */
 data class EnvironmentProblem(
     val folder: Path,
     val message: String,
-    val action: ProblemAction?,
+    val actions: List<ProblemAction> = emptyList(),
 )
 
-/**
- * A command a notice's button runs in a terminal tab, in the problem's folder.
- *
- * @property label the button's text: `Run uv sync`.
- * @property terminalName the terminal tab's name: `uv sync (backend_one)`.
- * @property command the command line, a constant (no values from the project): `uv sync`.
- */
-data class ProblemAction(
-    val label: String,
-    val terminalName: String,
-    val command: String,
-)
+/** A button of an environment notice (ADR 0179). */
+sealed interface ProblemAction {
+    /** The button's text: `Run uv sync`. */
+    val label: String
+
+    /**
+     * Runs [command] in a terminal tab named [terminalName] in the problem's folder (ADR 0089: an explicit click
+     * needs no trust question). The command is a constant: no values from the project.
+     */
+    data class Terminal(
+        override val label: String,
+        val terminalName: String,
+        val command: String,
+    ) : ProblemAction
+
+    /** Opens [file] in an editor tab. */
+    data class OpenFile(
+        override val label: String,
+        val file: Path,
+    ) : ProblemAction
+
+    /** Runs [perform] on the FX thread; one that throws is logged and the notice stays. */
+    class Callback(
+        override val label: String,
+        val perform: () -> Unit,
+    ) : ProblemAction
+}

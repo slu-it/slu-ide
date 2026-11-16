@@ -135,7 +135,7 @@ class TypeScriptSpecTest {
             "This project uses TypeScript 5.4.5 (apps/c/node_modules). Code intelligence needs TypeScript 6 or later.",
             reason.message,
         )
-        assertNull(reason.action)
+        assertEquals(emptyList(), reason.actions)
     }
 
     @Test

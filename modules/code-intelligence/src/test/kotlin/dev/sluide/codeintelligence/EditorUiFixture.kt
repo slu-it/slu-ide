@@ -39,6 +39,9 @@ internal abstract class EditorUiFixture {
     /** The files the views asked the host to open with a position: file, line, column (0-based). */
     protected val openedAt = mutableListOf<Triple<Path, Int, Int>>()
 
+    /** The files the views asked the host to open without a position. */
+    protected val openedFiles = mutableListOf<Path>()
+
     protected fun startStage(stage: Stage) {
         this.stage = stage
         stage.scene = Scene(container, 600.0, 400.0)
@@ -59,7 +62,10 @@ internal abstract class EditorUiFixture {
                 services.forEach { (type, service) -> register(type as Class<Any>, service) }
             }
         return object : FileViewHost {
-            override fun openFile(file: Path) = false
+            override fun openFile(file: Path): Boolean {
+                openedFiles.add(file)
+                return false
+            }
 
             override fun openFile(
                 file: Path,

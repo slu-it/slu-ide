@@ -142,7 +142,7 @@ internal class CodeIntelligenceUiTest : EditorUiFixture() {
             EnvironmentProblem(
                 project,
                 "No virtual environment for backend.",
-                ProblemAction("Run uv sync", "uv sync (backend)", "uv sync"),
+                listOf(ProblemAction.Terminal("Run uv sync", "uv sync (backend)", "uv sync")),
             )
         val spec = PySpec(problem = { _, _ -> problem })
         val intelligence = intelligence(spec)
@@ -155,10 +155,42 @@ internal class CodeIntelligenceUiTest : EditorUiFixture() {
 
         val banner = fx { lookup("#code-intelligence-environment") }
         assertEquals("No virtual environment for backend.", fx { (banner?.lookup(".label") as Label).text })
-        assertEquals("Run uv sync", fx { (lookup("#code-intelligence-environment-run") as Button).text })
+        assertEquals("Run uv sync", fx { (lookup("#code-intelligence-environment-action-0") as Button).text })
 
-        robot.interact { (lookup("#code-intelligence-environment-run") as Button).fire() }
+        robot.interact { (lookup("#code-intelligence-environment-action-0") as Button).fire() }
         assertEquals(listOf(Triple(project, "uv sync (backend)", "uv sync")), runs)
+    }
+
+    @Test
+    fun `the environment banner has a button per action in order, and Open File and Callback buttons act`(
+        robot: FxRobot,
+    ) {
+        val log = dir.resolve(".metadata/.log")
+        val calls = mutableListOf<String>()
+        val problem =
+            EnvironmentProblem(
+                dir,
+                "Import failed.",
+                listOf(
+                    ProblemAction.Callback("Retry Import") { calls += "retry" },
+                    ProblemAction.OpenFile("Show Log", log),
+                    ProblemAction.Terminal("Run uv sync", "uv sync (x)", "uv sync"),
+                ),
+            )
+        val spec = PySpec(problem = { _, _ -> problem })
+        val intelligence = intelligence(spec)
+        projectFolder = dir
+        open(robot, dir.resolve("main.py"), "print(1)\n", listOf(intelligence))
+        checkNotNull(servers).awaitRunning(spec)
+        awaitTrue("environment banner") { fx { lookup("#code-intelligence-environment") != null } }
+
+        val labels = fx { lookup("#code-intelligence-environment")?.lookupAll(".button")?.map { (it as Button).text } }
+        assertEquals(listOf("Retry Import", "Show Log", "Run uv sync", "Not Now", "Don't Ask Again"), labels)
+
+        robot.interact { (lookup("#code-intelligence-environment-action-1") as Button).fire() }
+        robot.interact { (lookup("#code-intelligence-environment-action-0") as Button).fire() }
+        assertEquals(listOf(log), openedFiles)
+        assertEquals(listOf("retry"), calls)
     }
 
     @Test
@@ -200,7 +232,7 @@ internal class CodeIntelligenceUiTest : EditorUiFixture() {
     fun `a document the server does not serve shows the reason only, while a served one beside it shows its banners`(
         robot: FxRobot,
     ) {
-        val reason = EnvironmentProblem(dir, "This project uses TypeScript 5.", null)
+        val reason = EnvironmentProblem(dir, "This project uses TypeScript 5.")
         val config = dir.resolve("tsconfig.json")
         val installer = FakeInstaller()
         val spec =

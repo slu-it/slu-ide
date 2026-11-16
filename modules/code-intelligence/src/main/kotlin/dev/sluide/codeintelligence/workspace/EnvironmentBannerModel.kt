@@ -3,6 +3,7 @@ package dev.sluide.codeintelligence.workspace
 import dev.sluide.codeintelligence.InstallPrompts
 import dev.sluide.languageservers.DocumentGate
 import dev.sluide.languageservers.EnvironmentProblem
+import dev.sluide.languageservers.ProblemAction
 import dev.sluide.languageservers.ServerState
 import javafx.beans.InvalidationListener
 import javafx.beans.Observable
@@ -11,6 +12,8 @@ import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableValue
 import javafx.collections.ObservableSet
 import java.nio.file.Path
+
+private val log = System.getLogger(EnvironmentBannerModel::class.java.name)
 
 /**
  * What a bound editor's environment banner says (ADR 0151, 0160): for a document the server does not serve, the
@@ -25,6 +28,7 @@ import java.nio.file.Path
  * @param projectFolder the window's project folder, `null` for none.
  * @param problemOf the spec's `environmentProblem` for the file in the project folder.
  * @param gateOf the session's gate answer of the file (`null`: not answered); served by default.
+ * @param openFile opens a file in an editor tab (the action [ProblemAction.OpenFile]).
  * @param runInTerminal opens a terminal tab named `name` in `folder` and runs `command` there.
  */
 internal class EnvironmentBannerModel(
@@ -37,6 +41,7 @@ internal class EnvironmentBannerModel(
     private val prompts: InstallPrompts,
     private val problemOf: (project: Path) -> EnvironmentProblem?,
     private val gateOf: () -> DocumentGate? = { DocumentGate.SERVED },
+    private val openFile: (Path) -> Unit,
     private val runInTerminal: (folder: Path, name: String, command: String) -> Unit,
 ) : AutoCloseable {
     private val wrapper = ReadOnlyObjectWrapper<EnvironmentProblem?>(compute())
@@ -51,11 +56,22 @@ internal class EnvironmentBannerModel(
         observed.forEach { it.addListener(listener) }
     }
 
-    /** The action's button: runs its constant command in a new terminal tab in the problem's folder. */
-    fun run() {
+    /** The button of [action]: a terminal command in the problem's folder, a file to open, or a callback. */
+    fun run(action: ProblemAction) {
         val shown = problem.value ?: return
-        val action = shown.action ?: return
-        runInTerminal(shown.folder, action.terminalName, action.command)
+        when (action) {
+            is ProblemAction.Terminal -> runInTerminal(shown.folder, action.terminalName, action.command)
+            is ProblemAction.OpenFile -> openFile(action.file)
+            is ProblemAction.Callback -> perform(action)
+        }
+    }
+
+    private fun perform(action: ProblemAction.Callback) {
+        try {
+            action.perform()
+        } catch (e: RuntimeException) {
+            log.log(System.Logger.Level.ERROR, "environment banner: the action '${action.label}' failed", e)
+        }
     }
 
     /** Not Now: hides the notice of the problem's folder in this window until the app restarts. */

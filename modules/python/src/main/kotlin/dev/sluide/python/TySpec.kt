@@ -132,7 +132,7 @@ class TySpec(
         return EnvironmentProblem(
             folder,
             "No virtual environment for $name, so its packages cannot be resolved.",
-            ProblemAction("Run uv sync", "uv sync ($name)", "uv sync"),
+            listOf(ProblemAction.Terminal("Run uv sync", "uv sync ($name)", "uv sync")),
         )
     }
 

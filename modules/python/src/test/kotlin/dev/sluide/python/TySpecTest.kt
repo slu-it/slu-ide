@@ -237,7 +237,7 @@ class TySpecTest {
 
         assertEquals(app, problem.folder)
         assertEquals("No virtual environment for app, so its packages cannot be resolved.", problem.message)
-        assertEquals(ProblemAction("Run uv sync", "uv sync (app)", "uv sync"), problem.action)
+        assertEquals(listOf(ProblemAction.Terminal("Run uv sync", "uv sync (app)", "uv sync")), problem.actions)
     }
 
     @Test
