@@ -26,7 +26,8 @@ internal class EditorSettingsPageModel(
         const val EXPLANATION =
             "Library code is code you install rather than write: files in virtual environments (folders with " +
                 "pyvenv.cfg), in site-packages and dist-packages, in __pypackages__, the Python standard library " +
-                "and ty's typeshed stubs. Changes there are lost on the next install. Edit Anyway in a tab " +
-                "unlocks it."
+                "and ty's typeshed stubs. Changes there are lost on the next install. Java library classes that " +
+                "Go to Definition opens as copies in Thoreau's cache are library code too; changes to a copy " +
+                "never reach the library. Edit Anyway in a tab unlocks it."
     }
 }

@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers.library
 
+import dev.sluide.librarycode.LibraryKind
+import dev.sluide.librarycode.LibraryLocation
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Path
@@ -52,6 +54,38 @@ class LibraryLockPolicyTest {
     fun `the banner names the parent folder and the file`() {
         assertEquals("json/__init__.py", displayName(Path.of("lib", "json", "__init__.py")))
         assertEquals("mod.py", displayName(Path.of("mod.py")))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "true, 'String.java is a Java library class: read-only, a copy from jdtls that changes don''t reach.'",
+        "false, 'Editing a copy of a Java library class: changes don''t reach the library.'",
+    )
+    fun `a Java library class is named by its file and says its changes do not reach the library`(
+        locked: Boolean,
+        expected: String,
+    ) {
+        val file = Path.of("cache", "java-classes", "69a3b620967b", "String.java")
+        val location = LibraryLocation(file.parent.parent, LibraryKind.JAVA_CLASS)
+
+        assertEquals(expected, bannerMessage(location, file, locked))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "true, 'json/__init__.py is library code (Python standard library): read-only, as changes are lost on the next install.'",
+        "false, 'Editing library code (Python standard library): changes are lost on the next install.'",
+    )
+    fun `the Python kinds keep their banner texts`(
+        locked: Boolean,
+        expected: String,
+    ) {
+        val file = Path.of("lib", "json", "__init__.py")
+
+        assertEquals(
+            expected,
+            bannerMessage(LibraryLocation(Path.of("lib"), LibraryKind.STANDARD_LIBRARY), file, locked),
+        )
     }
 
     @Test

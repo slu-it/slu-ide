@@ -5,6 +5,8 @@ import dev.sluide.fileviewers.ExtensibleCodeEditor
 import dev.sluide.fileviewers.code.banner
 import dev.sluide.librarycode.LibraryCode
 import dev.sluide.librarycode.LibraryCodeSettings
+import dev.sluide.librarycode.LibraryKind
+import dev.sluide.librarycode.LibraryLocation
 import javafx.beans.property.SimpleStringProperty
 import javafx.scene.Node
 import javafx.scene.control.Button
@@ -26,8 +28,8 @@ class LibraryCodeExtension(
     /** What a banner shows: its state, the file's name and the description of its location. */
     private data class Shown(
         val state: LibraryLockState,
-        val name: String,
-        val description: String,
+        val location: LibraryLocation,
+        val file: Path,
     )
 
     /** One editor's lock and banner. */
@@ -62,7 +64,7 @@ class LibraryCodeExtension(
                 state == LibraryLockState.LOCKED || (state == LibraryLockState.UNLOCKED_BY_USER && !dismissed)
             val wanted =
                 if (location != null && bannerShown) {
-                    Shown(state, displayName(file), location.description)
+                    Shown(state, location, file)
                 } else {
                     null
                 }
@@ -74,11 +76,8 @@ class LibraryCodeExtension(
 
         private fun bannerFor(shown: Shown): Node =
             if (shown.state == LibraryLockState.LOCKED) {
-                val message =
-                    "${shown.name} is library code (${shown.description}): read-only, as changes are lost on the " +
-                        "next install."
                 banner(
-                    SimpleStringProperty(message),
+                    SimpleStringProperty(bannerMessage(shown.location, shown.file, locked = true)),
                     Button("Edit Anyway").apply {
                         setOnAction {
                             policy.editAnyway()
@@ -89,9 +88,7 @@ class LibraryCodeExtension(
                 ).apply { styleClass += "generated-banner" }
             } else {
                 banner(
-                    SimpleStringProperty(
-                        "Editing library code (${shown.description}): changes are lost on the next install.",
-                    ),
+                    SimpleStringProperty(bannerMessage(shown.location, shown.file, locked = false)),
                     Button("Dismiss").apply {
                         setOnAction {
                             dismissed = true
@@ -122,3 +119,27 @@ internal fun displayName(file: Path): String {
     val parent = file.parent?.fileName?.toString()
     return if (parent == null) name else "$parent/$name"
 }
+
+/**
+ * The banner text of a library [file] at [location]: the locked one, or the one after Edit Anyway. A Java library class
+ * is a copy from the language server and is named by its file name alone (its folder is a hash); the Python kinds say
+ * their changes are lost on the next install.
+ */
+internal fun bannerMessage(
+    location: LibraryLocation,
+    file: Path,
+    locked: Boolean,
+): String =
+    if (location.kind == LibraryKind.JAVA_CLASS) {
+        val name = file.fileName?.toString() ?: file.toString()
+        if (locked) {
+            "$name is a ${location.description}: read-only, a copy from jdtls that changes don't reach."
+        } else {
+            "Editing a copy of a ${location.description}: changes don't reach the library."
+        }
+    } else if (locked) {
+        "${displayName(file)} is library code (${location.description}): read-only, as changes are lost on the " +
+            "next install."
+    } else {
+        "Editing library code (${location.description}): changes are lost on the next install."
+    }

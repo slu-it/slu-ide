@@ -20,7 +20,9 @@ other ecosystems can be added later):
 - Java library classes: a file below `~/.sluide/cache/java-classes` (`LibraryKind.JAVA_CLASS`, described as "Java
   library class"), the documents Go to Definition fetches from a Java language server for the JDK and libraries
   ([code-intelligence.md](code-intelligence.md), ADR 0179). It is checked before the other rules; the banner says
-  "`String.java` is library code (Java library class): read-only…".
+  "`String.java` is a Java library class: read-only, a copy from jdtls that changes don't reach." (the file name
+  alone, as the folder is a hash; after Edit Anyway: "Editing a copy of a Java library class: changes don't reach the
+  library."). Its changes are not lost on an install, they just never reach the library.
 
 Not library code: a file whose library folder contains the project folder (the venv or the standard library opened as
 a project on purpose), and editable installs, which point at project sources.
@@ -34,8 +36,8 @@ install." with **Edit Anyway**.
 
 - **Edit Anyway** unlocks this view until it is closed (the views of a split are locked separately). The banner turns
   into "Editing library code (...): changes are lost on the next install." with **Dismiss**. Both buttons give the
-  focus back to the text. There is no way to lock the view again. The banner shows the parent folder and the file name
-  (`__init__.py` alone says nothing).
+  focus back to the text. There is no way to lock the view again. The banner of the Python kinds shows the parent folder
+  and the file name (`__init__.py` alone says nothing).
 - A moved or renamed file is classified again; a file that stops being library code loses lock and banner.
 - A tab with unsaved changes is never locked when the setting is turned on again: it stays unlocked like Edit Anyway,
   so that Save keeps working.
