@@ -413,6 +413,115 @@ class JavaProjectSettingsPageModelTest {
         assertTrue("boom" in model.error.get(), model.error.get())
     }
 
+    private val questions = mutableListOf<String>()
+    private var confirmed = true
+    private var running = false
+    private val cleaned = mutableListOf<String>()
+    private var cleanFailure: Exception? = null
+
+    private val cleaningModel by lazy {
+        JavaProjectSettingsPageModel(
+            settings,
+            JavaHomes({ _, _ -> "" }, emptyMap(), thoreau),
+            userHome,
+            false,
+            thoreau,
+            emptyList(),
+            { ioQueue += it },
+            { fxQueue += it },
+            WorkspaceCleaner(
+                { running },
+                { cleaned += "running $it" },
+                {
+                    cleaned += "stopped $it"
+                    cleanFailure?.let { failure -> throw failure }
+                },
+            ),
+            {
+                questions += it
+                confirmed
+            },
+        )
+    }
+
+    @Test
+    fun `Clean asks the destructive question naming the window folder and cleans nothing on Cancel`() {
+        confirmed = false
+        cleaningModel.load(project)
+
+        cleaningModel.clean()
+        run(ioQueue)
+        run(fxQueue)
+
+        assertEquals(
+            listOf(
+                "Delete jdtls's workspace data of app? Its index and imported project models are deleted " +
+                    "permanently; jdtls imports the builds again.",
+            ),
+            questions,
+        )
+        assertEquals(emptyList(), cleaned)
+        assertEquals("", cleaningModel.cleanMessage.get())
+    }
+
+    @Test
+    fun `Clean without a running jdtls deletes off the FX thread and says Cleaned`() {
+        cleaningModel.load(project)
+        run(ioQueue)
+        run(fxQueue)
+
+        cleaningModel.clean()
+
+        assertEquals(emptyList(), cleaned, "the delete waits for the io thread")
+        run(ioQueue)
+        assertEquals(listOf("stopped $project"), cleaned)
+        assertEquals("", cleaningModel.cleanMessage.get(), "and its answer for the FX thread")
+        run(fxQueue)
+        assertEquals("Cleaned.", cleaningModel.cleanMessage.get())
+    }
+
+    @Test
+    fun `Clean with a running jdtls restarts it and says it imports again`() {
+        running = true
+        cleaningModel.load(project)
+
+        cleaningModel.clean()
+
+        assertEquals(listOf("running $project"), cleaned)
+        assertEquals("Cleaned: jdtls restarts and imports the builds again.", cleaningModel.cleanMessage.get())
+    }
+
+    @Test
+    fun `a failed Clean says why`() {
+        cleanFailure = IOException("jdtls still uses the workspace")
+        cleaningModel.load(project)
+
+        cleaningModel.clean()
+        run(ioQueue)
+        run(fxQueue)
+
+        assertEquals("Cannot clean: jdtls still uses the workspace", cleaningModel.cleanMessage.get())
+    }
+
+    @Test
+    fun `loading the page again forgets the last answer`() {
+        running = true
+        cleaningModel.load(project)
+        cleaningModel.clean()
+
+        cleaningModel.load(project)
+
+        assertEquals("", cleaningModel.cleanMessage.get())
+    }
+
+    @Test
+    fun `Clean before a folder is loaded asks nothing`() {
+        cleaningModel.clean()
+
+        assertEquals(emptyList(), questions)
+        assertEquals(emptyList(), cleaned)
+    }
+
     @Test
     fun `apply stores nothing while the choice is the loaded one`() {
         val own = jdk(dir.resolve("own-jdk"), "22.0.1")

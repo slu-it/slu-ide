@@ -54,6 +54,18 @@ private fun sameJdk(
     b: Path?,
 ) = if (a == null) b == null else same(a, b)
 
+/** What Clean Java Workspace calls on the Java part (`JdtlsSpec` in the app): see its functions of the same names. */
+internal class WorkspaceCleaner(
+    val isRunning: (Path) -> Boolean,
+    val cleanRunning: (Path) -> Unit,
+    val cleanStopped: (Path) -> Unit,
+) {
+    companion object {
+        /** Nothing runs and nothing is deleted. */
+        val NONE = WorkspaceCleaner({ false }, {}, {})
+    }
+}
+
 /**
  * The JDK field of the Java page in Project Settings (ADR 0179): the entries, the draft choice and Other…. The login
  * shell and the folder scan run on [io] (the results reach the properties through [dispatch], the FX thread);
@@ -68,7 +80,52 @@ internal class JavaProjectSettingsPageModel(
     private val systemFolders: List<Path> = Jdks.defaults,
     private val io: Executor,
     private val dispatch: (Runnable) -> Unit,
+    private val cleaner: WorkspaceCleaner = WorkspaceCleaner.NONE,
+    private val confirmClean: (question: String) -> Boolean = { false },
 ) {
+    private val cleanWrapper = ReadOnlyStringWrapper("")
+
+    /** What the last Clean did; empty for none. */
+    val cleanMessage: ReadOnlyStringProperty = cleanWrapper.readOnlyProperty
+
+    /** The window folder of the last [load]. */
+    private var folder: Path? = null
+
+    /**
+     * Clean Java Workspace: asks, then deletes jdtls's data of the loaded folder at once (not on OK). While jdtls
+     * runs, it restarts and deletes before its next start; otherwise the delete runs on [io]. FX thread.
+     */
+    fun clean() {
+        val window = folder ?: return
+        val name = window.fileName?.toString() ?: window.toString()
+        val question =
+            "Delete jdtls's workspace data of ${oneLine(name, MAX_PATH_CHARS)}? Its index and imported project " +
+                "models are deleted permanently; jdtls imports the builds again."
+        if (!confirmClean(question)) return
+        if (cleaner.isRunning(window)) {
+            cleaner.cleanRunning(window)
+            cleanWrapper.set("Cleaned: jdtls restarts and imports the builds again.")
+            return
+        }
+        io.execute {
+            val failure =
+                try {
+                    cleaner.cleanStopped(window)
+                    null
+                } catch (e: Exception) {
+                    log.log(System.Logger.Level.WARNING, "Cannot clean the Java workspace of $window", e)
+                    e
+                }
+            dispatch(
+                Runnable {
+                    cleanWrapper.set(
+                        failure?.let { "Cannot clean: ${oneLine(it.message ?: it.toString(), 200)}" } ?: "Cleaned.",
+                    )
+                },
+            )
+        }
+    }
+
     /** The entries: JAVA_HOME (stores null), the installed JDKs, Thoreau's, the stored one if unlisted, Other…. */
     val choices: ObservableList<JdkChoice> = FXCollections.observableArrayList()
 
@@ -104,6 +161,8 @@ internal class JavaProjectSettingsPageModel(
 
     /** Looks for the entries off the FX thread and selects the JDK stored for the project in [folder]. */
     fun load(folder: Path) {
+        this.folder = folder
+        cleanWrapper.set("")
         loadingWrapper.set(true)
         choices.clear()
         selected.set(null)
