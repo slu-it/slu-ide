@@ -75,7 +75,10 @@ internal class GitLogCliWrites(
         startPoint: String,
         checkout: Boolean,
         overwrite: Boolean,
-    ) = branches.createBranch(root, name, startPoint, checkout, overwrite)
+        noTrack: Boolean,
+    ) = branches.createBranch(root, name, startPoint, checkout, overwrite, noTrack)
+
+    override fun localBranchTips(root: Path) = branches.localBranchTips(root)
 
     override fun createTag(
         root: Path,

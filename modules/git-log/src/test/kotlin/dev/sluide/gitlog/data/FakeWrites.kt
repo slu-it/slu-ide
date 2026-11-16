@@ -142,10 +142,20 @@ internal class FakeWrites(
         startPoint: String,
         checkout: Boolean,
         overwrite: Boolean,
+        noTrack: Boolean,
     ) = if (checkout) {
-        call("switch ${if (overwrite) "-C" else "-c"} $name $startPoint")
+        call("switch ${if (noTrack) "--no-track " else ""}${if (overwrite) "-C" else "-c"} $name $startPoint")
     } else {
-        call("branch ${if (overwrite) "-f " else ""}$name $startPoint")
+        call("branch ${if (noTrack) "--no-track " else ""}${if (overwrite) "-f " else ""}$name $startPoint")
+    }
+
+    /** Whether the local branches cannot be read. */
+    @Volatile
+    var tipsUnreadable = false
+
+    override fun localBranchTips(root: Path): Map<String, String>? {
+        calls += "local branch tips"
+        return tips.takeUnless { tipsUnreadable }
     }
 
     override fun createTag(

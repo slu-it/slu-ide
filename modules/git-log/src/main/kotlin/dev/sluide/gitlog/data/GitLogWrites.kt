@@ -79,14 +79,19 @@ internal interface GitLogWrites : StashWrites {
         descendant: String,
     ): Boolean?
 
-    /** Creates the branch [name] at [startPoint], checks it out if [checkout], replaces an existing one if [overwrite]. */
+    /** Creates the branch [name] at [startPoint], checks it out if [checkout], replaces an existing one if [overwrite],
+     * without an upstream if [noTrack]. */
     fun createBranch(
         root: Path,
         name: String,
         startPoint: String,
         checkout: Boolean,
         overwrite: Boolean,
+        noTrack: Boolean = false,
     ): GitResult
+
+    /** The commit of every local branch by short name; `null` if git fails. */
+    fun localBranchTips(root: Path): Map<String, String>?
 
     /** Creates the tag [name] at [commit], annotated with [message] unless it is blank. */
     fun createTag(

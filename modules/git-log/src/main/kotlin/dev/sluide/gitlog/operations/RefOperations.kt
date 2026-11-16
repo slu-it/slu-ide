@@ -33,6 +33,7 @@ internal data class RefOutcome(
     val mergeStopped: MergeStop? = null,
     val reword: RewordPrompt? = null,
     val pull: PullPrompt? = null,
+    val newBranch: NewBranchPrompt? = null,
     val failure: String? = null,
     val cancelled: Boolean = false,
     val stashPrompt: StashPrompt? = null,
@@ -254,6 +255,8 @@ internal data class CreateBranch(
     val confirmed: Boolean = false,
     /** Whether leaving the commits of a detached `HEAD` on no branch or tag was confirmed ([leavingQuestion]). */
     val leavingConfirmed: Boolean = false,
+    /** Whether the branch gets no upstream, whatever `branch.autoSetupMerge` says (ADR 0181). */
+    val noTrack: Boolean = false,
 ) : RefOperation {
     override val progress get() = "Creating branch $name…"
     override val errorTitle get() = "New Branch Failed"
@@ -294,7 +297,7 @@ internal data class CreateBranch(
             leavingQuestion(writes, root, startPoint, name, copy(leavingConfirmed = true))?.let { return it }
         }
         val done = if (checkout) "Created and checked out branch $name." else "Created branch $name."
-        return writes.createBranch(root, name, startPoint, checkout, overwrite).outcome(done)
+        return writes.createBranch(root, name, startPoint, checkout, overwrite, noTrack).outcome(done)
     }
 }
 

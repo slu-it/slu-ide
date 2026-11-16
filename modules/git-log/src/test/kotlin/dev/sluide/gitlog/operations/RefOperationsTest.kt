@@ -433,6 +433,17 @@ class RefOperationsTest {
     }
 
     @Test
+    fun `a branch is created without an upstream only when asked to`() {
+        val writes = FakeWrites()
+
+        CreateBranch("x", "h1", checkout = false, overwrite = false).run(writes, root)
+        CreateBranch("y", "h1", checkout = false, overwrite = false, noTrack = true).run(writes, root)
+        CreateBranch("z", "h1", checkout = true, overwrite = false, noTrack = true).run(writes, root)
+
+        assertEquals(listOf("branch x h1", "branch --no-track y h1", "switch --no-track -c z h1"), writes.calls)
+    }
+
+    @Test
     fun `an overwrite is refused when where the branch points cannot be read`() {
         val writes = FakeWrites()
         writes.unreadable = setOf("x")
