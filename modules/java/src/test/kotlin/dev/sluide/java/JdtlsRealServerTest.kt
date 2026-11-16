@@ -5,6 +5,7 @@ import dev.sluide.languageservers.LanguageServers
 import dev.sluide.languageservers.LspUris
 import dev.sluide.languageservers.ServerState
 import dev.sluide.projectdata.ProjectDataStore
+import dev.sluide.settings.ProjectSettingsOpeners
 import org.eclipse.lsp4j.DefinitionParams
 import org.eclipse.lsp4j.ExecuteCommandParams
 import org.eclipse.lsp4j.Position
@@ -137,6 +138,7 @@ class JdtlsRealServerTest {
                 JavaWorkspaceUse { it.run() },
                 JavaHomes({ _, _ -> null }, emptyMap(), Path.of(System.getProperty("java.home"))),
                 JavaWorkspaces(dir.resolve("workspaces")),
+                ProjectSettingsOpeners(),
                 dir.resolve("classes"),
                 Runnable::run,
                 1000,

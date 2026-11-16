@@ -24,6 +24,12 @@ internal class JavaWindowState {
     /** The build tool of each build root `workspaceFolder` named. */
     val tools = ConcurrentHashMap<Path, BuildTool>()
 
+    /** The file a root was found for by `workspaceFolder`, as the root the banner and status line look up. */
+    val fileRoots = ConcurrentHashMap<Path, Path>()
+
+    /** Where each announced build root's import stands. */
+    val imports = ConcurrentHashMap<Path, ImportState>()
+
     /** The JDK the settings were last resolved with, with its source. */
     @Volatile var jdk: ProjectJdk? = null
 }
@@ -46,25 +52,34 @@ class JavaSession internal constructor(
     private val scheduler: ScheduledExecutorService,
     private val dispatch: (Runnable) -> Unit,
     private val debounceMillis: Long,
+    internal val imports: JavaImports,
     private val onClose: () -> Unit,
 ) : SessionExtension {
     /** The window folder, absolute and normalized. */
     val windowFolder: Path = windowFolder.toAbsolutePath().normalize()
 
-    /**
-     * `language/status` and `language/eventNotification`: the import tracking of the next step (ADR 0179) takes them;
-     * this class only keeps them routed to [onNotification].
-     */
+    /** `language/eventNotification` carries jdtls's import events, `language/status` its acknowledgement of each folder change. */
     override val notifications: Set<String> = setOf("language/status", "language/eventNotification")
 
     override fun onNotification(
         method: String,
         params: JsonElement?,
-    ) {}
+    ) {
+        when (method) {
+            "language/eventNotification" -> imports.onEvent(params)
+            "language/status" -> imports.onStatus(params)
+        }
+    }
+
+    override fun onProgress(
+        token: String,
+        value: JsonElement,
+    ) = imports.onProgress(token, value)
 
     private val closed = AtomicBoolean()
     private val roots = LinkedHashSet<Path>()
     private val pending = ConcurrentHashMap<Path, ScheduledFuture<*>>()
+    private val notifiedPending = ConcurrentHashMap.newKeySet<Path>()
     private val jdkSubscription: AutoCloseable =
         projectSettings.onChange { folder -> if (folder == this.windowFolder) jdkChanged() }
 
@@ -72,6 +87,20 @@ class JavaSession internal constructor(
         if (closed.get()) return
         val root = folder.toAbsolutePath().normalize()
         roots.add(root)
+        imports.onFolderAdded(root)
+        checkLombok(root)
+    }
+
+    /** A Retry or a JDK change refreshed [folder]: a new import, in one notification; its build may now use Lombok. */
+    override fun onFolderRefreshed(folder: Path) {
+        if (closed.get()) return
+        val root = folder.toAbsolutePath().normalize()
+        imports.onFolderRefreshed(root)
+        checkLombok(root)
+    }
+
+    /** Restarts the server once with the Lombok agent when [root]'s build uses Lombok; the check runs on [worker]. */
+    private fun checkLombok(root: Path) {
         if (state.lombokRestarted.get()) return
         worker.execute {
             if (usesLombok(root) && lombokJar() != null) dispatch(Runnable { restartForLombok() })
@@ -79,10 +108,15 @@ class JavaSession internal constructor(
     }
 
     override fun onFolderRemoved(folder: Path) {
-        roots.remove(folder.toAbsolutePath().normalize())
+        val root = folder.toAbsolutePath().normalize()
+        roots.remove(root)
+        imports.onFolderRemoved(root)
     }
 
+    override fun onConnected() = imports.onConnected()
+
     override fun onStopped() {
+        imports.onStopped()
         // The next server gets every root announced again.
         roots.clear()
     }
@@ -96,7 +130,14 @@ class JavaSession internal constructor(
     private fun jdkChanged() {
         worker.execute {
             val resolved = settings()
-            dispatch(Runnable { if (!closed.get()) access.configurationChanged(resolved) })
+            dispatch(
+                Runnable {
+                    if (closed.get()) return@Runnable
+                    access.configurationChanged(resolved)
+                    // A failed root has no project for jdtls to update: the new JDK needs a fresh import.
+                    imports.failedRoots().forEach(access::refreshFolder)
+                },
+            )
         }
     }
 
@@ -109,20 +150,36 @@ class JavaSession internal constructor(
         if (closed.get()) return
         val file = path.toAbsolutePath().normalize()
         val root = roots.filter { file.startsWith(it) }.maxByOrNull { it.nameCount } ?: return
+        val notified = file.fileName?.toString() in NOTIFIED_BUILD_FILES
+        if (notified) notifiedPending.add(root)
         pending.remove(root)?.cancel(false)
-        pending[root] = scheduler.schedule({ sendUpdate(root) }, debounceMillis, TimeUnit.MILLISECONDS)
+        pending[root] = scheduler.schedule({ fire(root) }, debounceMillis, TimeUnit.MILLISECONDS)
     }
 
-    private fun sendUpdate(root: Path) {
-        val buildFile =
-            BUILD_FILES.map(root::resolve).firstOrNull { Files.isRegularFile(it) } ?: return
-        val params = mapOf("uri" to LspUris.of(buildFile))
-        dispatch(Runnable { if (!closed.get()) access.notify("java/projectConfigurationUpdate", params) })
+    /**
+     * A failed root is imported again; a root that imports or imported gets the update of a build file jdtls misses.
+     * The scheduler looks for the build file; which of the two is decided on the FX thread, where the state is current
+     * (the user may have clicked Retry Import meanwhile).
+     */
+    private fun fire(root: Path) {
+        val notified = notifiedPending.remove(root)
+        val buildFile = if (notified) BUILD_FILES.map(root::resolve).firstOrNull { Files.isRegularFile(it) } else null
+        dispatch(
+            Runnable {
+                if (closed.get()) return@Runnable
+                if (state.imports[root] is ImportState.Failed) {
+                    access.refreshFolder(root)
+                } else if (buildFile != null) {
+                    access.notify("java/projectConfigurationUpdate", mapOf("uri" to LspUris.of(buildFile)))
+                }
+            },
+        )
     }
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
         jdkSubscription.close()
+        imports.close()
         workspaceLease.close()
         worker.shutdownNow()
         scheduler.shutdownNow()
@@ -130,6 +187,9 @@ class JavaSession internal constructor(
     }
 
     private companion object {
+        /** The files jdtls does not watch, whose change the session tells it about. */
+        val NOTIFIED_BUILD_FILES = setOf("settings.gradle", "settings.gradle.kts", "gradle-wrapper.properties")
+
         /** The build file whose URI jdtls takes to reimport a build: the settings file first. */
         val BUILD_FILES = listOf("settings.gradle", "settings.gradle.kts", "build.gradle", "build.gradle.kts")
     }

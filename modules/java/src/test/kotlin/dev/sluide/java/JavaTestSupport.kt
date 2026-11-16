@@ -19,6 +19,10 @@ internal class RecordingAccess : SessionAccess {
     val notifications = CopyOnWriteArrayList<Pair<String, Any?>>()
     val configurations = CopyOnWriteArrayList<Any>()
     val restarts = CopyOnWriteArrayList<Unit>()
+    val refreshed = CopyOnWriteArrayList<Path>()
+
+    /** The settings changes and refreshes, in the order they were sent: `configuration`, `refresh <folder>`. */
+    val sent = CopyOnWriteArrayList<String>()
 
     override fun executeCommand(
         command: String,
@@ -39,11 +43,15 @@ internal class RecordingAccess : SessionAccess {
 
     override fun configurationChanged(settings: Any) {
         configurations += settings
+        sent += "configuration"
     }
 
     override fun keptDiagnostics(file: Path): List<Diagnostic> = emptyList()
 
-    override fun refreshFolder(folder: Path) {}
+    override fun refreshFolder(folder: Path) {
+        refreshed.add(folder)
+        sent += "refresh $folder"
+    }
 
     override fun workspaceChanged() {}
 

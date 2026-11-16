@@ -5,19 +5,25 @@ import dev.sluide.java.trust.MavenTrustCheck
 import dev.sluide.languageservers.EnvironmentProblem
 import dev.sluide.languageservers.LanguageServerSpec
 import dev.sluide.languageservers.LibraryDocument
+import dev.sluide.languageservers.ProblemAction
 import dev.sluide.languageservers.ServerCommand
 import dev.sluide.languageservers.SessionAccess
 import dev.sluide.languageservers.SessionExtension
 import dev.sluide.languageservers.WorkspaceFolderMode
 import dev.sluide.languageservers.WorkspaceStatus
 import dev.sluide.librarycode.LibraryCode
+import dev.sluide.settings.ProjectSettingsOpeners
 import javafx.application.Platform
 import org.eclipse.lsp4j.ConfigurationItem
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.io.IOException
 import java.nio.file.Path
+import java.time.Clock
+import java.time.Duration
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 private val log = System.getLogger(JdtlsSpec::class.java.name)
 
@@ -34,9 +40,11 @@ class JdtlsSpec internal constructor(
     private val workspaceUse: JavaWorkspaceUse,
     private val javaHomes: JavaHomes,
     private val workspaces: JavaWorkspaces,
+    private val projectSettingsOpeners: ProjectSettingsOpeners,
     private val classesRoot: Path,
     private val dispatch: (Runnable) -> Unit,
     private val debounceMillis: Long,
+    private val clock: Clock = Clock.systemUTC(),
 ) : LanguageServerSpec {
     @Autowired
     constructor(
@@ -44,6 +52,7 @@ class JdtlsSpec internal constructor(
         settings: JavaSettings,
         projectSettings: JavaProjectSettings,
         workspaceUse: JavaWorkspaceUse,
+        projectSettingsOpeners: ProjectSettingsOpeners,
     ) : this(
         installer,
         settings,
@@ -51,6 +60,7 @@ class JdtlsSpec internal constructor(
         workspaceUse,
         JavaHomes(),
         JavaWorkspaces(),
+        projectSettingsOpeners,
         LibraryCode.JAVA_CLASSES_ROOT,
         Platform::runLater,
         DEBOUNCE_MILLIS,
@@ -103,20 +113,23 @@ class JdtlsSpec internal constructor(
         val build = JavaBuilds.buildRoot(absolute, projectFolder)
         if (build == null) {
             state.kotlinNear.remove(absolute)
+            state.fileRoots.remove(absolute)
             return null
         }
         state.tools[build.root] = build.tool
+        state.fileRoots[absolute] = build.root
         state.kotlinNear[absolute] = JavaBuilds.kotlinNear(absolute, build.root)
         return build.root
     }
 
     override fun affectsWorkspaceFolders(change: Path): Boolean {
         val absolute = change.toAbsolutePath().normalize()
-        if (absolute.fileName?.toString() in SESSION_NOTIFIED) {
+        val buildFile = JavaBuilds.isBuildFile(absolute)
+        if (buildFile) {
             // Every window's session: each ignores paths outside the roots it announced.
             sessions.values.forEach { it.buildFileChanged(absolute) }
         }
-        return JavaBuilds.isBuildFile(absolute)
+        return buildFile
     }
 
     /** The server's `settings`, also for a JDK change; resolves the JDK, which blocks: off the FX thread. */
@@ -144,46 +157,116 @@ class JdtlsSpec internal constructor(
         folder: Path?,
         projectFolder: Path,
     ): WorkspaceStatus? {
-        if (folder == null) return WorkspaceStatus("No Java build", null, null)
-        val label =
-            if (folder == projectFolder) {
-                projectFolder.fileName?.toString() ?: projectFolder.toString()
-            } else {
-                projectFolder.relativize(folder).toString()
-            }
+        val state = states[key(projectFolder)]
+        val jdk = state?.jdk
+        val jdkLines = jdkLines(jdk)
+        if (folder == null) {
+            val text = jdk?.let { "No Java build · JDK ${it.jdk.major}" } ?: "No Java build"
+            return WorkspaceStatus(text, null, (listOf("No build: JDK classes only") + jdkLines).joinToString("\n"))
+        }
         val tool =
-            when (states[key(projectFolder)]?.tools?.get(folder)) {
+            when (state?.tools?.get(folder)) {
                 BuildTool.GRADLE -> " · Gradle"
                 BuildTool.MAVEN -> " · Maven"
                 null -> ""
             }
-        return WorkspaceStatus("Java project: $label$tool", folder, folder.toString())
+        val imported =
+            when (val import = state?.imports?.get(folder)) {
+                is ImportState.Done -> import.compliance?.let { " · Java $it" }.orEmpty()
+                is ImportState.Importing -> " · importing…"
+                is ImportState.Failed -> " · import failed"
+                null -> ""
+            }
+        val kotlin = kotlinNear(projectFolder, file)
+        val kotlinText = if (kotlin) " · Kotlin sources not visible" else ""
+        val text = "Java project: ${labelOf(folder, projectFolder)}$tool$imported$kotlinText"
+        val lines = listOf(folder.toString()) + jdkLines + listOfNotNull(KOTLIN_TOOLTIP.takeIf { kotlin })
+        return WorkspaceStatus(text, folder, lines.joinToString("\n"))
     }
+
+    private fun jdkLines(resolved: ProjectJdk?): List<String> =
+        if (resolved == null) {
+            emptyList()
+        } else {
+            listOfNotNull(
+                "JDK ${resolved.jdk.version}: ${resolved.jdk.home} (${resolved.source.description})",
+                resolved.problem,
+            )
+        }
+
+    /** The root relative to the window folder, or the folder's own name when the root is the window folder. */
+    private fun labelOf(
+        root: Path,
+        projectFolder: Path,
+    ): String =
+        if (root == projectFolder) {
+            projectFolder.fileName?.toString() ?: projectFolder.toString()
+        } else {
+            projectFolder.relativize(root).toString()
+        }
 
     override fun environmentProblem(
         file: Path,
         projectFolder: Path,
-    ): EnvironmentProblem? = null
+    ): EnvironmentProblem? {
+        val state = states[key(projectFolder)] ?: return null
+        val root = state.fileRoots[file.toAbsolutePath().normalize()] ?: return null
+        val label = labelOf(root, projectFolder)
+        return when (val import = state.imports[root]) {
+            is ImportState.Importing -> {
+                val tool = if (state.tools[root] == BuildTool.GRADLE) "Gradle" else "Maven"
+                val elapsed = Duration.between(import.since, clock.instant()).coerceAtLeast(Duration.ZERO)
+                val time = "%d:%02d".format(Locale.ROOT, elapsed.toMinutes(), elapsed.toSecondsPart())
+                EnvironmentProblem(root, "Importing $label ($tool)… $time", emptyList(), dismissible = false)
+            }
+
+            is ImportState.Failed -> {
+                EnvironmentProblem(root, "Import of $label failed: ${import.detail}", import.actions)
+            }
+
+            is ImportState.Done, null -> {
+                null
+            }
+        }
+    }
 
     override fun sessionExtension(
         projectFolder: Path,
         access: SessionAccess,
     ): SessionExtension {
         val folder = key(projectFolder)
+        val state = stateOf(folder)
+        val scheduler = NamedThreads.scheduled("sluide-java-debounce")
+        val worker = NamedThreads.single("sluide-java-session")
+        val imports =
+            JavaImports(
+                access,
+                state.imports,
+                worker,
+                dispatch,
+                clock,
+                { task ->
+                    val future = scheduler.scheduleWithFixedDelay({ dispatch(task) }, 1, 1, TimeUnit.SECONDS)
+                    AutoCloseable { future.cancel(false) }
+                },
+                { state.jdk?.jdk?.version },
+                { root -> failureActions(folder, access, root) },
+            )
         val session =
             JavaSession(
                 folder,
                 access,
-                stateOf(folder),
+                state,
                 { settingsOf(folder) },
                 installer::lombokJar,
                 JavaBuilds::usesLombok,
                 projectSettings,
                 workspaceUse.acquire(workspaces.folderFor(folder)),
-                NamedThreads.single("sluide-java-session"),
-                NamedThreads.scheduled("sluide-java-debounce"),
+                worker,
+                scheduler,
                 dispatch,
                 debounceMillis,
+                imports,
             ) {
                 sessions.remove(folder)
                 states.remove(folder)
@@ -191,6 +274,18 @@ class JdtlsSpec internal constructor(
         sessions[folder] = session
         return session
     }
+
+    /** The buttons of a failed import's banner: Retry, the log and the JDK choice. */
+    private fun failureActions(
+        windowFolder: Path,
+        access: SessionAccess,
+        root: Path,
+    ): List<ProblemAction> =
+        listOf(
+            ProblemAction.Callback("Retry Import") { access.refreshFolder(root) },
+            ProblemAction.OpenFile("Show Log", workspaces.folderFor(windowFolder).resolve("data/.metadata/.log")),
+            ProblemAction.Callback("Choose JDK…") { projectSettingsOpeners.show(windowFolder, listOf("Java")) },
+        )
 
     /** The Java session of the window with [windowFolder], if its server was started with it; FX thread. */
     fun session(windowFolder: Path): JavaSession? = sessions[key(windowFolder)]
@@ -215,7 +310,7 @@ class JdtlsSpec internal constructor(
     private companion object {
         const val DEBOUNCE_MILLIS = 1000L
 
-        /** The files jdtls does not watch, whose change the window's session tells it about. */
-        val SESSION_NOTIFIED = setOf("settings.gradle", "settings.gradle.kts", "gradle-wrapper.properties")
+        const val KOTLIN_TOOLTIP =
+            "Kotlin sources in this build aren't visible to jdtls; references to them show as errors."
     }
 }

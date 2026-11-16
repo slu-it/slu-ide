@@ -1,10 +1,13 @@
 package dev.sluide.java
 
+import com.google.gson.JsonParser
 import dev.sluide.languageservers.LspUris
 import dev.sluide.projectdata.ProjectDataStore
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.time.Clock
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicInteger
@@ -35,9 +38,27 @@ class JavaSessionTest {
     private val lombokJar: Path by lazy { dir.resolve("lombok.jar") }
     private var jarAvailable = true
     private val leaseClosed = AtomicInteger()
+    private val tickerStops = AtomicInteger()
     private val closed = AtomicInteger()
     private val lombokChecks = mutableListOf<Path>()
     private var lombokRoots = setOf<Path>()
+
+    /** Whether the session's dispatch to the FX thread waits in [dispatched] instead of running at once. */
+    @Volatile private var deferDispatch = false
+    private val dispatched = CopyOnWriteArrayList<Runnable>()
+
+    private val imports by lazy {
+        JavaImports(
+            access,
+            state.imports,
+            worker,
+            Runnable::run,
+            Clock.systemUTC(),
+            { AutoCloseable { tickerStops.incrementAndGet() } },
+            { null },
+            { emptyList() },
+        )
+    }
 
     private val session: JavaSession by lazy {
         JavaSession(
@@ -54,8 +75,9 @@ class JavaSessionTest {
             { leaseClosed.incrementAndGet() },
             worker,
             scheduler,
-            Runnable::run,
+            { task -> if (deferDispatch) dispatched.add(task) else task.run() },
             DEBOUNCE_MILLIS,
+            imports,
             { closed.incrementAndGet() },
         )
     }
@@ -72,8 +94,103 @@ class JavaSessionTest {
         }
 
     @Test
-    fun `it takes the notifications the import tracking will read`() {
+    fun `it takes jdtls's status and event notifications`() {
         assertEquals(setOf("language/status", "language/eventNotification"), session.notifications)
+    }
+
+    @Test
+    fun `announcing and removing a folder starts and drops its import state`() {
+        val a = root("a")
+
+        session.onFolderAdded(a)
+        assertTrue(state.imports[a] is ImportState.Importing)
+
+        session.onFolderRemoved(a)
+
+        assertEquals(null, state.imports[a])
+    }
+
+    @Test
+    fun `a refresh reaches the import tracking as a new announcement of the root`() {
+        val a = root("a")
+        session.onFolderAdded(a)
+        state.imports[a] = ImportState.Failed("x", emptyList())
+
+        session.onFolderRefreshed(a)
+
+        assertTrue(state.imports[a] is ImportState.Importing)
+    }
+
+    @Test
+    fun `progress reaches the import tracking`() {
+        val a = root("a")
+        session.onFolderAdded(a)
+        session.onNotification(
+            "language/status",
+            JsonParser.parseString(
+                """{"type":"Message","message":"Updating workspace folders: Adding 1 folder(s), removing 0 folders."}""",
+            ),
+        )
+
+        session.onProgress("t", JsonParser.parseString("""{"kind":"begin","title":"Updating workspace folders"}"""))
+        session.onProgress("t", JsonParser.parseString("""{"kind":"end"}"""))
+
+        // RecordingAccess answers getAll with nothing: the root has no project.
+        assertTrue(state.imports[a] is ImportState.Failed)
+    }
+
+    @Test
+    fun `an event payload sent as language status is not taken as an event`() {
+        val a = root("a")
+        session.onFolderAdded(a)
+        val event = """{"eventType":300,"data":{"projectUri":"file://$a/","highestJavaVersion":"24"}}"""
+
+        session.onNotification("language/status", JsonParser.parseString(event))
+        assertTrue(state.imports[a] is ImportState.Importing)
+        session.onNotification("language/eventNotification", JsonParser.parseString(event))
+
+        assertTrue(state.imports[a] is ImportState.Failed)
+    }
+
+    @Test
+    fun `a new connection reaches the import tracking`() {
+        val a = root("a")
+        session.onNotification("language/status", folderStatus(0, 1))
+
+        session.onConnected()
+        session.onFolderAdded(a)
+        session.onNotification("language/status", folderStatus(1, 0))
+        session.onProgress("t", JsonParser.parseString("""{"kind":"begin","title":"Updating workspace folders"}"""))
+        session.onProgress("t", JsonParser.parseString("""{"kind":"end"}"""))
+
+        // RecordingAccess answers getAll with nothing: the import ended without a project.
+        assertTrue(state.imports[a] is ImportState.Failed)
+    }
+
+    private fun folderStatus(
+        added: Int,
+        removed: Int,
+    ) = JsonParser.parseString(
+        """{"type":"Message","message":"Updating workspace folders: Adding $added folder(s), removing $removed folders."}""",
+    )
+
+    @Test
+    fun `a stopped server clears the import states`() {
+        session.onFolderAdded(root("a"))
+        assertTrue(state.imports.isNotEmpty())
+
+        session.onStopped()
+
+        assertTrue(state.imports.isEmpty())
+    }
+
+    @Test
+    fun `closing the session stops the import ticker`() {
+        session.onFolderAdded(root("a"))
+
+        session.close()
+
+        assertEquals(1, tickerStops.get())
     }
 
     @Test
@@ -88,6 +205,19 @@ class JavaSessionTest {
         assertEquals(1, access.restarts.size)
         assertTrue(state.lombokRestarted.get())
         assertEquals(listOf(first), lombokChecks, "after the flag is set the other roots are not even looked at")
+    }
+
+    @Test
+    fun `a refresh of a root whose build now uses Lombok restarts the server once`() {
+        val root = root("a")
+        session.onFolderAdded(root)
+        assertEquals(0, access.restarts.size)
+        lombokRoots = setOf(root)
+
+        session.onFolderRefreshed(root)
+
+        assertEquals(1, access.restarts.size)
+        assertEquals(listOf(root, root), lombokChecks)
     }
 
     @Test
@@ -141,6 +271,7 @@ class JavaSessionTest {
                 scheduler,
                 { queued += it },
                 DEBOUNCE_MILLIS,
+                imports,
                 {},
             )
 
@@ -169,6 +300,7 @@ class JavaSessionTest {
                 scheduler,
                 { queued += it },
                 DEBOUNCE_MILLIS,
+                imports,
                 {},
             )
         deferred.onFolderAdded(root("a"))
@@ -190,6 +322,7 @@ class JavaSessionTest {
         session.close()
 
         session.onFolderAdded(lombok)
+        session.onFolderRefreshed(lombok)
         session.buildFileChanged(gradle.resolve("settings.gradle"))
 
         Thread.sleep(DEBOUNCE_MILLIS * 3) // A notification that must not come gets three debounces.
@@ -221,6 +354,124 @@ class JavaSessionTest {
         projectSettings.setJdk(window, jdk)
 
         assertEquals(listOf<Any>(mapOf("jdk" to jdk.toString())), access.configurations)
+    }
+
+    @Test
+    fun `a JDK change refreshes the roots whose import failed, after the settings went out`() {
+        session
+        val failed = root("failed")
+        state.imports[failed] = ImportState.Failed("x", emptyList())
+        state.imports[root("done")] = ImportState.Done(null)
+        state.imports[root("busy")] = ImportState.Importing(java.time.Instant.EPOCH)
+
+        projectSettings.setJdk(window, dir.resolve("jdk-21"))
+
+        assertEquals(listOf("configuration", "refresh $failed"), access.sent)
+    }
+
+    @Test
+    fun `a build file change below a failed root refreshes it once and sends no update`() {
+        val failed = root("g")
+        failed.resolve("settings.gradle").file()
+        session.onFolderAdded(failed)
+        state.imports[failed] = ImportState.Failed("x", emptyList())
+
+        repeat(3) { session.buildFileChanged(failed.resolve("pom.xml")) }
+        session.buildFileChanged(failed.resolve("settings.gradle"))
+
+        awaitCondition("the refresh") { access.refreshed.isNotEmpty() }
+        Thread.sleep(DEBOUNCE_MILLIS * 3) // Nothing more may come: the changes merge into one refresh.
+        assertEquals(listOf(failed), access.refreshed)
+        assertTrue(access.notifications.isEmpty())
+    }
+
+    @Test
+    fun `a change of a build file jdtls watches, below a root that did not fail, neither refreshes nor notifies`() {
+        val gradle = root("g")
+        gradle.resolve("build.gradle").file()
+        session.onFolderAdded(gradle)
+        state.imports[gradle] = ImportState.Done(null)
+
+        session.buildFileChanged(gradle.resolve("build.gradle"))
+
+        Thread.sleep(DEBOUNCE_MILLIS * 3) // Past the debounce; nothing may come.
+        assertTrue(access.refreshed.isEmpty())
+        assertTrue(access.notifications.isEmpty())
+    }
+
+    @Test
+    fun `a root that is no longer failed when the debounce passes is not refreshed`() {
+        val maven = root("m")
+        session.onFolderAdded(maven)
+        state.imports[maven] = ImportState.Failed("x", emptyList())
+
+        session.buildFileChanged(maven.resolve("pom.xml"))
+        state.imports[maven] = ImportState.Importing(java.time.Instant.EPOCH)
+
+        Thread.sleep(DEBOUNCE_MILLIS * 3) // Past the debounce; nothing may come.
+        assertTrue(access.refreshed.isEmpty())
+    }
+
+    @Test
+    fun `a root that imports again by the time the refresh reaches the FX thread is not refreshed`() {
+        val maven = root("m")
+        session.onFolderAdded(maven)
+        state.imports[maven] = ImportState.Failed("x", emptyList())
+        deferDispatch = true
+
+        session.buildFileChanged(maven.resolve("pom.xml"))
+        awaitCondition("the debounce passed") { dispatched.isNotEmpty() }
+        // The user clicked Retry Import meanwhile.
+        state.imports[maven] = ImportState.Importing(java.time.Instant.EPOCH)
+        dispatched.forEach(Runnable::run)
+
+        assertTrue(access.refreshed.isEmpty())
+    }
+
+    @Test
+    fun `a refresh that reaches the FX thread after the session closed is not sent`() {
+        val maven = root("m")
+        session.onFolderAdded(maven)
+        state.imports[maven] = ImportState.Failed("x", emptyList())
+        deferDispatch = true
+
+        session.buildFileChanged(maven.resolve("pom.xml"))
+        awaitCondition("the debounce passed") { dispatched.isNotEmpty() }
+        session.close()
+        dispatched.forEach(Runnable::run)
+
+        assertTrue(access.refreshed.isEmpty())
+    }
+
+    @Test
+    fun `a JDK change whose settings were resolved when the session closed is not sent and refreshes nothing`() {
+        val queued = mutableListOf<Runnable>()
+        val deferred =
+            JavaSession(
+                window,
+                access,
+                state,
+                { mapOf("jdk" to "21") },
+                { lombokJar },
+                { false },
+                projectSettings,
+                {},
+                InlineExecutor(),
+                scheduler,
+                { queued += it },
+                DEBOUNCE_MILLIS,
+                imports,
+                {},
+            )
+        state.imports[root("failed")] = ImportState.Failed("x", emptyList())
+        projectSettings.setJdk(window, dir.resolve("jdk-21"))
+        assertEquals(1, queued.size)
+
+        deferred.close()
+        queued.forEach { it.run() }
+
+        assertTrue(access.configurations.isEmpty())
+        assertTrue(access.refreshed.isEmpty())
     }
 
     @Test
@@ -279,6 +530,7 @@ class JavaSessionTest {
                 scheduler,
                 Runnable::run,
                 60_000,
+                imports,
                 {},
             )
         slow.onFolderAdded(gradle)
@@ -299,7 +551,7 @@ class JavaSessionTest {
         listOf(kts, build, plain).forEach(session::onFolderAdded)
 
         session.buildFileChanged(kts.resolve("gradle/wrapper/gradle-wrapper.properties"))
-        session.buildFileChanged(build.resolve("build.gradle.kts"))
+        session.buildFileChanged(build.resolve("gradle/wrapper/gradle-wrapper.properties"))
         session.buildFileChanged(plain.resolve("gradle/wrapper/gradle-wrapper.properties"))
 
         awaitCondition("three notifications") { access.notifications.size == 3 }
@@ -392,6 +644,7 @@ class JavaSessionTest {
                 scheduler,
                 Runnable::run,
                 DEBOUNCE_MILLIS * 3,
+                imports,
                 { closed.incrementAndGet() },
             )
         slow.onFolderAdded(gradle)

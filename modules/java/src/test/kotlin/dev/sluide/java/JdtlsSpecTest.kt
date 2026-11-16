@@ -1,18 +1,28 @@
 package dev.sluide.java
 
+import com.google.gson.JsonParser
+import dev.sluide.languageservers.EnvironmentProblem
 import dev.sluide.languageservers.LspUris
+import dev.sluide.languageservers.ProblemAction
+import dev.sluide.languageservers.SessionAccess
 import dev.sluide.languageservers.WorkspaceFolderMode
 import dev.sluide.languageservers.WorkspaceStatus
 import dev.sluide.projectdata.ProjectDataStore
+import dev.sluide.settings.ProjectSettingsOpeners
 import org.eclipse.lsp4j.ConfigurationItem
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
+import java.util.concurrent.CompletableFuture
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
@@ -33,10 +43,25 @@ class JdtlsSpecTest {
     private val workspaces by lazy { JavaWorkspaces(dir.resolve("workspaces")) }
     private val thoreauJdk by lazy { fakeJdk(dir.resolve("thoreau-jdk"), 25) }
     private val homes by lazy { JavaHomes({ _, _ -> null }, emptyMap(), thoreauJdk) }
+    private val openers = ProjectSettingsOpeners()
+    private val now = Instant.parse("2026-01-01T10:00:00Z")
+    private val clock = MutableClock(now)
     private val classes by lazy { dir.resolve("classes") }
     private val window by lazy { Files.createDirectories(dir.resolve("work")) }
     private val spec by lazy {
-        JdtlsSpec(installer, fakes.settings, projectSettings, use, homes, workspaces, classes, Runnable::run, 30)
+        JdtlsSpec(
+            installer,
+            fakes.settings,
+            projectSettings,
+            use,
+            homes,
+            workspaces,
+            openers,
+            classes,
+            Runnable::run,
+            30,
+            clock,
+        )
     }
 
     /** `work/app` (Maven), `work/g` (Gradle) and `work/loose`. */
@@ -346,42 +371,267 @@ class JdtlsSpecTest {
         assertFalse(use.isInUse(workspaces.folderFor(window)))
     }
 
+    private fun javaSession(access: SessionAccess): JavaSession =
+        assertIs<JavaSession>(spec.sessionExtension(window, access))
+
+    private val begin = JsonParser.parseString("""{"kind":"begin","title":"Updating workspace folders"}""")
+    private val end = JsonParser.parseString("""{"kind":"end"}""")
+    private val added =
+        JsonParser.parseString(
+            """{"type":"Message","message":"Updating workspace folders: Adding 1 folder(s), removing 0 folders."}""",
+        )
+
+    /** Announces [root] and ends its import without a project: it fails with the log text. */
+    private fun fail(
+        session: JavaSession,
+        access: ScriptedAccess,
+        root: Path,
+        announce: Boolean = true,
+    ) {
+        access.answers["java.project.getAll"] = { CompletableFuture.completedFuture(emptyList<Any?>()) }
+        if (announce) session.imports.onFolderAdded(root)
+        session.imports.onStatus(added)
+        session.imports.onProgress("t$root", begin)
+        session.imports.onProgress("t$root", end)
+    }
+
+    private fun finish(
+        session: JavaSession,
+        access: ScriptedAccess,
+        root: Path,
+        compliance: String? = null,
+        announce: Boolean = true,
+    ) {
+        access.answers["java.project.getAll"] = { CompletableFuture.completedFuture(listOf("file:$root/")) }
+        access.answers["java.project.getSettings"] =
+            { CompletableFuture.completedFuture(mapOf("org.eclipse.jdt.core.compiler.compliance" to compliance)) }
+        if (announce) session.imports.onFolderAdded(root)
+        session.imports.onStatus(added)
+        session.imports.onProgress("t$root", begin)
+        session.imports.onProgress("t$root", end)
+    }
+
     @Test
-    fun `the status line names the root relative to the window and its tool`() {
+    fun `a root that imports shows a banner with its tool and the elapsed time`() {
         val (maven, gradle, _) = fixtures()
+        val session = javaSession(ScriptedAccess())
         val mavenRoot = assertNotNull(spec.workspaceFolder(maven, window))
         val gradleRoot = assertNotNull(spec.workspaceFolder(gradle, window))
+        session.imports.onFolderAdded(mavenRoot)
+        session.imports.onFolderAdded(gradleRoot)
 
         assertEquals(
-            WorkspaceStatus("Java project: app · Maven", mavenRoot, mavenRoot.toString()),
-            spec.workspaceStatus(maven, mavenRoot, window),
+            EnvironmentProblem(mavenRoot, "Importing app (Maven)… 0:00", emptyList(), dismissible = false),
+            spec.environmentProblem(maven, window),
         )
+        clock.current = now.plusSeconds(75)
         assertEquals(
-            WorkspaceStatus("Java project: g · Gradle", gradleRoot, gradleRoot.toString()),
-            spec.workspaceStatus(gradle, gradleRoot, window),
+            EnvironmentProblem(gradleRoot, "Importing g (Gradle)… 1:15", emptyList(), dismissible = false),
+            spec.environmentProblem(gradle, window),
         )
     }
 
     @Test
-    fun `a build at the window folder is named by the folder's name`() {
+    fun `a build at the window folder is labelled by the folder's name in its banner`() {
         window.resolve("pom.xml").file("<project/>")
         val file = window.resolve("src/A.java").file()
         val root = assertNotNull(spec.workspaceFolder(file, window))
+        javaSession(ScriptedAccess()).imports.onFolderAdded(root)
 
-        assertEquals("Java project: work · Maven", spec.workspaceStatus(file, root, window)?.text)
+        assertEquals("Importing work (Maven)… 0:00", spec.environmentProblem(file, window)?.message)
     }
 
     @Test
-    fun `a loose file says there is no Java build and is not clickable`() {
-        val (_, _, loose) = fixtures()
-
-        assertEquals(WorkspaceStatus("No Java build", null, null), spec.workspaceStatus(loose, null, window))
-    }
-
-    @Test
-    fun `there is no environment problem yet`() {
+    fun `a failed import says why and offers Retry, the log and the JDK choice`() {
         val (maven, _, _) = fixtures()
+        val access = ScriptedAccess()
+        val session = javaSession(access)
+        val root = assertNotNull(spec.workspaceFolder(maven, window))
+        fail(session, access, root)
+
+        val problem = assertNotNull(spec.environmentProblem(maven, window))
+
+        assertTrue(problem.dismissible)
+        assertEquals(root, problem.folder)
+        assertEquals("Import of app failed: No project was found; see the log.", problem.message)
+        assertEquals(listOf("Retry Import", "Show Log", "Choose JDK…"), problem.actions.map { it.label })
+        assertEquals(
+            ProblemAction.OpenFile("Show Log", workspaces.folderFor(window).resolve("data/.metadata/.log")),
+            problem.actions[1],
+        )
+    }
+
+    @Test
+    fun `Retry Import refreshes the root's folder and Choose JDK opens the Java page of Project Settings`() {
+        val (maven, _, _) = fixtures()
+        val access = ScriptedAccess()
+        val session = javaSession(access)
+        val root = assertNotNull(spec.workspaceFolder(maven, window))
+        fail(session, access, root)
+        val shown = mutableListOf<List<String>?>()
+        openers.register(window) { shown.add(it) }
+        val actions = assertNotNull(spec.environmentProblem(maven, window)).actions
+
+        assertIs<ProblemAction.Callback>(actions[0]).perform()
+        assertEquals(listOf(root), access.refreshed)
+        assertEquals(emptyList(), shown)
+        assertIs<ProblemAction.Callback>(actions[2]).perform()
+
+        assertEquals(listOf<List<String>?>(listOf("Java")), shown)
+    }
+
+    @Test
+    fun `an unchanged failure gives equal problems on every call`() {
+        val (maven, _, _) = fixtures()
+        val access = ScriptedAccess()
+        val session = javaSession(access)
+        fail(session, access, assertNotNull(spec.workspaceFolder(maven, window)))
+
+        val first = assertNotNull(spec.environmentProblem(maven, window))
+        assertEquals(first, spec.environmentProblem(maven, window))
+    }
+
+    @Test
+    fun `a finished import, a loose file and a file never asked about have no banner`() {
+        val (maven, _, loose) = fixtures()
+        val access = ScriptedAccess()
+        val session = javaSession(access)
+        val root = assertNotNull(spec.workspaceFolder(maven, window))
+        assertNull(spec.workspaceFolder(loose, window))
+        finish(session, access, root)
+
+        assertNull(spec.environmentProblem(maven, window))
+        assertNull(spec.environmentProblem(loose, window))
+        assertNull(spec.environmentProblem(window.resolve("never/Seen.java"), window))
+    }
+
+    @Test
+    fun `a file that lost its build has no banner of the root it had`() {
+        val (maven, _, _) = fixtures()
+        val root = assertNotNull(spec.workspaceFolder(maven, window))
+        javaSession(ScriptedAccess()).imports.onFolderAdded(root)
+        assertNotNull(spec.environmentProblem(maven, window))
+
+        Files.delete(window.resolve("app/pom.xml"))
+
+        assertNull(spec.workspaceFolder(maven, window))
+        assertNull(spec.environmentProblem(maven, window))
+    }
+
+    @Test
+    fun `a clock that went back shows no negative time`() {
+        val (maven, _, _) = fixtures()
+        val root = assertNotNull(spec.workspaceFolder(maven, window))
+        javaSession(ScriptedAccess()).imports.onFolderAdded(root)
+
+        clock.current = now.minusSeconds(5)
+
+        assertEquals("Importing app (Maven)… 0:00", spec.environmentProblem(maven, window)?.message)
+    }
+
+    @Test
+    fun `a pom change below a failed root refreshes that root in the window's session`() {
+        val (maven, _, _) = fixtures()
+        val access = ScriptedAccess()
+        val session = javaSession(access)
+        val root = assertNotNull(spec.workspaceFolder(maven, window))
+        session.onFolderAdded(root)
+        fail(session, access, root, announce = false)
+
+        spec.affectsWorkspaceFolders(window.resolve("app/pom.xml"))
+
+        awaitCondition("the refresh") { access.refreshed.isNotEmpty() }
+        assertEquals(listOf(root), access.refreshed)
+    }
+
+    @Test
+    fun `a file whose root was never announced has no banner`() {
+        val (maven, _, _) = fixtures()
+        javaSession(ScriptedAccess())
+        spec.workspaceFolder(maven, window)
 
         assertNull(spec.environmentProblem(maven, window))
     }
+
+    @Test
+    fun `the status line names the root, its tool, the compliance and the import's state`() {
+        val (maven, gradle, _) = fixtures()
+        val access = ScriptedAccess()
+        val session = javaSession(access)
+        val mavenRoot = assertNotNull(spec.workspaceFolder(maven, window))
+        val gradleRoot = assertNotNull(spec.workspaceFolder(gradle, window))
+
+        assertEquals("Java project: app · Maven", spec.workspaceStatus(maven, mavenRoot, window)?.text)
+        session.imports.onFolderAdded(mavenRoot)
+        assertEquals("Java project: app · Maven · importing…", spec.workspaceStatus(maven, mavenRoot, window)?.text)
+        finish(session, access, mavenRoot, "17", announce = false)
+        assertEquals("Java project: app · Maven · Java 17", spec.workspaceStatus(maven, mavenRoot, window)?.text)
+        fail(session, access, gradleRoot)
+        assertEquals("Java project: g · Gradle · import failed", spec.workspaceStatus(gradle, gradleRoot, window)?.text)
+        assertEquals(mavenRoot, spec.workspaceStatus(maven, mavenRoot, window)?.folder)
+    }
+
+    @Test
+    fun `Kotlin sources near the file end the line with that and add a line to the tooltip`() {
+        val (maven, _, _) = fixtures()
+        window.resolve("app/src/main/kotlin").toFile().mkdirs()
+        val root = assertNotNull(spec.workspaceFolder(maven, window))
+        spec.initializationOptions(window)
+        val status = assertNotNull(spec.workspaceStatus(maven, root, window))
+
+        assertEquals("Java project: app · Maven · Kotlin sources not visible", status.text)
+        assertEquals(
+            listOf(
+                root.toString(),
+                "JDK 25.0.1: $thoreauJdk (Thoreau's own JDK)",
+                "Kotlin sources in this build aren't visible to jdtls; references to them show as errors.",
+            ),
+            status.tooltip?.lines(),
+        )
+    }
+
+    @Test
+    fun `the tooltip names the root, then the JDK with its source and the problem with it`() {
+        val (maven, _, _) = fixtures()
+        val root = assertNotNull(spec.workspaceFolder(maven, window))
+        val broken = dir.resolve("broken-jdk").also { Files.createDirectories(it) }
+        projectSettings.setJdk(window, broken)
+        spec.initializationOptions(window)
+
+        assertEquals(
+            listOf(
+                root.toString(),
+                "JDK 25.0.1: $thoreauJdk (Thoreau's own JDK)",
+                "The project's JDK $broken is not a JDK (no bin/java or release file); using Thoreau's own JDK.",
+            ),
+            spec.workspaceStatus(maven, root, window)?.tooltip?.lines(),
+        )
+    }
+
+    @Test
+    fun `a loose file says there is no build and names the JDK once it is resolved`() {
+        val (_, _, loose) = fixtures()
+
+        assertEquals(
+            WorkspaceStatus("No Java build", null, "No build: JDK classes only"),
+            spec.workspaceStatus(loose, null, window),
+        )
+
+        spec.initializationOptions(window)
+        val status = assertNotNull(spec.workspaceStatus(loose, null, window))
+
+        assertEquals("No Java build · JDK 25", status.text)
+        assertNull(status.folder)
+        assertEquals("No build: JDK classes only\nJDK 25.0.1: $thoreauJdk (Thoreau's own JDK)", status.tooltip)
+    }
+}
+
+private class MutableClock(
+    var current: Instant,
+) : Clock() {
+    override fun instant(): Instant = current
+
+    override fun getZone() = ZoneOffset.UTC
+
+    override fun withZone(zone: java.time.ZoneId?): Clock = this
 }
