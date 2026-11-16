@@ -1,7 +1,7 @@
 # 0179. Java through jdtls: one server per window, a workspace folder per build, imported lazily
 
 - Status: accepted; amends [0142](0142-language-server-foundation.md) (session extensions, several trust checks,
-  workspace folders announced one by one), [0151](0151-workspace-folders-per-project.md) (no window folder for
+  workspace folders announced one by one, `command(projectFolder)`, a restart that runs one process at a time), [0151](0151-workspace-folders-per-project.md) (no window folder for
   specs in roots-only mode), [0160](0160-document-gate-and-kept-diagnostics.md) (several actions per environment
   problem), [0150](0150-library-code-read-only.md) (Java library classes),
   [0159](0159-shared-server-tool-layer.md) (a launch function, no version command); see [0053](0053-project-trust.md), [0085](0085-gradle-integration.md), [0090](0090-per-project-metadata-store.md)
@@ -103,10 +103,10 @@ it.
   have one. A folder that is missing, empty or holds only empty folders is not asked about: git's `[]` for it would
   not mean "ignored".
 - *When:* once a root's import is done, and again each time a jdtls token titled `Building` ends (the auto-build writes
-  the output then, seen in the P7b traces) while a done root has an output folder without an answer. A real answer of git
+  the output then, measured with jdtls 1.63.0) while a done root has an output folder without an answer. A real answer of git
   settles the folders it was asked about, unignored or ignored (`[]`), until the root's next done verdict, and the offer
   is the unignored ones among the answered folders. No folder with a file yet (a fresh clone, where the import ends
-  before the first build; a subproject added later), no repository, trust keeping git off, or a failure give no answer,
+  before the first build; a module added later is not listed yet), no repository, trust keeping git off, or a failure give no answer,
   and the next `Building` end asks about the folders still unanswered. A root counts as answered only when every output
   folder is: an aggregator project whose own folder never gets a file costs one file walk per build end and no git
   call. A root that fails is forgotten.
@@ -115,7 +115,7 @@ it.
   (ADR 0053) and followed-repository check. `GitStatusService` follows only a window folder that is itself a
   repository root, so a build in a nested repository, or in a window folder that is no repository, gets no offer.
 - *The banner:* "build/jdtls-bin isn't ignored by git; jdtls compiles into it." (several folders: "a and b aren't
-  ignored by git; jdtls compiles into them."), with **Add to .gitignore**, **Not Now** (until the window's next session)
+  ignored by git; jdtls compiles into them."), with **Add to .gitignore**, **Not Now** (until the window closes; a server restart keeps it)
   and **Don't Ask Again** (`java.outputIgnore.declined` in the project's data, for the project in every window). These
   are the banner's own callbacks: the generic Don't Ask Again is per spec and would also hide the import failures.
   Importing and failed banners win over it.
@@ -132,7 +132,9 @@ it.
   the file changes on disk (editor-tabs.md), so nothing is lost. The plan was to ask first in that case; decided
   against, since the java module has no view of editors and the write is an explicit click that only appends lines.
 
-**JDK.** The project JDK is `JAVA_HOME` from the login shell (read once per app run, 10 s timeout), else Thoreau's
+**JDK.** The project JDK is `JAVA_HOME` from the login shell (read with a 10 s timeout: once for the language server and once for the Project Settings page, each with its own
+`JavaHomes`, so the page's "JAVA_HOME: …" entry can differ from the JDK jdtls uses if the shell's value changed in
+between), else Thoreau's
 environment, else Thoreau's JDK; File → Project Settings… → Java overrides it per project (`java.jdk` in the project's
 data, ADR 0090). It runs Gradle imports (`java.import.gradle.java.home`) and is the default runtime every build compiles
 against (`java.configuration.runtimes`, named `JavaSE-<major>` from the JDK's `release` file). A change goes to the
@@ -150,7 +152,7 @@ kills them as its descendants (ADR 0142).
 **Import feedback.** Thoreau tracks each root itself: importing from its folder's announcement (an add, or a refresh:
 Retry and the JDK change send one notification that removes and adds the folder, amending ADR 0151 decision 4) until no
 job that adds it is left; done if `java.project.getAll` then has a project under the root, else failed. jdtls 1.63.0
-(`ProjectsManager.updateWorkspaceFolders`, and traces of every case, P7b) sends a `language/status` for each
+(`ProjectsManager.updateWorkspaceFolders`, and traces of every case measured with it) sends a `language/status` for each
 notification, cancels the jobs that have not started and whose added folders equal its removed ones, and schedules a job
 titled "Updating workspace folders"; the jobs hold the workspace root, run one after another, and each sends one
 progress token, its end before the next one's begin. Thoreau mirrors that queue (`UpdateJobs`): the k-th status answers
@@ -181,8 +183,9 @@ banner; a second Show Log on the open tab only selects it.
 
 **Clean Java Workspace.** Project Settings → Java deletes only `<workspace folder>/data`. While jdtls runs, Thoreau sets a
 per-window flag and restarts the session; the next `command(projectFolder)` deletes the data folder, clears the flag
-and prepares as usual. That is safe because the lifecycle starts after the old process exited (ADR 0142), so no lock
-or timer is needed (an Eclipse lock on `data/.metadata/.lock` was the first idea; jdtls's application never takes it,
+and prepares as usual. That is safe because the lifecycle calls `command(projectFolder)` for the new start one process at a time, after the old
+process exited (a process still there after the exit wait is logged at INFO and the start goes on, ADR 0142), so no
+lock or timer is needed (an Eclipse lock on `data/.metadata/.lock` was the first idea; jdtls's application never takes it,
 checked on jdtls 1.63.0). Without a running jdtls the folder is deleted directly. Known limit: a closed window releases
 its workspace lease at session close while its jdtls may still be exiting for up to about 5 s; a Clean in that gap could
 delete under it. The reachable path: reopen the folder within about 5 s and run Clean; the new window's lifecycle waits
@@ -196,7 +199,8 @@ only for its own earlier processes, not for the closed window's jdtls. It is unl
 
 **Foundation changes** (`language-servers`, `code-intelligence`, `library-code`): `trustCheckIds`,
 `WorkspaceFolderMode`, `SessionExtension` and `SessionAccess` (custom notifications, progress, folder announcements
-with a refresh as one call, commands, notifications, kept diagnostics, refresh of a folder, restart), `ProblemAction` as `Terminal`, `OpenFile` or
+with a refresh as one call, commands, notifications, kept diagnostics, refresh of a folder, restart that runs one process at a time),
+`command(projectFolder)` for a start that knows the window, `ProblemAction` as `Terminal`, `OpenFile` or
 `Callback` with several per problem, `libraryDocument` for non-file URIs, `LibraryKind.JAVA_CLASS`. New: File →
 Project Settings… (`ProjectSettingsPage`), no key binding.
 
@@ -216,5 +220,8 @@ separating Maven builds that link by coordinates, eager import, Windows and Inte
 - Loose files show no type errors.
 - A removal and an add sent together (a re-resolution of the roots) can leave the last import's verdict 10 seconds
   after jdtls went quiet, when jdtls dropped the removal's job; it also leaves the removed folder's project in jdtls
-  (jdtls's own behaviour, seen in the P7b traces).
+  (jdtls's own behaviour, measured with jdtls 1.63.0).
+- A module added to `settings.gradle` or `<modules>` after the import goes through `java/projectConfigurationUpdate`
+  or jdtls's automatic update, with no new verdict, and output folders come only from `getAll` at a root's verdict: it
+  gets the offer after the next import of its build (Retry Import, a JDK change, or reopening the window).
 - Listed in [../index.md](../index.md).

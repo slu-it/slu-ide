@@ -1,7 +1,7 @@
 # Java: jdtls
 
 **Module:** `modules/java` (package `dev.sluide.java`: `JdtlsSpec`, `JavaSession` with `JavaImports` and
-`ImportFailures`, `JavaBuilds`, `Jdks`/`JavaHomes`, `JavaProjectSettings`, `JavaWorkspaces`, and `JdtlsInstaller`,
+`ImportFailures`, `JavaBuilds`, `Jdks`/`JavaHomes`, `JavaProjectSettings`, `JavaProjectSettingsPage` (the JDK and Clean Java Workspace), `OutputIgnore`, `OutputIgnoreOffers` and `OutputIgnoreChecks` (the offer to ignore compiled output in git), `JdtlsLog`, `JavaWorkspaces`, and `JdtlsInstaller`,
 `JdtlsUpdates`, `JavaSettings` over the shared server-tool layer of `modules/server-tools`); decisions in
 [ADR 0179](../adr/0179-java-via-jdtls.md) and [ADR 0159](../adr/0159-shared-server-tool-layer.md)
 
@@ -71,7 +71,7 @@ imports, banners and status lines refresh once a second.
 
 ## The JDK
 The project JDK is, in this order: the project's setting (File → Project Settings…), `JAVA_HOME` of the user's login
-shell (read once per run), `JAVA_HOME` of Thoreau's environment, Thoreau's own JDK. A setting that is no JDK is skipped
+shell (read once for the language server and once for the Project Settings page, so the page's "JAVA_HOME: …" entry can differ from the JDK jdtls uses if the shell's value changed in between), `JAVA_HOME` of Thoreau's environment, Thoreau's own JDK. A setting that is no JDK is skipped
 and the tooltip says so. It runs Gradle imports and is the default runtime builds compile against; a change reaches the
 running server at once. Thoreau does not choose a JDK a Gradle version can run on: that is what the failed banner's
 **Choose JDK…** is for.
@@ -111,13 +111,13 @@ folders: "build/jdtls-bin and app/build/jdtls-bin aren't ignored by git; jdtls c
   the repository ("Cannot add to <path>: <reason>" in the banner). The banner goes once git agrees; if git still lists
   a folder it says "Added to <path>, but git still doesn't ignore <folders>." An open tab with unsaved edits of that
   file keeps them and offers Reload or Keep mine, as for any change on disk.
-- **Not Now** hides it for that build until the window's next session.
+- **Not Now** hides it for that build until the window closes (a server restart keeps it).
 - **Don't Ask Again** hides it for the project in every window (`java.outputIgnore.declined` in the project's data).
 
 Git decides what is ignored, so `*.class` patterns, a `build/` line, negations and global excludes count; the question is
 whether git shows any untracked, not-ignored file in the folder. Git is asked once a build's import is done and again
 when jdtls finishes a build, but only about output folders that already hold a file: on a fresh clone the folder does
-not exist at the end of the import, and the first build creates it; so does a subproject added later. Each output
+not exist at the end of the import, and the first build creates it; so does a module that was not yet listed. Each output
 folder is settled by git's answer for it, and the offer is the unignored ones. It works
 only for a project folder that is itself a git repository root, with git trusted (ADR 0053): a build in a nested
 repository gets no offer. The import and failure banners come first.
@@ -131,4 +131,5 @@ Not offered (ADR 0179): a Reimport Build action, Kotlin sources in Java builds, 
 Gradle-compatible JDK, type errors for loose files, formatting through jdtls, refactorings that need client commands,
 code intelligence in library classes, separating Maven builds that link by coordinates, eager import, Windows and Intel
 macOS. A monorepo with many builds opened in one window uses the memory of every import; a build that fails shows only
-the error jdtls reports and its log.
+the error jdtls reports and its log. A module added to `settings.gradle` or `<modules>` after the import gets the
+offer to ignore compiled output after the next import of its build (Retry Import, a JDK change, or reopening the window).

@@ -114,8 +114,9 @@ class JdtlsSpec internal constructor(
 
     /**
      * Clean Java Workspace while jdtls runs: the next start of the window's server deletes the data folder, and the
-     * server restarts now. The lifecycle calls [command] for the new start only after the old process ended (ADR 0142),
-     * so nothing uses the folder then; FX thread.
+     * server restarts now. The lifecycle calls [command] for the new start after the old process ended or, when one
+     * is still there after the exit wait, after it logged that at INFO (ADR 0142); so the folder is free except in
+     * that case; FX thread.
      */
     fun cleanRunning(windowFolder: Path) {
         stateOf(windowFolder).cleanPending.set(true)
@@ -355,9 +356,6 @@ class JdtlsSpec internal constructor(
         windowFolder: Path,
         file: Path,
     ): Boolean = states[key(windowFolder)]?.kotlinNear?.get(file.toAbsolutePath().normalize()) == true
-
-    /** The JDK `initializationOptions` or a JDK change resolved last for the window; null before. */
-    internal fun jdkOf(windowFolder: Path): ProjectJdk? = states[key(windowFolder)]?.jdk
 
     /** The per-window state, for [JavaSession]; created on first use. */
     internal fun stateOf(windowFolder: Path): JavaWindowState = states.getOrPut(key(windowFolder)) { JavaWindowState() }

@@ -208,7 +208,7 @@ class JdtlsRealServerTest {
             onFx { servers.session(spec).documents.open(a, "java", emptyClass) }
             val failed = assertIs<ImportState.Failed>(awaitImportState(spec, window) { it !is ImportState.Importing })
 
-            // Scenario (a) of P7b: the banner's button calls access.refreshFolder(root), one notification for jdtls.
+            // Scenario (a): the banner's button calls access.refreshFolder(root), one notification for jdtls.
             onFx { assertIs<ProblemAction.Callback>(failed.actions[0]).perform() }
             val again =
                 assertIs<ImportState.Failed>(

@@ -92,7 +92,7 @@
 - Pages come from modules: a window bean (`@Scope("window")`) implementing `ProjectSettingsPage` (`path`, `node`,
   `load(folder)`, `apply(folder)`). They are loaded with the window's project folder each time the dialog opens.
   `ProjectSettings` (window bean) holds the pages ordered by path; `ProjectSettings.show(path)` opens the dialog at
-  a page (`null` or an unknown path: the first page) and does nothing without folder or pages. `MainWindow` sets it.
+  a page (`null` or an unknown path: the first page) and does nothing without folder or pages. `FolderRegistrations.install` (through `ProjectSettingsOpener.install`) sets it.
 - Code that is not a page opens the dialog through `ProjectSettingsOpeners` (singleton, FX thread): each window
   registers its opener for its folder (`register(folder, show)`, closed when the window closes) and
   `show(folder, path)` calls the latest registration of that folder, `false` when no window has the folder. A language

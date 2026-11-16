@@ -20,7 +20,7 @@ internal const val UPDATE_TITLE = "Updating workspace folders"
 
 /**
  * A mirror of the jobs jdtls 1.63.0 runs for folder notifications (ADR 0179; its `ProjectsManager.updateWorkspaceFolders`
- * and the P7b traces). For every notification, on its message thread and in order, jdtls sends a `language/status`
+ * and traces of every case). For every notification, on its message thread and in order, jdtls sends a `language/status`
  * with the counts, cancels the jobs that have not started and whose added folders equal the notification's removed
  * ones (Eclipse's `Job.cancel()`: a waiting job never runs, a running one goes on), and schedules a job. The jobs hold
  * the workspace root and run one after another in that order; a job that runs sends one token with [UPDATE_TITLE],
@@ -28,7 +28,7 @@ internal const val UPDATE_TITLE = "Updating workspace folders"
  *
  * Exact therefore: a status cancels every matching job behind the oldest one ([jobs]'s head), and never a head whose
  * token began. Not decidable on the wire: whether a head whose begin has not come yet had started when jdtls cancelled.
- * The P7b traces show both with the same input (g.txt: getAll, then a removal and an add, five times; the removal job
+ * Measured with jdtls 1.63.0, both happen with the same input (getAll, then a removal and an add, five times; the removal job
  * ran four times and was cancelled once, with no token open either way; it waits behind a build, a project update or
  * a Gradle synchronization, whose tokens may stay open after they let go). The mirror keeps such a head: if it was
  * cancelled, each later begin binds one job early, so verdicts come late but never before the import ended, and the

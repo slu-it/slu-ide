@@ -9,10 +9,9 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 
 /**
- * The orders of folder notifications, `language/status` messages and `$/progress` tokens jdtls 1.63.0 sent in the P7b
- * measurements, each ending in Done or Failed with the ticker stopped. The traces are in the P7b scratch folder,
- * `p7b/traces/<scenario>.txt`, written by `p7b/meas/scen.py` (a client that starts jdtls as Thoreau does, roots only);
- * each test names its lines. Only the "Updating workspace folders" tokens and the tokens open around a status matter;
+ * The orders of folder notifications, `language/status` messages and `$/progress` tokens jdtls 1.63.0 sent when measured
+ * with a client that starts it as Thoreau does (roots only), each ending in Done or Failed with the ticker stopped;
+ * this test is the record of those traces, and each test names its lines. Only the "Updating workspace folders" tokens and the tokens open around a status matter;
  * the others are left out.
  */
 internal class JavaImportsTraceTest : JavaImportsFixture() {

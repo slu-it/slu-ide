@@ -24,7 +24,8 @@ dependencies {
     // InstalledTool are in JdtlsInstaller's API (ADR 0143, ADR 0179).
     api(project(":modules:local-models"))
     // Deliberate module dependency: the custom jdtls path and the maximum memory are stored in settings.properties
-    // (ADR 0008, ADR 0067).
+    // (ADR 0008, ADR 0067); JavaProjectSettingsPage is a ProjectSettingsPage and JdtlsSpec opens it through
+    // ProjectSettingsOpeners.
     implementation(project(":modules:settings"))
     // Deliberate module API dependency: JavaProjectSettings keeps the project's JDK in its project data; its public
     // constructor takes the ProjectDataStore (ADR 0090, ADR 0179).
@@ -35,8 +36,8 @@ dependencies {
     // Deliberate module dependency: the project JDK is JAVA_HOME of the user's login shell (loginShellPrints,
     // ADR 0087, ADR 0179).
     implementation(project(":modules:terminal"))
-    // Deliberate module dependency: the workspace listing and deleting of the settings page run on logged NamedThreads
-    // (ADR 0060).
+    // Deliberate module dependency: the workspace listing and deleting of the settings page and the session's threads run on
+    // logged NamedThreads, and JdtlsInstaller runs on BackgroundTasks (ADR 0060).
     implementation(project(":modules:background-tasks"))
     // Reads the milestones index of download.eclipse.org (HTML) in the update check.
     implementation(libs.jsoup)

@@ -94,8 +94,11 @@ import dev.sluide.ide.find.FindInFilesWiring
 import dev.sluide.ide.git.GitReviewSource
 import dev.sluide.java.JavaProjectSettings
 import dev.sluide.java.JdtlsSpec
+import dev.sluide.java.JdtlsUpdates
 import dev.sluide.java.OutputIgnoreChecks
 import dev.sluide.java.settings.JavaProjectSettingsPage
+import dev.sluide.java.settings.JavaSettingsPage
+import dev.sluide.java.trust.MavenTrustCheck
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.MediaFileViewer
 import dev.sluide.media.MediaPreferences
@@ -291,6 +294,9 @@ class SpringWiringTest {
                         // Counted, not created: the spec needs the jdtls installer, whose creation reads settings.properties
                         // and the installed tools. Its logic is in JdtlsSpecTest.
                         JdtlsSpec::class.java,
+                        JdtlsUpdates::class.java,
+                        MavenTrustCheck::class.java,
+                        JavaSettingsPage::class.java,
                         JavaProjectSettings::class.java,
                         JavaProjectSettingsPage::class.java,
                         ProjectSettingsOpeners::class.java,

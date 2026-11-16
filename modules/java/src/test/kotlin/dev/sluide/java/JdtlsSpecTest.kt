@@ -144,8 +144,11 @@ internal class JdtlsSpecTest : JdtlsSpecFixture() {
             ),
             options,
         )
-        assertEquals(JdkSource.PROJECT_SETTING, spec.jdkOf(window)?.source)
+        assertTrue(jdkTooltip().contains("(the project's JDK)"))
     }
+
+    /** The JDK lines of the status tooltip of a file without a build: what `jdkOf` once returned. */
+    private fun jdkTooltip() = assertNotNull(spec.workspaceStatus(window.resolve("A.java"), null, window)?.tooltip)
 
     @Test
     fun `without a project JDK the resolved one is taken and remembered with its source`() {
@@ -157,7 +160,7 @@ internal class JdtlsSpecTest : JdtlsSpecFixture() {
             listOf(mapOf("name" to "JavaSE-25", "path" to thoreauJdk.toString(), "default" to true)),
             runtimes,
         )
-        assertEquals(JdkSource.THOREAU, spec.jdkOf(window)?.source)
+        assertTrue(jdkTooltip().contains("(Thoreau's own JDK)"))
     }
 
     @Test
@@ -166,9 +169,9 @@ internal class JdtlsSpecTest : JdtlsSpecFixture() {
 
         spec.initializationOptions(window)
 
-        val resolved = assertNotNull(spec.jdkOf(window))
-        assertEquals(JdkSource.THOREAU, resolved.source)
-        assertNotNull(resolved.problem)
+        val tooltip = jdkTooltip()
+        assertTrue(tooltip.contains("(Thoreau's own JDK)"))
+        assertTrue(tooltip.contains("; using Thoreau's own JDK."), tooltip)
     }
 
     @Test
