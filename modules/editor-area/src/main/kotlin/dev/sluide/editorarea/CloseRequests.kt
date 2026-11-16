@@ -10,8 +10,6 @@ internal class CloseRequests(
 
     /** Starts watching [tab]; a tab whose value is true already is reported at once, so call this after adding it. */
     fun watch(tab: EditorTab) {
-        // A listener on the shared default would keep every tab, and its window, alive.
-        if (tab.closeRequested === NEVER_CLOSE_REQUESTED) return
         watched[tab] = tab.closeRequested.subscribe { requested -> if (requested) onRequest(tab) }
     }
 

@@ -1,5 +1,6 @@
 package dev.sluide.editorarea
 
+import dev.sluide.fileviewers.ConstantBoolean
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
@@ -10,7 +11,6 @@ import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
-import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableValue
 import javafx.collections.ListChangeListener
@@ -596,4 +596,4 @@ class EditorArea(
 }
 
 /** The [OpenFile.hasDiff] of tabs that do not show files. */
-private val NO_DIFF: ObservableBooleanValue = ReadOnlyBooleanWrapper(false).readOnlyProperty
+private val NO_DIFF: ObservableBooleanValue = ConstantBoolean(false)

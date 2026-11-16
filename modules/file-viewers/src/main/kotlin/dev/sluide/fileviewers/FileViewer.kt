@@ -1,7 +1,5 @@
 package dev.sluide.fileviewers
 
-import javafx.beans.property.ReadOnlyBooleanWrapper
-import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableValue
 import javafx.scene.Node
@@ -187,10 +185,10 @@ const val LIBRARY_CODE_LOCK_TEXT = "Library code, read-only"
 enum class ViewActivity { NONE, RUNNING, FAILED }
 
 /** The [FileView.activity] of views that never do anything worth a marker. */
-private val NO_ACTIVITY: ObservableValue<ViewActivity> = ReadOnlyObjectWrapper(ViewActivity.NONE).readOnlyProperty
+private val NO_ACTIVITY: ObservableValue<ViewActivity> = ConstantValue(ViewActivity.NONE)
 
 /** The [FileView.readOnlyMarked] of views that never show their file read-only. */
-private val NOT_MARKED: ObservableBooleanValue = ReadOnlyBooleanWrapper(false).readOnlyProperty
+private val NOT_MARKED: ObservableBooleanValue = ConstantBoolean(false)
 
 /** A [FileView] in which the file can be edited and saved. */
 interface EditableFileView : FileView {

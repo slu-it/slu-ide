@@ -12,8 +12,10 @@ session left a dead tab to close by hand. A tab that ended with an error is wort
 - `EditorTab.closeRequested` (an `ObservableValue<Boolean>`, false by default) becomes true, on the FX thread, when a
   tab wants to close itself. `EditorTabs` watches every tab it holds (`CloseRequests`: subscribed after the tab was
   added, also when it is already true then; dropped when the tab is removed or replaced; moves keep it) and closes the
-  tab like any close, without asking (a finished process has no `closeWarning`) and selecting the neighbour. Tabs with
-  the default are not watched: it is one shared constant, and a listener on it would keep every window's tabs alive.
+  tab like any close, without asking (a finished process has no `closeWarning`) and selecting the neighbour. The default
+  is a `ConstantValue` (file-viewers), which keeps no listeners: a shared property would keep every window's tabs
+  alive through the watchers' listeners. The other shared defaults of `EditorTab`, `FileView`, `OpenFile` and
+  `EditorArea` use it too.
 - `TerminalTab` takes `closeOnSuccess`: its `closeRequested` is true once the process has exited with code 0.
   `Terminals.open(folder)` (shell tabs) and the Docker sandbox tabs ("Claude Code N", "SBX") set it;
   `Terminals.open(folder, name, command, environment, closeOnSuccess = false)` keeps the default, so the Docker tabs and

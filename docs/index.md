@@ -204,7 +204,7 @@ updated when the summary or keywords no longer fit.
 | [0177](adr/0177-find-in-files.md) | Find in Files: background content search with the tree's listing rule, streamed into a focus-taking popup | find in files, `FindInFiles`, `FindInFilesSearch`, `searchContents`, `FileMask`, `SearchLimits`, Shortcut+Shift+F, Find in Folder, file mask, find-in-files | see 0176, 0146, 0149, 0108 |
 | [0178](adr/0178-red-before-green.md) | Red before green: each test fails before its code, and `break-check.sh` mutates every change once | TDD, test first, red, vacuous test, break check, mutation, fakes of external tools, fix test fails first | amends 0084 |
 | [0179](adr/0179-java-via-jdtls.md) | Java through jdtls: one server per window, a workspace folder per build root imported lazily, JDK per project | Java, jdtls, monorepo, build root, Maven, Gradle, `WorkspaceFolderMode`, `SessionExtension`, Project Settings, Lombok, `jdt://`, gitignore | amends 0142, 0150, 0151, 0160; see 0053, 0085, 0090, 0159 |
-| [0180](adr/0180-terminal-tabs-close-on-success.md) | Shell and Docker sandbox tabs close themselves when their process exits with 0; other exits show "(exited N)" | `closeRequested`, `closeOnSuccess`, exit code, "(exited N)", auto close, `terminalTitle`, `EditorTabs`, `CloseRequests` | amends 0007, 0010, 0170 |
+| [0180](adr/0180-terminal-tabs-close-on-success.md) | Shell and Docker sandbox tabs close themselves when their process exits with 0; other exits show "(exited N)" | `closeRequested`, `closeOnSuccess`, exit code, "(exited N)", auto close, `terminalTitle`, `EditorTabs`, `CloseRequests`, `ConstantValue`, shared defaults, listener leak | amends 0007, 0010, 0170 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features

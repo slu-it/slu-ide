@@ -1,5 +1,6 @@
 package dev.sluide.editorarea
 
+import dev.sluide.fileviewers.ConstantValue
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.ViewActivity
@@ -415,10 +416,10 @@ internal class EditorTabs {
 }
 
 /** The default [EditorTab.activity]. */
-private val NO_ACTIVITY: ObservableValue<ViewActivity> = ReadOnlyObjectWrapper(ViewActivity.NONE).readOnlyProperty
+private val NO_ACTIVITY: ObservableValue<ViewActivity> = ConstantValue(ViewActivity.NONE)
 
 /** The default [EditorTab.closableByShortcut]. */
-private val CLOSABLE: ObservableValue<Boolean> = ReadOnlyBooleanWrapper(true).readOnlyProperty
+private val CLOSABLE: ObservableValue<Boolean> = ConstantValue(true)
 
-/** The default [EditorTab.closeRequested]; shared by all tabs, so [CloseRequests] never listens to it. */
-internal val NEVER_CLOSE_REQUESTED: ObservableValue<Boolean> = ReadOnlyBooleanWrapper(false).readOnlyProperty
+/** The default [EditorTab.closeRequested]. */
+private val NEVER_CLOSE_REQUESTED: ObservableValue<Boolean> = ConstantValue(false)

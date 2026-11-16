@@ -1,5 +1,6 @@
 package dev.sluide.editorarea
 
+import dev.sluide.fileviewers.ConstantBoolean
 import dev.sluide.fileviewers.DiffFileView
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
@@ -7,7 +8,6 @@ import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.ViewActivity
 import javafx.beans.binding.Bindings
-import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableValue
@@ -98,4 +98,4 @@ internal class OpenFile(
 }
 
 /** The [OpenFile.dirty] state of views that cannot be edited. */
-private val NEVER_DIRTY: ObservableBooleanValue = ReadOnlyBooleanWrapper(false).readOnlyProperty
+private val NEVER_DIRTY: ObservableBooleanValue = ConstantBoolean(false)
