@@ -44,17 +44,18 @@ project URI, the message ("Can't use Java 25.0.5 and Gradle 8.14.3 to import Gra
 version and a recommended Gradle version; other failures publish severity-1 diagnostics on the root folder URI or on
 `pom.xml`. A malformed pom fails without any signal.
 
-**Other findings.** Settings come through `initializationOptions.settings.java` and
-`workspace/didChangeConfiguration` (jdtls asks `workspace/configuration` only for formatting). Changes of `pom.xml` and
-`*.gradle(.kts)` reimport by themselves with `updateBuildConfiguration: automatic` (jdtls registers watchers for them);
-`settings.gradle` and the wrapper's properties need the notification `java/projectConfigurationUpdate` with the build
-file's URI. A Gradle daemon idle timeout works only as a build argument (`java.import.gradle.arguments`
-`-Dorg.gradle.daemon.idletimeout=…`); the daemon is jdtls's child while jdtls runs and orphaned once it exits.
-`java.configuration.runtimes` picks the JDK a build compiles against (its name is not checked against the JDK).
-`java.project.getSettings` answers the compliance level and the JDK path. With `applyEdit` off and code-action resolve
-for `edit`, every quick fix arrives as data resolved to an edit; only "Change signature" carries a client-side command
-(`java.action.applyRefactoringCommand`). Lombok 1.18.48 as `-javaagent` works on JDK 25. Go to Definition into the
-JDK or a library returns `jdt://` URIs, whose text `java/classFileContents` returns (decompiled when no source exists).
+**Other findings.** Settings come through `initializationOptions.settings.java` and `workspace/didChangeConfiguration`
+(jdtls asks `workspace/configuration` only for formatting). Changes of `pom.xml` and `*.gradle(.kts)` reimport by
+themselves with `updateBuildConfiguration: automatic` (jdtls registers watchers for them); `settings.gradle` and the
+wrapper's properties need the notification `java/projectConfigurationUpdate` with the build file's URI. A Gradle daemon
+idle timeout works only as a build argument (`java.import.gradle.arguments`, a JSON list of strings, one argument each,
+honoured: the daemon's context shows `idleTimeout=900000`; `-Dorg.gradle.daemon.idletimeout=…`); the daemon is jdtls's
+child while jdtls runs and orphaned once it exits. `java.configuration.runtimes` picks the JDK a build compiles against
+(its name is not checked against the JDK). `java.project.getSettings` answers the compliance level and the JDK path.
+With `applyEdit` off and code-action resolve for `edit`, every quick fix arrives as data resolved to an edit; only
+"Change signature" carries a client-side command (`java.action.applyRefactoringCommand`). Lombok 1.18.48 as `-javaagent`
+works on JDK 25. Go to Definition into the JDK or a library returns `jdt://` URIs, whose text `java/classFileContents`
+returns (decompiled when no source exists).
 
 ## Decision
 **Server and install.** Thoreau runs jdtls on its own JVM (`java.home`/bin/java) with `-Xmx` from Settings → Languages
@@ -85,11 +86,14 @@ sources while both are imported (accepted; Eclipse and VS Code behave the same).
 
 **Output folders.** Gradle imports get an init script that moves the compiled classes to
 `<buildDirectory>/jdtls-bin/<source set>` (`baseSourceOutputDir`, guarded for Gradle versions without it, which keep
-`bin/`). Maven compiles into `target/`. After a build's import, Thoreau asks git (`git check-ignore`) whether its output
-folder is ignored; if not, the build's editors show a banner "<folder> isn't ignored by git; jdtls compiles into it."
-with **Add to .gitignore** (a line anchored to the folder, appended to the nearest `.gitignore` from the build root up
-to the repository root, or a new `.gitignore` in the build root; asks first when that file has unsaved changes), Not
-Now, Don't Ask Again. Thoreau never writes into `.git`.
+`bin/`; a lazy `Directory` property in Gradle 9 and a `File` property in 8.x, so the script sets it by type; the default
+output folder `jdtls-bin/default` is set after the build script ran). Measured with 8.5, 8.14.3 and 9.5.1: classes land
+in `build/jdtls-bin/main|test`, no `bin/`, and no `.project`, `.classpath` or `.settings` in the project. Maven compiles
+into `target/`. After a build's import, Thoreau asks git (`git check-ignore`) whether its output folder is ignored; if
+not, the build's editors show a banner "<folder> isn't ignored by git; jdtls compiles into it." with **Add to
+.gitignore** (a line anchored to the folder, appended to the nearest `.gitignore` from the build root up to the
+repository root, or a new `.gitignore` in the build root; asks first when that file has unsaved changes), Not Now, Don't
+Ask Again. Thoreau never writes into `.git`.
 
 **JDK.** The project JDK is `JAVA_HOME` from the login shell (read once per app run, 10 s timeout), else Thoreau's
 environment, else Thoreau's JDK; File → Project Settings… → Java overrides it per project (`java.jdk` in the project's
