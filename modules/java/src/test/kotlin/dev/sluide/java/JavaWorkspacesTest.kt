@@ -234,6 +234,51 @@ class JavaWorkspacesTest {
     }
 
     @Test
+    fun `deleteData removes the data folder and keeps the project path, the config and the init script`() {
+        val window = Path.of("/p/a")
+        val prepared = workspaces.prepare(window, config("c" to "x"), "k")
+        prepared.data
+            .resolve(".metadata/.lock")
+            .also { it.parent.createDirectories() }
+            .writeText("")
+        prepared.folder.resolve("init.gradle").writeText("script")
+        val other = workspaces.prepare(Path.of("/p/b"), config("c" to "x"), "k")
+
+        workspaces.deleteData(window)
+
+        assertFalse(prepared.data.exists())
+        assertEquals("/p/a", prepared.folder.resolve("project-path.txt").readText())
+        assertEquals("x", prepared.config.resolve("c").readText())
+        assertEquals("script", prepared.folder.resolve("init.gradle").readText())
+        assertTrue(other.data.exists(), "the data of another window")
+    }
+
+    @Test
+    fun `deleteData removes a link inside data and not its target`() {
+        val window = Path.of("/p/a")
+        val prepared = workspaces.prepare(window, config("c" to "x"), "k")
+        val outside = temp.resolve("outside").createDirectories()
+        outside.resolve("keep").writeText("k")
+        Files.createSymbolicLink(prepared.data.resolve("link"), outside)
+
+        workspaces.deleteData(window)
+
+        assertFalse(prepared.data.exists())
+        assertEquals("k", outside.resolve("keep").readText())
+    }
+
+    @Test
+    fun `deleteData of a workspace without data does nothing`() {
+        val window = Path.of("/p/a")
+        val prepared = workspaces.prepare(window, config("c" to "x"), "k")
+        workspaces.deleteData(window)
+
+        workspaces.deleteData(window)
+
+        assertTrue(prepared.config.exists())
+    }
+
+    @Test
     fun `a stale partial config copy does not leak into the new one`() {
         val source = config("a.ini" to "A")
         val folder = workspaces.folderFor(Path.of("/p/shop"))

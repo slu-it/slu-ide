@@ -38,7 +38,7 @@ private const val MAX_SMALL_FILE_BYTES = 64 * 1024
  * jdtls's data folders, one per window folder, below [root] (ADR 0179). Everything blocks on file-system I/O: call it on
  * a worker thread, never on the FX thread. Copies, sizes and deletes never follow links.
  */
-class JavaWorkspaces(
+open class JavaWorkspaces(
     val root: Path = Path.of(System.getProperty("user.home"), ".sluide", "jdtls", "workspaces"),
 ) {
     /**
@@ -125,6 +125,12 @@ class JavaWorkspaces(
         }
         deleteTree(normalized)
     }
+
+    /**
+     * Deletes `data/` of the workspace of [windowFolder] and nothing else of it (`project-path.txt`, the config copy
+     * and the init script stay); never follows links; nothing if there is no data folder.
+     */
+    open fun deleteData(windowFolder: Path) = deleteTree(folderFor(windowFolder).resolve("data"))
 
     private fun sanitize(name: String) = name.replace(Regex("[^A-Za-z0-9._-]"), "_")
 
