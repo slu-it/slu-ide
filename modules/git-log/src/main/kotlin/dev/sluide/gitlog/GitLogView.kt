@@ -456,7 +456,7 @@ class GitLogView internal constructor(
                     compareBar.update()
                     pendingBar.show(pages.pending, pages.refs)
                     noRemotes.set(pages.remotes?.isEmpty() == true)
-                    quickActions.refsRead(pages.remotes, pages.refs)
+                    quickActions.refsRead(pages.remotes, pages.refs, pages.stashes)
                     branchesPane.remotes = pages.remotes.orEmpty()
                 }
             }

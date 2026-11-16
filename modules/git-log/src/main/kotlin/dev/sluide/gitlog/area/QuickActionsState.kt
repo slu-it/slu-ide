@@ -1,19 +1,23 @@
 package dev.sluide.gitlog.area
 
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitStash
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogWrites
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper
+import javafx.beans.property.ReadOnlyIntegerProperty
+import javafx.beans.property.ReadOnlyIntegerWrapper
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Whether the header's quick actions may start, also while the log is collapsed and its pages are not loaded: the
  * rebase onto origin's default branch ([rebasePossible], ADR 0063: `origin`, a branch, a commit) and the new branch
- * from it ([newBranchPossible], ADR 0181: `origin` only). [open] and [refresh] read what the buttons need, local and
- * without fetching (`git remote`, the current branch, `HEAD`), with [background] off the JavaFX thread, and hand the
- * answer to [dispatch], which runs on it. Nothing is read while the log is [expanded]: its pages read the same
+ * from it ([newBranchPossible], ADR 0181: `origin` only), and how many stashes there are ([stashCount], for the
+ * header's Pop, ADR 0182). [open] and [refresh] read what the buttons need, local and without fetching (`git remote`,
+ * the current branch, `HEAD`, `git stash list`), with [background] off the JavaFX thread, and hand the answer to
+ * [dispatch], which runs on it. Nothing is read while the log is [expanded]: its pages read the same
  * ([refsRead]), and collapsing keeps what was known. An answer that a newer [open], [refresh], [refsRead] or [close]
  * has overtaken is dropped, and its read skips git if it did not start yet. [open], [refresh], [refsRead] and [close]
  * are for the JavaFX thread.
@@ -22,6 +26,7 @@ internal class QuickActionsState(
     private val remotes: (Path) -> List<String>?,
     private val currentBranch: (Path) -> String?,
     private val headCommit: (Path) -> String?,
+    private val stashes: (Path) -> List<GitStash>?,
     private val expanded: () -> Boolean,
     private val background: (Runnable) -> Unit,
     private val dispatch: (Runnable) -> Unit,
@@ -35,6 +40,11 @@ internal class QuickActionsState(
     /** Whether a new branch from origin's default branch is possible as far as is known; `false` until read. */
     val newBranchPossible: ReadOnlyBooleanProperty = newBranch.readOnlyProperty
 
+    private val stashCountWrapper = ReadOnlyIntegerWrapper(0)
+
+    /** The number of stashes as far as is known (the header's Pop, ADR 0182); 0 until read. */
+    val stashCount: ReadOnlyIntegerProperty = stashCountWrapper.readOnlyProperty
+
     private var root: Path? = null
     private val generation = AtomicInteger()
 
@@ -44,6 +54,7 @@ internal class QuickActionsState(
         generation.incrementAndGet()
         rebase.set(false)
         newBranch.set(false)
+        stashCountWrapper.set(0)
         read()
     }
 
@@ -53,14 +64,19 @@ internal class QuickActionsState(
         read()
     }
 
-    /** The expanded log read [readRemotes] and [readRefs] itself: the state follows them. */
+    /**
+     * The expanded log read [readRemotes], [readRefs] and [readStashes] itself: the state follows them, `null` (not
+     * readable) counting no stashes.
+     */
     fun refsRead(
         readRemotes: List<String>?,
         readRefs: GitRefs?,
+        readStashes: List<GitStash>?,
     ) {
         generation.incrementAndGet()
         rebase.set(rebaseOntoOriginPossible(readRemotes, readRefs))
         newBranch.set(readRemotes.orEmpty().contains("origin"))
+        stashCountWrapper.set(readStashes.orEmpty().size)
     }
 
     /** Forgets the repository; reads that are still to run do nothing. */
@@ -76,6 +92,7 @@ internal class QuickActionsState(
         background {
             if (mine == generation.get()) {
                 val hasOrigin = remotes(root).orEmpty().contains("origin")
+                val stashCount = stashes(root).orEmpty().size
                 val rebasePossible =
                     rebaseOntoOriginPossible(
                         hasOrigin = hasOrigin,
@@ -86,6 +103,7 @@ internal class QuickActionsState(
                     if (mine == generation.get()) {
                         rebase.set(rebasePossible)
                         newBranch.set(hasOrigin)
+                        stashCountWrapper.set(stashCount)
                     }
                 }
             }
@@ -104,6 +122,7 @@ internal fun quickActionsState(
     { root -> source.remotes(root) },
     { root -> writes.currentBranch(root) },
     { root -> source.headCommit(root) },
+    { root -> source.stashes(root) },
     expanded,
     background,
     dispatch,
