@@ -20,14 +20,21 @@ import javafx.scene.input.KeyCombination
 internal class NavigationFeature(
     private val navigation: Navigation,
     private val lines: LineReader = DiskLines(),
+    private val libraryDocuments: LibraryDocuments = LibraryDocuments(),
     private val view: (ExtensibleCodeEditor) -> TargetView = ::TargetPopup,
 ) : BindingFeature {
     override fun attach(binding: DocumentBinding): AutoCloseable {
         val editor = binding.editor
         val requests = RequestSlot()
-        val chooser = TargetChooser(binding, navigation, view(editor), lines).apply { onHidden = requests::cancel }
-        val definitions = Definitions(binding, chooser, navigation, requests)
-        val usages = Usages(binding, chooser, navigation, requests)
+        lateinit var definitions: Definitions
+        // Whatever of a definition is on its way: the slot's request, and documents fetched after its answer.
+        val cancelRequests = {
+            requests.cancel()
+            definitions.close()
+        }
+        val chooser = TargetChooser(binding, navigation, view(editor), lines).apply { onHidden = cancelRequests }
+        definitions = Definitions(binding, chooser, navigation, requests, libraryDocuments)
+        val usages = Usages(binding, chooser, navigation, requests, onStart = definitions::close)
         val actions =
             object : BindingNavigation {
                 override fun goToDefinition(offset: Int) = definitions.go(offset)
@@ -37,7 +44,7 @@ internal class NavigationFeature(
         val handles =
             listOf(
                 chooser,
-                AutoCloseable { requests.cancel() },
+                AutoCloseable { cancelRequests() },
                 navigation.register(binding, actions),
                 editor.addKeyBinding(GO_TO_DEFINITION_KEYS) {
                     definitions.go(editor.caretOffset)
@@ -49,7 +56,7 @@ internal class NavigationFeature(
                 },
                 // The places listed, and an answer on its way, are of the text before the edit.
                 editor.onTextChange {
-                    requests.cancel()
+                    cancelRequests()
                     chooser.hide()
                 },
                 DefinitionLink(binding, definitions::go),

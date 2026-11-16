@@ -12,15 +12,18 @@ import org.eclipse.lsp4j.ReferenceParams
  * then by path and line ([sortedUsages]); a single one is jumped to, none shows "No usages found". FX thread.
  *
  * @param requests the editor's slot for navigation requests: a new one replaces the one on its way.
+ * @param onStart called when a search starts: drops what an earlier Go to Definition still has on its way.
  */
 internal class Usages(
     private val binding: DocumentBinding,
     private val chooser: TargetChooser,
     private val navigation: Navigation,
     private val requests: RequestSlot,
+    private val onStart: () -> Unit = {},
 ) {
     /** Finds the usages of the name at [offset] (the caret). */
     fun find(offset: Int) {
+        onStart()
         val range = binding.editor.wordAt(offset, orBefore = true) ?: (offset until offset)
         val blocker = navigationBlocker(binding, REFERENCES)
         if (blocker != null) {

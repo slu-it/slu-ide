@@ -9,22 +9,32 @@ import dev.sluide.codeintelligence.PySpec
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.codeintelligence.binding.SourcePosition
 import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.languageservers.LibraryDocument
 import dev.sluide.languageservers.LspUris
 import javafx.collections.FXCollections
 import org.eclipse.lsp4j.HoverParams
+import org.eclipse.lsp4j.Location
 import org.eclipse.lsp4j.Position
+import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.net.URI
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.createFile
+import kotlin.io.path.exists
+import kotlin.io.path.readBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -37,7 +47,12 @@ class NavigationFlowTest {
     @TempDir
     lateinit var folder: Path
 
-    private val spec = PySpec()
+    /** What the spec says about non-file URIs: `jdt:` ones are fetched into [cached]. */
+    private var libraryOf: (String) -> LibraryDocument? = { uri ->
+        if (uri.startsWith("jdt:")) LibraryDocument("java/classFileContents", mapOf("uri" to uri), cached) else null
+    }
+    private val spec = PySpec(library = { libraryOf(it) })
+    private val cached get() = folder.resolve("cache/java.base/String.java")
     private lateinit var fx: FxServers
     private lateinit var server: NavigationServer
     private lateinit var intelligence: CodeIntelligence
@@ -60,6 +75,12 @@ class NavigationFlowTest {
 
             override val projectFolder: Path get() = folder
         }
+
+    /** The writer of cache files: runs a task where it is given, or keeps it in [heldWrites] while [holdWrites] is set. */
+    @Volatile
+    private var holdWrites = false
+    private val heldWrites = CopyOnWriteArrayList<Runnable>()
+    private val io = Executor { task -> if (holdWrites) heldWrites += task else task.run() }
 
     /** While set, line texts wait in [deferredLines] instead of arriving at once. */
     private var deferLines = false
@@ -111,7 +132,7 @@ class NavigationFlowTest {
         intelligence =
             fx.onFx {
                 CodeIntelligence(fx.servers, FXCollections.observableSet()) {
-                    listOf(NavigationFeature(navigation, lines) { view })
+                    listOf(NavigationFeature(navigation, lines, LibraryDocuments(io, fx::dispatch)) { view })
                 }.apply { navigation.isFocused = { it.editor === focused } }
             }
     }
@@ -405,6 +426,276 @@ class NavigationFlowTest {
         server.pendingDefinitions.single().complete(Either.forLeft(listOf(location(file, 2, 4, 3))))
         serverIdle()
         assertNothingShown(editor, caret = 34)
+    }
+
+    private val jdtUri = "jdt://contents/java.base/java.lang/String.class"
+    private val classText = "package java.lang;\r\npublic final class String {}\r\n"
+
+    private fun jdt(
+        uri: String = jdtUri,
+        line: Int = 30,
+        column: Int = 7,
+    ) = Location(uri, Range(Position(line, column), Position(line, column + 6)))
+
+    private fun answerLibrary(answer: (params: String) -> CompletableFuture<*>) {
+        server.customAnswer = { _, params -> answer(params.toString()) }
+    }
+
+    @Test
+    fun `a target in a library document is fetched from the server, written to the cache and opened at its position`() {
+        val editor = editor(caret = 34)
+        server.definitionAnswer = { listOf(jdt()) }
+        answerLibrary { CompletableFuture.completedFuture(classText) }
+
+        definitionAtCaret(editor)
+
+        awaitTrue("opened") { opened.isNotEmpty() }
+        assertEquals(listOf(SourcePosition(cached, 30, 7)), opened)
+        assertContentEquals(classText.toByteArray(), cached.readBytes(), "exactly the server's text, \\r\\n kept")
+        assertEquals(
+            listOf("java/classFileContents {\"uri\":\"$jdtUri\"}"),
+            server.customMessages.map { "${it.first} ${it.second}" },
+        )
+        assertEquals(listOf(SourcePosition(file, 3, 12)), intelligence.history.places.first)
+        assertFalse(fx.onFx { view.isShowing })
+    }
+
+    @Test
+    fun `a library document is listed with local targets in the server's order and opened when chosen`() {
+        val editor = editor(caret = 8)
+        server.definitionAnswer = { listOf(location(file, 2, 4), jdt()) }
+        answerLibrary { CompletableFuture.completedFuture(classText) }
+
+        definitionAtCaret(editor)
+
+        awaitTrue("chooser") { fx.onFx { view.isShowing } }
+        assertEquals(
+            listOf(SourcePosition(file, 2, 4), SourcePosition(cached, 30, 7)),
+            fx.onFx { view.items.map { it.position } },
+        )
+        fx.onFx { view.choose(1) }
+        assertEquals(listOf(SourcePosition(cached, 30, 7)), opened)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = ["object", "number", "boolean", "array", "null"])
+    fun `an answer that is no string drops the target and says no declaration was found`(kind: String) {
+        val editor = editor(caret = 34)
+        server.definitionAnswer = { listOf(jdt()) }
+        val answer: Any? =
+            when (kind) {
+                "object" -> mapOf("text" to classText)
+                "number" -> 42
+                "boolean" -> true
+                "array" -> listOf(classText)
+                else -> null
+            }
+        answerLibrary { CompletableFuture.completedFuture(answer) }
+
+        definitionAtCaret(editor)
+
+        awaitTrue("note") { fx.onFx { view.isShowing } }
+        assertEquals("No declaration found", fx.onFx { view.placeholder })
+        assertFalse(cached.exists())
+        assertEquals(emptyList(), opened)
+    }
+
+    @Test
+    fun `a failed request drops the target and says no declaration was found`() {
+        val editor = editor(caret = 34)
+        server.definitionAnswer = { listOf(jdt()) }
+        answerLibrary { CompletableFuture.failedFuture<Any?>(IllegalStateException("no such class")) }
+
+        definitionAtCaret(editor)
+
+        awaitTrue("note") { fx.onFx { view.isShowing } }
+        assertEquals("No declaration found", fx.onFx { view.placeholder })
+        assertEquals(emptyList(), opened)
+    }
+
+    @Test
+    fun `a target the spec cannot fetch is dropped without a request`() {
+        val editor = editor(caret = 34)
+        libraryOf = { null }
+        server.definitionAnswer = { listOf(jdt()) }
+
+        definitionAtCaret(editor)
+
+        awaitTrue("note") { fx.onFx { view.isShowing } }
+        assertEquals("No declaration found", fx.onFx { view.placeholder })
+        assertEquals(emptyList(), server.customMessages.toList())
+    }
+
+    @Test
+    fun `a text over the limit is refused and the target dropped`() {
+        val editor = editor(caret = 34)
+        server.definitionAnswer = { listOf(jdt()) }
+        answerLibrary { CompletableFuture.completedFuture("a".repeat(MAX_LIBRARY_DOCUMENT_BYTES + 1)) }
+
+        definitionAtCaret(editor)
+
+        awaitTrue("note") { fx.onFx { view.isShowing } }
+        assertEquals("No declaration found", fx.onFx { view.placeholder })
+        assertFalse(cached.exists())
+    }
+
+    @Test
+    fun `a target that fails does not stop the others, which are jumped to`() {
+        val editor = editor(caret = 34)
+        val good = "jdt://contents/good.class"
+        val goodFile = folder.resolve("cache/Good.java")
+        libraryOf = { uri -> LibraryDocument("java/classFileContents", mapOf("uri" to uri), goodFile) }
+        server.definitionAnswer = { listOf(jdt("jdt://contents/bad.class"), jdt(good, 2, 3)) }
+        answerLibrary { params ->
+            if ("bad" in params) {
+                CompletableFuture.failedFuture<Any?>(IllegalStateException("no such class"))
+            } else {
+                CompletableFuture.completedFuture(classText)
+            }
+        }
+
+        definitionAtCaret(editor)
+
+        awaitTrue("opened") { opened.isNotEmpty() }
+        assertEquals(listOf(SourcePosition(goodFile, 2, 3)), opened)
+        assertFalse(fx.onFx { view.isShowing }, "one target left: no list")
+    }
+
+    @Test
+    fun `an answer for an editor disposed while the document was fetched opens nothing and writes nothing`() {
+        val editor = editor(caret = 34)
+        server.definitionAnswer = { listOf(jdt()) }
+        val held = CompletableFuture<Any?>()
+        answerLibrary { held }
+        definitionAtCaret(editor)
+        awaitTrue("requested") { server.customMessages.isNotEmpty() }
+
+        fx.onFx { intelligence.attached.single().close() }
+        held.complete(classText)
+        serverIdle()
+
+        assertNothingShown(editor, caret = 34)
+        assertFalse(cached.exists())
+    }
+
+    /** Asks for the jdt target at the caret with its answer in and its write held; the write waits in [heldWrites]. */
+    private fun definitionWithHeldWrite(editor: FakeCodeEditor) {
+        server.definitionAnswer = { listOf(jdt()) }
+        answerLibrary { CompletableFuture.completedFuture(classText) }
+        holdWrites = true
+        definitionAtCaret(editor)
+        awaitTrue("write held") { heldWrites.isNotEmpty() }
+    }
+
+    /** Lets the held write run, and everything it handed to the FX thread. */
+    private fun releaseWrites() {
+        holdWrites = false
+        heldWrites.forEach { it.run() }
+        fx.idle()
+    }
+
+    @Test
+    fun `an edit drops a document whose write is on its way`() {
+        val editor = editor(caret = 34)
+        definitionWithHeldWrite(editor)
+
+        fx.onFx { editor.edit(0, 0, "#\n") }
+        releaseWrites()
+
+        assertNothingShown(editor, caret = 34)
+        assertFalse(cached.exists(), "not written either")
+    }
+
+    @Test
+    fun `Find Usages drops a document whose write is on its way`() {
+        val editor = editor(caret = 34)
+        definitionWithHeldWrite(editor)
+        server.referencesAnswer = { emptyList() }
+
+        usagesAtCaret(editor)
+        awaitTrue("usages answered") { fx.onFx { view.placeholder } == "No usages found" }
+        releaseWrites()
+
+        assertEquals(emptyList(), opened)
+        assertEquals("No usages found", fx.onFx { view.placeholder }, "no stale note over it")
+    }
+
+    @Test
+    fun `a second request made while a write is held opens only its own target`() {
+        val other = folder.resolve("lib.py")
+        val editor = editor(caret = 34)
+        definitionWithHeldWrite(editor)
+        server.definitionAnswer = { listOf(location(other, 1, 0)) }
+
+        definitionAtCaret(editor)
+        awaitTrue("second opened") { opened.isNotEmpty() }
+        releaseWrites()
+
+        assertEquals(listOf(SourcePosition(other, 1, 0)), opened)
+        assertFalse(cached.exists())
+    }
+
+    @Test
+    fun `a write that fails with a runtime exception drops the target like any failure`() {
+        val editor = editor(caret = 34)
+        // A root has no parent folder to write into.
+        libraryOf = { uri -> LibraryDocument("java/classFileContents", mapOf("uri" to uri), Path.of("/")) }
+        server.definitionAnswer = { listOf(jdt()) }
+        answerLibrary { CompletableFuture.completedFuture(classText) }
+
+        definitionAtCaret(editor)
+
+        awaitTrue("note") { fx.onFx { view.isShowing } }
+        assertEquals("No declaration found", fx.onFx { view.placeholder })
+    }
+
+    @Test
+    fun `a new request cancels the request of a document fetch at the server`() {
+        val other = folder.resolve("lib.py")
+        val editor = editor(caret = 34)
+        // The document's request is one lsp4j knows (a definition), so that the fake hands its own future to the test:
+        // its answers to other methods go through a wrapper of lsp4j that swallows `$/cancelRequest`.
+        libraryOf = { _ ->
+            val at =
+                mapOf(
+                    "textDocument" to mapOf("uri" to LspUris.of(file)),
+                    "position" to mapOf("line" to 0, "character" to 0),
+                )
+            LibraryDocument("textDocument/definition", at, cached)
+        }
+        server.holdDefinitions = true
+        definitionAtCaret(editor)
+        awaitTrue("definition at the server") { server.pendingDefinitions.size == 1 }
+        // Its answer makes the fetch, the second request at the server.
+        server.pendingDefinitions[0].complete(Either.forLeft(listOf(jdt())))
+        awaitTrue("fetch at the server") { server.pendingDefinitions.size == 2 }
+
+        definitionAtCaret(editor)
+        awaitTrue("second definition at the server") { server.pendingDefinitions.size == 3 }
+        server.pendingDefinitions[2].complete(Either.forLeft(listOf(location(other, 1, 0))))
+
+        awaitTrue("\$/cancelRequest of the fetch") { server.pendingDefinitions[1].isCancelled }
+        awaitTrue("opened") { opened.isNotEmpty() }
+        assertEquals(listOf(SourcePosition(other, 1, 0)), opened)
+    }
+
+    @Test
+    fun `a new request replaces a document fetch on its way`() {
+        val other = folder.resolve("lib.py")
+        val editor = editor(caret = 34)
+        server.definitionAnswer = { listOf(jdt()) }
+        val held = CompletableFuture<Any?>()
+        answerLibrary { held }
+        definitionAtCaret(editor)
+        awaitTrue("requested") { server.customMessages.isNotEmpty() }
+        server.definitionAnswer = { listOf(location(other, 1, 0)) }
+
+        definitionAtCaret(editor)
+        awaitTrue("second opened") { opened.isNotEmpty() }
+        held.complete(classText)
+        serverIdle()
+
+        assertEquals(listOf(SourcePosition(other, 1, 0)), opened)
     }
 
     @Test

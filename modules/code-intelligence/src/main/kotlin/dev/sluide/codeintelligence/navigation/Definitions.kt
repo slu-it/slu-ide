@@ -2,7 +2,7 @@ package dev.sluide.codeintelligence.navigation
 
 import dev.sluide.codeintelligence.binding.DocumentBinding
 import dev.sluide.codeintelligence.binding.SourcePosition
-import dev.sluide.codeintelligence.binding.toSourcePositions
+import dev.sluide.codeintelligence.binding.toDefinitionTargets
 import dev.sluide.languageservers.LanguageServerNotRunningException
 import dev.sluide.languageservers.RequestSlot
 import org.eclipse.lsp4j.DefinitionParams
@@ -18,11 +18,21 @@ internal class Definitions(
     private val chooser: TargetChooser,
     private val navigation: Navigation,
     private val requests: RequestSlot,
+    private val libraryDocuments: LibraryDocuments = LibraryDocuments(),
 ) {
+    /** The documents of the last answer on their way, if any. */
+    private var fetching: AutoCloseable? = null
+
+    /** Drops the documents on their way: nothing opens for them. */
+    fun close() {
+        fetching?.close()
+    }
+
     /** Goes to the declaration of the name at [offset] (the caret, or where Shortcut was clicked). */
     fun go(offset: Int) {
         val range = binding.editor.wordAt(offset, orBefore = true) ?: (offset until offset)
         chooser.hide()
+        close()
         val blocker = navigationBlocker(binding, DEFINITION)
         if (blocker != null) {
             chooser.note(range, unavailable(ACTION, blocker))
@@ -34,7 +44,15 @@ internal class Definitions(
             { server ->
                 server.textDocumentService.definition(DefinitionParams(binding.documentId, binding.positionOf(at)))
             },
-            { result -> if (!binding.isClosed) found(range, result.toSourcePositions()) },
+            { result ->
+                if (!binding.isClosed) {
+                    fetching =
+                        libraryDocuments.resolve(
+                            binding.session,
+                            result.toDefinitionTargets(binding.spec::libraryDocument),
+                        ) { positions -> if (!binding.isClosed) found(range, positions) }
+                }
+            },
             { error -> if (!binding.isClosed) chooser.note(range, failure(ACTION, error)) },
         )
     }

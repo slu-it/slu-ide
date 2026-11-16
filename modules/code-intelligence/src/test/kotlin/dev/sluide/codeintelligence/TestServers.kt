@@ -6,6 +6,7 @@ import dev.sluide.languageservers.EnvironmentProblem
 import dev.sluide.languageservers.FakeLanguageServers
 import dev.sluide.languageservers.FakeServer
 import dev.sluide.languageservers.LanguageServerSpec
+import dev.sluide.languageservers.LibraryDocument
 import dev.sluide.languageservers.ServerAvailability
 import dev.sluide.languageservers.ServerCommand
 import dev.sluide.languageservers.ServerInstaller
@@ -35,7 +36,10 @@ internal class PySpec(
     private val gateByFile: ((Path) -> DocumentGate)? = null,
     private val configs: (Path, Path) -> List<Path> = { _, _ -> emptyList() },
     private val keeps: (Path) -> Boolean = { false },
+    private val library: (String) -> LibraryDocument? = { null },
 ) : LanguageServerSpec {
+    override fun libraryDocument(uri: String): LibraryDocument? = library(uri)
+
     override val gatesDocuments: Boolean get() = gateAnswer != null || gateByFile != null
 
     override fun gate(
@@ -130,6 +134,9 @@ internal class FxServers(
 
     val fake = FakeLanguageServers(specs.toList(), folder, trustGate, fx::execute) { newServer() }
     val servers get() = fake.servers
+
+    /** Runs [task] on the test's FX thread. */
+    fun dispatch(task: Runnable) = fx.execute(task)
 
     fun <T> onFx(action: () -> T): T = fx.submit(action).get(5, TimeUnit.SECONDS)
 
