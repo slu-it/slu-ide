@@ -1,12 +1,15 @@
 package dev.sluide.languageservers
 
 import com.google.gson.JsonElement
+import com.google.gson.JsonNull
 import dev.sluide.languageservers.connection.ClientEvents
 import dev.sluide.languageservers.connection.RunningServer
 import dev.sluide.languageservers.connection.Scheduler
 import dev.sluide.languageservers.connection.ServerLifecycle
 import dev.sluide.languageservers.connection.ServerTiming
 import dev.sluide.languageservers.connection.SessionClient
+import dev.sluide.languageservers.connection.jsonTree
+import dev.sluide.languageservers.connection.protocolGson
 import dev.sluide.languageservers.files.DirectoryWatcher
 import dev.sluide.languageservers.files.WatcherFilter
 import dev.sluide.languageservers.process.ServerStarter
@@ -263,6 +266,36 @@ class LanguageServerSession internal constructor(
         onResult: (T) -> Unit,
         onError: (Throwable) -> Unit = logRequestError,
     ): PendingRequest = requestRunning(start = true, { call(it.server) }, onResult, onError)
+
+    /**
+     * Sends the custom request [method] with [params] as JSON (ADR 0142: maps, lists, strings, numbers, booleans and
+     * `null`; another type is logged and sent as `null`) and hands its result, as JSON, to [onResult] (`null` for a
+     * JSON null or no result). Same rules as [request]. FX thread.
+     */
+    fun requestJson(
+        method: String,
+        params: Any?,
+        onResult: (JsonElement?) -> Unit,
+        onError: (Throwable) -> Unit = logRequestError,
+    ): PendingRequest {
+        val json =
+            try {
+                jsonTree(params)
+            } catch (e: IllegalArgumentException) {
+                log.log(System.Logger.Level.WARNING, "lsp ${spec.id}: the params of $method sent as null: ${e.message}")
+                JsonNull.INSTANCE
+            }
+        return requestRunning(
+            start = true,
+            // The endpoint's own future, so that cancelling sends $/cancelRequest.
+            {
+                @Suppress("UNCHECKED_CAST")
+                it.endpoint.request(method, json) as CompletableFuture<Any?>
+            },
+            { result -> onResult(result as? JsonElement ?: result?.let(protocolGson::toJsonTree)) },
+            onError,
+        )
+    }
 
     /** Like [request], with the connection; without [start], a server that does not run gets not running. */
     internal fun <T> requestRunning(

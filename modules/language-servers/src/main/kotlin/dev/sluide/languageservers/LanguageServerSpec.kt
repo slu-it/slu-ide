@@ -204,7 +204,27 @@ interface LanguageServerSpec {
         projectFolder: Path,
         access: SessionAccess,
     ): SessionExtension? = null
+
+    /**
+     * How to fetch the document the server names by [uri], a non-`file:` URI (`jdt://…`), or `null` if it cannot be
+     * (the default). The editor sends the request, writes the answer's text to [LibraryDocument.file] and goes there,
+     * read-only (ADR 0179). Any thread; cheap, no I/O.
+     */
+    fun libraryDocument(uri: String): LibraryDocument? = null
 }
+
+/**
+ * A request that returns the text of a document named by a non-file URI ([LanguageServerSpec.libraryDocument]).
+ *
+ * @property method the custom request's method (`java/classFileContents`); its result must be the text as a JSON string.
+ * @property params the request's params, JSON as [LanguageServerSession.requestJson] takes them.
+ * @property file the cache file the text is written to; the spec owns the path and keeps it in its cache folder.
+ */
+data class LibraryDocument(
+    val method: String,
+    val params: Any,
+    val file: Path,
+)
 
 /**
  * How to start a language server: never through a shell, the [arguments] go to the process as they are.

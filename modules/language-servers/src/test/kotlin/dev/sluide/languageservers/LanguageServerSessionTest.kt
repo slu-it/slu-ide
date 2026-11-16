@@ -1,6 +1,7 @@
 package dev.sluide.languageservers
 
 import dev.sluide.languageservers.connection.ServerTiming
+import dev.sluide.languageservers.connection.protocolGson
 import org.eclipse.lsp4j.CompletionItemKind
 import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.ConfigurationParams
@@ -550,6 +551,86 @@ class LanguageServerSessionTest {
             server.customMessages.single().let { "${it.first} ${it.second}" },
         )
         assertEquals(1, starter.processes.size)
+    }
+
+    @Test
+    fun `requestJson sends JSON params and hands the answer as JSON to the FX thread`() {
+        val session = session()
+        val server = running(session)
+        val answer = CompletableFuture<Any?>()
+        server.customAnswer = { _, _ -> answer }
+        val results = CopyOnWriteArrayList<Pair<String?, Boolean>>()
+
+        session.requestJson(
+            "java/classFileContents",
+            mapOf("uri" to "jdt://x", "n" to listOf(1, "a")),
+            { results += it?.toString() to inDispatch.get() },
+        )
+        awaitTrue("at the server") { server.customMessages.size == 1 }
+        answer.complete("package a;")
+        awaitTrue("answered") { results.isNotEmpty() }
+
+        assertEquals(listOf<Pair<String?, Boolean>>("\"package a;\"" to true), results)
+        assertEquals(
+            "java/classFileContents {\"uri\":\"jdt://x\",\"n\":[1,\"a\"]}",
+            server.customMessages.single().let { "${it.first} ${it.second}" },
+        )
+    }
+
+    @Test
+    fun `a cancelled requestJson is cancelled at the server and delivers nothing`() {
+        val session = session()
+        val server = running(session)
+        val results = CopyOnWriteArrayList<Any?>()
+
+        // A method lsp4j knows: it hands the server's own future to the fake, so that its cancellation shows (the
+        // fake's answers to other methods go through a wrapper of lsp4j that swallows the cancel).
+        val pending =
+            session.requestJson(
+                "textDocument/definition",
+                protocolGson.toJsonTree(definitionParams()),
+                { results += it },
+                { results += it },
+            )
+        awaitTrue("at the server") { server.definitions.size == 1 }
+        pending.cancel()
+
+        awaitTrue("\$/cancelRequest at the server") { server.definitions[0].isCancelled }
+        assertEquals(emptyList(), results)
+    }
+
+    @Test
+    fun `requestJson sends params that are no JSON as null`() {
+        val session = session()
+        val server = running(session)
+        server.customAnswer = { _, _ -> CompletableFuture<Any?>() }
+
+        session.requestJson("java/classFileContents", mapOf("uri" to StringBuilder("no JSON")), {})
+        awaitTrue("at the server") { server.customMessages.size == 1 }
+
+        assertEquals("java/classFileContents null", server.customMessages.single().let { "${it.first} ${it.second}" })
+    }
+
+    @Test
+    fun `requestJson gets the server's error, and not running without a server`() {
+        val session = session()
+        val server = running(session)
+        val answer = CompletableFuture<Any?>()
+        server.customAnswer = { _, _ -> answer }
+        val errors = CopyOnWriteArrayList<Throwable>()
+
+        val failed = { error: Throwable -> errors += error }
+        session.requestJson("java/classFileContents", null, { failed(IllegalStateException("result")) }, failed)
+        awaitTrue("at the server") { server.customMessages.size == 1 }
+        answer.completeExceptionally(IllegalArgumentException("no such class"))
+        awaitTrue("failed") { errors.isNotEmpty() }
+        assertIs<org.eclipse.lsp4j.jsonrpc.ResponseErrorException>(errors.single())
+
+        val without = session(TestSpec(command = null))
+        val missing = CopyOnWriteArrayList<Throwable>()
+        without.requestJson("java/classFileContents", null, {}, { missing += it })
+        awaitTrue("not running") { missing.isNotEmpty() }
+        assertIs<LanguageServerNotRunningException>(missing.single())
     }
 
     @Test
