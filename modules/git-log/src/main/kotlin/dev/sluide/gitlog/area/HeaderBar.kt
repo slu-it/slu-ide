@@ -37,6 +37,12 @@ internal fun popTooltip(count: Int): String =
         else -> "Pop Latest Stash ($count stashes)"
     }
 
+/** A quick action of the header: what a click [run]s and when the button is [disabled]. */
+internal class HeaderAction(
+    val run: () -> Unit,
+    val disabled: ObservableBooleanValue,
+)
+
 /**
  * Whether the header may rebase onto `origin`'s default branch: a remote named `origin` ([hasOrigin]), `HEAD` on a
  * branch ([onBranch], not detached) and a commit ([hasCommit]).
@@ -61,9 +67,9 @@ internal fun rebaseOntoOriginPossible(
 /**
  * The header bar of the git log area (ADRs 0035, 0046): a chevron that follows [expanded], the tabs' [titles], the
  * [status] message, Cancel (only while the operation going on is [cancellable], ADR 0043) and, on the right, Review
- * Branch (ADR 0168; off with [noRepository], it calls [review]) and Fetch origin and Rebase onto its Default Branch
- * (ADR 0063; off with [noRebaseOntoDefault], it calls [rebaseOntoDefault]) and Fetch origin and Create new Branch
- * from its Default Branch (ADR 0181; off with [noNewBranchFromDefault], it calls [newBranchFromDefault]), then Push,
+ * Branch (ADR 0168, [review]) and Fetch origin and Rebase onto its Default Branch (ADR 0063, [rebaseOntoDefault]) and
+ * Fetch origin and Create new Branch from its Default Branch (ADR 0181, [newBranchFromDefault]), each a
+ * [HeaderAction] with its own rule for being off, then Push,
  * Pull, Fetch All Remotes and Refresh: three groups one button width apart, all outlined alike, with tooltips after
  * 250 ms. Fetch and Pull are off while an operation is [running] or there are [noRemotes], Push without a remote.
  * Clicking the bar (but not its buttons) expands or collapses the area.
@@ -75,12 +81,9 @@ internal class HeaderBar(
     running: ObservableBooleanValue,
     cancellable: ObservableBooleanValue,
     noRemotes: ObservableBooleanValue,
-    noRepository: ObservableBooleanValue,
-    review: () -> Unit,
-    rebaseOntoDefault: () -> Unit,
-    noRebaseOntoDefault: ObservableBooleanValue,
-    newBranchFromDefault: () -> Unit,
-    noNewBranchFromDefault: ObservableBooleanValue,
+    review: HeaderAction,
+    rebaseOntoDefault: HeaderAction,
+    newBranchFromDefault: HeaderAction,
     refresh: () -> Unit,
     fetch: () -> Unit,
     push: () -> Unit,
@@ -117,8 +120,8 @@ internal class HeaderBar(
             tooltip = actionTooltip("Review Branch (${REVIEW_BRANCH_KEYS.displayText})")
             isFocusTraversable = false
             minWidth = Region.USE_PREF_SIZE
-            setOnAction { review() }
-            disableProperty().bind(noRepository)
+            setOnAction { review.run() }
+            disableProperty().bind(review.disabled)
         }
 
     /** Fetches `origin` and rebases the current branch onto its default branch (ADR 0063). */
@@ -128,8 +131,8 @@ internal class HeaderBar(
             tooltip = actionTooltip("Fetch origin and Rebase onto its Default Branch")
             isFocusTraversable = false
             minWidth = Region.USE_PREF_SIZE
-            setOnAction { rebaseOntoDefault() }
-            disableProperty().bind(noRebaseOntoDefault)
+            setOnAction { rebaseOntoDefault.run() }
+            disableProperty().bind(rebaseOntoDefault.disabled)
         }
 
     /** Fetches `origin` and asks for a new branch at its default branch (ADR 0181). */
@@ -139,8 +142,8 @@ internal class HeaderBar(
             tooltip = actionTooltip("Fetch origin and Create new Branch from its Default Branch")
             isFocusTraversable = false
             minWidth = Region.USE_PREF_SIZE
-            setOnAction { newBranchFromDefault() }
-            disableProperty().bind(noNewBranchFromDefault)
+            setOnAction { newBranchFromDefault.run() }
+            disableProperty().bind(newBranchFromDefault.disabled)
         }
 
     /** Opens the Push dialog (ADR 0049); not without a remote, but while an operation runs. */

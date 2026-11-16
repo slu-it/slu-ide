@@ -18,6 +18,7 @@ import dev.sluide.gitlog.area.CommitDiffs
 import dev.sluide.gitlog.area.CommitNavigation
 import dev.sluide.gitlog.area.CompareBar
 import dev.sluide.gitlog.area.GO_TO
+import dev.sluide.gitlog.area.HeaderAction
 import dev.sluide.gitlog.area.HeaderBar
 import dev.sluide.gitlog.area.HeaderStatus
 import dev.sluide.gitlog.area.endMessage
@@ -385,6 +386,9 @@ class GitLogView internal constructor(
             openFile = { file -> onOpenFile(file) }
         }
 
+    /** An operation runs or the pending bar is busy: the quick actions wait. */
+    private val blocked = Bindings.or(actions.running, pendingBar.busy)
+
     /** The header bar; clicking it (but not its buttons or tabs) expands or collapses the log. */
     private val headerBar =
         HeaderBar(
@@ -394,12 +398,15 @@ class GitLogView internal constructor(
             actions.running,
             actions.cancellable,
             noRemotes,
-            hasRepository.not(),
-            { onReview(ReviewRequest.Branch("HEAD")) },
-            { actions.start(RebaseOntoOriginDefault()) },
-            Bindings.or(Bindings.or(actions.running, pendingBar.busy), quickActions.rebasePossible.not()),
-            { actions.start(PrepareNewBranchFromDefault()) },
-            Bindings.or(Bindings.or(actions.running, pendingBar.busy), quickActions.newBranchPossible.not()),
+            HeaderAction({ onReview(ReviewRequest.Branch("HEAD")) }, hasRepository.not()),
+            HeaderAction(
+                { actions.start(RebaseOntoOriginDefault()) },
+                Bindings.or(blocked, quickActions.rebasePossible.not()),
+            ),
+            HeaderAction(
+                { actions.start(PrepareNewBranchFromDefault()) },
+                Bindings.or(blocked, quickActions.newBranchPossible.not()),
+            ),
             ::refresh,
             { actions.start(Fetch()) },
             ::showPush,
