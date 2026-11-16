@@ -7,6 +7,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
@@ -49,6 +50,51 @@ internal class RecordingAccess : SessionAccess {
     override fun restart() {
         restarts += Unit
     }
+}
+
+/**
+ * A [SessionAccess] whose `executeCommand` answers are scripted per command (a future the test may complete later;
+ * shapes as jdtls 1.63.0 sent them) and which records commands, refreshes and workspace changes.
+ */
+internal class ScriptedAccess : SessionAccess {
+    val commands = CopyOnWriteArrayList<Pair<String, List<Any?>>>()
+    val refreshed = CopyOnWriteArrayList<Path>()
+    val diagnostics = ConcurrentHashMap<Path, List<Diagnostic>>()
+    val answers = ConcurrentHashMap<String, () -> CompletableFuture<Any?>>()
+
+    @Volatile var workspaceChanges = 0
+
+    override fun executeCommand(
+        command: String,
+        args: List<Any?>,
+    ): CompletableFuture<Any?> {
+        commands += command to args
+        return answers[command]?.invoke() ?: CompletableFuture.completedFuture(null)
+    }
+
+    override fun request(
+        method: String,
+        params: Any?,
+    ): CompletableFuture<JsonElement?> = CompletableFuture.completedFuture(null)
+
+    override fun notify(
+        method: String,
+        params: Any?,
+    ) {}
+
+    override fun configurationChanged(settings: Any) {}
+
+    override fun keptDiagnostics(file: Path): List<Diagnostic> = diagnostics[file].orEmpty()
+
+    override fun refreshFolder(folder: Path) {
+        refreshed.add(folder)
+    }
+
+    override fun workspaceChanged() {
+        workspaceChanges++
+    }
+
+    override fun restart() {}
 }
 
 /** An executor that runs every task on the calling thread, for deterministic session tests. */
