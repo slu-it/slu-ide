@@ -1,6 +1,6 @@
 ---
 name: update-external-artifacts
-description: Use when asked to update or bump bundled versions, or to check for newer models, tools or libraries in Thoreau (Kokoro, Opus-MT, KaTeX, Mermaid, workflow parser, Simple Icons, Gradle wrapper, ty, TypeScript, Gradle libraries). Finds the latest upstream version, verifies checksums, changes the pin, runs the tests and reports.
+description: Use when asked to update or bump bundled versions, or to check for newer models, tools or libraries in Thoreau (Kokoro, Opus-MT, KaTeX, Mermaid, workflow parser, Simple Icons, Gradle wrapper, ty, TypeScript, jdtls, Lombok, Gradle libraries). Finds the latest upstream version, verifies checksums, changes the pin, runs the tests and reports.
 ---
 
 # Updating external artifacts and libraries
@@ -74,6 +74,25 @@ Per bump: find latest, download and verify, change the pin, run tests, update th
   `package/lib/tsc` (`tar -tzf`). Update the properties and the TypeScript section of `docs/external-artifacts.md`
   (version, sizes, date). Tests: `verify.sh :modules:typescript` with `SLUIDE_TEST_TSC=<unpacked package/lib/tsc>` for
   the real smoke test. Real-app check: Settings → Languages → TypeScript → Install, then open a TypeScript file.
+- **jdtls** (Java language server): the index `https://download.eclipse.org/jdtls/milestones/` is an HTML table with one row
+  per version folder (`<a href='/jdtls/milestones/1.63.0'>`); versions are not in numeric order (compare as numbers), skip
+  `repository`. `<version>/latest.txt` names the tarball (`jdt-language-server-<version>-<timestamp>.tar.gz`), the
+  `<tarball>.sha256` file is the bare 64-hex hash; the size is the `content-length` of `curl -sIL` on the tarball. The pin is
+  `modules/java/src/main/resources/dev/sluide/java/jdtls-release.properties`: `version` and for each of the three platforms
+  the same `<platform>.asset`, `.bytes`, `.sha256`. Download the tarball into a fresh folder (`curl -L`), compare
+  `sha256sum` with the `.sha256` file, take `.bytes` from `stat`, and check that the archive still holds `bin/jdtls`,
+  `plugins/org.eclipse.equinox.launcher_*.jar` (exactly one) and `config_linux`, `config_linux_arm`, `config_mac`,
+  `config_mac_arm` (`tar -tzf`). Do not use the `www.eclipse.org/downloads/download.php` mirror links of the version page.
+  Update the properties and the jdtls section of `docs/external-artifacts.md` (version, sizes, date). Tests:
+  `verify.sh :modules:java` with `SLUIDE_TEST_JDTLS=<the unpacked folder>` for the real smoke test. Real-app check:
+  Settings → Languages → Java → Install, then open a Java file.
+- **Lombok** (agent jar installed with jdtls): latest via
+  `https://repo1.maven.org/maven2/org/projectlombok/lombok/maven-metadata.xml` (`<release>`). The pin is `LombokTool.PIN` in
+  `modules/java/src/main/kotlin/dev/sluide/java/LombokTool.kt` (version, URL, bytes, sha256). Maven Central publishes no
+  sha256: download `lombok-<version>.jar` into a fresh folder (`curl -L`), compute `sha256sum`, and compare the `.jar.sha1`
+  file Maven Central publishes with `sha1sum` of the download; take the bytes from `stat`. Update the constants and the
+  Lombok section of `docs/external-artifacts.md` (and the Lombok version in ADR 0179's text only if it names one). Tests:
+  `verify.sh LombokToolTest JdtlsInstallerTest`.
 - **CI actions**: check the latest major of each action in `.github/workflows/*.yml` (GitHub `releases/latest` of the
   action's repo); edit all workflow files together. Cannot be tested here; say so in the report.
 - **espeak-ng** is user-installed; nothing to bump.

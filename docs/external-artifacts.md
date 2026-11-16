@@ -21,6 +21,8 @@ Facts were checked against the repository on 2026-11-07; items marked "unverifie
 | espeak-ng | user's installation | external, never bundled | ADR 0124; `modules/speech/src/main/kotlin/dev/sluide/speech/kokoro/EspeakLocator.kt` | none |
 | ty (Python language server) | 0.0.99 | download on click (Settings → Languages → Python) | `modules/python/src/main/resources/dev/sluide/python/ty-release.properties` | bytes + sha256 per platform asset, same file (checked against the `.sha256` files and the GitHub API `digest`); updates: GitHub's `digest` and `size` at runtime |
 | TypeScript language server | 7.0.2 | download on click (Settings → Languages → TypeScript) | `modules/typescript/src/main/resources/dev/sluide/typescript/typescript-release.properties` | bytes + npm SRI `sha512` integrity per platform package tarball, same file (compared with a recomputed sha512 of the download); updates: the registry's `dist.integrity` and the tarball size at runtime |
+| jdtls (Java language server) | 1.63.0 | download on click (Settings → Languages → Java) | `modules/java/src/main/resources/dev/sluide/java/jdtls-release.properties` | bytes + sha256 of the one archive for every platform, same file (checked against the `.sha256` file beside it and a recomputed hash); updates: the `.sha256` file and the size at runtime |
+| Lombok (agent jar for jdtls) | 1.18.48 | download on click, with jdtls | constants of `modules/java/src/main/kotlin/dev/sluide/java/LombokTool.kt` | bytes + sha256 in `LombokTool.PIN` (computed; the published sha1 was compared when the pin was made); no update check |
 | CI tools | see CI section | CI | `.github/workflows/*.yml` | none |
 
 ## Kokoro text-to-speech (Read Aloud)
@@ -137,6 +139,45 @@ new major version is worth a check of `docs/adr/0124-read-aloud-speech.md` ("Pho
   "TypeScript").
 - Tests: `TypeScriptToolTest` (reads the pin), `NpmUpdatesTest` (fake registry answers), `TypeScriptSmokeTestTest` (its
   real-tsc case runs when tsc is installed or `SLUIDE_TEST_TSC` names one), `TypeScriptSettingsPageUiTest`.
+
+## jdtls (Java language server)
+- Source: the Eclipse milestones, `https://download.eclipse.org/jdtls/milestones/<version>/<asset>` (no redirect). Version
+  1.63.0, pinned on 2026-11-15.
+- Asset: one archive for every platform, `jdt-language-server-1.63.0-202610191322.tar.gz` (51,143,565 bytes), listed under
+  linux-x64, linux-aarch64 and mac-aarch64 in `jdtls-release.properties`. No pin for macOS on Intel or Windows: the page says
+  "No jdtls build for this platform" and a custom path (the `bin/jdtls` of an unpacked jdtls) still works.
+- Integrity: the pin holds `.bytes` and `.sha256`; the sha256 is the `<asset>.sha256` file beside the archive (a bare
+  64-hex hash), compared with a recomputed `sha256sum` of a downloaded copy. The installer checks size and sha256, then
+  runs a smoke test (one LSP `initialize` against jdtls started as Thoreau's own `java`, on a throwaway configuration
+  folder below `~/.sluide/jdtls/smoke` (deleted before and after the run, never through links, so that nothing planted
+  there is loaded and the unpacked install stays unchanged; there is no version command) before it switches. Install
+  of a jdtls that is there installs only a missing or outdated Lombok.
+- The archive holds `bin/jdtls` (a Python launcher Thoreau never runs; it is the install's marker "executable"),
+  `plugins/org.eclipse.equinox.launcher_<version>.jar`, `config_linux`, `config_linux_arm`, `config_mac`,
+  `config_mac_arm` and others, `features/`.
+- Installed under `~/.sluide/tools/jdtls/<version>/`, the previous version kept for rollback.
+- Licence: EPL-2.0.
+- Update: at runtime Settings → Languages → Java → Check for Updates: the index `https://download.eclipse.org/jdtls/milestones/`
+  (an HTML table; versions compared as numbers; `repository` skipped), `<version>/latest.txt` (names the tarball),
+  `<tarball>.sha256` and the `content-length` of a `HEAD` for the size; the pin with the skill (part 1,
+  "jdtls").
+- Tests: `JdtlsToolTest` (reads the pin), `EclipseMilestonesTest` (fixtures from the real answers), `JdtlsLaunchTest`,
+  `JdtlsInstallerTest`, `JdtlsSmokeTestTest` (runs with `SLUIDE_TEST_JDTLS=<unpacked jdtls folder>`),
+  `JavaSettingsPageUiTest`.
+
+## Lombok (agent jar for jdtls)
+- Source: Maven Central,
+  `https://repo1.maven.org/maven2/org/projectlombok/lombok/<version>/lombok-<version>.jar`. Version 1.18.48, pinned on
+  2026-11-15: 2,055,065 bytes, sha256 `85477a4655ebb2c074a9099cfb749be454449fee564d4282610df1b85f7c508b`.
+- Integrity: Maven Central publishes no sha256. The pin's was computed from a download and the published `.jar.sha1`
+  (`6858f13541bab505384f07053c5a7b539bbfd3e3`) was compared with it when the pin was made. The pin is `LombokTool.PIN`; the
+  installer checks size and sha256, its smoke test checks that the jar is a regular file of the pinned size.
+- Installed under `~/.sluide/tools/lombok/<version>/lombok-<version>.jar` with jdtls (after jdtls worked; a failure
+  leaves jdtls installed and shows in the page's status line), deleted with it. jdtls gets it as `-javaagent` only when
+  an imported build uses Lombok (ADR 0179). No update check of its own.
+- Licence: MIT.
+- Update: with the skill (part 1, "Lombok").
+- Tests: `LombokToolTest`, `JdtlsInstallerTest`.
 
 ## CI
 Versions are major tags, not hashes: `actions/checkout@v6`, `actions/setup-java@v6` (Temurin, Java 25),
