@@ -1,15 +1,21 @@
 package dev.sluide.languageservers
 
+import dev.sluide.languageservers.connection.LspConnection
 import dev.sluide.languageservers.connection.ServerTiming
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.logging.Level
+import java.util.logging.Logger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -24,9 +30,13 @@ class LanguageServerRacesTest {
     private val scheduler = FakeScheduler()
     private var servers: LanguageServers? = null
 
+    /** What the connections log: whether they gave up on a killed process. */
+    private val connectionLogs = LogRecords(Logger.getLogger(LspConnection::class.java.name))
+
     @AfterEach
     fun closeServers() {
         servers?.close()
+        connectionLogs.close()
     }
 
     private fun servers(
@@ -35,8 +45,33 @@ class LanguageServerRacesTest {
         gate: TrustGate = TrustGate { _, _ -> true },
         timing: ServerTiming = ServerTiming(shutdown = 200.milliseconds, exit = 200.milliseconds),
         dispatch: (Runnable) -> Unit = Runnable::run,
-    ) = LanguageServers(listOf(spec), { folder }, gate, dispatch, starter, scheduler, timing, System::nanoTime)
+        nanoTime: () -> Long = System::nanoTime,
+    ) = LanguageServers(listOf(spec), { folder }, gate, dispatch, starter, scheduler, timing, nanoTime)
         .also { servers = it }
+
+    /**
+     * A spec that notes at each `command(projectFolder)` call which of the processes started so far are over: ended,
+     * or given up on after the kill's wait. The Java spec deletes jdtls's data folder there (ADR 0179).
+     */
+    private fun recordingSpec(
+        starter: () -> FakeStarter,
+        seen: MutableList<List<Boolean>>,
+        id: String = "test",
+    ) = TestSpec(id = id, commandFor = { _ ->
+        seen += starter().processes.map { it.isEnded || gaveUpOn(it) }
+        null
+    })
+
+    private fun gaveUpOn(process: FakeProcess) =
+        connectionLogs.messages(Level.INFO).any { it.startsWith("lsp ${process.name} still runs") }
+
+    private fun LanguageServers.awaitRunning(
+        spec: TestSpec,
+        processes: Int,
+        starter: FakeStarter,
+    ) = awaitTrue("server $processes or later running") {
+        starter.processes.size >= processes && state(spec).value == ServerState.Running
+    }
 
     private fun LanguageServers.awaitState(expected: ServerState) =
         awaitTrue("state $expected") { state(spec).value == expected }
@@ -88,7 +123,7 @@ class LanguageServerRacesTest {
     }
 
     @Test
-    fun `a restart ends the running server politely, ignores its end and counts restarts from the start again`() {
+    fun `a restart ends the running server politely, ignores its end, counts restarts anew, cancels a due one`() {
         val starter = FakeStarter()
         val servers = servers(starter)
         servers.session(spec).ensureStarted()
@@ -115,6 +150,120 @@ class LanguageServerRacesTest {
         assertEquals(emptyList(), scheduler.due)
         starter.last.crash()
         servers.awaitState(ServerState.Restarting(1))
+
+        servers.restart(spec)
+
+        assertEquals(emptyList(), scheduler.due)
+    }
+
+    @Test
+    fun `a restart starts the next server only once the old process has ended`() {
+        val seen = CopyOnWriteArrayList<List<Boolean>>()
+        lateinit var starter: FakeStarter
+        starter = FakeStarter(holdsEnd = { it == 0 })
+        val spec = recordingSpec({ starter }, seen)
+        val servers = servers(starter, spec)
+        servers.session(spec).ensureStarted()
+        servers.awaitRunning(spec, 1, starter)
+        val old = starter.last
+
+        servers.restart(spec)
+        assertTrue(old.awaitEndAsked())
+        old.release()
+
+        servers.awaitRunning(spec, 2, starter)
+        assertEquals(listOf(emptyList(), listOf(true)), seen)
+    }
+
+    @Test
+    fun `two restarts while the old process ends wait for it, and the next one for the server they started`() {
+        val seen = CopyOnWriteArrayList<List<Boolean>>()
+        lateinit var starter: FakeStarter
+        starter = FakeStarter(holdsEnd = { it == 0 })
+        val spec = recordingSpec({ starter }, seen)
+        val servers = servers(starter, spec)
+        servers.session(spec).ensureStarted()
+        servers.awaitRunning(spec, 1, starter)
+        val old = starter.last
+
+        servers.restart(spec)
+        assertTrue(old.awaitEndAsked())
+        servers.restart(spec)
+        old.release()
+        servers.awaitRunning(spec, 2, starter)
+        servers.restart(spec)
+
+        servers.awaitRunning(spec, 3, starter)
+        assertEquals(listOf(emptyList(), listOf(true), listOf(true, true)), seen)
+    }
+
+    @Test
+    fun `closing while the next start waits for the old process starts nothing`() {
+        val seen = CopyOnWriteArrayList<List<Boolean>>()
+        lateinit var starter: FakeStarter
+        starter = FakeStarter(holdsEnd = { it == 0 })
+        // An id of its own: the test waits for the outbound thread of exactly this session to end.
+        val spec = recordingSpec({ starter }, seen, id = "close-while-waiting")
+        val servers = servers(starter, spec)
+        servers.session(spec).ensureStarted()
+        servers.awaitRunning(spec, 1, starter)
+        val old = starter.last
+        servers.restart(spec)
+        assertTrue(old.awaitEndAsked())
+
+        servers.close()
+
+        awaitTrue("the waiting start ended") {
+            Thread.getAllStackTraces().keys.none { it.name == "sluide-lsp-close-while-waiting" }
+        }
+        old.release()
+        assertEquals(ServerState.Stopped, servers.state(spec).value)
+        assertEquals(listOf(emptyList<Boolean>()), seen)
+        assertEquals(1, starter.processes.size)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["failed start", "unanswered initialize"])
+    fun `the start after a killed server waits until the kill gave up on a process that does not die`(how: String) {
+        val seen = CopyOnWriteArrayList<List<Boolean>>()
+        val failed = how == "failed start"
+        lateinit var starter: FakeStarter
+        // Never released: a process that dies at once would race the next start against the test's release.
+        starter =
+            FakeStarter(
+                newServer = { index -> FakeServer().apply { answerInitialize = failed || index > 0 } },
+                holdsEnd = { it == 0 },
+            )
+        val spec = recordingSpec({ starter }, seen)
+        val calls = AtomicInteger()
+        val timing = ServerTiming(initialize = 300.milliseconds, shutdown = 200.milliseconds, exit = 300.milliseconds)
+        val servers =
+            servers(
+                starter,
+                spec,
+                timing = timing,
+                // The first call comes once the connection is kept: an unexpected exception there fails the start.
+                nanoTime = { if (failed && calls.getAndIncrement() == 0) error("no clock") else System.nanoTime() },
+            )
+        servers.session(spec).ensureStarted()
+        val killed =
+            if (failed) {
+                ServerState.Failed(
+                    "Test language server could not start: no clock",
+                )
+            } else {
+                ServerState.Restarting(1)
+            }
+        awaitTrue(
+            "killed",
+        ) { servers.state(spec).value == killed && starter.processes.firstOrNull()?.destroyed == true }
+
+        if (failed) servers.restart(spec) else scheduler.runNext()
+
+        servers.awaitRunning(spec, 2, starter)
+        assertEquals(listOf(emptyList(), listOf(true)), seen)
+        assertFalse(starter.processes[0].isEnded)
+        starter.processes[0].release()
     }
 
     @Test
@@ -166,7 +315,7 @@ class LanguageServerRacesTest {
     }
 
     @Test
-    fun `closing while initialize is unanswered ends the server`() {
+    fun `closing while initialize is unanswered ends the server, and a restart after the close starts nothing`() {
         val starter = FakeStarter(newServer = { FakeServer().apply { answerInitialize = false } })
         val servers = servers(starter)
         servers.session(spec).ensureStarted()
@@ -178,6 +327,10 @@ class LanguageServerRacesTest {
         assertTrue(process.awaitEndHandled())
         assertEquals(ServerState.Stopped, servers.state(spec).value)
         assertEquals(emptyList(), scheduler.due)
+
+        servers.restart(spec)
+
+        assertEquals(ServerState.Stopped, servers.state(spec).value)
     }
 
     @Test
@@ -211,29 +364,32 @@ class LanguageServerRacesTest {
     }
 
     @Test
-    fun `a process whose start was replaced while it started is killed`() {
+    fun `a process whose start was replaced while it started is killed, and the next start waits for its end`() {
         val starting = CountDownLatch(1)
         val release = CountDownLatch(1)
-        val starter =
+        val seen = CopyOnWriteArrayList<List<Boolean>>()
+        lateinit var starter: FakeStarter
+        starter =
             FakeStarter(beforeStart = { index ->
                 if (index == 0) {
                     starting.countDown()
                     release.await(5, TimeUnit.SECONDS)
                 }
-            })
-        val servers = servers(starter)
+            }, holdsEnd = { it == 0 })
+        val spec = recordingSpec({ starter }, seen)
+        val servers = servers(starter, spec)
         servers.session(spec).ensureStarted()
         assertTrue(starting.await(5, TimeUnit.SECONDS))
 
         servers.restart(spec)
         release.countDown()
+        awaitTrue("first process killed") { starter.processes.firstOrNull()?.awaitEndAsked() == true }
+        starter.processes[0].release()
 
-        awaitTrue("second server running") {
-            starter.processes.size == 2 &&
-                servers.state(spec).value == ServerState.Running
-        }
+        servers.awaitRunning(spec, 2, starter)
         assertTrue(starter.processes[0].destroyed)
         assertEquals(listOf("initialize", "initialized"), starter.processes[1].server.calls)
+        assertEquals(listOf(emptyList(), listOf(true)), seen)
     }
 
     @Test
@@ -255,6 +411,31 @@ class LanguageServerRacesTest {
 
         awaitTrue("process killed") { starter.processes.size == 1 && starter.processes[0].destroyed }
         assertEquals(emptyList(), starter.processes[0].server.calls)
+    }
+
+    @Test
+    fun `a start that fails after the close leaves the server stopped`() {
+        val starting = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val starter =
+            FakeStarter(beforeStart = {
+                starting.countDown()
+                awaitUninterruptibly(release)
+                throw IllegalStateException("too late")
+            })
+        // An id of its own: the test waits for the outbound thread of exactly this session to end.
+        val spec = TestSpec(id = "fails-after-close")
+        val servers = servers(starter, spec)
+        servers.session(spec).ensureStarted()
+        assertTrue(starting.await(5, TimeUnit.SECONDS))
+
+        servers.close()
+        release.countDown()
+
+        awaitTrue("the failed start ended") {
+            Thread.getAllStackTraces().keys.none { it.name == "sluide-lsp-fails-after-close" }
+        }
+        assertEquals(ServerState.Stopped, servers.state(spec).value)
     }
 
     private fun awaitUninterruptibly(latch: CountDownLatch) {

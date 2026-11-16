@@ -28,7 +28,8 @@ private val log = System.getLogger(ServerLifecycle::class.java.name)
 /** Numbers the processes of all servers for log lines and thread names: `python#3`. */
 private val processNumbers = AtomicInteger()
 
-private const val INITIALIZE_POLL_MILLIS = 100L
+/** How often a wait in a start asks whether a restart or close replaced that start. */
+private const val POLL_MILLIS = 100L
 
 /**
  * The life of one spec's server in one window: lazy start (trust wait, process, `initialize`/`initialized`) on the
@@ -37,7 +38,8 @@ private const val INITIALIZE_POLL_MILLIS = 100L
  *
  * Everything sent to the server runs on one outbound thread (`sluide-lsp-<id>`), the start too: requests and
  * notifications queued while the server starts reach it after `initialized`, in order. Each start has a generation;
- * events of an older one (its process ending after a restart) are ignored.
+ * events of an older one (its process ending after a restart) are ignored. A start runs the spec's command only once
+ * the process the lifecycle let go of last has ended, so that two processes of one server never run at once.
  */
 internal class ServerLifecycle(
     private val spec: LanguageServerSpec,
@@ -80,6 +82,12 @@ internal class ServerLifecycle(
     private var retry: AutoCloseable? = null
     private var closed = false
 
+    /**
+     * Completes when the connection detached last has ended its process, or given up on it; the next start waits for
+     * it. One is enough: the start that made a later connection waited for the earlier one first.
+     */
+    private var previousEnded: CompletableFuture<Unit> = CompletableFuture.completedFuture(Unit)
+
     val isClosed: Boolean get() = synchronized(lock) { closed }
 
     /** The features of the running server, or none. */
@@ -105,19 +113,16 @@ internal class ServerLifecycle(
 
     /** Stops the server politely and starts a new one, with a fresh count of restarts. */
     fun restart() {
-        val old =
-            synchronized(lock) {
-                if (closed) return
-                generation++
-                crashes = 0
-                cancelRetry()
-                val old = detach()
-                setState(ServerState.Starting)
-                val gen = generation
-                submit { start(gen) }
-                old
-            }
-        if (old != null) NamedThreads.virtual("sluide-lsp-${spec.id}-restart") { shutdown(old) }
+        synchronized(lock) {
+            if (closed) return
+            generation++
+            crashes = 0
+            cancelRetry()
+            endOffThread(detach(), ::shutdown)
+            setState(ServerState.Starting)
+            val gen = generation
+            submit { start(gen) }
+        }
     }
 
     /** Runs [action] on the outbound thread with the running server, or `null` if none runs then. */
@@ -152,14 +157,12 @@ internal class ServerLifecycle(
             // Closed while waiting (trust, start): close ends what was started.
         } catch (e: RuntimeException) {
             log.log(System.Logger.Level.ERROR, "lsp ${spec.id}: starting the server failed", e)
-            val old =
-                synchronized(lock) {
-                    if (!isCurrentLocked(gen)) return
-                    generation++
-                    setState(ServerState.Failed("${spec.name} language server could not start: ${e.message ?: e}"))
-                    detach()
-                }
-            old?.kill(timing.exit.inWholeMilliseconds)
+            synchronized(lock) {
+                if (!isCurrentLocked(gen)) return
+                generation++
+                setState(ServerState.Failed("${spec.name} language server could not start: ${e.message ?: e}"))
+                endOffThread(detach(), ::kill)
+            }
         }
     }
 
@@ -171,6 +174,7 @@ internal class ServerLifecycle(
             settle(gen, ServerState.Stopped)
             return
         }
+        if (!previousEnded(gen)) return
         val command = spec.command(root.toAbsolutePath().normalize())
         if (command == null) {
             log.log(System.Logger.Level.INFO, "lsp ${spec.id}: no server available")
@@ -192,7 +196,7 @@ internal class ServerLifecycle(
             LspConnection(process, client, features, "${spec.name} language server stopped", client::customNotification)
         synchronized(lock) {
             if (!isCurrentLocked(gen)) {
-                conn.kill(timing.exit.inWholeMilliseconds)
+                endOffThread(conn, ::kill)
                 return
             }
             connection = conn
@@ -220,6 +224,24 @@ internal class ServerLifecycle(
         }
         val server = result.serverInfo?.let { " (${it.name} ${it.version.orEmpty()})" }.orEmpty()
         log.log(System.Logger.Level.INFO, "lsp $name initialized in ${(nanoTime() - started) / 1_000_000} ms$server")
+    }
+
+    /**
+     * Waits until the process the lifecycle let go of last has ended (its end waits for that, within the shutdown's
+     * bounds); `false` if a restart or close replaced this start meanwhile.
+     */
+    private fun previousEnded(gen: Int): Boolean {
+        val ended = synchronized(lock) { previousEnded }
+        // Asks every 100 ms whether a restart or close replaced this start, so that the next start does not wait here.
+        while (true) {
+            if (!isCurrent(gen)) return false
+            if (ended.isDone) return true
+            try {
+                ended.get(POLL_MILLIS, TimeUnit.MILLISECONDS)
+            } catch (_: TimeoutException) {
+                // Still ending.
+            }
+        }
     }
 
     /** Waits for the trust checks; `false`, settled [ServerState.Untrusted] or failed, if the server may not run. */
@@ -258,7 +280,7 @@ internal class ServerLifecycle(
                 }
                 result =
                     try {
-                        answer.get(INITIALIZE_POLL_MILLIS, TimeUnit.MILLISECONDS)
+                        answer.get(POLL_MILLIS, TimeUnit.MILLISECONDS)
                     } catch (_: TimeoutException) {
                         null
                     }
@@ -305,26 +327,24 @@ internal class ServerLifecycle(
         gen: Int,
         message: String,
     ) {
-        val old =
-            synchronized(lock) {
-                if (!isCurrentLocked(gen)) return
-                generation++
-                val ranFor = runningSince?.let { nanoTime() - it }
-                if (ranFor != null && ranFor >= timing.stableAfter.inWholeNanoseconds) crashes = 0
-                crashes++
-                if (crashes > timing.backoff.size) {
-                    log.log(System.Logger.Level.WARNING, "lsp ${spec.id}: $message; not restarted again")
-                    setState(ServerState.Failed(message))
-                } else {
-                    val delay = timing.backoff[crashes - 1]
-                    log.log(System.Logger.Level.WARNING, "lsp ${spec.id}: $message; restart $crashes in $delay")
-                    setState(ServerState.Restarting(crashes))
-                    val retryGen = generation
-                    retry = scheduler.schedule(delay) { retryDue(retryGen) }
-                }
-                detach()
+        synchronized(lock) {
+            if (!isCurrentLocked(gen)) return
+            generation++
+            val ranFor = runningSince?.let { nanoTime() - it }
+            if (ranFor != null && ranFor >= timing.stableAfter.inWholeNanoseconds) crashes = 0
+            crashes++
+            if (crashes > timing.backoff.size) {
+                log.log(System.Logger.Level.WARNING, "lsp ${spec.id}: $message; not restarted again")
+                setState(ServerState.Failed(message))
+            } else {
+                val delay = timing.backoff[crashes - 1]
+                log.log(System.Logger.Level.WARNING, "lsp ${spec.id}: $message; restart $crashes in $delay")
+                setState(ServerState.Restarting(crashes))
+                val retryGen = generation
+                retry = scheduler.schedule(delay) { retryDue(retryGen) }
             }
-        old?.kill(timing.exit.inWholeMilliseconds)
+            endOffThread(detach(), ::kill)
+        }
     }
 
     private fun retryDue(gen: Int) {
@@ -338,6 +358,28 @@ internal class ServerLifecycle(
     private fun shutdown(old: LspConnection) =
         old.shutdown(timing.shutdown.inWholeMilliseconds, timing.exit.inWholeMilliseconds)
 
+    private fun kill(old: LspConnection) = old.kill(timing.exit.inWholeMilliseconds)
+
+    /**
+     * Ends [old] with [end] on a thread of its own, never under the lock, and makes it the connection the next start
+     * waits for (jdtls must not run twice on one data folder, a Clean deletes it before the next start). Holds the lock.
+     */
+    private fun endOffThread(
+        old: LspConnection?,
+        end: (LspConnection) -> Unit,
+    ) {
+        if (old == null) return
+        val ended = CompletableFuture<Unit>()
+        previousEnded = ended
+        NamedThreads.virtual("sluide-lsp-${old.process.name}-end") {
+            try {
+                end(old)
+            } finally {
+                ended.complete(Unit)
+            }
+        }
+    }
+
     private fun submit(task: () -> Unit) {
         try {
             outbound.execute(task)
@@ -346,7 +388,7 @@ internal class ServerLifecycle(
         }
     }
 
-    /** Forgets the connection; the caller ends it outside the lock. Holds the lock. */
+    /** Forgets the connection; the caller ends it with [endOffThread]. Holds the lock. */
     private fun detach(): LspConnection? {
         val old = connection
         connection = null
