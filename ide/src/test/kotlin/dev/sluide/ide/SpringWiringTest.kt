@@ -91,6 +91,8 @@ import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
 import dev.sluide.ide.find.FindInFilesWiring
 import dev.sluide.ide.git.GitReviewSource
+import dev.sluide.java.JavaProjectSettings
+import dev.sluide.java.JdtlsSpec
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.MediaFileViewer
 import dev.sluide.media.MediaPreferences
@@ -113,6 +115,7 @@ import dev.sluide.secrets.Secrets
 import dev.sluide.secrets.settings.SecretsSettingsPage
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.ProjectSettings
+import dev.sluide.settings.ProjectSettingsOpeners
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
 import dev.sluide.settings.ThemeSettings
@@ -282,6 +285,11 @@ class SpringWiringTest {
                         TypeScriptSpec::class.java,
                         TypeScriptUpdates::class.java,
                         TypeScriptSettingsPage::class.java,
+                        // Counted, not created: the spec needs the jdtls installer, whose creation reads settings.properties
+                        // and the installed tools. Its logic is in JdtlsSpecTest.
+                        JdtlsSpec::class.java,
+                        JavaProjectSettings::class.java,
+                        ProjectSettingsOpeners::class.java,
                         InstallPrompts::class.java,
                         CodeIntelligenceWiring::class.java,
                         FindInFilesWiring::class.java,
