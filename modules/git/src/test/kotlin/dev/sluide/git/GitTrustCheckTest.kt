@@ -153,9 +153,9 @@ class GitTrustCheckTest {
         check.check(repo)
         assertTrue(check.inputs(repo) != null)
 
-        // git expands ~root (the home of another user) itself; the JVM cannot tell where that is.
-        assumeTrue(Files.readAllLines(Path.of("/etc/passwd")).any { it.startsWith("root:") }, "no user root")
-        git("config", "include.path", "~root/shared.cfg")
+        // git expands ~nobody (another user's home, no such file there) itself; the JVM cannot tell where that is.
+        assumeTrue(Files.readAllLines(Path.of("/etc/passwd")).any { it.startsWith("nobody:") }, "no user nobody")
+        git("config", "include.path", "~nobody/shared.cfg")
         check.check(repo)
 
         assertNull(check.inputs(repo))
@@ -494,5 +494,53 @@ class GitTrustCheckTest {
             listOf("something.new = x (a.cfg)", "something.new = x (/outside/a.cfg)"),
             configFindings(listOf(entry("$repo/a.cfg"), entry("/outside/a.cfg")), repo).map { it.text },
         )
+    }
+
+    /** Replaces the index of [directory] by one that has only the submodule [path], as no git command writes it. */
+    private fun craftedIndex(
+        directory: Path,
+        path: String,
+    ) {
+        val name = path.toByteArray()
+        val entry = java.io.ByteArrayOutputStream()
+        java.io.DataOutputStream(entry).run {
+            repeat(6) { writeInt(0) }
+            writeInt("160000".toInt(8))
+            repeat(3) { writeInt(0) }
+            write(ByteArray(20) { 0x11 })
+            writeShort(name.size)
+            write(name)
+            write(0)
+            while (entry.size() % 8 != 0) write(0)
+        }
+        val header = java.io.ByteArrayOutputStream()
+        java.io.DataOutputStream(header).run {
+            writeBytes("DIRC")
+            writeInt(2)
+            writeInt(1)
+        }
+        val content = header.toByteArray() + entry.toByteArray()
+        val trailer =
+            java.security.MessageDigest
+                .getInstance("SHA-1")
+                .digest(content)
+        directory.resolve(".git/index").toFile().writeBytes(content + trailer)
+    }
+
+    @Test
+    fun `a crafted index naming the folder itself or a folder outside it adds no repository`() {
+        val outside = folder.resolve("outside")
+        git("init", "-q", "-b", "main", directory = outside.createDirectories())
+        git("config", "filter.x.clean", "./c.sh", directory = outside)
+
+        craftedIndex(repo, ".")
+        assertEquals(emptyList(), check.check(repo), "the folder itself")
+
+        craftedIndex(repo, "../outside")
+        assertEquals(emptyList(), check.check(repo), "outside")
+        assertTrue(outside.resolve(".git") !in check.inputs(repo)!!.redirects)
+
+        craftedIndex(repo, "sub/../../outside")
+        assertEquals(emptyList(), check.check(repo), "outside by a detour")
     }
 }

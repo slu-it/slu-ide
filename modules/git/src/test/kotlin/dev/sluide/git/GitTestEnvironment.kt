@@ -35,18 +35,21 @@ private val emptyConfigHome: java.nio.file.Path by lazy {
 
 /**
  * A git that fails every call with one of the [words] among its arguments, from the call after the first [after] of
- * them, and runs the real git for the rest, to reach the code that handles one failing command.
+ * them, and runs the real git for the rest, to reach the code that handles one failing command. It fails as git does
+ * (checked with git 2.56): exit 128 and a `fatal:` line on standard error; exit 1 would mean "not set" to `git config`
+ * and "no merge base" to `git merge-base`.
  */
 internal fun failingGit(
     folder: java.nio.file.Path,
     vararg words: String,
     after: Int = 0,
 ): GitCli {
-    val script = folder.resolve("failing-git")
-    val counter = folder.resolve("failing-git-count")
+    val id = System.nanoTime()
+    val script = folder.resolve("failing-git-$id")
+    val counter = folder.resolve("failing-git-$id.count")
     val patterns = words.joinToString("|") { "*' $it '*" }
     val bump = "n=\$(cat '$counter' 2>/dev/null || echo 0); n=\$((n+1)); echo \$n > '$counter';"
-    val count = "$bump [ \$n -gt $after ] && exit 1;;"
+    val count = "$bump [ \$n -gt $after ] && { echo 'fatal: refused by test' >&2; exit 128; };;"
     script.toFile().writeText(FAKE_GIT_START + "case \" \$* \" in $patterns) $count esac\nexec git \"\$@\"\n")
     script.toFile().setExecutable(true)
     return GitCli(script.toString(), testGitEnvironment())
