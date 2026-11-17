@@ -1,5 +1,6 @@
 package dev.sluide.findinfiles.ui
 
+import dev.sluide.fileviewers.revealAround
 import dev.sluide.findinfiles.search.FileHits
 import dev.sluide.findinfiles.search.LineHit
 import dev.sluide.textediting.SearchOptions
@@ -110,13 +111,10 @@ internal data class PreviewTarget(
     val revealEnd: Int,
 )
 
-/** Lines shown above and below the selected one when the preview scrolls to it. */
-private const val REVEAL_CONTEXT = 5
-
 /**
  * The preview target of [line] (0-based) of [text] (`\n` line breaks): `matches` are `start until end` offsets into
  * [text] of the query's matches on that line alone, so a changed file still highlights. `null` when the file has no
- * such line. The reveal range is the line with [REVEAL_CONTEXT] lines around it, so it lands roughly in the middle.
+ * such line. The reveal range is the line with the lines around it ([revealAround]), so it lands roughly in the middle.
  */
 internal fun previewTarget(
     text: String,
@@ -124,33 +122,11 @@ internal fun previewTarget(
     query: String,
     options: SearchOptions,
 ): PreviewTarget? {
-    val start = lineStart(text, line) ?: return null
-    val end = lineEnd(text, start)
-    val found = TextSearch.find(text.substring(start, end), query, options).matches
-    val matches = found.map { (it.first + start)..(it.last + start) }
-    val revealStart = lineStart(text, (line - REVEAL_CONTEXT).coerceAtLeast(0)) ?: start
-    var revealEnd = end
-    repeat(REVEAL_CONTEXT) { if (revealEnd < text.length) revealEnd = lineEnd(text, revealEnd + 1) }
-    return PreviewTarget(matches, revealStart, revealEnd)
-}
-
-private fun lineEnd(
-    text: String,
-    from: Int,
-): Int = text.indexOf('\n', from).let { if (it < 0) text.length else it }
-
-private fun lineStart(
-    text: String,
-    line: Int,
-): Int? {
-    if (line < 0) return null
-    var start = 0
-    repeat(line) {
-        val next = text.indexOf('\n', start)
-        if (next < 0) return null
-        start = next + 1
-    }
-    return start
+    val own = revealAround(text, line, context = 0) ?: return null
+    val reveal = checkNotNull(revealAround(text, line)) { "line $line is in the text" }
+    val found = TextSearch.find(text.substring(own), query, options).matches
+    val matches = found.map { (it.first + own.first)..(it.last + own.first) }
+    return PreviewTarget(matches, reveal.first, reveal.last + 1)
 }
 
 /** A piece of a snippet, [hit] when it is one of the highlighted ranges. */

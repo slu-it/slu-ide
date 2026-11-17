@@ -6,20 +6,12 @@ import dev.sluide.textediting.SearchOptions
 import javafx.geometry.Bounds
 import javafx.scene.Node
 import javafx.stage.Window
-import java.nio.file.Path
 
 internal data class FindAnchor(
     val owner: Window,
     val area: Bounds, // screen
     val returnFocus: Node?,
 )
-
-internal fun interface PreviewTexts {
-    fun load(
-        file: Path,
-        done: (String?) -> Unit, // on the FX thread
-    )
-}
 
 internal interface FindView {
     val isShowing: Boolean

@@ -12,8 +12,8 @@ javafx {
 
 dependencies {
     // Deliberate module API dependency, in the editor family: FindInFiles is a CodeEditorExtension and takes
-    // FileViewers; the preview is a read-only CodeEditors editor with a highlighter from FileViewers (ADR 0108,
-    // ADR 0177).
+    // FileViewers; the preview is the shared FilePreview with a highlighter from FileViewers (ADR 0108, ADR 0177,
+    // ADR 0184).
     api(project(":modules:file-viewers"))
     // Deliberate module dependency: the result list's file rows show file-type icons (ADR 0012, ADR 0177).
     implementation(project(":modules:file-icons"))

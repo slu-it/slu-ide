@@ -153,14 +153,6 @@ internal class ResultRowsTest {
     }
 
     @Test
-    fun `the reveal range holds some lines around the line`() {
-        val text = (0..20).joinToString("\n") { "l$it" }
-        val target = checkNotNull(previewTarget(text, 10, "l1", SearchOptions()))
-        assertEquals(text.indexOf("l5\n"), target.revealStart)
-        assertEquals(text.indexOf("\nl16"), target.revealEnd)
-    }
-
-    @Test
     fun `a snippet is cut at its highlights`() {
         assertEquals(
             listOf(

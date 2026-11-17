@@ -1,9 +1,9 @@
 package dev.sluide.findinfiles
 
+import dev.sluide.fileviewers.PreviewTexts
 import dev.sluide.findinfiles.search.FileText
 import dev.sluide.findinfiles.search.SearchLimits
 import dev.sluide.findinfiles.search.readText
-import dev.sluide.findinfiles.ui.PreviewTexts
 import java.nio.file.Path
 import java.util.concurrent.Executor
 

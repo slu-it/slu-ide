@@ -1,5 +1,9 @@
 package dev.sluide.findinfiles.ui
 
+import dev.sluide.fileviewers.FilePreview
+import dev.sluide.fileviewers.PreviewPlace
+import dev.sluide.fileviewers.PreviewTexts
+import dev.sluide.fileviewers.StyledRange
 import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.findinfiles.search.FileHits
 import dev.sluide.findinfiles.search.LineHit
@@ -113,7 +117,7 @@ internal class FindInFilesPopup(
         }
 
     internal val preview =
-        FindPreview(highlighter, previewTexts, { queryField.text }, { options }, editorFont) {
+        FilePreview(highlighter, previewTexts, editorFont) {
             // The editor must not take the focus: the fields keep it.
             queryField.requestFocus()
         }.also {
@@ -356,14 +360,27 @@ internal class FindInFilesPopup(
             }
 
             is ResultRow.Line -> {
-                preview.show(row)
+                preview.show(row.hits.file) { text -> previewPlace(text, row.hit.line) }
             }
 
             null -> {
-                preview.show(null)
+                preview.clear()
             }
         }
     }
+
+    /** The preview's place of [line] in [text]: the query's matches on that line marked, the line revealed. */
+    private fun previewPlace(
+        text: String,
+        line: Int,
+    ): PreviewPlace? =
+        previewTarget(text, line, queryField.text, options)?.let { target ->
+            PreviewPlace(
+                target.matches.map { StyledRange(it.first, it.last + 1, HIT_CLASS) },
+                target.revealStart,
+                target.revealEnd,
+            )
+        }
 
     private fun openSelected() {
         val row = list.selectionModel.selectedItem as? ResultRow.Line ?: return
