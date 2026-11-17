@@ -158,6 +158,67 @@ class GitCliTest {
         )
     }
 
+    /** A git that runs [body] for anything; the environment it gets lets it see what the process has. */
+    private fun scripted(body: String): String =
+        folder
+            .resolve("scripted-git")
+            .apply {
+                writeText("#!/bin/sh\n$body\n")
+                toFile().setExecutable(true)
+            }.toString()
+
+    @Test
+    fun `git is asked with its input closed and an environment of the given variables without the known ones`() {
+        assumeTrue(System.getenv("HOME") != null, "the check needs a variable of this process that is not given")
+        val given =
+            mapOf(
+                "PATH" to "/usr/bin:/bin",
+                "GIT_DIR" to "/x",
+                "GIT_FROM_SCRIPT" to "1",
+                "MARK" to "m",
+            )
+        // Reads its input to the end (it hangs if that is not closed), and only prints what it is meant to see.
+        val asked =
+            scripted(
+                "cat > /dev/null\n" +
+                    "[ -z \"\$GIT_DIR\" ] && [ \"\$MARK\" = m ] && [ -z \"\$HOME\" ] || exit 1\n" +
+                    "printf 'GIT_FROM_SCRIPT\\n\\n'",
+            )
+
+        assertEquals(setOf("GIT_DIR", "GIT_FROM_SCRIPT"), repositoryVariables(asked, given))
+    }
+
+    @Test
+    fun `what git lists counts only if it succeeded, one that does not answer in time is stopped`() {
+        val given = mapOf("PATH" to "/usr/bin:/bin", "GIT_DIR" to "/x", "GIT_FROM_SCRIPT" to "1")
+        assertEquals(
+            setOf("GIT_DIR"),
+            repositoryVariables(scripted("printf 'GIT_FROM_SCRIPT\\n'\nexit 1"), given),
+            "a failed git's list",
+        )
+
+        val pidFile = folder.resolve("slow-pid")
+        val slow = scripted("echo \$\$ > '$pidFile'\nexec sleep 30")
+        assertEquals(setOf("GIT_DIR"), repositoryVariables(slow, given))
+        val pid = ProcessHandle.of(pidFile.readText().trim().toLong())
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (pid.isPresent && pid.get().isAlive && System.nanoTime() < deadline) Thread.sleep(20)
+        assertFalse(pid.isPresent && pid.get().isAlive, "git was killed")
+    }
+
+    @Test
+    fun `asking git keeps an interrupt of the thread`() {
+        val given = mapOf("PATH" to "/usr/bin:/bin", "GIT_DIR" to "/x")
+        val sleeping = scripted("exec sleep 5")
+
+        Thread.currentThread().interrupt()
+        val variables = repositoryVariables(sleeping, given)
+        val kept = Thread.interrupted()
+
+        assertEquals(setOf("GIT_DIR"), variables)
+        assertTrue(kept, "the interrupt is kept")
+    }
+
     @Test
     fun `reads run no core_fsmonitor hook of the repository, but keep git's own daemon and writes as they are`() {
         val repo = repository("repo")
