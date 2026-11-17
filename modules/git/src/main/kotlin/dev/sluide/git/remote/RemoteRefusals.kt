@@ -67,7 +67,7 @@ internal fun repositoryRefusal(
     val match = shape?.matchEntire(url) ?: return UNSUPPORTED_URL
     val host = if (shape == HTTPS_URL) repository.host else repository.host.substringBefore(':')
     if (shape != FILE_URL && match.group("host") != host.lowercase()) return URL_MISMATCH
-    val path = match.group("path")?.removeSuffix("/") ?: return URL_MISMATCH
+    val path = match.group("path").orEmpty().removeSuffix("/")
     val names = listOf("${repository.owner}/${repository.name}", "${repository.owner}/${repository.name}.git")
     val matches =
         if (shape == FILE_URL) {
