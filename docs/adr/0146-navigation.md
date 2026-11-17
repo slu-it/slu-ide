@@ -31,7 +31,9 @@ which the Navigate menu shows too; a key must not act twice when both the editor
 - **The list** (`TargetChooser`, one per editor, shared by definitions and usages): `file.py:LINE` (1-based), then the
   path relative to the project folder, absolute outside it, and the trimmed text of the line: from the editor for its
   own file, for other files read on a logged background thread (`NamedThreads`), files over 10 MiB skipped, and set
-  when they arrive (the selection stays). Enter or a double-click jumps; Tab does not take an item here. An edit
+  when they arrive (the selection stays, by position: the update keeps the index; since
+  [0184](0184-preview-of-places-in-caret-lists.md) the list also shows a preview of the selected place under it).
+  Enter or a double-click jumps; Tab does not take an item here. An edit
   hides the list, as its places are of the text before.
 - **Shortcut+hover and Shortcut+click** (`DefinitionLink`): while Shortcut is held (a key press or release says, and
   so does each mouse move) and the mouse is over a name, the name gets the layer `ci-link` (an underline, not

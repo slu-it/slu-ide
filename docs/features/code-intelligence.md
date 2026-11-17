@@ -106,7 +106,8 @@ while the document is served. `ConfigProblemsModel`, `ConfigProblemsBanner`; ADR
   The declaration's line is shown at the top of the editor unless it is already fully in view (also in a tab just
   opened, once it is laid out, and for Back and Forward); near the end of the file the scroll stops short.
   Several (overloads, `posixpath.py` and `ntpath.py`) are offered in a list at the name: `file.py:LINE`, the path
-  (relative to the project, absolute outside it) and the line's text; **Enter** or a double-click jumps. None says
+  (relative to the project, absolute outside it) and the line's text; **Enter** or a double-click jumps, and under the
+  list a read-only, highlighted preview of the selected place's file shows (see Popups at the caret). None says
   "No declaration found" at the name until the next key or click. On macOS Ctrl+click still opens the context menu.
   A declaration the server names by a URI that is no file (the JDK or a library, `jdt://…`) is followed when the
   language's spec says how to fetch such a document (`libraryDocument`): the editor sends the spec's request, writes
@@ -118,7 +119,8 @@ while the document is served. `ConfigProblemsModel`, `ConfigProblemsBanner`; ADR
   noted or listed for it, and a text not yet written is not written.
 - **Find usages:** **Alt+F7** at the caret, **Navigate → Find Usages** or **Find Usages** in the context menu lists the
   usages of the name (without its declaration) at it: "Finding usages…" while the server answers, then those in the
-  file first, then by path and line, with each line's text. One usage is jumped to; none says "No usages found".
+  file first, then by path and line, with each line's text, and the preview of the selected usage under the list (as for
+  several declarations). One usage is jumped to; none says "No usages found".
 - **Occurrences:** the caret resting on a name for 0.3 s highlights its occurrences in the file, a warmer background
   where it is assigned; moving off the name clears them.
 - **Back and Forward:** **Navigate → Back** (Shortcut+Alt+Left) returns to where the last jump started, also in
@@ -236,6 +238,14 @@ Lists that open at the caret (completion, choosers, usages, quick fixes) share o
 feature allows it) takes the item, **Escape** closes; a click selects, a double-click takes. It shows "Searching…" or
 "No results" while it has no items, and hides on a click outside, when the editor scrolls or loses the focus, and when
 the window moves or is minimized.
+
+The list of usages and of several declarations shows a **preview** under it, in the same popup (232 px high, the list's
+600 px wide) while it has items: the selected place's file, read-only and highlighted in the editor font (the unsaved
+text of an editor of that file in this window, else the file; up to 10 MiB), the place's line revealed with up to five
+lines around it and the name there marked. Up/Down, Page Up/Page Down, Home/End and a click in the list move it along;
+a click in the preview does nothing and the focus stays in the editor; the mouse wheel scrolls it. It is hidden while
+the popup shows only "Finding usages…" or a note, and the popup moves above the caret when it does not fit below.
+Completion and the other popups have none.
 
 ## Context menu
 The editor's own items come first, then the features' in this order: **Go to Definition**, **Find Usages**,
