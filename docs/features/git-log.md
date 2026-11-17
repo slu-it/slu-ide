@@ -273,8 +273,8 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     Shortcut+Backspace) | `Fetch`, for exactly one selected remote. They are greyed out only while another write runs,
     not by a pending merge, rebase or pick (see Remotes below). An item that never applies is left out (Rename on a tag, Checkout, Rebase and Merge on the current branch,
     Pull on a local branch, Compare while `HEAD` has no commit); an item that applies but is blocked for now (an
-    operation runs, a rebase or merge waits) stays, greyed out. A group and a mixed selection have no items, so no
-    menu opens (a stash selection has its own menu). Checkout is left out for `HEAD`, the current branch, a remote
+    operation runs, a rebase or merge waits) stays, greyed out. A group (but Remote once the remotes are read) and a mixed
+    selection have no items, so no menu opens (a stash selection has its own menu). Checkout is left out for `HEAD`, the current branch, a remote
     branch whose local branch of the same name is the current one, folders, groups and several; Delete as soon as the selection holds the current branch, `HEAD`,
     `<remote>/HEAD`, a protected remote branch (`main`, `master`, as for Force Push), a folder, a group, a remote branch
     of a remote that is not configured, or remote branches together with local branches or tags. A local branch is
@@ -517,7 +517,7 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     port stay the same, else "Enter the credentials for the new host, or remove them."; a field with several values is
     disabled ("Several URLs are configured; change them in a terminal."). "Changed the URL of origin." ("URLs" for both).
   - **Remove** (alert "Remove Remote", "Remove remote 'upstream'?"): says what is lost, e.g. "Its 12 remote branches
-    are deleted locally.", "2 local branches (main, fix) lose their upstream.", the push default, and "Its URL is
+    are deleted locally.", "2 local branches (main and fix) lose their upstream.", the push default, and "Its URL is
     removed. This cannot be undone."; Cancel is the default. "Removed remote upstream."
   - Failures open "Add Remote Failed", "Rename Remote Failed", "Remove Remote Failed" or "Change URL Failed" with git's
     message. Not here: a Git menu entry, several remotes at once, editing refspecs, removing the leftover branches of a

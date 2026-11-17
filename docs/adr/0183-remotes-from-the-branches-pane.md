@@ -43,7 +43,8 @@ open the error dialog with git's message: "Add Remote Failed", "Rename Remote Fa
   (`refusal`), "A remote named 'x' already exists.", and "'a/b' conflicts with the remote 'a'." for a name that is a
   path prefix of an existing remote or has one as its prefix. `git remote add` refuses such conflicts itself, but
   `git remote rename` does not, so the check is ours for both. Names and URLs are passed after `--end-of-options`
-  (measured: add, rename, set-url and remove accept it), so a leading `-` is harmless.
+  (measured: add, rename, set-url and remove accept it), so a URL starting with `-` is harmless; a name starting with
+  `-` is refused all the same, as everywhere in the log (`refusal`).
 - **Add Remote** (title "Add Remote", button "Add"): Name (prefilled and selected as `origin` when the repository has
   no remote, else empty), URL (problem "Enter a URL." when blank) and the check box "Fetch after adding" (checked;
   nothing is remembered). `git remote add`; if checked, the same as Fetch of that remote (cancellable, with its
@@ -61,7 +62,7 @@ open the error dialog with git's message: "Add Remote Failed", "Rename Remote Fa
   branches could not be moved." with git's message. Header: "Renamed remote origin to upstream."
 - **Remove** (alert "Remove Remote", header "Remove remote 'upstream'?", buttons Remove and Cancel, Cancel default and
   focused): one line per consequence, left out when zero: "Its 12 remote branches are deleted locally." ("Its 1
-  remote branch is …"), "2 local branches (main, fix) lose their upstream." (the list capped as other branch lists:
+  remote branch is …"), "2 local branches (main and fix) lose their upstream." (the list capped as other branch lists:
   "a, b, c and 2 more"), "upstream is no longer the default push remote.", and always "Its URL is removed. This
   cannot be undone." The numbers are read fresh off the FX thread before the alert and follow git's own rule: the refs
   under `refs/remotes/` that a positive fetch refspec of the remote maps to, minus the negative ones, minus refs
