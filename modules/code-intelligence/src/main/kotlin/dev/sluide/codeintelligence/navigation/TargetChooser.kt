@@ -19,8 +19,20 @@ internal class TargetChooser(
 
     private var reading: AutoCloseable? = null
 
+    /** The place the view was last told to preview; `null` while it shows none. */
+    private var previewed: SourcePosition? = null
+
     init {
         view.onChoose = { target -> navigation.jump(binding, target.position) }
+        view.onSelected = { target ->
+            val position = target?.position
+            // Not again for the same place: the line texts' update, or a reselect, must not reload the preview and
+            // scroll it back after the user scrolled it.
+            if (position != previewed) {
+                previewed = position
+                view.preview(position)
+            }
+        }
         view.onHidden = {
             stopReading()
             onHidden()
@@ -54,6 +66,8 @@ internal class TargetChooser(
         positions: List<SourcePosition>,
     ) {
         stopReading()
+        // Items come only from here: a new list previews its first place also if the old one showed it.
+        previewed = null
         val targets = positions.map { NavigationTarget(it, ownLine(it)) }
         view.show(range, targets, "No results")
         val unread = targets.filter { it.lineText == null }.map { it.position }

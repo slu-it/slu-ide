@@ -698,6 +698,59 @@ class NavigationFlowTest {
         assertEquals(listOf(SourcePosition(other, 1, 0)), opened)
     }
 
+    private val stub get() = folder.resolve("os.pyi")
+
+    private fun twoUsages() {
+        server.referencesAnswer = { listOf(location(stub, 4, 0), location(file, 2, 4)) }
+    }
+
+    @Test
+    fun `the selection drives the preview, once for each position`() {
+        val editor = editor(caret = 8)
+        twoUsages()
+        usagesAtCaret(editor)
+        awaitTrue("chooser") { fx.onFx { view.items.isNotEmpty() } }
+        // The editor's own file is listed first.
+        assertEquals(listOf<SourcePosition?>(SourcePosition(file, 2, 4)), view.previewed, "the first one shows")
+
+        fx.onFx { view.select(1) }
+        assertEquals(SourcePosition(stub, 4, 0), view.previewed.last())
+        assertEquals(2, view.previewed.size)
+        fx.onFx { view.select(1) }
+        assertEquals(2, view.previewed.size, "the same position is not shown again")
+        fx.onFx { view.onSelected(null) }
+        assertEquals(listOf(null), view.previewed.takeLast(1), "no item: the preview is emptied")
+    }
+
+    @Test
+    fun `line texts arriving for the list do not preview again`() {
+        val editor = editor(caret = 8)
+        deferLines = true
+        twoUsages()
+        usagesAtCaret(editor)
+        awaitTrue("chooser") { fx.onFx { view.items.isNotEmpty() } }
+        fx.onFx { view.select(1) }
+        assertEquals(2, view.previewed.size)
+
+        fx.onFx { deferredLines.single()() }
+        assertEquals("line 4 of os.pyi", fx.onFx { view.items[1].lineText }, "the update arrived")
+        fx.onFx { view.onSelected(view.items[1]) }
+        assertEquals(2, view.previewed.size, "the update's copies are the same positions")
+    }
+
+    @Test
+    fun `a new list previews its first place again, also when the list before showed it`() {
+        val editor = editor(caret = 8)
+        server.definitionAnswer = { listOf(location(file, 2, 4), location(stub, 4, 0)) }
+        definitionAtCaret(editor)
+        awaitTrue("chooser") { fx.onFx { view.items.isNotEmpty() } }
+        assertEquals(1, view.previewed.size)
+
+        definitionAtCaret(editor)
+        awaitTrue("again") { view.previewed.size == 2 }
+        assertEquals(SourcePosition(file, 2, 4), view.previewed.last(), "the new list's first place")
+    }
+
     @Test
     fun `line texts that arrive after the list hid are not shown`() {
         val stub = folder.resolve("os.pyi")
@@ -709,48 +762,5 @@ class NavigationFlowTest {
         fx.onFx { view.hide() }
         fx.onFx { deferredLines.single()() }
         assertEquals(null, fx.onFx { view.items.first().lineText }, "the hidden list kept its items")
-    }
-}
-
-/** A [TargetView] that records what it shows. */
-internal class FakeTargetView : TargetView {
-    override var isShowing = false
-    override var onChoose: (NavigationTarget) -> Unit = {}
-    override var onHidden: () -> Unit = {}
-    var range: IntRange? = null
-    var items: List<NavigationTarget> = emptyList()
-    var placeholder: String? = null
-    var note = false
-
-    override fun show(
-        range: IntRange,
-        items: List<NavigationTarget>,
-        placeholder: String,
-        note: Boolean,
-    ) {
-        this.range = range
-        this.items = items
-        this.placeholder = placeholder
-        this.note = note
-        isShowing = true
-    }
-
-    override fun update(items: List<NavigationTarget>) {
-        this.items = items
-    }
-
-    override fun hide() {
-        if (!isShowing) return
-        isShowing = false
-        onHidden()
-    }
-
-    override fun close() = hide()
-
-    /** Takes the item at [index], as Enter would. */
-    fun choose(index: Int) {
-        val target = items[index]
-        hide()
-        onChoose(target)
     }
 }

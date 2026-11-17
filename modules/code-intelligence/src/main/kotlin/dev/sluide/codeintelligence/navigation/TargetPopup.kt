@@ -1,5 +1,6 @@
 package dev.sluide.codeintelligence.navigation
 
+import dev.sluide.codeintelligence.binding.SourcePosition
 import dev.sluide.codeintelligence.ui.CaretPopup
 import dev.sluide.fileviewers.ExtensibleCodeEditor
 import javafx.scene.input.KeyEvent
@@ -15,6 +16,9 @@ internal interface TargetView : AutoCloseable {
     /** Told after the view hid, by any cause. */
     var onHidden: () -> Unit
 
+    /** Told when the selected item changed (a key, a click) and when the list shows; `null` without items. */
+    var onSelected: (NavigationTarget?) -> Unit
+
     /**
      * Shows [items] at the text [range] (`start until end`), [placeholder] while there are none, replacing what shows.
      * A [note] (a placeholder only) also hides on the next key press.
@@ -29,6 +33,9 @@ internal interface TargetView : AutoCloseable {
     /** Replaces the items of the shown list, keeping the selection (the line texts arrived). */
     fun update(items: List<NavigationTarget>)
 
+    /** Shows the code at [position] under the list, `null` for nothing. */
+    fun preview(position: SourcePosition?)
+
     fun hide()
 }
 
@@ -38,6 +45,9 @@ internal class TargetPopup(
 ) : TargetView {
     override var onChoose: (NavigationTarget) -> Unit = {}
     override var onHidden: () -> Unit = {}
+    override var onSelected: (NavigationTarget?) -> Unit = {}
+
+    override fun preview(position: SourcePosition?) {}
 
     private val popup =
         CaretPopup<NavigationTarget>(
