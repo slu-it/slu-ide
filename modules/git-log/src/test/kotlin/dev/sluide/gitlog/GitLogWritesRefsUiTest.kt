@@ -6,6 +6,7 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.branches.BranchMenuEntry
+import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.operations.CHECKOUT_BUTTON
 import dev.sluide.gitlog.operations.CREATE_BUTTON
 import dev.sluide.gitlog.operations.DELETE_BUTTON
@@ -20,6 +21,7 @@ import javafx.scene.control.DialogPane
 import javafx.scene.control.Label
 import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
+import javafx.scene.control.TreeCell
 import javafx.scene.input.KeyCode
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -512,5 +514,30 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         assertEquals(setOf("sluide-git-write"), writes.threads.toSet())
         assertFalse(cancelShown())
         assertNoDialog()
+    }
+
+    private fun tooltipOf(path: String): String? =
+        branches.tree
+            .lookupAll(".tree-cell")
+            .filterIsInstance<TreeCell<*>>()
+            .single { (it.item as? BranchNode)?.path == path }
+            .tooltip
+            ?.text
+
+    @Test
+    fun `a configured remote without branches is in the tree with its location as tooltip, which a refresh updates`(
+        robot: FxRobot,
+    ) {
+        currentRemotes = listOf("origin", "upstream")
+        currentRemoteLocations = mapOf("origin" to "https://github.com", "upstream" to "ssh example.org")
+        openAndExpand(robot)
+
+        eventually { assertEquals("ssh example.org", tooltipOf("Remote/upstream")) }
+        assertEquals("https://github.com", tooltipOf("Remote/origin"))
+
+        currentRemoteLocations = mapOf("origin" to "https://github.com", "upstream" to "Local repository")
+        robot.interact { view.refresh() }
+
+        eventually { assertEquals("Local repository", tooltipOf("Remote/upstream")) }
     }
 }

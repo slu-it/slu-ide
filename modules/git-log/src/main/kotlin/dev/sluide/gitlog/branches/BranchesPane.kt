@@ -15,7 +15,6 @@ import dev.sluide.gitlog.data.TAGS
 import dev.sluide.gitlog.data.branchNodes
 import dev.sluide.gitlog.data.filterBranches
 import dev.sluide.gitlog.operations.BranchActions
-import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.ui.COPY
 import dev.sluide.gitlog.ui.refStyleClass
 import javafx.animation.Animation
@@ -71,12 +70,18 @@ internal class BranchesPane : BorderPane() {
     /** What the context menu does; set once by the owner. */
     var commands = BranchCommands()
 
-    /** The names of all remotes, to tell which one a node belongs to for Fetch; empty while not known. */
-    var remotes: List<String> = emptyList()
-        set(value) {
+    /**
+     * The names of all remotes, to tell which one a node is or belongs to; `null` while they are not read. [show]
+     * sets them with the refs, as the tree lists them.
+     */
+    var remotes: List<String>? = null
+        private set(value) {
             field = value
             updateActions()
         }
+
+    /** Where each remote is (`https://github.com`), by name, shown when hovering its node; empty while not known. */
+    private var remoteLocations: Map<String, String> = emptyMap()
 
     /** Whether an operation that changes the repository runs, during which no other can start. */
     val writing: BooleanProperty = SimpleBooleanProperty(false)
@@ -243,18 +248,27 @@ internal class BranchesPane : BorderPane() {
     }
 
     /**
-     * Shows the tree of [refs] (`null`: they could not be read) with the [stashes] (ADR 0107), keeping the selection
-     * and collapsed nodes.
+     * Shows the tree of [refs] (`null`: they could not be read) with the [stashes] (ADR 0107) and the [remotes] (`null`:
+     * not read) with their [remoteLocations], keeping the selection and collapsed nodes.
      */
     fun show(
         refs: GitRefs?,
         stashes: List<GitStash>? = null,
+        remotes: List<String>? = null,
+        remoteLocations: Map<String, String>? = null,
     ) {
-        if (loaded && refs == this.refs && stashes == this.stashes) return
+        val locations = remoteLocations.orEmpty()
+        if (loaded && refs == this.refs && stashes == this.stashes && remotes == this.remotes &&
+            locations == this.remoteLocations
+        ) {
+            return
+        }
         loaded = true
         this.refs = refs
         this.stashes = stashes
-        nodes = refs?.let { branchNodes(it, stashes.orEmpty()) }.orEmpty()
+        this.remoteLocations = locations
+        this.remotes = remotes
+        nodes = refs?.let { branchNodes(it, stashes.orEmpty(), remotes) }.orEmpty()
         rebuild(top = null)
     }
 
@@ -330,6 +344,7 @@ internal class BranchesPane : BorderPane() {
         TreeItem(node).apply {
             when (node) {
                 is BranchParent -> {
+                    keyOf(node)?.let { leaves[it] = this }
                     children.setAll(node.children.map { item(it, leaves) })
                     isExpanded = searching || node.path !in collapsed
                     expandedProperty().subscribe { _, expanded ->
@@ -345,11 +360,12 @@ internal class BranchesPane : BorderPane() {
             }
         }
 
-    /** What keeps a leaf selected across rebuilds: a ref's name, a stash's commit; `null` for parents. */
+    /** What keeps a node selected across rebuilds: a ref's name, a stash's commit, a remote's path; `null` otherwise. */
     private fun keyOf(node: BranchNode): String? =
         when (node) {
             is BranchLeaf -> node.ref.name
             is BranchStash -> "stash ${node.stash.commit}"
+            is BranchRemote -> "remote ${node.path}"
             is BranchParent -> null
         }
 
@@ -419,12 +435,24 @@ internal class BranchesPane : BorderPane() {
     private fun actions(): BranchActions = menuActions(selectedNodes(), refs, remotes, writing.get(), busy.get())
 
     private fun renameSelected(): Boolean {
-        val ref = actions().rename ?: return false
-        commands.rename(ref)
+        val actions = actions()
+        val ref = actions.rename
+        val remote = actions.renameRemote
+        when {
+            ref != null -> commands.rename(ref)
+            remote != null -> commands.renameRemote(remote)
+            else -> return false
+        }
         return true
     }
 
-    private fun deleteSelected(): Boolean = deleteWith(actions(), commands)
+    private fun deleteSelected(): Boolean {
+        val actions = actions()
+        if (deleteWith(actions, commands)) return true
+        val remote = actions.removeRemote ?: return false
+        commands.removeRemote(remote)
+        return true
+    }
 
     private fun updateActions() = menu.update()
 
@@ -464,6 +492,9 @@ internal class BranchesPane : BorderPane() {
 
                 is BranchRemote, is BranchFolder -> {
                     showIcon(MaterialDesignF.FOLDER_OUTLINE, "git-branch-folder-icon")
+                    if (item is BranchRemote) {
+                        remoteLocations[item.name]?.let { tooltip = Tooltip(it) }
+                    }
                 }
 
                 is BranchLeaf -> {

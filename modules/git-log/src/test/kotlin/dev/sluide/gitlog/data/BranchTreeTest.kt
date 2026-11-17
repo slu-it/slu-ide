@@ -199,6 +199,16 @@ class BranchTreeTest {
     }
 
     @Test
+    fun `a remote whose name starts another keeps only the branches below its own name`() {
+        val refs = GitRefs(listOf(remote("team/a/main"), remote("team/x")), null)
+
+        assertEquals(
+            listOf("Remote/", "  team/", "    x", "  team/a/", "    main"),
+            lines(branchNodes(refs, remotes = listOf("team", "team/a"))),
+        )
+    }
+
+    @Test
     fun `without the remotes read the tree is built from the remote branches alone`() {
         val refs = GitRefs(listOf(remote("team/a/main"), remote("origin/main")), null)
 

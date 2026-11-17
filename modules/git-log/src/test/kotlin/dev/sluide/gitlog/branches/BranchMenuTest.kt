@@ -406,9 +406,9 @@ class BranchMenuTest {
         assertEquals(listOf("Add Remote…", "Fetch All Remotes"), shown.flatten().map { it.text })
         assertTrue(remoteEntries("Remote", remotes = null).isEmpty())
         assertEquals(
-            listOf(listOf(BranchMenuEntry.ADD_REMOTE), listOf(BranchMenuEntry.FETCH)),
+            listOf(listOf(BranchMenuEntry.ADD_REMOTE)),
             remoteEntries("Remote", remotes = emptyList()).entries(),
-            "also without any remote",
+            "without any remote there is nothing to fetch",
         )
     }
 

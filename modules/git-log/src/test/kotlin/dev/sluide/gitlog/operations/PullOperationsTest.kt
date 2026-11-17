@@ -9,6 +9,7 @@ import dev.sluide.git.GitPullSources
 import dev.sluide.git.GitRebaseResult
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.data.FakeWrites
+import dev.sluide.gitlog.data.remoteOfBranch
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import java.nio.file.Path

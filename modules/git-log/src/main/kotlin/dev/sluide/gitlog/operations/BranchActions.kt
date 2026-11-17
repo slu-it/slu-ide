@@ -9,6 +9,7 @@ import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.data.BranchRemote
 import dev.sluide.gitlog.data.BranchStash
 import dev.sluide.gitlog.data.REMOTE
+import dev.sluide.gitlog.data.remoteOfBranch
 
 /** What the branches pane can do with its selection (ADR 0041); `null` (or empty) where it cannot. */
 internal data class BranchActions(
@@ -84,7 +85,7 @@ internal fun pullText(
 internal fun branchActions(
     selected: List<BranchNode>,
     currentBranch: String? = null,
-    remotes: List<String>? = emptyList(),
+    remotes: List<String>?,
     headCommit: String? = null,
 ): BranchActions {
     val known = remotes.orEmpty()
@@ -173,7 +174,7 @@ internal fun branchActions(
         deleteRemote = deleteRemote,
         pushTags = pushTags,
         addRemote = remoteGroup,
-        fetchAll = remoteGroup,
+        fetchAll = remoteGroup && known.isNotEmpty(),
         renameRemote = configured,
         changeRemoteUrls = configured,
         removeRemote = configured,
@@ -195,15 +196,6 @@ private fun pullable(
     val remote = remoteOfBranch(ref.shortName, remotes) ?: return false
     return ref.shortName != "$remote/HEAD"
 }
-
-/**
- * The remote of the remote branch [shortName] (`origin/main`) among the [remotes]: the longest whose name and `/`
- * start it (`team/a` for `team/a/main`); `null` for none, e.g. a remote that was removed.
- */
-internal fun remoteOfBranch(
-    shortName: String,
-    remotes: List<String>,
-): String? = remotes.filter { shortName.startsWith("$it/") }.maxByOrNull { it.length }
 
 /**
  * The remote of [node] among the [remotes], the longest that matches: a remote or folder node below Remote is that

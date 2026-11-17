@@ -7,6 +7,7 @@ import dev.sluide.git.GitPullSources
 import dev.sluide.git.GitRebaseResult
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.data.GitLogWrites
+import dev.sluide.gitlog.data.remoteOfBranch
 import java.nio.file.Path
 
 /**

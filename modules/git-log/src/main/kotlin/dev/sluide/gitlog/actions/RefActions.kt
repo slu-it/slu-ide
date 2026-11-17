@@ -11,6 +11,7 @@ import dev.sluide.git.defaultMergeMessage
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogWrites
+import dev.sluide.gitlog.data.remoteOfBranch
 import dev.sluide.gitlog.operations.ABORT_MERGE_BUTTON
 import dev.sluide.gitlog.operations.ABORT_REBASE_BUTTON
 import dev.sluide.gitlog.operations.AbortMerge
@@ -69,7 +70,6 @@ import dev.sluide.gitlog.operations.pullRefusedAlert
 import dev.sluide.gitlog.operations.pushTagsConfirmation
 import dev.sluide.gitlog.operations.rebaseStoppedDialog
 import dev.sluide.gitlog.operations.refConfirmation
-import dev.sluide.gitlog.operations.remoteOfBranch
 import dev.sluide.gitlog.operations.resetDescription
 import dev.sluide.gitlog.operations.resetTitle
 import dev.sluide.gitlog.operations.startedInPush

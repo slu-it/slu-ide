@@ -4,7 +4,6 @@ import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitStash
-import dev.sluide.gitlog.operations.remoteOfBranch
 
 /**
  * A node of the branches pane's tree (ADR 0040). [path] identifies it across rebuilds, e.g. to keep it collapsed:
@@ -224,3 +223,12 @@ private class NameFolder {
 }
 
 private val BY_NAME = compareBy<BranchNode, String>(String.CASE_INSENSITIVE_ORDER) { it.name }.thenBy { it.name }
+
+/**
+ * The remote of the remote branch [shortName] (`origin/main`) among the [remotes]: the longest whose name and `/`
+ * start it (`team/a` for `team/a/main`); `null` for none, e.g. a remote that was removed.
+ */
+internal fun remoteOfBranch(
+    shortName: String,
+    remotes: List<String>,
+): String? = remotes.filter { shortName.startsWith("$it/") }.maxByOrNull { it.length }

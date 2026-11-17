@@ -246,7 +246,7 @@ class FetchOperationsTest {
         assertNull(fetch("Local/main"))
         assertNull(fetch("Tags/v1"))
         assertNull(fetch("Remote/origin", "Remote/old"))
-        assertNull(branchActions(listOf(node("Remote/origin"))).fetch, "remotes not known")
+        assertNull(branchActions(listOf(node("Remote/origin")), remotes = null).fetch, "remotes not known")
         assertEquals(
             "team/a",
             branchActions(listOf(node("Remote/team/a/fix")), remotes = listOf("team", "team/a")).fetch,

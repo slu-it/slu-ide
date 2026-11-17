@@ -38,14 +38,14 @@ class RefOperationsTest {
 
     private fun node(path: String): BranchNode = nodeAt(nodes, path)
 
-    private fun actions(vararg paths: String) = branchActions(paths.map(::node))
+    private fun actions(vararg paths: String) = branchActions(paths.map(::node), remotes = emptyList())
 
     private fun rebase(
         vararg paths: String,
         current: String? = "refs/heads/main",
         head: String? = "h1",
     ): RebaseBranch? {
-        val actions = branchActions(paths.map(::node), current, headCommit = head)
+        val actions = branchActions(paths.map(::node), current, emptyList(), headCommit = head)
         // Merge is offered exactly where rebase is, with the same branch (ADR 0105).
         assertEquals(actions.rebase?.onto, actions.merge?.name)
         return actions.rebase
@@ -63,7 +63,7 @@ class RefOperationsTest {
         assertNull(rebase("Local/feature"), "a folder")
         assertNull(rebase("Local/feature/a", head = "h2"), "already at HEAD's commit")
         assertNull(rebase("Local/feature/a", "Local/feature/b"), "several")
-        assertNull(branchActions(listOf(node("Local/feature/a"))).rebase, "no HEAD commit given")
+        assertNull(branchActions(listOf(node("Local/feature/a")), remotes = emptyList()).rebase, "no HEAD commit given")
     }
 
     @Test
@@ -84,7 +84,7 @@ class RefOperationsTest {
         assertEquals(CheckoutBranch("feature/a"), actions("Local/feature/a").checkout)
         assertEquals(CheckoutRemote(ref("refs/remotes/origin/fix")), actions("Remote/origin/fix").checkout)
         assertNull(
-            branchActions(listOf(node("Remote/origin/fix")), "refs/heads/fix").checkout,
+            branchActions(listOf(node("Remote/origin/fix")), "refs/heads/fix", emptyList()).checkout,
             "its local branch is the current one",
         )
         assertEquals(CheckoutRevision("refs/tags/v1", "v1"), actions("Tags/v1").checkout)
@@ -117,7 +117,10 @@ class RefOperationsTest {
         assertEquals(ref("refs/tags/v1"), actions("Tags/v1").compare)
         assertNull(actions("Local/main").compare, "the current branch")
         assertNull(actions("HEAD").compare)
-        assertNull(branchActions(listOf(branchNodes(GitRefs(refs.refs, null)).first())).compare, "a detached HEAD")
+        assertNull(
+            branchActions(listOf(branchNodes(GitRefs(refs.refs, null)).first()), remotes = emptyList()).compare,
+            "a detached HEAD",
+        )
         assertNull(actions("Local/feature").compare)
         assertNull(actions("Local/feature/a", "Tags/v1").compare)
 
@@ -140,19 +143,23 @@ class RefOperationsTest {
         assertEquals(emptyList(), actions("HEAD").delete)
         assertEquals(emptyList(), actions("Local/feature").delete)
         assertEquals(emptyList(), actions("Local/feature/a", "Local/feature").delete)
-        assertEquals(emptyList(), branchActions(emptyList()).delete)
+        assertEquals(emptyList(), branchActions(emptyList(), remotes = emptyList()).delete)
     }
 
     @Test
     fun `a detached HEAD is not current, but HEAD is still not checked out or deleted`() {
         val detached = GitRefs(refs.refs, currentBranch = null)
         val head = branchNodes(detached).first()
-        val actions = branchActions(listOf(head))
+        val actions = branchActions(listOf(head), remotes = emptyList())
 
         assertNull(actions.checkout)
         assertEquals(emptyList(), actions.delete)
         val main = (branchNodes(detached)[1] as BranchGroup).children.single { it.name == "main" }
-        assertEquals(CheckoutBranch("main"), branchActions(listOf(main)).checkout, "no branch is current")
+        assertEquals(
+            CheckoutBranch("main"),
+            branchActions(listOf(main), remotes = emptyList()).checkout,
+            "no branch is current",
+        )
     }
 
     @Test

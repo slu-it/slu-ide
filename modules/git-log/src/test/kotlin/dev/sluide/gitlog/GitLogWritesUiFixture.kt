@@ -88,6 +88,10 @@ abstract class GitLogWritesUiFixture {
     @Volatile
     internal var currentRemotes: List<String>? = listOf("origin")
 
+    /** Where each remote is, as the source reads it; `null` when that cannot be read. */
+    @Volatile
+    internal var currentRemoteLocations: Map<String, String>? = null
+
     /** Counted down when a read of the remotes starts, before it waits for [remotesGate]. */
     @Volatile
     internal var remotesEntered: CountDownLatch? = null
@@ -220,6 +224,11 @@ abstract class GitLogWritesUiFixture {
                     remotesGate = null
                     return answer
                 }
+
+                override fun remoteLocations(
+                    root: Path,
+                    cancellation: GitCancellation?,
+                ) = currentRemoteLocations
 
                 override fun stashes(
                     root: Path,

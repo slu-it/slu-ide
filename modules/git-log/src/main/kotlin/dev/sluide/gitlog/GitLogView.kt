@@ -446,7 +446,6 @@ class GitLogView internal constructor(
                 GitLogState.IDLE -> {
                     pendingBar.show(null)
                     flags.noRemotes.set(false)
-                    branchesPane.remotes = emptyList()
                 }
 
                 GitLogState.LOADING -> {
@@ -455,12 +454,11 @@ class GitLogView internal constructor(
 
                 else -> {
                     readers.refsRead()
-                    branchesPane.show(pages.refs, pages.stashes)
+                    branchesPane.show(pages.refs, pages.stashes, pages.remotes, pages.remoteLocations)
                     compareBar.update()
                     pendingBar.show(pages.pending, pages.refs)
                     flags.noRemotes.set(pages.remotes?.isEmpty() == true)
                     quickActions.refsRead(pages.remotes, pages.refs, pages.stashes)
-                    branchesPane.remotes = pages.remotes.orEmpty()
                 }
             }
         }
