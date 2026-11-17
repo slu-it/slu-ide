@@ -310,6 +310,7 @@ internal class GitPushTargetTest : GitPushFixture() {
         assertEquals(fallback, tracking("main", "refs/heads/main"), "no destination")
         assertEquals(fallback, tracking("main", "^refs/heads/main:refs/remotes/origin/x"), "negative")
         assertEquals(fallback, tracking("main", "refs/heads/*:refs/remotes/origin/fixed"), "a star on one side only")
+        assertEquals(fallback, tracking("main", "refs/heads/*:heads/*"), "a destination outside refs/")
         assertEquals(fallback, tracking("main", "refs/heads/*-x:refs/remotes/origin/*"), "the suffix does not match")
         assertEquals("refs/remotes/o/n", tracking("main", "refs/heads/mai*:refs/remotes/o/*"))
         // The prefix and the suffix overlap in the source: too short for both.

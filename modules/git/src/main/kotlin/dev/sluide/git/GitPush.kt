@@ -548,7 +548,11 @@ class GitPush(
             val suffix = from.substringAfter('*')
             if ('*' !in to || source.length < prefix.length + suffix.length) return null
             if (!source.startsWith(prefix) || !source.endsWith(suffix)) return null
-            return to.replace("*", source.substring(prefix.length, source.length - suffix.length))
+            return to
+                .replace(
+                    "*",
+                    source.substring(prefix.length, source.length - suffix.length),
+                ).takeIf { it.startsWith("refs/") }
         }
 
         /** [refspec] with source and destination swapped, to map back ([remoteBranch]); `null` for a negative one. */
