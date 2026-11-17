@@ -8,14 +8,18 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.appendText
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 /** Runs the real git in temporary repositories; skipped if git is not installed. */
 class GitTrustCheckTest {
@@ -149,7 +153,9 @@ class GitTrustCheckTest {
         check.check(repo)
         assertTrue(check.inputs(repo) != null)
 
-        git("config", "include.path", "~someone-else/shared.cfg")
+        // git expands ~root (the home of another user) itself; the JVM cannot tell where that is.
+        assumeTrue(Files.readAllLines(Path.of("/etc/passwd")).any { it.startsWith("root:") }, "no user root")
+        git("config", "include.path", "~root/shared.cfg")
         check.check(repo)
 
         assertNull(check.inputs(repo))
@@ -294,6 +300,7 @@ class GitTrustCheckTest {
         assertEquals("a\nb", entries.single { it.key == "something.new" }.value)
         assertNull(entries.single { it.key == "other.flag" }.value)
         val bare = configFindings(entries).single { it.text.startsWith("other.flag") }
+        assertEquals("other.flag (.git/config)", bare.text)
         val nullText = configFindings(listOf(ConfigEntry("local", "file:.git/config", "other.flag", "null"))).single()
         assertNotEquals(bare.fingerprint, nullText.fingerprint)
     }
@@ -322,5 +329,170 @@ class GitTrustCheckTest {
         git("config", "core.worktree", "..")
 
         assertEquals(emptyList(), check.check(repo))
+    }
+
+    @Test
+    fun `without git nothing is found or recorded, and a folder that stops being a repository loses its inputs`() {
+        check.check(repo)
+        assertNotNull(check.inputs(repo))
+        val missing = GitTrustCheck(GitCli(folder.resolve("no-such-git").toString(), testGitEnvironment()))
+
+        assertEquals(emptyList(), missing.check(repo))
+        assertNull(missing.inputs(repo))
+
+        Files.move(repo.resolve(".git"), folder.resolve("moved-git"))
+        assertEquals(emptyList(), check.check(repo))
+        assertNull(check.inputs(repo), "what the earlier check read is dropped")
+    }
+
+    @Test
+    fun `a check that started earlier does not replace what a later one recorded`() {
+        val started = folder.resolve("started")
+        val go = folder.resolve("go")
+        git("config", "include.path", "../../extra.cfg")
+        // The first call that is not git's own start-up stops until `go` exists.
+        val script = folder.resolve("slow-first-git")
+        script.writeText(
+            FAKE_GIT_START +
+                "if [ ! -e '$started' ]; then touch '$started'; while [ ! -e '$go' ]; do sleep 0.05; done; fi\n" +
+                "exec git \"\$@\"\n",
+        )
+        script.toFile().setExecutable(true)
+        val slow = GitTrustCheck(GitCli(script.toString(), testGitEnvironment()))
+        val first = CompletableFuture.supplyAsync { slow.check(repo) }
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+        while (!started.toFile().exists()) {
+            if (System.nanoTime() > deadline) fail("the first check did not start")
+            Thread.sleep(20)
+        }
+
+        slow.check(repo)
+        assertTrue(folder.resolve("extra.cfg") in slow.inputs(repo)!!.files, "the later check read the include")
+        // The earlier one reads the configuration only now, without the include.
+        git("config", "--unset", "include.path")
+        go.writeText("")
+        first.get(10, TimeUnit.SECONDS)
+
+        assertTrue(folder.resolve("extra.cfg") in slow.inputs(repo)!!.files, "the later check's inputs stay")
+    }
+
+    /** The repository at [directory] with the gitlinks [names] in its index. */
+    private fun withSubmodules(
+        directory: Path,
+        vararg names: String,
+    ) {
+        git("init", "-q", "-b", "main", directory = directory.createDirectories())
+        for (name in names) {
+            git("update-index", "--add", "--cacheinfo", "160000,${"1".repeat(40)},$name", directory = directory)
+        }
+    }
+
+    @Test
+    fun `fifty repositories are checked, more than that and submodules nested deeper than five are not`() {
+        val many = folder.resolve("many")
+        val names = (1..50).map { "s$it" }
+        withSubmodules(many, *names.take(49).toTypedArray())
+        for (name in names.take(49)) git("init", "-q", "-b", "main", directory = many.resolve(name).createDirectories())
+        assertNotNull(check.check(many), "the opened one and 49")
+        git("init", "-q", "-b", "main", directory = many.resolve("s50").createDirectories())
+        git("update-index", "--add", "--cacheinfo", "160000,${"1".repeat(40)},s50", directory = many)
+        assertNull(check.check(many), "the opened one and 50")
+
+        fun chain(depth: Int): Path {
+            val top = folder.resolve("chain$depth")
+            var directory = top
+            repeat(depth) {
+                withSubmodules(directory, "sub")
+                directory = directory.resolve("sub")
+            }
+            git("init", "-q", "-b", "main", directory = directory.createDirectories())
+            return top
+        }
+        assertNotNull(check.check(chain(5)), "five levels")
+        assertNull(check.check(chain(6)), "six levels")
+    }
+
+    @Test
+    fun `git failing to name files or list submodules, or an unreadable hooks folder, is no check`() {
+        assertNotNull(check.check(repo))
+
+        assertNull(GitTrustCheck(failingGit(folder, "--git-path")).check(repo), "git paths")
+        assertNull(GitTrustCheck(failingGit(folder, "--stage")).check(repo), "gitlinks")
+
+        val hooks = repo.resolve(".git/hooks")
+        hooks.toFile().setReadable(false)
+        try {
+            assumeTrue(!Files.isReadable(hooks), "permissions are not enforced (root)")
+            assertNull(check.check(repo), "a hooks folder that cannot be read")
+        } finally {
+            hooks.toFile().setReadable(true)
+        }
+    }
+
+    @Test
+    fun `a missing hooks folder has no hooks`() {
+        repo.resolve(".git/hooks").toFile().deleteRecursively()
+
+        assertEquals(emptyList(), check.check(repo))
+    }
+
+    @Test
+    fun `a hooks path the repository sets to a folder elsewhere is checked with the hook's whole path`() {
+        val elsewhere = folder.resolve("elsewhere")
+        hook("pre-commit", folder = elsewhere)
+        git("config", "core.hooksPath", elsewhere.toString())
+
+        val findings = check.check(repo)!!
+
+        assertEquals(
+            listOf("core.hookspath = $elsewhere (.git/config)", "hook pre-commit ($elsewhere/pre-commit)"),
+            findings.map { it.text },
+        )
+    }
+
+    @Test
+    fun `a work tree is elsewhere when git cannot say where the top level is`() {
+        git("config", "core.worktree", "..")
+        assertEquals(emptyList(), check.check(repo))
+
+        assertEquals(
+            listOf("core.worktree = .. (.git/config)"),
+            GitTrustCheck(failingGit(folder, "--show-toplevel")).check(repo)!!.map { it.text },
+        )
+    }
+
+    @Test
+    fun `the inputs have the submodule folders not checked out, not the user's files, and only includes name more`() {
+        git("config", "user.name", "Test")
+        git("update-index", "--add", "--cacheinfo", "160000,${"1".repeat(40)},lib")
+        val global = folder.resolve("global.cfg").apply { writeText("[user]\n\temail = a@b.c\n") }
+        val userCheck = GitTrustCheck(GitCli("git", testGitEnvironment() + ("GIT_CONFIG_GLOBAL" to global.toString())))
+
+        userCheck.check(repo)
+        val inputs = userCheck.inputs(repo)!!
+
+        assertTrue(repo.resolve("lib/.git") in inputs.redirects, "a submodule not checked out yet: its .git is watched")
+        assertTrue(global !in inputs.files, "the user's own files are not the repository's")
+        assertTrue(inputs.files.none { it.fileName.toString() == "Test" }, "no include path: ${inputs.files}")
+    }
+
+    @Test
+    fun `an include in the user's home is an input`() {
+        git("config", "include.path", "~/shared-by-test.cfg")
+
+        check.check(repo)
+
+        val home = Path.of(System.getProperty("user.home")).resolve("shared-by-test.cfg")
+        assertTrue(home in check.inputs(repo)!!.files)
+    }
+
+    @Test
+    fun `a file below the folder is shown relative to it, one elsewhere as it is`() {
+        fun entry(file: String) = ConfigEntry("local", "file:$file", "something.new", "x")
+
+        assertEquals(
+            listOf("something.new = x (a.cfg)", "something.new = x (/outside/a.cfg)"),
+            configFindings(listOf(entry("$repo/a.cfg"), entry("/outside/a.cfg")), repo).map { it.text },
+        )
     }
 }
