@@ -93,8 +93,10 @@ class GitPush(
 
     /**
      * The full refname of the remote-tracking ref where git keeps `refs/heads/<branch>` of [remote]: the first of
-     * `remote.<remote>.fetch` that maps it (the usual glob refspec or an exact one), else
-     * `refs/remotes/<remote>/<branch>`. Whether the ref exists is another matter ([outgoing]).
+     * `remote.<remote>.fetch` that maps it to a ref under `refs/` (the usual glob refspec or an exact one), else
+     * `refs/remotes/<remote>/<branch>`. A destination outside `refs/` is skipped as git does: with a glob refspec from
+     * `refs/heads/` to `heads/`, `git fetch` (2.56.1) prints "Ignoring funny ref 'heads/main' locally" and writes nothing.
+     * Whether the ref exists is another matter ([outgoing]).
      */
     fun trackingRef(
         root: Path,
@@ -534,7 +536,10 @@ class GitPush(
             return destination.prefix.dropLast(1) + "[" + destination.prefix.last() + "]"
         }
 
-        /** Where [refspec] (`[+]<src>:<dst>`, a star in both or none) writes the ref [source]; `null` if it does not. */
+        /**
+         * Where [refspec] (`[+]<src>:<dst>`, a star in both or none) writes the ref [source]; `null` if it does not, or
+         * if the destination is outside `refs/`, which git ignores when it fetches ([trackingRef]).
+         */
         fun mapped(
             refspec: String,
             source: String,

@@ -372,6 +372,8 @@ internal class GitPushTargetTest : GitPushFixture() {
 
     @Test
     fun `a symbolic ref in place of the tracking ref is no tracked branch and excludes nothing`() {
+        // Crafted on purpose: no git command but symbolic-ref makes a remote-tracking symref to a local branch, and
+        // refTips skips symbolic refs, so this is the one way an untracked tracking ref still resolves.
         val second = commit("Second")
         git("config", "--replace-all", "remote.origin.fetch", "+refs/heads/main:refs/remotes/origin/main")
         git("symbolic-ref", "refs/remotes/origin/feature", "refs/heads/main")
