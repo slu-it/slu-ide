@@ -37,7 +37,7 @@ private class Run(
 /**
  * The logic of the Read Aloud tab, without the toolkit (ADR 0084): the text, voice and speed of a window, the reading
  * and what the view shows of it ([ui]). FX thread only; the view owns [onChange] until it is disposed. The model
- * outlives the tab: closing the tab calls [stop].
+ * outlives the tab: closing the tab calls [close].
  *
  * With [ownsText] (the tool tab) the model holds the text and [play] reads it. An editor holds its own text instead and
  * calls [playText] (another module's surface calls [playReading]); the model's [text] stays empty then, so
@@ -162,6 +162,15 @@ internal class ReadAloudModel(
         } else if (reading) {
             run.reading.pause()
         }
+    }
+
+    /** The tab closed: stops a reading and empties the text, so the next tab starts empty; voice and speed stay. */
+    fun close() {
+        stopRun()
+        text = ""
+        phase = Phase.IDLE
+        failure = null
+        publish()
     }
 
     /** Ends a reading; the text is editable again. */

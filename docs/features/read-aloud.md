@@ -10,7 +10,7 @@ toolbar at the top and the text below. The text is highlighted while it is read:
 spoken strongly. English only for now.
 
 ## Opening
-- **Tools → Read Aloud** opens the tab, with the window's last text or empty. There is one tab per window: choosing the
+- **Tools → Read Aloud** opens the tab with an empty text. There is one tab per window: choosing the
   item again selects the open tab. The tab has no key binding; Shortcut+W closes it, and it is not restored after a
   restart.
 - **Read Selection Aloud** in the context menu of every code editor reads the selection; without a selection the item
@@ -24,7 +24,8 @@ spoken strongly. English only for now.
 - When text arrives from the editor or the explorer, it replaces the tab's text, the tab is shown and reading starts at
   once; a running reading stops first. With setup problems (no model, no espeak-ng) the text is put in, nothing starts,
   and the notice shows what is missing.
-- Text, voice and speed belong to the window and survive closing the tab; closing the tab stops a reading.
+- Voice and speed belong to the window and survive closing the tab; closing the tab stops a reading and empties the
+  text, so the tab opens empty next time.
 
 ## The tab
 The toolbar has, left to right: **Play/Pause** (one button), **Stop**, the **accent** (American or British English)

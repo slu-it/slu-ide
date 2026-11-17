@@ -6,7 +6,9 @@ import javafx.beans.value.ObservableValue
 import javafx.beans.value.ObservableValueBase
 import javafx.scene.Node
 
-/** The Read Aloud tool shown as an editor tab. Closing it stops the reading; the text, voice and speed stay. */
+/**
+ * The Read Aloud tool shown as an editor tab. Closing it stops the reading and empties the text; voice and speed stay.
+ */
 internal class ReadAloudTab(
     private val model: ReadAloudModel,
     private val view: ReadAloudView,
@@ -21,6 +23,6 @@ internal class ReadAloudTab(
 
     override fun dispose() {
         view.dispose()
-        model.stop()
+        model.close()
     }
 }

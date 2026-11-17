@@ -226,6 +226,19 @@ class ReadAloudModelTest {
     }
 
     @Test
+    fun `close stops the reading and empties the text for the next tab`() {
+        speaking()
+
+        model.close()
+
+        assertTrue("stop" in host.reading.calls)
+        assertEquals("", model.text)
+        assertTrue(model.ui.editable)
+        assertEquals("", model.ui.status)
+        assertFalse(model.ui.playEnabled)
+    }
+
+    @Test
     fun `the overlay holds the sentence and the word in shown offsets`() {
         speaking()
         host.reading.position = position(1, 5, 9, 5..7)

@@ -339,6 +339,16 @@ class ReadAloudViewUiTest {
     }
 
     @Test
+    fun `closing the tab empties the text`(robot: FxRobot) {
+        val tab = ReadAloudTab(model, view)
+        speaking(robot)
+
+        robot.interact { tab.dispose() }
+
+        assertEquals("", model.text)
+    }
+
+    @Test
     fun `a model already installed shows that and checks again, a tool row names the tool`(robot: FxRobot) {
         host.problems = listOf(MODEL_MISSING, SetupProblem.ToolMissing("espeak-ng", "Install it with `brew`."))
         host.state.set(InstallState.Installed)

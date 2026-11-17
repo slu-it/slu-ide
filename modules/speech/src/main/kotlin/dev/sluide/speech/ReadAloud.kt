@@ -33,8 +33,8 @@ import java.nio.file.Path
 private const val POLL_MILLIS = 30.0
 
 /**
- * The Read Aloud tool of one window (ADR 0124): creates its tab and keeps the text, voice and speed, so that they
- * outlive the tab (ADR 0110). The `ide` module sets [showTab]. Closing it (with its window) stops a reading.
+ * The Read Aloud tool of one window (ADR 0124): creates its tab and keeps the voice and speed, so that they outlive
+ * the tab (ADR 0110); closing the tab empties the text. The `ide` module sets [showTab]. Closing it (with its window) stops a reading.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -93,7 +93,7 @@ class ReadAloud internal constructor(
 
     private val editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss)
 
-    /** A new Read Aloud tab on the window's text, voice and speed. */
+    /** A new Read Aloud tab on the window's voice and speed, with an empty text unless one was just sent to it. */
     fun createTab(): EditorTab = ReadAloudTab(model, ReadAloudView(model, editorCss))
 
     /**
