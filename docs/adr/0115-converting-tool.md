@@ -14,8 +14,8 @@ a scalar are settled.
 
 ## Decision
 - **Module `converting`** in the editor family, beside `codecs`: a tab of the Tools menu (`Converting`, one per window,
-  state outlives the tab, nothing stored across restarts because configs hold secrets) and "Open Selection in
-  Converting" in the code editors.
+  formats and options outlive the tab, closing it empties both sides, nothing stored across restarts because configs
+  hold secrets) and "Open Selection in Converting" in the code editors.
 - **Format families as an extension point.** A `FormatFamily` (Spring bean) owns formats that convert into each other:
   it detects its formats in a text, reads a text into its own model and writes the model in any of its formats, with
   options. Formats of different families never meet. The data family (JSON, YAML, TOML, properties, CSV, TSV) is built

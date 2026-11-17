@@ -20,9 +20,9 @@ import org.springframework.stereotype.Component
 import java.nio.file.Path
 
 /**
- * The Converting tool of one window (ADR 0115): creates its tab and keeps the two sides, so that they outlive the tab
- * (ADR 0110). The `ide` module sets [showTab] and [openScratch]. Closing it (with its window) stops the background
- * thread of the conversions.
+ * The Converting tool of one window (ADR 0115): creates its tab and keeps the formats and options, so that they outlive
+ * the tab (ADR 0110); closing the tab empties both sides. The `ide` module sets [showTab] and [openScratch]. Closing
+ * it (with its window) stops the background thread of the conversions.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -44,7 +44,7 @@ class Converting internal constructor(
     /** Opens a new scratch file with an extension and a text; null hides the sides' "Open as Scratch". Set by ide. */
     var openScratch: ((extension: String, text: String) -> Unit)? = null
 
-    /** The two sides and the options of the window's tool; outlives the tab. */
+    /** The two sides and the options of the window's tool; outlives the tab, which empties the sides as it closes. */
     internal val model = ConvertingModel(families, dispatch, scheduler = scheduler)
 
     private val fileConverter = FileConverter(families)
@@ -53,7 +53,7 @@ class Converting internal constructor(
 
     /** A new Converting tab on [model]. */
     fun createTab(): EditorTab =
-        ConvertingTab(ConvertingView(model, editorCss, ::chooseFile, ::chooseSaveFile, openScratch))
+        ConvertingTab(model, ConvertingView(model, editorCss, ::chooseFile, ::chooseSaveFile, openScratch))
 
     /** Extends the window's code editors with "Open Selection in Converting" and "Open in Converting" (ADR 0115). */
     val editorExtension: CodeEditorExtension = OpenInConvertingExtension(::open)

@@ -174,6 +174,15 @@ internal class ConvertingModel(
         return null
     }
 
+    /** The tab closed: empties both sides at once, so the next tab starts empty; formats and options stay. */
+    fun clear() {
+        if (disposed) return
+        Side.entries.forEach { texts[it] = "" }
+        openedName = null
+        reconvert()
+        onChange()
+    }
+
     /** The suggested name for Save as on [side]: the opened file's base name and the first extension of its format. */
     fun fileName(side: Side): String =
         (openedName ?: "converted") + "." + (format(side)?.extensions?.firstOrNull() ?: "txt")

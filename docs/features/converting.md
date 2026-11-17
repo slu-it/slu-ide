@@ -31,8 +31,9 @@ menu, a highlighted editor and a status line.
 - **File → Open as Scratch** on a side (shown once `ide` sets `openScratch`) creates the scratch file
   `converted.<extension of the side's format>` with its text, shows it in the explorer and opens it
   ([scratch-files.md](scratch-files.md)).
-- Shortcut+W closes the tab. Texts, formats and options belong to the window: when the tab is closed and opened again,
-  they are as they were. Nothing is stored, as configs hold secrets; after a restart the tool starts empty.
+- Shortcut+W closes the tab and empties both sides. Formats and options belong to the window: when the tab is closed
+  and opened again, they are as they were. Nothing is stored, as configs hold secrets; after a restart the tool starts
+  empty.
 
 ## Two sides
 Both sides are editable code editors, highlighted for the side's format, in the editor font. The side you edited last

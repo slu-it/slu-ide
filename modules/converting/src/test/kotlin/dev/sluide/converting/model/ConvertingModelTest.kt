@@ -465,6 +465,24 @@ class ConvertingModelTest {
     }
 
     @Test
+    fun `clear empties both sides at once, drops a conversion still to come and forgets the opened file`(
+        @TempDir dir: Path,
+    ) {
+        assertNull(model.openFile(Side.LEFT, Files.writeString(dir.resolve("application.yaml"), "yaml:a\n  !")))
+        model.settled()
+        model.edit(Side.LEFT, "yaml:b")
+
+        model.clear()
+
+        assertEquals("", model.text(Side.LEFT))
+        assertEquals("", model.text(Side.RIGHT))
+        model.settled()
+        assertEquals("", model.text(Side.RIGHT))
+        assertEquals(Status.Info("YAML", 0, emptyList()), model.status(Side.LEFT))
+        assertEquals("converted.yaml", model.fileName(Side.LEFT))
+    }
+
+    @Test
     fun `openFile pins the format of the extension and names the files to save after it`(
         @TempDir dir: Path,
     ) {
@@ -610,6 +628,7 @@ class ConvertingModelTest {
         model.open("yaml:c", yaml)
         model.openFile(Side.LEFT, Files.writeString(dir.resolve("a.yaml"), "d"))
         model.checkTargets()
+        model.clear()
 
         assertEquals(0, changes)
         assertEquals("yaml:a", model.text(Side.LEFT))

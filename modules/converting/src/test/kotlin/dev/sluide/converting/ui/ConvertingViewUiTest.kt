@@ -308,6 +308,16 @@ class ConvertingViewUiTest {
         assertEquals("b: 2\n", text(Side.RIGHT, second))
     }
 
+    @Test
+    fun `closing the tab empties both sides`(robot: FxRobot) {
+        type(robot, Side.LEFT, """{"a": 1}""")
+
+        robot.interact { ConvertingTab(model, view).dispose() }
+
+        assertEquals("", model.text(Side.LEFT))
+        assertEquals("", model.text(Side.RIGHT))
+    }
+
     /** The characters styled as an error; RichTextFX gives a line break the style of the character before it. */
     private fun errorChars(side: Side): List<Int> =
         area(side).let { area ->
