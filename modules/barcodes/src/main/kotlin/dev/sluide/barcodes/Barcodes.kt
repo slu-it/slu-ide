@@ -14,8 +14,9 @@ import java.net.URI
 import java.nio.file.Path
 
 /**
- * The Barcodes tool of one window (ADR 0174): creates its tab and keeps the text, the options and what was read, so
- * that they outlive the tab (ADR 0110). The `ide` module sets [showTab] and [openUrl].
+ * The Barcodes tool of one window (ADR 0174): creates its tab and keeps the format and options, so that they outlive
+ * the tab (ADR 0110); closing the tab empties the text and drops what was read. The `ide` module sets [showTab] and
+ * [openUrl].
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -29,11 +30,17 @@ class Barcodes(
     /** Opens a web page in the system browser; set by ide. */
     var openUrl: (URI) -> Unit = {}
 
-    /** The text, format, options and read image of the window's tool; outlives the tab. */
+    /** The window's text, format, options and read image; outlives the tab, whose closing empties the text. */
     internal val model = BarcodeModel(store)
 
     /** A new Barcodes tab on [model]. */
-    fun createTab(): EditorTab = BarcodesTab(BarcodesView(model, ::chooseSaveFile, ::chooseImageFile) { openUrl(it) })
+    fun createTab(): EditorTab =
+        BarcodesTab(
+            model,
+            BarcodesView(model, ::chooseSaveFile, ::chooseImageFile) {
+                openUrl(it)
+            },
+        )
 
     /** Adds "Show Selection as Barcode" to the code editors' context menu (ADR 0174); registered by ide. */
     val editorExtension: CodeEditorExtension = ShowSelectionExtension(::open)

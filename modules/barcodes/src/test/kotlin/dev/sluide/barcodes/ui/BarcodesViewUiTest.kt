@@ -41,6 +41,7 @@ import kotlin.math.floor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -250,6 +251,19 @@ class BarcodesViewUiTest {
         assertEquals(Source.IMAGE, fx { model.source })
         assertEquals(CodeFormat.DATA_MATRIX, fx { node<ComboBox<CodeFormat>>("#barcodes-format").value })
         assertEquals("Read from clipboard · 1 code · Data Matrix", fx { node<Label>("#barcodes-image-status").text })
+    }
+
+    @Test
+    fun `closing the tab empties the text and drops the read image`(robot: FxRobot) {
+        val code = DecodedCode(CodeFormat.QR_CODE, "from image", Box(0.0, 0.0, 1.0, 1.0))
+        robot.interact {
+            model.imageRead(model.beginRead(), ArgbImage(1, 1, intArrayOf(-1)), listOf(code), "clipboard")
+        }
+
+        robot.interact { BarcodesTab(model, view).dispose() }
+
+        assertEquals("", fx { model.text })
+        assertNull(fx { model.image })
     }
 
     @Test

@@ -12,8 +12,8 @@ what the text is, and a Template menu fills in Wi-Fi and contact texts.
 ## Opening
 - **Tools → Barcodes** (last in the Tools menu) opens the tab, titled "Barcodes". There is one tab per window:
   choosing the item again selects the open tab.
-- Shortcut+W closes the tab without asking. The text, format and options belong to the window: when the tab is closed
-  and opened again, they are as they were. After a restart the tool starts with an empty text.
+- Shortcut+W closes the tab without asking, empties the text and drops a read image. Format and options belong to the
+  window: when the tab is closed and opened again, they are as they were.
 - **Show Selection as Barcode** in the context menu of a code editor (after the Translate items) opens the tab with
   the selection as the text, as typed text (the code is made in the current format). It is disabled without a
   selection, and a selection of more than 4 096 characters reads "Show Selection as Barcode (too long)" and is disabled.
