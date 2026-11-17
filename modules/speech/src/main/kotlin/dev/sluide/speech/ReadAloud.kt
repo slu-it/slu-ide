@@ -34,7 +34,8 @@ private const val POLL_MILLIS = 30.0
 
 /**
  * The Read Aloud tool of one window (ADR 0124): creates its tab and keeps the voice and speed, so that they outlive
- * the tab (ADR 0110); closing the tab empties the text. The `ide` module sets [showTab]. Closing it (with its window) stops a reading.
+ * the tab (ADR 0110); closing the tab empties the text. The `ide` module sets [showTab]. Closing the tool (with its
+ * window) stops a reading.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
