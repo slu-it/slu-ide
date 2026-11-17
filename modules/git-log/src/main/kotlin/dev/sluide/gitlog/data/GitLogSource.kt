@@ -76,6 +76,15 @@ internal interface GitLogSource {
         cancellation: GitCancellation? = null,
     ): List<String>? = null
 
+    /**
+     * Where each remote with a URL is, by name (scheme and host only, never the URL); `null` on failure (or if not
+     * known).
+     */
+    fun remoteLocations(
+        root: Path,
+        cancellation: GitCancellation? = null,
+    ): Map<String, String>? = null
+
     /** The details of the commit [hash]; `null` on failure. */
     fun details(
         root: Path,
@@ -241,6 +250,11 @@ internal class GitLogCliSource(
         root: Path,
         cancellation: GitCancellation?,
     ) = gitRemotes.names(root, cancellation = cancellation)
+
+    override fun remoteLocations(
+        root: Path,
+        cancellation: GitCancellation?,
+    ) = gitRemotes.locations(root)
 
     override fun stashes(
         root: Path,

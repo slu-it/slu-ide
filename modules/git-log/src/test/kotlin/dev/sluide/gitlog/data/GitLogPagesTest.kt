@@ -132,6 +132,39 @@ internal class GitLogPagesTest : GitLogPagesFixture() {
     }
 
     @Test
+    fun `reads the remotes' locations with every first page`() {
+        remoteLocationMaps[repo] = mapOf("origin" to "https://github.com")
+        pages.open(repo)
+        pages.visible = true
+        settle()
+        assertEquals(mapOf("origin" to "https://github.com"), pages.remoteLocations)
+
+        pages.shown(9)
+        settle()
+        assertEquals(listOf(repo), remoteLocationLoads, "not with further pages")
+
+        remoteLocationMaps.remove(repo)
+        pages.refresh()
+        settle()
+        assertNull(pages.remoteLocations, "could not be read")
+
+        remoteLocationMaps[repo] = mapOf("fork" to "ssh github.com")
+        pages.refresh()
+        settle()
+        val commits = history.remove(repo)
+        pages.refresh()
+        settle()
+        assertNull(pages.remoteLocations, "forgotten with a failed first page")
+        history[repo] = checkNotNull(commits)
+
+        pages.refresh()
+        settle()
+        assertEquals(mapOf("fork" to "ssh github.com"), pages.remoteLocations)
+        pages.open(other)
+        assertNull(pages.remoteLocations, "not for another repository")
+    }
+
+    @Test
     fun `refreshing while hidden only marks the log stale`() {
         pages.open(repo)
         pages.visible = true

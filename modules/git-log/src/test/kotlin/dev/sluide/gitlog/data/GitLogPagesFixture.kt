@@ -56,6 +56,12 @@ internal abstract class GitLogPagesFixture {
     /** The root of every read of the remotes. */
     protected val remoteLoads = mutableListOf<Path>()
 
+    /** The locations of the remotes by repository; missing means reading them fails. */
+    protected val remoteLocationMaps = mutableMapOf<Path, Map<String, String>>()
+
+    /** The repository of every read of the remotes' locations. */
+    protected val remoteLocationLoads = mutableListOf<Path>()
+
     /** The root of every load of the refs. */
     protected val refLoads = mutableListOf<Path>()
 
@@ -113,6 +119,10 @@ internal abstract class GitLogPagesFixture {
             loadRemotes = { root, _ ->
                 remoteLoads.add(root)
                 remoteLists[root]
+            },
+            loadRemoteLocations = { root, _ ->
+                remoteLocationLoads.add(root)
+                remoteLocationMaps[root]
             },
             loadCounts = { _, ref, filter, _ ->
                 countLoads += ref

@@ -153,6 +153,7 @@ internal class GitLogPages(
     private val loadPending: (Path, GitCancellation) -> GitInProgress? = { _, _ -> null },
     private val loadRemotes: (Path, GitCancellation) -> List<String>? = { _, _ -> null },
     private val loadStashes: (Path, GitCancellation) -> List<GitStash>? = { _, _ -> null },
+    private val loadRemoteLocations: (Path, GitCancellation) -> Map<String, String>? = { _, _ -> null },
     private val loadCounts: (Path, String, GitLogFilter, GitCancellation) -> GitComparisonCounts? =
         { _, _, _, _ -> null },
 ) {
@@ -189,6 +190,10 @@ internal class GitLogPages(
      * read.
      */
     var remotes: List<String>? = null
+        private set
+
+    /** Where each remote is (`https://github.com`), by name, read with [remotes] and cleared like them. */
+    var remoteLocations: Map<String, String>? = null
         private set
 
     /** The stashes (ADR 0107), read with the last first page; `null` as [remotes]. */
@@ -291,6 +296,7 @@ internal class GitLogPages(
         refs = null
         pending = null
         remotes = null
+        remoteLocations = null
         stashes = null
         loaded = 0
         hashRow = null
@@ -414,6 +420,7 @@ internal class GitLogPages(
                 // Keeps the rows there are; no more pages until the next reload. What was in progress may be over.
                 this.pending = null
                 this.remotes = null
+                this.remoteLocations = null
                 this.stashes = null
                 _state.set(GitLogState.FAILED)
                 continueSeek()
@@ -435,6 +442,7 @@ internal class GitLogPages(
             this.refs = refs
             this.pending = first.pending
             this.remotes = first.remotes
+            this.remoteLocations = first.remoteLocations
             this.stashes = first.stashes
             this.counts = first.counts
             hashRow = match?.hash
@@ -481,6 +489,7 @@ internal class GitLogPages(
         val remotes: List<String>? = null,
         val counts: GitComparisonCounts? = null,
         val stashes: List<GitStash>? = null,
+        val remoteLocations: Map<String, String>? = null,
     )
 
     /**
@@ -549,6 +558,7 @@ internal class GitLogPages(
         val pending = read { loadPending(root, token) }
         val remotes = read { loadRemotes(root, token) }
         val stashes = read { loadStashes(root, token) }
+        val locations = read { loadRemoteLocations(root, token) }
         val counts = compared?.let { read { loadCounts(root, it.ref.name, barFilter, token) } }
         val match =
             if (compared == null &&
@@ -558,7 +568,7 @@ internal class GitLogPages(
             } else {
                 null
             }
-        return FirstPage(page, refs, match, pending, remotes, counts, stashes)
+        return FirstPage(page, refs, match, pending, remotes, counts, stashes, locations)
     }
 
     companion object {
