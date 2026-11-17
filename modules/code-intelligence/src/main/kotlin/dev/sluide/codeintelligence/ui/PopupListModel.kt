@@ -18,16 +18,28 @@ internal class PopupListModel<T> {
 
     /**
      * Replaces the items, e.g. filtered while typing: the selected item stays selected if it is still there (by
-     * equality), else the first item is.
+     * equality), else the first item is. With [keepIndex] the selected position stays instead (the same places in the
+     * same order, only their texts changed), clamped to the new items.
      */
-    fun setItems(newItems: List<T>) {
+    fun setItems(
+        newItems: List<T>,
+        keepIndex: Boolean = false,
+    ) {
         val previous = selected
+        val previousIndex = selectedIndex
         items = newItems.toList()
-        val kept = if (previous == null) -1 else items.indexOf(previous)
+        val kept =
+            if (keepIndex) {
+                previousIndex
+            } else if (previous == null) {
+                -1
+            } else {
+                items.indexOf(previous)
+            }
         selectedIndex =
             when {
                 items.isEmpty() -> -1
-                kept >= 0 -> kept
+                kept >= 0 -> kept.coerceAtMost(items.lastIndex)
                 else -> 0
             }
     }

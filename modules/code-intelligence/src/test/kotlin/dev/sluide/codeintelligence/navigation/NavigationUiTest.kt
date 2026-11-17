@@ -13,6 +13,7 @@ import javafx.event.Event
 import javafx.event.EventType
 import javafx.scene.Cursor
 import javafx.scene.control.Label
+import javafx.scene.control.ListView
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
@@ -29,6 +30,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import java.nio.file.Path
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -68,6 +70,7 @@ internal class NavigationUiTest : EditorUiFixture() {
         robot: FxRobot,
         supported: Set<String> = setOf(DEFINITION, REFERENCES, DOCUMENT_HIGHLIGHT),
         text: String = this.text,
+        lines: LineReader = DiskLines(),
     ): ExtensibleCodeEditor {
         val spec = PySpec()
         servers = FakeLanguageServers(listOf(spec), dir, dispatch = Platform::runLater) { NavigationServer(supported) }
@@ -75,7 +78,7 @@ internal class NavigationUiTest : EditorUiFixture() {
         intelligence =
             fx {
                 CodeIntelligence(servers.servers, FXCollections.observableSet()) {
-                    listOf(NavigationFeature(navigation), OccurrencesFeature(delay = 10.milliseconds))
+                    listOf(NavigationFeature(navigation, lines), OccurrencesFeature(delay = 10.milliseconds))
                 }
             }
         val editor = open(robot, file, text, listOf(intelligence))
@@ -231,5 +234,55 @@ internal class NavigationUiTest : EditorUiFixture() {
         press(robot, KeyCode.LEFT)
         assertEquals(emptyList(), popups("caret-popup"))
         assertEquals(22, fx { editor.caretOffset }, "the key still moved the caret")
+    }
+
+    /** Alt+F7 on the text area, as the key reaches it. */
+    private fun findUsages(robot: FxRobot) {
+        robot.interact {
+            Event.fireEvent(area(), KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.F7, false, false, true, false))
+        }
+    }
+
+    private fun selectedRow(): Int =
+        fx {
+            (
+                popups("caret-popup")
+                    .single()
+                    .content
+                    .single()
+                    .lookup(".caret-popup-list") as ListView<*>
+            ).selectionModel.selectedIndex
+        }
+
+    @Test
+    fun `the selected usage stays selected when the line texts of other files arrive`(robot: FxRobot) {
+        val held = mutableListOf<() -> Unit>()
+        val lines =
+            LineReader { positions, done ->
+                val texts = positions.associateWith { "line ${it.line}" }
+                held += { done(texts) }
+                AutoCloseable {}
+            }
+        val editor = setUp(robot, lines = lines)
+        val other = dir.resolve("b.py")
+        other.writeText("run()\nrun()\n")
+        server.referencesAnswer =
+            { listOf(location(file, 3, 0, 3), location(other, 0, 0, 3), location(other, 1, 0, 3)) }
+        robot.interact { editor.moveCaret(23) }
+        findUsages(robot)
+        awaitTrue("list") { popups("caret-popup").isNotEmpty() && held.isNotEmpty() }
+        press(robot, KeyCode.DOWN)
+        assertEquals(1, selectedRow())
+
+        robot.interact { held.forEach { it() } }
+        assertEquals(1, selectedRow(), "the line texts did not move the selection back to the first item")
+        assertEquals(
+            "b.py:1",
+            fx {
+                popups(
+                    "caret-popup",
+                ).single().content.single().lookupAll(".caret-popup-label").map { (it as Label).text }[1]
+            },
+        )
     }
 }

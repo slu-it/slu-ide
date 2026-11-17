@@ -46,4 +46,15 @@ class PopupListModelTest {
         model.setItems(listOf("q"))
         assertEquals("q", model.selected)
     }
+
+    @Test
+    fun `keeping the index keeps the position though the items differ`() {
+        model.select(3)
+        model.setItems(listOf("A", "B", "C", "D", "E"), keepIndex = true)
+        assertEquals("D", model.selected)
+        model.setItems(listOf("x", "y"), keepIndex = true)
+        assertEquals("y", model.selected, "clamped to the last item")
+        model.setItems(emptyList(), keepIndex = true)
+        assertEquals(-1, model.selectedIndex)
+    }
 }

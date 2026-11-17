@@ -99,9 +99,15 @@ internal class CaretPopup<T>(
         return true
     }
 
-    /** Replaces the items, keeping the selected one if it is still there, else selecting the first. */
-    fun setItems(items: List<T>) {
-        model.setItems(items)
+    /**
+     * Replaces the items, keeping the selected one if it is still there, else selecting the first; with [keepIndex]
+     * the selected position stays (the same places in the same order, only changed in their texts).
+     */
+    fun setItems(
+        items: List<T>,
+        keepIndex: Boolean = false,
+    ) {
+        model.setItems(items, keepIndex)
         sync()
         window.relayout()
     }

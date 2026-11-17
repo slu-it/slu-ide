@@ -76,7 +76,7 @@ internal class TargetPopup(
             }
     }
 
-    override fun update(items: List<NavigationTarget>) = popup.setItems(items)
+    override fun update(items: List<NavigationTarget>) = popup.setItems(items, keepIndex = true)
 
     override fun hide() = popup.hide()
 
