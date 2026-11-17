@@ -169,7 +169,6 @@ internal class ReadAloudModel(
         stopRun()
         text = ""
         phase = Phase.IDLE
-        failure = null
         publish()
     }
 
