@@ -436,7 +436,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         robot.interact { dialog().reader.load(null, null) }
         awaitRead()
         assertEquals(
-            "The repository has no remote. Add one in a terminal: git remote add <name> <url>.",
+            "The repository has no remote. Add one in the git log's branches pane: Remote → Add Remote…",
             dialog().commits.commitPlaceholder.text,
         )
         assertTrue(pushDisabled())

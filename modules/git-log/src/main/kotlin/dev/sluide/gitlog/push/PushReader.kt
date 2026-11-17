@@ -70,7 +70,8 @@ internal data class PushState(
     companion object {
         const val DETACHED = "HEAD is detached: check out a branch to push it."
         const val UNBORN = "There is no commit to push."
-        const val NO_REMOTE = "The repository has no remote. Add one in a terminal: git remote add <name> <url>."
+        const val NO_REMOTE =
+            "The repository has no remote. Add one in the git log's branches pane: Remote → Add Remote…"
         const val UP_TO_DATE = "Everything is up to date."
 
         /** At most this many outgoing commits are listed. */
