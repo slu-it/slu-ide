@@ -82,6 +82,21 @@ internal class BranchCommands {
 
     /** Asks how to stash the local changes and stashes them. */
     var stashChanges: () -> Unit = {}
+
+    /** Asks for a new remote and adds it. */
+    var addRemote: () -> Unit = {}
+
+    /** Fetches all remotes but those with `skipFetchAll`. */
+    var fetchAll: () -> Unit = {}
+
+    /** Asks for a new name of the given remote (F2). */
+    var renameRemote: (String) -> Unit = {}
+
+    /** Asks for new URLs of the given remote. */
+    var changeRemoteUrls: (String) -> Unit = {}
+
+    /** Asks whether to remove the given remote (Delete). */
+    var removeRemote: (String) -> Unit = {}
 }
 
 /** The [BranchCommands] that start [actions], compare through [compareBar], show [diffs] and filter [filterBar]. */
