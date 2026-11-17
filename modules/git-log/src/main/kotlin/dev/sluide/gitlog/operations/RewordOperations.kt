@@ -100,7 +100,7 @@ internal fun canChangeMessage(
 private fun tidy(message: String) = message.lines().joinToString("\n") { it.trimEnd() }.trim('\n')
 
 /** "a", "a and b", "a, b and c"; more than three: "a, b, c and 2 more". */
-private fun listBranches(names: List<String>): String =
+internal fun listBranches(names: List<String>): String =
     when {
         names.size == 1 -> names.single()
         names.size <= MAX_NAMED -> "${names.dropLast(1).joinToString(", ")} and ${names.last()}"

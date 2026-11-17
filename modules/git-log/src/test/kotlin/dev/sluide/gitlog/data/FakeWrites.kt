@@ -19,6 +19,9 @@ import dev.sluide.git.GitRemoteDeletion
 import dev.sluide.git.GitRemoteDeletionOutcome
 import dev.sluide.git.GitRemoteDeletionResult
 import dev.sluide.git.GitRemoteRefResult
+import dev.sluide.git.GitRemoteRemoval
+import dev.sluide.git.GitRemoteRename
+import dev.sluide.git.GitRemoteUrls
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitRewordCheck
@@ -621,6 +624,68 @@ internal class FakeWrites(
         calls += line
         if (cancellation.cancelled) return GitTagPushResult(GitResult(false, "Cancelled."), cancelled = true)
         return pushTagsResult(remote, tags)
+    }
+
+    // The remote writes record `remote add a u`, `remote rename a b`, … and answer with [result].
+
+    /** Whether renaming a remote rewrote its refspecs. */
+    @Volatile
+    var renameRefspecsUpdated = true
+
+    /** Whether a failed rename counts as partial: the configuration was renamed, the refs not moved. */
+    @Volatile
+    var renamePartial = false
+
+    /** What the URLs of a remote read; `null` as if they could not be read. */
+    @Volatile
+    var urls: GitRemoteUrls? = GitRemoteUrls("https://github.com/x/y.git", null, false, false)
+
+    /** What removing a remote reads; `null` as if it could not be read. */
+    @Volatile
+    var removal: GitRemoteRemoval? = GitRemoteRemoval(0, emptyList(), false)
+
+    override fun addRemote(
+        root: Path,
+        name: String,
+        url: String,
+    ) = call("remote add $name $url")
+
+    override fun renameRemote(
+        root: Path,
+        old: String,
+        new: String,
+    ): GitRemoteRename {
+        val result = call("remote rename $old $new")
+        return GitRemoteRename(result, renameRefspecsUpdated, renamePartial && !result.success)
+    }
+
+    override fun removeRemote(
+        root: Path,
+        name: String,
+    ) = call("remote remove $name")
+
+    override fun setRemoteUrls(
+        root: Path,
+        name: String,
+        url: String?,
+        pushUrl: String?,
+        removePushUrl: Boolean,
+    ) = call("remote set-url $name url=$url push=$pushUrl removePush=$removePushUrl")
+
+    override fun remoteUrls(
+        root: Path,
+        name: String,
+    ): GitRemoteUrls? {
+        calls += "remote urls $name"
+        return urls
+    }
+
+    override fun remoteRemoval(
+        root: Path,
+        name: String,
+    ): GitRemoteRemoval? {
+        calls += "remote removal $name"
+        return removal
     }
 
     companion object {

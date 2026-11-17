@@ -20,7 +20,9 @@ import java.nio.file.Path
  * error dialog if it is not the operation's ([failure], e.g. naming the remotes that could not be fetched, ADR 0043),
  * and whether it was [cancelled] before it was done (a fetch, commit or push). For stashes (ADR 0107): what the Stash
  * Changes dialog asks ([stashPrompt]), the conflicts a pop or apply gave ([stashConflicts]) and the operation to start
- * next, asking about unsaved editors first ([next]: the pop of the stash Pop Latest Stash read).
+ * next, asking about unsaved editors first ([next]: the pop of the stash Pop Latest Stash read). The URLs of a remote to
+ * ask the Change URL dialog about ([remoteUrls], ADR 0183), and the title of the error dialog if it is not the
+ * operation's ([errorTitle]: the fetch that follows adding a remote).
  */
 internal data class RefOutcome(
     val result: GitResult,
@@ -39,6 +41,8 @@ internal data class RefOutcome(
     val stashPrompt: StashPrompt? = null,
     val stashConflicts: StashConflict? = null,
     val next: RefOperation? = null,
+    val remoteUrls: RemoteUrlsPrompt? = null,
+    val errorTitle: String? = null,
 )
 
 /**

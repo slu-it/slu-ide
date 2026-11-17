@@ -16,6 +16,9 @@ import dev.sluide.git.GitPushResult
 import dev.sluide.git.GitRebaseResult
 import dev.sluide.git.GitRemoteDeletion
 import dev.sluide.git.GitRemoteDeletionResult
+import dev.sluide.git.GitRemoteRemoval
+import dev.sluide.git.GitRemoteRename
+import dev.sluide.git.GitRemoteUrls
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitRewordCheck
@@ -363,4 +366,45 @@ internal interface GitLogWrites : StashWrites {
         tags: List<String>,
         cancellation: GitCancellation,
     ): GitTagPushResult
+
+    /** Adds the remote [name] with [url]; git's message never holds the URL's credentials. */
+    fun addRemote(
+        root: Path,
+        name: String,
+        url: String,
+    ): GitResult
+
+    /** Renames the remote [old] to [new] ([GitRemoteRename] says what git did to its refspecs and refs). */
+    fun renameRemote(
+        root: Path,
+        old: String,
+        new: String,
+    ): GitRemoteRename
+
+    /** Removes the remote [name] with its remote branches and the settings that name it. */
+    fun removeRemote(
+        root: Path,
+        name: String,
+    ): GitResult
+
+    /** Changes the URL and push URL of [name]; `null` keeps a value, [removePushUrl] removes all push URLs. */
+    fun setRemoteUrls(
+        root: Path,
+        name: String,
+        url: String?,
+        pushUrl: String?,
+        removePushUrl: Boolean,
+    ): GitResult
+
+    /** The URLs of [name] for the Change URL dialog (show them only masked); `null` if they cannot be read. */
+    fun remoteUrls(
+        root: Path,
+        name: String,
+    ): GitRemoteUrls?
+
+    /** What removing [name] deletes and unsets; `null` if that cannot be read. */
+    fun remoteRemoval(
+        root: Path,
+        name: String,
+    ): GitRemoteRemoval?
 }

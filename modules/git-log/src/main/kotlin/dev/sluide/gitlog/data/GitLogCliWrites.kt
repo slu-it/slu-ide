@@ -283,4 +283,39 @@ internal class GitLogCliWrites(
         tags: List<String>,
         cancellation: GitCancellation,
     ) = gitPush.pushTags(root, remote, tags, cancellation)
+
+    override fun addRemote(
+        root: Path,
+        name: String,
+        url: String,
+    ) = gitRemotes.add(root, name, url)
+
+    override fun renameRemote(
+        root: Path,
+        old: String,
+        new: String,
+    ) = gitRemotes.rename(root, old, new)
+
+    override fun removeRemote(
+        root: Path,
+        name: String,
+    ) = gitRemotes.remove(root, name)
+
+    override fun setRemoteUrls(
+        root: Path,
+        name: String,
+        url: String?,
+        pushUrl: String?,
+        removePushUrl: Boolean,
+    ) = gitRemotes.setUrls(root, name, url, pushUrl, removePushUrl)
+
+    override fun remoteUrls(
+        root: Path,
+        name: String,
+    ) = gitRemotes.urls(root, name)
+
+    override fun remoteRemoval(
+        root: Path,
+        name: String,
+    ) = gitRemotes.removal(root, name)
 }
