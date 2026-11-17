@@ -15,6 +15,7 @@ import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
+import javafx.scene.layout.VBox
 
 /** How a [CaretPopup] shows one item: its [label], a muted [secondary] text at the right, and an [icon] before it. */
 internal data class PopupCell(
@@ -43,6 +44,8 @@ internal data class PopupCell(
  * @param listWidth the list's width; rows wider than it end their secondary text with "…" (no sideways scrolling).
  * @param choosable whether an item can be taken; Enter or a double-click on one that cannot does nothing (a disabled
  *   quick fix).
+ * @param footer what shows under the list and the detail while there are items (the preview of the places of a
+ *   list), hidden and not managed otherwise; the popup is placed again when it appears.
  */
 internal class CaretPopup<T>(
     private val editor: ExtensibleCodeEditor,
@@ -54,9 +57,18 @@ internal class CaretPopup<T>(
     private val onTab: ((T) -> Unit)? = null,
     private val choosable: (T) -> Boolean = { true },
     private val listWidth: Double = LIST_WIDTH,
+    private val footer: Node? = null,
 ) : AutoCloseable {
     /** The items and the selection. */
     val model = PopupListModel<T>()
+
+    /**
+     * Called, while the popup shows, after the selected item changed by a key, a click or [setItems] (`null` when the
+     * items emptied), and with the selected item, if any, once when it shows; not for the same position after
+     * [setItems] with `keepIndex`. The footer has its size by then (the window sizes to the scene when it shows and in
+     * [setItems]).
+     */
+    var onSelected: (T?) -> Unit = {}
 
     /** Called after the popup hid, by any cause (also after a choice). */
     var onHidden: () -> Unit = {}
@@ -75,7 +87,11 @@ internal class CaretPopup<T>(
     private var placeholderLabel: Label? = null
     private var listView: ListView<T>? = null
     private var detailPane: StackPane? = null
-    private var root: HBox? = null
+    private var root: Region? = null
+
+    /** What [onSelected] was told last, since the popup showed. */
+    private var told: T? = null
+    private var toldIndex = -1
 
     /** Whether the popup shows. */
     val isShowing: Boolean get() = window.isShowing
@@ -96,6 +112,7 @@ internal class CaretPopup<T>(
         val wasShowing = isShowing
         if (!window.show(content, start, end)) return false
         if (!wasShowing) keyBindings = bindKeys()
+        tellSelection(byIndex = false)
         return true
     }
 
@@ -110,6 +127,23 @@ internal class CaretPopup<T>(
         model.setItems(items, keepIndex)
         sync()
         window.relayout()
+        tellSelection(keepIndex)
+    }
+
+    /** Forgets what [onSelected] was told, so that the next [show] tells the selection again. */
+    private fun forgetTold() {
+        told = null
+    }
+
+    /** Tells [onSelected] the selected item if it changed (its position if [byIndex]) since last told. */
+    private fun tellSelection(byIndex: Boolean) {
+        if (!isShowing) return
+        val item = model.selected
+        val index = model.selectedIndex
+        val changed = if (byIndex) index != toldIndex else item != told
+        told = item
+        toldIndex = index
+        if (changed) onSelected(item)
     }
 
     /** Hides the popup. */
@@ -119,6 +153,7 @@ internal class CaretPopup<T>(
     override fun close() = window.close()
 
     private fun hidden() {
+        forgetTold()
         keyBindings.forEach { it.close() }
         keyBindings = emptyList()
         onHidden()
@@ -137,6 +172,7 @@ internal class CaretPopup<T>(
                 } else {
                     change()
                     sync()
+                    tellSelection(byIndex = false)
                     true
                 }
             }
@@ -168,7 +204,7 @@ internal class CaretPopup<T>(
         return true
     }
 
-    private fun build(): HBox {
+    private fun build(): Region {
         val placeholderNode = Label(placeholder).apply { styleClass += "caret-popup-placeholder" }
         placeholderLabel = placeholderNode
         val list =
@@ -183,6 +219,7 @@ internal class CaretPopup<T>(
                     if (!syncing && index.toInt() >= 0) {
                         model.select(index.toInt())
                         showDetail()
+                        tellSelection(byIndex = false)
                     }
                 }
                 addEventHandler(MouseEvent.MOUSE_CLICKED) { event ->
@@ -197,11 +234,9 @@ internal class CaretPopup<T>(
                 isManaged = false
             }
         detailPane = detailNode
-        return HBox(list, detailNode)
-            .apply {
-                styleClass += "caret-popup"
-                alignment = Pos.TOP_LEFT
-            }.also { root = it }
+        val row = HBox(list, detailNode).apply { alignment = Pos.TOP_LEFT }
+        if (footer == null) return row.apply { styleClass += "caret-popup" }.also { root = it }
+        return VBox(row, footer).apply { styleClass += "caret-popup" }.also { root = it }
     }
 
     /** Shows the model in the list: items, selection scrolled into view, the detail. */
@@ -210,6 +245,10 @@ internal class CaretPopup<T>(
         syncing = true
         try {
             if (list.items != model.items) list.items.setAll(model.items)
+            footer?.let {
+                it.isVisible = model.items.isNotEmpty()
+                it.isManaged = model.items.isNotEmpty()
+            }
             list.prefHeight = model.items.size.coerceIn(1, visibleRows) * ROW_HEIGHT + 2
             val index = model.selectedIndex
             if (index < 0) {

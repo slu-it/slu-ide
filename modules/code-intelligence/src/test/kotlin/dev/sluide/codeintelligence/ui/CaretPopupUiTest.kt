@@ -2,14 +2,18 @@ package dev.sluide.codeintelligence.ui
 
 import dev.sluide.codeintelligence.EditorUiFixture
 import dev.sluide.fileviewers.ExtensibleCodeEditor
+import dev.sluide.fileviewers.FilePreview
 import dev.sluide.fileviewers.OffsetEdit
 import dev.sluide.textediting.TextPosition
+import javafx.beans.property.SimpleStringProperty
 import javafx.geometry.Orientation
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.ListView
 import javafx.scene.control.ScrollBar
 import javafx.scene.input.KeyCode
+import javafx.scene.layout.StackPane
+import javafx.stage.Screen
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
@@ -212,5 +216,161 @@ internal class CaretPopupUiTest : EditorUiFixture() {
         assertTrue(chosen.isEmpty(), "nothing to take: Enter goes to the editor")
         press(robot, KeyCode.ESCAPE)
         assertFalse(fx { popup.isShowing })
+    }
+
+    /** A popup with a footer of [height] under its list; the footer. */
+    private fun withFooter(
+        robot: FxRobot,
+        height: Double = 60.0,
+    ): StackPane {
+        editor = open(robot, dir.resolve("a.py"), "import os\nos.\n", emptyList())
+        val footer = fx { StackPane().apply { setPrefSize(100.0, height) } }
+        popup = fx { CaretPopup(editor, { PopupCell(it) }, { chosen += it }, footer = footer) }
+        return footer
+    }
+
+    @Test
+    fun `the footer shows under the list only while there are items`(robot: FxRobot) {
+        val footer = withFooter(robot)
+        robot.interact {
+            popup.setItems(emptyList())
+            popup.show(13)
+        }
+        assertFalse(fx { footer.isVisible || footer.isManaged }, "only the placeholder shows")
+        val withoutFooter = fx { popups("caret-popup").single().height }
+
+        robot.interact { popup.setItems(listOf("path", "sep")) }
+        assertTrue(fx { footer.isVisible && footer.isManaged })
+        val list = list()
+        val listBottom = fx { list.localToScene(list.boundsInLocal).maxY }
+        assertTrue(fx { footer.localToScene(footer.boundsInLocal).minY } >= listBottom - 1, "under the list")
+        assertTrue(fx { popups("caret-popup").single().height } >= withoutFooter + 60.0, "the window grew")
+
+        robot.interact { popup.setItems(emptyList()) }
+        assertFalse(fx { footer.isVisible || footer.isManaged }, "hidden again")
+    }
+
+    @Test
+    fun `onSelected tells a key's selection, not the same position after setItems keeping the index`(robot: FxRobot) {
+        withFooter(robot)
+        val told = mutableListOf<String?>()
+        robot.interact {
+            popup.onSelected = { told += it }
+            popup.setItems(listOf("path", "sep", "getcwd"))
+        }
+        assertEquals(emptyList(), told, "nothing is told before the popup shows")
+        robot.interact { popup.show(13) }
+        assertEquals(listOf<String?>("path"), told, "the first item once the popup shows")
+        press(robot, KeyCode.DOWN)
+        assertEquals(listOf<String?>("path", "sep"), told)
+
+        robot.interact { popup.setItems(listOf("PATH", "SEP", "GETCWD"), keepIndex = true) }
+        assertEquals("SEP", fx { popup.selected })
+        assertEquals(listOf<String?>("path", "sep"), told, "same position: nothing to tell")
+        robot.interact { popup.setItems(listOf("PATH", "SEP", "GETENV")) }
+        assertEquals("SEP", fx { popup.selected })
+        assertEquals(listOf<String?>("path", "sep"), told, "the same item stays selected: nothing to tell")
+        robot.interact { popup.setItems(listOf("a", "b"), keepIndex = false) }
+        assertEquals(listOf<String?>("path", "sep", "a"), told, "other items select the first")
+        assertEquals("a", fx { popup.selected })
+        robot.interact { popup.setItems(listOf("x", "y"), keepIndex = false) }
+        assertEquals(listOf<String?>("path", "sep", "a", "x"), told, "another item at the same position")
+    }
+
+    @Test
+    fun `a popup that hid tells its selection again when it shows`(robot: FxRobot) {
+        withFooter(robot)
+        val told = mutableListOf<String?>()
+        robot.interact {
+            popup.onSelected = { told += it }
+            popup.setItems(listOf("path", "sep"))
+            popup.show(13)
+        }
+        robot.interact { popup.setItems(listOf("path", "sep"), keepIndex = true) }
+        assertEquals(listOf<String?>("path"), told)
+
+        robot.interact { popup.hide() }
+        robot.interact { popup.show(13) }
+        assertEquals(listOf<String?>("path", "path"), told, "told again by item")
+        robot.interact { popup.hide() }
+        robot.interact { popup.show(13) }
+        assertEquals(3, told.size)
+    }
+
+    @Test
+    fun `the footer is laid out at its size when the selection is told`(robot: FxRobot) {
+        val footer = withFooter(robot, height = 60.0)
+        val heights = mutableListOf<Double>()
+        robot.interact {
+            popup.onSelected = { heights += footer.height }
+            popup.setItems(emptyList())
+            popup.show(13)
+        }
+        assertEquals(emptyList(), heights)
+        robot.interact { popup.setItems(listOf("path", "sep")) }
+        assertEquals(listOf(60.0), heights, "laid out before the selection is told, as the first one after the show")
+
+        robot.interact { popup.hide() }
+        robot.interact { popup.show(13) }
+        assertEquals(listOf(60.0, 60.0), heights, "also for the first selection after a new show")
+    }
+
+    @Test
+    fun `a click in the list tells the selection`(robot: FxRobot) {
+        withFooter(robot)
+        val told = mutableListOf<String?>()
+        robot.interact {
+            popup.onSelected = { told += it }
+            popup.setItems(listOf("path", "sep", "getcwd"))
+            popup.show(13)
+        }
+        robot.interact { list().selectionModel.select(2) }
+        assertEquals(listOf<String?>("path", "getcwd"), told)
+    }
+
+    @Test
+    fun `a popup that grows when its footer appears moves above the anchor if it no longer fits below`(
+        robot: FxRobot,
+    ) {
+        withFooter(robot, height = 232.0)
+        val screen = fx { Screen.getPrimary().visualBounds }
+        // The caret near the screen's bottom edge: a list fits below, a list with the footer does not.
+        robot.interact { stage.y = screen.maxY - 260.0 }
+        robot.interact {
+            popup.setItems(emptyList())
+            popup.show(13)
+        }
+        val anchor = bounds(editor, 13)
+        val window = popups("caret-popup").single()
+        assertTrue(fx { window.y } >= anchor.maxY - 1, "the placeholder fits below")
+
+        robot.interact { popup.setItems(listOf("path", "sep", "getcwd")) }
+        val grown = popups("caret-popup").single()
+        assertTrue(
+            fx { grown.y + grown.height } <= anchor.minY + 1,
+            "above the caret: ${fx { grown.y + grown.height }} vs ${anchor.minY}",
+        )
+    }
+
+    @Test
+    fun `after the footer's file was swapped a key on the editor still moves the list, and the preview takes none`(
+        robot: FxRobot,
+    ) {
+        editor = open(robot, dir.resolve("a.py"), "import os\nos.\n", emptyList())
+        val preview =
+            fx {
+                FilePreview({ _, _ -> null }, { _, done -> done("one\ntwo\n") }, SimpleStringProperty(""))
+                    .apply { node.setPrefSize(300.0, 100.0) }
+            }
+        popup = fx { CaretPopup(editor, { PopupCell(it) }, { chosen += it }, footer = preview.node) }
+        robot.interact { area().requestFocus() }
+        showPopup(robot)
+        robot.interact { preview.show(dir.resolve("a.py")) { null } }
+        robot.interact { preview.show(dir.resolve("b.py")) { null } }
+
+        press(robot, KeyCode.DOWN)
+        assertEquals("sep", fx { popup.selected }, "the key went through the editor's binding to the list")
+        assertEquals(null, fx { popups("caret-popup").single().scene.focusOwner }, "the preview took no focus")
+        assertTrue(fx { area().isFocused }, "the editor keeps it")
     }
 }
