@@ -1,6 +1,7 @@
 # 0043. Git log fetches each remote with the git CLI, non-interactive and cancellable
 
-- Status: accepted; amended by [0171](0171-context-sensitive-branch-menus.md) (Fetch only on a remote or its folder)
+- Status: accepted; amended by [0171](0171-context-sensitive-branch-menus.md) (Fetch only on a remote or its folder) and
+  [0183](0183-remotes-from-the-branches-pane.md) (Fetch All Remotes on the Remote node)
 - Date: 2026-10-17
 
 ## Context

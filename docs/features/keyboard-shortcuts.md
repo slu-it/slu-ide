@@ -306,7 +306,7 @@ File does not react to it while a terminal has the focus.
 | Enter or Down in the branch search | Move into the branch tree |
 | Enter in the branch tree | Expand or collapse a group, or filter the log by the branch |
 | Shortcut+C in the branch tree | Copy the names of the selected branches, tags or remotes |
-| F2 / Delete or Shortcut+Backspace in the branch tree | Rename / delete the branches (remote branches on their remote) |
+| F2 / Delete or Shortcut+Backspace in the branch tree | Rename / delete the branches (remote branches on their remote), or rename / remove the selected remote |
 | Enter or Shortcut+D on a changed file | Show the diff |
 | F4 on a changed file | Open the local file |
 | Space in the Commit tab | Include or exclude the file |

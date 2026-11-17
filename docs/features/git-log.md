@@ -30,7 +30,8 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
 0041](../adr/0041-git-write-operations.md), [ADR 0042](../adr/0042-git-log-commit-operations.md), [ADR
 0043](../adr/0043-git-log-fetch.md), [ADR 0044](../adr/0044-git-log-compare.md), [ADR
 0046](../adr/0046-git-log-file-history.md), [ADR 0048](../adr/0048-commit-tab.md) (the Commit tab, `CommitView`), [ADR
-0049](../adr/0049-push.md) (the Push dialog, `PushDialog`) and [ADR 0106](../adr/0106-git-log-pull.md) (Pull)
+0049](../adr/0049-push.md) (the Push dialog, `PushDialog`), [ADR 0106](../adr/0106-git-log-pull.md) (Pull) and [ADR
+0183](../adr/0183-remotes-from-the-branches-pane.md) (managing remotes)
 
 - **Where and when:** for a folder whose git status is followed ([git-status.md](git-status.md): git is available and
   the folder has `.git`), the window shows a Git Log area under the editor area. Other folders, and a window without a
@@ -189,13 +190,17 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     it; hiding it while it has the focus moves the focus to the table. Per window and not stored; opening another
     folder keeps it shown or hidden but clears its search and selection.
   - **Tree:** `HEAD (Current Branch)` (`HEAD (detached at <short hash>)` when detached), then Local, Remote (one node
-    per remote, then its branches) and Tags, as read with the log's last first page; groups without refs are left
-    out. Branches carry the ref labels' icons (`HEAD` yellow, local green, remote purple, tags grey); the current
+    per configured remote, `git remote`, then its branches; [ADR 0183](../adr/0183-remotes-from-the-branches-pane.md))
+    and Tags, as read with the log's last first page; groups without refs are left out, but Remote is always shown
+    once the remotes are read, also without remotes, so Add Remote… is reachable. Branches carry the ref labels' icons (`HEAD` yellow, local green, remote purple, tags grey); the current
     branch is bold with the `HEAD` icon. Names with `/` are grouped into folders, a folder holding only one folder is
     one node (`team/fix`); folders first, then branches, by name (ignoring case first). Tags are collapsed at first,
-    the rest expanded. A remote is the first segment after `refs/remotes/`, so a remote name with a `/` is split
-    wrongly. Hovering a branch shows its full refname. "Loading…" before the first page, "No branches yet." without
-    refs, "The branches could not be read." if git fails. A refresh rebuilds the tree, keeping the selected branches,
+    the rest expanded. A remote without branches is a node without children; a remote branch belongs to the longest
+    configured remote its name starts with, so a remote `team/a` is one node. Remote branches of a remote that is not
+    configured are grouped by their first segment. Hovering a branch shows its full refname, hovering a remote its
+    location: `https://github.com`, `ssh github.com`, "Local repository" or "Unknown location", never the path, user or
+    URL. "Loading…" before the first page, "No branches yet." only when the remotes cannot be read, "The branches
+    could not be read." if git fails. A selected remote stays selected. A refresh rebuilds the tree, keeping the selected branches,
     collapsed nodes and the scroll position.
   - **Search:** the field above the tree ("Search branches", as high as the filter bar) shows the branches whose short
     name (`feature/a`, `origin/main`, `v1.0`) has the text, ignoring case, with their folders, everything expanded;
@@ -263,7 +268,10 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     several at once; also Delete, or Shortcut+Backspace as in the explorer); Rebase …, Merge …, Pull … and Push Tag
     (below);
     Compare with Current and Show Diff with Working Tree (below); and, alone, Fetch for a remote or a folder of a
-    remote. An item that never applies is left out (Rename on a tag, Checkout, Rebase and Merge on the current branch,
+    remote. The Remote group has `Add Remote…` | `Fetch All Remotes` (as the header's Fetch; left out without
+    remotes); a configured remote has `Rename…` (also F2), `Change URL…` and `Remove` (also Delete or
+    Shortcut+Backspace) | `Fetch`, for exactly one selected remote. They are greyed out only while another write runs,
+    not by a pending merge, rebase or pick (see Remotes below). An item that never applies is left out (Rename on a tag, Checkout, Rebase and Merge on the current branch,
     Pull on a local branch, Compare while `HEAD` has no commit); an item that applies but is blocked for now (an
     operation runs, a rebase or merge waits) stays, greyed out. A group and a mixed selection have no items, so no
     menu opens (a stash selection has its own menu). Checkout is left out for `HEAD`, the current branch, a remote
@@ -494,9 +502,30 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     Anyway", "Merge Anyway", "Pull Anyway", "Reset Anyway", "Skip Anyway", "Abort Anyway" and "Continue Anyway"; also
     for stashing, popping, applying and Mark Resolved ("Stash Anyway", "Pop Anyway", "Apply Anyway", "Mark Resolved
     Anyway", [stash.md](stash.md)); not for soft and mixed resets, dropping a stash or branch and tag operations.
+- **Remotes** ([ADR 0183](../adr/0183-remotes-from-the-branches-pane.md)), with the git CLI through the write queue; the
+  log refreshes afterwards. Names are valid if `refs/remotes/<name>/test` is a valid refname; a name that is taken,
+  or a path prefix of another remote or has one as its prefix ("'a/b' conflicts with the remote 'a'."), is refused.
+  - **Add Remote…** (button "Add"): Name (`origin` prefilled when there is no remote), URL and "Fetch after adding"
+    (checked). The header says "Added remote upstream." and, after the fetch, its summary; a failed fetch leaves the
+    remote added and opens "Fetch Failed", a cancel says "Added remote upstream. Fetch cancelled.".
+  - **Rename…** (button "Rename"): "Renamed remote origin to upstream."; branches, tracking configuration and the push
+    default follow. If the remote's fetch refspecs are not git's default, the header adds that they were not updated
+    and names `remote.<new>.fetch`. If git renames only the configuration, the error says the remote branches could
+    not be moved.
+  - **Change URL…** (dialog "Change URL of 'origin'", button "Change"): URL and Push URL ("Same as URL" when empty,
+    clearing it removes it). Credentials show as `****` and are kept while the field keeps the mask and scheme, host and
+    port stay the same, else "Enter the credentials for the new host, or remove them."; a field with several values is
+    disabled ("Several URLs are configured; change them in a terminal."). "Changed the URL of origin." ("URLs" for both).
+  - **Remove** (alert "Remove Remote", "Remove remote 'upstream'?"): says what is lost, e.g. "Its 12 remote branches
+    are deleted locally.", "2 local branches (main, fix) lose their upstream.", the push default, and "Its URL is
+    removed. This cannot be undone."; Cancel is the default. "Removed remote upstream."
+  - Failures open "Add Remote Failed", "Rename Remote Failed", "Remove Remote Failed" or "Change URL Failed" with git's
+    message. Not here: a Git menu entry, several remotes at once, editing refspecs, removing the leftover branches of a
+    remote that is not configured. Push without a remote says to use Remote → Add Remote….
 - **Fetch** ([ADR 0043](../adr/0043-git-log-fetch.md)): the down arrow in the header ("Fetch All Remotes", also while
-  the log is collapsed) fetches every remote but those with `remote.<name>.skipFetchAll`, one after the other; Fetch in
-  the branches pane's context menu (its only item) on a remote or a folder of a remote
+  the log is collapsed) fetches every remote but those with `remote.<name>.skipFetchAll`, one after the other; Fetch All Remotes
+  on the branches pane's Remote group does the same; Fetch in
+  the branches pane's context menu on a remote or a folder of a remote
   fetches only that remote, also one with `skipFetchAll`; it is left out where no remote of the repository matches
   (a removed remote), and greyed out while an operation runs. `git fetch --prune --recurse-submodules=no`: remote branches deleted on the
   server disappear (not for a remote whose fetch refspecs write outside `refs/remotes/`, e.g. a mirror, where pruning

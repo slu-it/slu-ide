@@ -1,6 +1,7 @@
 # 0040. Git log branches pane: a tree of the refs already read, click navigates, double-click filters
 
-- Status: accepted; amended by [0171](0171-context-sensitive-branch-menus.md) (no Filter or Copy Name in the menus)
+- Status: accepted; amended by [0171](0171-context-sensitive-branch-menus.md) (no Filter or Copy Name in the menus) and
+  [0183](0183-remotes-from-the-branches-pane.md) (the Remote nodes come from the configured remotes)
 - Date: 2026-10-16
 
 ## Context
