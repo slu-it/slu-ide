@@ -46,7 +46,8 @@ internal class DiskLines(
         return AutoCloseable { dropped.set(true) }
     }
 
-    private companion object {
+    internal companion object {
+        /** The logged thread of the disk reads; the preview's texts read on it too. */
         val READER: Executor by lazy { NamedThreads.single("code-intelligence-lines") }
     }
 }
@@ -86,6 +87,25 @@ private fun readLines(
         return found
     } catch (e: IOException) {
         log.log(System.Logger.Level.DEBUG, "Could not read lines of $file", e)
+        return null
+    }
+}
+
+/**
+ * The whole text of [file] (UTF-8, malformed bytes replaced), `null` if it is not a regular file, is over [maxBytes]
+ * or cannot be read.
+ */
+internal fun readFileText(
+    file: Path,
+    maxBytes: Long,
+): String? {
+    try {
+        if (!Files.isRegularFile(file)) return null
+        val limit = (minOf(maxBytes, Int.MAX_VALUE - 1L) + 1).toInt()
+        val bytes = Files.newInputStream(file).use { it.readNBytes(limit) }
+        return if (bytes.size > maxBytes) null else String(bytes, Charsets.UTF_8)
+    } catch (e: IOException) {
+        log.log(System.Logger.Level.DEBUG, "Could not read $file", e)
         return null
     }
 }
