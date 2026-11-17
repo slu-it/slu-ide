@@ -10,6 +10,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
@@ -332,5 +333,147 @@ internal class GitPushTest : GitPushFixture() {
             "git did not finish within 1 s.\nIt may have reached origin. Fetch to check.",
             pushed.result.message,
         )
+    }
+
+    // what the callers rely on
+
+    /** A git that logs its calls (after the answers [FAKE_GIT_START] gives) and then runs [body]. */
+    private fun loggingGit(
+        log: java.nio.file.Path,
+        body: String,
+    ): GitCli {
+        val script = folder.resolve("logging-git")
+        script.writeText(FAKE_GIT_START + "echo \"\$*\" >> '$log'\ncase \"\$*\" in *config*) exit 1;; esac\n$body\n")
+        script.toFile().setExecutable(true)
+        val fake = GitCli(script.toString(), testGitEnvironment())
+        assumeTrue(fake.available, "no /bin/sh to stand in for git")
+        return fake
+    }
+
+    private fun calls(log: java.nio.file.Path) =
+        if (log.exists()) {
+            log.readText().lines().filter {
+                it.isNotEmpty()
+            }
+        } else {
+            emptyList()
+        }
+
+    @Test
+    fun `a call cancelled before it started does not run git at all`() {
+        val log = folder.resolve("calls.txt")
+        val fake = GitPush(loggingGit(log, "exit 0"))
+        val cancelled = GitCancellation().apply { cancel() }
+        val before = calls(log)
+
+        fake.push(repo, "origin", "main", "main", false, null, false, cancelled)
+        fake.deleteRemoteRefs(repo, "origin", listOf(GitRemoteDeletion("refs/tags/v1")), cancelled)
+        fake.pushTags(repo, "origin", listOf("v1"), cancelled)
+
+        assertEquals(before, calls(log), "git ran")
+    }
+
+    @Test
+    fun `names git cannot take are refused with the reason and git does not run`() {
+        val log = folder.resolve("calls.txt")
+        val fake = GitPush(loggingGit(log, "exit 0"))
+        val before = calls(log)
+        val reason = "'-x' cannot be passed to git: it starts with '-'."
+
+        assertEquals(
+            reason,
+            fake
+                .deleteRemoteRefs(
+                    repo,
+                    "-x",
+                    listOf(GitRemoteDeletion("refs/tags/v1")),
+                    GitCancellation(),
+                ).result.message,
+        )
+        assertEquals(reason, fake.pushTags(repo, "-x", listOf("v1"), GitCancellation()).result.message)
+        assertEquals(reason, fake.pushTags(repo, "origin", listOf("-x"), GitCancellation()).result.message)
+        assertEquals(
+            reason,
+            fake.push(repo, "-x", "main", "main", false, null, false, GitCancellation()).result.message,
+        )
+        assertEquals(before, calls(log), "git ran")
+    }
+
+    @Test
+    fun `a push that is not forced does not look at the expected commit`() {
+        val second = commit("Second")
+
+        val pushed = push(force = false, expected = "-not-a-hash")
+
+        assertTrue(pushed.result.success, pushed.result.message)
+        assertEquals(second, remoteTip("main"))
+    }
+
+    @Test
+    fun `a failure that is no timeout does not say the remote may have been reached`() {
+        val fake = GitPush(loggingGit(folder.resolve("calls.txt"), "echo 'fatal: nope' >&2\nexit 1"))
+
+        assertEquals(
+            "fatal: nope",
+            fake.push(repo, "origin", "main", "main", false, null, false, GitCancellation()).result.message,
+        )
+        assertEquals("fatal: nope", fake.pushTags(repo, "origin", listOf("v1"), GitCancellation()).result.message)
+        val deleted =
+            fake.deleteRemoteRefs(
+                repo,
+                "origin",
+                listOf(GitRemoteDeletion("refs/tags/v1")),
+                GitCancellation(),
+            )
+        assertEquals("fatal: nope", deleted.result.message)
+    }
+
+    @Test
+    fun `a success says what git said on standard error, not its report`() {
+        val fake = GitPush(loggingGit(folder.resolve("calls.txt"), "echo 'To the server'\nexit 0"))
+
+        val deleted =
+            fake.deleteRemoteRefs(
+                repo,
+                "origin",
+                listOf(GitRemoteDeletion("refs/tags/v1")),
+                GitCancellation(),
+            )
+        val tagged = fake.pushTags(repo, "origin", listOf("v1"), GitCancellation())
+
+        assertEquals(GitResult(true, ""), deleted.result)
+        assertEquals(GitResult(true, ""), tagged.result)
+    }
+
+    @Test
+    fun `a deletion stopped by its timeout may have reached the remote and says so`() {
+        val fake = GitPush(loggingGit(folder.resolve("calls.txt"), "exec sleep 30"))
+
+        val deleted =
+            fake.deleteRemoteRefs(
+                repo,
+                "origin",
+                listOf(GitRemoteDeletion("refs/tags/v1")),
+                GitCancellation(),
+                timeout = 1.seconds,
+            )
+
+        assertFalse(deleted.cancelled)
+        assertEquals(
+            "git did not finish within 1 s.\nIt may have reached origin. Fetch to check.",
+            deleted.result.message,
+        )
+    }
+
+    @Test
+    fun `deleting nothing is a programming error`() {
+        assertFailsWith<IllegalArgumentException> {
+            pushes.deleteRemoteRefs(
+                repo,
+                "origin",
+                emptyList(),
+                GitCancellation(),
+            )
+        }
     }
 }

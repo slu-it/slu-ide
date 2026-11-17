@@ -1,10 +1,10 @@
 package dev.sluide.git
 
-import dev.sluide.git.cli.GitCli
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
@@ -90,17 +90,7 @@ internal class GitPushTargetTest : GitPushFixture() {
     }
 
     /** The real git behind a wrapper that fails (exit 128; 1 would mean "not set" for config) calls with [failing]. */
-    private fun wrapped(failing: String): GitPush {
-        val wrapper =
-            folder.resolve("git-wrapper-${failing.hashCode()}").apply {
-                writeText(
-                    "#!/bin/sh\ncase \" \$* \" in *'$failing'*) echo 'error: refused by test' >&2; exit 128;; esac\n" +
-                        "exec git \"\$@\"\n",
-                )
-                toFile().setExecutable(true)
-            }
-        return GitPush(GitCli(wrapper.toString(), testGitEnvironment()))
-    }
+    private fun wrapped(failing: String) = GitPush(failingGit(folder, failing.trim()))
 
     @Test
     fun `there is no target when git fails to read the remotes or a setting`() {
@@ -285,5 +275,109 @@ internal class GitPushTargetTest : GitPushFixture() {
         git("config", "--unset-all", "remote.origin.fetch")
         assertNull(pushes.remoteBranch(repo, "origin", "refs/remotes/origin/main"), "without refspecs")
         assertNull(pushes.remoteBranch(repo, "-x", "refs/remotes/-x/main"))
+    }
+
+    @Test
+    fun `a remote named like an option has no branches even with a refspec, and unreadable refspecs are no answer`() {
+        git("config", "remote.-x.fetch", "+refs/heads/*:refs/remotes/-x/*")
+
+        assertNull(pushes.remoteBranch(repo, "-x", "refs/remotes/-x/main"))
+        assertEquals("refs/heads/main", pushes.remoteBranch(repo, "origin", "refs/remotes/origin/main"))
+        assertNull(wrapped("remote.origin.fetch").remoteBranch(repo, "origin", "refs/remotes/origin/main"))
+    }
+
+    @Test
+    fun `an upstream that is no branch is not pushed to, the branch's own name is`() {
+        git("config", "branch.main.remote", "origin")
+        git("config", "branch.main.merge", "trunk")
+        git("config", "push.default", "upstream")
+
+        assertEquals(GitPushTarget("origin", "main", hasUpstream = true), pushes.pushTarget(repo, "main"))
+    }
+
+    @Test
+    fun `refspecs that are negative, have no destination or do not fit leave the default tracking ref`() {
+        fun tracking(
+            branch: String,
+            vararg refspecs: String,
+        ): String {
+            git("config", "--unset-all", "remote.origin.fetch")
+            for (refspec in refspecs) git("config", "--add", "remote.origin.fetch", refspec)
+            return pushes.trackingRef(repo, "origin", branch)
+        }
+        val fallback = "refs/remotes/origin/main"
+
+        assertEquals(fallback, tracking("main", "refs/heads/main"), "no destination")
+        assertEquals(fallback, tracking("main", "^refs/heads/main:refs/remotes/origin/x"), "negative")
+        assertEquals(fallback, tracking("main", "refs/heads/*:refs/remotes/origin/fixed"), "a star on one side only")
+        assertEquals(fallback, tracking("main", "refs/heads/*-x:refs/remotes/origin/*"), "the suffix does not match")
+        assertEquals("refs/remotes/o/n", tracking("main", "refs/heads/mai*:refs/remotes/o/*"))
+        // The prefix and the suffix overlap in the source: too short for both.
+        assertEquals("refs/remotes/origin/a", tracking("a", "refs/heads/a*a:refs/remotes/m/*"))
+        assertEquals("refs/remotes/m/", tracking("aa", "refs/heads/a*a:refs/remotes/m/*"))
+    }
+
+    @Test
+    fun `a refspec without destination maps no tracking ref back to a branch`() {
+        git("config", "--unset-all", "remote.origin.fetch")
+        git("config", "remote.origin.fetch", "refs/heads/main")
+
+        assertNull(pushes.remoteBranch(repo, "origin", "refs/heads/main"))
+    }
+
+    @Test
+    fun `the limit of outgoing commits must be positive`() {
+        assertFailsWith<IllegalArgumentException> { pushes.outgoing(repo, "origin", "main", limit = 0) }
+    }
+
+    @Test
+    fun `names git cannot take are nothing outgoing`() {
+        commit("Second")
+
+        assertNull(pushes.outgoing(repo, "-x", "main"))
+        assertNull(pushes.outgoing(repo, "", "main"))
+        assertNull(pushes.outgoing(repo, "origin", "-x"))
+        assertNull(pushes.outgoing(repo, "origin", ""))
+        assertNotNull(pushes.outgoing(repo, "origin", "main"))
+    }
+
+    @Test
+    fun `a tracked branch sends what its tracking ref lacks, whatever other remote branches have`() {
+        val second = commit("Second")
+        git("update-ref", "refs/remotes/origin/feature", second)
+
+        val outgoing = pushes.outgoing(repo, "origin", "main")
+
+        assertEquals(listOf(second), outgoing?.commits?.map { it.hash })
+    }
+
+    @Test
+    fun `the base of a complete list comes from it and of a list cut short or without remote branches from git`() {
+        val first = rev("HEAD")
+        git("switch", "-q", "-c", "topic")
+        commit("Second")
+        commit("Third")
+        // rev-list is what reads the oldest commit from git: a complete list must not need it.
+        assertEquals(first, wrapped(" rev-list ").outgoing(repo, "origin", "topic")?.base)
+        assertNull(wrapped(" rev-list ").outgoing(repo, "origin", "topic", limit = 1), "a cut list asks git")
+        assertNull(wrapped(" for-each-ref ").outgoing(repo, "origin", "topic"), "refs unreadable")
+
+        // No remote-tracking ref at all: everything is outgoing, down to a root, without asking git.
+        git("update-ref", "-d", "refs/remotes/origin/main")
+        val all = wrapped(" rev-list ").outgoing(repo, "origin", "topic", limit = 1)
+        assertEquals(true, all?.more)
+        assertNull(all?.base)
+    }
+
+    @Test
+    fun `a symbolic ref in place of the tracking ref is no tracked branch and excludes nothing`() {
+        val second = commit("Second")
+        git("config", "--replace-all", "remote.origin.fetch", "+refs/heads/main:refs/remotes/origin/main")
+        git("symbolic-ref", "refs/remotes/origin/feature", "refs/heads/main")
+
+        val outgoing = pushes.outgoing(repo, "origin", "feature")
+
+        assertNull(outgoing?.remoteCommit)
+        assertEquals(listOf(second), outgoing?.commits?.map { it.hash })
     }
 }
