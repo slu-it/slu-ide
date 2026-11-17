@@ -658,6 +658,7 @@ class ConvertingModelTest {
                 step("setOption", 1, 1) { it.model.setOption("upper", true) },
                 step("open", 1, 1) { it.model.open("yaml:c", it.yaml) },
                 step("checkTargets", 0, 1) { it.model.checkTargets() },
+                step("clear", 1, 1) { it.model.clear() },
             )
 
         private fun step(

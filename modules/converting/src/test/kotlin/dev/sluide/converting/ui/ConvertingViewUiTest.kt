@@ -316,6 +316,7 @@ class ConvertingViewUiTest {
 
         assertEquals("", model.text(Side.LEFT))
         assertEquals("", model.text(Side.RIGHT))
+        assertEquals("""{"a": 1}""", text(Side.LEFT), "the closed tab's view no longer follows the model")
     }
 
     /** The characters styled as an error; RichTextFX gives a line break the style of the character before it. */

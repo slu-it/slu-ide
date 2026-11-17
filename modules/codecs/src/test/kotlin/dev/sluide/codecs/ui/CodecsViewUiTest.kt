@@ -383,5 +383,6 @@ class CodecsViewUiTest {
 
         assertEquals(TextContent.Text(""), model.text)
         assertEquals("", model.encoded)
+        assertEquals("hello", text("Text"), "the closed tab's view no longer follows the model")
     }
 }

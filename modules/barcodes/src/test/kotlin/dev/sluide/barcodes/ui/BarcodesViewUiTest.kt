@@ -264,6 +264,11 @@ class BarcodesViewUiTest {
 
         assertEquals("", fx { model.text })
         assertNull(fx { model.image })
+        assertEquals(
+            "from image",
+            fx { node<TextArea>("#barcodes-text").text },
+            "the closed tab's view no longer follows",
+        )
     }
 
     @Test
