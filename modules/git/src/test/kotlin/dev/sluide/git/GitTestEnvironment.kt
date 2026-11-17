@@ -1,5 +1,7 @@
 package dev.sluide.git
 
+import dev.sluide.git.cli.GitCli
+
 /**
  * The start of a script that stands in for git: it answers `--version`, and fails what `GitCli` asks on its own (the
  * variables of `git rev-parse --local-env-vars`, a `core.fsmonitor` hook, ADR 0052) as a git without them would, so
@@ -32,17 +34,20 @@ private val emptyConfigHome: java.nio.file.Path by lazy {
 }
 
 /**
- * A git that fails every call with one of the [words] among its arguments and runs the real git for the rest, to reach
- * the code that handles one failing command.
+ * A git that fails every call with one of the [words] among its arguments, from the call after the first [after] of
+ * them, and runs the real git for the rest, to reach the code that handles one failing command.
  */
 internal fun failingGit(
     folder: java.nio.file.Path,
     vararg words: String,
-): dev.sluide.git.cli.GitCli {
+    after: Int = 0,
+): GitCli {
     val script = folder.resolve("failing-git")
+    val counter = folder.resolve("failing-git-count")
     val patterns = words.joinToString("|") { "*' $it '*" }
-    script.toFile().writeText(FAKE_GIT_START + "case \" \$* \" in $patterns) exit 1;; esac\nexec git \"\$@\"\n")
+    val bump = "n=\$(cat '$counter' 2>/dev/null || echo 0); n=\$((n+1)); echo \$n > '$counter';"
+    val count = "$bump [ \$n -gt $after ] && exit 1;;"
+    script.toFile().writeText(FAKE_GIT_START + "case \" \$* \" in $patterns) $count esac\nexec git \"\$@\"\n")
     script.toFile().setExecutable(true)
-    return dev.sluide.git.cli
-        .GitCli(script.toString(), testGitEnvironment())
+    return GitCli(script.toString(), testGitEnvironment())
 }

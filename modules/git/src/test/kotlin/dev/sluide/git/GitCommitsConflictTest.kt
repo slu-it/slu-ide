@@ -1,6 +1,8 @@
 package dev.sluide.git
 
+import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.inProgress
+import dev.sluide.git.cli.unmergedEntries
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.nio.file.Files
 import kotlin.io.path.createDirectories
@@ -13,6 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -479,5 +482,83 @@ internal class GitCommitsConflictTest : GitCommitsFixture() {
         process.outputStream.use { it.write(input.toByteArray(Charsets.UTF_8)) }
         val output = process.inputStream.readAllBytes().decodeToString()
         assertEquals(0, process.waitFor(), output)
+    }
+
+    private fun entries() = git.unmergedEntries(repo).orEmpty()
+
+    private fun checked(
+        using: GitCli = git,
+        canName: Boolean = true,
+    ) = GitConflictCheck(using) { canName }.check(repo, entries())
+
+    @Test
+    fun `a git that fails while the conflicts are sorted gives no answer`() {
+        commits.pick(repo, GitPick.CHERRY_PICK, conflicting(), firstParent = false)
+        assertNotNull(checked())
+        assertNotNull(checked(canName = false))
+
+        for (word in listOf("--deleted", "check-attr")) {
+            assertNull(checked(failingGit(folder, word)), word)
+        }
+        // The files it cannot name are stored, sized and read, after the commands that sorted the conflicts ran twice.
+        assertNull(checked(failingGit(folder, "hash-object"), canName = false), "hash-object")
+        assertNull(checked(failingGit(folder, "--batch-check", after = 2), canName = false), "the size")
+        assertNull(checked(failingGit(folder, "blob", after = 2), canName = false), "the content")
+    }
+
+    @Test
+    fun `a file the JVM cannot name is read through git and checked as any other`() {
+        commits.pick(repo, GitPick.CHERRY_PICK, conflicting(), firstParent = false)
+        assertEquals(listOf("file.txt"), checked(canName = false)?.markers)
+
+        repo.resolve("file.txt").writeText("resolved\n")
+        val resolved = checked(canName = false)
+        assertEquals(emptyList(), resolved?.markers)
+        assertEquals(emptyList(), resolved?.unchecked)
+
+        // 6,000,000 bytes, above the 5 MB that are read.
+        repo.resolve("file.txt").writeText(("y".repeat(99) + "\n").repeat(60_000))
+        val large = checked(canName = false)
+        assertEquals(listOf(GitUncheckedConflict("file.txt", GitConflictReason.TOO_LARGE)), large?.unchecked)
+        assertEquals(emptyList(), large?.markers)
+    }
+
+    @Test
+    fun `a conflict-marker-size that is no positive number is the default 7`() {
+        repo.resolve(".gitattributes").writeText("*.txt conflict-marker-size=0\n")
+        git("add", ".gitattributes")
+        commits.pick(repo, GitPick.CHERRY_PICK, conflicting(), firstParent = false)
+        assertTrue(repo.resolve("file.txt").readText().startsWith("<<<<<<< "), "git writes 7")
+
+        assertEquals(GitPickResult.MarkersLeft(listOf("file.txt")), commits.continuePick(repo, GitPick.CHERRY_PICK))
+    }
+
+    @Test
+    fun `a file with the merge driver binary is unchecked`() {
+        repo.resolve(".gitattributes").writeText("file.txt merge=binary\n")
+        git("add", ".gitattributes")
+        commits.pick(repo, GitPick.CHERRY_PICK, conflicting(), firstParent = false)
+
+        assertEquals(
+            GitPickResult.Unchecked(listOf(GitUncheckedConflict("file.txt", GitConflictReason.BINARY))),
+            commits.continuePick(repo, GitPick.CHERRY_PICK),
+        )
+    }
+
+    @Test
+    fun `a conflict between two large versions is unchecked whatever is on disk`() {
+        fun large(letter: String) = (letter.repeat(99) + "\n").repeat(60_000)
+        commit("Base")
+        git("switch", "-q", "-c", "other")
+        val theirs = commit("Theirs", content = large("t"))
+        git("switch", "-q", "main")
+        commit("Ours", content = large("o"))
+        assertIs<GitPickResult.Stopped>(commits.pick(repo, GitPick.CHERRY_PICK, theirs, firstParent = false))
+        repo.resolve("file.txt").writeText("resolved\n")
+
+        assertEquals(
+            GitPickResult.Unchecked(listOf(GitUncheckedConflict("file.txt", GitConflictReason.TOO_LARGE))),
+            commits.continuePick(repo, GitPick.CHERRY_PICK),
+        )
     }
 }
