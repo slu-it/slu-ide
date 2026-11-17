@@ -3,8 +3,19 @@ package dev.sluide.codeintelligence.navigation
 import dev.sluide.codeintelligence.binding.SourcePosition
 import dev.sluide.codeintelligence.ui.CaretPopup
 import dev.sluide.fileviewers.ExtensibleCodeEditor
+import dev.sluide.fileviewers.FilePreview
+import dev.sluide.fileviewers.PreviewTexts
+import dev.sluide.fileviewers.SyntaxHighlighter
+import javafx.beans.value.ObservableValue
 import javafx.scene.input.KeyEvent
 import javafx.util.Subscription
+import java.nio.file.Path
+
+/** The preview's height: about 12 lines, as the preview of Find in Files; its width is the list's. */
+private const val PREVIEW_HEIGHT = 232.0
+
+/** The list's width, room for a path and the line's text beside `file.py:LINE`; the preview under it is as wide. */
+private const val LIST_WIDTH = 600.0
 
 /** Where a [TargetChooser] shows its list or note: the popup, a fake in tests. FX thread. */
 internal interface TargetView : AutoCloseable {
@@ -39,15 +50,35 @@ internal interface TargetView : AutoCloseable {
     fun hide()
 }
 
-/** The [TargetView] of an editor: a [CaretPopup] at the word, without Tab. FX thread. */
+/**
+ * The [TargetView] of an editor: a [CaretPopup] at the word, without Tab, with a read-only preview of the selected
+ * place under its list (ADR 0184): the file highlighted by [highlighter], its text from [texts], in [editorFont] (CSS).
+ * FX thread.
+ */
 internal class TargetPopup(
     private val editor: ExtensibleCodeEditor,
+    highlighter: (Path, String) -> SyntaxHighlighter?,
+    texts: PreviewTexts,
+    editorFont: ObservableValue<String>,
 ) : TargetView {
     override var onChoose: (NavigationTarget) -> Unit = {}
     override var onHidden: () -> Unit = {}
     override var onSelected: (NavigationTarget?) -> Unit = {}
 
-    override fun preview(position: SourcePosition?) {}
+    // A press in the preview does nothing: no caret, no focus, no selection.
+    private val preview =
+        FilePreview(highlighter, texts, editorFont).apply {
+            node.setPrefSize(LIST_WIDTH, PREVIEW_HEIGHT)
+            node.setMinSize(0.0, PREVIEW_HEIGHT)
+            node.setMaxSize(Double.MAX_VALUE, PREVIEW_HEIGHT)
+        }
+
+    /** The text the preview shows, for tests. */
+    internal val previewText: String get() = preview.text
+
+    override fun preview(position: SourcePosition?) {
+        if (position == null) preview.clear() else preview.show(position.file) { text -> targetPlace(text, position) }
+    }
 
     private val popup =
         CaretPopup<NavigationTarget>(
@@ -55,10 +86,12 @@ internal class TargetPopup(
             cell = { targetCell(it, editor.host.projectFolder) },
             onChoose = { onChoose(it) },
             acceptTab = false,
-            // Room for a path and the line's text beside `file.py:LINE`.
-            listWidth = 600.0,
+            listWidth = LIST_WIDTH,
+            footer = preview.node,
         ).apply {
+            onSelected = { this@TargetPopup.onSelected(it) }
             onHidden = {
+                preview.clear()
                 stopWatchingKeys()
                 this@TargetPopup.onHidden()
             }

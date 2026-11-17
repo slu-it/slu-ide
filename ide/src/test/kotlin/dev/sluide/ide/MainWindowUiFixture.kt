@@ -435,6 +435,8 @@ abstract class MainWindowUiFixture {
                 watcher,
                 InstallPrompts(projectData),
                 LibraryCodeSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
+                fileViewers,
+                fontSettings,
             ).also(codeIntelligences::add)
         return MainWindow(
             projectService,

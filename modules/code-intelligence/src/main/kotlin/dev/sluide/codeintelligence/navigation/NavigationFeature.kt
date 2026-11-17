@@ -4,11 +4,16 @@ import dev.sluide.codeintelligence.FIND_USAGES_KEYS
 import dev.sluide.codeintelligence.GO_TO_DEFINITION_KEYS
 import dev.sluide.codeintelligence.binding.BindingFeature
 import dev.sluide.codeintelligence.binding.DocumentBinding
+import dev.sluide.fileviewers.ConstantValue
 import dev.sluide.fileviewers.ExtensibleCodeEditor
+import dev.sluide.fileviewers.PreviewTexts
+import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.languageservers.RequestSlot
 import dev.sluide.textediting.TextPosition
+import javafx.beans.value.ObservableValue
 import javafx.scene.control.MenuItem
 import javafx.scene.input.KeyCombination
+import java.nio.file.Path
 
 /**
  * Go to definition and find usages in a bound editor (ADR 0146): Shortcut+B and Alt+F7 at the caret, Shortcut+hover
@@ -21,7 +26,12 @@ internal class NavigationFeature(
     private val navigation: Navigation,
     private val lines: LineReader = DiskLines(),
     private val libraryDocuments: LibraryDocuments = LibraryDocuments(),
-    private val view: (ExtensibleCodeEditor) -> TargetView = ::TargetPopup,
+    /** The texts of the preview under a list of places. */
+    previewTexts: PreviewTexts = PreviewTexts { _, done -> done(null) },
+    highlighter: (Path, String) -> SyntaxHighlighter? = { _, _ -> null },
+    /** The editor font as CSS, for the preview. */
+    editorFont: ObservableValue<String> = ConstantValue(""),
+    private val view: (ExtensibleCodeEditor) -> TargetView = { TargetPopup(it, highlighter, previewTexts, editorFont) },
 ) : BindingFeature {
     override fun attach(binding: DocumentBinding): AutoCloseable {
         val editor = binding.editor

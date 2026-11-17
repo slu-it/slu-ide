@@ -8,11 +8,14 @@ import dev.sluide.codeintelligence.binding.SourcePosition
 import dev.sluide.codeintelligence.completion.CompletionFeature
 import dev.sluide.codeintelligence.diagnostics.DiagnosticsFeature
 import dev.sluide.codeintelligence.navigation.BindingNavigation
+import dev.sluide.codeintelligence.navigation.BoundText
 import dev.sluide.codeintelligence.navigation.DEFINITION
+import dev.sluide.codeintelligence.navigation.DiskLines
 import dev.sluide.codeintelligence.navigation.Navigation
 import dev.sluide.codeintelligence.navigation.NavigationFeature
 import dev.sluide.codeintelligence.navigation.OccurrencesFeature
 import dev.sluide.codeintelligence.navigation.REFERENCES
+import dev.sluide.codeintelligence.navigation.TargetPreviewTexts
 import dev.sluide.codeintelligence.navigation.navigationBlocker
 import dev.sluide.codeintelligence.rename.RenameFeature
 import dev.sluide.codeintelligence.semantic.SemanticTokensFeature
@@ -34,11 +37,16 @@ import dev.sluide.codeintelligence.workspace.ConfigProblemsFeature
 import dev.sluide.codeintelligence.workspace.EnvironmentBannerFeature
 import dev.sluide.codeintelligence.workspace.WorkspaceStatusFeature
 import dev.sluide.fileviewers.CodeEditorExtension
+import dev.sluide.fileviewers.ConstantValue
 import dev.sluide.fileviewers.ExtensibleCodeEditor
 import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.fileviewers.PreviewTexts
+import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.languageservers.LanguageServerSpec
 import dev.sluide.languageservers.LanguageServers
 import dev.sluide.languageservers.ServerAvailability
+import javafx.application.Platform
+import javafx.beans.value.ObservableValue
 import javafx.collections.FXCollections
 import javafx.collections.ObservableMap
 import javafx.collections.ObservableSet
@@ -64,23 +72,33 @@ class CodeIntelligence internal constructor(
      * @param languageServers the window's servers.
      * @param prompts the user's Don't Ask Again answers of the install banner.
      * @param libraryReadOnly whether workspace edits refuse closed library files (ADR 0150); any thread.
+     * @param highlighter the highlighter of a file's text, for the preview under the lists of places (ADR 0184).
+     * @param editorFont the editor font as CSS, for that preview.
      */
-    constructor(languageServers: LanguageServers, prompts: InstallPrompts, libraryReadOnly: () -> Boolean) :
-        this(
-            languageServers,
-            FXCollections.observableSet(),
-            { notNow ->
-                builtInFeatures(
-                    notNow,
-                    environmentNotNow,
-                    configProblemsNotNow,
-                    prompts,
-                    navigation,
-                    libraryReadOnly,
-                    { revealInExplorer(it) },
-                ) { folder, name, command -> runInTerminal(folder, name, command) }
-            },
-        )
+    constructor(
+        languageServers: LanguageServers,
+        prompts: InstallPrompts,
+        highlighter: (Path, String) -> SyntaxHighlighter? = { _, _ -> null },
+        editorFont: ObservableValue<String> = ConstantValue(""),
+        libraryReadOnly: () -> Boolean,
+    ) : this(
+        languageServers,
+        FXCollections.observableSet(),
+        { notNow ->
+            builtInFeatures(
+                notNow,
+                environmentNotNow,
+                configProblemsNotNow,
+                prompts,
+                navigation,
+                libraryReadOnly,
+                { revealInExplorer(it) },
+                previewTexts,
+                highlighter,
+                editorFont,
+            ) { folder, name, command -> runInTerminal(folder, name, command) }
+        },
+    )
 
     /** Selects a folder in the window's explorer, for a click on the project status line (ADR 0151); set by the app. */
     var revealInExplorer: (Path) -> Unit = {}
@@ -106,6 +124,14 @@ class CodeIntelligence internal constructor(
     val history = NavigationHistory()
 
     internal val navigation = Navigation(history, { attachments.mapNotNull { it.binding } }, { lastHost })
+
+    /** The texts of the preview under the lists of places: unsaved editor text, else the disk off the FX thread. */
+    internal val previewTexts: PreviewTexts =
+        TargetPreviewTexts(
+            { bindings().map { binding -> BoundText(binding.file) { binding.editor.text } } },
+            DiskLines.READER,
+            Platform::runLater,
+        )
 
     private val features = featuresOf(notNow)
     private val subscriptions = mutableListOf<AutoCloseable>()
@@ -295,6 +321,9 @@ internal fun builtInFeatures(
     navigation: Navigation,
     libraryReadOnly: () -> Boolean,
     revealInExplorer: (Path) -> Unit,
+    previewTexts: PreviewTexts = PreviewTexts { _, done -> done(null) },
+    highlighter: (Path, String) -> SyntaxHighlighter? = { _, _ -> null },
+    editorFont: ObservableValue<String> = ConstantValue(""),
     runInTerminal: (folder: Path, name: String, command: String) -> Unit,
 ): List<BindingFeature> =
     listOf(
@@ -304,7 +333,12 @@ internal fun builtInFeatures(
         ConfigProblemsFeature(configProblemsNotNow),
         ServedFeatures(
             listOf(
-                NavigationFeature(navigation),
+                NavigationFeature(
+                    navigation,
+                    previewTexts = previewTexts,
+                    highlighter = highlighter,
+                    editorFont = editorFont,
+                ),
                 OccurrencesFeature(),
                 RenameFeature(libraryReadOnly),
                 FileStructureFeature(navigation),

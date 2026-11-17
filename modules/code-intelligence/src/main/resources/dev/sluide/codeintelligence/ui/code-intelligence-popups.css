@@ -216,3 +216,17 @@
 .signature-count {
     -fx-opacity: 0.7;
 }
+
+/*
+ * The name at the selected place in the preview under a list of places (TargetPopup, FilePreview): a background in
+ * the spirit of the occurrences' (navigation/occurrences.css), a little stronger as it marks the one place.
+ */
+.ci-preview-target {
+    -rtfx-background-color: #cfe0fa;
+}
+
+@media (prefers-color-scheme: dark) {
+    .ci-preview-target {
+        -rtfx-background-color: #3f5273;
+    }
+}

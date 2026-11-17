@@ -3,6 +3,7 @@ package dev.sluide.ide.codeintelligence
 import dev.sluide.codeintelligence.CodeIntelligence
 import dev.sluide.codeintelligence.InstallPrompts
 import dev.sluide.fileviewers.CodeEditorExtension
+import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.WindowServices
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.ide.ProjectService
@@ -12,6 +13,9 @@ import dev.sluide.languageservers.LanguageServers
 import dev.sluide.languageservers.TrustGate
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.projecttrust.ProjectTrust
+import dev.sluide.settings.FontArea
+import dev.sluide.settings.FontSettings
+import dev.sluide.settings.FontSpec
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 
@@ -30,6 +34,8 @@ class CodeIntelligenceWiring(
     fileWatcher: FileWatcher,
     prompts: InstallPrompts,
     libraryCode: LibraryCodeSettings,
+    fileViewers: FileViewers,
+    fontSettings: FontSettings,
 ) : AutoCloseable {
     /** The window's servers; servers trust-gate on the window's project trust (ADR 0053). */
     val languageServers =
@@ -41,7 +47,14 @@ class CodeIntelligenceWiring(
         )
 
     /** The code intelligence of the window's editors, also behind the Navigate menu (ADR 0146). */
-    val intelligence = CodeIntelligence(languageServers, prompts, libraryCode::currentReadOnly)
+    val intelligence =
+        CodeIntelligence(
+            languageServers,
+            prompts,
+            highlighter = fileViewers::highlighterFor,
+            editorFont = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss),
+            libraryReadOnly = libraryCode::currentReadOnly,
+        )
 
     /** The extension that binds the window's code editors to the servers. */
     val editorExtension: CodeEditorExtension get() = intelligence

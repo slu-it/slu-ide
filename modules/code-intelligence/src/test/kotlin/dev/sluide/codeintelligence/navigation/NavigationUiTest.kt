@@ -5,8 +5,11 @@ import dev.sluide.codeintelligence.EditorUiFixture
 import dev.sluide.codeintelligence.PySpec
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.codeintelligence.binding.SourcePosition
+import dev.sluide.fileviewers.ConstantValue
 import dev.sluide.fileviewers.ExtensibleCodeEditor
+import dev.sluide.fileviewers.PreviewTexts
 import dev.sluide.languageservers.FakeLanguageServers
+import javafx.application.ColorScheme
 import javafx.application.Platform
 import javafx.collections.FXCollections
 import javafx.event.Event
@@ -18,6 +21,9 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.layout.VBox
+import javafx.scene.paint.Color
+import javafx.scene.text.Text
 import javafx.stage.Stage
 import org.eclipse.lsp4j.DocumentHighlight
 import org.eclipse.lsp4j.DocumentHighlightKind
@@ -52,6 +58,7 @@ internal class NavigationUiTest : EditorUiFixture() {
     private lateinit var servers: FakeLanguageServers
     private lateinit var server: NavigationServer
     private lateinit var intelligence: CodeIntelligence
+    private val targetPopups = mutableListOf<TargetPopup>()
 
     private val text = "def run():\n    pass\n\nrun()\nrun()\n"
     private val file get() = dir.resolve("a.py")
@@ -71,6 +78,7 @@ internal class NavigationUiTest : EditorUiFixture() {
         supported: Set<String> = setOf(DEFINITION, REFERENCES, DOCUMENT_HIGHLIGHT),
         text: String = this.text,
         lines: LineReader = DiskLines(),
+        previewTexts: PreviewTexts = PreviewTexts { _, done -> done(null) },
     ): ExtensibleCodeEditor {
         val spec = PySpec()
         servers = FakeLanguageServers(listOf(spec), dir, dispatch = Platform::runLater) { NavigationServer(supported) }
@@ -78,7 +86,14 @@ internal class NavigationUiTest : EditorUiFixture() {
         intelligence =
             fx {
                 CodeIntelligence(servers.servers, FXCollections.observableSet()) {
-                    listOf(NavigationFeature(navigation, lines), OccurrencesFeature(delay = 10.milliseconds))
+                    listOf(
+                        NavigationFeature(navigation, lines, previewTexts = previewTexts) { editor ->
+                            TargetPopup(editor, { _, _ -> null }, previewTexts, ConstantValue("")).also {
+                                targetPopups += it
+                            }
+                        },
+                        OccurrencesFeature(delay = 10.milliseconds),
+                    )
                 }
             }
         val editor = open(robot, file, text, listOf(intelligence))
@@ -284,5 +299,149 @@ internal class NavigationUiTest : EditorUiFixture() {
                 ).single().content.single().lookupAll(".caret-popup-label").map { (it as Label).text }[1]
             },
         )
+    }
+
+    /** The text of the preview under the list, and the text of what is marked in it. */
+    private fun previewShown(): Pair<String, String> =
+        fx {
+            val footer = (popups("caret-popup").single().content.single() as VBox).children.last()
+            val all = footer.lookupAll(".text").filterIsInstance<Text>().joinToString("") { it.text }
+            all to footer.lookupAll(".ci-preview-target").filterIsInstance<Text>().joinToString("") { it.text }
+        }
+
+    /** Find Usages over `a.py` (line 3) and two lines of `b.py`, the line texts of `b.py` still on their way. */
+    private fun usagesInTwoFiles(
+        robot: FxRobot,
+        held: MutableList<() -> Unit> = mutableListOf(),
+    ) {
+        val lines =
+            LineReader { positions, done ->
+                val texts = positions.associateWith { "line ${it.line}" }
+                held += { done(texts) }
+                AutoCloseable {}
+            }
+        val previews = TargetPreviewTexts({ emptyList() }, { it.run() }, Platform::runLater)
+        val editor = setUp(robot, lines = lines, previewTexts = previews)
+        val other = dir.resolve("b.py")
+        other.writeText("# second file\nrun()\nrun()\n")
+        server.referencesAnswer =
+            { listOf(location(file, 3, 0, 3), location(other, 1, 0, 3), location(other, 2, 0, 3)) }
+        robot.interact { editor.moveCaret(23) }
+        findUsages(robot)
+        awaitTrue("list") { popups("caret-popup").isNotEmpty() && held.isNotEmpty() }
+    }
+
+    @Test
+    fun `Down in the usages list shows the next place's file under it with the name marked`(robot: FxRobot) {
+        usagesInTwoFiles(robot)
+        awaitTrue("the first place's file shows") { previewShown().first.contains("def run") }
+        assertEquals("run", previewShown().second, "the name at the place is marked")
+
+        press(robot, KeyCode.DOWN)
+        awaitTrue("the second file shows") { previewShown().first.contains("second file") }
+        assertEquals("run", previewShown().second)
+        assertEquals(false, previewShown().first.contains("def run"))
+    }
+
+    private fun previewText() = fx { targetPopups.single().previewText }
+
+    @Test
+    fun `the marked name in the preview is painted with the stylesheet's background, dark and light`(robot: FxRobot) {
+        usagesInTwoFiles(robot)
+        awaitTrue("the name is marked") { previewShown().second == "run" }
+
+        fun background(scheme: ColorScheme): Any? {
+            var color: Any? = null
+            robot.interact {
+                val window = popups("caret-popup").single()
+                window.scene.preferences.colorScheme = scheme
+                window.scene.root.applyCss()
+                val footer = (window.content.single() as VBox).children.last()
+                val marked = footer.lookup(".ci-preview-target")
+                // RichTextFX's TextExt, which this module does not see at compile time, keeps the painted fill.
+                color = marked.javaClass.getMethod("getBackgroundColor").invoke(marked)
+            }
+            return color
+        }
+        assertEquals(Color.web("#3f5273"), background(ColorScheme.DARK))
+        assertEquals(Color.web("#cfe0fa"), background(ColorScheme.LIGHT))
+    }
+
+    @Test
+    fun `hiding the list empties the preview`(robot: FxRobot) {
+        usagesInTwoFiles(robot)
+        awaitTrue("the first place's file shows") { previewText().contains("def run") }
+        press(robot, KeyCode.ESCAPE)
+        assertEquals(emptyList(), popups("caret-popup"))
+        assertEquals("", previewText())
+    }
+
+    @Test
+    fun `a new list shows the files as they are now, not as the list before showed them`(robot: FxRobot) {
+        val held = mutableListOf<() -> Unit>()
+        usagesInTwoFiles(robot, held)
+        press(robot, KeyCode.DOWN)
+        awaitTrue("the second file shows") { previewText().contains("second file") }
+
+        // Only usages in b.py now: its first place is the file that showed before.
+        val other = dir.resolve("b.py").also { it.writeText("# changed file\nrun()\nrun()\n") }
+        server.referencesAnswer = { listOf(location(other, 1, 0, 3), location(other, 2, 0, 3)) }
+        findUsages(robot)
+        awaitTrue("the file as it is now") { previewText().contains("changed file") }
+    }
+
+    @Test
+    fun `Go to Definition again with the same places shows the preview again`(robot: FxRobot) {
+        // The line texts never arrive, so the second list equals the first one.
+        val editor =
+            setUp(
+                robot,
+                lines = { _, _ -> AutoCloseable {} },
+                previewTexts = TargetPreviewTexts({ emptyList() }, { it.run() }, Platform::runLater),
+            )
+        val other = dir.resolve("b.py").also { it.writeText("# second file\nrun()\n") }
+        server.definitionAnswer = { listOf(location(file, 3, 0, 3), location(other, 1, 0, 3)) }
+        robot.interact { editor.moveCaret(23) }
+        press(robot, KeyCode.B, shortcut = true)
+        awaitTrue("the preview shows") { previewText().contains("def run") }
+
+        press(robot, KeyCode.B, shortcut = true)
+        awaitTrue("shown again for the new list") { previewText().contains("def run") }
+    }
+
+    @Test
+    fun `a press in the preview leaves the popup open, the selection and the focus in the editor`(robot: FxRobot) {
+        usagesInTwoFiles(robot)
+        press(robot, KeyCode.DOWN)
+        awaitTrue("the second file shows") { previewShown().first.contains("second file") }
+
+        val target = fx { (popups("caret-popup").single().content.single() as VBox).children.last().lookup(".text") }
+        val press =
+            MouseEvent(
+                MouseEvent.MOUSE_PRESSED,
+                5.0,
+                5.0,
+                5.0,
+                5.0,
+                MouseButton.PRIMARY,
+                1,
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                true,
+                false,
+                false,
+                null,
+            )
+        robot.interact { Event.fireEvent(target, press) }
+        // The editor inside the preview would take the focus of the popup's scene on a press it was given.
+        assertEquals(null, fx { popups("caret-popup").single().scene.focusOwner }, "the popup took no focus")
+        assertEquals(1, popups("caret-popup").size, "the popup stays")
+        assertEquals(1, selectedRow())
+        assertTrue(fx { area().isFocused }, "the editor keeps the focus")
     }
 }

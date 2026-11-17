@@ -1,6 +1,8 @@
 package dev.sluide.codeintelligence
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.codeintelligence.navigation.NavigationServer
+import dev.sluide.codeintelligence.navigation.location
 import dev.sluide.fileviewers.EditorMenuTarget
 import dev.sluide.fileviewers.OffsetEdit
 import dev.sluide.languageservers.DocumentGate
@@ -11,11 +13,18 @@ import dev.sluide.languageservers.ProblemAction
 import dev.sluide.languageservers.ServerAvailability
 import dev.sluide.languageservers.WorkspaceStatus
 import dev.sluide.projectdata.ProjectDataStore
+import dev.sluide.textediting.TextPosition
 import javafx.application.Platform
+import javafx.beans.property.SimpleStringProperty
+import javafx.event.Event
 import javafx.scene.control.Button
 import javafx.scene.control.Hyperlink
 import javafx.scene.control.Label
 import javafx.scene.control.ProgressBar
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
+import javafx.scene.layout.VBox
+import javafx.scene.text.Text
 import javafx.stage.Stage
 import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DidChangeTextDocumentParams
@@ -31,7 +40,9 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import java.nio.file.Path
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -82,6 +93,65 @@ internal class CodeIntelligenceUiTest : EditorUiFixture() {
         awaitTrue("didChange") { server.documentNotifications.any { it is DidChangeTextDocumentParams } }
         val change = server.documentNotifications.filterIsInstance<DidChangeTextDocumentParams>().single()
         assertEquals("2", change.contentChanges.single().text)
+    }
+
+    @Test
+    fun `the preview's texts are the unsaved text of a bound editor, else the file on disk`(robot: FxRobot) {
+        val intelligence = intelligence(PySpec())
+        val main = dir.resolve("main.py")
+        val editor = open(robot, main, "print(1)\n", listOf(intelligence))
+        robot.interact { editor.applyEdits(listOf(OffsetEdit(6, 7, "2"))) }
+        val other = dir.resolve("other.py").also { it.writeText("on disk") }
+        val answers = CopyOnWriteArrayList<String?>()
+
+        robot.interact { intelligence.previewTexts.load(main) { answers += it } }
+        robot.interact { intelligence.previewTexts.load(other) { answers += it } }
+        awaitTrue("both answers") { answers.size == 2 }
+        assertEquals(listOf<String?>("print(2)\n", "on disk"), answers.toList())
+    }
+
+    @Test
+    fun `Find Usages through the public constructor previews the unsaved text with the highlighter and the font`(
+        robot: FxRobot,
+    ) {
+        val spec = PySpec()
+        val fake = FakeLanguageServers(listOf(spec), dir, dispatch = Platform::runLater) { NavigationServer() }
+        servers = fake
+        val server = fake.awaitRunning(spec) as NavigationServer
+        val prompts = InstallPrompts(ProjectDataStore(dir.resolve("p"), dir.resolve("shared.json"), emptyList()))
+        val asked = CopyOnWriteArrayList<Path>()
+        val font = SimpleStringProperty("-fx-font-size: 21px;")
+        val intelligence =
+            fx {
+                CodeIntelligence(
+                    fake.servers,
+                    prompts,
+                    highlighter = { file, _ ->
+                        asked.add(file)
+                        null
+                    },
+                    editorFont = font,
+                ) { false }
+            }.also { this.intelligence = it }
+        val main = dir.resolve("main.py")
+        val other = dir.resolve("other.py").also { it.writeText("run()\n") }
+        val editor = open(robot, main, "def run():\n    pass\n\nrun()\n", listOf(intelligence))
+        // Unsaved: the file on disk still says `pass`.
+        robot.interact { editor.applyEdits(listOf(OffsetEdit(15, 19, "UNSAVED"))) }
+        server.referencesAnswer = { listOf(location(main, 3, 0, 3), location(other, 0, 0, 3)) }
+        robot.interact { editor.moveCaret(editor.offsetOf(TextPosition(3, 1))) }
+        robot.interact {
+            Event.fireEvent(area(), KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.F7, false, false, true, false))
+        }
+        awaitTrue("the list") { popups("caret-popup").isNotEmpty() }
+
+        fun footer() = (popups("caret-popup").single().content.single() as VBox).children.last()
+        awaitTrue("the unsaved text shows") {
+            fx { footer().lookupAll(".text").filterIsInstance<Text>().joinToString("") { it.text } }
+                .contains("UNSAVED")
+        }
+        assertEquals(listOf(main), asked.toList().distinct(), "the highlighter was asked for the previewed file")
+        assertEquals("-fx-font-size: 21px;", fx { footer().style }, "the preview follows the editor font")
     }
 
     @Test
