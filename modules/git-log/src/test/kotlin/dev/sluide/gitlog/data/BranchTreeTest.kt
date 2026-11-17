@@ -150,6 +150,65 @@ class BranchTreeTest {
     }
 
     @Test
+    fun `every configured remote is a node, also one without branches, the Remote group shown even without any`() {
+        val refs = GitRefs(listOf(local("main"), remote("origin/main")), null)
+
+        assertEquals(
+            listOf("Local/", "  main", "Remote/", "  origin/", "    main", "  upstream/"),
+            lines(branchNodes(refs, remotes = listOf("upstream", "origin"))),
+        )
+        val upstream = (branchNodes(refs, remotes = listOf("upstream", "origin"))[1] as BranchGroup).children[1]
+        assertEquals("Remote/upstream", upstream.path)
+        assertEquals(
+            listOf("Local/", "  main", "Remote/"),
+            lines(branchNodes(GitRefs(listOf(local("main")), null), remotes = emptyList())),
+        )
+        assertEquals(listOf("Remote/"), lines(branchNodes(GitRefs(emptyList(), null), remotes = emptyList())))
+    }
+
+    @Test
+    fun `remote branches go to the remote with the longest matching name`() {
+        val refs =
+            GitRefs(
+                listOf(
+                    remote("team/a/main"),
+                    remote("team/a/fix/x"),
+                    remote("team/b"),
+                    remote("team/c/y"),
+                    remote("trunk"),
+                ),
+                null,
+            )
+
+        assertEquals(
+            listOf(
+                "Remote/",
+                "  team/",
+                "    c/",
+                "      y",
+                "    b",
+                "  team/a/",
+                "    fix/",
+                "      x",
+                "    main",
+                "  team/b/",
+                "  trunk",
+            ),
+            lines(branchNodes(refs, remotes = listOf("team/a", "team/b"))),
+        )
+    }
+
+    @Test
+    fun `without the remotes read the tree is built from the remote branches alone`() {
+        val refs = GitRefs(listOf(remote("team/a/main"), remote("origin/main")), null)
+
+        assertEquals(
+            listOf("Remote/", "  origin/", "    main", "  team/", "    a/", "      main"),
+            lines(branchNodes(refs, remotes = null)),
+        )
+    }
+
+    @Test
     fun `a detached HEAD shows its short hash, no branch is current`() {
         val nodes = branchNodes(GitRefs(listOf(head, local("main")), null))
 

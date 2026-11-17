@@ -4,6 +4,7 @@ import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitStash
+import dev.sluide.gitlog.operations.remoteOfBranch
 
 /**
  * A node of the branches pane's tree (ADR 0040). [path] identifies it across rebuilds, e.g. to keep it collapsed:
@@ -75,12 +76,16 @@ internal const val STASHES = "Stashes"
  * with `/` are grouped into folders; a folder holding only one folder and no branches is one node (`team/feature`). In
  * every node its folders come first, then its branches, each by name, ignoring case first.
  *
- * A remote is the first segment of a remote branch's name, so remote names with a `/` are split wrongly; a remote
- * branch without a `/` (git-svn's `refs/remotes/trunk`) is a leaf directly below Remote.
+ * With the names of the configured [remotes] (`git remote`; `null` while not read), Remote holds every one of them,
+ * also without branches, and is shown even without any; a remote branch is below the remote with the longest name
+ * that starts it (`team/a` for `team/a/main`). The other remote branches (leftovers of a removed remote, and all of
+ * them while [remotes] is `null`) are grouped by the first segment of their name, so a remote name with a `/` is split
+ * there; a remote branch without a `/` (git-svn's `refs/remotes/trunk`) is a leaf directly below Remote.
  */
 internal fun branchNodes(
     refs: GitRefs,
     stashes: List<GitStash> = emptyList(),
+    remotes: List<String>? = null,
 ): List<BranchNode> {
     val head =
         refs.refs.firstOrNull { it.kind == GitRefKind.HEAD }?.let { ref ->
@@ -93,23 +98,34 @@ internal fun branchNodes(
             BranchLeaf(name, "HEAD", ref, current = refs.currentBranch != null)
         }
     val locals = refs.refs.filter { it.kind == GitRefKind.LOCAL_BRANCH }
-    val remotes = refs.refs.filter { it.kind == GitRefKind.REMOTE_BRANCH }
+    val remoteRefs = refs.refs.filter { it.kind == GitRefKind.REMOTE_BRANCH }
     val tags = refs.refs.filter { it.kind == GitRefKind.TAG }
 
     val local = BranchGroup(LOCAL, folderTree(LOCAL, locals.map { it.shortName to it }, refs.currentBranch))
-    val (plain, named) = remotes.partition { '/' !in it.shortName }
-    val remoteNodes =
+    val known = remotes.orEmpty()
+    val (configured, others) = remoteRefs.partition { remoteOfBranch(it.shortName, known) != null }
+    val (plain, named) = others.partition { '/' !in it.shortName }
+    val configuredNodes =
+        known.map { name ->
+            val path = "$REMOTE/$name"
+            val branches = configured.filter { remoteOfBranch(it.shortName, known) == name }
+            BranchRemote(name, path, folderTree(path, branches.map { it.shortName.removePrefix("$name/") to it }))
+        }
+    val leftoverNodes =
         named
             .groupBy { it.shortName.substringBefore('/') }
             .map { (remote, branches) ->
                 val path = "$REMOTE/$remote"
                 BranchRemote(remote, path, folderTree(path, branches.map { it.shortName.substringAfter('/') to it }))
-            }.sortedWith(BY_NAME) +
+            }
+    val remoteNodes =
+        (configuredNodes + leftoverNodes).sortedWith(BY_NAME) +
             plain.map { BranchLeaf(it.shortName, "$REMOTE/${it.shortName}", it) }.sortedWith(BY_NAME)
     val remote = BranchGroup(REMOTE, remoteNodes)
     val tag = BranchGroup(TAGS, folderTree(TAGS, tags.map { it.shortName to it }))
     val stash = BranchGroup(STASHES, stashes.map(::BranchStash))
-    return listOfNotNull(head) + listOf(local, remote, tag, stash).filter { it.children.isNotEmpty() }
+    return listOfNotNull(head) +
+        listOf(local, remote, tag, stash).filter { it.children.isNotEmpty() || (it === remote && remotes != null) }
 }
 
 /**
