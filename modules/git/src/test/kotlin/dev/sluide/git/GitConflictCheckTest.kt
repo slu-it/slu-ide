@@ -83,6 +83,25 @@ class GitConflictCheckTest {
     }
 
     @Test
+    fun `what blocks a start says so for each operation git can be in the middle of`() {
+        fun busy(operation: GitOperation) = busyMessage(GitPendingOperation(operation))
+
+        assertEquals("A git am session is in progress; finish or abort it first.", busy(GitOperation.AM))
+        assertEquals(
+            "A cherry-pick sequence is in progress; continue or abort it in the terminal.",
+            busy(GitOperation.CHERRY_PICK_SEQUENCE),
+        )
+        assertEquals(
+            "A revert sequence is in progress; continue or abort it in the terminal.",
+            busy(GitOperation.REVERT_SEQUENCE),
+        )
+        assertEquals(
+            "A cherry-pick or revert sequence is in progress; continue or abort it in the terminal.",
+            busy(GitOperation.SEQUENCE),
+        )
+    }
+
+    @Test
     fun `what blocks a start says so, and the conflicts in the singular or the plural`() {
         assertEquals(
             "1 file has conflicts; resolve it and mark it resolved first.",

@@ -102,7 +102,19 @@ class RemoteRefusalsTest {
 
     @Test
     fun `refuses paths that are not relative and slash-separated`() {
-        for (path in listOf("", "/action.yml", "../action.yml", "a/../action.yml", "a\\b", "a//b", "./action.yml")) {
+        for (path in listOf(
+            "",
+            "/action.yml",
+            "../action.yml",
+            "a/../action.yml",
+            "a\\b",
+            "a//b",
+            "./action.yml",
+            "a\nb",
+            "a\u0001b",
+            // A lone surrogate cannot be encoded as an argument in any charset.
+            "a\uD800b",
+        )) {
             assertEquals("invalid path '$path'", pathRefusal(path), path)
         }
         for (path in listOf("action.yml", ".github/workflows/ci.yml", "a/b.c")) {
@@ -118,6 +130,7 @@ class RemoteRefusalsTest {
             listOf(
                 repository.copy(host = "-oProxyCommand=x"),
                 repository.copy(host = "example.com/x"),
+                repository.copy(owner = "."),
                 repository.copy(owner = ".."),
                 repository.copy(owner = "-x"),
                 repository.copy(name = "a/b"),

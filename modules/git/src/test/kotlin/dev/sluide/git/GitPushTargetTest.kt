@@ -380,4 +380,51 @@ internal class GitPushTargetTest : GitPushFixture() {
         assertNull(outgoing?.remoteCommit)
         assertEquals(listOf(second), outgoing?.commits?.map { it.hash })
     }
+
+    /** Commits a file named after the [subject] at the committer date [epoch] (seconds), which date order goes by. */
+    private fun commitAt(
+        subject: String,
+        epoch: Int,
+    ) {
+        repo.resolve("$subject.txt").writeText("$subject\n")
+        git("add", "$subject.txt")
+        val process =
+            ProcessBuilder("git", "commit", "-q", "-m", subject)
+                .directory(repo.toFile())
+                .redirectErrorStream(true)
+                .apply {
+                    environment().clear()
+                    environment().putAll(testGitEnvironment())
+                    environment()["GIT_COMMITTER_DATE"] = "$epoch +0000"
+                    environment()["GIT_AUTHOR_DATE"] = "$epoch +0000"
+                }.start()
+        val output = process.inputStream.readAllBytes().decodeToString()
+        assertEquals(0, process.waitFor(), output)
+    }
+
+    @Test
+    fun `outgoing commits come in topological order, not by date`() {
+        git("switch", "-q", "-c", "topic")
+        git("switch", "-q", "-c", "side")
+        commitAt("a1", 1_000_000_100)
+        commitAt("a2", 1_000_000_300)
+        git("switch", "-q", "topic")
+        commitAt("b1", 1_000_000_200)
+        commitAt("b2", 1_000_000_400)
+        git("merge", "-q", "--no-ff", "-m", "Merge", "side")
+
+        val subjects = pushes.outgoing(repo, "origin", "topic")?.commits?.map { it.subject }
+
+        // Date order would mix the two lines: b2, a2, b1, a1.
+        assertEquals(listOf("Merge", "a2", "a1", "b2", "b1"), subjects)
+    }
+
+    @Test
+    fun `nothing is outgoing when git fails to list the commits or to count how far behind`() {
+        commit("Second")
+        assertNotNull(pushes.outgoing(repo, "origin", "main"))
+
+        assertNull(wrapped("--topo-order").outgoing(repo, "origin", "main"), "the commits")
+        assertNull(wrapped("--left-right").outgoing(repo, "origin", "main"), "the count")
+    }
 }

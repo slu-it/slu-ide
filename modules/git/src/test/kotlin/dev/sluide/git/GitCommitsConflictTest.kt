@@ -500,6 +500,9 @@ internal class GitCommitsConflictTest : GitCommitsFixture() {
         for (word in listOf("--deleted", "check-attr")) {
             assertNull(checked(failingGit(folder, word)), word)
         }
+        // The sizes and the contents of the two sides are read first.
+        assertNull(checked(failingGit(folder, "--batch-check")), "the size of a side")
+        assertNull(checked(failingGit(folder, "blob")), "the content of a side")
         // The files it cannot name are stored, sized and read, after the commands that sorted the conflicts ran twice.
         assertNull(checked(failingGit(folder, "hash-object"), canName = false), "hash-object")
         assertNull(checked(failingGit(folder, "--batch-check", after = 2), canName = false), "the size")
@@ -558,6 +561,37 @@ internal class GitCommitsConflictTest : GitCommitsFixture() {
 
         assertEquals(
             GitPickResult.Unchecked(listOf(GitUncheckedConflict("file.txt", GitConflictReason.TOO_LARGE))),
+            commits.continuePick(repo, GitPick.CHERRY_PICK),
+        )
+    }
+
+    @Test
+    fun `a symbolic link on both sides is unchecked whatever is on disk now`() {
+        fun link(
+            subject: String,
+            target: String,
+        ): String {
+            repo.resolve("link").toFile().delete()
+            Files.createSymbolicLink(
+                repo.resolve("link"),
+                java.nio.file.Path
+                    .of(target),
+            )
+            git("add", "link")
+            git("commit", "-q", "-m", subject)
+            return head()
+        }
+        link("Base", "a")
+        git("switch", "-q", "-c", "other")
+        val theirs = link("Theirs", "b")
+        git("switch", "-q", "main")
+        link("Ours", "c")
+        assertIs<GitPickResult.Stopped>(commits.pick(repo, GitPick.CHERRY_PICK, theirs, firstParent = false))
+        repo.resolve("link").toFile().delete()
+        repo.resolve("link").writeText("resolved\n")
+
+        assertEquals(
+            GitPickResult.Unchecked(listOf(GitUncheckedConflict("link", GitConflictReason.SYMLINK))),
             commits.continuePick(repo, GitPick.CHERRY_PICK),
         )
     }
