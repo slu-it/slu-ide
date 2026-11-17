@@ -184,5 +184,7 @@ class RemoteRefusalsTest {
         )
         assertEquals(REF_NOT_FOUND, remoteFailure("fatal: couldn't find remote ref connection-refused", "x"))
         assertEquals("x", remoteFailure("remote: fatal: couldn't find remote ref v9\nremote: ssh: nope", "x"))
+        // A line of the server that looks like ssh's own message.
+        assertEquals("x", remoteFailure("remote: Permission denied (publickey).", "x"))
     }
 }

@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.remote.RemoteRefStore
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -16,6 +17,7 @@ import kotlin.io.path.setPosixFilePermissions
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
@@ -331,6 +333,35 @@ class RemoteSourceCacheTest {
 
         assertNull(cache.commit(repository, "main"))
         assertNotNull(fetched("main"))
+    }
+
+    @Test
+    fun `the fetched refs list keeps the lines with a full commit and a time, a failed write leaves no file`() {
+        val directory = folder.resolve("store").createDirectories()
+        val good = "a".repeat(40)
+        directory.resolve(RemoteRefStore.FILE).writeText("main=$good 1000\nno-time=$good\nno-hash=nonsense 5\n")
+
+        assertEquals(
+            mapOf("main" to CachedCommit(good, java.time.Instant.ofEpochMilli(1000))),
+            RemoteRefStore.read(directory),
+        )
+
+        // A folder in place of the list: the move over it fails, and the temporary file must not stay.
+        val blocked = folder.resolve("blocked").createDirectories()
+        blocked
+            .resolve(RemoteRefStore.FILE)
+            .createDirectories()
+            .resolve("child")
+            .writeText("x")
+        assertFailsWith<java.io.IOException> {
+            RemoteRefStore.put(blocked, "main", CachedCommit(good, java.time.Instant.EPOCH))
+        }
+        assertEquals(
+            listOf(RemoteRefStore.FILE),
+            Files.list(blocked).use { entries ->
+                entries.map { it.fileName.toString() }.toList()
+            },
+        )
     }
 
     @Test

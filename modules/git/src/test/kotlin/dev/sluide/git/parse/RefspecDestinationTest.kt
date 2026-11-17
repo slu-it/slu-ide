@@ -21,6 +21,8 @@ class RefspecDestinationTest {
                     "refs/notes/commits:refs/notes/origin",
                     "^refs/heads/secret",
                     "refs/heads/main",
+                    "refs/heads/*:heads/*",
+                    "refs/heads/main:FETCH_HEAD",
                 ),
             ),
         )
