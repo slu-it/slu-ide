@@ -11,7 +11,3 @@ kits:
   # Docker's kit: ~/.claude/projects (transcripts, memory), sessions, todos, shell-snapshots and statsig live in a
   # folder on the host, so they survive removing and recreating the sandbox (needs sbx 0.50 or later).
   - docker.io/sbx/claude-sessions:1.1.0
-
-sandboxOptions:
-  cpus: 12 # the full build runs UI tests on 8 displays in parallel
-  memory: 16g # about 9.5 GB in use at peak with SLUIDE_UI_DISPLAYS=8 (docs/testing.md)
