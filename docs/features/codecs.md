@@ -16,7 +16,8 @@ right.
   encoded side, so it is decoded at once; one pair of quotes around it (`"`, `'`, `` ` ``) is dropped then. Otherwise
   the text goes to the text side.
 - Shortcut+W closes the tab and empties the input, as Clear does. Codec and options belong to the window: when the
-  tab is closed and opened again, they are as they were. Nothing is stored; after a restart the tool starts empty with Base64.
+  tab is closed and opened again, they are as they were. Nothing is stored; after a restart the tool starts empty with
+  Base64.
 
 ## Two sides
 Both sides are editable. The side you edited last is the **source**; the other side follows it on every change, so
