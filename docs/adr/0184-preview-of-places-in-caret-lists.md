@@ -88,8 +88,11 @@ How it is built (`code-intelligence`):
   `FindPreview` set): an editor swapped into an already showing popup that does not take the focus (the caret lists'
   `EditorPopupWindow`, which strips traversal only on show and relayout) would otherwise become its scene's focus owner
   on the next pulse and get the editor window's keys.
-- The caret lists' preview costs one more file read per selected file (off the FX thread, at most 10 MiB, once per
-  shown list for each file); the unsaved text of editors of other windows is not seen (disk text is shown, as in the
+- The caret lists' preview costs one more file read per file selected (off the FX thread, at most 10 MiB): a file is
+  loaded once while it stays shown, so X → Y → X reads X again. The reads share the `code-intelligence-lines` thread
+  with the line texts, so `TargetPreviewTexts` counts its loads and a queued read that a newer load overtook answers
+  `null` without reading (`FilePreview` uses only the latest answer); holding a key across many files then does not
+  queue whole-file reads that later line texts wait behind. The unsaved text of editors of other windows is not seen (disk text is shown, as in the
   line texts).
 - A fresh editor is laid out before its first reveal: unlaid, its area is 0 px high and `revealRange` scrolls the
   start of a range near the top of the file away.
