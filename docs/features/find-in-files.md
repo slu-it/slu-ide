@@ -56,6 +56,8 @@ public constructor takes `FileViewers` and `FontSettings` (the popup's editor fo
 
 `FindInFiles` keeps the remembered state and the open flow against a `FindView` (the popup, made on first use), builds
 the `SearchRequest` (unsaved texts keyed by normalised paths, read on the FX thread when the query changes or a search runs at once) and maps
-`SearchListener` calls to the view. `FilePreviewTexts` serves the preview: the unsaved text first, else the file read on
-a `sluide-find-in-files-preview` thread. Tests: `FindInFilesTest` (flow, with a fake view), `QuerySelectionTest`,
+`SearchListener` calls to the view. The preview is the shared `FilePreview` of `file-viewers`
+([ADR 0184](../adr/0184-preview-of-places-in-caret-lists.md)); the popup gives it the place of the selected row (the
+query's matches on its line, `previewTarget`). `FilePreviewTexts` serves its texts (`PreviewTexts`): the unsaved text
+first, else the file read on a `sluide-find-in-files-preview` thread. Tests: `FindInFilesTest` (flow, with a fake view), `QuerySelectionTest`,
 `FilePreviewTextsTest`, and `FindInFilesUiTest` (focus lookup, anchor, the editor menu item).

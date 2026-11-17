@@ -1,6 +1,6 @@
 # 0177. Find in Files: a background content search in a popup, with the explorer's listing rule
 
-- Status: accepted; see [0176](0176-explorer-search.md), [0146](0146-navigation.md), [0149](0149-rename-file-structure-go-to-symbol.md), [0108](0108-code-editor-extensions-and-context-menu.md)
+- Status: accepted; amended by [0184](0184-preview-of-places-in-caret-lists.md) (the preview is the shared `FilePreview` of `file-viewers`); see [0176](0176-explorer-search.md), [0146](0146-navigation.md), [0149](0149-rename-file-structure-go-to-symbol.md), [0108](0108-code-editor-extensions-and-context-menu.md)
 - Date: 2026-11-15
 
 ## Context

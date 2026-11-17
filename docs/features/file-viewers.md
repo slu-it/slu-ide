@@ -230,6 +230,13 @@ the Bicep graph and `BicepParamFileViewer`.
     adds style classes (`StyledRange`) over the highlighting and the error mark, restyling only the changed span
     (an edit or `replaceText` clears it), `reveal(start, end)` scrolls a range into view without moving the caret. Its
     font is inherited from its `node`: the caller binds the node's style to `FontSettings.font(FontArea.EDITOR)` (`FontSpec::toCss`) if it should have the editor font.
+  - The shared file preview (`FilePreview.kt`, [ADR 0184](../adr/0184-preview-of-places-in-caret-lists.md)), e.g. under
+    a result list: `FilePreview(highlighter, texts, editorFont, onPress)` shows a file's text, loaded through
+    `PreviewTexts` (answering on the FX thread, `null` for no text), in a read-only editor that never takes the focus;
+    `show(file, place)` marks and scrolls to the `PreviewPlace` (`StyledRange` marks, a range to reveal) asked against
+    the loaded text, `cancel()` drops loads on their way, `clear()` also empties it. Stale answers are
+    dropped, a file is loaded once while it stays shown, every mouse press is consumed and goes to `onPress`.
+    `revealAround(text, line, context = 5)` is a 0-based line's range with up to `context` lines around it.
   - Content-backed views (`FileContent.kt`): a `CodeView` reads and saves its file's bytes only through a
     `FileContent` (`read()`, `write(bytes)`, `confidential`), by default `DiskContent(file)` (`Files.readAllBytes`,
     `Files.write` in place, following a move). `CodeEditors.open(..., content)` and a `ContentFileViewer`
