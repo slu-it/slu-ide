@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component
 import java.nio.file.Path
 
 /**
- * The Codecs tool of one window (ADR 0112): creates its tab and keeps the conversion state, so that it outlives the
- * tab (ADR 0110). The `ide` module sets [showTab].
+ * The Codecs tool of one window (ADR 0112): creates its tab and keeps the codec and options, so that they outlive the
+ * tab (ADR 0110); closing the tab empties both sides. The `ide` module sets [showTab].
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -23,11 +23,11 @@ class Codecs {
     /** Shows the Codecs tab of the window (opening it if needed); set by ide. */
     var showTab: () -> Unit = {}
 
-    /** The two sides and the settings of the window's tool; outlives the tab. */
+    /** The two sides and the settings of the window's tool; outlives the tab, which empties the sides as it closes. */
     internal val model = ConversionModel()
 
     /** A new Codecs tab on [model]. */
-    fun createTab(): EditorTab = CodecsTab(CodecsView(model, ::chooseFile, ::chooseSaveFile))
+    fun createTab(): EditorTab = CodecsTab(model, CodecsView(model, ::chooseFile, ::chooseSaveFile))
 
     /** Extends the window's code editors with "Open Selection in Codecs" (ADR 0112). */
     val editorExtension: CodeEditorExtension = OpenSelectionExtension(::open)

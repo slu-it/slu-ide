@@ -4,6 +4,7 @@ import dev.sluide.codecs.codec.CodecId
 import dev.sluide.codecs.codec.HashAlgorithm
 import dev.sluide.codecs.conversion.ConversionModel
 import dev.sluide.codecs.conversion.Side
+import dev.sluide.codecs.conversion.TextContent
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Parent
@@ -372,5 +373,15 @@ class CodecsViewUiTest {
             model.editText("again")
         }
         assertEquals("again", text("Text", shown), "the first view's dispose leaves the second view's callback")
+    }
+
+    @Test
+    fun `closing the tab empties both sides`(robot: FxRobot) {
+        robot.interact { model.editText("hello") }
+
+        robot.interact { CodecsTab(model, view).dispose() }
+
+        assertEquals(TextContent.Text(""), model.text)
+        assertEquals("", model.encoded)
     }
 }

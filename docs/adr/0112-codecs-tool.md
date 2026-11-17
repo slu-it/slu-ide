@@ -13,7 +13,8 @@ results that are not text.
 ## Decision
 - **Module `codecs`** in the editor family: its tab is an `EditorTab` and it adds a context-menu item to code editors,
   so it depends on `editor-area` and `file-viewers`. `Codecs` (window scope) holds the window's state, so a reopened
-  tab shows what the closed one showed. Nothing is stored across restarts, because tokens and secrets end up in it.
+  tab keeps the codec and options; closing the tab empties both sides, so it opens empty. Nothing is stored across
+  restarts, because tokens and secrets end up in it.
 - **Two editable sides, no direction switch.** The text side (left) and the encoded side (right) are both editable;
   the side edited last is the source and the other side follows it on every change. An error marks the source side
   and leaves the other side as it was. Switching the codec or an option keeps the source and recomputes the other
