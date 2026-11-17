@@ -143,7 +143,7 @@ internal fun branchCommands(
 internal fun menuActions(
     selected: List<BranchNode>,
     refs: GitRefs?,
-    remotes: List<String>,
+    remotes: List<String>?,
     writing: Boolean,
     busy: Boolean,
 ): BranchActions {

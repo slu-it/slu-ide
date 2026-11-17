@@ -44,6 +44,16 @@ internal data class BranchActions(
     val deleteRemote: List<RemoteBranch> = emptyList(),
     /** The selected tags, to push to a remote (ADR 0173), if that is all the selection holds and there is a remote. */
     val pushTags: List<GitRef> = emptyList(),
+    /** Whether Remote alone is selected and the remotes are read: to add a remote. */
+    val addRemote: Boolean = false,
+    /** Whether Remote alone is selected and the remotes are read: to fetch all of them (as the header's Fetch). */
+    val fetchAll: Boolean = false,
+    /** The one selected configured remote, to rename. */
+    val renameRemote: String? = null,
+    /** The one selected configured remote, to change its URLs. */
+    val changeRemoteUrls: String? = null,
+    /** The one selected configured remote, to remove. */
+    val removeRemote: String? = null,
 )
 
 /** The text of the rebase item: for [current] onto [target] (short names), or generic if either is not known. */
@@ -68,14 +78,16 @@ internal fun pullText(
  * The [BranchActions] for the [selected] nodes of the branches pane; [currentBranch] is the checked-out branch's full
  * refname, whose remote branch of the same name is not checked out either (it would check out the current branch).
  * What is fetched is the one of the [remotes] (all names, `git remote`) that the selected node is in or is; a remote
- * branch is deleted on the one it is in.
+ * branch is deleted on the one it is in. While the [remotes] are not read (`null`), the Remote group offers nothing; a
+ * selected remote of them can also be renamed, changed and removed, and Remote alone adds one and fetches all.
  */
 internal fun branchActions(
     selected: List<BranchNode>,
     currentBranch: String? = null,
-    remotes: List<String> = emptyList(),
+    remotes: List<String>? = emptyList(),
     headCommit: String? = null,
 ): BranchActions {
+    val known = remotes.orEmpty()
     val single = selected.singleOrNull() as? BranchLeaf
     val ref = single?.ref
     val checkout =
@@ -114,12 +126,12 @@ internal fun branchActions(
         selected.map { node ->
             (node as? BranchLeaf)
                 ?.takeIf { it.ref.kind == GitRefKind.REMOTE_BRANCH }
-                ?.let { leaf -> remoteOf(leaf, remotes)?.let { RemoteBranch(it, leaf.ref) } }
+                ?.let { leaf -> remoteOf(leaf, known)?.let { RemoteBranch(it, leaf.ref) } }
                 ?.takeIf { it.ref.shortName != "${it.remote}/HEAD" && !isProtectedBranch(it.nameOnRemote) }
         }
     val deleteRemote = if (remoteBranches.all { it != null }) remoteBranches.filterNotNull() else emptyList()
     val pushTags =
-        if (remotes.isNotEmpty() && selected.isNotEmpty() &&
+        if (known.isNotEmpty() && selected.isNotEmpty() &&
             selected.all { it is BranchLeaf && it.ref.kind == GitRefKind.TAG }
         ) {
             selected.map { (it as BranchLeaf).ref }
@@ -130,9 +142,12 @@ internal fun branchActions(
         selected.singleOrNull()?.takeIf { it is BranchRemote || it is BranchFolder }?.let {
             remoteOf(
                 it,
-                remotes,
+                known,
             )
         }
+    val node = selected.singleOrNull()
+    val remoteGroup = remotes != null && node is BranchGroup && node.name == REMOTE
+    val configured = (node as? BranchRemote)?.name?.takeIf { it in known }
     val current = currentBranch?.removePrefix("refs/heads/")
     val rebase =
         if (current != null && headCommit != null && single?.current == false &&
@@ -154,9 +169,14 @@ internal fun branchActions(
         workingTreeDiff = ref,
         rebase = rebase,
         merge = ref.takeIf { rebase != null },
-        pull = ref?.takeIf { pullable(it, single?.current == true, current, headCommit, remotes) },
+        pull = ref?.takeIf { pullable(it, single?.current == true, current, headCommit, known) },
         deleteRemote = deleteRemote,
         pushTags = pushTags,
+        addRemote = remoteGroup,
+        fetchAll = remoteGroup,
+        renameRemote = configured,
+        changeRemoteUrls = configured,
+        removeRemote = configured,
     )
 }
 

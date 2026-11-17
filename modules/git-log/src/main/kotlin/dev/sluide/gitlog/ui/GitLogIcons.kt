@@ -6,6 +6,7 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignC
 import org.kordamp.ikonli.materialdesign2.MaterialDesignD
 import org.kordamp.ikonli.materialdesign2.MaterialDesignF
 import org.kordamp.ikonli.materialdesign2.MaterialDesignH
+import org.kordamp.ikonli.materialdesign2.MaterialDesignL
 import org.kordamp.ikonli.materialdesign2.MaterialDesignP
 import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 import org.kordamp.ikonli.materialdesign2.MaterialDesignT
@@ -24,6 +25,8 @@ internal object GitLogIcons {
     val checkout: Ikon = MaterialDesignS.SOURCE_BRANCH_CHECK
     val merge: Ikon = MaterialDesignS.SOURCE_MERGE
     val compare: Ikon = MaterialDesignC.COMPARE_HORIZONTAL
+    val addRemote: Ikon = MaterialDesignP.PLUS_BOX_OUTLINE
+    val changeUrl: Ikon = MaterialDesignL.LINK_VARIANT
     val rename: Ikon = MaterialDesignP.PENCIL_OUTLINE
     val delete: Ikon = MaterialDesignD.DELETE_OUTLINE
     val workingTreeDiff: Ikon = MaterialDesignF.FILE_COMPARE

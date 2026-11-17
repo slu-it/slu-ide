@@ -23,7 +23,11 @@ internal enum class BranchMenuEntry(
     PUSH_TAG("branch-push-tag", GitLogIcons.push, 3),
     COMPARE("branch-compare", GitLogIcons.compare, 4),
     WORKING_TREE_DIFF("branch-working-tree-diff", GitLogIcons.workingTreeDiff, 4),
-    FETCH("branch-fetch", GitLogIcons.fetch, 5),
+    ADD_REMOTE("branch-add-remote", GitLogIcons.addRemote, 5),
+    RENAME_REMOTE("branch-rename-remote", GitLogIcons.rename, 5),
+    CHANGE_URL("branch-change-url", GitLogIcons.changeUrl, 5),
+    REMOVE_REMOTE("branch-remove-remote", GitLogIcons.delete, 5),
+    FETCH("branch-fetch", GitLogIcons.fetch, 6),
 }
 
 /** An [entry] the menu shows, with its [text]; it is greyed out unless [enabled]. */
@@ -36,12 +40,14 @@ internal data class ShownEntry(
 /**
  * The sections of the branch menu for the [selected] nodes, without empty ones. An entry is left out when it never
  * applies to the selection (what [menuActions] gives without [writing] and [busy]); it is shown disabled when it
- * applies but [writing] or [busy] blocks it for now. Fetch is for a remote or a folder of remote branches only.
+ * applies but [writing] or [busy] blocks it for now. Fetch is for a remote or a folder of remote branches, and
+ * (all remotes) for the Remote group once the [remotes] are read (`null` before); a remote also renames, changes its
+ * URLs and is removed.
  */
 internal fun branchMenuEntries(
     selected: List<BranchNode>,
     refs: GitRefs?,
-    remotes: List<String>,
+    remotes: List<String>?,
     writing: Boolean,
     busy: Boolean,
 ): List<List<ShownEntry>> {
@@ -78,7 +84,11 @@ private fun applies(
         BranchMenuEntry.PUSH_TAG -> actions.pushTags.isNotEmpty()
         BranchMenuEntry.COMPARE -> actions.compare != null
         BranchMenuEntry.WORKING_TREE_DIFF -> actions.workingTreeDiff != null
-        BranchMenuEntry.FETCH -> actions.fetch != null
+        BranchMenuEntry.ADD_REMOTE -> actions.addRemote
+        BranchMenuEntry.RENAME_REMOTE -> actions.renameRemote != null
+        BranchMenuEntry.CHANGE_URL -> actions.changeRemoteUrls != null
+        BranchMenuEntry.REMOVE_REMOTE -> actions.removeRemote != null
+        BranchMenuEntry.FETCH -> actions.fetch != null || actions.fetchAll
     }
 
 /** The text of [entry] for the [selected] nodes; generic where it names a ref and there is none. */
@@ -134,8 +144,24 @@ internal fun entryText(
             "Show Diff with Working Tree"
         }
 
+        BranchMenuEntry.ADD_REMOTE -> {
+            "Add Remote…"
+        }
+
+        BranchMenuEntry.RENAME_REMOTE -> {
+            "Rename…"
+        }
+
+        BranchMenuEntry.CHANGE_URL -> {
+            "Change URL…"
+        }
+
+        BranchMenuEntry.REMOVE_REMOTE -> {
+            "Remove"
+        }
+
         BranchMenuEntry.FETCH -> {
-            "Fetch"
+            if (actions.fetchAll) "Fetch All Remotes" else "Fetch"
         }
     }
 
@@ -157,6 +183,10 @@ internal fun runEntry(
         BranchMenuEntry.PUSH_TAG -> if (actions.pushTags.isNotEmpty()) commands.pushTags(actions.pushTags)
         BranchMenuEntry.COMPARE -> actions.compare?.let(commands.compare)
         BranchMenuEntry.WORKING_TREE_DIFF -> actions.workingTreeDiff?.let(commands.showWorkingTreeDiff)
-        BranchMenuEntry.FETCH -> actions.fetch?.let(commands.fetch)
+        BranchMenuEntry.ADD_REMOTE -> if (actions.addRemote) commands.addRemote()
+        BranchMenuEntry.RENAME_REMOTE -> actions.renameRemote?.let(commands.renameRemote)
+        BranchMenuEntry.CHANGE_URL -> actions.changeRemoteUrls?.let(commands.changeRemoteUrls)
+        BranchMenuEntry.REMOVE_REMOTE -> actions.removeRemote?.let(commands.removeRemote)
+        BranchMenuEntry.FETCH -> if (actions.fetchAll) commands.fetchAll() else actions.fetch?.let(commands.fetch)
     }
 }

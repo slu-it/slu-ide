@@ -324,10 +324,9 @@ class BranchMenuTest {
     }
 
     @Test
-    fun `a remote and a folder of its branches only fetch`() {
-        assertEquals(listOf(listOf(BranchMenuEntry.FETCH)), entries("Remote/origin").entries())
+    fun `a folder of a remote's branches only fetches`() {
         assertEquals(listOf(listOf(BranchMenuEntry.FETCH)), entries("Remote/origin/feature").entries())
-        assertEquals("Fetch", entries("Remote/origin").single().single().text)
+        assertEquals("Fetch", entries("Remote/origin/feature").single().single().text)
     }
 
     @Test
@@ -341,7 +340,6 @@ class BranchMenuTest {
             entries("Remote/origin/x", "Remote/origin/feature/y").entries(),
         )
         assertTrue(entries("Local").isEmpty())
-        assertTrue(entries("Remote").isEmpty())
         assertTrue(entries("Tags").isEmpty())
         assertTrue(entries("Local/feature", "Remote/origin/x").isEmpty(), "local and remote together")
         assertTrue(entries("Local/feature", "Remote/origin").isEmpty())
@@ -365,8 +363,7 @@ class BranchMenuTest {
             ).toSet(),
             writing.disabled().toSet(),
         )
-        assertEquals(listOf(listOf(BranchMenuEntry.FETCH)), entries("Remote/origin", writing = true).entries())
-        assertEquals(listOf(BranchMenuEntry.FETCH), entries("Remote/origin", writing = true).disabled())
+        assertEquals(listOf(BranchMenuEntry.FETCH), entries("Remote/origin/feature", writing = true).disabled())
     }
 
     @Test
@@ -388,5 +385,108 @@ class BranchMenuTest {
         assertFalse(BranchMenuEntry.COMPARE in shown)
         assertFalse(BranchMenuEntry.REBASE in shown)
         assertTrue(BranchMenuEntry.WORKING_TREE_DIFF in shown)
+    }
+
+    /** The entries for [paths] in the tree built with the [remotes] read (`null`: not read), and `leftover` refs. */
+    private fun remoteEntries(
+        vararg paths: String,
+        remotes: List<String>? = listOf("origin", "upstream"),
+        writing: Boolean = false,
+        busy: Boolean = false,
+    ): List<List<ShownEntry>> {
+        val nodes = branchNodes(withRemoteAndTag, remotes = remotes)
+        return branchMenuEntries(paths.mapNotNull { findNode(nodes, it) }, withRemoteAndTag, remotes, writing, busy)
+    }
+
+    @Test
+    fun `the Remote group adds a remote and fetches all of them, nothing before the remotes are read`() {
+        val shown = remoteEntries("Remote")
+
+        assertEquals(listOf(listOf(BranchMenuEntry.ADD_REMOTE), listOf(BranchMenuEntry.FETCH)), shown.entries())
+        assertEquals(listOf("Add Remote…", "Fetch All Remotes"), shown.flatten().map { it.text })
+        assertTrue(remoteEntries("Remote", remotes = null).isEmpty())
+        assertEquals(
+            listOf(listOf(BranchMenuEntry.ADD_REMOTE), listOf(BranchMenuEntry.FETCH)),
+            remoteEntries("Remote", remotes = emptyList()).entries(),
+            "also without any remote",
+        )
+    }
+
+    @Test
+    fun `a configured remote renames, changes its URLs, is removed and fetched, also one without branches`() {
+        for (path in listOf("Remote/origin", "Remote/upstream")) {
+            val shown = remoteEntries(path)
+            assertEquals(
+                listOf(
+                    listOf(BranchMenuEntry.RENAME_REMOTE, BranchMenuEntry.CHANGE_URL, BranchMenuEntry.REMOVE_REMOTE),
+                    listOf(BranchMenuEntry.FETCH),
+                ),
+                shown.entries(),
+                path,
+            )
+            assertEquals(listOf("Rename…", "Change URL…", "Remove", "Fetch"), shown.flatten().map { it.text })
+        }
+        val actions =
+            menuActions(selected(withRemoteAndTag, "Remote/origin"), withRemoteAndTag, listOf("origin"), false, false)
+        assertEquals("origin", actions.renameRemote)
+        assertEquals("origin", actions.changeRemoteUrls)
+        assertEquals("origin", actions.removeRemote)
+        assertFalse(actions.addRemote)
+        assertFalse(actions.fetchAll)
+    }
+
+    @Test
+    fun `a folder of a remote only fetches, a leftover remote node and several remotes have no remote entries`() {
+        assertEquals(listOf(listOf(BranchMenuEntry.FETCH)), remoteEntries("Remote/origin/feature").entries())
+        assertEquals("Fetch", remoteEntries("Remote/origin/feature").single().single().text)
+        assertTrue(remoteEntries("Remote/origin", remotes = listOf("upstream")).isEmpty(), "origin is a leftover")
+        assertTrue(remoteEntries("Remote/origin", "Remote/upstream").isEmpty())
+        assertTrue(remoteEntries("Remote", "Remote/origin").isEmpty())
+        assertTrue(remoteEntries("Remote/origin", "Local/feature").isEmpty())
+    }
+
+    @Test
+    fun `the remote entries are greyed out while writing but not while busy`() {
+        assertEquals(
+            listOf(BranchMenuEntry.ADD_REMOTE, BranchMenuEntry.FETCH),
+            remoteEntries("Remote", writing = true).disabled(),
+        )
+        assertEquals(
+            listOf(
+                BranchMenuEntry.RENAME_REMOTE,
+                BranchMenuEntry.CHANGE_URL,
+                BranchMenuEntry.REMOVE_REMOTE,
+                BranchMenuEntry.FETCH,
+            ),
+            remoteEntries("Remote/origin", writing = true).disabled(),
+        )
+        assertEquals(listOf(BranchMenuEntry.FETCH), remoteEntries("Remote/origin/feature", writing = true).disabled())
+        assertTrue(remoteEntries("Remote", busy = true).disabled().isEmpty())
+        assertTrue(remoteEntries("Remote/origin", busy = true).disabled().isEmpty())
+    }
+
+    @Test
+    fun `the remote entries run their commands`() {
+        val calls = mutableListOf<String>()
+        val commands =
+            BranchCommands().apply {
+                addRemote = { calls += "add" }
+                fetchAll = { calls += "fetchAll" }
+                renameRemote = { calls += "rename $it" }
+                changeRemoteUrls = { calls += "urls $it" }
+                removeRemote = { calls += "remove $it" }
+                fetch = { calls += "fetch $it" }
+            }
+        val group = menuActions(selected(withRemoteAndTag, "Remote"), withRemoteAndTag, listOf("origin"), false, false)
+        val remote =
+            menuActions(selected(withRemoteAndTag, "Remote/origin"), withRemoteAndTag, listOf("origin"), false, false)
+
+        BranchMenuEntry.entries.forEach { runEntry(it, group, commands) }
+        BranchMenuEntry.entries.forEach { runEntry(it, remote, commands) }
+
+        assertEquals(
+            listOf("add", "fetchAll", "rename origin", "urls origin", "remove origin", "fetch origin"),
+            calls,
+        )
     }
 }
