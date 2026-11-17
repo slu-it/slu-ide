@@ -127,6 +127,11 @@ internal fun branchCommands(
         popStash = { stash, pop -> actions.start(PopStash(stash, pop)) }
         dropStash = { stash -> actions.confirmAndStart(dropConfirmation(stash)) }
         stashChanges = { actions.showStashChanges() }
+        addRemote = actions.remotes::add
+        fetchAll = { actions.start(Fetch()) }
+        renameRemote = actions.remotes::rename
+        changeRemoteUrls = actions.remotes::readUrls
+        removeRemote = actions.remotes::remove
     }
 
 /**

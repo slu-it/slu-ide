@@ -126,6 +126,9 @@ internal class RefActions(
     private val writer =
         RefWriter(writes, writeExecutor::execute, dispatch, tasks, { onWriteStarted(it) }, { onWriteFinished() })
 
+    /** The flows that ask before a remote is added, renamed, changed or removed (ADR 0183). */
+    internal val remotes = RemoteActions(pages, writes::canPass, window, { writer.running.get() }, { start(it) })
+
     /** Whether an operation runs, so that no other is offered. */
     val running: ReadOnlyBooleanProperty = writer.running
 
@@ -317,6 +320,10 @@ internal class RefActions(
             newBranch(prompt)
             return
         }
+        outcome.remoteUrls?.let { prompt ->
+            remotes.changeUrls(prompt)
+            return
+        }
         outcome.next?.let { next ->
             start(next)
             return
@@ -340,7 +347,12 @@ internal class RefActions(
         if (!outcome.result.success) {
             // Done all the same (a failing post-checkout hook): the header says what was done.
             val header = errorHeader(operation, outcome)
-            gitErrorDialog(owner, operation.errorTitle, header, outcome.result.message).showAndWait()
+            gitErrorDialog(
+                owner,
+                outcome.errorTitle ?: operation.errorTitle,
+                header,
+                outcome.result.message,
+            ).showAndWait()
         }
         outcome.stopped?.let { stop ->
             // Resolve (or closing the dialog) leaves it for the user, with the bar above the table.

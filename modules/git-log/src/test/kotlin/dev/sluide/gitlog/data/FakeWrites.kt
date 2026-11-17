@@ -676,7 +676,7 @@ internal class FakeWrites(
         root: Path,
         name: String,
     ): GitRemoteUrls? {
-        calls += "remote urls $name"
+        call("remote urls $name")
         return urls
     }
 
@@ -684,7 +684,7 @@ internal class FakeWrites(
         root: Path,
         name: String,
     ): GitRemoteRemoval? {
-        calls += "remote removal $name"
+        call("remote removal $name")
         return removal
     }
 
