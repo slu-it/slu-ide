@@ -184,6 +184,28 @@ class GitPullsTest {
         assertNull(pulls.commitCount(repo, "refs/remotes/origin/missing", "HEAD"))
     }
 
+    @Test
+    fun `an empty or option-like name is refused where git would take it for something`() {
+        commit(repo, "One", "one.txt")
+        // After --end-of-options git reads -x as a ref name, and refs/heads/-x exists.
+        git("update-ref", "refs/heads/-x", "HEAD")
+
+        // git takes "..HEAD" and "HEAD.." for a range, and for-each-ref "" for no pattern.
+        assertNull(pulls.commitCount(repo, "", "HEAD"))
+        assertNull(pulls.commitCount(repo, "HEAD", ""))
+        assertNull(pulls.exists(repo, ""))
+        assertNull(pulls.forkPoint(repo, "-x"))
+    }
+
+    @Test
+    fun `the sources are unknown when git cannot list the remotes or the branches`() {
+        for (word in listOf("remote", "for-each-ref")) {
+            val failing = failingGit(folder, word)
+            assertNull(GitPulls(failing, GitRebases(failing)).sources(repo), word)
+        }
+        assertEquals("main", pulls.sources(repo)?.branch)
+    }
+
     /**
      * The remote has Old 1 and Old 2, which feature (Mine) was based on, then a force push replaces them with New;
      * both states are fetched, so the remote-tracking ref's reflog has the old one, unless [reflog] is off. Leaves

@@ -30,3 +30,19 @@ private val emptyConfigHome: java.nio.file.Path by lazy {
         Runtime.getRuntime().addShutdownHook(Thread { folder.toFile().deleteRecursively() })
     }
 }
+
+/**
+ * A git that fails every call with one of the [words] among its arguments and runs the real git for the rest, to reach
+ * the code that handles one failing command.
+ */
+internal fun failingGit(
+    folder: java.nio.file.Path,
+    vararg words: String,
+): dev.sluide.git.cli.GitCli {
+    val script = folder.resolve("failing-git")
+    val patterns = words.joinToString("|") { "*' $it '*" }
+    script.toFile().writeText(FAKE_GIT_START + "case \" \$* \" in $patterns) exit 1;; esac\nexec git \"\$@\"\n")
+    script.toFile().setExecutable(true)
+    return dev.sluide.git.cli
+        .GitCli(script.toString(), testGitEnvironment())
+}
