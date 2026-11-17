@@ -7,7 +7,10 @@ import javafx.scene.input.MouseEvent
 import javafx.scene.layout.StackPane
 import java.nio.file.Path
 
-/** Loads a file's text for a [FilePreview]; [done] runs on the FX thread, `null` for no text. */
+/**
+ * Loads a file's text for a [FilePreview]; [done] runs on the FX thread, `null` for no text. [done] must always be
+ * called, also after a failure: the preview waits for it.
+ */
 fun interface PreviewTexts {
     fun load(
         file: Path,

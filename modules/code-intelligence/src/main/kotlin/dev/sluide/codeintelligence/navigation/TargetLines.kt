@@ -104,7 +104,8 @@ internal fun readFileText(
         val limit = (minOf(maxBytes, Int.MAX_VALUE - 1L) + 1).toInt()
         val bytes = Files.newInputStream(file).use { it.readNBytes(limit) }
         return if (bytes.size > maxBytes) null else String(bytes, Charsets.UTF_8)
-    } catch (e: IOException) {
+    } catch (e: Exception) {
+        // Any failure answers `null`: the preview waits for its answer.
         log.log(System.Logger.Level.DEBUG, "Could not read $file", e)
         return null
     }

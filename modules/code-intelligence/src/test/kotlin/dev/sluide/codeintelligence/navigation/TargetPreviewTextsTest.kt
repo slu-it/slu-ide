@@ -84,6 +84,20 @@ class TargetPreviewTextsTest {
     }
 
     @Test
+    fun `a read queued before a newer load is skipped, and answers no text`() {
+        val first = dir.resolve("first.py").also { it.writeText("first") }
+        val second = dir.resolve("second.py").also { it.writeText("second") }
+        val loader = texts()
+        loader.load(first) { answers += it }
+        loader.load(second) { answers += it }
+        assertEquals(2, queued.size)
+        queued.toList().also { queued.clear() }.forEach { it.run() }
+        dispatched.toList().also { dispatched.clear() }.forEach { it.run() }
+        // `first.py` exists: only skipping the read answers null for it.
+        assertEquals(listOf<String?>(null, "second"), answers.toList())
+    }
+
+    @Test
     fun `a device that is no regular file gives no text instead of an empty one`() {
         // POSIX only: /dev/null reads as empty, and a FIFO would block the shared reading thread.
         assumeFalse("win" in System.getProperty("os.name").lowercase())
