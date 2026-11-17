@@ -190,6 +190,9 @@ and `git branch -D`.
 - Packages are pairwise disjoint on files, except that each package adds its own rows to `docs/index.md` (its ADR,
   its feature page) and its own module and dependency rows to `docs/architecture.md`: deferring them leaves master's
   docs check red between merges. README and cross-cutting rewrites go into a final package.
+- New declarations that two parallel packages both need (callback properties, interface members) are declared by
+  one owner only; the other uses them as frozen names. Declared in both, they merge without a textual conflict into a
+  redeclaration the compile catches (the remotes round, 2026-11-17).
 - Freeze shared constructor signatures up front, and name one owner for shared test fixtures (fakes, harnesses):
   two packages that each extend the same fake can merge without a textual conflict into duplicate members.
 - When several packages add entries to the same registry or list (file types, menus, a doc table), the brief names
