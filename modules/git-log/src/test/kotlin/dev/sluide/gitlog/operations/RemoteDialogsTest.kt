@@ -8,6 +8,16 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RemoteDialogsTest {
+    @Test
+    fun `printing what a dialog returns masks the credentials of its URLs`() {
+        val texts =
+            listOf(
+                NewRemote("upstream", "https://u:token@example.org/r.git", true),
+                UrlsEdit(null, "https://u:token@example.org/r.git", "https://u2:t2@example.org/p.git", false),
+            ).map { it.toString() }
+        for (text in texts) assertTrue("token" !in text && "t2" !in text && "****" in text, text)
+    }
+
     private val remotes = listOf("origin", "team/a")
 
     private fun name(

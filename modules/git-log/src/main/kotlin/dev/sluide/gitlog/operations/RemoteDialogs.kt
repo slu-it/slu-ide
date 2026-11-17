@@ -30,7 +30,10 @@ internal data class NewRemote(
     val name: String,
     val url: String,
     val fetch: Boolean,
-)
+) {
+    /** Without the URL's credentials. */
+    override fun toString() = "NewRemote(name=$name, url=${maskedUrl(url)}, fetch=$fetch)"
+}
 
 /**
  * What is wrong with [name] as a remote's name, or `null`: empty, an option for git, not valid (git's rule,
@@ -73,6 +76,11 @@ internal data class UrlsEdit(
     val removePushUrl: Boolean,
 ) {
     val changed get() = url != null || pushUrl != null || removePushUrl
+
+    /** Without the credentials, which [url] and [pushUrl] hold again ([unmaskedUrl]). */
+    override fun toString() =
+        "UrlsEdit(problem=$problem, url=${url?.let(::maskedUrl)}, pushUrl=${pushUrl?.let(::maskedUrl)}, " +
+            "removePushUrl=$removePushUrl)"
 }
 
 /**
