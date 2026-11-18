@@ -25,6 +25,7 @@ class ConsoleRunnerTest {
     private val marks = mutableListOf<Int?>()
     private val offered = mutableListOf<RunChoice.Choose>()
     private var pick: ((RunChoice.Choose, (List<SqlStatement>) -> Unit) -> Unit)? = null
+    private var onShow: () -> Unit = {}
 
     private val editor =
         object : RunEditor {
@@ -48,6 +49,7 @@ class ConsoleRunnerTest {
                     replaceUnpinned: Boolean,
                 ) {
                     shown += outcome.sql to replaceUnpinned
+                    onShow()
                 }
 
                 override fun log(
@@ -294,6 +296,269 @@ class ConsoleRunnerTest {
         fake.deferred[0].complete(StatementOutcome.Updated("a", 1, 0))
         assertEquals(1, fake.executed.size)
         assertEquals(listOf("Not connected" to true, "Stopped: 1 statement not run" to false), logged)
+    }
+
+    private fun runnerOn(gate: RunGate) =
+        ConsoleRunner(entry, editor, nullTarget(), history, { 50 }, { it.run() }, { _, _ -> }, gate)
+
+    private fun assertRunUntouched() {
+        marks.clear()
+        editor.text = "a; b"
+        editor.selectionEnd = 0
+        runner.run()
+        assertEquals(emptyList(), marks, "the editor's error mark is left alone")
+        assertEquals(emptyList(), offered, "no chooser is offered")
+    }
+
+    @Test
+    fun `a run that waits for the same console touches neither editor nor chooser`() {
+        editor.text = "x"
+        fake.defer = true
+        runner.run()
+        assertRunUntouched()
+    }
+
+    @Test
+    fun `a run that waits for the gate touches neither editor nor chooser`() {
+        val gate = RunGate()
+        val mine =
+            ConsoleRunner(entry, editor, nullTarget(), history, { 50 }, { it.run() }, { c, _ -> offered += c }, gate)
+        editor.text = "x"
+        fake.defer = true
+        runnerOn(gate).run()
+        marks.clear()
+        editor.text = "a; b"
+        mine.run()
+        assertEquals(emptyList(), marks)
+        assertEquals(emptyList(), offered)
+    }
+
+    @Test
+    fun `a run that waits for the entry touches neither editor nor chooser`() {
+        entry.setRunning(true)
+        assertRunUntouched()
+    }
+
+    @Test
+    fun `a run without a session touches neither editor nor chooser`() {
+        entry.ended(null)
+        assertRunUntouched()
+        assertEquals(listOf("Not connected" to true), logged)
+    }
+
+    @Test
+    fun `a selection that starts in the second statement runs only that one`() {
+        editor.text = "select 1; select 2"
+        editor.selectionStart = 10
+        editor.selectionEnd = editor.text.length
+        runner.run()
+        assertEquals(listOf("select 2"), fake.executed.map { it.first })
+    }
+
+    @Test
+    fun `cancel without a session does nothing`() {
+        entry.ended(null)
+        runner.cancel()
+        assertEquals(emptyList(), fake.calls)
+    }
+
+    @Test
+    fun `stop of a console that does not run leaves the gate of another one shut`() {
+        val gate = RunGate()
+        editor.text = "x"
+        fake.defer = true
+        runnerOn(gate).run()
+        runnerOn(gate).stop()
+        assertTrue(gate.busy.get())
+    }
+
+    @Test
+    fun `stop opens the gate and ends the run`() {
+        val gate = RunGate()
+        val mine = runnerOn(gate)
+        editor.text = "x"
+        fake.defer = true
+        mine.run()
+        assertTrue(gate.busy.get())
+        mine.stop()
+        assertTrue(!gate.busy.get())
+        assertTrue(!mine.running)
+    }
+
+    @Test
+    fun `the answer of a stopped run stays ignored after the next run started`() {
+        editor.text = "a"
+        fake.defer = true
+        runner.run()
+        runner.stop()
+        runner.run()
+        fake.deferred[0].complete(StatementOutcome.Updated("a", 1, 0))
+        assertEquals(emptyList(), shown, "the stopped run's answer is not its successor's")
+        assertTrue(runner.running)
+        fake.deferred[1].complete(StatementOutcome.Updated("a", 1, 0))
+        assertEquals(1, shown.size)
+        assertTrue(!runner.running)
+    }
+
+    @Test
+    fun `stop between a statement's answer and the next sends no cancel`() {
+        editor.text = "a; b"
+        selectAll()
+        onShow = { runner.stop() }
+        runner.run()
+        assertEquals(emptyList(), fake.calls)
+    }
+
+    @Test
+    fun `stop with the session gone does not throw`() {
+        editor.text = "a"
+        fake.defer = true
+        runner.run()
+        entry.ended(null)
+        runner.stop()
+        assertEquals(emptyList(), fake.calls)
+        assertTrue(!runner.running)
+    }
+
+    @Test
+    fun `a stopped run ignores failures and plain outcomes and a live one keeps its cursor`() {
+        editor.text = "a; b; c"
+        selectAll()
+        fake.defer = true
+        runner.run()
+        runner.stop()
+        fake.deferred[0].complete(StatementOutcome.Updated("a", 1, 0))
+        runner.run()
+        runner.stop()
+        fake.deferred[1].completeExceptionally(java.sql.SQLException("closed"))
+        assertEquals(emptyList(), shown)
+        assertEquals(emptyList(), logged)
+
+        val columns = listOf(ColumnInfo("id", "id", "int4", 4, null, null, false, false))
+        val cursor = FakeCursor(columns, listOf(listOf<Any?>(1)))
+        fake.defer = false
+        fake.answer = { StatementOutcome.Rows(it, 1, columns, cursor, cursor.firstPage()) }
+        runner.run()
+        assertEquals(3, shown.size)
+        assertTrue(!cursor.closed)
+    }
+
+    @Test
+    fun `a future without outcome or error says the statement was not run`() {
+        editor.text = "a; b"
+        selectAll()
+        fake.defer = true
+        runner.run()
+        fake.deferred[0].complete(null)
+        assertEquals(listOf("Statement not run" to true, "Stopped: 1 statement not run" to false), logged)
+        assertTrue(!runner.running)
+    }
+
+    @Test
+    fun `a finished sequence logs nothing and frees the console and the gate`() {
+        val gate = RunGate()
+        val mine = runnerOn(gate)
+        editor.text = "a; b; c"
+        selectAll()
+        mine.run()
+        assertEquals(listOf("a", "b", "c"), fake.executed.map { it.first })
+        assertTrue(!mine.running)
+        assertTrue(!gate.busy.get())
+        assertEquals(emptyList(), logged)
+    }
+
+    @Test
+    fun `a failure in the log of an outcome that cannot be shown does not escape`() {
+        val gate = RunGate()
+        val broken =
+            object : RunTarget {
+                override fun show(
+                    outcome: StatementOutcome,
+                    replaceUnpinned: Boolean,
+                ): Unit = error("boom")
+
+                override fun log(
+                    text: String,
+                    error: Boolean,
+                ): Unit = error("log broken")
+            }
+        val mine = ConsoleRunner(entry, editor, broken, history, { 50 }, { it.run() }, { _, _ -> }, gate)
+        editor.text = "select 1"
+        mine.run()
+        assertTrue(!gate.busy.get())
+        assertTrue(!mine.running)
+    }
+
+    @Test
+    fun `a session that throws on execute logs it and the statements not run`() {
+        editor.text = "a; b; c"
+        selectAll()
+        fake.answer = { error("session broken") }
+        runner.run()
+        assertEquals(listOf("session broken" to true, "Stopped: 2 statements not run" to false), logged)
+        assertTrue(!runner.running)
+        assertEquals(emptyList(), history.entries("key").drop(1), "only the throwing statement started")
+    }
+
+    @Test
+    fun `a chooser that picks nothing runs nothing and frees the console`() {
+        editor.text = "a; b"
+        pick = { _, then -> then(emptyList()) }
+        runner.run()
+        assertEquals(emptyList(), fake.executed)
+        assertTrue(!runner.running)
+        assertEquals(emptyList(), logged)
+    }
+
+    @Test
+    fun `a chooser answered late does not start while the console runs`() {
+        var late: (List<SqlStatement>) -> Unit = {}
+        pick = { _, then -> late = then }
+        editor.text = "a; b"
+        runner.run()
+        editor.text = "x"
+        fake.defer = true
+        runner.run()
+        late(listOf(SqlStatement("y", 0, 1)))
+        assertEquals(listOf("x"), fake.executed.map { it.first })
+    }
+
+    @Test
+    fun `a chooser answered late does not start while another console holds the gate`() {
+        val gate = RunGate()
+        var late: (List<SqlStatement>) -> Unit = {}
+        val mine =
+            ConsoleRunner(entry, editor, nullTarget(), history, { 50 }, { it.run() }, { _, then -> late = then }, gate)
+        editor.text = "a; b"
+        mine.run()
+        editor.text = "x"
+        fake.defer = true
+        runnerOn(gate).run()
+        late(listOf(SqlStatement("y", 0, 1)))
+        assertEquals(listOf("x"), fake.executed.map { it.first })
+    }
+
+    @Test
+    fun `a chooser answered late does not start while the entry runs a statement`() {
+        var late: (List<SqlStatement>) -> Unit = {}
+        pick = { _, then -> late = then }
+        editor.text = "a; b"
+        runner.run()
+        entry.setRunning(true)
+        late(listOf(SqlStatement("y", 0, 1)))
+        assertEquals(emptyList(), fake.executed)
+    }
+
+    @Test
+    fun `a chooser answered after the disconnect logs Not connected`() {
+        var late: (List<SqlStatement>) -> Unit = {}
+        pick = { _, then -> late = then }
+        editor.text = "a; b"
+        runner.run()
+        entry.ended(null)
+        late(listOf(SqlStatement("y", 0, 1)))
+        assertEquals(listOf("Not connected" to true), logged)
+        assertTrue(!runner.running)
     }
 
     private fun nullTarget() =
