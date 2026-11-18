@@ -15,6 +15,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.util.Base64
+import java.util.concurrent.CopyOnWriteArrayList
 
 class SecretToolBackendTest {
     @TempDir
@@ -52,18 +53,22 @@ class SecretToolBackendTest {
         )
     }
 
-    /** Every array the backend zeroed, in order. */
-    private val zeroed = mutableListOf<ByteArray>()
+    // every array the backend zeroed, in order; a reader thread may add one late
+    private val zeroed = CopyOnWriteArrayList<ByteArray>()
 
-    private fun watched() =
-        backend().let {
-            SecretToolBackend(
-                attributes = mapOf("application" to "test"),
-                path = dir.toRealPath().toString(),
-                readerJoin = Duration.ofMillis(300),
-                onZeroed = zeroed::add,
-            )
-        }
+    private fun watched(
+        timeout: Duration = Duration.ofSeconds(30),
+        readerJoin: Duration = Duration.ofSeconds(5),
+    ): SecretToolBackend {
+        installTool()
+        return SecretToolBackend(
+            attributes = mapOf("application" to "test"),
+            timeout = timeout,
+            path = dir.toRealPath().toString(),
+            readerJoin = readerJoin,
+            onZeroed = zeroed::add,
+        )
+    }
 
     private fun assertZeroed(vararg sizes: Int) {
         assertEquals(sizes.toList(), zeroed.map { it.size })
@@ -377,7 +382,7 @@ class SecretToolBackendTest {
     }
 
     @Test
-    fun `a key read is zeroed, as the output it came from`() {
+    fun `the base64 text of a key read and the output it came from are zeroed`() {
         val backend = watched()
         stored(encoded)
 
@@ -446,7 +451,7 @@ class SecretToolBackendTest {
 
     @Test
     fun `the output of a tool that left its error output open is zeroed`() {
-        val backend = watched()
+        val backend = watched(readerJoin = Duration.ofMillis(300))
         mode("holderr")
         try {
             backend.read()
@@ -454,6 +459,51 @@ class SecretToolBackendTest {
         } finally {
             ProcessHandle.of(pid()).ifPresent { it.destroyForcibly() }
         }
+    }
+
+    @Test
+    fun `the error output of a call that could not read the standard output is zeroed`() {
+        val backend = watched(readerJoin = Duration.ofMillis(300))
+        mode("holdout")
+        try {
+            backend.read()
+            assertZeroed(15)
+        } finally {
+            ProcessHandle.of(pid()).ifPresent { it.destroyForcibly() }
+        }
+    }
+
+    @Test
+    fun `what an interrupted call had collected of the key is zeroed`() {
+        val backend = watched()
+        stored(encoded)
+        mode("lookup:holdkey")
+        val caller = Thread { backend.read() }
+        caller.start()
+        // the tool printed the key and ended; an orphan keeps stdout open for five seconds, so its reader still runs
+        waitUntil("the readers") { Files.exists(file("argv.log")) && collectors().isNotEmpty() }
+
+        caller.interrupt()
+        caller.join(10_000)
+
+        waitUntil("the output the readers collected to be zeroed") {
+            zeroed.any { it.size == 44 } && zeroed.any { it.size == 15 }
+        }
+        assertTrue(zeroed.all { array -> array.all { it == 0.toByte() } })
+    }
+
+    @Test
+    fun `what a call that timed out had collected of the key is zeroed`() {
+        val backend = watched(timeout = Duration.ofSeconds(2))
+        stored(encoded)
+        mode("lookup:keyhang")
+
+        assertEquals(KeyRead.Failed("the Secret Service did not answer"), backend.read())
+
+        waitUntil("the output the readers collected to be zeroed") {
+            zeroed.any { it.size == 44 } && zeroed.any { it.size == 15 }
+        }
+        assertTrue(zeroed.all { array -> array.all { it == 0.toByte() } })
     }
 
     @Test
@@ -515,8 +565,10 @@ class SecretToolBackendTest {
               sleep) sleep 30 & echo ${'$'}! > "${'$'}d/pid"; wait ;;
               hang) echo ${'$'}${'$'} > "${'$'}d/pid"; exec sleep 30 ;;
               orphan) (sleep 20 & echo ${'$'}! > "${'$'}d/pid"); exit 0 ;;
-              holdout) (sleep 20 2>/dev/null & echo ${'$'}! > "${'$'}d/pid"); exit 0 ;;
+              holdout) echo "boom: it broke" >&2; (sleep 20 2>/dev/null & echo ${'$'}! > "${'$'}d/pid"); exit 0 ;;
               holderr) (sleep 20 >/dev/null & echo ${'$'}! > "${'$'}d/pid"); exit 0 ;;
+              keyhang) cat "${'$'}d/store"; echo "boom: it broke" >&2; exec sleep 30 ;;
+              holdkey) cat "${'$'}d/store"; echo "boom: it broke" >&2; (sleep 5 2>/dev/null &); exit 0 ;;
               lateout) cat "${'$'}d/store"; (sleep 1 2>/dev/null &); exit 0 ;;
               lateerr) echo "boom: it broke" >&2; (sleep 1 >/dev/null &); exit 2 ;;
               error) echo "boom: it broke" >&2; echo "second line" >&2; exit 2 ;;
