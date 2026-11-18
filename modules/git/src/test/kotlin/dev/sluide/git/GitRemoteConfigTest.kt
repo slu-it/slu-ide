@@ -561,4 +561,23 @@ class GitRemoteConfigTest {
         assertFalse(unset.success, "removing push URLs of a broken configuration is no success")
         assertFalse(remotes.rename(repo, "origin", "up").partial)
     }
+
+    @Test
+    fun `the URLs are unknown when either read of them fails`() {
+        assertEquals(upstream.toString(), GitRemotes(git).urls(repo, "origin")?.url)
+
+        assertNull(GitRemotes(failingNthGit(folder, "--get-all", 1)).urls(repo, "origin"), "the URL")
+        assertNull(GitRemotes(failingNthGit(folder, "--get-all", 2)).urls(repo, "origin"), "the push URL")
+    }
+
+    @Test
+    fun `what a removal would delete is unknown when any of its four reads fails`() {
+        git("config", "remote.pushDefault", "origin")
+        assertEquals(true, GitRemotes(git).removal(repo, "origin")?.pushDefault)
+
+        assertNull(GitRemotes(failingNthGit(folder, "--get-regexp", 1)).removal(repo, "origin"), "the fetch specs")
+        assertNull(GitRemotes(failingGit(folder, "for-each-ref")).removal(repo, "origin"), "the refs")
+        assertNull(GitRemotes(failingNthGit(folder, "--get-regexp", 2)).removal(repo, "origin"), "the branches")
+        assertNull(GitRemotes(failingGit(folder, "--get-all")).removal(repo, "origin"), "the push default")
+    }
 }

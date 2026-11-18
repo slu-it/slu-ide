@@ -305,6 +305,9 @@ class GitRemotesTest {
         assertEquals("https://example.com/other.git", remotes.url(repo, "other"))
         assertEquals(null, remotes.url(repo, "missing"))
         assertEquals(null, remotes.url(repo, "-x"))
+        // Also for a remote of that name that git took (after --end-of-options), as it is never passed as an argument.
+        git("remote", "add", "--end-of-options", "-x", "https://example.com/x.git")
+        assertEquals(null, remotes.url(repo, "-x"))
         git("remote", "remove", "origin")
         assertEquals(null, remotes.url(repo))
     }
@@ -335,5 +338,78 @@ class GitRemotesTest {
         assertEquals(GitFetchChanges(1, 1, 1, 1, 0, 0), changes)
         assertTrue(fetchChanges(after, after).none)
         assertEquals(GitFetchChanges(2, 2, 2, 2, 0, 0), changes + changes)
+    }
+
+    @Test
+    fun `counts moved and deleted tags apart from branches`() {
+        val before = mapOf("refs/tags/a" to "1", "refs/tags/b" to "1", "refs/tags/c" to "1", "refs/remotes/o/x" to "1")
+        val after = mapOf("refs/tags/a" to "2", "refs/tags/c" to "1", "refs/remotes/o/x" to "1")
+
+        assertEquals(GitFetchChanges(0, 0, 0, 0, 1, 1), fetchChanges(before, after))
+    }
+
+    @Test
+    fun `the remotes to fetch are none without asking for the skipped ones, and unknown when that cannot be read`() {
+        val log = folder.resolve("calls.log")
+        val alone = folder.resolve("alone").createDirectories()
+        git("init", "-q", directory = alone)
+
+        assertEquals(emptyList(), GitRemotes(recordingGit(folder, log)).remotes(alone))
+        assertFalse(recordedCalls(log).any { "skipfetchall" in it }, "nothing to skip: not read")
+
+        assertEquals(null, GitRemotes(failingGit(folder, "--get-regexp")).remotes(repo))
+        assertEquals(null, GitRemotes(failingGit(folder, "remote")).remotes(repo))
+    }
+
+    @Test
+    fun `a fetch counts nothing and prunes nothing when its refspecs or refs cannot be read`() {
+        val second = commit("Second")
+
+        val refspecs = GitRemotes(failingGit(folder, "--get-all")).fetch(repo, "origin", GitCancellation())
+        assertTrue(refspecs.result.success, refspecs.result.message)
+        assertEquals(GitFetchResult(refspecs.result, changes = null, pruned = false), refspecs)
+        assertEquals(second, tip("refs/remotes/origin/main"))
+
+        val third = commit("Third")
+        val beforeRefs = GitRemotes(failingNthGit(folder, "for-each-ref", 1)).fetch(repo, "origin", GitCancellation())
+        assertEquals(GitFetchResult(beforeRefs.result, changes = null, pruned = true), beforeRefs)
+        assertEquals(third, tip("refs/remotes/origin/main"))
+
+        val fourth = commit("Fourth")
+        val afterRefs = GitRemotes(failingNthGit(folder, "for-each-ref", 2)).fetch(repo, "origin", GitCancellation())
+        assertEquals(GitFetchResult(afterRefs.result, changes = null, pruned = true), afterRefs)
+        assertEquals(fourth, tip("refs/remotes/origin/main"))
+    }
+
+    @Test
+    fun `a fetch asks git to prune only a remote that writes below refs_remotes`() {
+        val log = folder.resolve("calls.log")
+        val recording = GitRemotes(recordingGit(folder, log))
+
+        recording.fetch(repo, "origin", GitCancellation())
+        git("config", "--replace-all", "remote.origin.fetch", "+refs/heads/*:refs/mirror/*")
+        recording.fetch(repo, "origin", GitCancellation())
+
+        val fetches = recordedCalls(log).filter { it.startsWith("fetch ") }
+        assertEquals(
+            listOf(
+                "fetch --prune --recurse-submodules=no --end-of-options origin",
+                "fetch --no-prune --recurse-submodules=no --end-of-options origin",
+            ),
+            fetches,
+        )
+    }
+
+    @Test
+    fun `counts the refs of the default refspec when the remote has none of its own`() {
+        git("config", "--unset-all", "remote.origin.fetch")
+        val second = commit("Second")
+
+        val fetched = remotes.fetch(repo, "origin", GitCancellation())
+
+        assertTrue(fetched.result.success, fetched.result.message)
+        // No refspec: git fetches HEAD only and writes no remote branch; the tags are counted as ever.
+        assertEquals(GitFetchChanges(), fetched.changes)
+        assertEquals(second, git("rev-parse", "FETCH_HEAD"))
     }
 }
