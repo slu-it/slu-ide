@@ -103,16 +103,27 @@ class JdbcSessionTest {
 
     @Test
     fun `a cancel still reaches a statement that follows an earlier one`() {
-        val blocking = FakeResult.BlocksUntilCancel()
-        db.results = { if (it == "UPDATE a") FakeResult.Count(1) else blocking }
-        val session = fixture.open()
+        val gated = FakeResult.Gated()
+        db.results = { if (it == "UPDATE a") FakeResult.Count(1) else gated }
+        val session = fixture.open(captureCancels = true)
         session.execute("UPDATE a", 10).await()
-
-        val outcome = session.execute("SELECT pg_sleep(30)", 10)
-        assertTrue(blocking.started.await(10, TimeUnit.SECONDS))
+        val outcome = session.execute("UPDATE b", 10)
+        assertTrue(gated.started.await(10, TimeUnit.SECONDS))
         session.cancel()
 
-        assertIs<StatementOutcome.Cancelled>(outcome.await())
+        try {
+            val cancelling = Thread(fixture.cancels.single())
+            cancelling.start()
+            // A cancel lock that an earlier statement never released would hold the thread forever.
+            cancelling.join(2_000)
+            val hung = cancelling.isAlive
+            if (hung) cancelling.interrupt()
+            assertFalse(hung, "the cancel waits for a lock nobody releases")
+            assertEquals(1, db.log.count { it == "session: cancel" })
+        } finally {
+            gated.gate.countDown()
+        }
+        assertIs<StatementOutcome.Updated>(outcome.await())
     }
 
     @ParameterizedTest
