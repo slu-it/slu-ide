@@ -65,6 +65,8 @@ class CursorStateTest {
     private inner class Host(
         private val total: Int,
         private val limit: Int? = null,
+        /** The rows a run again gives, when the data changed meanwhile. */
+        private val reopenTotal: Int? = null,
         private val failAt: Int? = null,
         private val failure: SQLException = SQLException("read failed", "XX000"),
     ) : CursorHost {
@@ -74,7 +76,7 @@ class CursorStateTest {
         lateinit var state: CursorState
 
         fun newLive(): LiveResult {
-            val rows = Rows(total, failAt, failure).also { runs += it }
+            val rows = Rows(if (runs.isEmpty()) total else reopenTotal ?: total, failAt, failure).also { runs += it }
             return LiveResult(statement(), resultSet(rows), autoTransaction = false, limit = limit)
         }
 
@@ -508,6 +510,13 @@ class CursorStateTest {
         assertEquals(listOf(true), host.ends.map { it.reachedEnd })
         assertFalse(host.ends.single().failed)
         assertEquals(21, host.lastRun.nextCalls)
+        assertEquals(
+            20,
+            host.ends
+                .single()
+                .live.next,
+            "the row beyond the limit is not counted",
+        )
     }
 
     @Test
@@ -655,6 +664,84 @@ class CursorStateTest {
             }.message,
         )
         assertEquals(1, CursorView(host, state, 1).pageSize)
+        assertEquals(
+            "Page size must be positive: -3",
+            assertFailsWith<IllegalArgumentException> { CursorView(host, state, -3) }.message,
+        )
         assertFailsWith<IllegalArgumentException> { CursorView(host, state, 10).withPageSize(-1) }
+    }
+
+    @Test
+    fun `the last page continues in the open result when its page was skipped to but is cached from its start`() {
+        val host = Host(total = 25)
+        val state = host.cursor()
+        state.read(1, 10)
+        assertEquals(21, state.live?.next)
+
+        val last = state.readLast(100, 10)
+
+        assertEquals(Page(2, 20, ids(20..24), last = true), last)
+        assertEquals(1, host.runs.size)
+        assertFalse(state.reExecuted)
+        assertEquals(26, host.lastRun.nextCalls)
+    }
+
+    @Test
+    fun `all rows that are known are served again without reading`() {
+        val host = Host(total = 25)
+        val state = host.cursor()
+        state.readAll(100)
+
+        assertEquals(ids(0..24), state.readAll(100))
+
+        assertEquals(1, host.runs.size)
+        assertEquals(26, host.lastRun.nextCalls)
+        assertEquals(1, host.ends.size)
+    }
+
+    @Test
+    fun `all rows up to a cap run the statement again when the cache has a hole before the cap`() {
+        val host = Host(total = 45)
+        val state = host.cursor()
+        state.read(2, 10)
+
+        assertEquals(ids(0..24), state.readAll(25))
+
+        assertEquals(2, host.runs.size)
+        assertTrue(state.reExecuted)
+        assertTrue(state.capped)
+        assertEquals(25, state.knownRowCount)
+    }
+
+    @Test
+    fun `a statement run again that gives fewer rows ends where the data ends`() {
+        val host = Host(total = 25, reopenTotal = 5)
+        val state = host.cursor()
+        state.read(0, 10)
+        state.release()
+
+        assertEquals(ids(0..4), state.readAll(100))
+
+        assertEquals(2, host.runs.size)
+        assertEquals(5, state.knownRowCount)
+        assertNull(state.live)
+
+        val page = Host(total = 25, reopenTotal = 5)
+        val other = page.cursor()
+        other.read(0, 10)
+        other.release()
+        assertEquals(Page(1, 10, emptyList(), last = true), other.read(1, 10))
+    }
+
+    @Test
+    fun `with pages of one row the last page of an empty result is the first`() {
+        val host = Host(total = 0)
+        val state = host.cursor()
+
+        assertEquals(Page(0, 0, emptyList(), last = true), state.readLast(100, 1))
+
+        val view = CursorView(host, state, 1)
+        assertEquals(Page(0, 0, emptyList(), last = true), view.lastPage(100).get())
+        assertEquals(0, host.sessionCalls)
     }
 }

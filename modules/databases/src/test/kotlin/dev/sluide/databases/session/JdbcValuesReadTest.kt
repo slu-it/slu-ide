@@ -177,7 +177,7 @@ class JdbcValuesReadTest {
 
     private fun rowOf(
         column: ColumnInfo,
-        onObject: (Class<*>?) -> Any?,
+        onObject: (List<Any?>) -> Any?,
         onString: () -> String? = { "as text" },
     ): Any? =
         JdbcValues
@@ -185,7 +185,7 @@ class JdbcValuesReadTest {
                 fake<ResultSet> { m, args ->
                     assertEquals(1, args[0])
                     when (m) {
-                        "getObject" -> onObject(args.getOrNull(1) as Class<*>?)
+                        "getObject" -> onObject(args.drop(1))
                         "getString" -> onString()
                         else -> throw UnsupportedOperationException(m)
                     }
@@ -195,30 +195,30 @@ class JdbcValuesReadTest {
 
     @Test
     fun `a temporal column is asked for its java time class, others for a plain object`() {
-        val asked = mutableListOf<Class<*>?>()
+        val asked = mutableListOf<List<Any?>>()
         val date = LocalDate.of(2026, 1, 2)
 
         assertEquals(
             date,
             rowOf(column("date", Types.DATE), {
-                asked += it
+                asked.add(it)
                 date
             }),
         )
         assertEquals(
             5,
             rowOf(column("int4", Types.INTEGER), {
-                asked += it
+                asked.add(it)
                 5
             }),
         )
 
-        assertEquals(listOf<Class<*>?>(LocalDate::class.java, null), asked)
+        assertEquals(listOf(listOf<Any?>(LocalDate::class.java), emptyList()), asked)
     }
 
     @Test
     fun `a value the driver cannot map is shown as the server sends it`() {
-        val failing: (Class<*>?) -> Any? = { throw SQLException("Bad value for type", "22003") }
+        val failing: (List<Any?>) -> Any? = { throw SQLException("Bad value for type", "22003") }
 
         assertEquals("as text", rowOf(column("money", Types.DOUBLE), failing))
         assertEquals("as text", rowOf(column("date", Types.DATE), failing))
@@ -267,8 +267,10 @@ class JdbcValuesReadTest {
         assertEquals(listOf<Any?>("one"), JdbcValues.plain(single))
     }
 
-    @Test
-    fun `a blob, a clob and an xml value are read whole and freed, a failing free changes nothing`() {
+    @ParameterizedTest
+    @CsvSource("true", "false")
+    fun `a blob, a clob and an xml value are read whole and freed, a failing free changes nothing`(freeFails: Boolean) {
+        fun freed(): Any? = if (freeFails) throw SQLException("free failed") else null
         val calls = mutableListOf<String>()
         val blob =
             fake<Blob> { m, args ->
@@ -276,7 +278,7 @@ class JdbcValuesReadTest {
                 when (m) {
                     "length" -> 3L
                     "getBytes" -> byteArrayOf(7, 8, 9)
-                    else -> throw SQLException("free failed")
+                    else -> freed()
                 }
             }
         val clob =
@@ -285,13 +287,13 @@ class JdbcValuesReadTest {
                 when (m) {
                     "length" -> 4L
                     "getSubString" -> "text"
-                    else -> throw SQLException("free failed")
+                    else -> freed()
                 }
             }
         val xml =
             fake<SQLXML> { m, _ ->
                 calls += "xml $m"
-                if (m == "getString") "<a/>" else throw SQLException("free failed")
+                if (m == "getString") "<a/>" else freed()
             }
 
         assertContentEquals(byteArrayOf(7, 8, 9), JdbcValues.plain(blob) as ByteArray)

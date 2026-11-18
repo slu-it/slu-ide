@@ -133,6 +133,13 @@ class ResultExportTest {
         assertEquals("\"Infinity\"", json(Double.POSITIVE_INFINITY))
         assertEquals("\"NaN\"", json(Float.NaN))
         assertEquals("\"-Infinity\"", json(Float.NEGATIVE_INFINITY))
+        assertEquals("\"-Infinity\"", json(Double.NEGATIVE_INFINITY))
+        assertEquals("\"Infinity\"", json(Float.POSITIVE_INFINITY))
+        assertEquals("1.7976931348623157E308", json(Double.MAX_VALUE))
+        assertEquals("-1.7976931348623157E308", json(-Double.MAX_VALUE))
+        assertEquals("3.4028235E38", json(Float.MAX_VALUE))
+        assertEquals("4.9E-324", json(Double.MIN_VALUE))
+        assertEquals("-0.0", json(-0.0))
     }
 
     @Test
@@ -153,6 +160,11 @@ class ResultExportTest {
         assertEquals("E'Infinity'", sql(Double.POSITIVE_INFINITY))
         assertEquals("E'NaN'", sql(Float.NaN))
         assertEquals("E'-Infinity'", sql(Float.NEGATIVE_INFINITY))
+        assertEquals("E'-Infinity'", sql(Double.NEGATIVE_INFINITY))
+        assertEquals("E'Infinity'", sql(Float.POSITIVE_INFINITY))
+        assertEquals("1.7976931348623157E308", sql(Double.MAX_VALUE))
+        assertEquals("-3.4028235E38", sql(-Float.MAX_VALUE))
+        assertEquals("4.9E-324", sql(Double.MIN_VALUE))
     }
 
     @Test

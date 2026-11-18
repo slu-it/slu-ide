@@ -6,6 +6,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.sql.SQLException
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
@@ -186,7 +187,7 @@ class JdbcSessionRunTest {
         val result = assertIs<StatementOutcome.Rows>(session.execute("SELECT * FROM t", 10).await())
         db.log.clear()
 
-        assertEquals(Unit, session.setCommitMode(CommitMode.AUTO).await())
+        assertEquals(Unit, (session.setCommitMode(CommitMode.AUTO) as CompletableFuture<*>).await())
 
         assertTrue(result.cursor.closed)
         assertEquals(
@@ -204,7 +205,7 @@ class JdbcSessionRunTest {
 
         val done = if (commit) session.commit() else session.rollback()
 
-        assertEquals(Unit, done.await())
+        assertEquals(Unit, (done as CompletableFuture<*>).await())
         assertTrue(result.cursor.closed)
     }
 
