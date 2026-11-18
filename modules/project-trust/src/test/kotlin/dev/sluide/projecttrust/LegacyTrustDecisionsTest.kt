@@ -75,4 +75,12 @@ class LegacyTrustDecisionsTest {
         assertEquals(true, trusted.decision(a, "abc"))
         assertFalse(legacy.file.exists())
     }
+
+    @Test
+    fun `the default file is the old trust file in the user's sluide folder`() {
+        assertEquals(
+            Path.of(System.getProperty("user.home"), ".sluide", "project-trust.properties"),
+            LegacyTrustDecisions().file,
+        )
+    }
 }

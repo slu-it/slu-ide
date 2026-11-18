@@ -60,4 +60,44 @@ class TrustedProjectsTest {
         data.update(folder) { it.putObject("trust").put("fingerprint", "abc") }
         assertNull(store().decision(folder, "abc"))
     }
+
+    @Test
+    fun `a project with other data but no trust field has no decision`() {
+        data.update(folder) { it.put("lastOpened", 5L) }
+
+        assertNull(store().decision(folder, "abc"))
+    }
+
+    @Test
+    fun `a trust object without a fingerprint gives no decision`() {
+        data.update(folder) { it.putObject("trust").put("trusted", true) }
+
+        assertNull(store().decision(folder, "abc"))
+    }
+
+    @Test
+    fun `a fingerprint that is not a string never matches`() {
+        data.update(folder) { it.putObject("trust").put("trusted", true).put("fingerprint", 5) }
+
+        assertNull(store().decision(folder, "5"))
+        assertNull(store().decision(folder, ""))
+    }
+
+    @Test
+    fun `a trusted flag that is not a boolean gives no decision`() {
+        data.update(folder) { it.putObject("trust").put("trusted", "true").put("fingerprint", "abc") }
+        assertNull(store().decision(folder, "abc"))
+
+        data.update(folder) { it.putObject("trust").put("trusted", 1).put("fingerprint", "abc") }
+        assertNull(store().decision(folder, "abc"))
+    }
+
+    @Test
+    fun `the decision is stored in the trust field of the project data`() {
+        store().remember(folder, "abc", trusted = false)
+
+        val trust = data.read(folder)?.get("trust")
+        assertEquals(false, trust?.get("trusted")?.asBoolean())
+        assertEquals("abc", trust?.get("fingerprint")?.asString())
+    }
 }
