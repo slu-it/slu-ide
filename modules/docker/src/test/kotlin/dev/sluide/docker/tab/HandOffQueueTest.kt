@@ -1,5 +1,8 @@
 package dev.sluide.docker.tab
 
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
+import java.lang.ref.WeakReference
+import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -44,5 +47,54 @@ class HandOffQueueTest {
         small.add(10)
         handOffs.last().run()
         assertEquals(listOf(10), batches.last())
+    }
+
+    @Test
+    fun `the capacity counts only what is still queued, not what was handed off`() {
+        val small = HandOffQueue<Int>({ handOffs += it }, capacity = 3) { batches += it }
+        small.add(1)
+        small.add(2)
+        handOffs.removeLast().run()
+        (10..14).forEach(small::add)
+        handOffs.removeLast().run()
+        assertEquals(listOf(listOf(1, 2), listOf(12, 13, 14)), batches)
+    }
+
+    @Test
+    fun `a hand-off that finds nothing queued consumes nothing`() {
+        queue.add(1)
+        val handOff = handOffs.single()
+        handOff.run()
+        handOff.run()
+        assertEquals(listOf(listOf(1)), batches)
+    }
+
+    @Test
+    fun `an item added after cancel asks for no hand-off`() {
+        queue.add(1)
+        handOffs.single().run()
+        queue.cancel()
+        queue.add(2)
+        assertEquals(1, handOffs.size, "no new hand-off after cancel")
+    }
+
+    @Test
+    fun `cancel lets go of the items still queued`() {
+        val items = HandOffQueue<ByteArray>({ handOffs += it }) { }
+        // The item lives only in the helper's frame; the queued hand-off holds the queue, so only cancel frees it.
+        val reference = queued(items)
+        items.cancel()
+        assertTimeoutPreemptively(Duration.ofSeconds(10)) {
+            while (reference.get() != null) {
+                System.gc()
+                Thread.yield()
+            }
+        }
+    }
+
+    private fun queued(items: HandOffQueue<ByteArray>): WeakReference<ByteArray> {
+        val item = ByteArray(1024)
+        items.add(item)
+        return WeakReference(item)
     }
 }

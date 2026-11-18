@@ -11,6 +11,7 @@ import dev.sluide.docker.tab.tree.ContainerRow
 import dev.sluide.docker.tab.tree.GroupRow
 import dev.sluide.docker.tab.tree.ImageRow
 import dev.sluide.docker.tab.tree.NetworkRow
+import dev.sluide.docker.tab.tree.VolumeRow
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -99,6 +100,11 @@ class TabActionsTest {
     private fun awaitCall(call: String) = fx.runUntil { call in cli.calls && model.running.isEmpty() }
 
     private fun awaitTask(line: String) = fx.runUntil { taskLog.any { line in it } }
+
+    /** The names of the tasks started so far. */
+    private fun started() = taskLog.filter { " started: " in it }.map { it.substringAfter(" started: ") }
+
+    private fun calls(prefix: String) = cli.calls.filter { it.startsWith(prefix) }
 
     @Test
     fun `container buttons are enabled per state, and disabled while their action runs`() {
@@ -236,20 +242,25 @@ class TabActionsTest {
     }
 
     @Test
-    fun `prunes list their candidates and are disabled when there are none`() {
+    fun `prunes list their candidates, and each button is enabled exactly when it would remove something`() {
+        fun prunes() =
+            listOf(ResourceKind.IMAGE, ResourceKind.VOLUME, ResourceKind.NETWORK).map { kind ->
+                actions.of(GroupRow(kind, 0)).single { it.title.startsWith("Prune") }.enabled
+            }
         val images = actions.of(GroupRow(ResourceKind.IMAGE, 2))
         assertEquals(listOf("Pull…", "Prune Dangling Images…"), images.map { it.title })
-        assertTrue(images.last().enabled)
+        assertEquals(listOf(true, true, true), prunes())
 
         actions.of(GroupRow(ResourceKind.VOLUME, 2)).last().run()
         awaitCall("pruneVolumes")
         assertEquals(listOf("Prune Unused Volumes: [orphan]"), dialogs.asked)
 
+        cli.images = listOf(image("nginx", "1.27"))
+        cli.volumes = listOf(volume("data", inUse = true))
         cli.networks = listOf(network("bridge"))
         session.refresh()
-        val networks = actions.of(GroupRow(ResourceKind.NETWORK, 1))
-        assertFalse(networks.last().enabled)
-        networks.last().run()
+        assertEquals(listOf(false, false, false), prunes())
+        actions.of(GroupRow(ResourceKind.NETWORK, 1)).last().run()
         assertEquals(1, dialogs.asked.size, "an empty prune asks nothing")
     }
 
@@ -259,6 +270,156 @@ class TabActionsTest {
         actions.of(GroupRow(ResourceKind.NETWORK, 2)).first().run()
 
         fx.runUntil { "createVolume cache" in cli.calls && "createNetwork backend driver=overlay" in cli.calls }
+        assertEquals(listOf("Create volume cache", "Create network backend"), started())
+    }
+
+    @Test
+    fun `Create Volume and Create Network do nothing for a cancelled or blank dialog, and trim the name`() {
+        dialogs.volumeAnswer = null
+        resourceActions.createVolume()
+        dialogs.volumeAnswer = ""
+        resourceActions.createVolume()
+        dialogs.volumeAnswer = "  "
+        resourceActions.createVolume()
+        dialogs.networkAnswer = null
+        resourceActions.createNetwork()
+        dialogs.networkAnswer = NewNetwork("", "bridge")
+        resourceActions.createNetwork()
+        dialogs.networkAnswer = NewNetwork("  ", "bridge")
+        resourceActions.createNetwork()
+        assertEquals(emptyList(), started(), "a task starts at once, on the calling thread")
+
+        dialogs.volumeAnswer = " cache "
+        resourceActions.createVolume()
+        dialogs.networkAnswer = NewNetwork(" backend ", "bridge")
+        resourceActions.createNetwork()
+
+        fx.runUntil { calls("create").size == 2 }
+        assertEquals(listOf("createNetwork backend driver=bridge", "createVolume cache"), calls("create").sorted())
+    }
+
+    @Test
+    fun `Pull does nothing for a cancelled or blank dialog, and pulls the trimmed reference`() {
+        for (answer in listOf(null, "", "  ")) {
+            dialogs.pullAnswer = answer
+            resourceActions.pull()
+        }
+        assertEquals(emptyList(), taskLog.toList())
+        assertEquals(emptyList(), calls("pull"))
+
+        dialogs.pullAnswer = "  redis:7 "
+        cli.pullProgress = listOf("  Status: padded  ")
+        resourceActions.pull()
+
+        awaitTask("finished in")
+        assertEquals(listOf("pull redis:7"), calls("pull"))
+        assertEquals(listOf("Pull redis:7"), started())
+        assertTrue(taskLog.single { "finished in" in it }.endsWith("Pull redis:7: Status: padded"), taskLog.toString())
+    }
+
+    @Test
+    fun `an image is removed after its dialog, naming only its stopped users`() {
+        cli.containers = cli.containers + container("live", image = "nginx:1.27")
+        session.refresh()
+        val nginx = cli.images.first()
+        val untagged = cli.images.last()
+
+        dialogs.removeImageAnswer = null
+        resourceActions.removeImage(nginx)
+        assertEquals(emptyList(), started(), "cancelled")
+
+        dialogs.removeImageAnswer = false
+        actions.of(ImageRow(nginx)).last().run()
+        actions.of(ImageRow(untagged)).last().run()
+
+        fx.runUntil { calls("removeImage").size == 2 }
+        assertEquals(
+            listOf(
+                "remove nginx:1.27 stopped=[old]",
+                "remove nginx:1.27 stopped=[old]",
+                "remove <none> dddddddddddd stopped=[]",
+            ),
+            dialogs.asked,
+        )
+        assertEquals(
+            listOf("removeImage nginx:1.27 force=false", "removeImage ${untagged.id} force=false"),
+            calls("removeImage").sorted(),
+        )
+        assertEquals(listOf("Remove image nginx:1.27", "Remove image <none> dddddddddddd"), started())
+    }
+
+    @Test
+    fun `Remove on a volume asks first with its shortened name, declining removes nothing`() {
+        val anonymous = volume("a".repeat(64), anonymous = true)
+        val question = "Remove Volume: Remove the volume aaaaaaaaaaaa…? Its data is lost."
+
+        dialogs.confirmAnswer = false
+        actions.of(VolumeRow(anonymous)).single().run()
+        assertEquals(emptyList(), started(), "declined")
+        dialogs.confirmAnswer = true
+        actions.of(VolumeRow(anonymous)).single().run()
+
+        awaitCall("removeVolume ${anonymous.name}")
+        assertEquals(listOf(question, question), dialogs.asked)
+        assertEquals(1, calls("removeVolume").size)
+        assertEquals(listOf("Remove volume aaaaaaaaaaaa…"), started())
+    }
+
+    @Test
+    fun `Remove on a network asks first, declining removes nothing`() {
+        val unused = network("unused")
+        val question = "Remove Network: Remove the network unused?"
+
+        dialogs.confirmAnswer = false
+        resourceActions.removeNetwork(unused)
+        assertEquals(emptyList(), started(), "declined")
+        dialogs.confirmAnswer = true
+        actions.of(NetworkRow(unused)).single().run()
+
+        awaitCall("removeNetwork net-unused")
+        assertEquals(listOf(question, question), dialogs.asked)
+        assertEquals(1, calls("removeNetwork").size)
+        assertEquals(listOf("Remove network unused"), started())
+    }
+
+    @Test
+    fun `each prune names its candidates, and removes nothing when declined`() {
+        dialogs.confirmAnswer = false
+        resourceActions.pruneImages()
+        resourceActions.pruneVolumes()
+        resourceActions.pruneNetworks()
+        assertEquals(
+            listOf(
+                "Prune Dangling Images: [<none> dddddddddddd]",
+                "Prune Unused Volumes: [orphan]",
+                "Prune Unused Networks: [unused]",
+            ),
+            dialogs.asked,
+        )
+        assertEquals(emptyList(), started(), "declined")
+
+        dialogs.confirmAnswer = true
+        resourceActions.pruneImages()
+        resourceActions.pruneVolumes()
+        resourceActions.pruneNetworks()
+
+        fx.runUntil { calls("prune").size == 3 }
+        assertEquals(listOf("pruneImages", "pruneNetworks", "pruneVolumes"), calls("prune").sorted())
+        assertEquals(
+            listOf("Prune dangling images", "Prune unused volumes", "Prune unused networks"),
+            started(),
+        )
+    }
+
+    @Test
+    fun `the group buttons run Pull, Prune Images and Prune Networks, the other rows offer nothing`() {
+        actions.of(GroupRow(ResourceKind.IMAGE, 2)).first().run()
+        actions.of(GroupRow(ResourceKind.IMAGE, 2)).last().run()
+        actions.of(GroupRow(ResourceKind.NETWORK, 2)).last().run()
+
+        fx.runUntil { "pull nginx:1.27" in cli.calls && "pruneImages" in cli.calls && "pruneNetworks" in cli.calls }
+        assertEquals(emptyList(), actions.of(GroupRow(ResourceKind.CONTAINER, 2)))
+        assertEquals(emptyList(), actions.of(null))
     }
 
     @Test
