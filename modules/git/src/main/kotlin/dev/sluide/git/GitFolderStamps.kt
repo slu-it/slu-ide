@@ -69,7 +69,11 @@ internal object GitFolderStamps {
     const val MAX_ENTRIES = 256
     const val MAX_READ = 16L shl 20
 
-    /** Folders below [STATE_FOLDERS] that no read depends on and that may be large: objects and reflogs of submodules. */
+    /**
+     * Folders that no read depends on and that may be large: objects and reflogs of submodules. Skipped only where
+     * they sit directly in a git folder (see [isGitFolder]) and not inside its `refs`: a branch `logs/x` or a tag
+     * `lfs/v1` is a ref, and a submodule at the path `logs` has its git folder at `.git/modules/logs`.
+     */
     private val SKIPPED_FOLDERS = setOf("objects", "logs", "lfs")
 
     /**
@@ -245,7 +249,10 @@ internal object GitFolderStamps {
             }
         }
 
-        /** Everything below [folder] except [SKIPPED_FOLDERS], in a stable order; nothing if it does not exist. */
+        /**
+         * Everything below [folder] in a stable order, except the [SKIPPED_FOLDERS] directly in a git folder (a
+         * submodule's under `modules/`); nothing if it does not exist.
+         */
         fun tree(folder: Path) {
             if (!Files.isDirectory(folder, LinkOption.NOFOLLOW_LINKS)) return add(folder, "-")
             val entries = sortedMapOf<String, String>()
@@ -256,11 +263,18 @@ internal object GitFolderStamps {
                         dir: Path,
                         attrs: BasicFileAttributes,
                     ): FileVisitResult =
-                        if (dir != folder && dir.fileName.toString() in SKIPPED_FOLDERS) {
+                        if (dir.fileName.toString() in SKIPPED_FOLDERS && skipped(dir)) {
                             FileVisitResult.SKIP_SUBTREE
                         } else {
                             FileVisitResult.CONTINUE
                         }
+
+                    /** [dir] is directly in a git folder, and not in the `refs` of one. */
+                    private fun skipped(dir: Path): Boolean =
+                        isGitFolder(dir.parent) &&
+                            generateSequence(dir.parent) { it.parent }
+                                .takeWhile { it.startsWith(folder) }
+                                .none { it.fileName.toString() == "refs" && isGitFolder(it.parent) }
 
                     override fun visitFile(
                         file: Path,
@@ -284,4 +298,10 @@ internal object GitFolderStamps {
             entries.forEach { (name, text) -> add(folder.resolve(name), text) }
         }
     }
+
+    /** Whether [path] has the shape of a git folder: a `HEAD` file, and `objects` and `refs` folders. */
+    private fun isGitFolder(path: Path): Boolean =
+        Files.isRegularFile(path.resolve("HEAD")) &&
+            Files.isDirectory(path.resolve("objects")) &&
+            Files.isDirectory(path.resolve("refs"))
 }

@@ -138,6 +138,37 @@ class GitFolderStampsTest {
         assertNotEquals(changed, GitFolderStamps.state(root), "HEAD")
     }
 
+    @Test
+    fun `refs in folders named logs, objects or lfs change the state's stamp`() {
+        val root = repository()
+        file("repo/.git/refs/heads/main", "1\n")
+        var previous = assertNotNull(GitFolderStamps.state(root))
+
+        // `git branch logs/x`, `git branch objects/y` and `git tag lfs/v1` write these files.
+        for (ref in listOf("refs/heads/logs/x", "refs/heads/objects/y", "refs/tags/lfs/v1")) {
+            file("repo/.git/$ref", "0123456789abcdef\n")
+            val now = assertNotNull(GitFolderStamps.state(root))
+            assertNotEquals(previous, now, ref)
+            previous = now
+        }
+    }
+
+    @Test
+    fun `the git folder of a submodule at a path named logs counts`() {
+        val root = repository()
+        val submodule = root.resolve(".git/modules/logs")
+        file("repo/.git/modules/logs/HEAD", "ref: refs/heads/main\n")
+        file("repo/.git/modules/logs/refs/heads/main", "1\n")
+        file("repo/.git/modules/logs/objects/ab/cdef", "object\n")
+        val original = assertNotNull(GitFolderStamps.state(root))
+
+        submodule.resolve("HEAD").writeText("ref: refs/heads/other\n")
+        val moved = assertNotNull(GitFolderStamps.state(root))
+        assertNotEquals(original, moved, "its HEAD")
+        submodule.resolve("objects/ab/cdef").writeText("another object\n")
+        assertEquals(moved, GitFolderStamps.state(root), "its objects are still not read")
+    }
+
     // --- trust
 
     @Test

@@ -63,16 +63,18 @@ Rejected:
 - A batch of the watch of `.git` still schedules a cycle of `GitStatusService` on `sluide-git`, but the cycle first
   takes two cheap stamps of the git folder (`GitFolderStamps`), both SHA-256 over what they cover. The stamps are taken
   before anything runs in the cycle, so that a change while the trust check or `git status` runs differs next time.
-  - **State stamp:** size, modification time and file key (inode) of files, no content; git writes files through a
-    lock file it renames, so a rewrite gets a new inode and changes the stamp even within the file system's time
-    resolution. It covers what the status, the log and the refs read: `HEAD`, `index`, `packed-refs`, every file below
-    `refs/` and `reftable/` (repositories with `--ref-format=reftable`), `MERGE_HEAD`, `MERGE_MSG`, `CHERRY_PICK_HEAD`, `REVERT_HEAD`, `ORIG_HEAD`, `FETCH_HEAD`, `AUTO_MERGE`,
-    `shallow`, `commondir`, `config`, `config.worktree`, `info/exclude`, `info/attributes`, `info/sparse-checkout`,
-    `info/grafts`, `objects/info/alternates`, and everything below `rebase-merge/`, `rebase-apply/`, `sequencer/` and
-    `modules/` (the submodules' git folders, whose `HEAD`, index and refs `git status` reads), except folders named
-    `objects`, `logs` and `lfs` there. Not objects, reflogs, hooks or lock files. A `.git` file (linked worktrees,
-    submodules) has no state stamp: nothing resolves its git folder outside git, and it is not watched anyway; every
-    cycle then counts as changed.
+  - **State stamp:** size, modification time and file key (inode) of files, no content; git writes files through a lock
+    file it renames, so a rewrite gets a new inode and changes the stamp even within the file system's time resolution.
+    It covers what the status, the log and the refs read: `HEAD`, `index`, `packed-refs`, every file below `refs/` and
+    `reftable/` (repositories with `--ref-format=reftable`), `MERGE_HEAD`, `MERGE_MSG`, `CHERRY_PICK_HEAD`,
+    `REVERT_HEAD`, `ORIG_HEAD`, `FETCH_HEAD`, `AUTO_MERGE`, `shallow`, `commondir`, `config`, `config.worktree`,
+    `info/exclude`, `info/attributes`, `info/sparse-checkout`, `info/grafts`, `objects/info/alternates`, and everything
+    below `rebase-merge/`, `rebase-apply/`, `sequencer/` and `modules/` (the submodules' git folders, whose `HEAD`,
+    index and refs `git status` reads), except the folders named `objects`, `logs` and `lfs` directly in a git folder
+    there (one with a `HEAD` file, `objects/` and `refs/`) and never inside its `refs`: a branch `logs/x`, a tag
+    `lfs/v1` or a submodule at the path `logs` is stamped. Not objects, reflogs, hooks or lock files. A `.git` file
+    (linked worktrees, submodules) has no state stamp: nothing resolves its git folder outside git, and it is not
+    watched anyway; every cycle then counts as changed.
   - **Trust stamp:** what git's trust check (ADR 0053) read, recorded by `GitTrustCheck` with every check that could
     check (`inputs(folder)`), for the opened repository and each submodule it looked at:
     - by content (SHA-256; above 1 MB by size, time and inode) and permissions (POSIX, else `unix:mode` and
