@@ -8,6 +8,7 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
+import java.util.logging.Level
 import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
 import kotlin.io.path.setPosixFilePermissions
@@ -63,12 +64,17 @@ class SettingsStoreTest {
     }
 
     @Test
-    fun `a settings folder that cannot be created fails the update`() {
+    fun `a settings folder that cannot be created fails the update, with the file and the reason`() {
         dir.resolve("config").writeText("a file, not a folder")
+        val blocker = dir.resolve("blocker").apply { writeText("a file, not a folder") }
+        val deeper = blocker.resolve("sub/settings.properties")
 
         val failure = assertFailsWith<IOException> { SettingsStore(file).update(mapOf("theme" to "DARK")) }
+        // createDirectories under a regular file: FileSystemException with the reason "Not a directory" (checked on the JDK)
+        val failureDeeper = assertFailsWith<IOException> { SettingsStore(deeper).update(mapOf("theme" to "DARK")) }
 
-        assertTrue(file.toString() in failure.message.orEmpty(), failure.message)
+        assertEquals("Cannot save settings to $file: FileAlreadyExistsException", failure.message)
+        assertEquals("Cannot save settings to $deeper: FileSystemException: Not a directory", failureDeeper.message)
     }
 
     @Test
@@ -99,5 +105,39 @@ class SettingsStoreTest {
 
         assertEquals(TestFonts.defaults[FontArea.EDITOR], fonts.font(FontArea.EDITOR).get())
         assertEquals(Theme.DARK, themes.theme.get())
+    }
+
+    @Test
+    fun `the default store keeps its settings in the user's Thoreau folder`() {
+        assertEquals(
+            Path.of(System.getProperty("user.home"), ".sluide", "settings.properties"),
+            SettingsStore().file,
+        )
+    }
+
+    @Test
+    fun `a settings file that is a folder cannot be read, is not replaced and is logged`() {
+        file.createDirectories()
+
+        LogCapture(SettingsStore::class.java.name).use { log ->
+            assertEquals(emptyMap(), SettingsStore(file).load())
+            val failure = assertFailsWith<IOException> { SettingsStore(file).update(mapOf("a" to "1")) }
+
+            assertEquals("Cannot read settings from $file, so it is not replaced", failure.message)
+            assertEquals(List(2) { "Cannot read settings from $file" }, log.messages())
+        }
+        assertTrue(Files.isDirectory(file))
+    }
+
+    @Test
+    fun `a corrupt file is logged as unreadable`() {
+        writeCorruptFile()
+
+        LogCapture(SettingsStore::class.java.name).use { log ->
+            SettingsStore(file).load()
+
+            assertEquals(listOf(Level.WARNING to "Cannot read settings from $file"), log.lines.toList())
+            assertTrue(log.thrown.single() is IllegalArgumentException)
+        }
     }
 }

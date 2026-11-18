@@ -38,4 +38,11 @@ class AppearancePageModelTest {
         assertEquals(Theme.DARK, model.draft.get())
         assertEquals(Theme.DARK, settings.theme.get())
     }
+
+    @Test
+    fun `the draft starts as the stored theme`() {
+        SettingsStore(dir.resolve("settings.properties")).update(mapOf("theme" to "LIGHT"))
+
+        assertEquals(Theme.LIGHT, model.draft.get())
+    }
 }
