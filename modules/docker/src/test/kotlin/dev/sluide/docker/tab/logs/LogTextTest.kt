@@ -69,6 +69,20 @@ class LogTextTest {
     fun `follow is on only at the end of the scroll bar`() {
         assertTrue(followsAfterScroll(1.0, 1.0))
         assertFalse(followsAfterScroll(0.8, 1.0))
+        assertTrue(followsAfterScroll(1.0 - 1e-3, 1.0), "nearly the end counts")
+        assertFalse(followsAfterScroll(0.998, 1.0))
+    }
+
+    @Test
+    fun `clearing the buffer drops its lines but keeps counting`() {
+        val buffer = LogBuffer(10)
+        repeat(3) { buffer.append(null, "line $it") }
+
+        buffer.clear()
+
+        assertEquals(0, buffer.size)
+        assertEquals(emptyList(), buffer.filtered(""))
+        assertEquals(3, buffer.append(null, "next").seq)
     }
 
     @Test

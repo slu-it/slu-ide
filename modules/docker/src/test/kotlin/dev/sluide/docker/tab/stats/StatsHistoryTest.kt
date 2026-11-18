@@ -1,6 +1,8 @@
 package dev.sluide.docker.tab.stats
 
 import dev.sluide.docker.model.StatsSample
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -66,16 +68,6 @@ class StatsHistoryTest {
     }
 
     @Test
-    fun `a reset counter restarts the average`() {
-        val history = StatsHistory()
-        history.add(sample(received = 5_000_000), 0)
-        history.add(sample(received = 6_000_000), 1_000_000_000)
-        history.add(sample(received = 100), 2_000_000_000)
-        history.add(sample(received = 2100), 3_000_000_000)
-        assertEquals(2000.0, history.rates?.networkReceive)
-    }
-
-    @Test
     fun `sparkline points end at the right edge and scale to the maximum`() {
         val points = sparklinePoints(listOf(0.0, 50.0, 100.0, 200.0), 5, 40.0, 20.0, 100.0)
         assertEquals(listOf(10.0, 20.0, 20.0, 10.0, 30.0, 0.0, 40.0, 0.0), points)
@@ -106,5 +98,99 @@ class StatsHistoryTest {
     @Test
     fun `percent has one decimal`() {
         assertEquals("12.4 %", formatPercent(12.43))
+    }
+
+    private fun values(rates: Rates) =
+        listOf(rates.networkReceive, rates.networkSend, rates.blockRead, rates.blockWrite)
+
+    private fun counterSample(
+        counter: Int,
+        value: Long,
+    ) = StatsSample(
+        0.0,
+        0,
+        1000,
+        if (counter == 0) value else 0,
+        if (counter == 1) value else 0,
+        if (counter == 2) value else 0,
+        if (counter == 3) value else 0,
+    )
+
+    @Test
+    fun `each rate comes from its own counter`() {
+        val before = StatsSample(0.0, 0, 0, 1, 2, 3, 4)
+        val after = StatsSample(0.0, 0, 0, 11, 32, 63, 124)
+
+        assertEquals(Rates(5.0, 15.0, 30.0, 60.0), ratesBetween(before, after, 2.0))
+    }
+
+    @Test
+    fun `every series gets its value of each sample`() {
+        val history = StatsHistory()
+        history.add(StatsSample(5.0, 100, 1000, 1000, 100, 200, 300), 0)
+        history.add(StatsSample(6.0, 200, 1000, 3000, 700, 1000, 1300), 2_000_000_000)
+
+        assertEquals(listOf(5.0, 6.0), history.cpu.values)
+        assertEquals(listOf(100.0, 200.0), history.memory.values)
+        assertEquals(listOf(1000.0), history.networkReceive.values)
+        assertEquals(listOf(300.0), history.networkSend.values)
+        assertEquals(listOf(400.0), history.blockRead.values)
+        assertEquals(listOf(500.0), history.blockWrite.values)
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = [0, 1, 2, 3])
+    fun `a reset of any one counter restarts the average`(counter: Int) {
+        val history = StatsHistory()
+        history.add(counterSample(counter, 5_000_000), 0)
+        history.add(counterSample(counter, 6_000_000), 1_000_000_000)
+        assertEquals(1_000_000.0, history.rates?.let(::values)?.get(counter), "rising: a rate")
+        history.add(counterSample(counter, 100), 2_000_000_000)
+        history.add(counterSample(counter, 2100), 3_000_000_000)
+
+        assertEquals(2000.0, history.rates?.let(::values)?.get(counter))
+    }
+
+    @Test
+    fun `the rate window holds 60 samples`() {
+        val history = StatsHistory()
+
+        // The counter steps once, at the 51st sample; one sample per second.
+        fun add(second: Int) {
+            val received = if (second < 50) 0L else 1_000_000L
+            history.add(sample(received = received), second * 1_000_000_000L)
+        }
+        (0..59).forEach(::add)
+        assertEquals(1_000_000.0 / 59, history.rates?.networkReceive, "60 samples span 59 s")
+        add(60)
+        assertEquals(1_000_000.0 / 59, history.rates?.networkReceive, "the oldest sample left the window")
+    }
+
+    @Test
+    fun `clear also forgets the samples the rates are averaged over`() {
+        val history = StatsHistory()
+        history.add(sample(received = 1000), 0)
+        history.add(sample(received = 3000), 2_000_000_000)
+        history.clear()
+        history.add(sample(received = 3500), 3_000_000_000)
+
+        assertNull(history.rates, "one sample since the clear")
+        assertEquals(emptyList(), history.networkReceive.values)
+        assertEquals(emptyList(), history.networkSend.values)
+        assertEquals(emptyList(), history.blockRead.values)
+        assertEquals(emptyList(), history.blockWrite.values)
+    }
+
+    @Test
+    fun `a sparkline of capacity 1 puts its value at the right edge`() {
+        assertEquals(listOf(40.0, 10.0), sparklinePoints(listOf(5.0), 1, 40.0, 20.0, 10.0))
+    }
+
+    @Test
+    fun `bytes round to whole numbers from 10, and stop at PiB`() {
+        assertEquals("5 B", formatBytes(5L))
+        assertEquals("9.5 KiB", formatBytes(9.5 * 1024))
+        assertEquals("10 KiB", formatBytes(10.0 * 1024))
+        assertEquals("2048 PiB", formatBytes(2048.0 * 1024 * 1024 * 1024 * 1024 * 1024))
     }
 }
