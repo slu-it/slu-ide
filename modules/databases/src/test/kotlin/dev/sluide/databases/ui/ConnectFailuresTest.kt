@@ -53,7 +53,9 @@ class ConnectFailuresTest {
     // The shapes below are what the drivers on the classpath throw (pgjdbc 42.7.13, MariaDB Connector/J 3.5.10),
     // read with a probe program that connected to 127.0.0.1:1 and to nohost.invalid, and from
     // `javap -c org.mariadb.jdbc.export.ExceptionFactory` (28000 becomes SQLInvalidAuthorizationSpecException,
-    // its message starts with "(conn=N) ").
+    // its message starts with "(conn=N) "). The MariaDB socket failure has no such prefix: ConnectionHelper.connectSocket
+    // builds it directly, before a handshake gives a thread id. pgBadPassword() is pgjdbc's ServerErrorMessage format
+    // (fields S, V, C, M separated by NUL) read from the class with javap; a probe to 127.0.0.1:1 cannot produce 28P01.
     private fun pgRefused() =
         PSQLException(
             "Connection to 127.0.0.1:1 refused. Check that the hostname and port are correct and that the " +
@@ -94,7 +96,7 @@ class ConnectFailuresTest {
             ConnectFailures.message(
                 ExecutionException(
                     SQLNonTransientConnectionException(
-                        "(conn=3) Socket fail to connect to 127.0.0.1:1. Connection refused (connect failed)",
+                        "Socket fail to connect to 127.0.0.1:1. Connection refused (connect failed)",
                         "08000",
                     ),
                 ),

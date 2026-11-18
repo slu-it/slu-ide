@@ -175,7 +175,7 @@ class SqlCompletionReferencesTest {
     }
 
     @Test
-    fun `a table and a keyword of the same name are both offered, two tables of one name once`() {
+    fun `a name offered as column is not offered again as table`() {
         val both = complete("select * from lef|").items
         assertEquals(listOf(CompletionKind.TABLE, CompletionKind.KEYWORD), both.map { it.kind })
         assertEquals(listOf("\"left\"", "left"), both.map { it.text })

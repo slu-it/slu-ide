@@ -173,6 +173,7 @@ class EntrySessionsTest {
     @Test
     fun `an entry removed while its saved password is decrypted gets no question and no change`() {
         withSaved("v1:other:x")
+        // constructed state: the entry is removed without cancelling its connect (production goes through close/disconnect)
         saved.duringDecrypt = { entries.remove(entry) }
 
         sessions.connect(entry)
@@ -212,6 +213,7 @@ class EntrySessionsTest {
     @Test
     fun `a close ends the attempt that a guard left behind`() {
         withSaved("v1:other:x")
+        // constructed state: the entry is removed without cancelling its connect (production goes through close/disconnect)
         saved.duringDecrypt = { entries.remove(entry) }
         sessions.connect(entry)
         runWorkers()
@@ -272,6 +274,7 @@ class EntrySessionsTest {
     fun `a session that arrives after the entry was removed is closed and its password copy zeroed`() {
         dialogs.password = "typed".toCharArray()
         dialogs.save = true
+        // constructed state: the entry is removed without cancelling its connect (production goes through close/disconnect)
         whileOpening = { entries.remove(entry) }
 
         sessions.connect(entry)

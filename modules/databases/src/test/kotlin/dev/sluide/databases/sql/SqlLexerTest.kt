@@ -84,6 +84,7 @@ class SqlLexerTest {
     @ParameterizedTest
     @ValueSource(strings = ["a", "Z", "7", "_", "$"])
     fun `an e behind an identifier character does not make an E string`(prefix: String) {
+        // the lexer's rule (isIdentChar counts digits and `$`); PostgreSQL itself reads `7e'..` as 7 then e
         val sql = "${prefix}e'a\\'b'"
         // `'a\'` closes at the backslash-quote, then b and a lone quote
         assertEquals(listOf(str(2, 6), str(7, 8, closed = false)), regions(sql), sql)
@@ -179,7 +180,7 @@ class SqlLexerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["/* x", "/*M x", "/*", "/*m!1", "/**!1", "x", ""])
+    @ValueSource(strings = ["/* x", "/*M x", "/*", "/*m!1", "/**!1", "/x!1", "x", ""])
     fun `a comment that is no executable comment has no opener`(text: String) {
         assertEquals(0, SqlLexer.executableCommentEnd(text, 0), text)
     }
@@ -223,6 +224,7 @@ class SqlLexerTest {
     @ParameterizedTest
     @ValueSource(strings = ["a", "Z", "7", "_"])
     fun `a dollar quote cannot follow an identifier character`(prefix: String) {
+        // `a` and `_` are the documented rule (PostgreSQL 4.1.2.4); `7` is the lexer's simplification (isIdentChar)
         val sql = "$prefix\$\$x\$\$"
         assertEquals(emptyList(), regions(sql), sql)
     }
