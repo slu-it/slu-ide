@@ -169,7 +169,6 @@ private class BoundaryMatch(
         c: Int,
     ): Boolean {
         if (p == prefix.length) return true
-        if (c >= candidate.length) return false
         val key = p * (candidate.length + 1) + c
         decided[key]?.let { return it }
         steps++
