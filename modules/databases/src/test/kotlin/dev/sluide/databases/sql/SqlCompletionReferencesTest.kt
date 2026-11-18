@@ -375,4 +375,61 @@ class SqlCompletionReferencesTest {
             assertTrue(complete(words).items.isNotEmpty())
         }
     }
+
+    @Test
+    fun `a table named like a keyword in upper case is offered next to the keyword`() {
+        val shouting =
+            object : CompletionCatalog by catalog {
+                override fun tables(schema: String?) = listOf("LEFT")
+            }
+
+        val items = complete("select * from LEF|", using = shouting).items
+
+        assertEquals(listOf(CompletionKind.TABLE, CompletionKind.KEYWORD), items.map { it.kind })
+        assertEquals(listOf("LEFT", "LEFT"), items.map { it.label })
+    }
+
+    @Test
+    fun `columns of a table with a schema are offered without a qualifier`() {
+        assertEquals(listOf("total", "inv_id"), complete("select | from sales.invoices").labels(CompletionKind.COLUMN))
+        assertEquals(listOf("sales_user"), complete("select | from \"sales\".users").labels(CompletionKind.COLUMN))
+    }
+
+    @Test
+    fun `a closing backtick without an opening one is no name, at any place of the text`() {
+        assertEquals(emptyList(), complete("xsales`.|").items)
+        assertEquals(emptyList(), complete("sales`.|").items)
+    }
+
+    @Test
+    fun `a dot behind a word-less place does not match a schema with an empty name`() {
+        val odd =
+            MapCatalog(
+                linkedMapOf(
+                    "public" to linkedMapOf("t" to listOf("c")),
+                    "" to linkedMapOf("ghost" to listOf("g")),
+                ),
+            )
+
+        assertEquals(emptyList(), complete("select (a).|", using = odd).items)
+    }
+
+    @Test
+    fun `a caret in a gap between statements has no table references`() {
+        assertTrue(complete("  |; select * from users u").labels(CompletionKind.COLUMN).isEmpty())
+        assertTrue(complete(" ;|  ; select * from users u").labels(CompletionKind.COLUMN).isEmpty())
+    }
+
+    @Test
+    fun `AS at the end of the statement names no alias`() {
+        assertEquals(listOf("id", "name"), complete("select | from users as").labels(CompletionKind.COLUMN))
+        assertEquals(emptyList(), complete("select u.| from users as").items)
+    }
+
+    @Test
+    fun `a caret on the line after a line comment is code again`() {
+        assertTrue(complete("-- c\nsel|").items.any { it.label == "SELECT" })
+        assertTrue(complete("select 1 -- c\n\n  sel|").items.any { it.label == "SELECT" })
+        assertEquals(emptyList(), complete("select 1 -- c|\nselect").items)
+    }
 }
