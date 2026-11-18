@@ -62,4 +62,58 @@ class NavigationHistoryTest {
         assertNull(history.back(at("a.py")))
         assertEquals(listOf(at("c.py", 3)), history.places.second, "only where the user was is the way forward")
     }
+
+    @Test
+    fun `a step takes only the nearest place and leaves the older ones`() {
+        history.record(at("a.py"), at("b.py"))
+        history.record(at("b.py"), at("c.py"))
+
+        assertEquals(at("b.py"), history.back(at("c.py")))
+
+        assertEquals(listOf(at("a.py")) to listOf(at("c.py")), history.places)
+        assertTrue(history.canGoBack.get())
+    }
+
+    @Test
+    fun `a step with nothing to go to changes nothing`() {
+        assertNull(history.back(at("a.py")))
+        assertNull(history.forward(at("a.py")))
+
+        assertEquals(emptyList<SourcePosition>() to emptyList(), history.places)
+        assertFalse(history.canGoForward.get())
+        assertFalse(history.canGoBack.get())
+    }
+
+    @Test
+    fun `a failed step keeps where the last jump arrived for the next one`() {
+        history.record(at("a.py"), at("b.py"))
+        assertNull(history.forward(null))
+
+        assertEquals(at("a.py"), history.back(null))
+        assertEquals(listOf(at("b.py")), history.places.second, "the arrival was not forgotten by the failed step")
+    }
+
+    @Test
+    fun `the same place is not recorded twice in a row`() {
+        history.record(at("a.py"), at("b.py"))
+        history.record(at("a.py"), at("b.py"))
+
+        assertEquals(listOf(at("a.py")), history.places.first)
+    }
+
+    @Test
+    fun `by default a place in a file that is gone is skipped`(
+        @org.junit.jupiter.api.io.TempDir folder: Path,
+    ) {
+        val kept =
+            java.nio.file.Files
+                .writeString(folder.resolve("kept.py"), "x")
+        val gone = folder.resolve("gone.py")
+        val real = NavigationHistory()
+        real.record(SourcePosition(gone, 1, 0), SourcePosition(kept, 2, 0))
+        real.record(SourcePosition(kept, 1, 0), SourcePosition(kept, 9, 0))
+
+        assertEquals(SourcePosition(kept, 1, 0), real.back(SourcePosition(kept, 9, 0)))
+        assertNull(real.back(SourcePosition(kept, 1, 0)), "gone.py is skipped")
+    }
 }
