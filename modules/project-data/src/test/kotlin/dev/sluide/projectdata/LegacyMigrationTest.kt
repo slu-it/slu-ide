@@ -166,6 +166,50 @@ class LegacyMigrationTest {
         assertFalse(legacy.exists())
     }
 
+    private fun assertSecondMigrationStillRuns(failing: LegacyProjectData) {
+        writeLegacy(dir.resolve("a"))
+        val migration = FakeLegacy()
+        val store = ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), listOf(failing, migration))
+
+        assertEquals(listOf(dir.resolve("a")), store.projects().map { it.folder })
+
+        assertEquals(1, migration.calls)
+        assertFalse(legacy.exists())
+    }
+
+    @Test
+    fun `a migration whose file cannot be named does not escape the store`() {
+        assertSecondMigrationStillRuns(
+            object : LegacyProjectData {
+                override val file: Path get() = error("no file")
+
+                override fun migrate(
+                    entries: Map<String, String>,
+                    store: ProjectDataStore,
+                ) = true
+            },
+        )
+    }
+
+    @Test
+    fun `a migration that throws a checked exception keeps its old file and does not escape the store`() {
+        val failing = dir.resolve("failing.properties").apply { writeText("a=1") }
+
+        assertSecondMigrationStillRuns(
+            object : LegacyProjectData {
+                override val file = failing
+
+                // Kotlin has no checked exceptions: a migration can throw an IOException
+                override fun migrate(
+                    entries: Map<String, String>,
+                    store: ProjectDataStore,
+                ): Boolean = throw java.io.IOException("disk")
+            },
+        )
+
+        assertEquals("a=1", failing.readText())
+    }
+
     @Test
     fun `an old file that is a folder is kept and not migrated`() {
         legacy.createDirectories()

@@ -382,40 +382,49 @@ class ProjectDataStore(
     /**
      * Once per store, before anything is read or written: first renames `outside-projects.json` to [sharedFile]
      * ([migrateSharedFile]), then runs the [migrations]: an old file is deleted once its migration wrote everything,
-     * else kept for the next start.
+     * else kept for the next start. A migration that throws, or whose `file` cannot be read, is logged and skipped.
      */
     private fun migrateLegacyFiles() {
         if (migrated) return
         migrated = true
         migrateSharedFile(sharedFile)
         for (migration in migrations) {
-            val file = migration.file
-            if (file.notExists()) continue
-            val properties = Properties()
             try {
-                file.inputStream().use { properties.load(it) }
-            } catch (e: IOException) {
-                log.log(System.Logger.Level.WARNING, "Cannot read $file to migrate it, keeping it", e)
-                continue
-            } catch (e: IllegalArgumentException) {
-                // a malformed \uXXXX escape
-                log.log(System.Logger.Level.WARNING, "Cannot read $file to migrate it, keeping it", e)
-                continue
+                migrate(migration)
+            } catch (e: Exception) {
+                // the file getter or the migration threw: the old file stays and the others still run
+                log.log(System.Logger.Level.WARNING, "Migrating ${describe(migration)} failed", e)
             }
-            val entries = properties.stringPropertyNames().associateWith { properties.getProperty(it) }
-            val complete =
-                try {
-                    migration.migrate(entries, this)
-                } catch (e: RuntimeException) {
-                    log.log(System.Logger.Level.WARNING, "Migrating $file failed", e)
-                    false
-                }
-            if (complete) {
-                delete(file)
-                log.log(System.Logger.Level.INFO, "Migrated $file into the project data")
-            } else {
-                log.log(System.Logger.Level.WARNING, "Could not migrate all of $file, keeping it for the next start")
-            }
+        }
+    }
+
+    private fun describe(migration: LegacyProjectData): String =
+        try {
+            migration.file.toString()
+        } catch (_: Exception) {
+            migration.javaClass.name
+        }
+
+    private fun migrate(migration: LegacyProjectData) {
+        val file = migration.file
+        if (file.notExists()) return
+        val properties = Properties()
+        try {
+            file.inputStream().use { properties.load(it) }
+        } catch (e: IOException) {
+            log.log(System.Logger.Level.WARNING, "Cannot read $file to migrate it, keeping it", e)
+            return
+        } catch (e: IllegalArgumentException) {
+            // a malformed \uXXXX escape
+            log.log(System.Logger.Level.WARNING, "Cannot read $file to migrate it, keeping it", e)
+            return
+        }
+        val entries = properties.stringPropertyNames().associateWith { properties.getProperty(it) }
+        if (migration.migrate(entries, this)) {
+            delete(file)
+            log.log(System.Logger.Level.INFO, "Migrated $file into the project data")
+        } else {
+            log.log(System.Logger.Level.WARNING, "Could not migrate all of $file, keeping it for the next start")
         }
     }
 }
