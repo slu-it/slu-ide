@@ -575,4 +575,23 @@ class PgTreeTest {
 
         assertEquals(listOf("c"), view.children.map { it.name })
     }
+
+    @Test
+    fun `three partitions are sorted by name`() {
+        fun part(name: String): Row =
+            mapOf("name" to name, "kind" to "r", "ispart" to true, "pschema" to "s", "parent" to "m")
+        val rows = PgSchemaRows(relations = listOf(rel("m", "p"), part("m3"), part("m1"), part("m2")))
+
+        val tables = pgSchemaTree("s", rows).single().children
+
+        assertEquals(
+            listOf("m1", "m2", "m3"),
+            tables
+                .single()
+                .children
+                .single()
+                .children
+                .map { it.name },
+        )
+    }
 }

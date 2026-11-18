@@ -259,9 +259,10 @@ class MariaTreeTest {
                     tables = listOf(mapOf("name" to "order", "kind" to "BASE TABLE")),
                     statistics =
                         listOf(
+                            mapOf("tbl" to "order", "name" to "i", "nonunique" to 1, "col" to "c", "seq" to 4),
+                            mapOf("tbl" to "order", "name" to "i", "nonunique" to 1, "col" to "a", "seq" to 1),
                             mapOf("tbl" to "order", "name" to "i", "nonunique" to 1, "col" to "b", "seq" to 3),
                             mapOf("tbl" to "order", "name" to "i", "nonunique" to 1, "col" to null, "seq" to 2),
-                            mapOf("tbl" to "order", "name" to "i", "nonunique" to 1, "col" to "a", "seq" to 1),
                         ),
                 ),
             )
@@ -275,7 +276,7 @@ class MariaTreeTest {
                 .single()
                 .children
                 .single()
-        assertEquals("(a, (expression), b)", index.detail)
+        assertEquals("(a, (expression), b, c)", index.detail)
     }
 
     @Test
@@ -359,12 +360,17 @@ class MariaTreeTest {
 
     @Test
     fun `events are sorted by name and shown with their status`() {
-        val events = listOf(mapOf("name" to "b", "status" to "ENABLED"), mapOf("name" to "a", "status" to "DISABLED"))
+        val events =
+            listOf(
+                mapOf("name" to "c", "status" to "ENABLED"),
+                mapOf("name" to "a", "status" to "DISABLED"),
+                mapOf("name" to "b", "status" to "ENABLED"),
+            )
 
         val tree = mariaSchemaTree("shop", MariaSchemaRows(events = events))
 
-        assertEquals(listOf("a", "b"), tree.single().children.map { it.name })
-        assertEquals(listOf("disabled", "enabled"), tree.single().children.map { it.detail })
+        assertEquals(listOf("a", "b", "c"), tree.single().children.map { it.name })
+        assertEquals(listOf("disabled", "enabled", "enabled"), tree.single().children.map { it.detail })
     }
 
     @Test
