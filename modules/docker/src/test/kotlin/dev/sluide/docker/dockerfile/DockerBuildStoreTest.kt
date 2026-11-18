@@ -2,6 +2,10 @@ package dev.sluide.docker.dockerfile
 
 import dev.sluide.projectdata.ProjectDataStore
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
+import tools.jackson.databind.json.JsonMapper
+import tools.jackson.databind.node.ObjectNode
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
@@ -54,7 +58,7 @@ class DockerBuildStoreTest {
         store.save(file, projectFolder, BuildOptions())
 
         assertEquals(BuildOptions(), store.load(file, projectFolder))
-        assertFalse(data.read(projectFolder)?.has("files") ?: false, "no empty entry is left behind")
+        assertTrue(data.fileData(file, projectFolder)?.isEmpty ?: true, "no empty entry is left behind")
     }
 
     @Test
@@ -89,6 +93,33 @@ class DockerBuildStoreTest {
         }
 
         assertEquals((1..10).map { "t$it" }, store.load(file, projectFolder).history)
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            """"noCache":"yes"""",
+            """"pull":1""",
+            """"tags":3""",
+            """"context":5""",
+            """"target":["x"]""",
+            """"platform":null""",
+            """"history":"a"""",
+            """"history":[7," ","a\u0000b"]""",
+            """"buildArgs":"A=1"""",
+            """"buildArgs":{"":"v","N":1,"M":"a\u0000"}""",
+        ],
+    )
+    fun `a value of the wrong type falls back alone, the rest is kept`(invalid: String) {
+        // The companion is a valid field that the invalid one is not about: losing it shows a fallback to all defaults.
+        val aboutTags = invalid.startsWith("\"tags\"")
+        val companion = if (aboutTags) """"context":"c"""" else """"tags":"app""""
+        val expected = if (aboutTags) BuildOptions(context = "c") else BuildOptions(tags = "app")
+        data.updateFileData(file, projectFolder) { node ->
+            node.set(DOCKER_BUILD_FIELD, JsonMapper().readTree("{$invalid,$companion}") as ObjectNode)
+        }
+
+        assertEquals(expected, store.load(file, projectFolder))
     }
 
     @Test

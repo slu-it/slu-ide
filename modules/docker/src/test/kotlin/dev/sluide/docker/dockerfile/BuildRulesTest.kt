@@ -82,4 +82,16 @@ class BuildRulesTest {
         assertEquals(mapOf("A" to "1", "B" to "2"), withArg(mapOf("A" to "1"), "B", "2"))
         assertEquals(mapOf("B" to "2"), withArg(mapOf("A" to "1", "B" to "2"), "A", ""))
     }
+
+    @Test
+    fun `the questions and problems name the file`() {
+        assertEquals(
+            "Dockerfile has unsaved changes. Save them before the build, or build the saved version?",
+            unsavedBuildQuestion("Dockerfile"),
+        )
+        assertEquals(
+            "✖ The saved version of Dockerfile cannot be read; nothing was built",
+            savedUnreadableProblem("Dockerfile"),
+        )
+    }
 }

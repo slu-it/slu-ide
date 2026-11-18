@@ -1,5 +1,6 @@
 package dev.sluide.docker.dockerfile
 
+import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
@@ -187,6 +188,38 @@ class BuildCommandsTest {
         assertEquals(
             "The context folder does not exist: /nowhere",
             BuildCommands.problem(BuildOptions(), info, Path.of("/nowhere")) { false },
+        )
+    }
+
+    @Test
+    fun `without a check given, the context folder is looked up on disk`(
+        @TempDir dir: Path,
+    ) {
+        val dockerfile = dir.resolve("Dockerfile")
+        val missing = dir.resolve("missing")
+
+        assertEquals(
+            listOf("build", "-f", "$dir/Dockerfile", "$dir"),
+            BuildCommands.buildArgs(BuildOptions(), dockerfile, info),
+        )
+        assertEquals(
+            "The context folder does not exist: $missing",
+            assertFailsWith<IllegalArgumentException> {
+                BuildCommands.buildArgs(BuildOptions(context = "missing"), dockerfile, info)
+            }.message,
+        )
+        assertNull(BuildCommands.problem(BuildOptions(), info, dir))
+        assertEquals(
+            "The context folder does not exist: $missing",
+            BuildCommands.problem(BuildOptions(), info, missing),
+        )
+    }
+
+    @Test
+    fun `a file without a folder has no context`() {
+        assertEquals(
+            "No folder for /",
+            assertFailsWith<IllegalStateException> { BuildCommands.contextOf(BuildOptions(), Path.of("/")) }.message,
         )
     }
 
