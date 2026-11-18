@@ -1,6 +1,7 @@
 package dev.sluide.codeintelligence.completion
 
 import dev.sluide.fileviewers.TextChange
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import kotlin.test.assertEquals
@@ -24,6 +25,8 @@ internal class AutoTriggerTest {
         "a typed char while text stays selected, 'os', '.', '.', '', '', false, NONE",
         "a typed key whose text differs (Enter), 'os', '\n', '\r', '', '', true, NONE",
         "a letter beyond the BMP, 'x = ', '\uD835\uDC65', '\uD835\uDC65', '', '', true, WORD",
+        "a typed trigger character the change did not insert, 'os', ';', '.', '', '', true, NONE",
+        "a typed key of several code points, 'x = ', 'ab', 'ab', '', '', true, NONE",
         "a combining mark extending a word, 'x = e', '\u0301', '\u0301', '', '', true, WORD",
     )
     fun `auto trigger`(
@@ -51,6 +54,31 @@ internal class AutoTriggerTest {
                 nextCodePoint = next.firstOrNull()?.code,
             ),
             what,
+        )
+    }
+
+    @Test
+    fun `a caret that is not right behind the typed character opens nothing`() {
+        val change = TextChange(3, "", ".")
+
+        for (caret in listOf(3, 5)) {
+            assertEquals(
+                AutoTrigger.NONE,
+                autoTrigger(change, ".", caret, true, listOf("."), "os.", null),
+                "caret $caret",
+            )
+        }
+        assertEquals(AutoTrigger.TRIGGER_CHARACTER, autoTrigger(change, ".", 4, true, listOf("."), "os.", null))
+    }
+
+    @Test
+    fun `a typed character that is no word character opens nothing, whatever length a word needs`() {
+        // With words of any length allowed, only the typed character's own kind keeps "x = ;" from opening.
+        val change = TextChange(5, "", ";")
+
+        assertEquals(
+            AutoTrigger.NONE,
+            autoTrigger(change, ";", 6, true, listOf("."), "x = ;", null, minWordLength = 0),
         )
     }
 }
