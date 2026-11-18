@@ -184,6 +184,33 @@ class EntrySessionsTest {
     }
 
     @Test
+    fun `an unreadable saved password stays when only the save generation moved during the decrypt`() {
+        withSaved("v1:other:x")
+        saved.duringDecrypt = { entry.saveGeneration++ }
+        dialogs.password = null
+
+        sessions.connect(entry)
+        runWorkers()
+
+        assertEquals(emptyList(), setSaved)
+        assertEquals("v1:other:x", entry.config.get().savedPassword)
+    }
+
+    @Test
+    fun `a close ends the attempt that a guard left behind`() {
+        withSaved("v1:other:x")
+        saved.duringDecrypt = { entries.remove(entry) }
+        sessions.connect(entry)
+        runWorkers()
+        entries += entry
+
+        sessions.close(entry)
+
+        assertNull(entry.attempt)
+        assertEquals(ConnectionStatus.DISCONNECTED, entry.status.get())
+    }
+
+    @Test
     fun `a decrypt that throws is treated like a missing key, the password is kept and asked`() {
         withSaved(FakeSavedPasswords.value("o", "stored"))
         saved.duringDecrypt = { throw IllegalStateException("keychain gone") }
