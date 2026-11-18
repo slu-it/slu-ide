@@ -12,6 +12,7 @@ class TransposeTest {
                 listOf(listOf(1, "a"), listOf(2, null)),
             )
         assertEquals(listOf("Column", "1", "2"), columns.map { it.label })
+        assertEquals(listOf("Column", "1", "2"), columns.map { it.name })
         assertEquals(listOf(listOf("id", 1, 2), listOf("Name", "a", null)), rows)
     }
 

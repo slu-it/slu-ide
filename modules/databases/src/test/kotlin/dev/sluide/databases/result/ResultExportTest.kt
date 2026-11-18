@@ -115,4 +115,51 @@ class ResultExportTest {
             write(ExportFormat.MARKDOWN),
         )
     }
+
+    private fun one(
+        format: ExportFormat,
+        value: Any?,
+        kind: DatabaseKind = DatabaseKind.POSTGRESQL,
+    ) = ResultExport.write(format, kind, listOf(col("v")), listOf(listOf(value)), null)
+
+    @Test
+    fun `json writes finite numbers native and others as strings`() {
+        fun json(value: Any?) = one(ExportFormat.JSON, value).lines()[1].removePrefix("  {\"v\": ").removeSuffix("}")
+        assertEquals("1000", json(BigDecimal("1E+3")))
+        assertEquals("1.5", json(1.5))
+        assertEquals("2.5", json(2.5f))
+        assertEquals("7", json(7))
+        assertEquals("\"NaN\"", json(Double.NaN))
+        assertEquals("\"Infinity\"", json(Double.POSITIVE_INFINITY))
+        assertEquals("\"NaN\"", json(Float.NaN))
+        assertEquals("\"-Infinity\"", json(Float.NEGATIVE_INFINITY))
+    }
+
+    @Test
+    fun `json escapes tabs and carriage returns and keeps spaces and the last control character apart`() {
+        assertEquals(
+            "[\n  {\"v\": \"a b\\tc\\rd\\u001fe\"}\n]\n",
+            one(ExportFormat.JSON, "a b\tc\rd\u001fe"),
+        )
+    }
+
+    @Test
+    fun `sql inserts write finite numbers native and others as strings`() {
+        fun sql(value: Any?) = one(ExportFormat.SQL_INSERT, value).substringAfter("VALUES (").substringBefore(");")
+        assertEquals("1000", sql(BigDecimal("1E+3")))
+        assertEquals("1.5", sql(1.5))
+        assertEquals("2.5", sql(2.5f))
+        assertEquals("E'NaN'", sql(Double.NaN))
+        assertEquals("E'Infinity'", sql(Double.POSITIVE_INFINITY))
+        assertEquals("E'NaN'", sql(Float.NaN))
+        assertEquals("E'-Infinity'", sql(Float.NEGATIVE_INFINITY))
+    }
+
+    @Test
+    fun `markdown turns every kind of line break into br`() {
+        assertEquals(
+            "| v |\n| --- |\n| a<br>b<br>c<br>d |\n",
+            one(ExportFormat.MARKDOWN, "a\r\nb\nc\rd"),
+        )
+    }
 }
