@@ -73,6 +73,18 @@ class SystemFileManagerTest {
     }
 
     @Test
+    fun `the last command is only started, not waited for, so its exit status does not count`() {
+        assumeFalse(isWindows)
+        assertNull(launchFirstSuccess(listOf(listOf("sh", "-c", "exit 1"), listOf("sh", "-c", "exit 1"))))
+    }
+
+    @Test
+    fun `other systems open the folder of the file itself, or the file for a root with no folder`() {
+        val root = Path.of("/")
+        assertEquals(listOf("xdg-open", "/"), systemFileManager("Linux").reveal(root)[1])
+    }
+
+    @Test
     fun `launchFirstSuccess reports the failure of the last command`() {
         assumeFalse(isWindows)
         val failure = launchFirstSuccess(listOf(listOf("sh", "-c", "exit 1"), listOf("/no/such/program")))
