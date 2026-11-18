@@ -294,7 +294,7 @@ internal class CompletionModel(
                 }
 
                 result.isLeft -> {
-                    result.left.orEmpty().filterNotNull()
+                    result.left.filterNotNull()
                 }
 
                 else -> {
