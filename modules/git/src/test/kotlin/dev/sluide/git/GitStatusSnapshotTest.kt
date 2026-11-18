@@ -102,4 +102,60 @@ class GitStatusSnapshotTest {
         assertEquals(Instant.EPOCH, GitStatusSnapshot.parse(root, "", Instant.EPOCH).startedAt)
         assertNull(GitStatusSnapshot.EMPTY.startedAt)
     }
+
+    @Test
+    fun `a snapshot without a root has no statuses whatever its entries`() {
+        val rootless = GitStatusSnapshot(null, mapOf("a.kt" to GitStatus.ADDED, "dir/" to GitStatus.UNVERSIONED))
+
+        assertNull(rootless.fileStatus(Path.of("a.kt")))
+        assertNull(rootless.fileStatus(Path.of("/dir/x")))
+        assertEquals(emptySet(), rootless.folderStatuses(Path.of("/")))
+        assertTrue(rootless.hasLocalChanges)
+    }
+
+    @Test
+    fun `an entry outside the root counts for no folder, and a path outside the root finds no folder`() {
+        val outside =
+            GitStatusSnapshot(
+                root,
+                mapOf("../sibling.kt" to GitStatus.MODIFIED, "../sibling/" to GitStatus.UNVERSIONED),
+            )
+
+        assertEquals(emptySet(), outside.folderStatuses(root.parent))
+        assertEquals(emptySet(), outside.folderStatuses(root))
+        assertNull(outside.fileStatus(root.parent.resolve("sibling/x.kt")), "the folder is outside the root")
+        assertNull(outside.fileStatus(Path.of("/")), "a path without a parent")
+    }
+
+    @Test
+    fun `a root at the top of the file system is walked up to its end`() {
+        val top = Path.of("/")
+        val atTop = GitStatusSnapshot(top, mapOf("a/b.kt" to GitStatus.ADDED))
+
+        assertEquals(setOf(GitStatus.ADDED), atTop.folderStatuses(top.resolve("a")))
+        assertEquals(setOf(GitStatus.ADDED), atTop.folderStatuses(top))
+        assertEquals(GitStatus.ADDED, atTop.fileStatus(top.resolve("a/b.kt")))
+    }
+
+    @Test
+    fun `snapshots of another root or another kind of object are not equal`() {
+        val entries = mapOf("a.kt" to GitStatus.ADDED)
+        val head = GitHead("main", "abc")
+
+        assertNotEquals(GitStatusSnapshot(root, entries, head), GitStatusSnapshot(Path.of("/other"), entries, head))
+        assertNotEquals<Any?>(GitStatusSnapshot(root, entries), "snapshot")
+        assertNotEquals<Any?>(GitStatusSnapshot(root, entries), null)
+    }
+
+    @Test
+    fun `the hash and the text of a snapshot tell root, head and entries`() {
+        val entries = mapOf("a.kt" to GitStatus.ADDED)
+        val head = GitHead("main", "abc")
+        val snapshot = GitStatusSnapshot(root, entries, head)
+
+        // The same fields as equals compares, in this order: 31 * (31 * root + entries) + head.
+        assertEquals((31 * root.hashCode() + entries.hashCode()) * 31 + head.hashCode(), snapshot.hashCode())
+        assertEquals((31 * root.hashCode() + entries.hashCode()) * 31, GitStatusSnapshot(root, entries).hashCode())
+        assertEquals("GitStatusSnapshot($root, $head, $entries)", snapshot.toString())
+    }
 }
