@@ -10,6 +10,7 @@ import dev.sluide.docker.cli.DockerException
 import dev.sluide.docker.cli.FakeDockerCli
 import dev.sluide.docker.cli.ResolvedDocker
 import dev.sluide.docker.events.ManualScheduler
+import dev.sluide.docker.hasHighlightedText
 import dev.sluide.docker.model.container
 import dev.sluide.docker.run.DockerRunStore
 import dev.sluide.docker.settings.DockerSettings
@@ -256,6 +257,13 @@ class ComposeViewUiTest {
 
         assertEquals(listOf("up", "-d", "worker"), args(lines).takeLast(3))
         assertEquals(SplitMode.SPLIT, view.split.mode.get())
+    }
+
+    @Test
+    fun `the source is highlighted as YAML`(robot: FxRobot) {
+        val view = open(robot)
+
+        eventually(robot) { assertTrue(view.node.hasHighlightedText(), "styled segments in the source") }
     }
 
     @Test

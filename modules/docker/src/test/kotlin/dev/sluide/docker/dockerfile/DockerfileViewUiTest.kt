@@ -8,6 +8,7 @@ import dev.sluide.docker.cli.DockerConnection
 import dev.sluide.docker.cli.FakeDockerCli
 import dev.sluide.docker.cli.ResolvedDocker
 import dev.sluide.docker.events.ManualScheduler
+import dev.sluide.docker.hasHighlightedText
 import dev.sluide.docker.settings.DockerSettings
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.SplitMode
@@ -140,7 +141,10 @@ class DockerfileViewUiTest {
         terminals.close()
     }
 
-    private fun open(robot: FxRobot): DockerfileView {
+    private fun open(
+        robot: FxRobot,
+        viewHost: FileViewHost = host,
+    ): DockerfileView {
         lateinit var view: DockerfileView
         robot.interact {
             val viewer = DockerfileBuildViewer(DockerBuildStore(projectData), DockerSettings(settingsStore))
@@ -150,7 +154,7 @@ class DockerfileViewUiTest {
             view.askUnsaved = { error("unexpected question: $it") }
             views += view
             root.children.setAll(view.node)
-            view.host = host
+            view.host = viewHost
         }
         return view
     }
@@ -208,6 +212,48 @@ class DockerfileViewUiTest {
         )
         assertEquals("TOKEN=unset", lines[lines.size - 2], "the ARG's own name is not set in the environment")
         assertTrue("it's secret" !in view.pane.preview.text, "the value is not in the preview")
+    }
+
+    @Test
+    fun `the source is highlighted as a Dockerfile`(robot: FxRobot) {
+        val view = open(robot)
+
+        eventually(robot) { assertTrue(view.node.hasHighlightedText(), "styled segments in the source") }
+    }
+
+    @Test
+    fun `without a resolved Docker the preview shows the executable of the settings`(robot: FxRobot) {
+        DockerSettings(settingsStore).apply("my-docker")
+        val unresolved =
+            DockerSession(
+                executable = SimpleStringProperty("my-docker"),
+                connect = { DockerConnection.NotFound("not found") },
+                worker = { it.run() },
+                scheduler = ManualScheduler(),
+                fx = Platform::runLater,
+            )
+        try {
+            val view =
+                open(
+                    robot,
+                    object : FileViewHost by host {
+                        override fun <T : Any> windowService(type: Class<T>): T? =
+                            if (type == DockerSession::class.java) type.cast(unresolved) else host.windowService(type)
+                    },
+                )
+
+            eventually(
+                robot,
+            ) {
+                assertTrue(
+                    view.pane.preview.text
+                        .startsWith("'my-docker' 'build'"),
+                    view.pane.preview.text,
+                )
+            }
+        } finally {
+            unresolved.close()
+        }
     }
 
     @Test

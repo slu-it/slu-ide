@@ -65,6 +65,10 @@ class DockerRunStoreTest {
         val id = "0123456789ab"
 
         assertFalse(store.save(used.copy(image = id), projectFolder))
+        // Default values write an empty node: only the guard on the repository keeps this from creating a file.
+        assertFalse(store.save(RunOptions(id), projectFolder))
+        assertFalse(store.save(RunOptions(id), null))
+        assertNull(data.read(projectFolder))
 
         assertNull(data.read(projectFolder)?.get("dockerRuns"))
         assertEquals(RunOptions(id), store.load(id, projectFolder))

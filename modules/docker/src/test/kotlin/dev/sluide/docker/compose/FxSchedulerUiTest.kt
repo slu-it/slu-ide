@@ -33,7 +33,7 @@ class FxSchedulerUiTest {
         val done = CountDownLatch(2)
 
         robot.interact {
-            FxScheduler.schedule(300.milliseconds) {
+            FxScheduler.schedule(2000.milliseconds) {
                 order += "late"
                 threads += javafx.application.Platform.isFxApplicationThread()
                 done.countDown()

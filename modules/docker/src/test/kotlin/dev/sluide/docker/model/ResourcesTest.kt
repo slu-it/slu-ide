@@ -53,6 +53,7 @@ class ResourcesTest {
 
         assertNotEquals(word, other)
         assertEquals(word.hashCode(), other.hashCode())
+        assertEquals(other, other.lowercase(), "the word is compared in lower case")
         assertEquals(ContainerState.UNKNOWN, ContainerState.of(other))
     }
 

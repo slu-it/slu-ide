@@ -76,6 +76,11 @@ class ServiceLinesTest {
     }
 
     @Test
+    fun `a top-level key that is no scalar does not hide the services`() {
+        assertEquals(mapOf("b" to 3), serviceLines("? [x, y]\n: {}\nservices:\n  b: {}\n"))
+    }
+
+    @Test
     fun `a key under services that is no scalar is skipped`() {
         val text = "services:\n  ? [x, y]\n  : {}\n  b: {}\n"
 
