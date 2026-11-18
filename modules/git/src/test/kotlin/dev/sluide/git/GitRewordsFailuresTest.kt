@@ -9,6 +9,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /** What a reword does when one of the git commands it runs fails, with the real git behind a wrapper. */
@@ -189,5 +190,17 @@ class GitRewordsFailuresTest {
         val check = GitRewords(git).check(repo, "feature", target)
 
         assertEquals(GitRewordCheck.Allowed("Target", listOf("other"), null), check)
+    }
+
+    @Test
+    fun `a text that is no full lowercase hash is refused with a message that says so`() {
+        val rewords = GitRewords(git)
+        val bad = target.take(12)
+
+        val check = assertFailsWith<IllegalArgumentException> { rewords.check(repo, "feature", bad) }
+        val reword = assertFailsWith<IllegalArgumentException> { rewords.reword(repo, "feature", bad, "New") }
+
+        assertEquals("not a commit hash: $bad", check.message)
+        assertEquals("not a commit hash: $bad", reword.message)
     }
 }
