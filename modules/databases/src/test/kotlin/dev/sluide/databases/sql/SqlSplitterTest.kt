@@ -173,9 +173,9 @@ class SqlSplitterTest {
     }
 
     @Test
-    fun `isQuery in MariaDB skips an executable comment opener only where one starts`() {
+    fun `isQuery skips an opener of an executable comment only where one starts`() {
         assertEquals(false, SqlSplitter.isQuery("ab!select 1", MARIADB))
-        assertEquals(true, SqlSplitter.isQuery("/*!40101 select 1 */", MARIADB))
+        assertEquals(false, SqlSplitter.isQuery("/x!select 1", MARIADB))
         assertEquals(false, SqlSplitter.isQuery("/*!40101 select 1 */", POSTGRESQL), "a comment in PostgreSQL")
         assertEquals(true, SqlSplitter.isQuery("/*!select 1 */ ", MARIADB))
     }

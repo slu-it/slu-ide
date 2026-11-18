@@ -84,6 +84,7 @@ internal object SqlLexer {
         sql: String,
         i: Int,
     ): Int {
+        if (!sql.startsWith("/*", i)) return 0
         var j = i + 2
         if (sql.startsWith("M!", j)) {
             j += 2
