@@ -2,6 +2,9 @@ package dev.sluide.docker.compose
 
 import dev.sluide.projectdata.ProjectDataStore
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
+import tools.jackson.databind.node.ObjectNode
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
@@ -59,7 +62,10 @@ class ComposeStoreTest {
         store.save(file, projectFolder, ComposeOptions())
 
         assertEquals(ComposeOptions(), store.load(file, projectFolder))
-        assertFalse(data.read(projectFolder)?.has("files") ?: false, "no empty entry is left behind")
+        assertTrue(data.fileData(file, projectFolder)?.isEmpty ?: true, "no empty entry is left behind")
+        assertTrue(write(ComposeOptions()).isEmpty, "defaults write nothing, a detached default included")
+        assertEquals("""{"build":true}""", write(ComposeOptions(build = true)).toString())
+        assertEquals("""{"detached":false}""", write(ComposeOptions(detached = false)).toString())
     }
 
     @Test
@@ -119,6 +125,51 @@ class ComposeStoreTest {
         assertFalse(store.save(file, null, ComposeOptions(build = true)), "an unreadable file is not replaced")
         assertEquals("{ not json", dir.resolve("shared.json").readText())
     }
+
+    @Test
+    fun `a stored true of detached, the default, is read as true`() {
+        assertTrue(readJson("""{"detached":true}""").detached)
+        assertFalse(readJson("""{"detached":false}""").detached)
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            """"build":"yes"""",
+            """"forceRecreate":1""",
+            """"removeOrphans":"true"""",
+            """"detached":"no"""",
+            """"projectName":5""",
+            """"projectName":null""",
+            """"envFiles":"a.env"""",
+            """"variables":"A=1"""",
+            """"profiles":"debug"""",
+            """"variables":["junk",{"name":5,"value":"v"},{"name":"A","value":5},{"name":"A"},{"value":"v"}]""",
+            """"variables":[{"name":"A","value":"x\u0000"},{"name":"a b","value":"x"}]""",
+        ],
+    )
+    fun `a value of the wrong type falls back alone, the rest is kept`(invalid: String) {
+        // Only one companion that the invalid entry is not about, so that a lost companion shows the fallback.
+        val companion = if (invalid.startsWith("\"profiles\"")) """"build":true""" else """"profiles":["ok"]"""
+        val expected =
+            if (invalid.startsWith(
+                    "\"profiles\"",
+                )
+            ) {
+                ComposeOptions(build = true)
+            } else {
+                ComposeOptions(profiles = setOf("ok"))
+            }
+
+        assertEquals(expected, readJson("{$invalid,$companion}"))
+    }
+
+    private fun readJson(json: String): ComposeOptions =
+        read(
+            tools.jackson.databind.json
+                .JsonMapper()
+                .readTree(json) as ObjectNode,
+        )
 
     private fun mapperNode(vararg pairs: String) =
         tools.jackson.databind.json.JsonMapper().createObjectNode().apply {

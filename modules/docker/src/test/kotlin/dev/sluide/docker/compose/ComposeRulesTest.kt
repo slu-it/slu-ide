@@ -42,6 +42,7 @@ class ComposeRulesTest {
     fun `the engine note says why Docker cannot be used`() {
         assertNull(engineNote(available))
         assertEquals("Connecting to Docker…", engineNote(EngineState.Checking))
+        assertEquals("Connecting to Docker…", engineNote(EngineState.Idle))
         assertEquals(
             "Docker is not reachable: Cannot connect to the Docker daemon",
             engineNote(EngineState.Unavailable("Cannot connect to the Docker daemon")),
@@ -57,6 +58,7 @@ class ComposeRulesTest {
 
     @Test
     fun `the services area notes reading, failures and an empty file`() {
+        assertNull(configNote(ConfigLoad.None))
         assertEquals("Reading the compose file…", configNote(ConfigLoad.Loading))
         assertEquals("✖ The compose file cannot be used: yaml: line 2", configNote(ConfigLoad.Failed("yaml: line 2")))
         assertNull(configNote(ConfigLoad.Loaded(config)))

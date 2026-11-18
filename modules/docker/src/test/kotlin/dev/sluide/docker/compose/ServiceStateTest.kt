@@ -33,8 +33,10 @@ class ServiceStateTest {
         val stopped = container("demo-db-1", project = "demo", service = "db", state = ContainerState.EXITED)
         val otherProject = container("other-web-1", project = "other", service = "web")
         val standalone = container("loner")
+        val noService = container("demo-sidecar-1", project = "demo")
 
-        val states = serviceStates(config, listOf(web, stopped, otherProject, standalone)).associateBy { it.name }
+        val states =
+            serviceStates(config, listOf(web, stopped, otherProject, standalone, noService)).associateBy { it.name }
 
         assertEquals(listOf(web), states.getValue("web").containers)
         assertEquals("running", states.getValue("web").summary)
@@ -42,7 +44,7 @@ class ServiceStateTest {
         assertEquals("exited", states.getValue("db").summary)
         assertFalse(states.getValue("db").running)
         assertEquals("not created", states.getValue("app").summary)
-        assertEquals(5, states.size, "containers of other projects and standalone ones add nothing")
+        assertEquals(5, states.size, "containers of other projects, standalone ones and without service add nothing")
     }
 
     @Test
@@ -84,5 +86,16 @@ class ServiceStateTest {
         assertEquals(listOf(web), states.single { it.name == "web" }.containers)
         assertEquals("running", states.single { it.name == "web" }.summary)
         assertFalse(states.any { it.orphan }, "a one-off container does not make an orphan")
+    }
+
+    @Test
+    fun `the containers of an orphan are sorted by name`() {
+        val second = container("demo-gone-2", project = "demo", service = "gone")
+        val first = container("demo-gone-1", project = "demo", service = "gone", state = ContainerState.EXITED)
+
+        val orphan = serviceStates(config, listOf(second, first)).single { it.orphan }
+
+        assertEquals(listOf("demo-gone-1", "demo-gone-2"), orphan.containers.map { it.name })
+        assertEquals("1/2 running", orphan.summary)
     }
 }

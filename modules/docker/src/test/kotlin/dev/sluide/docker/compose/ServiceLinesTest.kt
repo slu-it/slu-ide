@@ -67,4 +67,18 @@ class ServiceLinesTest {
 
         assertEquals(mapOf("b" to 4), serviceLines(text))
     }
+
+    @Test
+    fun `a service key written twice does not hide the others, the first line counts`() {
+        val text = "services:\n  a: {}\n  b: {}\n  a: {}\n  c: {}\n"
+
+        assertEquals(mapOf("a" to 1, "b" to 2, "c" to 4), serviceLines(text))
+    }
+
+    @Test
+    fun `a key under services that is no scalar is skipped`() {
+        val text = "services:\n  ? [x, y]\n  : {}\n  b: {}\n"
+
+        assertEquals(mapOf("b" to 3), serviceLines(text))
+    }
 }
