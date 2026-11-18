@@ -14,7 +14,10 @@ import java.sql.Statement
  * `IntrospectionSmokeTest` are opt-in). A result is its column labels (case as the driver reports them) and rows; what
  * it relies on follows the JDBC contract: `prepareStatement` + `setObject(1-based)` + `executeQuery`, labels from the
  * result metadata, `getObject(index)` / `getString(label)`, `SQLException.errorCode`. Not checked against a real
- * driver in this sandbox (no server, no image): the smoke test reads the same API against real PostgreSQL and MariaDB.
+ * driver in this sandbox (no server, no image). What it returns was compared with how the code reads it ([PgQueries],
+ * [MariaQueries], [rows] and `IntrospectionSmokeTest`): lower-cased labels, any `Number` for ints and flags, rows in
+ * the order of the queries' `order by`, the `SHOW CREATE` labels including a trigger's trailing `Created` column. The
+ * check against real servers (`SLUIDE_DB_SMOKE=1`, with the images) is still open.
  */
 internal class CatalogJdbc {
     class Result(

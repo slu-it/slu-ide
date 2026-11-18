@@ -353,7 +353,7 @@ class PgDdlTest {
     }
 
     @Test
-    fun `a plain table keeps local constraints inside the create statement and inherited triggers and indexes`() {
+    fun `a plain table keeps its constraints inside create, drops inherited indexes and keeps inherited triggers`() {
         val rows =
             PgSchemaRows(
                 relations = listOf(mapOf("name" to "t", "kind" to "r")),
@@ -382,7 +382,7 @@ class PgDdlTest {
     }
 
     @Test
-    fun `a partition leaves out the sequences of other tables and local constraints of other tables`() {
+    fun `a partition has no owned sequences and no constraints or triggers of other tables`() {
         val rows =
             PgSchemaRows(
                 relations =

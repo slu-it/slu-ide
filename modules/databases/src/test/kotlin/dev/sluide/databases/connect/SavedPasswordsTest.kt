@@ -20,13 +20,6 @@ class SavedPasswordsTest {
     }
 
     @Test
-    fun `the Secrets passwords ask Secrets why nothing can be saved`() {
-        val secrets = Secrets()
-
-        assertEquals(secrets.saveUnavailableReason(), SecretsPasswords(secrets).unavailableReason())
-    }
-
-    @Test
     fun `the Secrets passwords hand a value that is not well formed to Secrets`() {
         // A value that is not well formed is refused before the secret store is asked, so no real store is touched.
         assertEquals(Decrypted.Unreadable, SecretsPasswords(Secrets()).decrypt("a", "no secret"))

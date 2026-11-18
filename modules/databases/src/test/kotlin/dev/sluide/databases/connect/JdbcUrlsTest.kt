@@ -181,7 +181,7 @@ class JdbcUrlsTest {
         "jdbc:postgresql://host:5432/db?x=1,jdbc:postgresql://host:5432/db",
         "jdbc:mariadb://h:3306;x=1,jdbc:mariadb://h:3306",
     )
-    fun `display of a custom url without credentials cuts the query`(
+    fun `display of a custom url cuts the query and a userinfo`(
         custom: String,
         expected: String,
     ) {

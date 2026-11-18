@@ -1,5 +1,6 @@
 package dev.sluide.databases.connect
 
+import dev.sluide.projectdata.LegacyProjectData
 import dev.sluide.projectdata.ProjectDataStore
 import org.junit.jupiter.api.io.TempDir
 import tools.jackson.databind.json.JsonMapper
@@ -166,6 +167,13 @@ class ConnectionStoreTest {
     }
 
     @Test
+    fun `a port written as a decimal number falls back`() {
+        storeDatabases("""{"connections":[{"id":"b","name":"Local","kind":"POSTGRESQL","port":5433.0}]}""")
+
+        assertEquals(listOf(minimal), store.load(projectFolder))
+    }
+
+    @Test
     fun `a port too large for an int and driverProperties that are no object fall back`() {
         storeDatabases(
             """{"connections":[{"id":"b","name":"Local","kind":"POSTGRESQL","port":99999999999,""" +
@@ -200,7 +208,7 @@ class ConnectionStoreTest {
 
     @Test
     fun `connections that are no array are replaced on save`() {
-        storeDatabases("""{"connections":{"x":{"id":"q","name":"Hidden","kind":"POSTGRESQL"}}}""")
+        storeDatabases("""{"connections":{"x":1}}""")
 
         assertTrue(store.save(projectFolder, listOf(minimal)))
 
@@ -264,7 +272,24 @@ class ConnectionStoreTest {
     }
 
     @Test
-    fun `a save that fails while building is logged and gives false`() {
+    fun `a failing migration of the project data store gives no connections instead of throwing`() {
+        val migration =
+            object : LegacyProjectData {
+                override val file: Path get() = throw IllegalStateException("boom")
+
+                override fun migrate(
+                    entries: Map<String, String>,
+                    store: ProjectDataStore,
+                ) = true
+            }
+        val broken = ConnectionStore(ProjectDataStore(dir.resolve("p3"), dir.resolve("s3.json"), listOf(migration)))
+
+        assertEquals(emptyList(), broken.load(projectFolder))
+        assertEquals(emptyList(), broken.load(null))
+    }
+
+    @Test
+    fun `a save that fails while building gives false`() {
         val failing =
             object : AbstractList<ConnectionConfig>() {
                 override val size get() = 1

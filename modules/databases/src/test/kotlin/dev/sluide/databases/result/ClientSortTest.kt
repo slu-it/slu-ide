@@ -219,4 +219,22 @@ class ClientSortTest {
         assertEquals(listOf("b", "a"), sorted(listOf("a", "b"), ascending = false))
         assertEquals(listOf(10, 9, 2), sorted(listOf(9, 2, 10), ascending = false))
     }
+
+    @Test
+    fun `comparing booleans directly orders false before true`() {
+        val up = ClientSort.comparator(0, true)
+
+        assertEquals(1, up.compare(listOf(true), listOf(false)))
+        assertEquals(-1, up.compare(listOf(false), listOf(true)))
+        assertEquals(0, up.compare(listOf(true), listOf(true)))
+    }
+
+    @Test
+    fun `the largest float and double compare exactly`() {
+        assertEquals(0, ClientSort.compareNumbers(Float.MAX_VALUE, BigDecimal("3.4028235E38")))
+        assertEquals(
+            -1,
+            ClientSort.compareNumbers(Double.MAX_VALUE, BigDecimal("1.7976931348623157E308") + BigDecimal.ONE),
+        )
+    }
 }
