@@ -191,6 +191,11 @@ class GitDefaultBranchesTest {
             listOf("refs/remotes/a/main", "refs/remotes/a/b/main"),
             reviewBases(refs, listOf("a", "a/b"), "refs/remotes/a/feature"),
         )
+        // The same, with the remotes listed the other way round: the longest name decides, not the first.
+        assertEquals(
+            listOf("refs/remotes/a/b/main", "refs/remotes/a/main"),
+            reviewBases(refs, listOf("a/b", "a"), "refs/remotes/a/b/feature"),
+        )
         // Each branch is ordered by its own remote: a/b/main belongs to a/b, whose name a/b/master follows.
         val more = refs + ref("refs/remotes/a/b/master")
         assertEquals(

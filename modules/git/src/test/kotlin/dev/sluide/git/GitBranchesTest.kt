@@ -9,6 +9,7 @@ import dev.sluide.git.cli.status
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
@@ -704,5 +705,28 @@ class GitBranchesTest {
         assertFalse(rename.success)
         assertEquals(listOf("main"), localBranches())
         assertEquals(emptyList(), tags())
+
+        val log = folder.resolve("dash-calls.log")
+        val recorded = recording(log)
+        val results =
+            listOf(
+                recorded.createTag(repo, "-t", first, message = null),
+                recorded.createTag(repo, "t", "-c", message = "message"),
+                recorded.renameBranch(repo, "-a", "b"),
+                recorded.renameBranch(repo, "main", "-b"),
+                recorded.deleteBranches(repo, listOf("main", "-d"), force = false).result,
+                recorded.deleteTags(repo, listOf("-d")),
+                recorded.switchBranch(repo, "-s"),
+                recorded.switchDetached(repo, "-s"),
+            )
+
+        assertEquals(
+            listOf("-t", "-c", "-a", "-b", "-d", "-d", "-s", "-s").map {
+                GitResult(false, "'$it' cannot be passed to git: it starts with '-'.")
+            },
+            results,
+        )
+        val ran = if (Files.exists(log)) log.readText() else ""
+        assertTrue(listOf("tag", "branch", "switch").none { it in ran }, ran)
     }
 }

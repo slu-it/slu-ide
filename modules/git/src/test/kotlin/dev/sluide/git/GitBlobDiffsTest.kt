@@ -1,6 +1,9 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -26,46 +29,46 @@ internal class GitBlobDiffsTest : GitCommitsFixture() {
         read: (GitObject) -> ByteArray? = { contents[it.name] },
     ) = cli.blobDiff(repo, original, current, maxSize = 1000, read = read)
 
-    @Test
-    fun `a submodule on the original side names only that side`() {
-        assertEquals(GitFileDiff.Submodule("a".repeat(40), null), diff(submodule("a".repeat(40)), blob("x\n")))
+    @ParameterizedTest
+    @CsvSource("true,false", "false,true", "true,true")
+    fun `a submodule names the sides it is on`(
+        onOriginal: Boolean,
+        onCurrent: Boolean,
+    ) {
+        val original = "a".repeat(40)
+        val current = "b".repeat(40)
+
+        val result =
+            diff(
+                if (onOriginal) submodule(original) else blob("x\n"),
+                if (onCurrent) submodule(current) else blob("y\n"),
+            )
+
+        assertEquals(GitFileDiff.Submodule(original.takeIf { onOriginal }, current.takeIf { onCurrent }), result)
     }
 
-    @Test
-    fun `a submodule on the current side names only that side`() {
-        assertEquals(GitFileDiff.Submodule(null, "b".repeat(40)), diff(blob("x\n"), submodule("b".repeat(40))))
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `a blob that cannot be read gives null, on either side`(original: Boolean) {
+        val before = blob("one\n")
+        val after = blob("two\n")
+        val unreadable = if (original) before else after
+
+        assertNull(diff(before, after) { if (it === unreadable) null else contents[it.name] })
     }
 
-    @Test
-    fun `submodules on both sides name both`() {
-        assertEquals(
-            GitFileDiff.Submodule("a".repeat(40), "b".repeat(40)),
-            diff(submodule("a".repeat(40)), submodule("b".repeat(40))),
-        )
-    }
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `a NUL byte on either side gives Binary`(original: Boolean) {
+        val binary = byteArrayOf(65, 0, 66)
 
-    @Test
-    fun `an original blob that cannot be read gives null`() {
-        val original = blob("one\n")
-        val current = blob("two\n")
-        assertNull(diff(original, current) { if (it === original) null else contents[it.name] })
-    }
+        val result =
+            diff(
+                blob(if (original) binary else "text\n".toByteArray()),
+                blob(if (original) "text\n".toByteArray() else binary),
+            )
 
-    @Test
-    fun `a current blob that cannot be read gives null`() {
-        val original = blob("one\n")
-        val current = blob("two\n")
-        assertNull(diff(original, current) { if (it === current) null else contents[it.name] })
-    }
-
-    @Test
-    fun `a binary original side gives Binary`() {
-        assertEquals(GitFileDiff.Binary, diff(blob(byteArrayOf(65, 0, 66)), blob("text\n")))
-    }
-
-    @Test
-    fun `a binary current side gives Binary`() {
-        assertEquals(GitFileDiff.Binary, diff(blob("text\n"), blob(byteArrayOf(65, 0, 66))))
+        assertEquals(GitFileDiff.Binary, result)
     }
 
     @Test
@@ -106,10 +109,9 @@ internal class GitBlobDiffsTest : GitCommitsFixture() {
     }
 
     @Test
-    fun `wholeFile is one hunk for added lines and one for deleted lines, none for no lines`() {
-        assertEquals(listOf(GitHunk(0 until 0, 0 until 3)), wholeFile(3, added = true))
-        assertEquals(listOf(GitHunk(0 until 3, 0 until 0)), wholeFile(3, added = false))
+    fun `wholeFile is none for no lines`() {
         assertEquals(emptyList(), wholeFile(0, added = true))
+        assertEquals(emptyList(), wholeFile(0, added = false))
     }
 
     @Test

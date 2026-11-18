@@ -1,5 +1,6 @@
 package dev.sluide.git
 
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -7,6 +8,7 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.FileTime
 import java.nio.file.attribute.PosixFilePermissions
+import java.time.Duration
 import java.time.Instant
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createSymbolicLinkPointingTo
@@ -317,6 +319,9 @@ class GitFolderStampsTest {
         val original = trust(inputs(redirects = setOf(toFolder)))
         file("directory/inside")
         assertEquals(original, trust(inputs(redirects = setOf(toFolder))), "what is in the folder")
+        assumeTrue(directory.fileSystem.supportedFileAttributeViews().contains("posix"), "no POSIX permissions")
+        Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwxr-x---"))
+        assertEquals(original, trust(inputs(redirects = setOf(toFolder))), "the permissions of the folder")
     }
 
     @Test
@@ -332,16 +337,47 @@ class GitFolderStampsTest {
     }
 
     @Test
-    fun `a named pipe is stamped by its attributes without being opened`() {
+    fun `the time of a named pipe among the inputs changes the stamp`() {
         val pipe = folder.resolve("pipe")
         val made = runCatching { ProcessBuilder("mkfifo", pipe.toString()).start().waitFor() == 0 }.getOrDefault(false)
         assumeTrue(made, "mkfifo is not available")
-        // `touch`, as setting the time through the JDK would open the pipe and wait for ever.
-        touch(pipe, "202401010000.00")
-        val original = assertNotNull(trust(inputs(files = setOf(pipe))))
 
-        touch(pipe, "202401010000.09")
+        // A stamp that opened the pipe would wait for ever (the other test of the pipe is in GitTrustStampsTest).
+        assertTimeoutPreemptively(Duration.ofSeconds(20)) {
+            // `touch`, as setting the time through the JDK would open the pipe too.
+            touch(pipe, "202401010000.00")
+            val original = assertNotNull(trust(inputs(files = setOf(pipe))))
 
-        assertNotEquals(original, trust(inputs(files = setOf(pipe))))
+            touch(pipe, "202401010000.09")
+
+            assertNotEquals(original, trust(inputs(files = setOf(pipe))))
+        }
+    }
+
+    @Test
+    fun `an endless device among the inputs is stamped by its type, not read`() {
+        val device = Path.of("/dev/zero")
+        assumeTrue(Files.exists(device), "no /dev/zero")
+        val link = folder.resolve("link-to-zero")
+        link.createSymbolicLinkPointingTo(device)
+
+        assertNotNull(trust(inputs(files = setOf(link))), "reading it would stop at the limit, with no stamp")
+    }
+
+    @Test
+    fun `a state folder that cannot be opened leaves no stamp`() {
+        val root = repository()
+        file("repo/.git/refs/heads/team/main", "1\n")
+        assumeTrue(root.fileSystem.supportedFileAttributeViews().contains("posix"), "no POSIX permissions")
+        val team = root.resolve(".git/refs/heads/team")
+        assertNotNull(GitFolderStamps.state(root))
+        Files.setPosixFilePermissions(team, PosixFilePermissions.fromString("---------"))
+        try {
+            assumeTrue(!Files.isReadable(team), "the permissions do not apply (running as root?)")
+
+            assertNull(GitFolderStamps.state(root), "taken as changed")
+        } finally {
+            Files.setPosixFilePermissions(team, PosixFilePermissions.fromString("rwx------"))
+        }
     }
 }

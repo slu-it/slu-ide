@@ -54,3 +54,50 @@ internal fun failingGit(
     script.toFile().setExecutable(true)
     return GitCli(script.toString(), testGitEnvironment())
 }
+
+/** [failingGit] for only the [nth] (1-based) call with [word] among its arguments, which fails as git does (exit 128). */
+internal fun failingNthGit(
+    folder: java.nio.file.Path,
+    word: String,
+    nth: Int,
+): GitCli {
+    val id = System.nanoTime()
+    val counter = folder.resolve("nth-git-$id.count")
+    val script = folder.resolve("nth-git-$id")
+    val bump = "n=\$(cat '$counter' 2>/dev/null || echo 0); n=\$((n+1)); echo \$n > '$counter';"
+    script.toFile().writeText(
+        FAKE_GIT_START + "case \" \$* \" in *' $word '*) $bump " +
+            "[ \$n -eq $nth ] && { echo 'fatal: refused by test' >&2; exit 128; };; esac\nexec git \"\$@\"\n",
+    )
+    script.toFile().setExecutable(true)
+    return GitCli(script.toString(), testGitEnvironment())
+}
+
+/**
+ * The real git behind a wrapper that appends each call's arguments as a line to [log], to see which commands ran. The
+ * calls `GitCli` makes on its own (the version, the environment variables, the fsmonitor setting) are left out.
+ */
+internal fun recordingGit(
+    folder: java.nio.file.Path,
+    log: java.nio.file.Path,
+): GitCli {
+    val script = folder.resolve("recording-git-${System.nanoTime()}")
+    script.toFile().writeText(
+        FAKE_GIT_START.replace("exit 1;; esac", "exec git \"\$@\";; esac") +
+            "echo \"\$*\" >> '$log'\nexec git \"\$@\"\n",
+    )
+    script.toFile().setExecutable(true)
+    return GitCli(script.toString(), testGitEnvironment())
+}
+
+/** The lines [recordingGit] wrote to [log]. */
+internal fun recordedCalls(log: java.nio.file.Path): List<String> =
+    if (java.nio.file.Files
+            .exists(log)
+    ) {
+        java.nio.file.Files
+            .readAllLines(log)
+            .filter(String::isNotEmpty)
+    } else {
+        emptyList()
+    }

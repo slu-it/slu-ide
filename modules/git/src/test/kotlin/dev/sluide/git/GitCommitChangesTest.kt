@@ -471,6 +471,53 @@ class GitCommitChangesTest {
         git("commit", "-q", "-am", "Local")
 
         assertFalse(assertNotNull(commits.commitChanges(repo)).headPushed)
+
+        git("reset", "-q", "--hard", "origin/main")
+        assertTrue(assertNotNull(commits.commitChanges(repo)).headPushed)
+        git("switch", "-q", "--detach")
+        assertFalse(assertNotNull(commits.commitChanges(repo)).headPushed, "a detached HEAD has no upstream")
+    }
+
+    @Test
+    fun `a branch without a commit that has an upstream is not pushed`() {
+        base()
+        git("update-ref", "refs/remotes/origin/main", git("rev-parse", "HEAD"))
+        git("config", "remote.origin.url", "/nowhere")
+        git("config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")
+        git("switch", "-q", "--orphan", "fresh")
+        git("config", "branch.fresh.remote", "origin")
+        git("config", "branch.fresh.merge", "refs/heads/main")
+
+        assertFalse(assertNotNull(commits.commitChanges(repo)).headPushed)
+    }
+
+    @Test
+    fun `what can be committed is null when one of the reads fails`() {
+        base()
+        write("new.txt", "new\n")
+
+        fun failing(
+            vararg words: String,
+            after: Int = 0,
+        ) = GitCommits(failingGit(folder, *words, after = after))
+
+        assertNotNull(commits.commitChanges(repo))
+        assertNull(failing("rev-parse").commitChanges(repo), "is HEAD unborn")
+        // Only `rev-parse --verify -q` reads the commit of HEAD; the other reads would fail on their own.
+        assertNull(failing("--verify -q").commitChanges(repo), "the commit of HEAD")
+        assertNull(failing("diff").commitChanges(repo), "the tracked changes")
+        assertNull(failing("--others").commitChanges(repo), "the untracked files")
+        assertNull(failing("--git-path").commitChanges(repo), "what is in progress")
+        assertNull(failing("--git-path").inProgress(repo))
+    }
+
+    @Test
+    fun `without a commit the indexed and the untracked files can fail to be read`() {
+        write("a.txt", "a\n")
+        git("add", "a.txt")
+
+        assertNull(GitCommits(failingNthGit(folder, "ls-files", 1)).commitChanges(repo), "the indexed files")
+        assertNull(GitCommits(failingGit(folder, "--others")).commitChanges(repo), "the untracked files")
     }
 
     @Test

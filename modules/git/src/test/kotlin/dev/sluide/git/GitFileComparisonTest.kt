@@ -18,6 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** Comparing two files on disk with git's `--no-index` diff, with the real git; skipped without it. */
 class GitFileComparisonTest {
@@ -101,6 +102,17 @@ class GitFileComparisonTest {
     }
 
     @Test
+    fun `a device is no comparison, whatever it would give`() {
+        val device = Path.of("/dev/null")
+        assumeTrue(Files.exists(device) && Files.exists(Path.of("/dev/zero")), "no device files")
+        val file = file("a", "a\n")
+
+        assertNull(comparison.compare(device, file))
+        assertNull(comparison.compare(file, device))
+        assertNull(comparison.compare(Path.of("/dev/zero"), file, maxSize = 5), "an endless one is not read either")
+    }
+
+    @Test
     fun `a named pipe is no comparison and is not read`() {
         val file = file("a", "a\n")
         val pipe = folder.resolve("pipe")
@@ -113,6 +125,7 @@ class GitFileComparisonTest {
         try {
             assertNull(comparison.compare(pipe, file))
             assertNull(comparison.compare(file, pipe))
+            assertTrue(writer.isAlive, "nobody opened the pipe")
         } finally {
             // Let the writer end if nothing read the pipe: opened for reading and writing, the open does not wait.
             runCatching {
