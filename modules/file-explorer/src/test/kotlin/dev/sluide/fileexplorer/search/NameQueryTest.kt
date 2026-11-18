@@ -2,7 +2,9 @@ package dev.sluide.fileexplorer.search
 
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class NameQueryTest {
     @ParameterizedTest(name = "{0} on {1} -> {2}")
@@ -48,6 +50,8 @@ class NameQueryTest {
         "ide,            slu-ide,          '',                 none",
         "ide,            slu-ide,          src/App.kt,         none",
         "main/App,       proj,             src/main/App.kt,    none",
+        "/src,           src/main,         src/main,           0..2",
+        "/src/ma,        src/main,         src/main,           0..5",
     )
     fun highlight(
         text: String,
@@ -57,5 +61,10 @@ class NameQueryTest {
     ) {
         val range = expected.takeIf { it != "none" }?.split("..")?.let { it[0].toInt()..it[1].toInt() }
         assertEquals(range, NameQuery(text).highlight(shown, relativePath))
+    }
+
+    @Test
+    fun `a row without a path highlights nothing, not even for an empty text`() {
+        assertNull(NameQuery("").highlight("", ""))
     }
 }

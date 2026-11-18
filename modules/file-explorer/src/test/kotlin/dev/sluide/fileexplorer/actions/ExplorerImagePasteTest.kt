@@ -3,12 +3,15 @@ package dev.sluide.fileexplorer.actions
 import dev.sluide.fileexplorer.ClipboardFiles
 import dev.sluide.fileexplorer.ClipboardImage
 import dev.sluide.fileexplorer.ExplorerClipboard
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.io.IOException
 import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import java.nio.file.attribute.PosixFileAttributeView
+import java.nio.file.attribute.PosixFilePermission
 import javax.imageio.ImageIO
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
@@ -178,8 +181,7 @@ class ExplorerImagePasteTest {
         fake.copies.paste(emptyList())
 
         assertEquals(listOf("blocked"), names())
-        assertEquals(1, fake.errors.size)
-        assertTrue(fake.errors.single().contains("blocked"), fake.errors.single())
+        assertEquals(listOf("“blocked” exists and is not a folder."), fake.errors)
     }
 
     @Test
@@ -328,6 +330,31 @@ class ExplorerImagePasteTest {
         assertEquals(listOf("Could not save “image-2026-03-04-050607.png”: disk full"), fake.errors)
         assertEquals(emptyList(), names(), "no partial PNG stays")
         assertEquals(emptyList(), fake.opened)
+    }
+
+    @Test
+    fun `a file that cannot be removed again stays, and the failure of the write is still shown`() {
+        assumeTrue(Files.getFileAttributeView(project, PosixFileAttributeView::class.java) != null)
+        open()
+        fake.clipboardFiles.image = image
+        val writable = Files.getPosixFilePermissions(project)
+        val readOnly = writable - PosixFilePermission.OWNER_WRITE
+        try {
+            // The folder turns read-only while writing, so that the partial file cannot be deleted.
+            paster(
+                failingStream {
+                    Files.setPosixFilePermissions(project, readOnly)
+                    IOException("disk full")
+                },
+            ).paste(fake.projectItem)
+            // Not writable for a user with all rights (root) either: then the delete works and there is nothing to see.
+            assumeTrue(!Files.isWritable(project))
+
+            assertEquals(listOf("Could not save “image-2026-03-04-050607.png”: disk full"), fake.errors)
+            assertEquals(listOf("image-2026-03-04-050607.png"), names())
+        } finally {
+            Files.setPosixFilePermissions(project, writable)
+        }
     }
 
     @Test

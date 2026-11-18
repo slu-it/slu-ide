@@ -298,6 +298,38 @@ class GeneratedFoldersTest {
     }
 
     @Test
+    fun `a marker whose size is told as zero but whose content is longer than the limit is no marker`() {
+        // Linux only: /proc files are regular files of size 0. A child process (env, then sleep) holds an environment
+        // whose first variable is the signature of CACHEDIR.TAG and whose content is bigger than the read limit.
+        val proc = Path.of("/proc/self/environ")
+        assumeTrue(Files.isRegularFile(proc) && Files.size(proc) == 0L)
+        val child =
+            ProcessBuilder(
+                "env",
+                "-i",
+                "Signature: 8a477f597d28d172789f06886806bc55=x",
+                "PAD=" + "a".repeat(5000),
+                "sleep",
+                "60",
+            ).redirectErrorStream(true).start()
+        try {
+            val environ = Path.of("/proc/${child.pid()}/environ")
+            val deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos()
+            // Until env has become sleep, the child still has the environment of this process.
+            while (!Files.readString(Path.of("/proc/${child.pid()}/cmdline")).startsWith("sleep")) {
+                check(System.nanoTime() < deadline) { "the child did not start sleep" }
+                Thread.sleep(10) // polling a process that execs: there is no signal for it
+            }
+            val folder = folder("anything")
+            Files.createSymbolicLink(folder.resolve("CACHEDIR.TAG"), environ)
+
+            assertNull(reason(folder))
+        } finally {
+            child.destroyForcibly()
+        }
+    }
+
+    @Test
     fun `a pipe named like a catalogue file is no generated file`() {
         assumeFalse(System.getProperty("os.name").lowercase().contains("win"))
         val fifo = root.resolve(".DS_Store")
