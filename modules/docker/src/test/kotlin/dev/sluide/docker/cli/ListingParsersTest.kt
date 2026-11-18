@@ -315,6 +315,19 @@ class ListingParsersTest {
     }
 
     @Test
+    fun `a number with a fraction or an exponent is cut to its whole part, not dropped`() {
+        val container = parseContainers("""{"ID":"a","Created":1700000000.5}""").single()
+        val images =
+            parseImages(
+                """{"Id":"i","Size":1234.5,"RepoTags":["a:1"]}""" + "\n" +
+                    """{"Id":"j","Size":1e10,"RepoTags":["a:2"]}""",
+            )
+
+        assertEquals(Instant.ofEpochSecond(1700000000), container.createdAt)
+        assertEquals(listOf(1234L, 10_000_000_000L), images.map { it.size })
+    }
+
+    @Test
     fun `a range is cut at the limit`() {
         val ports = parsePorts("0.0.0.0:1000-9000->1000-9000/tcp")
 

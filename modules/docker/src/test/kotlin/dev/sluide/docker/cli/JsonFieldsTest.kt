@@ -45,11 +45,12 @@ class JsonFieldsTest {
     fun `long is a number or a number written as text, nothing else`() {
         val node =
             json(
-                """{"n":5,"f":2.0,"s":" 7 ","bad":"x","t":true,"o":{"a":1},"a":[1],"big":"9999999999999999999","huge":1e30,"digits":123456789012345678901234567890}""",
+                """{"n":5,"f":2.0,"g":2.5,"s":" 7 ","bad":"x","t":true,"o":{"a":1},"a":[1],"big":"9999999999999999999","huge":1e30,"digits":123456789012345678901234567890}""",
             )
 
         assertEquals(5L, node.long("n"))
         assertEquals(2L, node.long("f"), "a JSON number with a fraction part is still a number")
+        assertEquals(2L, node.long("g"), "a fraction is cut off")
         assertEquals(7L, node.long("s"))
         for (name in listOf("bad", "t", "o", "a", "big", "huge", "digits", "missing")) assertNull(node.long(name), name)
     }
