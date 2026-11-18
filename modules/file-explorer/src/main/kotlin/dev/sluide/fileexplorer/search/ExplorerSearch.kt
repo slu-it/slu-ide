@@ -127,7 +127,6 @@ internal class ExplorerSearch(
     private fun start() {
         pending = null
         starts++
-        run?.cancelled = true
         val searched = text
         val current = Run(searched).also { run = it }
         dirty = false
