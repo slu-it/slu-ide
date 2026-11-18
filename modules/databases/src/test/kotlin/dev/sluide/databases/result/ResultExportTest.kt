@@ -140,6 +140,8 @@ class ResultExportTest {
         assertEquals("3.4028235E38", json(Float.MAX_VALUE))
         assertEquals("4.9E-324", json(Double.MIN_VALUE))
         assertEquals("-0.0", json(-0.0))
+        val huge = "1" + "0".repeat(400)
+        assertEquals(huge, json(java.math.BigInteger(huge)), "a number too big for a double is still a number")
     }
 
     @Test
@@ -165,6 +167,8 @@ class ResultExportTest {
         assertEquals("1.7976931348623157E308", sql(Double.MAX_VALUE))
         assertEquals("-3.4028235E38", sql(-Float.MAX_VALUE))
         assertEquals("4.9E-324", sql(Double.MIN_VALUE))
+        val huge = "-1" + "0".repeat(400)
+        assertEquals(huge, sql(java.math.BigInteger(huge)))
     }
 
     @Test
