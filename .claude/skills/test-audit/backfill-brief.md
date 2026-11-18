@@ -56,8 +56,8 @@ and read a neighbouring test as a pattern, never the whole class.
   search for an existing test first and extend it instead of restating it.
 - Assert the behavior (the message equals git's message), not the absence of the mutant's text.
 - A test that could hang on a regression (a FIFO, a blocking read) runs under `assertTimeoutPreemptively`.
-- pitest's history replays a timeout as long as the mutated class is unchanged, even after your test changed: before
-  the final run, delete `<module>/build/pitest/history-unit.bin` if a timeout is left that a new test should kill.
+- pitest's history replays old results (timeouts, and kills too) as long as the mutated class is unchanged, even
+  after the tests changed: delete `<module>/build/pitest/history-unit.bin` before the final run, always.
 
 ## Limits
 - Production changes only: an `internal` extraction a test needs (ADR 0084), a constructor parameter with the real
