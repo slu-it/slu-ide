@@ -1,12 +1,17 @@
 package dev.sluide.databases.sql
 
+import dev.sluide.databases.HashCollisions
 import dev.sluide.databases.connect.DatabaseKind
 import dev.sluide.databases.connect.DatabaseKind.MARIADB
 import dev.sluide.databases.connect.DatabaseKind.POSTGRESQL
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertTimeoutPreemptively
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
+import java.time.Duration
 import kotlin.test.assertEquals
 
 class SqlSplitterTest {
@@ -90,6 +95,103 @@ class SqlSplitterTest {
         assertEquals(listOf("/*M!100100 SET x = 1 */"), texts("/*M!100100 SET x = 1 */;", MARIADB))
         assertEquals(emptyList(), texts("/* SET NAMES utf8 */;", MARIADB))
         assertEquals(2, texts("/*!40101 select 1; select 2 */", MARIADB).size)
+    }
+
+    @Test
+    fun `a piece keeps comments around its text and a piece of a string or identifier alone is a statement`() {
+        assertEquals(listOf("select 1 /* c */", "select 2"), texts("select 1 /* c */; select 2", POSTGRESQL))
+        assertEquals(listOf("'a' /* c */", "select 2"), texts("'a' /* c */; select 2", POSTGRESQL))
+        assertEquals(listOf("/* c */ 'a'"), texts("/* c */ 'a';", POSTGRESQL))
+        assertEquals(listOf("''", "\"x\"", "$$$$"), texts("''; \"x\"; $$$$;", POSTGRESQL))
+        assertEquals(listOf("`x`"), texts(";`x`;", MARIADB))
+        assertEquals(listOf("a", "b"), texts("a;b", POSTGRESQL), "one character each")
+    }
+
+    @Test
+    fun `a comment-only piece is dropped also after pieces that hold strings`() {
+        assertEquals(listOf("select 'a'", "select 2"), texts("select 'a'; -- c\n; select 2", POSTGRESQL))
+        assertEquals(
+            listOf("select 'a'", "/* d */ select 2"),
+            texts("select 'a'; /* c */ ; /* d */ select 2", POSTGRESQL),
+        )
+        assertEquals(listOf("'a'", "'b' -- d"), texts("'a'; # c\n; 'b' -- d", MARIADB))
+    }
+
+    @Test
+    fun `statements have the exact ranges when whitespace, comments and strings surround the semicolons`() {
+        val sql = "\n select 'a;b' ;\t-- c\n ; /* d */ select \"e\" /* f */ \n;"
+
+        assertEquals(
+            listOf(
+                SqlStatement("select 'a;b'", sql.indexOf("select"), sql.indexOf(" ;")),
+                SqlStatement("/* d */ select \"e\" /* f */", sql.indexOf("/* d */"), sql.indexOf(" \n;")),
+            ),
+            SqlSplitter.split(sql, POSTGRESQL),
+        )
+        assertEquals(listOf(0 to 8, 9 to 17), SqlSplitter.pieces("select 1;select 2", POSTGRESQL))
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["values", "table", "show", "describe", "desc", "select", "with", "explain"])
+    fun `a word that only shares the hash code of a statement word is no statement word`(word: String) {
+        val twin = HashCollisions.ofLetters(word)
+
+        assertEquals(false, SqlSplitter.isQuery("$twin 1", POSTGRESQL), twin)
+        assertEquals(false, SqlSplitter.isQuery("$twin 1", MARIADB), twin)
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "_select 1,false",
+        "select_x 1,false",
+        "select1 from t,false",
+        "sel_ect 1,false",
+        "ab!select 1,false",
+        "'select a!1 from t',true",
+        "'select id, key from t',true",
+        "'select share from t',true",
+        "'select lock from t',true",
+        "'select * from t where a in (1, 2)',true",
+        "'select * from t where a in (1, 2) lock in share mode',false",
+        "'explain (verbose) select 1',true",
+        "'explain verbose select 1',true",
+        "'explain (format json) select 1',true",
+        "'explain select 1 as analyze',true",
+        "'explain (verbose) select 1 as analyze',true",
+        "'explain (select) analyze select 1',false",
+        "'explain analyze',false",
+        "'explain verbose t',true",
+        "'explain analyze t',false",
+        "explain,true",
+    )
+    fun `isQuery reads words, depths and locks exactly`(
+        sql: String,
+        expected: Boolean,
+    ) {
+        assertEquals(expected, SqlSplitter.isQuery(sql, POSTGRESQL), sql)
+    }
+
+    @Test
+    fun `isQuery in MariaDB skips an executable comment opener only where one starts`() {
+        assertEquals(false, SqlSplitter.isQuery("ab!select 1", MARIADB))
+        assertEquals(true, SqlSplitter.isQuery("/*!40101 select 1 */", MARIADB))
+        assertEquals(false, SqlSplitter.isQuery("/*!40101 select 1 */", POSTGRESQL), "a comment in PostgreSQL")
+        assertEquals(true, SqlSplitter.isQuery("/*!select 1 */ ", MARIADB))
+    }
+
+    @Test
+    fun `hostile text of any length is split in linear time`() {
+        assertTimeoutPreemptively(Duration.ofSeconds(20)) {
+            val n = 100_000
+            assertEquals(n, SqlSplitter.split("select 1;".repeat(n), POSTGRESQL).size)
+            assertEquals(1, SqlSplitter.split("select '" + "a;".repeat(n), POSTGRESQL).size)
+            assertEquals(1, SqlSplitter.split("select /* " + "/* ".repeat(n) + ";", POSTGRESQL).size)
+            assertEquals(1, SqlSplitter.split("do $$ " + "x;".repeat(n), POSTGRESQL).size)
+            assertEquals(0, SqlSplitter.split(";".repeat(n) + " -- " + ";".repeat(10), POSTGRESQL).size)
+            assertEquals(n, SqlSplitter.split("/* c */ select 1; ".repeat(n), POSTGRESQL).size)
+            assertEquals(false, SqlSplitter.isQuery("(".repeat(n) + "select 1" + ")".repeat(n) + " into x", POSTGRESQL))
+            assertEquals(true, SqlSplitter.isQuery("select " + "a, ".repeat(n) + "a", MARIADB))
+        }
     }
 
     companion object {
