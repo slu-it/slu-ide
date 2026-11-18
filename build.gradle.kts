@@ -21,11 +21,11 @@ plugins {
 // avoids that walk. A new top-level source folder (e.g. buildSrc/) must be added to the targets.
 spotless {
     kotlin {
-        target("ide/src/**/*.kt", "modules/*/src/**/*.kt")
+        target("ide/src/**/*.kt", "modules/*/src/**/*.kt", "tools/*/src/**/*.kt")
         ktlint(libs.versions.ktlint.get())
     }
     kotlinGradle {
-        target("*.gradle.kts", "ide/*.gradle.kts", "modules/*/*.gradle.kts")
+        target("*.gradle.kts", "ide/*.gradle.kts", "modules/*/*.gradle.kts", "tools/*/*.gradle.kts")
         ktlint(libs.versions.ktlint.get())
     }
 }
@@ -109,7 +109,7 @@ val nullAlsaConfigPath: String? =
         ?.takeIf { it.exists() }
         ?.let { "$it:${file("gradle/alsa/null-default.conf")}" }
 
-// Shared configuration for every Kotlin module (modules/* and ide).
+// Shared configuration for every Kotlin module (modules/*, ide and tools/*).
 subprojects {
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
         val javaVersion =

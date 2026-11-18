@@ -8,6 +8,7 @@ assembled from Gradle modules.
 |------|---------|
 | `ide/` | Application module: launcher, Spring Boot configuration, main window. Produces the fat jar (`./gradlew :ide:bootJar`). |
 | `modules/<name>/` | One Gradle module per capability; see [Modules](#modules) below. |
+| `tools/<name>/` | Build tools that are not capability modules; see [Build tools](#build-tools) below. |
 | `gradle/libs.versions.toml` | Single place for dependency and plugin versions. |
 | `docs/` | This documentation. Start at [index.md](index.md). |
 | `.claude/` | Claude Code settings, agents, rules, scripts. |
@@ -307,6 +308,17 @@ move or rename it re-keys the data with `ProjectDataStore.moved` before the tabs
 at and below the path with `ProjectDataStore.deleted` ([ADR 0091](adr/0091-argument-history-of-runs.md)).
 
 Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the root `build.gradle.kts`.
+
+## Build tools
+`tools/<name>/` holds Gradle subprojects that the build uses but the app does not ship: no capability, no Spring
+beans, no JavaFX, and no module depends on them. They are Kotlin modules like the others (same toolchain, Spotless and
+test setup from the root build).
+- `tools/pitest-kotlin`: a pitest plugin, used only by the mutation runs. Its feature `KOTLIN_JUNK` (on by default)
+  drops mutants of bytecode the Kotlin compiler adds, judged by the mutated instruction, never by the whole line: the
+  `Intrinsics` null checks (not `areEqual` and `compare`, which are `==` and `compareTo`), the `closeFinally` of
+  `use {}`, the bodies of inline functions inlined from other files (by `$i$f$` locals without a `$i$a$` lambda of ours
+  inside, and by the lines after the file's own in the class's SMAP), getters that only return their field, the array
+  copy and `SpreadBuilder` size and array of a spread `*array`, and the boxing of `Result`.
 
 ## Runtime
 1. `SluIdeLauncher.main` calls `Application.launch(SluIdeApplication)`.

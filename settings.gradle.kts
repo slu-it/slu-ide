@@ -70,3 +70,5 @@ include("modules:code-intelligence")
 include("modules:code-review")
 include("modules:find-in-files")
 include("ide")
+// Build tools that are not capability modules (docs/architecture.md, "Build tools").
+include("tools:pitest-kotlin")

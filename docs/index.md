@@ -16,7 +16,7 @@ updated when the summary or keywords no longer fit.
 ## Overview
 | Document | Summary | Keywords |
 |---|---|---|
-| [architecture.md](architecture.md) | Modules, their dependency rules, runtime startup, CI and releases | module table, dependencies, Gradle modules, startup, CI, release |
+| [architecture.md](architecture.md) | Modules, their dependency rules, build tools (the pitest plugin), runtime startup, CI and releases | module table, dependencies, Gradle modules, tools, pitest plugin, Kotlin junk mutants, startup, CI, release |
 | [testing.md](testing.md) | Unit vs. UI tests, running a subset, displays, fake servers, portability for macOS/x64 CI, running the app headless | `uiTest`, TestFX, `@Tag("ui")`, ALSA, `verify.sh`, `related-tests.sh`, Xvfb, display pool, `run-app.sh`, screenshot, `record-lsp.sh`, `jcmd` |
 | [safety.md](safety.md) | Conventions that protect the user's files, commands and secrets, with the patterns to copy and known deviations | overwrite, `ATOMIC_MOVE`, confirmation, Cancel default, `ProjectTrust`, quoting, secrets, untrusted input |
 | [external-artifacts.md](external-artifacts.md) | Bundled and downloaded external artifacts: models, vendored JS, word lists, wrapper, with their pins | external artifacts, `libs.versions.toml`, vendor, Kokoro, Opus-MT, KaTeX, Mermaid, `update-external-artifacts`, ty, TypeScript server, npm |
