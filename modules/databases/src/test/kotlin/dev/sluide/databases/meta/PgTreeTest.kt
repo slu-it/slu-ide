@@ -1,5 +1,6 @@
 package dev.sluide.databases.meta
 
+import dev.sluide.databases.HashCollisions
 import dev.sluide.databases.connect.DatabaseKind
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -498,5 +499,80 @@ class PgTreeTest {
                 .children
                 .map { it.name },
         )
+    }
+
+    @ParameterizedTest
+    @CsvSource("p", "u", "x", "f")
+    fun `a constraint type that only shares a hash code with a known one is a check`(type: String) {
+        val row = mapOf("tbl" to "t", "name" to "k", "type" to HashCollisions.of(type), "def" to "d")
+
+        val tree = pgSchemaTree("s", PgSchemaRows(relations = listOf(rel("t", "r")), constraints = listOf(row)))
+
+        val key =
+            tree
+                .single()
+                .children
+                .single()
+                .children
+                .single()
+                .children
+                .single()
+        assertEquals(ObjectKind.CHECK, key.kind)
+    }
+
+    @ParameterizedTest
+    @CsvSource("v", "m", "S")
+    fun `a relation kind that only shares a hash code with a known one is a table`(kind: String) {
+        val tree = pgSchemaTree("s", PgSchemaRows(relations = listOf(rel("x", HashCollisions.of(kind)))))
+
+        assertEquals("tables", tree.single().name)
+    }
+
+    @Test
+    fun `indexes and partitions are sorted by name and routines of one name by kind`() {
+        val rows =
+            PgSchemaRows(
+                relations = listOf(rel("t", "r")),
+                indexes =
+                    listOf(
+                        mapOf("tbl" to "t", "name" to "z_idx", "uniq" to false, "cols" to "a"),
+                        mapOf("tbl" to "t", "name" to "a_idx", "uniq" to false, "cols" to "a"),
+                    ),
+                routines =
+                    listOf(
+                        mapOf("name" to "f", "kind" to "p", "types" to "", "ident" to "i"),
+                        mapOf("name" to "f", "kind" to "f", "types" to "", "ident" to "i"),
+                    ),
+            )
+
+        val tree = pgSchemaTree("s", rows)
+
+        val indexes =
+            tree
+                .single { it.name == "tables" }
+                .children
+                .single()
+                .children
+                .single()
+                .children
+        assertEquals(listOf("a_idx", "z_idx"), indexes.map { it.name })
+        assertEquals(
+            listOf(ObjectKind.FUNCTION, ObjectKind.PROCEDURE),
+            tree.single { it.name == "routines" }.children.map { it.kind },
+        )
+    }
+
+    @Test
+    fun `a view with a trigger shows only its columns`() {
+        val rows =
+            PgSchemaRows(
+                relations = listOf(rel("v", "v")),
+                columns = listOf(mapOf("tbl" to "v", "name" to "c", "type" to "integer")),
+                triggers = listOf(mapOf("tbl" to "v", "name" to "tv", "tgtype" to 4)),
+            )
+
+        val view = pgSchemaTree("s", rows).single().children.single()
+
+        assertEquals(listOf("c"), view.children.map { it.name })
     }
 }

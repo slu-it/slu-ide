@@ -1,5 +1,6 @@
 package dev.sluide.databases.meta
 
+import dev.sluide.databases.HashCollisions
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import kotlin.test.Test
@@ -344,5 +345,72 @@ class MariaTreeTest {
         val row = mapOf("type" to type, "nullable" to nullable, "dflt" to default, "extra" to extra)
 
         assertEquals(expected, mariaColumnDetail(row))
+    }
+
+    @ParameterizedTest
+    @CsvSource("BASE TABLE", "SYSTEM VERSIONED", "SEQUENCE")
+    fun `a table type that only shares a hash code with a known one is a view`(type: String) {
+        val tables = listOf(mapOf("name" to "x", "kind" to HashCollisions.of(type)))
+
+        val tree = mariaSchemaTree("shop", MariaSchemaRows(tables = tables))
+
+        assertEquals("views", tree.single().name)
+    }
+
+    @Test
+    fun `events are sorted by name and shown with their status`() {
+        val events = listOf(mapOf("name" to "b", "status" to "ENABLED"), mapOf("name" to "a", "status" to "DISABLED"))
+
+        val tree = mariaSchemaTree("shop", MariaSchemaRows(events = events))
+
+        assertEquals(listOf("a", "b"), tree.single().children.map { it.name })
+        assertEquals(listOf("disabled", "enabled"), tree.single().children.map { it.detail })
+    }
+
+    @Test
+    fun `a view with a trigger shows only its columns and a table its objects sorted by name`() {
+        val tree =
+            mariaSchemaTree(
+                "shop",
+                MariaSchemaRows(
+                    tables =
+                        listOf(
+                            mapOf("name" to "v", "kind" to "VIEW"),
+                            mapOf("name" to "t", "kind" to "BASE TABLE"),
+                        ),
+                    columns = listOf(mapOf("tbl" to "v", "name" to "c", "type" to "int")),
+                    triggers =
+                        listOf(
+                            mapOf("tbl" to "v", "name" to "tv", "timing" to "AFTER", "event" to "INSERT"),
+                            mapOf("tbl" to "t", "name" to "z", "timing" to "AFTER", "event" to "INSERT"),
+                            mapOf("tbl" to "t", "name" to "a", "timing" to "AFTER", "event" to "INSERT"),
+                        ),
+                ),
+            )
+
+        val view = tree.single { it.name == "views" }.children.single()
+        assertEquals(listOf("c"), view.children.map { it.name })
+        val triggers =
+            tree
+                .single { it.name == "tables" }
+                .children
+                .single()
+                .children
+                .single()
+                .children
+        assertEquals(listOf("a", "z"), triggers.map { it.name })
+    }
+
+    @Test
+    fun `routines of one name are ordered by kind`() {
+        val routines =
+            listOf(
+                mapOf("name" to "f", "kind" to "PROCEDURE", "result" to null),
+                mapOf("name" to "f", "kind" to "FUNCTION", "result" to null),
+            )
+
+        val tree = mariaSchemaTree("shop", MariaSchemaRows(routines = routines))
+
+        assertEquals(listOf(ObjectKind.FUNCTION, ObjectKind.PROCEDURE), tree.single().children.map { it.kind })
     }
 }

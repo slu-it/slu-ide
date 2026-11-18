@@ -436,4 +436,18 @@ class DataEditsTest {
         withBytes.edit(0, 1, byteArrayOf(1, 3))
         assertTrue(withBytes.isChanged(0, 1))
     }
+
+    @Test
+    fun `accepted asks for a refresh when a row with all columns given was dropped for its null key`() {
+        val e = edits()
+        val row = e.addRow()
+        e.edit(row, 0, null)
+        e.edit(row, 1, "n")
+        e.edit(row, 2, "m")
+
+        val accepted = e.accepted()
+
+        assertEquals(3, accepted.rows.size)
+        assertTrue(accepted.needsRefresh)
+    }
 }

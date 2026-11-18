@@ -71,10 +71,24 @@ internal class CatalogJdbc {
         val params = sortedMapOf<Int, Any?>()
         return proxy { _, method, args ->
             when (method) {
-                "setObject" -> params[args[0] as Int] = args[1]
-                "executeQuery" -> execute(sql, params.values.toList())
-                "close" -> closed++
-                else -> throw UnsupportedOperationException(method)
+                "setObject" -> {
+                    // JDBC counts parameters from 1; drivers throw for any other index.
+                    val index = args[0] as Int
+                    if (index < 1) throw SQLException("The column index is out of range: $index", "07009")
+                    params[index] = args[1]
+                }
+
+                "executeQuery" -> {
+                    execute(sql, params.values.toList())
+                }
+
+                "close" -> {
+                    closed++
+                }
+
+                else -> {
+                    throw UnsupportedOperationException(method)
+                }
             }
         }
     }

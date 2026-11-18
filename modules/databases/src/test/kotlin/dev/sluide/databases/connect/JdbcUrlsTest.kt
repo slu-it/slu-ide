@@ -176,6 +176,7 @@ class JdbcUrlsTest {
     @CsvSource(
         "sqlite:file.db?mode=ro,sqlite:file.db",
         "foo;user=x,foo",
+        "a@b?c,a@b",
         "//u:p@host?x,//host",
         "jdbc:postgresql://host:5432/db?x=1,jdbc:postgresql://host:5432/db",
         "jdbc:mariadb://h:3306;x=1,jdbc:mariadb://h:3306",

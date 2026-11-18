@@ -323,4 +323,39 @@ class IntrospectorsTest {
         assertEquals(listOf("a", "b"), MariaDbIntrospector.primaryKey(c, "shop", "t"))
         assertEquals(listOf(listOf<Any?>("shop", "t")), called(MariaQueries.PRIMARY_KEY))
     }
+
+    @Test
+    fun `postgresql ddl of a table without a schema asks with an empty schema`() {
+        PostgresIntrospector.ddl(c, DbObject(ObjectKind.TABLE, null, "t"))
+
+        assertEquals(listOf(listOf<Any?>("", "t", "t")), called(PgQueries.RELATIONS))
+    }
+
+    @Test
+    fun `postgresql routine ddl without a definition text is empty`() {
+        jdbc.answer(PgQueries.FUNCTION_DEF, mapOf("def" to null))
+
+        assertEquals("", PostgresIntrospector.ddl(c, DbObject(ObjectKind.FUNCTION, "s", "f", ref = "i")))
+    }
+
+    @Test
+    fun `postgresql child ddl without a table asks nothing`() {
+        PostgresIntrospector.ddl(c, DbObject(ObjectKind.COLUMN, "s", "a"))
+
+        assertEquals(emptyList(), jdbc.calls)
+    }
+
+    @Test
+    fun `mariadb ddl of a trigger reads the column that does not start with Create`() {
+        jdbc.results["SHOW CREATE TRIGGER `shop`.`tg`"] =
+            CatalogJdbc.Result(
+                listOf("Trigger", "sql_mode", "SQL Original Statement", "Created"),
+                listOf(listOf("tg", "", "CREATE TRIGGER tg ...", "2024-01-01")),
+            )
+
+        assertEquals(
+            "CREATE TRIGGER tg ...;\n",
+            MariaDbIntrospector.ddl(c, DbObject(ObjectKind.TRIGGER, "shop", "tg", "t")),
+        )
+    }
 }
