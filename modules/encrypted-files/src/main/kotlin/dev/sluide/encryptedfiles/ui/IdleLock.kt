@@ -12,7 +12,7 @@ internal fun interface Pending {
 /** Runs [task] once after [delay] on the thread that uses the [IdleLock] (the FX thread). */
 internal typealias IdleScheduler = (delay: Duration, task: Runnable) -> Pending
 
-private val fxScheduler: IdleScheduler = { delay, task ->
+internal val fxScheduler: IdleScheduler = { delay, task ->
     val pause = PauseTransition(FxDuration.millis(delay.toMillis().toDouble()))
     pause.setOnFinished { task.run() }
     pause.play()

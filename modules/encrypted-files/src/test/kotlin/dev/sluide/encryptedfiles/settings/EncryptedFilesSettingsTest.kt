@@ -46,13 +46,14 @@ class EncryptedFilesSettingsTest {
         val settings = EncryptedFilesSettings(store)
         val model = EncryptedFilesSettingsPageModel(settings)
 
-        model.idleLockMinutes.set(0)
+        assertEquals(10, model.idleLockMinutes.get(), "the draft starts with the stored value")
+        model.idleLockMinutes.set(7)
         assertEquals(10, settings.currentIdleLockMinutes())
         model.apply()
-        assertEquals(0, settings.currentIdleLockMinutes())
+        assertEquals(7, settings.currentIdleLockMinutes())
 
         model.idleLockMinutes.set(5)
         model.load()
-        assertEquals(0, model.idleLockMinutes.get())
+        assertEquals(7, model.idleLockMinutes.get())
     }
 }

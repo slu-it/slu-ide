@@ -35,6 +35,10 @@ class PasswordRulesTest {
         "abcdeABCDEfgh😀, STRONG",
         "abcdefghijk😀, OK",
         "😀😀😀😀😀😀😀😀😀😀😀😀, WEAK",
+        // lowercase, a digit and another character are three classes, so 14 code points are strong; without them not
+        "abcdefghijkl1!, STRONG",
+        "abcdefghijklm!, OK",
+        "abcdefghijklmn1, OK",
     )
     fun `strength by length and character classes`(
         password: String,

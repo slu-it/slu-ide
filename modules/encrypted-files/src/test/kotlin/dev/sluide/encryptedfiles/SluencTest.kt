@@ -232,8 +232,9 @@ class SluencTest {
         key.close()
 
         assertTrue(key.rawDek.all { it == 0.toByte() })
-        assertThrows<IllegalStateException> { Sluenc.encrypt("x".toByteArray(), key) }
-        assertThrows<IllegalStateException> { Sluenc.decrypt(created.bytes, key) }
+        val closed = "The key is closed."
+        assertEquals(closed, assertThrows<IllegalStateException> { Sluenc.encrypt("x".toByteArray(), key) }.message)
+        assertEquals(closed, assertThrows<IllegalStateException> { Sluenc.decrypt(created.bytes, key) }.message)
     }
 
     @Test
@@ -256,7 +257,22 @@ class SluencTest {
 
     @Test
     fun `parameters above the caps are refused when creating`() {
-        assertThrows<IllegalArgumentException> { Sluenc.create(password, ByteArray(0), KdfParams(64, 11, 1)) }
+        val refused =
+            assertThrows<IllegalArgumentException> { Sluenc.create(password, ByteArray(0), KdfParams(64, 11, 1)) }
+
+        assertEquals(
+            "Argon2 parameters above the caps: KdfParams(memoryKiB=64, passes=11, parallelism=1)",
+            refused.message,
+        )
+    }
+
+    @Test
+    fun `only text of characters below U+0300 skips the normalization`() {
+        assertTrue(Argon2id.isNfcWithoutString("".toCharArray()))
+        assertTrue(Argon2id.isNfcWithoutString("abc XYZ ~ \u00ff \u02ff".toCharArray()))
+        assertFalse(Argon2id.isNfcWithoutString("abc\u0300".toCharArray()), "the first combining mark")
+        assertFalse(Argon2id.isNfcWithoutString("e\u0301".toCharArray()))
+        assertFalse(Argon2id.isNfcWithoutString("\uac00".toCharArray()), "a Hangul syllable can decompose")
     }
 
     @Test

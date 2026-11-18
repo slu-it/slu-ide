@@ -149,6 +149,65 @@ class SluencCodecTest {
         assertEquals(0, derived.size)
     }
 
+    @Test
+    fun `the nonces and the salt come from the random, each from its own call`() {
+        val created = codec.create(password, "secret".toByteArray(), params)
+        created.key.close()
+
+        // DEK, salt, wrap nonce, body nonce
+        assertEquals(listOf(32, 16, 12, 12), filled.map { it.size })
+        val file = created.bytes
+        assertArrayEquals(filled[1], file.copyOfRange(20, 36))
+        assertArrayEquals(filled[2], file.copyOfRange(36, 48))
+        val bodyStart = SluencFormat.FIXED_HEADER_BYTES + SluencFormat.PASSWORD_SLOT_BYTES
+        assertArrayEquals(filled[3], file.copyOfRange(bodyStart, bodyStart + 12))
+    }
+
+    @Test
+    fun `a create whose body cannot be sealed closes the key it made`() {
+        var calls = 0
+        val failing =
+            object : SecureRandom() {
+                override fun nextBytes(bytes: ByteArray) {
+                    // the fourth call is the body's nonce
+                    if (++calls == 4) throw IllegalStateException("no entropy")
+                    super.nextBytes(bytes)
+                }
+            }
+        val observed = SluencCodec(failing, { _, _, _ -> ByteArray(32) }) { keys += it }
+
+        assertThrows<IllegalStateException> { observed.create(password, "secret".toByteArray(), params) }
+
+        val key = keys.single()
+        assertTrue(key.rawDek.all { it == 0.toByte() })
+        assertEquals("The key is closed.", assertThrows<IllegalStateException> { key.withDek { } }.message)
+    }
+
+    @Test
+    fun `change password closes the key of the old file`() {
+        val file = codec.create(password, "secret".toByteArray(), params).also { it.key.close() }.bytes
+        keys.clear()
+
+        val changed = codec.changePassword(file, password, "new password!!".toCharArray(), ByteArray(0), params)
+
+        assertEquals(2, keys.size)
+        assertEquals("The key is closed.", assertThrows<IllegalStateException> { keys[0].withDek { } }.message)
+        assertEquals(changed.key, keys[1])
+        changed.key.withDek { }
+    }
+
+    @Test
+    fun `the body decrypted to check the password is zeroed`() {
+        val file = codec.create(password, "secret".toByteArray(), params).also { it.key.close() }.bytes
+        val zeroed = mutableListOf<ByteArray>()
+        val checking = SluencCodec(random, { pw, _, _ -> ByteArray(32) { (pw.size + 1).toByte() } }, zeroed::add)
+
+        checking.unlock(file, password).close()
+
+        assertEquals(listOf(6), zeroed.map { it.size }, "the body of 'secret'")
+        assertZeroed(zeroed)
+    }
+
     @ParameterizedTest
     @ValueSource(strings = ["create", "unlock", "wrong password", "change password"])
     fun `every derived key is zeroed`(operation: String) {

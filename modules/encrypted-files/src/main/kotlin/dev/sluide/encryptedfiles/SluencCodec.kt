@@ -14,11 +14,12 @@ import javax.crypto.spec.SecretKeySpec
  * What [Sluenc] does, with the randomness and the key derivation passed in so tests can watch them, and [onKey] told
  * of every key made, so tests can check that discarded ones are zeroed. Every array it allocates for key material
  * (key-encryption key, DEK copies, Argon2 output) is zeroed in a `finally`; the caller's password arrays are neither
- * kept nor zeroed.
+ * kept nor zeroed. [onZeroed] gets the decrypted body checked at unlock, right after it was zeroed.
  */
 internal class SluencCodec(
     private val random: SecureRandom,
     private val kdf: Kdf,
+    private val onZeroed: (ByteArray) -> Unit = {},
     private val onKey: (FileKey) -> Unit = {},
 ) {
     fun create(
@@ -75,7 +76,7 @@ internal class SluencCodec(
             }
         val key = FileKey(dek, slot.encoded, parsed.slotCount, parsed.slots).also(onKey)
         try {
-            openBody(parsed, key).fill(0)
+            openBody(parsed, key).also { it.fill(0) }.let(onZeroed)
         } catch (_: AEADBadTagException) {
             key.close()
             throw SluencException(SluencFailure.DAMAGED)

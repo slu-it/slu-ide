@@ -16,7 +16,11 @@ internal class FakeIdleTime {
     private var running = 0L
     private val tasks = mutableListOf<Task>()
 
+    /** Every delay the scheduler was asked for. */
+    val delays = mutableListOf<Duration>()
+
     val scheduler: IdleScheduler = { delay, run ->
+        delays += delay
         val task = Task(running + delay.toMillis(), run)
         tasks += task
         Pending { tasks -= task }
@@ -27,7 +31,10 @@ internal class FakeIdleTime {
     /** Runs the tasks that become due in [by], each at its time. */
     fun advance(by: Duration) {
         val end = running + by.toMillis()
+        var runs = 0
         while (true) {
+            // a lock that schedules itself again at the same time, for ever, would never end
+            check(++runs < 10_000) { "the scheduler keeps running tasks that are due at once" }
             val due = tasks.filter { it.at <= end }.minByOrNull { it.at } ?: break
             tasks -= due
             moveTo(maxOf(due.at, running))
@@ -118,8 +125,71 @@ class IdleLockTest {
         time.advance(minutes(3))
         minutes = 2
         lock.settingChanged()
+        assertEquals(Duration.ZERO, time.delays.last(), "an idle time that passed is due at once, never negative")
         time.advance(Duration.ZERO)
         assertEquals(1, fired)
+    }
+
+    @Test
+    fun `a lock set to 0 never fires, whatever happens`() {
+        minutes = 0
+        lock.start()
+        time.sleep(minutes(10))
+
+        lock.activity()
+        lock.check()
+        lock.settingChanged()
+        time.advance(minutes(10))
+
+        assertEquals(0, fired)
+        assertFalse(lock.armed)
+    }
+
+    @Test
+    fun `a lock that was not started ignores activity, checks and setting changes`() {
+        time.sleep(minutes(10))
+
+        lock.activity()
+        lock.check()
+        lock.settingChanged()
+
+        assertEquals(0, fired)
+        assertFalse(lock.armed)
+    }
+
+    @Test
+    fun `a tick that could not be cancelled does nothing after stop`() {
+        val tasks = mutableListOf<Runnable>()
+        val late =
+            IdleLock({ 2 }, { fired++ }, Duration.ofMinutes(1), { time.now }, { _, task ->
+                tasks += task
+                Pending {}
+            })
+        late.start()
+        late.stop()
+        time.sleep(minutes(10))
+
+        tasks.single().run()
+
+        assertEquals(0, fired)
+        assertFalse(late.armed)
+        assertEquals(1, tasks.size, "no new timer")
+    }
+
+    @Test
+    fun `a callback that starts the lock again leaves one timer`() {
+        lateinit var self: IdleLock
+        self =
+            IdleLock({ 1 }, {
+                fired++
+                self.start()
+            }, Duration.ofMinutes(1), { time.now }, time.scheduler)
+        self.start()
+
+        time.advance(minutes(1))
+
+        assertEquals(1, fired)
+        assertEquals(1, time.pending)
     }
 
     @Test

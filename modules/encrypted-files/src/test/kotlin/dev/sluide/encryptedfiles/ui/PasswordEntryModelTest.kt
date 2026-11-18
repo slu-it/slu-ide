@@ -57,4 +57,11 @@ class PasswordEntryModelTest {
         change.update("correct horse battery", "correct horse battery", current = "old")
         assertTrue(change.valid)
     }
+
+    @Test
+    fun `without a current password field the new password may equal its text`() {
+        model.update("correct horse battery", "correct horse battery", current = "correct horse battery")
+
+        assertNull(model.problem)
+    }
 }
