@@ -101,7 +101,16 @@ class ProjectDataStoreTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["{\"version\": 1, \"path\": ", "{\"version\": 1}", "[]"])
+    @ValueSource(
+        strings = [
+            "{\"version\": 1, \"path\": ",
+            "{\"version\": 1}",
+            "[]",
+            "{\"version\": 1, \"path\": 5}",
+            "{\"version\": 1, \"path\": null}",
+            "{\"version\": 1, \"path\": \"relative\"}",
+        ],
+    )
     fun `an unreadable file is skipped and never replaced or deleted, and blocks no other project`(content: String) {
         val broken = projectFile("broken.json", content)
         val other = dir.resolve("other").createDirectories()
@@ -145,8 +154,9 @@ class ProjectDataStoreTest {
 
     @Test
     fun `of two files for one folder the newest wins, and remove deletes both`() {
-        val older = projectFile("${UUID.randomUUID()}.json", """{"version": 1, "path": ${quoted(project)}, "n": 1}""")
-        val newer = projectFile("${UUID.randomUUID()}.json", """{"version": 1, "path": ${quoted(project)}, "n": 2}""")
+        // the older file's name sorts first, so only the time can make the other one win
+        val older = projectFile("a-older.json", """{"version": 1, "path": ${quoted(project)}, "n": 1}""")
+        val newer = projectFile("b-newer.json", """{"version": 1, "path": ${quoted(project)}, "n": 2}""")
         Files.setLastModifiedTime(older, FileTime.fromMillis(1_000_000))
         Files.setLastModifiedTime(newer, FileTime.fromMillis(2_000_000))
 

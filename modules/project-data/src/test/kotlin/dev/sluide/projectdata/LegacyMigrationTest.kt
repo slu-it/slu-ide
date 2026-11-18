@@ -2,7 +2,9 @@ package dev.sluide.projectdata
 
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
+import kotlin.io.path.isDirectory
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -72,7 +74,7 @@ class LegacyMigrationTest {
     }
 
     @Test
-    fun `an unreadable old file is kept and not migrated`() {
+    fun `an old file with a malformed escape is kept and not migrated`() {
         legacy.writeText("key=\\uZZZZ")
         val migration = FakeLegacy()
 
@@ -86,7 +88,11 @@ class LegacyMigrationTest {
     fun `without an old file nothing is migrated`() {
         val migration = FakeLegacy()
 
-        store(migration).projects()
+        LogCapture(ProjectDataStore::class.java.name).use { log ->
+            store(migration).projects()
+
+            assertEquals(emptyList(), log.messages())
+        }
 
         assertEquals(0, migration.calls)
     }
@@ -105,5 +111,98 @@ class LegacyMigrationTest {
         assertEquals(1, migration.calls)
         assertNull(store.read(a))
         assertEquals(listOf(dir.resolve("b")), store.projects().map { it.folder })
+    }
+
+    @Test
+    fun `whatever the first access is, the migration runs before it`() {
+        val first: Map<String, (ProjectDataStore) -> Unit> =
+            mapOf(
+                "projects" to { it.projects() },
+                "read" to { assertEquals(1L, it.read(dir.resolve("a"))?.get("lastOpened")?.longValue()) },
+                "update" to { it.update(dir.resolve("a")) {} },
+                "readShared" to { it.readShared() },
+                "updateShared" to { it.updateShared {} },
+                "remove" to { it.remove(dir.resolve("a")) },
+                "fileData" to { it.fileData(dir.resolve("a/x"), dir.resolve("a")) },
+                "updateFileData" to { it.updateFileData(dir.resolve("a/x"), dir.resolve("a")) {} },
+                "moved" to { it.moved(dir.resolve("a/x"), dir.resolve("a/y"), dir.resolve("a")) },
+                "deleted" to { it.deleted(dir.resolve("a/x"), dir.resolve("a")) },
+            )
+
+        first.entries.forEachIndexed { index, (name, access) ->
+            writeLegacy(dir.resolve("a"))
+            val migration = FakeLegacy()
+
+            access(ProjectDataStore(dir.resolve("p$index"), dir.resolve("s$index.json"), listOf(migration)))
+
+            assertEquals(1, migration.calls, name)
+            assertFalse(legacy.exists(), name)
+        }
+    }
+
+    @Test
+    fun `a migration that throws keeps its old file and does not stop the others or the store`() {
+        val failing = dir.resolve("failing.properties").apply { writeText("a=1") }
+        writeLegacy(dir.resolve("a"))
+        val throwing =
+            object : LegacyProjectData {
+                override val file = failing
+
+                override fun migrate(
+                    entries: Map<String, String>,
+                    store: ProjectDataStore,
+                ): Boolean = error("boom")
+            }
+        val store =
+            ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), listOf(throwing, FakeLegacy()))
+
+        LogCapture(ProjectDataStore::class.java.name).use { log ->
+            assertEquals(listOf(dir.resolve("a")), store.projects().map { it.folder })
+
+            assertEquals(listOf(WARNING_LEVEL to "Migrating $failing failed"), log.lines.take(1))
+            assertEquals("boom", log.thrown.first().message)
+        }
+        assertEquals("a=1", failing.readText())
+        assertFalse(legacy.exists())
+    }
+
+    @Test
+    fun `an old file that is a folder is kept and not migrated`() {
+        legacy.createDirectories()
+        val migration = FakeLegacy()
+
+        LogCapture(ProjectDataStore::class.java.name).use { log ->
+            assertEquals(emptyList(), store(migration).projects())
+
+            assertEquals(listOf("Cannot read $legacy to migrate it, keeping it"), log.messages())
+        }
+        assertEquals(0, migration.calls)
+        assertTrue(legacy.isDirectory())
+    }
+
+    @Test
+    fun `the outcome of a migration is logged`() {
+        LogCapture(ProjectDataStore::class.java.name).use { log ->
+            writeLegacy(dir.resolve("a"))
+            store(FakeLegacy()).projects()
+            writeLegacy(dir.resolve("b"))
+            store(FakeLegacy(complete = false)).projects()
+            legacy.writeText("key=\\uZZZZ")
+            store(FakeLegacy()).projects()
+
+            assertEquals(
+                listOf(
+                    INFO_LEVEL to "Migrated $legacy into the project data",
+                    WARNING_LEVEL to "Could not migrate all of $legacy, keeping it for the next start",
+                    WARNING_LEVEL to "Cannot read $legacy to migrate it, keeping it",
+                ),
+                log.lines.toList(),
+            )
+        }
+    }
+
+    private companion object {
+        val WARNING_LEVEL: java.util.logging.Level = java.util.logging.Level.WARNING
+        val INFO_LEVEL: java.util.logging.Level = java.util.logging.Level.INFO
     }
 }

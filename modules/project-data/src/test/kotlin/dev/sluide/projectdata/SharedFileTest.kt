@@ -1,7 +1,10 @@
 package dev.sluide.projectdata
 
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermissions
 import kotlin.io.path.exists
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
@@ -115,5 +118,73 @@ class SharedFileTest {
 
         assertFalse(old.exists())
         assertTrue(shared.exists())
+    }
+
+    @Test
+    fun `a change cannot add a files field to a file that has none`() {
+        shared.writeText("""{"version": 1, "other": 1}""")
+        val store = store()
+
+        assertTrue(store.updateShared { it.putObject("files").putObject("/z") })
+
+        assertFalse(store.readShared()!!.has("files"))
+        assertNull(store.fileData(Path.of("/z"), null))
+    }
+
+    @Test
+    fun `the move of the old file and the choice between both files are logged`() {
+        LogCapture(ProjectDataStore::class.java.name).use { log ->
+            old.writeText("""{"version": 1}""")
+            store().readShared()
+            old.writeText("""{"version": 1}""")
+            store().readShared()
+
+            assertEquals(
+                listOf(
+                    java.util.logging.Level.INFO to "Moved $old to $shared",
+                    java.util.logging.Level.WARNING to "Both $old and $shared exist, using $shared and leaving $old",
+                ),
+                log.lines.toList(),
+            )
+        }
+    }
+
+    @Test
+    fun `a shared file that already has the old name is not moved onto itself`() {
+        val content = """{"version": 1, "other": 5}"""
+        old.writeText(content)
+
+        LogCapture(ProjectDataStore::class.java.name).use { log ->
+            val store = ProjectDataStore(dir.resolve("projects"), old, emptyList())
+
+            assertEquals(5, store.readShared()!!.get("other").intValue())
+            assertEquals(emptyList(), log.messages())
+        }
+        assertEquals(content, old.readText())
+    }
+
+    @Test
+    fun `an old file that cannot be moved stays for the next start`() {
+        val content = """{"version": 1, "other": 5}"""
+        old.writeText(content)
+        Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("r-xr-xr-x"))
+        try {
+            assumeTrue(!Files.isWritable(dir), "the folder is writable anyway (running as root?)")
+
+            LogCapture(ProjectDataStore::class.java.name).use { log ->
+                assertNull(store().readShared())
+
+                assertEquals(
+                    listOf("Cannot move $old to $shared, keeping it for the next start"),
+                    log.messages(),
+                )
+            }
+        } finally {
+            Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwxr-xr-x"))
+        }
+
+        assertEquals(content, old.readText())
+        assertFalse(shared.exists())
+        assertEquals(5, store().readShared()!!.get("other").intValue())
     }
 }

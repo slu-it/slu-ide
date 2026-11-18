@@ -1,12 +1,16 @@
 package dev.sluide.projectdata
 
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import tools.jackson.databind.node.ObjectNode
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermissions
 import kotlin.io.path.createDirectories
+import kotlin.io.path.exists
 import kotlin.io.path.invariantSeparatorsPathString
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readText
@@ -238,5 +242,135 @@ class FileDataTest {
         val projectRoot = (readJson(projects.listDirectoryEntries("*.json").single()) as JsonRead.Found).node
         assertNull(projectRoot.get("files"))
         assertNull((readJson(sharedFile) as JsonRead.Found).node.get("files"))
+    }
+
+    @Test
+    fun `a move or delete leaves the entries whose key stands for no file alone`() {
+        val bad = "bad\\u0000key"
+        projects.createDirectories()
+        val projectJson = projects.resolve("p.json")
+        projectJson.writeText(
+            """{"version": 1, "path": ${mapper.writeValueAsString(project.toString())},
+               "files": {"$bad": {"v": 1}, "a.txt": {"v": 1}}}""",
+        )
+        sharedFile.writeText(
+            """{"version": 1, "files": {"relative/a.txt": {"v": 1}, "$bad": {"v": 1},
+               ${mapper.writeValueAsString(absolute("out/a.txt"))}: {"v": 1}}}""",
+        )
+
+        store.moved(dir.resolve("project/a.txt"), dir.resolve("project/c.txt"), project)
+        store.moved(dir.resolve("out/a.txt"), dir.resolve("out/b.txt"), project)
+        store.deleted(dir.resolve("project/c.txt"), project)
+        store.deleted(dir.resolve("out"), project)
+
+        assertEquals(listOf("bad\u0000key"), keys((readJson(projectJson) as JsonRead.Found).node))
+        assertEquals(setOf("relative/a.txt", "bad\u0000key"), sharedKeys().toSet())
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = ["project/a.txt", "project/d", "out/a.txt"])
+    fun `a move onto itself keeps the data`(moved: String) {
+        remember("project/a.txt", "a")
+        remember("project/d", "d")
+        remember("project/d/x.txt", "x")
+        remember("out/a.txt", "out")
+
+        store.moved(dir.resolve(moved), dir.resolve(moved), project)
+
+        assertEquals("a", value("project/a.txt"))
+        assertEquals("d", value("project/d"))
+        assertEquals("x", value("project/d/x.txt"))
+        assertEquals("out", value("out/a.txt"))
+    }
+
+    @Test
+    fun `a move between outside files creates no project file and keeps the project file's other data`() {
+        sharedFile.writeText(
+            """{"version": 1, "files": {${mapper.writeValueAsString(absolute("out/a.txt"))}: {"v": 1}}}""",
+        )
+
+        store.moved(dir.resolve("out/a.txt"), dir.resolve("out/b.txt"), project)
+        store.deleted(dir.resolve("out/zzz"), project)
+
+        assertEquals(listOf(absolute("out/b.txt")), sharedKeys())
+        assertFalse(projects.exists())
+
+        store.update(project) { it.put("lastOpened", 1) }
+        store.moved(dir.resolve("out/b.txt"), dir.resolve("out/c.txt"), project)
+
+        assertEquals(listOf(absolute("out/c.txt")), sharedKeys())
+        assertEquals(1, store.read(project)?.get("lastOpened")?.intValue())
+        assertEquals(emptyList(), projectKeys())
+        assertNull(store.fileData(dir.resolve("project/a.txt"), project))
+    }
+
+    @Test
+    fun `deleting or moving where nothing is stored creates no file`() {
+        store.deleted(dir.resolve("out/a.txt"), project)
+        store.deleted(dir.resolve("out/a.txt"), null)
+        store.moved(dir.resolve("out/a.txt"), dir.resolve("out/b.txt"), null)
+
+        assertFalse(projects.exists())
+        assertFalse(sharedFile.exists())
+    }
+
+    @Test
+    fun `without a project folder everything is kept in the shared file, also when moved or deleted`() {
+        store.updateFileData(dir.resolve("project/a.txt"), null) { it.put("value", "a") }
+        store.updateFileData(dir.resolve("project/b.txt"), null) { it.put("value", "b") }
+
+        store.moved(dir.resolve("project/a.txt"), dir.resolve("project/c.txt"), null)
+        store.deleted(dir.resolve("project/b.txt"), null)
+
+        assertEquals(listOf(absolute("project/c.txt")), sharedKeys())
+        assertEquals("a", store.fileData(dir.resolve("project/c.txt"), null)?.get("value")?.stringValue())
+    }
+
+    @Test
+    fun `an entry or a files field that is no object holds no data and is replaced by a write`() {
+        projects.createDirectories()
+        val projectJson = projects.resolve("p.json")
+        val path = mapper.writeValueAsString(project.toString())
+        projectJson.writeText("""{"version": 1, "path": $path, "files": {"a.txt": 5}}""")
+
+        assertNull(store.fileData(dir.resolve("project/a.txt"), project))
+        assertTrue(store.updateFileData(dir.resolve("project/a.txt"), project) { it.put("value", "a") })
+        assertEquals("a", value("project/a.txt"))
+
+        projectJson.writeText("""{"version": 1, "path": $path, "files": 5}""")
+        sharedFile.writeText("""{"version": 1, "files": "text"}""")
+
+        assertNull(store.fileData(dir.resolve("project/a.txt"), project))
+        store.moved(dir.resolve("project/a.txt"), dir.resolve("project/b.txt"), project)
+        assertTrue(store.updateFileData(dir.resolve("project/b.txt"), project) { it.put("value", "b") })
+        assertTrue(store.updateFileData(dir.resolve("out/b.txt"), project) { it.put("value", "o") })
+        assertEquals("b", value("project/b.txt"))
+        assertEquals("o", value("out/b.txt"))
+    }
+
+    @Test
+    fun `a file's data is none when its project has no file or no files field`() {
+        assertNull(store.fileData(dir.resolve("project/a.txt"), project))
+        assertNull(store.fileData(dir.resolve("out/a.txt"), project))
+        store.update(project) { it.put("lastOpened", 1) }
+
+        assertNull(store.fileData(dir.resolve("project/a.txt"), project))
+    }
+
+    @Test
+    fun `a move into the project keeps the entry in the shared file when the project's file cannot be written`() {
+        remember("project/a.txt", "a")
+        store.updateFileData(dir.resolve("out/s.sh"), null) { it.put("value", "script") }
+        Files.setPosixFilePermissions(projects, PosixFilePermissions.fromString("r-xr-xr-x"))
+        try {
+            assumeTrue(!Files.isWritable(projects), "the folder is writable anyway (running as root?)")
+
+            store.moved(dir.resolve("out/s.sh"), dir.resolve("project/s.sh"), project)
+        } finally {
+            Files.setPosixFilePermissions(projects, PosixFilePermissions.fromString("rwxr-xr-x"))
+        }
+
+        assertEquals(listOf(absolute("out/s.sh")), sharedKeys())
+        assertEquals(listOf("a.txt"), projectKeys())
     }
 }
