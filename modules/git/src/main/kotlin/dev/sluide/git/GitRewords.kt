@@ -38,6 +38,9 @@ class GitRewords(
     /** Runs after the new commits are written and before the branch is moved; tests move the branch meanwhile. */
     internal var beforeUpdate: () -> Unit = {}
 
+    /** Whether the JVM can pass a text to git as an argument (ADR 0038); tests take the fallback of the reflog entry. */
+    internal var canPass: (String) -> Boolean = { canPassArgument(it) }
+
     /**
      * What the dialog to edit the message of [commit] (a full hash, lowercase as git gives it) on the current branch
      * [branch] (short name) needs, or why it is refused: [commit] cannot be given to git, git is in the middle of
@@ -96,7 +99,7 @@ class GitRewords(
         }
         val newHead = rewritten.getValue(plan.head)
         beforeUpdate()
-        val reason = "reword: ${cleaned.lineSequence().first()}".takeIf { canPassArgument(it) } ?: "reword $short"
+        val reason = "reword: ${cleaned.lineSequence().first()}".takeIf { canPass(it) } ?: "reword $short"
         val moved = git.moveBranch(root, branch, newHead, plan.head, reason)
         return if (moved.success) GitRewordResult.Done(newHead) else GitRewordResult.Failed(moved.message)
     }
