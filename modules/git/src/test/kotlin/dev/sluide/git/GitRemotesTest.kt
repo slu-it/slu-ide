@@ -17,6 +17,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -401,14 +402,14 @@ class GitRemotesTest {
     }
 
     @Test
-    fun `counts the refs of the default refspec when the remote has none of its own`() {
+    fun `a remote without fetch refspecs counts no branches, as git writes none`() {
         git("config", "--unset-all", "remote.origin.fetch")
         val second = commit("Second")
 
         val fetched = remotes.fetch(repo, "origin", GitCancellation())
 
         assertTrue(fetched.result.success, fetched.result.message)
-        // No refspec: git fetches HEAD only and writes no remote branch; the tags are counted as ever.
+        // No refspec: git fetches HEAD only into FETCH_HEAD and writes no remote branch.
         assertEquals(GitFetchChanges(), fetched.changes)
         assertEquals(second, git("rev-parse", "FETCH_HEAD"))
     }
@@ -422,5 +423,22 @@ class GitRemotesTest {
 
         assertEquals(GitFetchResult(GitResult(false, "Cancelled."), cancelled = true), fetched)
         assertEquals(emptyList(), recordedCalls(log))
+    }
+
+    @Test
+    fun `the URL of a remote is none when git cannot read the configuration`() {
+        assertEquals(null, GitRemotes(failingGit(folder, "--get-all")).url(repo))
+        assertEquals(upstream.toString(), remotes.url(repo))
+    }
+
+    @Test
+    fun `a fetch without a git to run fails with its message and is no cancel`() {
+        val noGit = GitRemotes(GitCli(folder.resolve("no-such-git").toString(), System.getenv()))
+
+        val fetched = noGit.fetch(repo, "origin", GitCancellation())
+
+        assertFalse(fetched.cancelled)
+        assertFalse(fetched.result.success)
+        assertNotEquals("Cancelled.", fetched.result.message)
     }
 }

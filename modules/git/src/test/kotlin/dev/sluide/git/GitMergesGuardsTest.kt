@@ -120,7 +120,7 @@ class GitMergesGuardsTest {
     fun `a merge that stopped is a failure with git's message when what is in progress cannot be read afterwards`() {
         diverged(conflict = true)
 
-        // The first read (before the merge) works, the second one (after it) fails.
+        // `--git-path` is read once before the merge (the guard) and once after it; only the second fails.
         val result = merge(GitMerges(failingGit(folder, "--git-path", after = 1)))
 
         val failed = assertIs<GitMergeResult.Failed>(result)
@@ -152,6 +152,7 @@ class GitMergesGuardsTest {
         repo.resolve("file.txt").writeText("resolved\n")
         val unreadable = GitMergeResult.Failed(CONFLICTS_UNREADABLE)
 
+        // The first read of `--unmerged` finds what is in progress, the one after it lists the unmerged entries.
         assertEquals(unreadable, GitMerges(failingGit(folder, "--unmerged", after = 1)).continueMerge(repo))
         assertEquals(unreadable, GitMerges(failingGit(folder, "check-attr")).continueMerge(repo))
         val staging = GitMerges(failingGit(folder, "update-index")).continueMerge(repo)
@@ -252,7 +253,9 @@ class GitMergesGuardsTest {
         diverged(conflict = true)
         val head = git("rev-parse", "HEAD")
 
-        // Git exits with 1 and leaves conflicts; the failing read after it (the third of the unmerged paths) lists none.
+        // Git exits with 1 and leaves conflicts. `--unmerged` is read by the guard (twice, finding what is in progress),
+        // then after the merge for what is in progress (the third read) and for the conflicted paths (the fourth); git
+        // cannot tell the step by its arguments, so the count of 2 fails the reads after the merge.
         val result = merge(GitMerges(failingGit(folder, "--unmerged", after = 2)), GitMergeMode.SQUASH)
 
         val failed = assertIs<GitMergeResult.Failed>(result)

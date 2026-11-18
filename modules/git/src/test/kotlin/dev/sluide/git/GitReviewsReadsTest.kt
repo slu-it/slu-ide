@@ -258,4 +258,15 @@ internal class GitReviewsReadsTest : GitLogFixture() {
 
         assertEquals(mapOf("a.txt" to GitFileDiff.Text("", "a\n", listOf(GitHunk(0 until 0, 0 until 1)))), diffs)
     }
+
+    @Test
+    fun `a file whose hunks cannot be computed is left out, not given as nothing`() {
+        val from = commitFiles("First", "a.txt" to "a\n")
+        val to = commitFiles("Second", "a.txt" to "b\n")
+        val files = listOf(GitChangedFile(GitChange.MODIFIED, "a.txt"))
+
+        val diffs = failing("diff").fileDiffs(repo, from, commitSide(to), files, ignoreWhitespace = false)
+
+        assertEquals(emptyMap(), diffs)
+    }
 }

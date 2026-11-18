@@ -114,7 +114,7 @@ class GitRebasesGuardsTest {
     fun `a rebase that stopped is a failure with git's message when what is in progress cannot be read afterwards`() {
         diverged()
 
-        // The first read (before the rebase) works, the second one (after it) fails.
+        // `--git-path` is read once before the rebase (the guard) and once after it; only the second fails.
         val result = rebase(GitRebases(failingGit(folder, "--git-path", after = 1)))
 
         val failed = assertIs<GitRebaseResult.Failed>(result)
@@ -139,6 +139,7 @@ class GitRebasesGuardsTest {
         repo.resolve("file.txt").writeText("resolved\n")
         val unreadable = GitRebaseResult.Failed(CONFLICTS_UNREADABLE)
 
+        // The first read of `--unmerged` finds what is in progress, the one after it lists the unmerged entries.
         assertEquals(unreadable, GitRebases(failingGit(folder, "--unmerged", after = 1)).continueRebase(repo))
         assertEquals(unreadable, GitRebases(failingGit(folder, "check-attr")).continueRebase(repo))
         assertEquals(
@@ -177,8 +178,10 @@ class GitRebasesGuardsTest {
         assertTrue(failing.isFailure)
         git("checkout", "--ours", "file.txt")
 
-        // With the apply backend git refuses to continue an empty resolution: not skipping leaves the rebase stopped
-        // (or, with the failing read after 2 reads of the unmerged paths, unreadable afterwards: failed).
+        // With the apply backend git refuses to continue an empty resolution: not skipping leaves the rebase stopped.
+        // `--unmerged` is read four times: twice finding what is in progress, once for the unmerged entries, and then
+        // by `nothingToCommit` (after the staging), whose read the count of 2 fails: git cannot tell the step by its
+        // arguments. The read after the run fails too, so the rebase is unreadable afterwards: failed, not stopped.
         val result = GitRebases(failingGit(folder, word, after = after)).continueRebase(repo)
 
         assertFalse(result is GitRebaseResult.Done, result.toString())

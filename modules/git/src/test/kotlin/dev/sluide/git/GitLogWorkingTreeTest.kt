@@ -259,4 +259,33 @@ internal class GitLogWorkingTreeTest : GitLogFixture() {
             FileChannel.open(repo.resolve("a.txt"), StandardOpenOption.READ, StandardOpenOption.WRITE).close()
         }
     }
+
+    @Test
+    fun `a file that exists on disk but not in the commit has no diff, whatever the change says`() {
+        val base = base()
+        repo.resolve("new.txt").writeText("x\n")
+
+        assertNull(log.workingTreeFileDiff(repo, base, GitChangedFile(GitChange.MODIFIED, "new.txt")))
+    }
+
+    @Test
+    fun `a git that cannot read the diff algorithm still compares with its default`() {
+        val base = base()
+        repo.resolve("a.txt").writeText("two\n")
+
+        val diff = failing("--get-all").workingTreeFileDiff(repo, base, file)
+
+        assertEquals(GitFileDiff.Text("one\n", "two\n", listOf(GitHunk(0 until 1, 0 until 1))), diff)
+    }
+
+    @Test
+    fun `an untracked file the JVM cannot name is read through git, though the index has no size for it`() {
+        val base = base()
+        repo.resolve("new.txt").writeText("x\n")
+        log.canNameFile = { false }
+
+        val diff = log.workingTreeFileDiff(repo, base, GitChangedFile(GitChange.ADDED, "new.txt"))
+
+        assertEquals(GitFileDiff.Text("", "x\n", listOf(GitHunk(0 until 0, 0 until 1))), diff)
+    }
 }

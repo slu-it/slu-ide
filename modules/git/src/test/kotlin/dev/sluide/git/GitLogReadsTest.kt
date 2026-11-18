@@ -201,4 +201,26 @@ internal class GitLogReadsTest : GitLogFixture() {
 
         assertEquals(emptyList(), calls())
     }
+
+    @Test
+    fun `an ambiguous hash prefix is a missing revision for the changes against the working tree`() {
+        commitFiles("First", "a.txt" to "a\n")
+        // Enough commits for two to share their first four characters.
+        val input =
+            buildString {
+                for (index in 1..2000) {
+                    append("commit refs/heads/many\ncommitter A <a@example.com> ${1000 + index} +0000\n")
+                    append("data ${"Many $index".length}\nMany $index\n")
+                }
+            }
+        git("fast-import", "--quiet", "--date-format=raw", input = input)
+        val prefix =
+            git(
+                "rev-list",
+                "refs/heads/many",
+            ).lines().groupBy { it.take(4) }.entries.first { it.value.size > 1 }.key
+
+        // git prints `<revision>^{commit} missing` for it, as for an unknown revision.
+        assertEquals(GitWorkingTreeChanges.Missing, log.workingTreeChanges(repo, prefix))
+    }
 }
