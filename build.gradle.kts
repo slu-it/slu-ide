@@ -303,6 +303,10 @@ fun Project.configurePitest() {
         // return the old report as UP-TO-DATE or from the build cache.
         outputs.upToDateWhen { false }
         outputs.doNotCacheIf("The allow-list and the history change between runs under the same path") { true }
+        // pitest makes one work unit per source file and one worker runs a unit, so a run on one file used one
+        // worker (one display) only. Units of at most 10 mutants spread a file over the workers; the Gradle plugin
+        // has no property for pitest's option.
+        argumentProviders.add { listOf("--mutationUnitSize=10") }
         // The worker JVMs inherit this environment; pitest-java.sh reads it.
         if (alsaConfigPath != null) environment("ALSA_CONFIG_PATH", alsaConfigPath)
         environment("SLUIDE_PITEST_DISPLAYS", displays.get().joinToString(","))
