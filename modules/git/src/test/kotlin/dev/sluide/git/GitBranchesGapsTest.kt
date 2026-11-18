@@ -179,6 +179,24 @@ internal class GitBranchesGapsTest : GitCommitsFixture() {
     }
 
     @Test
+    fun `a detached switch whose target cannot be read is no change, whatever HEAD is`() {
+        val first = commit("First")
+        commit("Second")
+        git("switch", "-q", "--detach", first)
+
+        // HEAD cannot be read either, so two unreadable commits must not look like the same commit.
+        val result = failing("switch", "rev-parse").switchDetached(repo, "main")
+
+        assertEquals(GitResult(false, "fatal: refused by test", changed = false), result)
+    }
+
+    @Test
+    fun `canPass tells whether the JVM can hand the argument to git`() {
+        assertTrue(branches.canPass("feature/x"))
+        assertFalse(branches.canPass("lone-surrogate-\uD800"))
+    }
+
+    @Test
     fun `a switch that fails with HEAD detached at the target is a change`() {
         val first = commit("First")
         val second = commit("Second")
@@ -202,7 +220,7 @@ internal class GitBranchesGapsTest : GitCommitsFixture() {
         git("branch", "existing", first)
 
         // `branch -f` fails: an undo that moved the branch back would say so.
-        val exists = failing(" -f").createBranch(repo, "existing", first, checkout = false, overwrite = false)
+        val exists = failing("-f").createBranch(repo, "existing", first, checkout = false, overwrite = false)
         val noStart = branches.createBranch(repo, "fresh", "refs/heads/none", checkout = false, overwrite = false)
         val noStartMoved =
             branches.createBranch(
@@ -260,8 +278,10 @@ internal class GitBranchesGapsTest : GitCommitsFixture() {
         assertFalse(created.success)
         assertContains(created.message, "would be overwritten")
         assertFalse("could not" in created.message, created.message)
+        assertFalse("null" in created.message, created.message)
         assertFalse(moved.success)
         assertFalse("could not" in moved.message, moved.message)
+        assertFalse("null" in moved.message, moved.message)
         assertEquals(main, git("rev-parse", "existing"), "moved back")
         assertFalse(branches.branchExists(repo, "fresh"), "deleted again")
     }
