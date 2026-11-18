@@ -125,4 +125,33 @@ class ConnectionFormTest {
         assertEquals("jdbc:postgresql://h:1/d", form.generatedUrl())
         assertEquals("jdbc:postgresql://other/x", form.toConfig().customUrl)
     }
+
+    @ParameterizedTest
+    @CsvSource("1", "65535", " 8080 ")
+    fun `ports at the ends of the range are valid`(port: String) {
+        assertNull(form().copy(portText = port).validation())
+    }
+
+    @Test
+    fun `an unparsable port becomes the default port of the kind`() {
+        assertEquals(
+            3306,
+            form()
+                .withKind(DatabaseKind.MARIADB)
+                .copy(portText = "abc")
+                .toConfig()
+                .port,
+        )
+        assertEquals(5432, form().copy(portText = "").toConfig().port)
+        assertEquals(1, form().copy(portText = " 1 ").toConfig().port)
+    }
+
+    @Test
+    fun `a new connection may not take a name that exists even when it is the config's own`() {
+        val config = ConnectionConfig("id1", "Local", DatabaseKind.POSTGRESQL)
+        val fresh = form(config, isNew = true, names = setOf("Local"))
+        assertNull(fresh.ownName)
+        assertEquals("A connection named 'Local' exists.", fresh.validation())
+        assertEquals("Local", form(config, isNew = false, names = setOf("Local")).ownName)
+    }
 }

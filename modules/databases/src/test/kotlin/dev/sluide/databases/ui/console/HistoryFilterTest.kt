@@ -39,4 +39,9 @@ class HistoryFilterTest {
         assertEquals(HistoryFilter.Edit(3, 3, "\ns"), HistoryFilter.insertion("abc\n\ndef", 1, 1, 1, "s"))
         assertEquals(HistoryFilter.Edit(3, 3, "\ns"), HistoryFilter.insertion("abc", 3, 3, 3, "s"))
     }
+
+    @Test
+    fun `it goes at the caret at the start of a text that begins with a line break`() {
+        assertEquals(HistoryFilter.Edit(0, 0, "s"), HistoryFilter.insertion("\nabc", 0, 0, 0, "s"))
+    }
 }

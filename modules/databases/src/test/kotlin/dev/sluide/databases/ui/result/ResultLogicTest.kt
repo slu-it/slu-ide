@@ -151,4 +151,82 @@ class ResultLogicTest {
         assertEquals(60.0, GridText.columnWidth("a", listOf("1")))
         assertEquals(400.0, GridText.columnWidth("a", listOf("x".repeat(500))))
     }
+
+    @Test
+    fun `replace takes the first tab when it qualifies and skips one with pending edits`() {
+        assertEquals(0, ResultTabsLogic.replaceIndex(listOf(TabInfo(pinned = false, data = false))))
+        val tabs = listOf(TabInfo(false, false, pendingEdits = true), TabInfo(false, false))
+        assertEquals(1, ResultTabsLogic.replaceIndex(tabs))
+        assertNull(ResultTabsLogic.replaceIndex(listOf(TabInfo(false, false, pendingEdits = true))))
+    }
+
+    @Test
+    fun `output texts at their limits`() {
+        assertEquals("a".repeat(200), OutputText.statement("a".repeat(200)))
+        assertEquals("a".repeat(200) + "…", OutputText.statement("a".repeat(201)))
+        assertEquals("999 ms", OutputText.duration(999))
+        assertEquals("1.0 s", OutputText.duration(1000))
+        assertEquals("1.5 s", OutputText.duration(1500))
+    }
+
+    @Test
+    fun `output lines say row for one, rows otherwise, and more only when pages follow`() {
+        val cols = listOf(column("a"))
+
+        fun rows(
+            count: Int,
+            last: Boolean,
+        ) = StatementOutcome.Rows(
+            "q",
+            4,
+            cols,
+            FakeCursor(cols, emptyList()),
+            Page(0, 0, List(count) { listOf<Any?>(it) }, last),
+        )
+        assertEquals("09:05:07  q  →  1 row in 4 ms", OutputText.line(time, rows(1, true)).text)
+        assertEquals("09:05:07  q  →  1 row (more) in 4 ms", OutputText.line(time, rows(1, false)).text)
+        assertEquals("09:05:07  q  →  0 rows in 4 ms", OutputText.line(time, rows(0, true)).text)
+        assertEquals("09:05:07  q  →  2 rows in 4 ms", OutputText.line(time, rows(2, true)).text)
+        assertEquals(
+            "09:05:07  q  →  1 row updated in 4 ms",
+            OutputText.line(time, StatementOutcome.Updated("q", 4, 1)).text,
+        )
+        assertEquals(
+            "09:05:07  q  →  0 rows updated in 4 ms",
+            OutputText.line(time, StatementOutcome.Updated("q", 4, 0)).text,
+        )
+    }
+
+    @Test
+    fun `column widths follow the longer of header and sample, row numbers their digits`() {
+        // header "abcdefgh" + 2 = 10 characters
+        assertEquals(99.0, GridText.columnWidth("abcdefgh", listOf("1")))
+        assertEquals(99.0, GridText.columnWidth("abcdefgh", emptyList()))
+        // sample of 10 characters wins over the 3 of the header
+        assertEquals(99.0, GridText.columnWidth("a", listOf("x", "x".repeat(10), "xx")))
+        assertEquals(29.0, GridText.rowNumberWidth(9))
+        assertEquals(38.0, GridText.rowNumberWidth(99))
+        assertEquals(56.0, GridText.rowNumberWidth(1000))
+    }
+
+    @Test
+    fun `copy text quotes values with a line break or a quote and leaves others alone`() {
+        val cols = listOf(column("a"), column("b\"c"))
+        val rows = listOf(listOf<Any?>("l1\nl2", "plain"), listOf<Any?>("cr\rx", "say \"hi\""))
+        val cells = listOf(0 to 0, 0 to 1, 1 to 0, 1 to 1)
+        assertEquals(
+            "a\t\"b\"\"c\"\n\"l1\nl2\"\tplain\n\"cr\rx\"\t\"say \"\"hi\"\"\"",
+            GridText.copyText(cols, rows, cells, true),
+        )
+    }
+
+    @Test
+    fun `the selection rectangle is in index order without a column order`() {
+        val cols = listOf(column("a"), column("b"), column("c"))
+        val rows = listOf(listOf<Any?>(1, 2, 3), listOf<Any?>(4, 5, 6))
+        val (c, r) = GridText.rectangle(cols, rows, listOf(1 to 2, 0 to 0), null)
+        assertEquals(listOf("a", "c"), c.map { it.name })
+        assertEquals(listOf(listOf<Any?>(1, 3), listOf<Any?>(4, 6)), r)
+        assertEquals("1\t3\n4\t6", GridText.copyText(cols, rows, listOf(1 to 2, 0 to 0, 0 to 2, 1 to 0), false))
+    }
 }
