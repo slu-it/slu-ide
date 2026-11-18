@@ -268,4 +268,22 @@ class SqlLexerTest {
             assertEquals(listOf(str(0, n, closed = false)), regions("'" + "\\".repeat(n - 1), MARIADB))
         }
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["POSTGRESQL", "MARIADB"])
+    fun `a quote two characters before a bang is a string in both servers`(kind: String) {
+        assertEquals(listOf(str(1, 7)), regions("a'!x;y'", DatabaseKind.valueOf(kind)))
+        assertEquals(listOf(str(1, 7)), regions("/'!a;b'", DatabaseKind.valueOf(kind)))
+    }
+
+    @Test
+    fun `in PostgreSQL a bang comment is an ordinary block comment`() {
+        assertEquals(listOf(comment(0, 13, closed = true)), regions("/*!40101 x */"))
+        assertEquals(listOf(comment(0, 15, closed = true)), regions("/*M!100100 x */"))
+    }
+
+    @Test
+    fun `a PostgreSQL string behind a character that is no e takes no backslash escapes`() {
+        assertEquals(listOf(str(4, 8), str(12, 15)), regions("x = 'a\\' || 'b'"))
+    }
 }
