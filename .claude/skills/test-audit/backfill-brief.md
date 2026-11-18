@@ -55,7 +55,11 @@ and read a neighbouring test as a pattern, never the whole class.
 - Tests go into the class of the neighbouring behavior or a class named by topic, never a `*GapsTest` class;
   search for an existing test first and extend it instead of restating it.
 - Assert the behavior (the message equals git's message), not the absence of the mutant's text.
-- A test that could hang on a regression (a FIFO, a blocking read) runs under `assertTimeoutPreemptively`.
+- A test that could hang on a regression (a FIFO, a blocking read) runs under `assertTimeoutPreemptively`. Never open
+  a FIFO plainly for reading in a test or its cleanup: once a mutant consumed the writer the open waits forever; use
+  `FileChannel.open(pipe, READ, WRITE)`, which does not block on Linux.
+- A fix of a behavior the main session decided also checks the siblings: every other place that does the same thing
+  (each `toInt()` on engine numbers, each `Instant` conversion), so one review round finds them, not three.
 - pitest's history replays old results (timeouts, and kills too) as long as the mutated class is unchanged, even
   after the tests changed: delete `<module>/build/pitest/history-unit.bin` before the final run, always.
 
