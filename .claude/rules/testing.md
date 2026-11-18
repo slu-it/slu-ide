@@ -11,12 +11,17 @@ Details, examples and the stories behind these rules: `docs/testing.md`, ADR 008
 - Red before green (ADR 0178): each test fails on its assertion before its code exists; a compile error or a stub's
   exception is not a red. Guards, filters, wiring lines and race fixes come last, one at a time, each red with only
   it missing; a fix's test fails on the unfixed code first. A test that passes at once gets a sharper input, never a
-  weaker assertion. Existing behavior (refactors, gap tests) gets a break check instead.
-- `.claude/scripts/break-check.sh` after the last commit: fix each survivor (sharper input, or delete the dead code)
-  or explain it as equivalent by naming why no input can tell it apart (the caller already guarantees it; the
-  platform does it anyway on every OS, with the source that shows it); "no test reaches it" is a gap, not an
-  equivalence. The guard-like lines it lists as not mutated get a break check by hand, each named in the report. A
-  timeout is not a kill: read its log, rerun the file, or break it by hand.
+  weaker assertion. Existing behavior (moved code, gap tests) gets a mutation run before and after instead
+  (`mutation-check.sh --display <N> --whole <base> <file>`: the new test kills the mutants on the lines it targets).
+  A unit test: both runs `--unit-only`. A UI test: the before run `--unit-only`, the after run with the UI stage and
+  the displays the brief hands out (`--displays`).
+- `.claude/scripts/mutation-check.sh --display <N> --detach <base>` after the last commit (ADR 0185): every SURVIVED
+  or no-coverage mutant is killed with a sharper input or test, removed as dead code, or reported as equivalent by
+  naming the input that cannot tell it apart (the caller already guarantees it; the platform does it anyway on every
+  OS, with the source that shows it); "no test reaches it" is a gap, not an equivalence. A timeout is not a kill
+  unless the mutation visibly makes a loop endless or an allocation unbounded; name that per timeout. A hand break
+  check stays only for what pitest cannot mutate: removing an inlined `filter { }` (its predicate always true), a
+  `close()` call, an inline function of ours used only from another package or module (it gets no mutants).
 - Unit tests over UI tests. A `@Tag("ui")` test only for what needs a scene: rendering, focus, event routing,
   bindings, WebKit.
 - Logic in a control is extracted (an `internal` pure function, a plain class, an FX-free host with a fake),

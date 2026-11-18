@@ -31,13 +31,21 @@ update, docs to read, the master commit and your display.
      after the last review. `verify: INCOMPLETE` is not a pass.
    - Then run `.claude/scripts/check-unused-imports.sh <the files you changed>` and remove what it lists.
 5. Update `docs/` and `docs/index.md` when behavior, structure or decisions change.
-6. After the last commit: `.claude/scripts/break-check.sh --display <N> --detach <master commit from the brief> --
-   <the test classes the brief names>`, then `.claude/scripts/break-check.sh --wait` (it returns within 100 s, inside
-   the Bash call's default timeout) until its exit code is not 5.
-   Fix survivors as the rule says in `fixup!` commits (after `verify.sh --changed`), then rerun only them: the same
-   call with `--survivors` added (a file whose production code the fix changed gets all its mutants again).
-   A `--unit-only` run followed by a plain `--survivors` run counts as the full run (the second adds the UI tests for
-   the unit run's survivors); never report a unit-only line alone.
+6. After the last commit: `.claude/scripts/mutation-check.sh --display <N> --detach <master commit from the brief>`,
+   then `.claude/scripts/mutation-check.sh --wait` (it returns within 100 s, inside the Bash call's default timeout)
+   until its exit code is not 5 (5 means still running).
+   Every SURVIVED or no-coverage mutant is killed with a sharper input or test, removed as dead code, or reported as
+   equivalent with the input that cannot tell it apart. A timeout is not a kill unless the mutation visibly makes a
+   loop endless or an allocation unbounded; name that per timeout (ADR 0185).
+   Fix in `fixup!` commits (after `verify.sh --changed`), then rerun the same command: pitest's history makes it cheap.
+   One display is one UI worker, fine in change mode; a brief that needs a whole-file UI stage hands out several.
+   `--unit-only` is for a quick look while iterating, never the final run.
+   For existing behavior (moved code, whose diff counts only changed lines, and gap tests; a refactor's added lines
+   are mutated in change mode): run `mutation-check.sh --display <N> --whole <master commit> <production file>` before
+   and after the new test; the test must kill the mutants on the lines it targets. A unit test: both runs
+   `--unit-only`. A UI test: the before run `--unit-only`, the after run with the UI stage and the displays the brief
+   hands out (`--displays`). A hand break check stays only for removing an inlined `filter { }` (its predicate always
+   true), a `close()` call, or an inline function of ours used only from another package or module (no mutants).
 
 In a worktree (`.claude/worktrees/...`):
 - Before the first edit: `.claude/scripts/worktree-check.sh start <master commit from the brief>`. On a conflict
@@ -62,7 +70,7 @@ it breaks, tests included, into the same commit, and a production fix found whil
 that added that code (a `fixup!`), not into the test commit. Check with `git show --stat` before reporting.
 
 Report briefly: commits, the verify command and its last line, per new test its red line (test name and the failing
-assertion from the digest; for a test of existing behavior, what you broke instead), the break-check summary lines (the
-full run's and the last rerun's, the last one from a run without `--unit-only`), each survivor and timeout you left with
-its reason and the hand break checks of the lines it did not mutate, deviations from the brief, what needs a real-app
-look. No code dumps.
+assertion from the digest; for a test of existing behavior, the targeted mutants: SURVIVED or no coverage before,
+killed after; what you broke by hand only for the hand checks that remain), the mutation-check summary line (the last
+run, not a `--unit-only` one), every mutant you left with its reason, the hand break checks of what pitest cannot
+mutate, deviations from the brief, what needs a real-app look. No code dumps.

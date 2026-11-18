@@ -20,8 +20,11 @@ waits on a real signal, fix weak assertions, and add the listed missing tests.
 - Production changes only as small as the finding says (an `internal` pure function, a constructor parameter with
   the old value as default, a visibility change). Behavior must not change except for bugs your prompt explicitly
   decides to fix. Anything larger, or a finding that turns out wrong: skip it and report why.
-- Never weaken a test to get it green. Suggested gap tests also get a break check: an audit's suggestion can be
-  vacuous. A bug fix the prompt decides starts with its test failing on the unfixed code.
+- Never weaken a test to get it green. Suggested gap tests also get a mutation run
+  (`mutation-check.sh --display <N> --whole <base> <file>` before and after; a unit test: both `--unit-only`; a UI
+  test: the after run with the UI stage) or, for removing an inlined `filter { }`, a `close()` or an inline function
+  used only from another package, a break check by hand: an audit's suggestion can be vacuous. A bug fix the prompt
+  decides starts with its test failing on the unfixed code.
 - Production files stay under 600 lines.
 
 ## Verification

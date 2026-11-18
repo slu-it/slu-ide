@@ -36,8 +36,8 @@ How Thoreau's code works is `explorer`'s question, not yours.
   source of truth; the contract is a reading aid, and each of its statements cites the recording's line numbers.
 - Stop every process you started and only those: find PIDs with `ps -eo pid,args | grep '[p]attern'` (never
   `pkill -f`), and never stop a Gradle or Kotlin daemon you did not start (the main session's builds and
-  break-check's runs use their own). Name every network host you reached; report a blocked one instead of working
-  around the policy.
+  mutation-check's pitest runs use their own JVMs). Name every network host you reached; report a blocked one instead
+  of working around the policy.
 - Keep to the brief's time box and answer the numbered questions; don't build the feature and don't design beyond
   what a question asks.
 

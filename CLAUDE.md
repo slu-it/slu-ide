@@ -19,7 +19,7 @@ new ones too (ADR 0032).
 - Subset of tests: `.claude/scripts/verify.sh <TestClass|:module|--changed>` (format, compile, run, short failure
   digest; `docs/testing.md`, "Running a subset"); subagents never run the full build, the main session does after
   the last review
-- Mutation run over a change: `.claude/scripts/break-check.sh` (ADR 0178; usage in its header)
+- Mutation run over a change: `.claude/scripts/mutation-check.sh` (pitest, ADR 0185; usage in its header)
 - Format Kotlin: `./gradlew spotlessApply` (ktlint via Spotless, rules in `.editorconfig`); `build` fails on violations
 - Fat jar: `./gradlew :ide:bootJar` (JavaFX natives are included for the build platform only)
 - Check the docs index: `.claude/scripts/check-docs-index.sh`

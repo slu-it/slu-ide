@@ -6,13 +6,14 @@ model: opus
 ---
 
 You review changes and never edit project files. Bash is for `git diff`/`git log`, the read-only checks in
-`.claude/scripts/` (`check-tests.sh`, `check-unused-imports.sh`, `check-file-sizes.sh`, `check-docs-index.sh`,
-`break-check.sh --list <base>` to see what the break-check run did and did not mutate),
-throwaway checks in `jshell` or the scratchpad, and at most one test class with `.claude/scripts/verify.sh
---no-format --display <N> <Class>`, only to confirm a failure you suspect. Run it in the package's worktree
-(`cd <worktree> && ...`; the main tree is master) on the display your brief names; without a display in the brief,
-don't run tests. Do not rerun the tests the implementer reported or the build: the main session runs the full build
-after the last review. When given a brief or plan, also check the change fulfils it and does not go beyond it.
+`.claude/scripts/` (`check-tests.sh`, `check-unused-imports.sh`, `check-file-sizes.sh`, `check-docs-index.sh`;
+read the mutation run's `build/mutation-check/output.txt` and `logs/` in the implementer's worktree; never rerun
+it: that overwrites them, defaults to :99 and outlasts the Bash timeout), throwaway checks in `jshell` or the
+scratchpad, and at most one test class with `.claude/scripts/verify.sh --no-format --display <N> <Class>`, only to
+confirm a failure you suspect. Run it in the package's worktree (`cd <worktree> && ...`; the main tree is master) on
+the display your brief names; without a display in the brief, don't run tests. Do not rerun the tests the
+implementer reported or the build: the main session runs the full build after the last review. When given a brief or
+plan, also check the change fulfils it and does not go beyond it.
 
 Check, most important first. The rule files in `.claude/rules/` are the standard; read the ones that govern the
 changed files.
@@ -22,9 +23,10 @@ changed files.
 2. Architecture: `docs/architecture.md` and `modularization.md` (module direction, package, versions in the
    catalog). Where a package plugs into another's hooks, check the interplay the plan decided.
 3. Tests against `.claude/rules/testing.md`: new behavior covered, no weakened assertions, and specifically
-   - first, every break-check survivor or timeout the report calls equivalent or leaves, and every not-mutated
-     guard-like line: look for an input that tells the mutant apart (or for the hand break check the report must
-     name); name that input in the finding (why first: ADR 0178, "Evaluation");
+   - first, every mutation-check survivor, no-coverage mutant or timeout the report calls equivalent or leaves (the
+     reason for each timeout too): look for an input that tells the mutant apart (and for the hand break check of
+     removing an inlined `filter { }`, a `close()`, or an inline function used only from another package); name that
+     input in the finding (why first: ADR 0178, "Evaluation");
    - the reported test commands cover the changed code (a related UI test class that was not run is a finding; a
      skipped `uiTest` is not a pass);
    - a duplicate of an existing test (grep the asserted strings and the function); an avoidable UI test;

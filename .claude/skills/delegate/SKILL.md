@@ -41,7 +41,7 @@ One place for the numbers; briefs hand them out.
 |---|---|
 | `:99` to `:106` | the final gate's pool (`full-build.sh`); `:99` is also `verify.sh`'s default in the main session |
 | `:107` | `run-app.sh` (real-app check) |
-| `:111` upwards | one per running agent, implementer or reviewer, named in its brief |
+| `:111` upwards | one per running agent, implementer or reviewer, named in its brief (several for a whole-file UI stage) |
 
 ## Explorer brief
 Numbered questions, what the answer feeds into (the plan, a brief, a bug hunt) and how thorough to be.
@@ -89,7 +89,7 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
    `docs/ui-conventions.md`. For large files, the classes or line ranges that matter.
 8. Base, display and scratch folder: the master commit for `worktree-check.sh start`, the agent's display, and a
    named scratchpad subfolder (`<scratchpad>/<package>`): parallel agents told "your own subfolder" picked the same one
-   and overwrote each other's break-check scripts.
+   and overwrote each other's scripts.
 9. The interactions the plan decided (`feature` skill, "Plan file"), repeated in the brief of every package that
    provides or consumes a hook, with the parts that hold only in one mode.
 
@@ -100,8 +100,8 @@ stayed unchanged may find it removed when it resumes; send a new agent with a ne
 ## Reviewer brief
 - What to review: `git diff master...<branch>` in the package's worktree (path and branch from the implementer's
   report), or a commit range on master.
-- The implementer's brief or the plan section, and the implementer's report (test commands, red lines, break-check
-  summary and survivors).
+- The implementer's brief or the plan section, and the implementer's report (test commands, red lines, mutation-check
+  summary and the mutants left).
 - A display of its own, if it may confirm a suspected failure with a test.
 - Not the main session's conclusions: give it the code and docs to judge.
 
@@ -109,7 +109,7 @@ stayed unchanged may find it removed when it resumes; send a new agent with a ne
 The reviewer labels each finding Blocker, Should or Nit (definitions in `.claude/agents/reviewer.md`).
 - Blockers and Shoulds go back to the same implementer with SendMessage (it keeps its context). The message asks
   for the fix's test red first: failing on the unfixed code for a bug, failing with the guard removed for a vacuous
-  test; then `break-check.sh --survivors` (it reruns every mutant of a file whose production code the fix changed).
+  test; then the same `mutation-check.sh` run again (pitest's history keeps it cheap).
 - A re-review only when a Blocker was fixed; for fixed Shoulds the main session reads the fix diff itself.
 - Nits: the main session fixes the ones worth a line itself, or drops them; the final report names what was dropped.
   Nits never start another implementer round.
@@ -152,8 +152,9 @@ package that changes what the user sees and once more at the end:
 ## Final gate
 Once the cross-package review has no Blockers and no agent runs Gradle in the main tree, the main session runs
 `.claude/scripts/full-build.sh` in the background (what it runs and checks: its header). Never start it while an
-implementer still edits or builds in the main tree: both share `build/`. It refuses while a break-check run keeps its
-own Gradle daemon (about 1.2 GB), and stops the daemons killed runs left behind.
+implementer still edits or builds in the main tree: both share `build/`. Nor while an agent's
+`mutation-check.sh` runs: a pitest run uses Gradle plus up to 4 worker JVMs, and `full-build.sh` cannot see runs in
+other worktrees.
 
 The main session fixes gate failures itself instead of starting another implementer round: rerun the failing class
 with `.claude/scripts/verify.sh <Class>`, fix the cause (never by weakening the test), fold the fix into the matching
@@ -167,13 +168,13 @@ the gate again. Hand back to the implementer only when the failure turns out to 
   `.claude/scripts/test-times.sh` reads the times afterwards.
 
 When the main session fixes something itself:
-- Red before green holds for the main session's fixes too. Once a fix is committed, `break-check.sh <base> <file>`
-  on the touched files replaces the hand break check (it refuses uncommitted files), except for the lines it lists
-  as not mutated.
-- Read a break check's result as a pass or fail of its own. Spotless reformats code after an edit, so a marker or a
+- Red before green holds for the main session's fixes too. Once a fix is committed, `mutation-check.sh <base> <file>`
+  on the touched files replaces the hand break check (it refuses uncommitted files), except for what pitest cannot
+  mutate (removing an inlined `filter { }`, a `close()` call, an inline function used only from another package).
+- Read a hand break check's result as a pass or fail of its own. Spotless reformats code after an edit, so a marker or a
   `sed` restore can stop matching: check the restored line with `grep` before committing.
-- Restore a break check from a copy of the file (`cp` before breaking), never with `git checkout -- <file>`: while
-  the fix is uncommitted that throws the fix away too.
+- Restore a hand break check (the remaining ones) from a copy of the file (`cp` before breaking), never with `git
+  checkout -- <file>`: while the fix is uncommitted that throws the fix away too.
 - Never pipe `verify.sh` into `tail` in a command chain that commits: the pipe hides the failing exit code.
 - Remove debug output in the same edit that added it, and check with `git diff` that none is left.
 
