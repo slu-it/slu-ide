@@ -48,4 +48,21 @@ class PageStateTest {
         assertEquals(next, s.canNext)
         assertEquals(lastEnabled, s.canLast)
     }
+
+    @ParameterizedTest
+    @CsvSource(
+        "500,1,231,true,100,501–731 of 731",
+        "500,0,12,true,50,1–12 of 50",
+        "500,0,12,false,50,1–12 of 50+",
+    )
+    fun `the total is the larger of the known row count and the last row shown`(
+        size: Int,
+        index: Int,
+        rows: Int,
+        last: Boolean,
+        known: Int,
+        expected: String,
+    ) {
+        assertEquals(expected, PageState(size, index, rows, last, known, false).label)
+    }
 }

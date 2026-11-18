@@ -204,4 +204,50 @@ class CellFormatTest {
                 Arguments.of("10110", col("a", Types.BIT, "bit")),
             )
     }
+
+    @ParameterizedTest
+    @CsvSource(
+        "true,true",
+        "TRUE,true",
+        "1,true",
+        "t,true",
+        "T,true",
+        "false,false",
+        "FALSE,false",
+        "0,false",
+        "f,false",
+        "F,false",
+    )
+    fun `booleans are typed as words or digits`(
+        text: String,
+        expected: Boolean,
+    ) {
+        assertEquals(expected, CellFormat.parse(text, col("b", Types.BOOLEAN)))
+    }
+
+    @ParameterizedTest
+    @CsvSource("bit", "varbit")
+    fun `postgresql bit strings stay text`(typeName: String) {
+        assertEquals("101", CellFormat.parse("101", col("b", Types.BIT, typeName)))
+    }
+
+    @Test
+    fun `a mariadb BIT column is a boolean`() {
+        assertEquals(true, CellFormat.parse("1", col("b", Types.BIT, "BIT")))
+        assertEquals(true, CellFormat.parse("1", col("b", Types.BIT, "Bit")))
+    }
+
+    @Test
+    fun `display of big integers and other temporal values`() {
+        assertEquals(
+            "123456789012345678901234567890",
+            CellFormat.display(java.math.BigInteger("123456789012345678901234567890")),
+        )
+        assertEquals("2024", CellFormat.display(java.time.Year.of(2024)))
+        assertEquals("2024-03", CellFormat.full(java.time.YearMonth.of(2024, 3)))
+        assertEquals(
+            "123456789012345678901234567890",
+            CellFormat.full(java.math.BigInteger("123456789012345678901234567890")),
+        )
+    }
 }

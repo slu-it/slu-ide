@@ -45,4 +45,10 @@ class EditabilitiesTest {
         assertEquals("The table has no primary key", reason(cols, emptyList(), false))
         assertEquals("The primary key column id2 is not in the result", reason(cols, listOf("id", "id2"), false))
     }
+
+    @Test
+    fun `no single table when the first column has no table or an empty one`() {
+        assertNull(Editabilities.singleTable(kind, listOf(col("a", table = null), col("b"))))
+        assertNull(Editabilities.singleTable(kind, listOf(col("a", table = ""), col("b", table = ""))))
+    }
 }
