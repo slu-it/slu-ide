@@ -85,7 +85,8 @@ class ConnectFailuresTest {
     @Test
     fun `the message of a refused connection is the driver's own`() {
         assertEquals(
-            "Connection to 127.0.0.1:1 refused. Check that the hostname and port are correct and that the postmaster is accepting TCP/IP connections.",
+            "Connection to 127.0.0.1:1 refused. Check that the hostname and port are correct and that the " +
+                "postmaster is accepting TCP/IP connections.",
             ConnectFailures.message(CompletionException(pgRefused()), config, null),
         )
         assertEquals(
