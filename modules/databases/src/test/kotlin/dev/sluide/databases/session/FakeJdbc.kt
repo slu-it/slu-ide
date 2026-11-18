@@ -12,6 +12,7 @@ import java.sql.Types
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /** What a fake statement does for one SQL text. */
 sealed interface FakeResult {
@@ -62,6 +63,23 @@ class FakeDatabase(
     /** Runs when a connection is aborted. */
     @Volatile var onAbort: () -> Unit = {}
 
+    /**
+     * What a call of a connection, statement or result set throws: given `session: setQueryTimeout` (the connection's
+     * name, then the method) it answers the exception, else null. See [failOn].
+     */
+    @Volatile var failure: (String) -> Exception? = { null }
+
+    /** Makes each of [calls] (`session: commit`, `metadata: isClosed`, ...) throw [error] (an SQLException by default). */
+    fun failOn(
+        vararg calls: String,
+        error: (String) -> Exception = { SQLException("fake failure of $it", "XX000") },
+    ) {
+        failure = { if (it in calls) error(it) else null }
+    }
+
+    /** How often `isValid` was asked, on any connection. */
+    val isValidCalls = AtomicInteger()
+
     /** Whether opening another connection ([reconnect]) fails. */
     @Volatile var connectFails = false
 
@@ -105,7 +123,7 @@ class FakeDatabase(
     private fun connection(name: String): Connection {
         val transaction = Transaction()
         var closed = false
-        return proxy<BaseConnection> { self, method, args ->
+        return proxy<BaseConnection>(name) { self, method, args ->
             when (method) {
                 "createStatement" -> {
                     statement(name, transaction)
@@ -154,6 +172,7 @@ class FakeDatabase(
                 }
 
                 "isValid" -> {
+                    isValidCalls.incrementAndGet()
                     valid && !closed
                 }
 
@@ -188,7 +207,7 @@ class FakeDatabase(
             if (result is FakeResult.Fails) transaction.failed()
             return result
         }
-        return proxy { _, method, args ->
+        return proxy(connection) { _, method, args ->
             when (method) {
                 "setFetchSize" -> {
                     log += "$connection: fetchSize=${args[0]}"
@@ -289,7 +308,7 @@ class FakeDatabase(
         val rows = result.rows
         val width = rows.firstOrNull()?.size ?: 1
         var row = -1
-        return proxy { _, method, args ->
+        return proxy(connection) { _, method, args ->
             when (method) {
                 "next" -> {
                     if (++row == result.failAt) throw result.failure
@@ -343,14 +362,27 @@ class FakeDatabase(
     private fun unsupported(method: String): Nothing = throw UnsupportedOperationException("fake JDBC: $method")
 
     private inline fun <reified T> proxy(
+        connection: String? = null,
         crossinline handler: (self: Any, method: String, args: Array<Any?>) -> Any?,
     ): T =
         Proxy.newProxyInstance(T::class.java.classLoader, arrayOf(T::class.java)) { self, method, args ->
             when (method.name) {
-                "toString" -> "fake ${T::class.java.simpleName}"
-                "hashCode" -> System.identityHashCode(self)
-                "equals" -> self === args?.get(0)
-                else -> handler(self, method.name, args ?: emptyArray()).takeUnless { it == Unit }
+                "toString" -> {
+                    "fake ${T::class.java.simpleName}"
+                }
+
+                "hashCode" -> {
+                    System.identityHashCode(self)
+                }
+
+                "equals" -> {
+                    self === args?.get(0)
+                }
+
+                else -> {
+                    connection?.let { failure("$it: ${method.name}") }?.let { throw it }
+                    handler(self, method.name, args ?: emptyArray()).takeUnless { it == Unit }
+                }
             }
         } as T
 }
