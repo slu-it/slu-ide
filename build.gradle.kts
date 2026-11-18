@@ -225,7 +225,6 @@ fun Project.configurePitest() {
     val libs = rootProject.libs
     dependencies {
         add("pitest", project(":tools:pitest-kotlin"))
-        add("pitest", libs.pitest.history)
     }
 
     fun list(name: String) =
@@ -283,10 +282,6 @@ fun Project.configurePitest() {
                 .gradleProperty("sluide.pitest.threads")
                 .map(String::toInt)
                 .orElse(ui.zip(displays) { isUi, ds -> if (isUi) ds.size.coerceAtLeast(1) else unitThreads })
-        val historyName = ui.map { if (it) "history-ui.bin" else "history-unit.bin" }
-        val history = buildDirectory.zip(historyName) { dir, name -> dir.file("pitest/$name") }
-        historyInputLocation = history
-        historyOutputLocation = history
         jvmArgs =
             ui.map { isUi ->
                 listOf(
@@ -302,10 +297,10 @@ fun Project.configurePitest() {
     }
 
     tasks.named<JavaExec>("pitest") {
-        // Only the paths of the allow-list and the history are inputs, not their content, so a rewritten file would
-        // return the old report as UP-TO-DATE or from the build cache.
+        // Only the path of the allow-list is an input, not its content, so a rewritten file would return the old
+        // report as UP-TO-DATE or from the build cache.
         outputs.upToDateWhen { false }
-        outputs.doNotCacheIf("The allow-list and the history change between runs under the same path") { true }
+        outputs.doNotCacheIf("The allow-list changes between runs under the same path") { true }
         // pitest makes one work unit per source file and one worker runs a unit, so a run on one file used one
         // worker (one display) only. Units of at most 10 mutants spread a file over the workers; the Gradle plugin
         // has no property for pitest's option.

@@ -109,7 +109,7 @@ stayed unchanged may find it removed when it resumes; send a new agent with a ne
 The reviewer labels each finding Blocker, Should or Nit (definitions in `.claude/agents/reviewer.md`).
 - Blockers and Shoulds go back to the same implementer with SendMessage (it keeps its context). The message asks
   for the fix's test red first: failing on the unfixed code for a bug, failing with the guard removed for a vacuous
-  test; then the same `mutation-check.sh` run again (pitest's history keeps it cheap).
+  test; then the same `mutation-check.sh` run again.
 - A re-review only when a Blocker was fixed; for fixed Shoulds the main session reads the fix diff itself.
 - Nits: the main session fixes the ones worth a line itself, or drops them; the final report names what was dropped.
   Nits never start another implementer round.

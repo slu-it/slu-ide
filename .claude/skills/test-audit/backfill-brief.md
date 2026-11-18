@@ -60,8 +60,6 @@ and read a neighbouring test as a pattern, never the whole class.
   `FileChannel.open(pipe, READ, WRITE)`, which does not block on Linux.
 - A fix of a behavior the main session decided also checks the siblings: every other place that does the same thing
   (each `toInt()` on engine numbers, each `Instant` conversion), so one review round finds them, not three.
-- pitest's history replays old results (timeouts, and kills too) as long as the mutated class is unchanged, even
-  after the tests changed: delete `<module>/build/pitest/history-unit.bin` before the final run, always.
 
 ## Limits
 - Production changes only: an `internal` extraction a test needs (ADR 0084), a constructor parameter with the real

@@ -37,7 +37,7 @@ update, docs to read, the master commit and your display.
    Every SURVIVED or no-coverage mutant is killed with a sharper input or test, removed as dead code, or reported as
    equivalent with the input that cannot tell it apart. A timeout is not a kill unless the mutation visibly makes a
    loop endless or an allocation unbounded; name that per timeout (ADR 0185).
-   Fix in `fixup!` commits (after `verify.sh --changed`), then rerun the same command: pitest's history makes it cheap.
+   Fix in `fixup!` commits (after `verify.sh --changed`), then rerun the same command.
    One display is one UI worker, fine in change mode; a brief that needs a whole-file UI stage hands out several.
    `--unit-only` is for a quick look while iterating, never the final run.
    For existing behavior (moved code, whose diff counts only changed lines, and gap tests; a refactor's added lines

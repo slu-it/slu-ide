@@ -33,7 +33,7 @@ Mutation runs use pitest 1.30.2. This amends ADR 0178 (its mechanics of the muta
 - **Gradle wiring** (`configurePitest()` in the root `build.gradle.kts`) on every Kotlin module outside `:tools`,
   driven by `-Psluide.pitest.*`: mutators DEFAULTS, REMOVE_CONDITIONALS_EQUAL_IF/ELSE and NON_VOID_METHOD_CALLS; a
   timeout constant of 35 s (the longest test wait is 30 s); `--mutationUnitSize=10` so one file spreads over the
-  workers; history files; `pitest-java.sh` leases one display per worker JVM for UI runs.
+  workers; `pitest-java.sh` leases one display per worker JVM for UI runs.
 - **`mutation-check.sh`** drives it, per module, in two stages:
   1. The unit stage runs the module's unit tests over the mutants on the change's added lines (or, with `--whole`,
      every line of the given files).
@@ -54,7 +54,11 @@ Mutation runs use pitest 1.30.2. This amends ADR 0178 (its mechanics of the muta
   - break-check's private Gradle daemon: pitest runs in its own JVMs.
   - The "not mutated, hand break check" list: pitest mutates every jump, multi-line conditions and `when` branches
     included.
-  - `--list` and `--survivors`: pitest's history makes a plain rerun cheap.
+  - `--list` and `--survivors`: a plain rerun is cheap enough.
+  - pitest's history (`pitest-history-plugin`), added first and removed on 2026-11-18: it replayed a mutant's old
+    result whenever its class was unchanged, without checking whether the tests had changed. In the gap backfill,
+    where only tests change, final runs showed timeouts and survivors that the new tests no longer allowed, and kills
+    that no longer held. Every run now runs every mutant.
   - The restore machinery: pitest never edits sources.
 - **Accepted gaps:**
   - Removing an inlined `filter { }` (its predicate always true): no mutator does that. The plan accepted

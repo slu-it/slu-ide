@@ -23,10 +23,8 @@
 #      class, method, descriptor, mutator and indexes, not by line. The UI stage's "n mutants" are the ones the unit
 #      stage left. It costs about one run of the module's UI tests plus seconds per mutant.
 # Gradle runs on the shared daemon (--no-daemon in a worktree). Each call's output and a copy of its mutations.xml:
-# build/mutation-check/logs/<module>-<unit|ui>.{log,xml}; pitest's history in <module>/build/pitest/history-*.bin makes
-# a rerun after a fix cheap (mutants whose class and tests are unchanged are not run again). It replays a TIMED_OUT
-# result whenever the mutated class is unchanged, even when the tests changed: delete history-unit.bin (or
-# history-ui.bin) before rerunning a timeout a new test should kill.
+# build/mutation-check/logs/<module>-<unit|ui>.{log,xml}. Every run starts fresh: pitest's history plugin replayed old
+# results (timeouts, kills, survivors) whenever the mutated class was unchanged, even after the tests changed.
 # Output: one line per mutant left, sorted by file and line:
 #   `SURVIVED|no coverage|timeout|memory error|run error  path:line  <Mutator>: <description>`
 # (--verbose adds `killed  path:line  ...  [Test.method]`), then
