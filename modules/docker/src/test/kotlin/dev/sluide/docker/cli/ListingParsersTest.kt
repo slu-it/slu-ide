@@ -328,6 +328,18 @@ class ListingParsersTest {
     }
 
     @Test
+    fun `a port too large for an int is dropped, the other ports and containers stay`() {
+        val containers =
+            parseContainers(
+                """{"ID":"a","Ports":"99999999999/tcp, 80/tcp"}""" + "\n" + """{"ID":"b","Ports":"9000/tcp"}""",
+            )
+
+        assertEquals(listOf("a", "b"), containers.map { it.name })
+        assertEquals(listOf(PortMapping(null, null, 80, "tcp")), containers[0].ports)
+        assertEquals(listOf(null), parsePorts("0.0.0.0:99999999999->80/tcp").map { it.hostPort }, "unpublished")
+    }
+
+    @Test
     fun `a range is cut at the limit`() {
         val ports = parsePorts("0.0.0.0:1000-9000->1000-9000/tcp")
 

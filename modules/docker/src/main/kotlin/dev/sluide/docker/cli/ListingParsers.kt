@@ -88,7 +88,7 @@ internal fun parsePorts(text: String): List<PortMapping> =
     text.split(',').map { it.trim() }.filter { it.isNotEmpty() }.flatMap { part ->
         val match = portPattern.matchEntire(part) ?: return@flatMap emptyList()
         val (ip, hostFirst, hostLast, containerFirst, containerLast, protocol) = match.destructured
-        val containerStart = containerFirst.toInt()
+        val containerStart = containerFirst.toIntOrNull() ?: return@flatMap emptyList()
         val count = ((containerLast.toIntOrNull() ?: containerStart) - containerStart + 1).coerceIn(1, MAX_RANGE_PORTS)
         val hostStart = hostFirst.toIntOrNull()
         (0 until count).map { offset ->
