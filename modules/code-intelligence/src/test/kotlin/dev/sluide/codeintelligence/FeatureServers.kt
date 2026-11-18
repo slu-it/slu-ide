@@ -33,6 +33,10 @@ internal class Asked<P, R>(
  */
 internal class FeatureServer(
     resolves: Boolean = false,
+    /** `false`: the server offers no completion at all. */
+    completion: Boolean = true,
+    /** `null`: the server sends none (LSP 3.17: `triggerCharacters` is optional). */
+    completionTriggers: List<String>? = listOf("."),
 ) : FakeServer() {
     val completions = CopyOnWriteArrayList<Asked<CompletionParams, Either<List<CompletionItem>, CompletionList>>>()
     val resolved = CopyOnWriteArrayList<Asked<CompletionItem, CompletionItem>>()
@@ -42,7 +46,15 @@ internal class FeatureServer(
     init {
         capabilities =
             syncingServer().capabilities.apply {
-                completionProvider = CompletionOptions(resolves, listOf("."))
+                completionProvider =
+                    if (completion) {
+                        CompletionOptions().also {
+                            it.resolveProvider = resolves
+                            it.triggerCharacters = completionTriggers
+                        }
+                    } else {
+                        null
+                    }
                 signatureHelpProvider = SignatureHelpOptions(listOf("(", ","), listOf(")"))
                 hoverProvider = Either.forLeft(true)
             }
@@ -85,9 +97,10 @@ internal class BoundEditor(
     folder: Path,
     text: String,
     resolves: Boolean = false,
+    newServer: () -> FeatureServer = { FeatureServer(resolves) },
 ) : AutoCloseable {
     private val spec = PySpec()
-    val fx = FxServers(folder, spec) { FeatureServer(resolves) }
+    val fx = FxServers(folder, spec) { newServer() }
     val server = fx.fake.awaitRunning(spec) as FeatureServer
     val editor = FakeCodeEditor(folder.resolve("a.py"), text).apply { moveCaret(text.length) }
     val binding = fx.onFx { DocumentBinding(editor, spec, fx.servers) }
