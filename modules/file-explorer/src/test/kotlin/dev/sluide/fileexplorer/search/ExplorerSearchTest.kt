@@ -356,6 +356,43 @@ class ExplorerSearchTest {
     }
 
     @Test
+    fun `the matches are a set, empty before a search and after a root change`() {
+        assertEquals(emptySet(), search.matches)
+        nextResult = result("a.kt", "b.kt", "a.kt")
+        search.textChanged("abc")
+        settle()
+        assertEquals(setOf(Path.of("root", "a.kt"), Path.of("root", "b.kt")), search.matches)
+
+        search.rootsChanged()
+
+        assertEquals(emptySet(), search.matches)
+        assertNull(search.query)
+    }
+
+    @Test
+    fun `a failure of a walk that was cancelled meanwhile is not shown`() {
+        failure = IllegalStateException("git callback")
+        search.textChanged("abc")
+        settle0Timers()
+        backgroundTasks.toList().also { backgroundTasks.clear() }.forEach(Runnable::run)
+        search.textChanged("abcd")
+        failure = null
+        nextResult = result("a")
+        settle()
+
+        assertEquals(listOf("Searching…", "Searching…", "1 match"), statuses)
+    }
+
+    @Test
+    fun `many matches that no cap ended are counted, not announced as the first 100`() {
+        nextResult = SearchResult((1..100).map { Path.of("root", "$it") }, truncated = false)
+        search.textChanged("abc")
+        settle()
+
+        assertEquals("100 matches", statuses.last())
+    }
+
+    @Test
     fun `the first 100 matches note is decided before duplicates are removed`() {
         nextResult = SearchResult((1..100).map { Path.of("root", "${it % 50}") }, truncated = true)
         search.textChanged("abc")
