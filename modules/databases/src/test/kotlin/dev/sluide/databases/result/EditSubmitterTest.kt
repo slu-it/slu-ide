@@ -127,4 +127,49 @@ class EditSubmitterTest {
         assertFailsWith<EditConflictException> { EditSubmitter.submit(jdbc.connection, listOf(update), false) }
         assertEquals("rollback savepoint", jdbc.log.last())
     }
+
+    @Test
+    fun `a failing rollback is added to the error and auto-commit is still restored`() {
+        val jdbc = RecordingJdbc(startAutoCommit = true, failOn = { it == insert.sql }, failRollback = true)
+
+        val error =
+            assertFailsWith<SQLException> { EditSubmitter.submit(jdbc.connection, listOf(update, insert), true) }
+
+        assertEquals("boom", error.message)
+        assertEquals(listOf("rollback failed"), error.suppressed.map { it.message })
+        assertEquals(listOf("rollback", "autoCommit=true"), jdbc.log.takeLast(2))
+    }
+
+    @Test
+    fun `a failing rollback to the SQL savepoint is added to the error`() {
+        val jdbc = RecordingJdbc(startAutoCommit = true, failOn = { true }, failRollback = true)
+
+        val error =
+            assertFailsWith<SQLException> { EditSubmitter.submit(jdbc.connection, listOf(update), false) }
+
+        assertEquals("boom", error.message)
+        assertEquals(listOf("rollback failed"), error.suppressed.map { it.message })
+    }
+
+    @Test
+    fun `a failing rollback to the JDBC savepoint is added to the error`() {
+        val jdbc = RecordingJdbc(startAutoCommit = false, failOn = { true }, failRollback = true)
+
+        val error =
+            assertFailsWith<SQLException> { EditSubmitter.submit(jdbc.connection, listOf(update), false) }
+
+        assertEquals("boom", error.message)
+        assertEquals(listOf("rollback failed"), error.suppressed.map { it.message })
+    }
+
+    @Test
+    fun `a savepoint that cannot be released does not fail a submit that succeeded`() {
+        for (autoCommit in listOf(true, false)) {
+            val jdbc = RecordingJdbc(startAutoCommit = autoCommit, failRelease = true)
+
+            EditSubmitter.submit(jdbc.connection, listOf(update), autoCommitUserIdle = false)
+
+            assertTrue(jdbc.log.last().contains("RELEASE") || jdbc.log.last() == "release savepoint", "$autoCommit")
+        }
+    }
 }

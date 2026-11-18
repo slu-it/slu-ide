@@ -12,13 +12,16 @@ import java.util.concurrent.CopyOnWriteArrayList
  * A connection (JDK proxy) that records what is done to it in [log] (`autoCommit=false`, `prepare UPDATE …`,
  * `setObject 1=x type=1111`, `execute UPDATE …`, `commit`, `rollback`, `setSavepoint`, `rollback savepoint`, `release
  * savepoint`, `timeout 5`). [counts] gives the update count of each prepared SQL (default 1); [failOn] makes the SQL
- * throw; [failAutoCommitOn] makes `setAutoCommit(true)` throw.
+ * throw; [failAutoCommitOn] makes `setAutoCommit(true)` throw; [failRollback] makes every rollback (also to a
+ * savepoint, in JDBC or SQL) throw and [failRelease] every release of a savepoint; the attempt is still logged.
  */
 internal class RecordingJdbc(
     startAutoCommit: Boolean = true,
     private val counts: (String) -> Int = { 1 },
     private val failOn: (String) -> Boolean = { false },
     private val failAutoCommitOn: Boolean = false,
+    private val failRollback: Boolean = false,
+    private val failRelease: Boolean = false,
 ) {
     val log = CopyOnWriteArrayList<String>()
     private var autoCommit = startAutoCommit
@@ -58,10 +61,12 @@ internal class RecordingJdbc(
 
                 "rollback" -> {
                     log += if (args.isEmpty()) "rollback" else "rollback savepoint"
+                    if (failRollback) throw SQLException("rollback failed", "08006")
                 }
 
                 "releaseSavepoint" -> {
                     log += "release savepoint"
+                    if (failRelease) throw SQLException("release failed", "08006")
                 }
 
                 else -> {
@@ -75,6 +80,9 @@ internal class RecordingJdbc(
             when (method) {
                 "execute" -> {
                     log += "sql ${args[0]}"
+                    val sql = args[0] as String
+                    if (failRollback && sql.startsWith("ROLLBACK")) throw SQLException("rollback failed", "08006")
+                    if (failRelease && sql.startsWith("RELEASE")) throw SQLException("release failed", "08006")
                     false
                 }
 

@@ -303,4 +303,137 @@ class DataEditsTest {
         assertTrue(accepted.needsRefresh)
         assertEquals(listOf<Any?>(9L, null, null), accepted.rows.last())
     }
+
+    @Test
+    fun `editing a deleted row says which row is deleted`() {
+        val e = edits()
+        e.deleteRows(listOf(1))
+
+        val error = assertFailsWith<IllegalStateException> { e.edit(1, 1, "x") }
+
+        assertEquals("Row 2 is deleted", error.message)
+    }
+
+    @Test
+    fun `a numerically equal edit keeps the original object`() {
+        val e = edits()
+
+        e.edit(0, 0, 1)
+
+        assertEquals(1L, e.value(0, 0))
+        assertTrue(e.value(0, 0) is Long)
+        assertFalse(e.isChanged(0, 0))
+        assertFalse(e.pending)
+    }
+
+    @Test
+    fun `an edit of an added row marks the cell even when it sets null`() {
+        val e = edits()
+        val added = e.addRow()
+
+        e.edit(added, 2, null)
+
+        assertTrue(e.isChanged(added, 2))
+        assertFalse(e.isChanged(added, 1))
+        assertTrue(e.isAdded(added))
+        assertFalse(e.isAdded(0))
+    }
+
+    @Test
+    fun `pending is true for a delete, an added row and an edit only`() {
+        val untouched = edits()
+        assertFalse(untouched.pending)
+
+        val deleted = edits().also { it.deleteRows(listOf(0)) }
+        assertTrue(deleted.pending)
+        assertTrue(deleted.isDeleted(0))
+        assertFalse(deleted.isDeleted(1))
+
+        val added = edits().also { it.addRow() }
+        assertTrue(added.pending)
+
+        val edited = edits().also { it.edit(2, 2, "changed") }
+        assertTrue(edited.pending)
+
+        val back = edits().also { it.edit(2, 2, "changed") }.also { it.edit(2, 2, "z") }
+        assertFalse(back.pending)
+    }
+
+    @Test
+    fun `an original with a null key names its row`() {
+        val e =
+            DataEdits(
+                Editability.Editable(TableRef(DatabaseKind.POSTGRESQL, "s", "t"), listOf("id")),
+                cols,
+                listOf(listOf(1L, "a", "x"), listOf(null, "b", "y")),
+            )
+
+        val error = assertFailsWith<IllegalStateException> { e.statements() }
+
+        assertEquals("Row 2 has no key value", error.message)
+    }
+
+    @Test
+    fun `accepted asks for a refresh only when a row was dropped or an added row left columns out`() {
+        val none = edits()
+        none.edit(0, 1, "A")
+        assertFalse(none.accepted().needsRefresh)
+
+        val full = edits()
+        val row = full.addRow()
+        for (c in 0 until 3) full.edit(row, c, 10L + c)
+        assertFalse(full.accepted().needsRefresh)
+
+        val partial = edits()
+        val partialRow = partial.addRow()
+        partial.edit(partialRow, 0, 10L)
+        assertTrue(partial.accepted().needsRefresh)
+
+        val keyless = edits()
+        val keyless1 = keyless.addRow()
+        for (c in 1 until 3) keyless.edit(keyless1, c, "v")
+        val accepted = keyless.accepted()
+        assertTrue(accepted.needsRefresh)
+        assertEquals(3, accepted.rows.size)
+    }
+
+    @Test
+    fun `values of different kinds are never the same`() {
+        val e = edits()
+
+        e.edit(0, 0, "1")
+        e.edit(1, 1, byteArrayOf(1))
+        e.edit(2, 2, 5)
+
+        assertTrue(e.isChanged(0, 0))
+        assertTrue(e.isChanged(1, 1))
+        assertTrue(e.isChanged(2, 2))
+        val withBytes =
+            DataEdits(
+                Editability.Editable(TableRef(DatabaseKind.POSTGRESQL, "s", "t"), listOf("id")),
+                cols,
+                listOf(listOf(1L, byteArrayOf(1), 7L)),
+            )
+        withBytes.edit(0, 1, "text")
+        withBytes.edit(0, 2, "7")
+        assertTrue(withBytes.isChanged(0, 1))
+        assertTrue(withBytes.isChanged(0, 2))
+    }
+
+    @Test
+    fun `equal bytes in another array and equal numbers of other types are unchanged`() {
+        val withBytes =
+            DataEdits(
+                Editability.Editable(TableRef(DatabaseKind.POSTGRESQL, "s", "t"), listOf("id")),
+                cols,
+                listOf(listOf(1L, byteArrayOf(1, 2), BigDecimal("2.50"))),
+            )
+
+        withBytes.edit(0, 1, byteArrayOf(1, 2))
+        withBytes.edit(0, 2, 2.5)
+
+        assertFalse(withBytes.pending)
+        withBytes.edit(0, 1, byteArrayOf(1, 3))
+        assertTrue(withBytes.isChanged(0, 1))
+    }
 }
