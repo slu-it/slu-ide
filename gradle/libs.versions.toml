@@ -24,6 +24,9 @@ bouncycastle = "1.86"
 zxing = "3.5.4"
 # The mutation testing tool whose plugin tools/pitest-kotlin is; compileOnly there, pitest brings its own at run time.
 pitest = "1.30.2"
+pitest-junit5 = "1.2.3"
+pitest-history = "0.0.1"
+pitest-gradle = "1.19.0"
 
 [libraries]
 spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
@@ -72,6 +75,7 @@ snakeyaml = { module = "org.yaml:snakeyaml" }
 postgresql = { module = "org.postgresql:postgresql" }
 mariadb-java-client = { module = "org.mariadb.jdbc:mariadb-java-client" }
 pitest-entry = { module = "org.pitest:pitest-entry", version.ref = "pitest" }
+pitest-history = { module = "org.pitest:pitest-history-plugin", version.ref = "pitest-history" }
 
 [bundles]
 commonmark = [
@@ -89,3 +93,4 @@ kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotl
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 javafx = { id = "org.openjfx.javafxplugin", version = "0.1.0" }
 spotless = { id = "com.diffplug.spotless", version = "8.10.4" }
+pitest = { id = "info.solidsoft.pitest", version.ref = "pitest-gradle" }

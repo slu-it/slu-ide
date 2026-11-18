@@ -12,6 +12,7 @@ plugins {
     alias(libs.plugins.kotlin.spring) apply false
     alias(libs.plugins.spring.boot) apply false
     alias(libs.plugins.javafx) apply false
+    alias(libs.plugins.pitest) apply false
     alias(libs.plugins.spotless)
 }
 
@@ -158,6 +159,8 @@ subprojects {
             tasks.withType<Test>().configureEach { environment("ALSA_CONFIG_PATH", alsaConfigPath) }
         }
 
+        if (!project.path.startsWith(":tools")) configurePitest()
+
         val testSourceSet = extensions.getByType<SourceSetContainer>().named("test")
         // A local copy: task actions that read a property of the build script would drag the script into the
         // configuration cache.
@@ -207,6 +210,126 @@ subprojects {
                     excludeTestsMatching(split)
                 }
             if (!uiTestExcluded) tasks.named("check") { dependsOn(part1, part2) }
+        }
+    }
+}
+
+/**
+ * Mutation testing with pitest for every Kotlin module outside `:tools`, driven by `-Psluide.pitest.*` properties
+ * (`classes`, `tests`, `lines`, `ui`, `displays`, `threads`). The mutators, the report and the plugin
+ * `tools/pitest-kotlin` (junk filter, allow-list of lines) are fixed here; `pitest` is no part of `check`. UI runs
+ * (`ui=true`) put every worker JVM on a display of its own through `.claude/scripts/pitest-java.sh`.
+ */
+fun Project.configurePitest() {
+    apply(plugin = "info.solidsoft.pitest")
+    val libs = rootProject.libs
+    dependencies {
+        add("pitest", project(":tools:pitest-kotlin"))
+        add("pitest", libs.pitest.history)
+    }
+
+    fun list(name: String) =
+        providers
+            .gradleProperty(
+                "sluide.pitest.$name",
+            ).map { it.split(",").map(String::trim).filter(String::isNotEmpty) }
+    val ui = providers.gradleProperty("sluide.pitest.ui").map(String::toBoolean).orElse(false)
+    val displays = list("displays").orElse(emptyList())
+    val classes = list("classes")
+    val lines = providers.gradleProperty("sluide.pitest.lines")
+    val buildDirectory = layout.buildDirectory
+    val toolchainJava =
+        extensions
+            .getByType<JavaToolchainService>()
+            .launcherFor(extensions.getByType<JavaPluginExtension>().toolchain)
+            .map { it.executablePath.asFile.absolutePath }
+    val unitThreads = 4
+    val testPackages = "dev.sluide.${project.name.replace("-", "")}.*"
+    val alsaConfigPath = nullAlsaConfigPath.takeIf { project.path in nullAlsaProjects }
+    val rootDirectory = rootProject.projectDir
+    // The display locks are shared by the modules of one Gradle call (parallel UI runs must not lease one display).
+    val rootBuildDirectory = rootProject.layout.buildDirectory
+    val wrapper = rootProject.file(".claude/scripts/pitest-java.sh")
+
+    extensions.configure<info.solidsoft.gradle.pitest.PitestPluginExtension> {
+        pitestVersion =
+            libs.versions.pitest
+                .asProvider()
+                .get()
+        junit5PluginVersion =
+            libs.versions.pitest.junit5
+                .get()
+        mutators =
+            listOf(
+                "DEFAULTS",
+                "REMOVE_CONDITIONALS_EQUAL_IF",
+                "REMOVE_CONDITIONALS_EQUAL_ELSE",
+                "NON_VOID_METHOD_CALLS",
+            )
+        outputFormats = listOf("XML")
+        timestampedReports = false
+        skipFailingTests = false
+        // pitest allows a test 1.25 times its normal time plus this constant. A mutant that makes a test fail only
+        // after it waited (`eventually` 20 s, `waitFor` 10 s and 30 s) would count as a timeout, not a kill; the
+        // longest wait of a test is 30 s.
+        timeoutConstInMillis = 35_000
+        targetClasses = classes.orElse(emptyList())
+        targetTests = list("tests").orElse(listOf(testPackages))
+        excludedGroups = ui.map { if (it) emptyList() else listOf("ui") }
+        features =
+            lines.map { listOf("+LINES(file[${rootDirectory.resolve(it).absolutePath}])") }.orElse(emptyList())
+        threads =
+            providers
+                .gradleProperty("sluide.pitest.threads")
+                .map(String::toInt)
+                .orElse(ui.zip(displays) { isUi, ds -> if (isUi) ds.size.coerceAtLeast(1) else unitThreads })
+        val historyName = ui.map { if (it) "history-ui.bin" else "history-unit.bin" }
+        val history = buildDirectory.zip(historyName) { dir, name -> dir.file("pitest/$name") }
+        historyInputLocation = history
+        historyOutputLocation = history
+        jvmArgs =
+            ui.map { isUi ->
+                listOf(
+                    "--enable-native-access=ALL-UNNAMED",
+                    "-Dsluide.log.dir=${buildDirectory.get().asFile}/test-logs",
+                ) +
+                    if (isUi) listOf("-Dprism.order=sw") else emptyList()
+            }
+        jvmPath = ui.flatMap { isUi -> if (isUi) provider { wrapper } else provider { null } }
+    }
+
+    tasks.named<JavaExec>("pitest") {
+        // Only the paths of the allow-list and the history are inputs, not their content, so a rewritten file would
+        // return the old report as UP-TO-DATE or from the build cache.
+        outputs.upToDateWhen { false }
+        outputs.doNotCacheIf("The allow-list and the history change between runs under the same path") { true }
+        // The worker JVMs inherit this environment; pitest-java.sh reads it.
+        if (alsaConfigPath != null) environment("ALSA_CONFIG_PATH", alsaConfigPath)
+        environment("SLUIDE_PITEST_DISPLAYS", displays.get().joinToString(","))
+        environment("SLUIDE_PITEST_JAVA", toolchainJava.get())
+        environment(
+            "SLUIDE_PITEST_LOCKS",
+            rootBuildDirectory
+                .dir("pitest")
+                .get()
+                .asFile.absolutePath,
+        )
+        doFirst {
+            if (!classes.isPresent) {
+                throw GradleException(
+                    "pitest needs -Psluide.pitest.classes=<comma list of class patterns>",
+                )
+            }
+            if (ui.get() && displays.get().isEmpty()) {
+                throw GradleException(
+                    "pitest with -Psluide.pitest.ui=true needs -Psluide.pitest.displays=<comma list of display numbers>",
+                )
+            }
+            buildDirectory
+                .dir("pitest")
+                .get()
+                .asFile
+                .mkdirs()
         }
     }
 }
