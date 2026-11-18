@@ -167,6 +167,14 @@ internal class GitLogWorkingTreeTest : GitLogFixture() {
     }
 
     @Test
+    fun `a submodule in the index in place of a file of the commit is not compared (GitCompareTest has a new one)`() {
+        val base = base()
+        git("update-index", "--add", "--cacheinfo", "160000,${"1".repeat(40)},a.txt")
+
+        assertEquals(GitFileDiff.Submodule(null, null), log.workingTreeFileDiff(repo, base, file))
+    }
+
+    @Test
     fun `a submodule in the commit is not compared (GitCompareTest has the one in the index)`() {
         val base = base()
         git("update-index", "--add", "--cacheinfo", "160000,${"1".repeat(40)},a.txt")
