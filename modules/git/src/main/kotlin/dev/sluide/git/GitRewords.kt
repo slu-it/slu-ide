@@ -13,7 +13,6 @@ import dev.sluide.git.cli.inProgress
 import dev.sluide.git.cli.isAncestor
 import dev.sluide.git.cli.moveBranch
 import dev.sluide.git.cli.rawCommits
-import dev.sluide.git.cli.refusal
 import dev.sluide.git.cli.remoteNames
 import dev.sluide.git.cli.rewordedCommit
 import dev.sluide.git.cli.stripSpace
@@ -43,7 +42,7 @@ class GitRewords(
 
     /**
      * What the dialog to edit the message of [commit] (a full hash, lowercase as git gives it) on the current branch
-     * [branch] (short name) needs, or why it is refused: [commit] cannot be given to git, git is in the middle of
+     * [branch] (short name) needs, or why it is refused: git is in the middle of
      * anything (or that cannot be read), [branch] is no longer the current branch, [commit] is not on it or is on the
      * default branch (or whether it is cannot be read), or more than [maxCommits] commits follow it.
      */
@@ -110,7 +109,6 @@ class GitRewords(
         branch: String,
         commit: String,
     ): Result<Plan> {
-        refusal(commit)?.let { return refused(it) }
         val busy = git.inProgress(root).getOrElse { return refused(IN_PROGRESS_UNREADABLE) }
         if (busy != null) return refused(busyMessage(busy))
         val ref = "refs/heads/$branch"
