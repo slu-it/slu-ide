@@ -291,6 +291,9 @@ fun Project.configurePitest() {
             ui.map { isUi ->
                 listOf(
                     "--enable-native-access=ALL-UNNAMED",
+                    // Without a limit a worker takes up to a quarter of the RAM: four per run grew to 1.5 GB each.
+                    // Gradle's test tasks run the same tests in its default 512 MB.
+                    "-Xmx768m",
                     "-Dsluide.log.dir=${buildDirectory.get().asFile}/test-logs",
                 ) +
                     if (isUi) listOf("-Dprism.order=sw") else emptyList()
