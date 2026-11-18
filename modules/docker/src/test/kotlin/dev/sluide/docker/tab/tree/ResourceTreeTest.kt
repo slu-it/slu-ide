@@ -1,5 +1,6 @@
 package dev.sluide.docker.tab.tree
 
+import dev.sluide.docker.model.ContainerState
 import dev.sluide.docker.model.ResourceKind
 import dev.sluide.docker.model.container
 import dev.sluide.docker.tab.image
@@ -141,4 +142,116 @@ class ResourceTreeTest {
         assertEquals(false, container.expanded)
         assertEquals(container.value.key, container.key)
     }
+
+    @Test
+    fun `rows show their detail and tooltip, a group and a network row have no tooltip`() {
+        val tree = resourceTree(resources, folder, "")
+        val project = tree[0].children.first().row
+        val web = (project as ProjectRow).project.containers.last()
+        val nginx = tree[1].children[1].row
+        val volume = tree[2].children.first().row
+        val network = tree[3].children.first().row
+
+        assertEquals("/home/me/shop", project.tooltip)
+        assertEquals("web:1\nUp", ContainerRow(web).tooltip)
+        assertEquals("", ContainerRow(web).detail)
+        assertEquals("sha256:" + "a".repeat(64), nginx.tooltip)
+        assertEquals("data", volume.tooltip)
+        assertEquals("bridge", network.detail)
+        assertEquals(null, network.tooltip)
+        assertEquals("", tree[0].row.detail)
+        assertEquals(null, tree[0].row.tooltip)
+    }
+
+    @Test
+    fun `a container state has the CSS class of its dot, every state not running, paused or restarting is stopped`() {
+        val expected =
+            mapOf(
+                ContainerState.RUNNING to "docker-state-running",
+                ContainerState.PAUSED to "docker-state-paused",
+                ContainerState.RESTARTING to "docker-state-restarting",
+            )
+
+        for (state in ContainerState.entries) {
+            assertEquals(expected[state] ?: "docker-state-stopped", stateClass(state), state.name)
+        }
+    }
+
+    @Test
+    fun `an image without a repository is none even when it has a tag, a volume is shortened only if anonymous`() {
+        assertEquals("<none> aaaaaaaaaaaa", imageLabel(image(null, "v1")))
+        assertEquals("nginx:<none> aaaaaaaaaaaa", imageLabel(image("nginx", null)))
+
+        assertEquals("x".repeat(64), volumeLabel(volume("x".repeat(64))))
+        assertEquals("x".repeat(12), volumeLabel(volume("x".repeat(12), anonymous = true)))
+        assertEquals("x".repeat(12) + "…", volumeLabel(volume("x".repeat(13), anonymous = true)))
+    }
+
+    @Test
+    fun `images are filtered by repository, tag, reference or a part of the short id`() {
+        val dangling = image(null, "v9", id = "sha256:" + "e".repeat(64))
+        val untagged = image("shop/web", null, id = "sha256:" + "f".repeat(64))
+        val all = Resources(images = listOf(image("nginx", "1.27"), dangling, untagged))
+
+        fun shown(filter: String) = resourceTree(all, folder, filter)[1].children.map { it.row.label }.sorted()
+
+        assertEquals(listOf("nginx:1.27"), shown("x:1"), "the reference joins repository and tag")
+        assertEquals(listOf("<none> eeeeeeeeeeee"), shown("v9"), "a tag alone")
+        assertEquals(listOf("shop/web:<none> ffffffffffff"), shown("op/w"), "a repository alone")
+        assertEquals(listOf("nginx:1.27"), shown("aaaaaaaa"), "the id of a tagged image")
+        assertEquals(listOf("<none> eeeeeeeeeeee"), shown("eeeeeeeeeeee"), "the short id")
+    }
+
+    @Test
+    fun `a container is found by its Compose service, also when it has no project`() {
+        val all =
+            Resources(
+                containers =
+                    listOf(
+                        container("x1", project = "alpha", service = "frontend", image = "img:1"),
+                        container("x2", project = "alpha", service = "backend", image = "img:2"),
+                        container("lonely", service = "cache", image = "img:3"),
+                    ),
+            )
+
+        fun shown(filter: String) =
+            resourceTree(all, folder, filter)[0].children.flatMap { node ->
+                listOf(node.row.label) + node.children.map { it.row.label }
+            }
+
+        assertEquals(listOf("alpha", "x1"), shown("front"))
+        assertEquals(listOf("lonely"), shown("cache"))
+        assertEquals(listOf("alpha", "x2", "x1"), shown("alpha"), "a matching project keeps all its containers")
+    }
+
+    @Test
+    fun `an anonymous volume and a dangling image sort last whatever the order they come in`() {
+        val named = listOf(volume("data"), volume("0".repeat(64), anonymous = true), volume("zeta"))
+        val images =
+            listOf(image("nginx", "1.27"), image(null, null, id = "sha256:" + "b".repeat(64)), image("bash", "5.2"))
+
+        for (order in permutations(3)) {
+            val tree =
+                resourceTree(Resources(images = order.map(images::get), volumes = order.map(named::get)), folder, "")
+
+            assertEquals(listOf("bash:5.2", "nginx:1.27", "<none> bbbbbbbbbbbb"), tree[1].children.map { it.row.label })
+            assertEquals(listOf("data", "zeta", "000000000000…"), tree[2].children.map { it.row.label })
+        }
+    }
+
+    private fun permutations(size: Int): List<List<Int>> =
+        if (size == 0) {
+            listOf(emptyList())
+        } else {
+            permutations(size - 1).flatMap { rest ->
+                (0..rest.size).map { at ->
+                    rest.toMutableList().apply {
+                        add(
+                            at,
+                            size - 1,
+                        )
+                    }
+                }
+            }
+        }
 }
