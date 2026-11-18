@@ -206,6 +206,7 @@ class RemoteSourceCacheFailuresTest {
 
         assertEquals(RemoteRead.Failed("cancelled"), cache.read(repository, head, "action.yml", true, cancelled))
         assertEquals(RemoteFetch.Failed("cancelled"), cache.fetch(repository, "main", cancelled))
+        assertEquals(RemoteRead.Failed("cancelled"), cache.read(repository, head, "action.yml", false, cancelled))
 
         assertEquals(emptyList(), recordedCalls(log))
         assertFalse(cacheFolder.exists(), "not even the lock file of the repository")
@@ -315,7 +316,11 @@ class RemoteSourceCacheFailuresTest {
         val stalls = "case \" \$* \" in *' fetch '*) sleep 30;; esac"
         assertEquals(
             RemoteFetch.Failed("timed out"),
-            cacheOf(scriptGit(stalls), networkTimeout = 300.milliseconds).fetch(repository, "main"),
+            cacheOf(
+                scriptGit(stalls),
+                localTimeout = 1.minutes,
+                networkTimeout = 300.milliseconds,
+            ).fetch(repository, "main"),
         )
         assertEquals(head, cache.commit(repository, "main")?.commit, "what was cached stays")
     }
@@ -397,7 +402,7 @@ class RemoteSourceCacheFailuresTest {
         fetchedMain()
         val body =
             "case \" \$* \" in\n*' fetch '*) ${case.fetch};;\n*' --git-dir '*) ${case.isRepository};;\nesac"
-        val cache = cacheOf(scriptGit(body, pipeGrace = 100.milliseconds))
+        val cache = cacheOf(scriptGit(body, pipeGrace = 100.milliseconds), localTimeout = 1.seconds)
 
         assertEquals(RemoteFetch.Failed("fetch failed"), cache.fetch(repository, "main"), case.name)
 
@@ -430,6 +435,7 @@ class RemoteSourceCacheFailuresTest {
                 BrokenCase("git says it is one", FETCH_FAILS, "exit 0", false),
                 BrokenCase("a failure of another kind", FETCH_FAILS, "exit 1", false),
                 BrokenCase("an answer cut off", FETCH_FAILS, "(sleep 3 &); exit 128", false),
+                BrokenCase("an answer that takes too long", FETCH_FAILS, "sleep 30", false),
                 BrokenCase("no answer at all", "rm -f \"\$0\"; echo 'fatal: nope' >&2; exit 128", "exit 0", false),
                 BrokenCase(
                     "a fetch failing otherwise",
@@ -529,9 +535,104 @@ class RemoteSourceCacheFailuresTest {
     }
 
     @Test
+    fun `a git that vanishes after the repository was made fails the fetch, one that cannot make it says so`() {
+        assertEquals(
+            RemoteFetch.Failed("could not create the cache"),
+            cacheOf(doomedGit()).fetch(repository, "main"),
+        )
+        val afterInit = scriptGit("case \" \$* \" in *' init '*) rm -f \"\$0\";; esac")
+
+        assertEquals(RemoteFetch.Failed("git could not be run"), cacheOf(afterInit).fetch(repository, "main"))
+        assertFalse(bare.exists())
+    }
+
+    @Test
+    fun `a fetched commit is taken only from a complete answer of a successful rev-parse`() {
+        fun fetchWith(
+            answer: String,
+            pipeGrace: Duration = 2.seconds,
+        ) = RemoteSourceCache(
+            scriptGit("case \" \$* \" in *'FETCH_HEAD'*) $answer;; esac", pipeGrace),
+            folder.resolve("answers-$scripts"),
+            true,
+        ).fetch(repository, "main")
+
+        assertEquals(RemoteFetch.Failed("'main' is no commit"), fetchWith("echo $head; exit 1"))
+        assertEquals(
+            RemoteFetch.Failed("'main' is no commit"),
+            fetchWith("echo $head; (sleep 3 &); exit 0", 100.milliseconds),
+        )
+    }
+
+    @Test
+    fun `a ref is fetched and remembered by its name as it is, in upper case too`() {
+        git("branch", "Feature-X")
+        val cache = cacheOf()
+
+        assertIs<RemoteFetch.Fetched>(cache.fetch(repository, "Feature-X"))
+
+        assertEquals(head, cache.commit(repository, "Feature-X")?.commit)
+    }
+
+    @Test
+    fun `a file is the entry of the tree with its name that is a blob, and not one git failed to list`() {
+        fetchedMain(content = true)
+        // The shape of `ls-tree -z`: <mode> SP <type> SP <object> TAB <path> NUL (checked with git 2.56).
+        val other = "100644 blob ${"b".repeat(40)}\tother.yml"
+        val tree = "040000 tree ${"c".repeat(40)}\taction.yml"
+
+        fun readWith(exit: Int) =
+            cacheOf(
+                scriptGit("case \" \$* \" in *' ls-tree '*) printf '%s\\0%s\\0' '$other' '$tree'; exit $exit;; esac"),
+            ).read(repository, head, "action.yml", network = false)
+
+        assertEquals(RemoteRead.Missing, readWith(0))
+        assertEquals(RemoteRead.Failed("could not read the file"), readWith(128))
+        val listed = "100644 blob $head\taction.yml"
+        val failing =
+            cacheOf(scriptGit("case \" \$* \" in *' ls-tree '*) printf '%s\\0' '$listed'; exit 1;; esac"))
+        assertEquals(RemoteRead.Failed("could not read the file"), failing.read(repository, head, "action.yml", false))
+    }
+
+    @Test
+    fun `commands that cannot connect run without protocols, those that may only with https and ssh`() {
+        val log = folder.resolve("env.log")
+        val recording =
+            "case \" \$* \" in *' rev-parse '*|*' ls-tree '*|*' cat-file '*|*' fetch '*) " +
+                "printf '%s|%s|%s\\n' \"\$GIT_NO_LAZY_FETCH\" \"\$GIT_ALLOW_PROTOCOL\" \"\$*\" >> '$log';; esac"
+        fetchedMain(content = true)
+        log.toFile().delete()
+        val cache = cacheOf(scriptGit(recording))
+
+        assertEquals(RemoteRead.Found("name: one\n"), cache.read(repository, head, "action.yml", network = false))
+        val offline = log.toFile().readLines()
+        assertTrue(offline.isNotEmpty() && offline.all { it.startsWith("1||") }, offline.toString())
+        assertTrue(offline.all { "protocol.https.allow=never" in it && "remote.sluide-cache.url" !in it }, "$offline")
+
+        log.toFile().delete()
+        assertIs<RemoteFetch.Fetched>(cache.fetch(repository, "main"))
+        val online = log.toFile().readLines().filter { " fetch " in it }
+        assertEquals(1, online.size, online.toString())
+        assertTrue(online.single().startsWith("|https:ssh:file|"), online.single())
+        assertTrue(
+            "protocol.file.allow=always -c remote.sluide-cache.url=file://$upstream" in online.single(),
+            "$online",
+        )
+
+        // Without local servers (the https address stands in; the fetch itself is the script's to fail).
+        log.toFile().delete()
+        val https = repository.copy(url = "https://example.com/owner/repo.git")
+        val remote = RemoteSourceCache(scriptGit(recording), folder.resolve("remote-cache"), false)
+        remote.fetch(https, "main")
+        val strict = log.toFile().readLines().single { " fetch " in it }
+        assertTrue(strict.startsWith("|https:ssh|"), strict)
+        assertTrue("protocol.file.allow=never -c remote.sluide-cache.url=${https.url}" in strict, strict)
+    }
+
+    @Test
     fun `a repository folder is deleted only below a host folder of the cache, links not followed`() {
         val cache = cacheOf()
-        val outside = folder.resolve("outside").createDirectories()
+        val outside = folder.resolve("far/away/outside").createDirectories()
         outside.resolve("precious").writeText("keep")
         val host = cacheFolder.resolve("example.com").createDirectories()
         val owner = host.resolve("owner").createDirectories()
@@ -547,7 +648,7 @@ class RemoteSourceCacheFailuresTest {
         assertFailsWith<IOException> { cache.deleteRecursively(host) }
         assertFailsWith<IOException> {
             cache.deleteRecursively(
-                cacheFolder.resolve("example.com/owner/../../../outside"),
+                cacheFolder.resolve("example.com/owner/../../../far/away/outside"),
             )
         }
         assertTrue(host.exists() && outside.resolve("precious").exists())
