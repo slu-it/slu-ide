@@ -42,6 +42,8 @@ class InspectParsersTest {
     fun `a version without any version fails`() {
         assertFailsWith<DockerException> { parseEngine("") }
         assertFailsWith<DockerException> { parseEngine("""{"Client":{}}""") }
+        assertFailsWith<DockerException> { parseEngine("{}") }
+        assertFailsWith<DockerException> { parseEngine("""{"Server":{}}""") }
     }
 
     @Test
@@ -143,5 +145,181 @@ class InspectParsersTest {
         assertTrue(pretty.startsWith("{\n  \"CreatedAt\": \"2026-11-01T13:44:03Z\",\n"), pretty)
         assertEquals("[\n  1,\n  2\n]", prettyInspect("[1,2]"))
         assertEquals("not json", prettyInspect("not json\n"))
+    }
+
+    @Test
+    fun `the engine is Podman by OsArch or APIVersion in the client part, Docker's ApiVersion does not count`() {
+        assertEquals(EngineFlavor.PODMAN, parseEngine("""{"Client":{"APIVersion":"4.9","Version":"4.9"}}""").flavor)
+        assertEquals(EngineFlavor.PODMAN, parseEngine("""{"Client":{"OsArch":"linux/arm64","Version":"4.9"}}""").flavor)
+        val docker = parseEngine("""{"Client":{"ApiVersion":"1.50","Version":"29.1","Context":"colima"}}""")
+        assertEquals(EngineFlavor.DOCKER, docker.flavor)
+        assertEquals("colima", docker.context)
+        assertNull(parseEngine("""{"Client":{"OsArch":"linux/arm64","Version":"4","Context":"x"}}""").context)
+        assertEquals(EngineFlavor.DOCKER, parseEngine("""{"Server":{"Version":"28.0"}}""").flavor)
+    }
+
+    @Test
+    fun `the engine's version is the server's, else the client's, and the client's alone is optional`() {
+        val serverOnly = parseEngine("""{"Server":{"Version":"28.0","Platform":{"Name":"Docker Engine"}}}""")
+        assertEquals("28.0", serverOnly.serverVersion)
+        assertNull(serverOnly.clientVersion)
+        assertEquals("Docker Engine", serverOnly.platform)
+        val clientOnly = parseEngine("""{"Client":{"Version":"27.1"},"Server":{"Platform":{"Name":"x"}}}""")
+        assertEquals("27.1", clientOnly.serverVersion)
+        assertEquals("27.1", clientOnly.clientVersion)
+        assertNull(parseEngine("""{"Client":{"Version":"1"}}""").platform)
+    }
+
+    @Test
+    fun `output without a container fails`() {
+        assertFailsWith<DockerException> { parseContainerDetails("") }
+        assertFailsWith<DockerException> { parseContainerDetails("[]") }
+    }
+
+    @Test
+    fun `a container with nothing but an id has empty details`() {
+        val details = parseContainerDetails("""[{"Id":"x"}]""")
+
+        assertEquals("x", details.id)
+        assertEquals("", details.name)
+        assertEquals("", details.image)
+        assertNull(details.imageId)
+        assertEquals(ContainerState.UNKNOWN, details.state)
+        assertNull(details.createdAt)
+        assertNull(details.startedAt)
+        assertNull(details.finishedAt)
+        assertNull(details.exitCode)
+        assertEquals(0, details.restartCount)
+        assertNull(details.health)
+        assertEquals(emptyList(), details.command)
+        assertEquals(emptyList(), details.entrypoint)
+        assertEquals(emptyList(), details.env)
+        assertEquals(emptyMap(), details.labels)
+        assertEquals(emptyList(), details.mounts)
+        assertEquals(emptyList(), details.networks)
+        assertEquals(emptyList(), details.ports)
+        assertEquals("", parseContainerDetails("""[{"Name":"/n"}]""").id)
+    }
+
+    @Test
+    fun `the image is the config's, else Podman's ImageName, else the image id`() {
+        val config = parseContainerDetails("""[{"Image":"sha256:1","ImageName":"b","Config":{"Image":"a"}}]""")
+        assertEquals("a" to "sha256:1", config.image to config.imageId)
+        val podman = parseContainerDetails("""[{"Image":"sha256:1","ImageName":"b"}]""")
+        assertEquals("b" to "sha256:1", podman.image to podman.imageId)
+        assertEquals("sha256:1", parseContainerDetails("""[{"Image":"sha256:1"}]""").image)
+    }
+
+    @Test
+    fun `the exit code is kept for exited and dead containers only, also when it is 0`() {
+        fun exit(
+            status: String,
+            code: Int,
+        ) = parseContainerDetails("""[{"State":{"Status":"$status","ExitCode":$code}}]""").exitCode
+
+        assertEquals(0, exit("exited", 0))
+        assertEquals(5, exit("dead", 5))
+        assertNull(exit("running", 3))
+        assertNull(exit("created", 3))
+        assertNull(exit("paused", 3))
+    }
+
+    @Test
+    fun `times, the created one included, are read from the container and its state`() {
+        val details =
+            parseContainerDetails(
+                """[{"Created":"2026-11-01T13:44:00Z","State":{"Status":"exited",""" +
+                    """"StartedAt":"2026-11-01T13:44:03Z","FinishedAt":"2026-11-01T13:45:00Z"}}]""",
+            )
+
+        assertEquals(Instant.parse("2026-11-01T13:44:00Z"), details.createdAt)
+        assertEquals(Instant.parse("2026-11-01T13:44:03Z"), details.startedAt)
+        assertEquals(Instant.parse("2026-11-01T13:45:00Z"), details.finishedAt)
+    }
+
+    @Test
+    fun `environment entries split at the first equals sign, one without it has an empty value`() {
+        val details = parseContainerDetails("""[{"Config":{"Env":["A=b=c","FLAG","=x","E="]}}]""")
+
+        assertEquals(
+            listOf(EnvVariable("A", "b=c"), EnvVariable("FLAG", ""), EnvVariable("", "x"), EnvVariable("E", "")),
+            details.env,
+        )
+    }
+
+    @Test
+    fun `a mount needs a destination, and is read-write unless it says RW false`() {
+        val details =
+            parseContainerDetails(
+                """[{"Mounts":[{"Type":"bind","Source":"/x"},{"Destination":"/a"},""" +
+                    """{"Type":"bind","Source":"/s","Destination":"/b","RW":false},{"Destination":"/c","RW":"false"}]}]""",
+            )
+
+        assertEquals(
+            listOf(
+                Mount("", null, null, "/a", readWrite = true),
+                Mount("bind", null, "/s", "/b", readWrite = false),
+                Mount("", null, null, "/c", readWrite = false),
+            ),
+            details.mounts,
+        )
+    }
+
+    @Test
+    fun `ports are read from their keys, a key that is no port is skipped`() {
+        val details =
+            parseContainerDetails(
+                """[{"NetworkSettings":{"Ports":{"abc/tcp":[{"HostPort":"1"}],"/tcp":null,"53":null,""" +
+                    """"80/tcp":[{"HostIp":"","HostPort":"8080"},{"HostIp":"::"}],"81/tcp":[],"82/tcp":{"a":1},""" +
+                    """"83/tcp":"x"}}}]""",
+            )
+
+        assertEquals(
+            listOf(
+                PortMapping(null, null, 53, "tcp"),
+                PortMapping(null, 8080, 80, "tcp"),
+                PortMapping("::", null, 80, "tcp"),
+                PortMapping(null, null, 81, "tcp"),
+                PortMapping(null, null, 82, "tcp"),
+                PortMapping(null, null, 83, "tcp"),
+            ),
+            details.ports,
+        )
+    }
+
+    @Test
+    fun `present but empty parts give the same empty details as missing ones`() {
+        val empty =
+            parseContainerDetails(
+                """[{"Id":"x","Config":{},"State":{},"Mounts":null,"NetworkSettings":{"Networks":null,"Ports":null}}]""",
+            )
+
+        assertEquals(parseContainerDetails("""[{"Id":"x"}]"""), empty)
+    }
+
+    @Test
+    fun `a port binding that is an object, not an array, leaves the port unpublished`() {
+        val details =
+            parseContainerDetails(
+                """[{"NetworkSettings":{"Ports":{"82/tcp":{"x":{"HostPort":"9"}}}}}]""",
+            )
+
+        assertEquals(listOf(PortMapping(null, null, 82, "tcp")), details.ports)
+    }
+
+    @Test
+    fun `a network without addresses and aliases is still listed`() {
+        val details = parseContainerDetails("""[{"NetworkSettings":{"Networks":{"bridge":{}}}}]""")
+
+        assertEquals(listOf(NetworkAttachment("bridge", null, emptyList())), details.networks)
+    }
+
+    @Test
+    fun `pretty inspect keeps an object, an array of several and an empty array as they are`() {
+        assertEquals("{\n  \"a\": 1\n}", prettyInspect("""{"a":1}"""))
+        val two = prettyInspect("""[{"a":1},{"b":2}]""")
+        assertEquals("[\n  {\n    \"a\": 1\n  },\n  {\n    \"b\": 2\n  }\n]", two)
+        assertEquals("[ ]", prettyInspect("[]"))
+        assertEquals("{\n  \"a\": 1\n}", prettyInspect("""[{"a":1}]"""))
     }
 }
