@@ -313,4 +313,268 @@ class SessionTransactionsTest {
         assertNull(SessionTransactions.transactionText("ROLLBACK TO SAVEPOINT a"))
         assertNull(SessionTransactions.transactionText("SELECT 1"))
     }
+
+    // ---- SessionTransactions on its own, over the fake connection: each rule with the inputs that tell it ----
+
+    /** A [SessionTransactions] over the fake session connection; [pending] and [sets] are what it reads and writes. */
+    private inner class Harness(
+        val kind: DatabaseKind,
+        var mode: CommitMode,
+        var pending: Boolean = false,
+        var ownOpen: Boolean = false,
+        exposesState: Boolean = kind == DatabaseKind.POSTGRESQL,
+    ) {
+        val sets = mutableListOf<Boolean>()
+        val transactions: SessionTransactions
+
+        init {
+            db.exposesTransactionState = exposesState
+            val statements = SessionStatements(db.session, kind, 1, {}, {})
+            transactions =
+                SessionTransactions(
+                    db.session,
+                    kind,
+                    statements,
+                    { mode },
+                    { pending },
+                    {
+                        sets += it
+                        pending = it
+                    },
+                    { ownOpen },
+                )
+        }
+    }
+
+    /** The txid query `serverWrote` asks: [wrote] true / false, null when the server cannot tell. */
+    private fun txid(wrote: Boolean?) {
+        db.results = {
+            when {
+                !it.contains("txid_current_if_assigned") -> FakeResult.Count(1)
+                wrote == null -> FakeResult.Fails(SQLException("aborted", "25P02"))
+                else -> FakeResult.Rows(listOf(listOf(if (wrote) 742L else null)))
+            }
+        }
+    }
+
+    private fun openServerTransaction() {
+        db.session.createStatement().use { it.execute("BEGIN") }
+    }
+
+    @Test
+    fun `a query gets its own transaction only in AUTO mode, on PostgreSQL, with none open`() {
+        val auto = Harness(DatabaseKind.POSTGRESQL, CommitMode.AUTO)
+        assertTrue(auto.transactions.ownTransactionFor(query = true))
+        assertFalse(auto.transactions.ownTransactionFor(query = false), "a change runs in auto-commit")
+        auto.mode = CommitMode.MANUAL
+        assertFalse(auto.transactions.ownTransactionFor(query = true), "MANUAL has one already")
+        auto.mode = CommitMode.AUTO
+        openServerTransaction()
+        assertFalse(auto.transactions.ownTransactionFor(query = true), "the user's BEGIN is open")
+    }
+
+    @Test
+    fun `a query gets no transaction of its own when the kind is not PostgreSQL or the server's state is unknown`() {
+        // the fake reports pgjdbc's transaction state for a MariaDB kind here, to isolate the kind check
+        val maria = Harness(DatabaseKind.MARIADB, CommitMode.AUTO, exposesState = true)
+        assertFalse(maria.transactions.ownTransactionFor(query = true))
+        val unknown = Harness(DatabaseKind.POSTGRESQL, CommitMode.AUTO, exposesState = false)
+        assertFalse(unknown.transactions.ownTransactionFor(query = true), "no state, no guess")
+    }
+
+    @Test
+    fun `MANUAL on PostgreSQL follows the server on writes, else the old flag or the text rule`() {
+        val h = Harness(DatabaseKind.POSTGRESQL, CommitMode.MANUAL)
+
+        txid(true)
+        h.transactions.succeeded("SELECT nextval('s')", textRule = false)
+        assertEquals(listOf(true), h.sets)
+        txid(false)
+        h.transactions.succeeded("UPDATE a SET x = 1 WHERE false", textRule = true)
+        assertEquals(listOf(true, false), h.sets, "the server says nothing was written")
+
+        txid(null)
+        h.pending = true
+        h.transactions.succeeded("SELECT 1", textRule = false)
+        assertTrue(h.pending, "an earlier write stays")
+        h.pending = false
+        h.transactions.succeeded("UPDATE a", textRule = true)
+        assertTrue(h.pending, "the text rule")
+        h.pending = false
+        h.transactions.succeeded(null, textRule = false)
+        assertFalse(h.pending)
+    }
+
+    @Test
+    fun `MANUAL on MariaDB follows the text, never the txid query`() {
+        val h = Harness(DatabaseKind.MARIADB, CommitMode.MANUAL)
+        txid(false)
+
+        h.transactions.succeeded("UPDATE a", textRule = true)
+        assertTrue(h.pending, "a change marks it, whatever a PostgreSQL query would say")
+        h.transactions.succeeded("COMMIT", textRule = true)
+        assertFalse(h.pending)
+        h.transactions.succeeded("BEGIN", textRule = true)
+        assertTrue(h.pending)
+        h.transactions.succeeded("ROLLBACK", textRule = true)
+        assertFalse(h.pending)
+        h.transactions.succeeded("START TRANSACTION", textRule = false)
+        assertTrue(h.pending, "the text of BEGIN decides, not the text rule")
+        assertEquals(emptyList(), db.log.filter { "txid" in it })
+
+        h.pending = true
+        h.transactions.succeeded("SELECT 1", textRule = false)
+        assertTrue(h.pending, "a query keeps what is pending")
+        h.pending = false
+        h.transactions.succeeded(null, textRule = true)
+        assertTrue(h.pending, "work with changes")
+        h.pending = false
+        h.transactions.succeeded(null, textRule = false)
+        assertFalse(h.pending)
+    }
+
+    @Test
+    fun `in AUTO mode the server's transaction decides, except the session's own, else the text`() {
+        val h = Harness(DatabaseKind.POSTGRESQL, CommitMode.AUTO)
+        h.transactions.succeeded("SELECT 1", textRule = false)
+        assertFalse(h.pending)
+
+        openServerTransaction()
+        h.transactions.succeeded("SELECT 1", textRule = false)
+        assertTrue(h.pending)
+        h.ownOpen = true
+        h.transactions.succeeded("SELECT 1", textRule = false)
+        assertFalse(h.pending, "the open result's own transaction is not pending")
+
+        val blind = Harness(DatabaseKind.MARIADB, CommitMode.AUTO)
+        blind.transactions.succeeded("START TRANSACTION", textRule = true)
+        assertTrue(blind.pending)
+        blind.transactions.succeeded("SELECT 1", textRule = false)
+        assertTrue(blind.pending, "nothing in the text changes it")
+        blind.transactions.succeeded(null, textRule = false)
+        assertTrue(blind.pending)
+        blind.transactions.succeeded("COMMIT", textRule = true)
+        assertFalse(blind.pending)
+        blind.transactions.succeeded("SELECT 1", textRule = false)
+        assertFalse(blind.pending)
+    }
+
+    @Test
+    fun `a failure shows the server transaction in AUTO, rolls back in MANUAL on PostgreSQL if none is pending`() {
+        val auto = Harness(DatabaseKind.POSTGRESQL, CommitMode.AUTO)
+        openServerTransaction()
+        auto.transactions.failed("SELECT 1/0", textRule = false)
+        assertEquals(listOf(true), auto.sets, "the aborted transaction is still open")
+
+        val manual = Harness(DatabaseKind.POSTGRESQL, CommitMode.MANUAL)
+        db.log.clear()
+        manual.transactions.failed("UPDATE bad", textRule = true)
+        assertEquals(listOf("session: rollback"), db.log.toList())
+        assertEquals(emptyList(), manual.sets)
+        db.log.clear()
+        manual.pending = true
+        manual.transactions.failed("UPDATE bad", textRule = true)
+        assertEquals(emptyList(), db.log.toList(), "work was written before: the user decides")
+    }
+
+    @Test
+    fun `a rollback that fails after a failed statement is ignored`() {
+        val manual = Harness(DatabaseKind.POSTGRESQL, CommitMode.MANUAL)
+        db.failOn("session: rollback")
+
+        manual.transactions.failed("UPDATE bad", textRule = true)
+
+        assertEquals(emptyList(), manual.sets)
+    }
+
+    @Test
+    fun `a failure in MANUAL mode on MariaDB marks the transaction when the text rule says it changes something`() {
+        val manual = Harness(DatabaseKind.MARIADB, CommitMode.MANUAL)
+        db.log.clear()
+
+        manual.transactions.failed("SELECT broken", textRule = false)
+        assertEquals(emptyList(), manual.sets)
+        manual.transactions.failed("INSERT INTO t VALUES (1)", textRule = true)
+        assertEquals(listOf(true), manual.sets)
+        assertEquals(emptyList(), db.log.toList(), "MariaDB keeps the transaction")
+    }
+
+    @Test
+    fun `end commits or rolls back through JDBC while auto-commit is off`() {
+        val h = Harness(DatabaseKind.POSTGRESQL, CommitMode.MANUAL, pending = true)
+        db.session.autoCommit = false
+        db.log.clear()
+
+        h.transactions.end(commit = true)
+        h.pending = true
+        h.transactions.end(commit = false)
+
+        assertEquals(listOf("session: commit", "session: rollback"), db.log.toList())
+        assertEquals(listOf(false, false), h.sets)
+    }
+
+    @Test
+    fun `end in auto-commit sends COMMIT or ROLLBACK only when a transaction is pending or the server has one open`() {
+        val h = Harness(DatabaseKind.POSTGRESQL, CommitMode.AUTO)
+
+        h.transactions.end(commit = true)
+        assertEquals(emptyList(), db.executed(), "nothing open")
+        h.pending = true
+        h.transactions.end(commit = true)
+        h.pending = true
+        h.transactions.end(commit = false)
+        assertEquals(listOf("COMMIT", "ROLLBACK"), db.executed())
+        assertFalse(h.pending)
+
+        openServerTransaction()
+        h.transactions.end(commit = false)
+        assertEquals(listOf("COMMIT", "ROLLBACK", "BEGIN", "ROLLBACK"), db.executed(), "open on the server, not marked")
+
+        val blind = Harness(DatabaseKind.POSTGRESQL, CommitMode.AUTO, exposesState = false)
+        db.log.clear()
+        blind.transactions.end(commit = true)
+        assertEquals(emptyList(), db.executed(), "without the state an unmarked session has nothing to end")
+    }
+
+    @Test
+    fun `switching to AUTO turns auto-commit on and clears the flag, to MANUAL turns it off and keeps the flag`() {
+        val h = Harness(DatabaseKind.MARIADB, CommitMode.MANUAL, pending = true)
+        db.log.clear()
+
+        h.transactions.switchTo(CommitMode.AUTO)
+        assertEquals(listOf("session: autoCommit=true"), db.log.toList())
+        assertEquals(listOf(false), h.sets)
+
+        db.log.clear()
+        h.sets.clear()
+        h.pending = true
+        h.transactions.switchTo(CommitMode.MANUAL)
+        assertEquals(listOf("session: autoCommit=false"), db.log.toList())
+        assertEquals(listOf(true), h.sets, "an open BEGIN stays pending")
+    }
+
+    @Test
+    fun `switching to MANUAL on PostgreSQL asks the server whether the open transaction wrote`() {
+        val h = Harness(DatabaseKind.POSTGRESQL, CommitMode.MANUAL)
+        txid(true)
+
+        h.transactions.switchTo(CommitMode.MANUAL)
+
+        assertEquals(listOf(true), h.sets)
+        assertTrue(db.log.any { "txid_current_if_assigned" in it })
+    }
+
+    @Test
+    fun `the text of BEGIN and COMMIT is read at the start, in any case, with words kept apart`() {
+        assertEquals(true, SessionTransactions.transactionText("begin"))
+        assertEquals(true, SessionTransactions.transactionText("Start\n  Transaction"))
+        assertEquals(false, SessionTransactions.transactionText("END"))
+        assertEquals(false, SessionTransactions.transactionText("rollback and chain"))
+        assertNull(SessionTransactions.transactionText("rollback to savepoint a"))
+        assertNull(SessionTransactions.transactionText("ROLLBACK WORK TO a"))
+        assertNull(SessionTransactions.transactionText("beginning"))
+        assertNull(SessionTransactions.transactionText("select 1; begin"))
+        assertNull(SessionTransactions.transactionText("commits"))
+        assertNull(SessionTransactions.transactionText("start transactions"))
+    }
 }
