@@ -90,6 +90,30 @@ class TreeSearchFilterTest {
         assertFalse(holding.holdsMatch(file))
     }
 
+    @Test
+    fun `folders outside every root are not shown for a match outside them`() {
+        val outside = root.parent.resolve("elsewhere-${root.name}")
+        val filter = TreeSearchFilter(listOf(outside.resolve("deep/f.txt")), listOf(root))
+
+        assertTrue(filter.shows(outside.resolve("deep/f.txt")))
+        assertFalse(filter.shows(outside.resolve("deep")))
+        assertFalse(filter.shows(outside))
+        assertFalse(filter.shows(root.parent))
+    }
+
+    @Test
+    fun `only a folder row can be an open hit or hold a match`() {
+        val file = path("a/b.txt").createParentDirectories().createFile()
+        val folderRow = FileTreeItem(path("a"))
+        val fileRow = FileTreeItem(file)
+        // The filter does not look at the disk: here the match below a/b.txt makes a/b.txt a holder, though it is a file.
+        val filter = TreeSearchFilter(listOf(path("a"), path("a/b.txt/c")), listOf(root))
+
+        assertTrue(filter.holdsMatch(folderRow))
+        assertFalse(filter.holdsMatch(fileRow), "a file holds nothing")
+        assertFalse(TreeSearchFilter(listOf(file), listOf(root)).isFolderHit(fileRow), "a file is no open hit")
+    }
+
     /** Puts [top] below a hidden root, like the explorer's top-level folders. */
     private fun topLevel(top: FileTreeItem): FileTreeItem = top.also { TreeItem<Path>().children.add(it) }
 

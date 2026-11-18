@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer.tree
 
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
@@ -47,6 +48,19 @@ class DirectoryListingTest {
         root.resolve("Alpha").createDirectories()
 
         assertEquals(listOf("Alpha", "zeta", "A.txt", "b.txt"), listDirectory(root).map { it.name })
+    }
+
+    @Test
+    fun `names that differ only in case are listed in a fixed order, upper case first`() {
+        root.resolve("a.txt").createFile()
+        val upper = root.resolve("A.txt")
+        // On a case-insensitive file system (the macOS default) this is the same file: nothing to order then.
+        assumeTrue(!Files.exists(upper))
+        upper.createFile()
+        root.resolve("b").createDirectories()
+        root.resolve("B").createDirectories()
+
+        assertEquals(listOf("B", "b", "A.txt", "a.txt"), listDirectory(root).map { it.name })
     }
 
     @Test

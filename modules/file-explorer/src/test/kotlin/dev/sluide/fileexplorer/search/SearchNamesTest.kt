@@ -143,6 +143,16 @@ class SearchNamesTest {
     }
 
     @Test
+    fun `no more entries are visited than the maximum, so a match after it is not collected`() {
+        repeat(4) { file("hit-$it.txt") }
+
+        val result = assertNotNull(search("hit", maxVisited = 3))
+
+        assertEquals(listOf("hit-0.txt", "hit-1.txt", "hit-2.txt"), names(result))
+        assertTrue(result.truncated)
+    }
+
+    @Test
     fun `cancelling after the first folder returns null`() {
         file("sub/needle.txt")
         var calls = 0
