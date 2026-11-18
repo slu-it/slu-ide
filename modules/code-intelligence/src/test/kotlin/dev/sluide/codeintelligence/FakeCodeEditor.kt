@@ -42,7 +42,17 @@ internal open class FakeCodeEditor(
     override val file: ObservableValue<Path> = fileProperty
     override val text: String get() = currentText
     override val lineCount get() = currentText.split('\n').size
-    override val shownLines: IntRange = IntRange.EMPTY
+    override var shownLines: IntRange = IntRange.EMPTY
+
+    /** The stylesheets added and not yet removed. */
+    val stylesheets = mutableListOf<String>()
+
+    /** The gutter columns added (they cannot be removed), with their widths. */
+    val gutterColumns = mutableListOf<Pair<Double, (Int) -> Node?>>()
+
+    /** How often [refreshGutter] was called. */
+    var gutterRefreshes = 0
+        private set
 
     override fun lineText(line: Int) = currentText.split('\n')[line]
 
@@ -101,9 +111,18 @@ internal open class FakeCodeEditor(
     override fun addGutterColumn(
         width: Double,
         column: (paragraph: Int) -> Node?,
-    ) = Unit
+    ) {
+        gutterColumns += width to column
+    }
 
-    override fun refreshGutter() = Unit
+    override fun refreshGutter() {
+        gutterRefreshes++
+    }
+
+    override fun addStylesheet(url: String): AutoCloseable {
+        stylesheets += url
+        return AutoCloseable { stylesheets -= url }
+    }
 
     override fun addBanner(node: Node): AutoCloseable {
         banners += node
