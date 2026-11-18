@@ -94,8 +94,10 @@ class ServiceStateTest {
         val first = container("demo-gone-1", project = "demo", service = "gone", state = ContainerState.EXITED)
 
         val orphan = serviceStates(config, listOf(second, first)).single { it.orphan }
+        val sorted = serviceStates(config, listOf(first, second)).single { it.orphan }
 
         assertEquals(listOf("demo-gone-1", "demo-gone-2"), orphan.containers.map { it.name })
+        assertEquals(listOf("demo-gone-1", "demo-gone-2"), sorted.containers.map { it.name })
         assertEquals("1/2 running", orphan.summary)
     }
 }

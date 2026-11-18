@@ -82,8 +82,83 @@ class ComposeConfigTest {
     fun `output that is not a project is a clear error`() {
         val notJson = assertFailsWith<DockerException> { parseComposeConfig(ComposeConfigOutput("services:", "")) }
         assertTrue("not JSON" in notJson.message!!, notJson.message)
+        // Jackson's own message follows, so that the user sees where the output broke.
+        assertTrue("Unrecognized token" in notJson.message!!, notJson.message)
         val notObject = assertFailsWith<DockerException> { parseComposeConfig(ComposeConfigOutput("[1]", "")) }
         assertTrue("not a project" in notObject.message!!, notObject.message)
         assertFailsWith<DockerException> { parseComposeConfig(ComposeConfigOutput("", "")) }
+    }
+
+    private fun parse(json: String) = parseComposeConfig(ComposeConfigOutput(json, ""))
+
+    private fun serviceOf(json: String) = parse("""{"services":{"s":$json}}""").services.single()
+
+    @Test
+    fun `a name or an image that is not a string is left out`() {
+        val parsed = parse("""{"name":5,"services":{"s":{"image":7}}}""")
+
+        assertEquals("", parsed.name)
+        assertNull(parsed.services.single().image)
+        assertEquals("", parse("{}").name)
+        assertNull(serviceOf("{}").image)
+    }
+
+    @Test
+    fun `services that are not a map give none`() {
+        assertEquals(emptyList(), parse("""{"services":"web"}""").services)
+        assertEquals(emptyList(), parse("""{"services":[{"image":"a"}]}""").services)
+    }
+
+    @Test
+    fun `build counts when it is there and not null`() {
+        assertTrue(serviceOf("""{"build":{"context":"."}}""").hasBuild)
+        assertTrue(serviceOf("""{"build":"."}""").hasBuild)
+        assertFalse(serviceOf("""{"build":null}""").hasBuild)
+        assertFalse(serviceOf("{}").hasBuild)
+    }
+
+    @Test
+    fun `ports, profiles and dependencies that are not lists give none`() {
+        val service = serviceOf("""{"ports":"80","profiles":{"a":1},"depends_on":"db"}""")
+
+        assertEquals(emptyList(), service.ports)
+        assertEquals(emptySet(), service.profiles)
+        assertEquals(emptyList(), service.dependsOn)
+        assertEquals(emptyList(), serviceOf("""{"ports":{"target":80}}""").ports)
+    }
+
+    @Test
+    fun `a port in the short syntax is shown as written`() {
+        assertEquals(listOf("8080:80"), serviceOf("""{"ports":["8080:80"]}""").ports)
+    }
+
+    @Test
+    fun `a port in the long syntax gets its defaults and leaves out empty parts`() {
+        val ports =
+            serviceOf(
+                """{"ports":[
+                    {"protocol":"udp"},
+                    {"target":80},
+                    {"target":81,"published":"","host_ip":"127.0.0.1"},
+                    {"target":82,"published":"8082","host_ip":""},
+                    {"target":83,"published":8083,"host_ip":"::1","protocol":"udp"},
+                    {"target":84,"published":"8084"}
+                ]}""",
+            ).ports
+
+        assertEquals(listOf("80/tcp", "81/tcp", "8082:82/tcp", "::1:8083:83/udp", "8084:84/tcp"), ports)
+    }
+
+    @Test
+    fun `dependencies are the names of a map or the entries of a list`() {
+        assertEquals(listOf("db", "cache"), serviceOf("""{"depends_on":{"db":{},"cache":{}}}""").dependsOn)
+        assertEquals(listOf("db", "cache"), serviceOf("""{"depends_on":["db",{"x":1},"cache"]}""").dependsOn)
+        assertEquals(emptyList(), serviceOf("""{"depends_on":null}""").dependsOn)
+        assertEquals(emptyList(), serviceOf("""{"depends_on":3}""").dependsOn)
+    }
+
+    @Test
+    fun `profiles of a service skip entries that are not text`() {
+        assertEquals(setOf("a", "b"), serviceOf("""{"profiles":["a",{"x":1},"b","a"]}""").profiles)
     }
 }
