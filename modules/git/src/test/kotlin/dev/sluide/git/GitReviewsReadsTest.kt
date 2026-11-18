@@ -1,0 +1,227 @@
+package dev.sluide.git
+
+import java.nio.file.Files
+import java.nio.file.attribute.FileTime
+import java.time.Instant
+import kotlin.io.path.deleteExisting
+import kotlin.io.path.writeText
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+
+/**
+ * What the review window's reads give when git fails, for refs that are not the usual ones, and at the limits of its
+ * arguments (ADR 0168), with the real git behind a wrapper that fails; skipped without git.
+ */
+internal class GitReviewsReadsTest : GitLogFixture() {
+    private val reviews = GitReviews(git)
+
+    // The wrapper script lives in .git, where it is no untracked file.
+    private fun failing(vararg words: String) = GitReviews(failingGit(repo.resolve(".git"), *words))
+
+    private fun commitSide(hash: String) = GitReviewSide.Commit(hash)
+
+    @Test
+    fun `the default bases and the branches are empty when git cannot list the refs or the remotes`() {
+        commit("First", 1000)
+        git("update-ref", "refs/remotes/origin/main", "HEAD")
+        git("remote", "add", "origin", "https://example.com/origin.git")
+        assertEquals(listOf("refs/remotes/origin/main", "refs/heads/main"), reviews.defaultBases(repo))
+        assertEquals(listOf("refs/heads/main", "refs/remotes/origin/main"), reviews.branches(repo))
+
+        assertEquals(emptyList(), failing("for-each-ref").defaultBases(repo))
+        assertEquals(emptyList(), failing("remote").defaultBases(repo))
+        assertEquals(emptyList(), failing("for-each-ref").branches(repo))
+    }
+
+    @Test
+    fun `a detached HEAD or a branch that does not exist has no upstream, a remote branch is its own remote's`() {
+        val hash = commit("First", 1000)
+        for (remote in listOf("alpha", "origin", "zeta")) {
+            git("remote", "add", remote, "https://example.com/$remote.git")
+            git("update-ref", "refs/remotes/$remote/main", hash)
+        }
+        git("branch", "-q", "--track", "tracking", "zeta/main")
+        val origin = listOf("refs/remotes/origin/main", "refs/remotes/alpha/main", "refs/remotes/zeta/main")
+
+        git("switch", "-q", "--detach")
+        assertEquals(origin, reviews.defaultBases(repo).take(3), "detached")
+        assertEquals(origin, reviews.defaultBases(repo, "refs/heads/none").take(3), "no such branch")
+        assertEquals(
+            listOf("refs/remotes/zeta/main", "refs/remotes/origin/main", "refs/remotes/alpha/main"),
+            reviews.defaultBases(repo, "refs/heads/tracking").take(3),
+            "upstream of a local branch first",
+        )
+        assertEquals(
+            listOf("refs/remotes/alpha/main", "refs/remotes/origin/main", "refs/remotes/zeta/main"),
+            reviews.defaultBases(repo, "refs/remotes/alpha/main").take(3),
+            "the remote of a remote branch first",
+        )
+    }
+
+    @Test
+    fun `a ref called HEAD below refs_remotes is no branch, one below refs_heads or ending otherwise is`() {
+        val hash = commit("First", 1000)
+        for (ref in listOf("remotes/o/HEAD", "remotes/o/x/HEAD", "remotes/o/AHEAD", "heads/x/HEAD", "remotes/o/main")) {
+            git("update-ref", "refs/$ref", hash)
+        }
+
+        assertEquals(
+            listOf("refs/heads/main", "refs/heads/x/HEAD", "refs/remotes/o/AHEAD", "refs/remotes/o/main"),
+            reviews.branches(repo),
+        )
+    }
+
+    @Test
+    fun `the limit of commits must be positive, one is allowed, and the messages say what is wrong`() {
+        val hash = commit("First", 1000)
+        commit("Second", 2000)
+        val second = git("rev-parse", "HEAD")
+
+        val limit = assertFailsWith<IllegalArgumentException> { reviews.commits(repo, null, hash, limit = 0) }
+        assertEquals("limit must be positive: 0", limit.message)
+        assertEquals(1, reviews.commits(repo, null, second, limit = 1)?.size)
+        val from = assertFailsWith<IllegalArgumentException> { reviews.commits(repo, "HEAD", second) }
+        assertEquals("not a commit hash: HEAD", from.message)
+        val to = assertFailsWith<IllegalArgumentException> { reviews.commits(repo, null, "main") }
+        assertEquals("not a commit hash: main", to.message)
+    }
+
+    @Test
+    fun `files and diffs take only full hashes on both sides`() {
+        val hash = commitFiles("First", "a.txt" to "a\n")
+        val file = listOf(GitChangedFile(GitChange.MODIFIED, "a.txt"))
+        val side = commitSide(hash)
+
+        for (bad in listOf("HEAD", hash.take(12))) {
+            assertFailsWith<IllegalArgumentException>(bad) { reviews.fileDiffs(repo, bad, side, file, false) }
+            assertFailsWith<IllegalArgumentException>(bad) {
+                reviews.fileDiffs(repo, null, commitSide(bad), file, false)
+            }
+            assertFailsWith<IllegalArgumentException>(
+                bad,
+            ) { reviews.fileDiffs(repo, bad, GitReviewSide.WorkingTree, file, false) }
+            assertFailsWith<IllegalArgumentException>(
+                bad,
+            ) { reviews.changedFiles(repo, bad, GitReviewSide.WorkingTree) }
+        }
+        assertNotNull(reviews.fileDiffs(repo, hash, side, file, false))
+    }
+
+    @Test
+    fun `a read that is not cancelled gives its answer, with a cancellation at hand`() {
+        val from = commitFiles("First", "a.txt" to "a\n")
+        val to = commitFiles("Second", "a.txt" to "b\n")
+        val files = listOf(GitChangedFile(GitChange.MODIFIED, "a.txt"))
+        repo.resolve("a.txt").writeText("c\n")
+
+        for (side in listOf(commitSide(to), GitReviewSide.WorkingTree)) {
+            val live = GitCancellation()
+
+            assertEquals(files, reviews.changedFiles(repo, from, side, live), "$side")
+            assertEquals(setOf("a.txt"), reviews.fileDiffs(repo, from, side, files, false, live)?.keys, "$side")
+        }
+    }
+
+    @Test
+    fun `the working tree's files and diffs are unknown when one of the git reads fails`() {
+        val from = commitFiles("First", "a.txt" to "a\n")
+        repo.resolve("a.txt").writeText("b\n")
+        repo.resolve("new.txt").writeText("new\n")
+        val files = listOf(GitChangedFile(GitChange.MODIFIED, "a.txt"))
+        val side = GitReviewSide.WorkingTree
+
+        assertNull(failing("--name-status").changedFiles(repo, from, side), "the tracked changes")
+        assertNull(failing("--others").changedFiles(repo, from, side), "the untracked files")
+        assertNull(failing("hash-object").changedFiles(repo, null, side), "the empty tree")
+        assertNull(failing("hash-object").fileDiffs(repo, null, side, files, false), "the empty tree of the diffs")
+    }
+
+    @Test
+    fun `the diffs of commits are unknown when the sizes or the contents cannot be read`() {
+        val from = commitFiles("First", "a.txt" to "a\n")
+        val to = commitFiles("Second", "a.txt" to "b\n")
+        val files = listOf(GitChangedFile(GitChange.MODIFIED, "a.txt"))
+
+        assertNull(failing("--batch-check").fileDiffs(repo, from, commitSide(to), files, false), "the sizes")
+        assertNull(failing("--batch").fileDiffs(repo, from, commitSide(to), files, false), "the contents")
+        assertNull(failing("--name-status").changedFiles(repo, from, commitSide(to)), "the files")
+    }
+
+    @Test
+    fun `a renamed file whose old path has a line break is left out`() {
+        val from = commitFiles("First", "a.txt" to "a\n")
+        val to = commitFiles("Second", "a.txt" to "b\n")
+        val files = listOf(GitChangedFile(GitChange.RENAMED, "a.txt", oldPath = "x\ny.txt"))
+
+        assertEquals(emptyMap(), reviews.fileDiffs(repo, from, commitSide(to), files, ignoreWhitespace = false))
+    }
+
+    @Test
+    fun `a file of exactly the largest size is compared, one byte more is too large`() {
+        val from = commitFiles("First", "same.txt" to "1234567890", "more.txt" to "1234567890")
+        val to = commitFiles("Second", "same.txt" to "abcdefghij", "more.txt" to "abcdefghijk")
+        reviews.maxSize = 10
+        val files =
+            listOf(GitChangedFile(GitChange.MODIFIED, "same.txt"), GitChangedFile(GitChange.MODIFIED, "more.txt"))
+
+        val diffs = reviews.fileDiffs(repo, from, commitSide(to), files, ignoreWhitespace = false)
+
+        assertEquals(
+            GitFileDiff.Text("1234567890", "abcdefghij", listOf(GitHunk(0 until 1, 0 until 1))),
+            diffs?.get("same.txt"),
+        )
+        assertEquals(GitFileDiff.TooLarge, diffs?.get("more.txt"))
+    }
+
+    @Test
+    fun `the fingerprint is unknown when the commits or the status cannot be read, and the same for no revisions`() {
+        commitFiles("First", "a.txt" to "a\n")
+        repo.resolve("a.txt").writeText("b\n")
+
+        assertNull(failing("--batch-check").fingerprint(repo, listOf("HEAD"), workingTree = false))
+        assertNull(failing("status").fingerprint(repo, listOf("HEAD"), workingTree = true))
+        // The SHA-256 of nothing at all.
+        assertEquals(
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            reviews.fingerprint(repo, emptyList(), workingTree = false),
+        )
+        assertNotEquals(reviews.fingerprint(repo, emptyList(), false), reviews.fingerprint(repo, emptyList(), true))
+    }
+
+    @Test
+    fun `the working tree's fingerprint tells the status, the size and a missing file`() {
+        commitFiles("First", "a.txt" to "a\n")
+        val file = repo.resolve("a.txt")
+        val time = FileTime.from(Instant.ofEpochSecond(1_000_000))
+        file.writeText("changed\n")
+        Files.setLastModifiedTime(file, time)
+        val unstaged = reviews.fingerprint(repo, emptyList(), workingTree = true)
+
+        // The same size and time, another status.
+        git("add", "a.txt")
+        val staged = reviews.fingerprint(repo, emptyList(), workingTree = true)
+        assertNotEquals(unstaged, staged, "the status")
+
+        // The same status and time, another size.
+        file.writeText("changed!\n")
+        Files.setLastModifiedTime(file, time)
+        git("add", "a.txt")
+        file.writeText("changed!!\n")
+        Files.setLastModifiedTime(file, time)
+        val longer = reviews.fingerprint(repo, emptyList(), workingTree = true)
+        file.writeText("changed!?\n")
+        Files.setLastModifiedTime(file, time)
+        assertEquals(longer, reviews.fingerprint(repo, emptyList(), workingTree = true), "the same size")
+        file.writeText("changed!??\n")
+        Files.setLastModifiedTime(file, time)
+        assertNotEquals(longer, reviews.fingerprint(repo, emptyList(), workingTree = true), "the size")
+
+        val present = reviews.fingerprint(repo, emptyList(), workingTree = true)
+        file.deleteExisting()
+        assertNotEquals(present, reviews.fingerprint(repo, emptyList(), workingTree = true), "the file is gone")
+    }
+}
