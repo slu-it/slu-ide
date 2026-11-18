@@ -393,6 +393,7 @@ class ProjectDataStore(
                 migrate(migration)
             } catch (e: Exception) {
                 // the file getter or the migration threw: the old file stays and the others still run
+                if (e is InterruptedException) Thread.currentThread().interrupt()
                 log.log(System.Logger.Level.WARNING, "Migrating ${describe(migration)} failed", e)
             }
         }

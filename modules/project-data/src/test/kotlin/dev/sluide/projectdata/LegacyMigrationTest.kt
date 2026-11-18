@@ -173,6 +173,9 @@ class LegacyMigrationTest {
 
         assertEquals(listOf(dir.resolve("a")), store.projects().map { it.folder })
 
+        // only an InterruptedException leaves the flag set
+        val interrupted = Thread.interrupted()
+        assertFalse(interrupted)
         assertEquals(1, migration.calls)
         assertFalse(legacy.exists())
     }
@@ -208,6 +211,29 @@ class LegacyMigrationTest {
         )
 
         assertEquals("a=1", failing.readText())
+    }
+
+    @Test
+    fun `a migration that is interrupted leaves the thread's interrupt flag set`() {
+        val interrupted = dir.resolve("interrupted.properties").apply { writeText("a=1") }
+        val migration =
+            object : LegacyProjectData {
+                override val file = interrupted
+
+                override fun migrate(
+                    entries: Map<String, String>,
+                    store: ProjectDataStore,
+                ): Boolean = throw InterruptedException()
+            }
+
+        try {
+            store(migration).projects()
+
+            assertTrue(Thread.currentThread().isInterrupted)
+            assertEquals("a=1", interrupted.readText())
+        } finally {
+            Thread.interrupted()
+        }
     }
 
     @Test
