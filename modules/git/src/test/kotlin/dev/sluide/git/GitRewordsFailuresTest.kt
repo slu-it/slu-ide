@@ -173,4 +173,21 @@ class GitRewordsFailuresTest {
 
         assertEquals("reword ${later.take(8)}", git("reflog", "-1", "--format=%gs", "refs/heads/feature"))
     }
+
+    @Test
+    fun `a blank message is refused before git is asked to clean it up`() {
+        val result = GitRewords(failingGit(folder, "stripspace")).reword(repo, "feature", target, " \n\t\n")
+
+        assertEquals(GitRewordResult.Failed("The message is empty."), result)
+    }
+
+    @Test
+    fun `a symbolic ref to a branch is not another branch that keeps the commit`() {
+        git("branch", "other")
+        git("symbolic-ref", "refs/heads/alias", "refs/heads/other")
+
+        val check = GitRewords(git).check(repo, "feature", target)
+
+        assertEquals(GitRewordCheck.Allowed("Target", listOf("other"), null), check)
+    }
 }

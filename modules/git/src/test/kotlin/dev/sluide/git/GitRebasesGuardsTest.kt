@@ -255,4 +255,36 @@ class GitRebasesGuardsTest {
         git("symbolic-ref", "refs/remotes/origin/main", "refs/remotes/origin/master")
         assertEquals("refs/remotes/origin/master", GitRebases(git).remoteDefaultBranch(repo, "origin"))
     }
+
+    @Test
+    fun `the names of the default branch are matched ignoring case, main before master`() {
+        commit("Base")
+        remoteRef("origin", "main")
+        remoteRef("origin", "MASTER")
+
+        assertEquals("refs/remotes/origin/main", GitRebases(git).remoteDefaultBranch(repo, "origin"))
+    }
+
+    @Test
+    fun `local changes that git cannot apply after a skip are kept in the stash`() {
+        commit("Base")
+        commit("Other", "other.txt", "1\n2\n3")
+        git("switch", "-q", "-c", "feature")
+        commit("A", content = "A")
+        git("switch", "-q", "main")
+        repo.resolve("file.txt").writeText("Main\n")
+        repo.resolve("other.txt").writeText("main\n2\n3\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", "Main")
+        git("switch", "-q", "feature")
+        repo.resolve("other.txt").writeText("local\n2\n3\n")
+        val rebases = GitRebases(git)
+        assertIs<GitRebaseResult.Stopped>(rebases.rebase(repo, "feature", "refs/heads/main", autostash = true))
+
+        val result = rebases.skipRebase(repo)
+
+        val done = assertIs<GitRebaseResult.Done>(result)
+        assertTrue(done.stashKept, "the changes were kept as a stash entry")
+        assertEquals(1, git("stash", "list").lines().size)
+    }
 }

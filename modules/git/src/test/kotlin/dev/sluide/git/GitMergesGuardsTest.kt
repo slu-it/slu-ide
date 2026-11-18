@@ -275,4 +275,78 @@ class GitMergesGuardsTest {
         assertEquals(GitMergeResult.Done(git("rev-parse", "HEAD"), squashed = true, stashKept = true), result)
         assertEquals(1, git("stash", "list").lines().size)
     }
+
+    /** main changes file.txt (a conflict with feature) and the first line of other.txt; feature changes file.txt. */
+    private fun divergedWithOther() {
+        commit("Base")
+        commit("Other", "other.txt", "1\n2\n3")
+        git("switch", "-q", "-c", "feature")
+        commit("A")
+        git("switch", "-q", "main")
+        repo.resolve("file.txt").writeText("Main\n")
+        repo.resolve("other.txt").writeText("main\n2\n3\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", "Main")
+        git("switch", "-q", "feature")
+    }
+
+    @Test
+    fun `local changes that git cannot apply when the merge is continued are kept in the stash`() {
+        divergedWithOther()
+        repo.resolve("other.txt").writeText("local\n2\n3\n")
+        assertIs<GitMergeResult.Stopped>(merge(GitMerges(git)))
+        repo.resolve("file.txt").writeText("resolved\n")
+
+        val result = GitMerges(git).continueMerge(repo)
+
+        val done = assertIs<GitMergeResult.Done>(result)
+        assertTrue(done.stashKept, "the changes were kept as a stash entry")
+        assertEquals(1, git("stash", "list").lines().size)
+    }
+
+    @Test
+    fun `continuing a merge without conflicts stages nothing and checks nothing`() {
+        diverged()
+        git("merge", "--no-commit", "--no-ff", "main")
+        val merges = recording()
+
+        val result = merges.continueMerge(repo)
+
+        assertIs<GitMergeResult.Done>(result)
+        assertFalse(
+            recordedCalls(callLog).any { "update-index" in it || "check-attr" in it },
+            "${recordedCalls(callLog)}",
+        )
+    }
+
+    @Test
+    fun `a merge that git cannot continue or abort stays in progress, with git's message`() {
+        diverged()
+        git("merge", "--no-commit", "--no-ff", "main")
+        // Git cannot write the index while this file is there.
+        val lock = repo.resolve(".git/index.lock")
+        lock.writeText("")
+
+        val continued = GitMerges(git).continueMerge(repo)
+        val continuedStopped = assertIs<GitMergeResult.Stopped>(continued)
+        assertTrue("index.lock" in continuedStopped.message, continuedStopped.message)
+
+        val aborted = GitMerges(git).abortMerge(repo)
+        val abortedStopped = assertIs<GitMergeResult.Stopped>(aborted)
+        assertTrue("index.lock" in abortedStopped.message, abortedStopped.message)
+    }
+
+    @Test
+    fun `a squash after which another merge is in progress is stopped, not done`() {
+        diverged()
+        // The hook of git leaves a merge in progress after the squash.
+        val hook = repo.resolve(".git/hooks/post-merge")
+        hook.parent.createDirectories()
+        hook.writeText("#!/bin/sh\ngit rev-parse main > .git/MERGE_HEAD\n")
+        hook.toFile().setExecutable(true)
+
+        val result = merge(GitMerges(git), GitMergeMode.SQUASH)
+
+        assertIs<GitMergeResult.Stopped>(result)
+    }
 }
