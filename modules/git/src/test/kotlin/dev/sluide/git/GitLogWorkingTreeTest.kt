@@ -1,6 +1,11 @@
 package dev.sluide.git
 
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
+import org.junit.jupiter.api.Assumptions.assumeTrue
+import java.nio.channels.FileChannel
 import java.nio.file.Files
+import java.nio.file.StandardOpenOption
+import java.time.Duration
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.writeBytes
@@ -201,5 +206,57 @@ internal class GitLogWorkingTreeTest : GitLogFixture() {
         assertNull(log.workingTreeFileDiff(repo, base, file), "a folder that does not exist")
         log.temporaryFolder!!.createDirectories()
         assertIs<GitFileDiff.Text>(log.workingTreeFileDiff(repo, base, file))
+    }
+
+    @Test
+    fun `the size of the commit's side is the size of its blob, whatever a filter makes of it`() {
+        git("config", "filter.small.smudge", "cut -c1-2")
+        repo.resolve(".gitattributes").writeText("a.txt filter=small\n")
+        val base = commitFiles("Base", "a.txt" to "abcdefghij\n")
+        repo.resolve("a.txt").writeText("x\n")
+
+        // The checkout form has 3 bytes, the blob 11: too large for 5.
+        assertEquals(GitFileDiff.TooLarge, log.workingTreeFileDiff(repo, base, file, maxSize = 5))
+        assertIs<GitFileDiff.Text>(log.workingTreeFileDiff(repo, base, file, maxSize = 11))
+    }
+
+    @Test
+    fun `a staged size above the limit decides at once, also when the file on disk is small`() {
+        val base = base("12345\n")
+        log.canNameFile = { false }
+        repo.resolve("a.txt").writeText("abcdefghij\n")
+        git("add", "a.txt")
+        repo.resolve("a.txt").writeText("ab\n")
+
+        assertEquals(GitFileDiff.TooLarge, log.workingTreeFileDiff(repo, base, file, maxSize = 6))
+    }
+
+    @Test
+    fun `a deleted file is not compared with the index, where a submodule may stand in its place`() {
+        val base = base()
+        git("update-index", "--add", "--cacheinfo", "160000,${"1".repeat(40)},a.txt")
+        repo.resolve("a.txt").deleteExisting()
+
+        val diff = log.workingTreeFileDiff(repo, base, GitChangedFile(GitChange.DELETED, "a.txt"))
+
+        assertEquals(GitFileDiff.Text("one\n", "", listOf(GitHunk(0 until 1, 0 until 0))), diff)
+    }
+
+    @Test
+    fun `a FIFO in place of the file is not read`() {
+        val base = base()
+        repo.resolve("a.txt").deleteExisting()
+        val made = runCatching { ProcessBuilder("mkfifo", repo.resolve("a.txt").toString()).start().waitFor() }
+        assumeTrue(made.getOrNull() == 0, "mkfifo is not available")
+        try {
+            // Reading it would block until somebody writes to it.
+            var diff: GitFileDiff? = GitFileDiff.Binary
+            assertTimeoutPreemptively(Duration.ofSeconds(20)) { diff = log.workingTreeFileDiff(repo, base, file) }
+
+            assertNull(diff)
+        } finally {
+            // Opened for reading and writing, which does not block, so that a blocked reader ends.
+            FileChannel.open(repo.resolve("a.txt"), StandardOpenOption.READ, StandardOpenOption.WRITE).close()
+        }
     }
 }

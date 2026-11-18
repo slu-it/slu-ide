@@ -1,5 +1,6 @@
 package dev.sluide.git
 
+import dev.sluide.git.cli.GitCli
 import java.nio.file.Files
 import java.nio.file.attribute.FileTime
 import java.time.Instant
@@ -223,5 +224,38 @@ internal class GitReviewsReadsTest : GitLogFixture() {
         val present = reviews.fingerprint(repo, emptyList(), workingTree = true)
         file.deleteExisting()
         assertNotEquals(present, reviews.fingerprint(repo, emptyList(), workingTree = true), "the file is gone")
+    }
+
+    @Test
+    fun `a symbolic ref of any name is no branch`() {
+        val hash = commit("First", 1000)
+        git("update-ref", "refs/remotes/o/main", hash)
+        git("symbolic-ref", "refs/remotes/o/alias", "refs/remotes/o/main")
+        git("symbolic-ref", "refs/heads/local-alias", "refs/heads/main")
+
+        assertEquals(listOf("refs/heads/main", "refs/remotes/o/main"), reviews.branches(repo))
+    }
+
+    @Test
+    fun `the fingerprint of no revisions asks git for nothing, the status of a failing git is none`() {
+        val noGit = GitReviews(GitCli(repo.resolve("no-such-git").toString(), System.getenv()))
+
+        // The SHA-256 of nothing at all: no revision, no working tree, no git needed.
+        assertEquals(
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            noGit.fingerprint(repo, emptyList(), workingTree = false),
+        )
+        assertNull(noGit.fingerprint(repo, listOf("HEAD"), workingTree = false))
+        assertNull(failing("status").hasUncommittedChanges(repo))
+    }
+
+    @Test
+    fun `a file listed as modified in a range from the empty tree is compared with nothing`() {
+        val to = commitFiles("First", "a.txt" to "a\n")
+
+        val diffs =
+            reviews.fileDiffs(repo, null, commitSide(to), listOf(GitChangedFile(GitChange.MODIFIED, "a.txt")), false)
+
+        assertEquals(mapOf("a.txt" to GitFileDiff.Text("", "a\n", listOf(GitHunk(0 until 0, 0 until 1)))), diffs)
     }
 }

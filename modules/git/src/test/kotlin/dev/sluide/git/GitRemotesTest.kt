@@ -412,4 +412,15 @@ class GitRemotesTest {
         assertEquals(GitFetchChanges(), fetched.changes)
         assertEquals(second, git("rev-parse", "FETCH_HEAD"))
     }
+
+    @Test
+    fun `a fetch that is cancelled before it starts reads and runs nothing`() {
+        val log = folder.resolve("calls.log")
+        val cancelled = GitCancellation().apply { cancel() }
+
+        val fetched = GitRemotes(recordingGit(folder, log)).fetch(repo, "origin", cancelled)
+
+        assertEquals(GitFetchResult(GitResult(false, "Cancelled."), cancelled = true), fetched)
+        assertEquals(emptyList(), recordedCalls(log))
+    }
 }

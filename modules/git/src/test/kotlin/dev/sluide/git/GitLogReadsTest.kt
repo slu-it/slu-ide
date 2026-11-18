@@ -189,4 +189,16 @@ internal class GitLogReadsTest : GitLogFixture() {
         assertIs<GitFileDiff.Text>(log.workingTreeFileDiff(repo, base, file))
         assertTrue(calls().any { "hash-object" in it }, "git stores the file")
     }
+
+    @Test
+    fun `a text that is no hash prefix is not even given to git`() {
+        commitFiles("First", "a.txt" to "a\n")
+        val log = recording()
+
+        for (text in listOf("not a hash", "abc", "", "--help", "x".repeat(64), "a".repeat(65), "main")) {
+            assertNull(log.hashMatch(repo, GitLogFilter(text = text)), text)
+        }
+
+        assertEquals(emptyList(), calls())
+    }
 }
