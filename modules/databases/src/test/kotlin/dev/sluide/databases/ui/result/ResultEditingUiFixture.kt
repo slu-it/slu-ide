@@ -35,8 +35,9 @@ internal class EditingSession(
     config: ConnectionConfig,
     counts: (String) -> Int = { 1 },
     autoCommit: Boolean = true,
+    failOn: (String) -> Boolean = { false },
 ) : FakeSession(config) {
-    val jdbc = RecordingJdbc(startAutoCommit = autoCommit, counts = counts)
+    val jdbc = RecordingJdbc(startAutoCommit = autoCommit, counts = counts, failOn = failOn)
     val changes = mutableListOf<Boolean>()
     val executed = mutableListOf<String>()
 
