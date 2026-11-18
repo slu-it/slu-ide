@@ -103,4 +103,49 @@ class CompletionModelTest {
         assertTrue(CompletionModel.isTypedChar("ab", "a.b", 2, selectionLength = 0))
         assertFalse(CompletionModel.isTypedChar("ab", "a.b", 2, selectionLength = 1))
     }
+
+    @Test
+    fun `a refresh keeps the popup while the caret is at the start of its word, and opens a closed one`() {
+        open("a")
+        assertTrue(model.update(result(4, 4, "a"), 4, opening = false), "the caret back at the word start")
+        model.close()
+        assertTrue(model.update(result(9, 11, "a", "b"), 11, opening = false), "a closed popup follows the result")
+        assertEquals(9, model.replaceFrom)
+        assertEquals("a", model.chosen?.label)
+    }
+
+    @Test
+    fun `moving and paging a closed popup change nothing`() {
+        model.move(1)
+        model.page(1)
+        model.move(-1)
+        model.page(-1)
+        assertEquals(-1, model.selected)
+        assertNull(model.chosen)
+    }
+
+    @Test
+    fun `a click outside the rows is ignored, the first and the last row can be clicked`() {
+        open("a", "b")
+        model.select(1)
+        model.select(2)
+        assertEquals("b", model.chosen?.label)
+        model.select(-1)
+        assertEquals("b", model.chosen?.label)
+        model.select(0)
+        assertEquals("a", model.chosen?.label)
+    }
+
+    @Test
+    fun `typed text needs exactly one more character that fits the caret on both sides`() {
+        assertTrue(CompletionModel.isTypedChar("ab", "abc", 3), "at the end")
+        assertTrue(CompletionModel.isTypedChar("ab", "xab", 1), "at the start")
+        assertTrue(CompletionModel.isTypedChar("", "x", 1))
+        assertFalse(CompletionModel.isTypedChar("ab", "abcd", 3), "two characters")
+        assertFalse(CompletionModel.isTypedChar("ab", "abc", 4), "a caret behind the text")
+        assertFalse(CompletionModel.isTypedChar("ab", "aXc", 2), "the text behind the caret changed")
+        assertFalse(CompletionModel.isTypedChar("ab", "Xbc", 2), "the text before the caret changed")
+        assertFalse(CompletionModel.isTypedChar("ab", "xab", 0))
+        assertFalse(CompletionModel.isTypedChar("ab", "ab", 2), "nothing inserted")
+    }
 }
