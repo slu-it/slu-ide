@@ -27,4 +27,12 @@ class PluginRegistrationTest {
         assertIs<KotlinJunkFilter>(interceptor)
         assertEquals(InterceptorType.FILTER, interceptor.type())
     }
+
+    @Test
+    fun `LINES is registered, off by default, with its file parameter`() {
+        val feature = assertNotNull(ours["LINES"]).provides()
+
+        assertEquals(false, feature.isOnByDefault)
+        assertEquals(listOf("file"), feature.params().map { it.name() })
+    }
 }

@@ -316,9 +316,19 @@ test setup from the root build).
 - `tools/pitest-kotlin`: a pitest plugin, used only by the mutation runs. Its feature `KOTLIN_JUNK` (on by default)
   drops mutants of bytecode the Kotlin compiler adds, judged by the mutated instruction, never by the whole line: the
   `Intrinsics` null checks (not `areEqual` and `compare`, which are `==` and `compareTo`), the `closeFinally` of
-  `use {}`, the bodies of inline functions inlined from other files (by `$i$f$` locals without a `$i$a$` lambda of ours
-  inside, and by the lines after the file's own in the class's SMAP), getters that only return their field, the array
-  copy and `SpreadBuilder` size and array of a spread `*array`, and the boxing of `Result`.
+  `use {}`, library code inlined into our classes (a line the class's SMAP maps to a file outside `dev/sluide/`), the
+  declarations of our inline functions (callers run only their inlined copies; found by the `$i$f$<name>` local that
+  reaches the method's end), getters that only return their field, the array copy and `SpreadBuilder` size and array
+  of a spread `*array`, and the boxing of `Result`. The inlined copies of our own code (our lambdas in a stdlib body,
+  our inline functions) stay, placed at the file and line they were written on: the line from the SMAP, the file by
+  its simple name when it is the class's own source file and by its path from the source root (`dev/sluide/x/Foo.kt`)
+  otherwise. Stdlib functions the compiler maps to the call's own line (`@InlineOnly` ones: `require`, `check`,
+  `takeIf`, `repeat`, `error`) count as our code, so their jumps and loops are mutated: a `require` guard gets its
+  mutant, and a `repeat` increment flip shows up as a timeout. Its feature `LINES` (`+LINES(file[<path>])`, off by default) keeps only the mutants on the `path:line`
+  entries of an allow-list (paths from the repository root), by the same placement: a mutant matches by the path of
+  its file from the source root, so every class of a file does, and so does the copy of an inline function on the
+  function's lines. It stops the run when the parameter is missing, the list is missing or empty, or an entry is no
+  `path:line`.
 
 ## Runtime
 1. `SluIdeLauncher.main` calls `Application.launch(SluIdeApplication)`.
