@@ -136,4 +136,132 @@ class ConnectionStoreTest {
         assertEquals(listOf(full), store.load(null))
         assertEquals(emptyList(), store.load(projectFolder))
     }
+
+    private fun storeDatabases(json: String) {
+        data.update(projectFolder) { root -> root.set("databases", JsonMapper().readTree(json)) }
+    }
+
+    @Test
+    fun `entries without a usable id or name are skipped`() {
+        storeDatabases(
+            """{"connections":["text",5,{"id":"  ","name":"Blank id","kind":"POSTGRESQL"},""" +
+                """{"id":"n","name":"  ","kind":"POSTGRESQL"},{"id":"","name":"Empty id","kind":"POSTGRESQL"},""" +
+                """{"id":7,"name":"Number id","kind":"POSTGRESQL"},{"id":"m","name":8,"kind":"POSTGRESQL"},""" +
+                """{"id":"k","name":"No kind"},{"id":"k","name":"Kind number","kind":1},""" +
+                """{"id":"b","name":"Local","kind":"POSTGRESQL"},{"id":"b","name":"Twin","kind":"MARIADB"}]}""",
+        )
+
+        assertEquals(listOf(minimal), store.load(projectFolder))
+    }
+
+    @Test
+    fun `values of the wrong type fall back to the defaults`() {
+        storeDatabases(
+            """{"connections":[{"id":"b","name":"Local","kind":"POSTGRESQL","host":5,"port":1.5,"database":true,""" +
+                """"user":[],"readOnly":"yes","commitMode":"NOPE","sslMode":3,"caFile":5,"customUrl":{},""" +
+                """"driverProperties":{"a":"b","c":1},"color":"NOPE","showSystemSchemas":"x","password":5}]}""",
+        )
+
+        assertEquals(listOf(minimal.copy(driverProperties = mapOf("a" to "b"))), store.load(projectFolder))
+    }
+
+    @Test
+    fun `a port too large for an int and driverProperties that are no object fall back`() {
+        storeDatabases(
+            """{"connections":[{"id":"b","name":"Local","kind":"POSTGRESQL","port":99999999999,""" +
+                """"driverProperties":["a"]},{"id":"c","name":"Third","kind":"POSTGRESQL","port":"5433"}]}""",
+        )
+
+        assertEquals(listOf(minimal, minimal.copy(id = "c", name = "Third")), store.load(projectFolder))
+    }
+
+    @Test
+    fun `an integral port and boolean flags are read`() {
+        storeDatabases(
+            """{"connections":[{"id":"b","name":"Local","kind":"POSTGRESQL","port":6000,"readOnly":true,""" +
+                """"showSystemSchemas":true}]}""",
+        )
+
+        assertEquals(
+            listOf(minimal.copy(port = 6000, readOnly = true, showSystemSchemas = true)),
+            store.load(projectFolder),
+        )
+    }
+
+    @Test
+    fun `databases or connections of another type load as none`() {
+        storeDatabases("[1]")
+        assertEquals(emptyList(), store.load(projectFolder))
+        storeDatabases("""{"connections":{"x":{"id":"b","name":"Local","kind":"POSTGRESQL"}}}""")
+        assertEquals(emptyList(), store.load(projectFolder))
+        storeDatabases("""{"future":1}""")
+        assertEquals(emptyList(), store.load(projectFolder))
+    }
+
+    @Test
+    fun `connections that are no array are replaced on save`() {
+        storeDatabases("""{"connections":{"x":{"id":"q","name":"Hidden","kind":"POSTGRESQL"}}}""")
+
+        assertTrue(store.save(projectFolder, listOf(minimal)))
+
+        val entries = data.read(projectFolder)!!.get("databases").get("connections")
+        assertEquals(listOf("b"), entries.values().map { it.get("id").stringValue() })
+    }
+
+    @Test
+    fun `a databases field that is no object is replaced on save`() {
+        storeDatabases("[1]")
+
+        assertTrue(store.save(projectFolder, listOf(minimal)))
+
+        assertEquals(listOf(minimal), store.load(projectFolder))
+    }
+
+    @Test
+    fun `unknown keys of an entry stay with the entry of the same id only`() {
+        storeDatabases(
+            """{"connections":[{"id":"b","name":"Old","kind":"POSTGRESQL","extra":"keep"},""" +
+                """{"id":"c","name":"Other","kind":"POSTGRESQL","other":"drop"}]}""",
+        )
+
+        assertTrue(store.save(projectFolder, listOf(full, minimal)))
+
+        val entries = data.read(projectFolder)!!.get("databases").get("connections")
+        assertNull(entries.get(0).get("extra"))
+        assertNull(entries.get(0).get("other"))
+        assertEquals("keep", entries.get(1).get("extra").stringValue())
+        assertEquals(2, entries.size())
+    }
+
+    @Test
+    fun `known keys of the old entry are not copied over the new one`() {
+        storeDatabases(
+            """{"connections":[{"id":"b","name":"Local","kind":"POSTGRESQL","host":"old","readOnly":true}]}""",
+        )
+
+        assertTrue(store.save(projectFolder, listOf(minimal)))
+
+        assertEquals(listOf(minimal), store.load(projectFolder))
+        assertNull(
+            data
+                .read(projectFolder)!!
+                .get("databases")
+                .get("connections")
+                .get(0)
+                .get("host"),
+        )
+    }
+
+    @Test
+    fun `a save that fails while building is logged and gives false`() {
+        val failing =
+            object : AbstractList<ConnectionConfig>() {
+                override val size get() = 1
+
+                override fun get(index: Int): ConnectionConfig = throw IllegalStateException("boom")
+            }
+
+        assertEquals(false, store.save(projectFolder, failing))
+        assertEquals(false, store.save(null, failing))
+    }
 }
