@@ -149,6 +149,194 @@ class DockerExecutableTest {
         assertEquals("'it'\\''s'", shellQuoted("it's"))
     }
 
+    private class Asked {
+        val scripts = mutableListOf<String>()
+        val environments = mutableListOf<Map<String, String>>()
+    }
+
+    private fun lookup(
+        setting: String,
+        answer: String?,
+        asked: Asked = Asked(),
+        environment: Map<String, String> = ide,
+    ): DockerLookup =
+        DockerExecutable(
+            shell = { script, env ->
+                asked.scripts += script
+                asked.environments += env
+                answer
+            },
+            isExecutable = executables::contains,
+        ).resolve(setting, environment)
+
+    @Test
+    fun `a blank setting looks docker up, a plain name by command -v, a path or ~ path without it`() {
+        val asked = Asked()
+        val printed = "/usr/local/bin/docker\n--sluide-environment--\nPATH=/shell/bin\n"
+
+        val found = assertIs<DockerLookup.Found>(lookup("  ", printed, asked)).docker
+        assertEquals(Path.of("/usr/local/bin/docker"), found.executable)
+        assertEquals(mapOf("HOME" to "/home/me", "PATH" to "/shell/bin"), found.environment)
+        lookup("podman", printed, asked)
+        lookup(" /opt/podman/bin/podman ", printed, asked)
+        lookup("~/bin/docker", printed, asked)
+        lookup("bin\\docker", printed, asked)
+        lookup("my~docker", printed, asked)
+        lookup("~docker", printed, asked)
+
+        assertEquals(
+            listOf(
+                lookupScript("docker"),
+                lookupScript("podman"),
+                lookupScript(null),
+                lookupScript(null),
+                lookupScript(null),
+                lookupScript("my~docker"),
+                lookupScript(null),
+            ),
+            asked.scripts,
+        )
+        assertEquals(ide, asked.environments.first(), "the shell runs with the IDE's environment")
+    }
+
+    @Test
+    fun `a login shell that does not answer leaves a name to the IDE's PATH and a path as it is`() {
+        val onPath = lookup("podman", null, environment = ide + ("PATH" to "/nowhere:/usr/bin"))
+        assertEquals(ide + ("PATH" to "/nowhere:/usr/bin"), assertIs<DockerLookup.Found>(onPath).docker.environment)
+        assertTrue("did not answer" in assertIs<DockerLookup.NotFound>(lookup("docker", null)).message)
+        assertEquals(
+            Path.of("/opt/podman/bin/podman"),
+            assertIs<DockerLookup.Found>(lookup("/opt/podman/bin/podman", null)).docker.executable,
+        )
+    }
+
+    @Test
+    fun `the default executable check wants a regular file with the execute bit`(
+        @TempDir root: Path,
+    ) {
+        assumeTrue(Files.getFileStore(root).supportsFileAttributeView("posix"), "no POSIX permissions")
+        val executable =
+            root.resolve("docker").apply {
+                writeText("#!/bin/sh\n")
+                setPosixFilePermissions(PosixFilePermissions.fromString("rwxr-xr-x"))
+            }
+        val plain =
+            root.resolve("plain").apply {
+                writeText("x")
+                setPosixFilePermissions(PosixFilePermissions.fromString("rw-r--r--"))
+            }
+        val folder = root.resolve("folder").createDirectories()
+        val resolver = DockerExecutable(shell = { _, _ -> "\n--sluide-environment--\n" })
+
+        assertIs<DockerLookup.Found>(resolver.resolve(executable.toString(), ide))
+        assertIs<DockerLookup.NotFound>(resolver.resolve(plain.toString(), ide))
+        assertIs<DockerLookup.NotFound>(resolver.resolve(folder.toString(), ide))
+        assertIs<DockerLookup.NotFound>(resolver.resolve(root.resolve("missing").toString(), ide))
+        val missingName = assertIs<DockerLookup.NotFound>(resolver.resolve("docker", ide))
+        assertTrue("not found on the PATH of your login shell" in missingName.message, missingName.message)
+    }
+
+    @Test
+    fun `connecting gives a CLI for what is found and the reason for what is not`(
+        @TempDir root: Path,
+    ) {
+        assumeTrue(Files.isExecutable(Path.of("/bin/sh")), "no /bin/sh")
+        val docker =
+            root.resolve("docker").apply {
+                writeText("#!/bin/sh\n")
+                setPosixFilePermissions(PosixFilePermissions.fromString("rwxr-xr-x"))
+            }
+        val environment = System.getenv() + mapOf("HOME" to root.toString(), "SHELL" to "/bin/sh")
+
+        val ready = assertIs<DockerConnection.Ready>(connectDocker(docker.toString(), environment))
+        assertEquals(docker, ready.docker.executable)
+        assertIs<ProcessDockerCli>(ready.cli)
+        val missing = assertIs<DockerConnection.NotFound>(connectDocker(root.resolve("nope").toString(), environment))
+        assertTrue("not an executable file" in missing.message, missing.message)
+    }
+
+    @Test
+    fun `the lookup ignores what the environment part prints, a name's line before it decides`() {
+        // A multi-line variable can print any line; the separator may even come first.
+        val onlyEnvironment = parseLookup("--sluide-environment--\nMULTI=a\n/usr/evil/docker\nalias x=y\n", "docker")
+        assertEquals(ShellLookup(null, null, emptyMap()), onlyEnvironment)
+        assertEquals(
+            ShellLookup("/usr/bin/docker", null, emptyMap()),
+            parseLookup("alias docker=podman\n/usr/bin/docker\n--sluide-environment--\n", "docker"),
+            "a path wins over an alias line",
+        )
+        assertEquals(
+            ShellLookup(null, "docker", emptyMap()),
+            parseLookup("\n  \n docker \n--sluide-environment--\n", "docker"),
+        )
+        assertEquals("ok", parseLookup("x\n/y\n--sluide-environment--\nPATH=ok\n", "docker").environment?.get("PATH"))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "'bin\\docker'",
+        "'~docker'",
+        "'~other/docker'",
+        "'bin/docker'",
+        "'a\u0000/b'",
+    )
+    fun `a setting that is neither a name nor an absolute path is refused with what to enter`(setting: String) {
+        val message = assertIs<DockerLookup.NotFound>(resolve(setting, null)).message
+
+        assertTrue("neither a program name nor a full path" in message, message)
+    }
+
+    @Test
+    fun `a ~ path needs the HOME of the IDE, and ~ alone is the home folder`() {
+        val noHome = resolution("~/bin/docker", null, mapOf("PATH" to "/bin")) { true }
+        assertTrue("neither a program name" in assertIs<DockerLookup.NotFound>(noHome).message)
+        val home = resolution("~", null, ide) { false }
+        assertTrue("/home/me is not an executable" in assertIs<DockerLookup.NotFound>(home).message)
+        val homeFound = resolution("~", null, ide) { it == Path.of("/home/me") }
+        assertEquals(Path.of("/home/me"), assertIs<DockerLookup.Found>(homeFound).docker.executable)
+    }
+
+    @Test
+    fun `a name the login shell found at a path that is not executable says so`() {
+        val message =
+            assertIs<DockerLookup.NotFound>(resolve("docker", ShellLookup("/usr/bin/docker", null, emptyMap()))).message
+
+        assertTrue("/usr/bin/docker is not an executable file" in message, message)
+    }
+
+    @Test
+    fun `without the shell the IDE's PATH is searched in order, absolute folders only`() {
+        fun found(
+            path: String?,
+            executable: (Path) -> Boolean,
+        ) = resolution("docker", null, listOfNotNull(path?.let { "PATH" to it }).toMap(), executable)
+
+        val second =
+            found("/first:/second") { it == Path.of("/second/docker") || it == Path.of("/first/docker") }
+        assertEquals(Path.of("/first/docker"), assertIs<DockerLookup.Found>(second).docker.executable)
+        assertEquals(
+            Path.of("/second/docker"),
+            assertIs<DockerLookup.Found>(
+                found("/first: :/second") { it == Path.of("/second/docker") },
+            ).docker.executable,
+        )
+        assertIs<DockerLookup.NotFound>(found("bin") { true }, "relative folders are not searched")
+        assertIs<DockerLookup.NotFound>(found(null) { true })
+        assertEquals(
+            Path.of("/usr/bin/docker"),
+            assertIs<DockerLookup.Found>(found("\u0000:/usr/bin") { true }).docker.executable,
+        )
+    }
+
+    @Test
+    fun `the flavor follows the file name, none for a root`() {
+        assertEquals(EngineFlavor.PODMAN, flavorOf(Path.of("/usr/bin/podman")))
+        assertEquals(EngineFlavor.PODMAN, flavorOf(Path.of("/usr/bin/podman-remote")))
+        assertEquals(EngineFlavor.DOCKER, flavorOf(Path.of("/usr/bin/mypodman")))
+        assertEquals(EngineFlavor.DOCKER, flavorOf(Path.of("/usr/bin/docker")))
+        assertEquals(EngineFlavor.DOCKER, flavorOf(Path.of("/")))
+    }
+
     @Test
     fun `a stub docker on the PATH of a real login shell is found with that shell's variables`(
         @TempDir root: Path,
