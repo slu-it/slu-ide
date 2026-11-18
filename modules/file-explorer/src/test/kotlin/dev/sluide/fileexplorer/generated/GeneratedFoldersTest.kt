@@ -1,5 +1,8 @@
 package dev.sluide.fileexplorer.generated
 
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
+import org.junit.jupiter.api.Assumptions.assumeFalse
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
@@ -7,8 +10,10 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
+import java.io.RandomAccessFile
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Duration
 import java.util.stream.Stream
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
@@ -210,6 +215,124 @@ class GeneratedFoldersTest {
         assertEquals("obj for App.csproj", reason(folder("obj", "App.csproj")))
         assertEquals("foo.egg-info for pyproject.toml", reason(folder("foo.egg-info", "pyproject.toml")))
         assertEquals("cmake-build-debug for CMakeLists.txt", reason(folder("cmake-build-debug", "CMakeLists.txt")))
+    }
+
+    @Test
+    fun `globs need one character for a star, and a plain name is no prefix`() {
+        root.resolve("CMakeLists.txt").createFile()
+        root.resolve("package.json").createFile()
+
+        fun reasonOf(name: String) = reason(root.resolve(name).createDirectories())
+
+        assertEquals("cmake-build-x for CMakeLists.txt", reasonOf("cmake-build-x"))
+        assertNull(reasonOf("cmake-build-"))
+        assertNull(reasonOf("distro"), "dist is no prefix of distro")
+        assertNull(reasonOf("dist-x"))
+        assertEquals("dist for package.json", reasonOf("dist"))
+        root.resolve("a.sbt").createFile()
+        assertEquals("target for a.sbt", reasonOf("target"))
+    }
+
+    @Test
+    fun `a rule with a parent does not apply to a folder without a folder or in the root`() {
+        val siblings = setOf("bundle", "Gemfile")
+
+        assertNull(generatedReason(Path.of("bundle"), siblings), "a relative name has no parent")
+        assertNull(generatedReason(Path.of("/bundle"), siblings), "the root has no name to compare")
+        assertNull(generatedReason(Path.of("/"), emptySet()), "the root has no name")
+    }
+
+    @Test
+    fun `a generated file reason needs a file name and a name of the catalogue`() {
+        assertNull(generatedFileReason(Path.of("/")))
+        assertNull(generatedFileReason(root.resolve("a.txt")))
+        assertEquals(
+            GeneratedReason("macOS folder metadata", file = true),
+            generatedFileReason(root.resolve(".DS_Store")),
+        )
+    }
+
+    private fun padded(
+        start: String,
+        length: Int,
+    ) = start + "#".repeat(length - start.length - 1) + "\n"
+
+    @Test
+    fun `a marker file of exactly the read limit is read, one byte more is not`() {
+        val limit = 4096
+        val ignored = folder("ignored")
+        val tagged = folder("tagged")
+        val signature = "Signature: 8a477f597d28d172789f06886806bc55\n"
+        ignored.resolve(".gitignore").writeText(padded("*\n", limit))
+        tagged.resolve("CACHEDIR.TAG").writeText(padded(signature, limit))
+        assertEquals("marked by its .gitignore", reason(ignored))
+        assertEquals("marked by CACHEDIR.TAG", reason(tagged))
+
+        ignored.resolve(".gitignore").writeText(padded("*\n", limit + 1))
+        tagged.resolve("CACHEDIR.TAG").writeText(padded(signature, limit + 1))
+        assertNull(reason(ignored))
+        assertNull(reason(tagged))
+    }
+
+    @Test
+    fun `a marker that is no regular file is not even opened`() {
+        assumeFalse(System.getProperty("os.name").lowercase().contains("win"))
+        val folder = folder("anything")
+        val fifo = folder.resolve(".gitignore")
+        // mkfifo is the real tool; opening the pipe for reading would block until a writer comes, so one is waiting.
+        assumeTrue(ProcessBuilder("mkfifo", fifo.toString()).start().waitFor() == 0)
+        val writer =
+            Thread {
+                runCatching { Files.newOutputStream(fifo).use { it.write("*\n".toByteArray()) } }
+            }.apply {
+                isDaemon = true
+                start()
+            }
+        try {
+            assertTimeoutPreemptively(Duration.ofSeconds(30)) { assertNull(reason(folder)) }
+        } finally {
+            // Releases the writer should nothing have read from the pipe: opening it read-write never blocks and
+            // counts as a reader, so the writer's open and write finish into the pipe buffer.
+            RandomAccessFile(fifo.toFile(), "rw").use { writer.join(10_000) }
+        }
+    }
+
+    @Test
+    fun `a pipe named like a catalogue file is no generated file`() {
+        assumeFalse(System.getProperty("os.name").lowercase().contains("win"))
+        val fifo = root.resolve(".DS_Store")
+        assumeTrue(ProcessBuilder("mkfifo", fifo.toString()).start().waitFor() == 0)
+
+        assertNull(GeneratedFolderFilter { true }.structural(fifo, setOf(".DS_Store")))
+    }
+
+    @Test
+    fun `without git callbacks nothing is known about a path`() {
+        val filter = GeneratedFolderFilter { true }
+
+        assertNull(filter.ignoredByGit(root))
+        assertNull(filter.trackedByGit(root))
+        assertEquals(true, filter.isCatalogueFile(root.resolve(".DS_Store")))
+        assertEquals(false, filter.isCatalogueFile(root.resolve("a.txt")))
+    }
+
+    @Test
+    fun `a generated file is left out of a compacted count only while hiding, unless revealed, and only as a file`() {
+        var enabled = true
+        val filter = GeneratedFolderFilter { enabled }
+        val file = root.resolve(".DS_Store").createFile()
+        val other = root.resolve("a.txt").createFile()
+        val folder = root.resolve("sub/.DS_Store").createDirectories()
+
+        assertEquals(true, filter.hidesFileForCompacting(file))
+        assertEquals(false, filter.hidesFileForCompacting(other), "not a catalogue name")
+        assertEquals(false, filter.hidesFileForCompacting(folder), "a folder of that name is no file")
+        filter.unhide(file)
+        assertEquals(false, filter.hidesFileForCompacting(file), "revealed")
+        filter.clearRevealed()
+        assertEquals(true, filter.hidesFileForCompacting(file))
+        enabled = false
+        assertEquals(false, filter.hidesFileForCompacting(file), "the setting is off")
     }
 
     companion object {
