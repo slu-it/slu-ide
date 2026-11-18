@@ -158,4 +158,9 @@ class GitStatusSnapshotTest {
         assertEquals((31 * root.hashCode() + entries.hashCode()) * 31, GitStatusSnapshot(root, entries).hashCode())
         assertEquals("GitStatusSnapshot($root, $head, $entries)", snapshot.toString())
     }
+
+    @Test
+    fun `the empty snapshot has the hash of no root, no entries and no head`() {
+        assertEquals(31 * emptyMap<String, GitStatus>().hashCode() * 31, GitStatusSnapshot.EMPTY.hashCode())
+    }
 }

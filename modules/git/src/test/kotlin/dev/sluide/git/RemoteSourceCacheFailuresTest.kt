@@ -248,7 +248,7 @@ class RemoteSourceCacheFailuresTest {
     fun `a content whose output is not read to its end is no content`() {
         fetchedMain(content = true)
         // A process the command left behind holds its output open past the short grace.
-        val partial = "case \" \$* \" in *' blob '*) echo partial; (sleep 3 &); exit 0;; esac"
+        val partial = "case \" \$* \" in *' blob '*) echo partial; (sleep 20 &); sleep 0.3; exit 0;; esac"
         val cache = cacheOf(scriptGit(partial, pipeGrace = 100.milliseconds))
 
         assertEquals(RemoteRead.Failed("could not read the file"), cache.read(repository, head, "action.yml", false))
@@ -323,6 +323,23 @@ class RemoteSourceCacheFailuresTest {
             ).fetch(repository, "main"),
         )
         assertEquals(head, cache.commit(repository, "main")?.commit, "what was cached stays")
+    }
+
+    @Test
+    fun `a listing of the tree or the making of the repository that takes too long fails`() {
+        fetchedMain()
+        val listing = "case \" \$* \" in *' ls-tree '*) sleep 30;; esac"
+        assertEquals(
+            RemoteRead.Failed("timed out"),
+            cacheOf(scriptGit(listing), localTimeout = 300.milliseconds).read(repository, head, "action.yml", false),
+        )
+        bare.toFile().deleteRecursively()
+        val making = "case \" \$* \" in *' init '*) sleep 30;; esac"
+
+        assertEquals(
+            RemoteFetch.Failed("could not create the cache"),
+            cacheOf(scriptGit(making), localTimeout = 300.milliseconds).fetch(repository, "main"),
+        )
     }
 
     @Test
@@ -434,7 +451,7 @@ class RemoteSourceCacheFailuresTest {
                 ),
                 BrokenCase("git says it is one", FETCH_FAILS, "exit 0", false),
                 BrokenCase("a failure of another kind", FETCH_FAILS, "exit 1", false),
-                BrokenCase("an answer cut off", FETCH_FAILS, "(sleep 3 &); exit 128", false),
+                BrokenCase("an answer cut off", FETCH_FAILS, "(sleep 20 &); sleep 0.3; exit 128", false),
                 BrokenCase("an answer that takes too long", FETCH_FAILS, "sleep 30", false),
                 BrokenCase("no answer at all", "rm -f \"\$0\"; echo 'fatal: nope' >&2; exit 128", "exit 0", false),
                 BrokenCase(
@@ -560,7 +577,7 @@ class RemoteSourceCacheFailuresTest {
         assertEquals(RemoteFetch.Failed("'main' is no commit"), fetchWith("echo $head; exit 1"))
         assertEquals(
             RemoteFetch.Failed("'main' is no commit"),
-            fetchWith("echo $head; (sleep 3 &); exit 0", 100.milliseconds),
+            fetchWith("echo $head; (sleep 20 &); sleep 0.3; exit 0", 100.milliseconds),
         )
     }
 

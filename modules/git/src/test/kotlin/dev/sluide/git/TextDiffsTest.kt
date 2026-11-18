@@ -34,4 +34,11 @@ class TextDiffsTest {
 
         assertNull(git.diffTexts("a\n".toByteArray(), "b\n".toByteArray(), null, folder.resolve("missing")))
     }
+
+    @Test
+    fun `without a folder given the system's is used`() {
+        assumeTrue(git.available, "git is not installed")
+
+        assertEquals(1, git.diffTexts("a\n".toByteArray(), "b\n".toByteArray(), null, null)?.size)
+    }
 }

@@ -7,7 +7,10 @@ import dev.sluide.git.testGitEnvironment
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -75,8 +78,13 @@ class GitCliConfigTest {
         return GitCli(script.toString(), testGitEnvironment()).also { assertEquals(false, it.available) }
     }
 
-    /** Answers `git <word> …` with [output] and exit 0, the output held open past the short grace. */
-    private fun heldOpen(word: String) = scripted("*' $word '*) echo x; (sleep 3 &); exit 0;;", 100.milliseconds)
+    /**
+     * Answers `git <word> …` with `x` and exit 0, the output held open past the short grace by a process left behind.
+     * It waits before it ends: the JDK drains and closes the pipe of a process that ends while nobody is reading it
+     * yet, which would make the output look complete now and then.
+     */
+    private fun heldOpen(word: String) =
+        scripted("*' $word '*) echo x; (sleep 20 &); sleep 0.3; exit 0;;", 100.milliseconds)
 
     private fun answering(
         word: String,
@@ -262,5 +270,58 @@ class GitCliConfigTest {
         assertEquals(true, git.sshConfigured(repo))
         assertNull(unavailable().sshConfigured(repo))
         assertNull(failingGit(folder, "--get-regexp").sshConfigured(repo))
+    }
+
+    /** Every read of the configuration, in the repository as it is now, as [GitCli] answers it. */
+    private fun answers(reader: GitCli): List<Any?> =
+        listOf(
+            reader.userName(repo),
+            reader.remoteNames(repo),
+            reader.remotesSkippedByFetchAll(repo),
+            reader.configValues(repo, "test.values"),
+            reader.configFlag(repo, "test.flag"),
+            reader.configEntries(repo),
+            reader.topLevel(repo),
+            reader.gitlinks(repo),
+            reader.sshConfigured(repo),
+        )
+
+    @Test
+    fun `every read has an answer in a repository that is in order, and none without a git`() {
+        run("config", "user.name", "Name")
+        run("remote", "add", "origin", "https://example.com/a.git")
+
+        assertEquals(9, answers(git).size)
+        assertEquals(emptyList(), answers(git).withIndex().filter { it.value == null }.map { it.index })
+        assertEquals(List(9) { null }, answers(unavailable()))
+    }
+
+    @Test
+    fun `every read has no answer when git cannot be started`() {
+        run("config", "user.name", "Name")
+        val script = folder.resolve("doomed-git")
+        script.toFile().writeText(FAKE_GIT_START + "exec git \"\$@\"\n")
+        script.toFile().setExecutable(true)
+        val doomed = GitCli(script.toString(), testGitEnvironment())
+        Files.delete(script)
+
+        assertEquals(List(9) { null }, answers(doomed))
+    }
+
+    @Test
+    fun `reads of the configuration that take too long have no answer`() {
+        run("config", "user.name", "Name")
+        val hanging = scripted("*' config '*) sleep 30;;")
+        val reads =
+            listOf<() -> Any?>(
+                { hanging.remotesSkippedByFetchAll(repo) },
+                { hanging.configValues(repo, "test.values") },
+                { hanging.configFlag(repo, "test.flag") },
+                { hanging.configEntries(repo) },
+                { hanging.sshConfigured(repo) },
+            ).map { read -> CompletableFuture.supplyAsync(read) }
+
+        // The reads wait three seconds each, side by side.
+        assertEquals(List(5) { null }, reads.map { it.get(30, TimeUnit.SECONDS) })
     }
 }

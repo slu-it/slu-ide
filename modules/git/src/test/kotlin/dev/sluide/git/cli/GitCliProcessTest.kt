@@ -166,7 +166,7 @@ class GitCliProcessTest {
     fun `what a process left behind writes within the grace is part of the output, and of the error log`() {
         val git =
             fakeGit(
-                "(sleep 0.3; echo late) & ( sleep 0.02; echo late >&2 ) >/dev/null & exit 0",
+                "(sleep 0.3; echo late) & ( sleep 0.01; echo late >&2 ) >/dev/null & sleep 0.3; exit 0",
                 pipeGrace = 10.seconds,
             )
 
@@ -269,6 +269,76 @@ class GitCliProcessTest {
         assertEquals("done", marker.readText().trim())
     }
 
+    @Test
+    fun `a read keeps the start of what git says on standard error, a write all of it`() {
+        val git = fakeGit("head -c 10000 /dev/zero | tr '\\0' x >&2; exit 0")
+
+        val read = read(git, "x")
+        val write = git.execute(listOf("x"), folder, 10.seconds, null, write = true)
+
+        assertEquals(STDERR_KEEP, read?.errors?.size)
+        assertEquals(10000, write?.errors?.size)
+    }
+
+    @Test
+    fun `an error output over the limit is drained to its end, git is never blocked or cut off`() {
+        val writing = "(head -c 300000 /dev/zero | tr '\\0' x >&2)"
+        val body = "trap '' PIPE; if ! $writing; then touch '$folder/cut'; fi; exit 0"
+        val git = fakeGit(body)
+
+        val execution = within(30) { git.execute(listOf("x"), folder, 20.seconds, null, write = true, maxErrors = 10) }
+
+        assertEquals(0, execution?.exitValue)
+        assertFalse(folder.resolve("cut").exists(), "git could not write all it said")
+    }
+
+    // The scripts below wait 0.3 s before they end: the JDK drains and closes the output pipe of a process that ends
+    // while its reader has not started reading, and the output would then look complete now and then.
+    @Test
+    fun `output that arrives after git ended is waited for as long as the grace, to the nanosecond`() {
+        val late = fakeGit("(sleep 0.1; echo late) & sleep 0.3; exit 0", pipeGrace = 900.milliseconds)
+        assertEquals("late\n", read(late, "x")?.output?.decodeToString())
+        assertEquals(true, read(late, "x")?.complete)
+
+        val later = fakeGit("(sleep 1.5; echo late) & sleep 0.3; exit 0", pipeGrace = 10.seconds)
+        assertEquals("late\n", read(later, "x")?.output?.decodeToString())
+        assertEquals(true, read(later, "x")?.complete)
+    }
+
+    @Test
+    fun `an error line that a left-behind process writes just after git ended is still kept`() {
+        // Only standard error is held: the output reader ends with git, the error reader gets its short grace.
+        val git = fakeGit("( sleep 0.01; echo late >&2 ) >/dev/null & sleep 0.3; exit 0")
+
+        assertEquals("late\n", read(git, "x")?.errors?.decodeToString())
+    }
+
+    @Test
+    fun `a caller interrupted while a write is being stopped keeps the interrupt and git ends`() {
+        val terming = folder.resolve("terming")
+        val pid = folder.resolve("pid")
+        val body = "trap 'echo x > \"$terming\"; sleep 3; exit 0' TERM; echo \$\$ > '$pid'; sleep 30 & wait"
+        val git = fakeGit(body, stopGrace = 10.seconds)
+        val cancellation = GitCancellation()
+        val result = CompletableFuture<Pair<GitCli.Execution?, Boolean>>()
+        val thread =
+            Thread {
+                val execution =
+                    git.execute(listOf("x"), folder, 60.seconds, null, write = true, cancellation = cancellation)
+                result.complete(execution to Thread.currentThread().isInterrupted)
+            }.apply { start() }
+        awaitFile(pid)
+        cancellation.cancel()
+        awaitFile(terming)
+
+        thread.interrupt()
+
+        val (execution, interrupted) = result.get(10, TimeUnit.SECONDS)
+        assertTrue(assertNotNull(execution).cancelled)
+        assertTrue(interrupted, "the interrupt is kept")
+        awaitGone(pid.readText().trim().toLong())
+    }
+
     /** What the guard read of `core.fsmonitor` answers, and whether git then runs with the hook turned off, kept. */
     data class Guard(
         val name: String,
@@ -351,7 +421,7 @@ class GitCliProcessTest {
                 Guard("not set", "exit 1", guarded = false, kept = true),
                 Guard("no boolean", "echo 'fatal: bad' >&2; exit 128", guarded = true, kept = true),
                 Guard("another failure", "exit 2", guarded = true, kept = false),
-                Guard("an answer cut off", "echo true; (sleep 3 &); exit 0", guarded = true, kept = false),
+                Guard("an answer cut off", "echo true; (sleep 20 &); sleep 0.3; exit 0", guarded = true, kept = false),
             )
     }
 }
