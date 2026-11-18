@@ -105,6 +105,8 @@ class DockerBuildStoreTest {
             """"target":["x"]""",
             """"platform":null""",
             """"history":"a"""",
+            """"history":{"a":"x"}""",
+            """"buildArgs":["A"]""",
             """"history":[7," ","a\u0000b"]""",
             """"buildArgs":"A=1"""",
             """"buildArgs":{"":"v","N":1,"M":"a\u0000"}""",
