@@ -6,8 +6,10 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import java.nio.channels.FileChannel
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import kotlin.io.path.appendText
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeBytes
@@ -112,8 +114,10 @@ class GitFileComparisonTest {
             assertNull(comparison.compare(pipe, file))
             assertNull(comparison.compare(file, pipe))
         } finally {
-            // Let the writer end if nothing read the pipe.
-            runCatching { Files.newInputStream(pipe).use { it.readAllBytes() } }
+            // Let the writer end if nothing read the pipe: opened for reading and writing, the open does not wait.
+            runCatching {
+                FileChannel.open(pipe, StandardOpenOption.READ, StandardOpenOption.WRITE).use { }
+            }
             writer.join(10_000)
         }
     }

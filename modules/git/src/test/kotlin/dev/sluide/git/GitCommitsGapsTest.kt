@@ -412,7 +412,8 @@ internal class GitCommitsGapsTest : GitCommitsFixture() {
         val picked = appliedAlready()
 
         // The first read of what is in progress is the pick's own, the second the outcome's.
-        val empty = failing("--git-path", after = 1).pick(repo, GitPick.CHERRY_PICK, picked, firstParent = false)
+        // Only the outcome's read fails, so that clearing a revert would work: it must not be tried for a cherry-pick.
+        val empty = failingNth("--git-path", 2).pick(repo, GitPick.CHERRY_PICK, picked, firstParent = false)
         assertIs<GitPickResult.Failed>(empty)
         git("cherry-pick", "--quit")
     }
@@ -448,6 +449,7 @@ internal class GitCommitsGapsTest : GitCommitsFixture() {
 
         assertNull(recorded.unreachableCount(repo, "-x"))
         assertNull(recorded.overwrittenFiles(repo, "-x"))
+        assertNull(recorded.overwrittenFiles(repo, ""))
         assertNull(recorded.pickOverwrites(repo, GitPick.CHERRY_PICK, "-x", firstParent = false))
         assertNull(recorded.pickOverwrites(repo, GitPick.REVERT, "", firstParent = false))
 
@@ -570,6 +572,21 @@ internal class GitCommitsGapsTest : GitCommitsFixture() {
         assertEquals(listOf("dir/t.txt"), named.overwrittenFiles(repo, target))
         repo.resolve("dir/t.txt").toFile().delete()
         assertEquals(emptyList(), named.overwrittenFiles(repo, target), "an empty folder is no file")
+    }
+
+    @Test
+    fun `a folder the JVM cannot name lists only what is below it`() {
+        commit("Base")
+        val target = commit("Target", "dir")
+        git("rm", "-q", "--cached", "dir")
+        git("commit", "-q", "-m", "Untrack")
+        repo.resolve("dir").toFile().delete()
+        repo.resolve("dir").createDirectories()
+        repo.resolve("dir/x.txt").writeText("x\n")
+        repo.resolve("unrelated.txt").writeText("unrelated\n")
+        commits.canNameFile = { false }
+
+        assertEquals(listOf("dir/x.txt"), commits.overwrittenFiles(repo, target))
     }
 
     @Test

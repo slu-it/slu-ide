@@ -200,6 +200,20 @@ class GitFolderStampsTest {
 
         assertNotEquals(hashed, trust(inputs(files = setOf(atLimit))), "at the limit: by content")
         assertEquals(large, trust(inputs(files = setOf(above))), "above the limit: by attributes")
+        Files.setLastModifiedTime(above, FileTime.from(Instant.parse("2024-01-01T00:00:05Z")))
+        assertNotEquals(large, trust(inputs(files = setOf(above))), "its time is one of them")
+    }
+
+    @Test
+    fun `a folder among the hooks is stamped as a folder, not by its time`() {
+        val hooks = folder.resolve("hooks").createDirectories()
+        val inner = hooks.resolve("inner").createDirectories()
+        val original = assertNotNull(trust(inputs(folders = setOf(hooks))))
+
+        file("hooks/inner/file")
+        Files.setLastModifiedTime(inner, FileTime.from(Instant.parse("2024-01-01T00:00:05Z")))
+
+        assertEquals(original, trust(inputs(folders = setOf(hooks))))
     }
 
     @Test
@@ -254,6 +268,24 @@ class GitFolderStampsTest {
         val pointing = trust(inputs(redirects = setOf(gitdir)))
         gitdir.writeText("gitdir: ../somewhere-else\n")
         assertNotEquals(pointing, trust(inputs(redirects = setOf(gitdir))), "a gitdir file by its content")
+    }
+
+    @Test
+    fun `a link to a file is stamped by the file's content, a link to a folder by that it is one`() {
+        val target = file("target", "one\n")
+        val link = folder.resolve("link")
+        link.createSymbolicLinkPointingTo(target)
+        val toFile = assertNotNull(trust(inputs(redirects = setOf(link))))
+
+        target.writeText("two\n")
+        assertNotEquals(toFile, trust(inputs(redirects = setOf(link))), "the content of the file")
+
+        val directory = folder.resolve("directory").createDirectories()
+        val toFolder = folder.resolve("link-to-folder")
+        toFolder.createSymbolicLinkPointingTo(directory)
+        val original = trust(inputs(redirects = setOf(toFolder)))
+        file("directory/inside")
+        assertEquals(original, trust(inputs(redirects = setOf(toFolder))), "what is in the folder")
     }
 
     @Test
