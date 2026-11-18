@@ -130,7 +130,7 @@ internal class CursorState(
                 bucket.forEachIndexed { i, row -> rows[bucketStart + i] = row }
             }
             val count = knownRowCount ?: error("End not reached")
-            cached(lastIndex(count, size), size) ?: read(lastIndex(count, size), size)
+            read(lastIndex(count, size), size)
         }
     }
 
