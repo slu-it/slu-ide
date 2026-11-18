@@ -47,6 +47,7 @@ class ImageRunnerTest {
     private var project: Path? = null
     private val cancels = mutableListOf<() -> Unit>()
     private var pendingRun: CompletableFuture<String>? = null
+    private var cancelAtStart = false
     private val home = Path.of("/home/me")
 
     private val data by lazy { ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList()) }
@@ -82,6 +83,7 @@ class ImageRunnerTest {
                 cancel: () -> Unit,
             ): BackgroundTask {
                 cancels += cancel
+                if (cancelAtStart) cancel()
                 return tasks.start(name, cancel)
             }
 
@@ -180,6 +182,16 @@ class ImageRunnerTest {
         assertEquals(emptyList(), errors)
         assertEquals(emptyList(), shown)
         assertTrue(taskLog.any { "cancelled" in it && "Run nginx:1" in it }, taskLog.toString())
+    }
+
+    @Test
+    fun `cancelling the task before the CLI call exists does nothing`() {
+        cancelAtStart = true
+
+        runner.run("nginx:1")
+
+        assertEquals(1, cancels.size)
+        assertEquals(1, cli.runCalls.size, "the run goes on")
     }
 
     @Test

@@ -161,4 +161,20 @@ class ComposeConfigTest {
     fun `profiles of a service skip entries that are not text`() {
         assertEquals(setOf("a", "b"), serviceOf("""{"profiles":["a",{"x":1},"b","a"]}""").profiles)
     }
+
+    @Test
+    fun `a port whose fields are no scalars skips the port or the field`() {
+        val ports =
+            serviceOf(
+                """{"ports":[
+                    {"target":[1]},
+                    {"target":{"a":1}},
+                    {"target":80,"protocol":{"a":1}},
+                    {"target":81,"published":["x"],"host_ip":"127.0.0.1"},
+                    {"target":82,"published":"8082","host_ip":{"a":1}}
+                ]}""",
+            ).ports
+
+        assertEquals(listOf("80/tcp", "81/tcp", "8082:82/tcp"), ports)
+    }
 }

@@ -1,9 +1,10 @@
 package dev.sluide.docker.events
 
 import dev.sluide.docker.model.DockerEvent
+import dev.sluide.docker.model.collidingWith
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
-import kotlin.test.Test
+import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.assertEquals
 
 class EventRoutingTest {
@@ -58,20 +59,13 @@ class EventRoutingTest {
         assertEquals(setOf(kind), reloadsFor(DockerEvent(type, action, "id")).map { it.name }.toSet())
     }
 
-    @Test
-    fun `a type that only shares the hash code of a known type reloads nothing`() {
-        // Same hashCode as container, image, volume and network (two neighbouring characters shifted by 1 and 31).
-        val colliding =
-            mapOf(
-                "container" to "dPntainer",
-                "image" to "jNage",
-                "volume" to "wPlume",
-                "network" to "oFtwork",
-            )
+    @ParameterizedTest
+    @ValueSource(strings = ["container", "image", "volume", "network"])
+    fun `a type that only shares the hash code of a known type reloads nothing`(type: String) {
+        val other = collidingWith(type)
 
-        colliding.forEach { (type, other) ->
-            assertEquals(type.hashCode(), other.hashCode(), other)
-            assertEquals(emptySet(), reloadsFor(DockerEvent(other, "create", "id")), other)
-        }
+        assertEquals(type.hashCode(), other.hashCode(), other)
+        assertEquals(other, other.lowercase(), "the type is compared in lower case")
+        assertEquals(emptySet(), reloadsFor(DockerEvent(other, "create", "id")), other)
     }
 }

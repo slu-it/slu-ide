@@ -1,8 +1,10 @@
 package dev.sluide.docker.dockerfile
 
+import dev.sluide.docker.model.collidingWith
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -34,6 +36,35 @@ class DockerfileStagesTest {
         for (text in listOf("", "\n\n", "FROM", "ARG", "ARG =x", "RUN <<EOF\nnever ends", "FROM a AS")) {
             assertEquals(DockerfileInfo(emptyList(), emptyList()), parseDockerfile(text), text)
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["FROM", "ARG", "RUN", "COPY", "ADD"])
+    fun `a word that only shares the hash code of an instruction is no instruction`(keyword: String) {
+        val other = collidingWith(keyword, Char::uppercaseChar)
+        assertEquals(keyword.hashCode(), other.hashCode(), other)
+        assertEquals(other, other.uppercase(), "the instruction is compared in upper case")
+
+        val info =
+            when (keyword) {
+                "FROM" -> parseDockerfile("$other a AS b\n")
+                "ARG" -> parseDockerfile("$other X=1\n")
+                else -> parseDockerfile("FROM a AS one\n$other <<EOF\nFROM b AS fake\nARG Y\nEOF\n")
+            }
+
+        when (keyword) {
+            "FROM", "ARG" -> assertEquals(DockerfileInfo(emptyList(), emptyList()), info)
+            else -> assertEquals(DockerfileInfo(listOf("one", "fake"), listOf(BuildArg("Y", null))), info)
+        }
+    }
+
+    @Test
+    fun `a file of parser directives only gives nothing and does not throw`() {
+        assertEquals(DockerfileInfo(emptyList(), emptyList()), parseDockerfile("# syntax=docker/dockerfile:1"))
+        assertEquals(
+            DockerfileInfo(emptyList(), emptyList()),
+            parseDockerfile("# syntax=docker/dockerfile:1\n# check=skip=all\n# escape=`"),
+        )
     }
 
     companion object {

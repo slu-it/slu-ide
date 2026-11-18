@@ -99,22 +99,4 @@ class ResourcesTest {
         assertEquals("sha256:abc", image(null, "1").reference)
         assertEquals("sha256:abc", image(null, null).reference)
     }
-
-    /**
-     * Another string of the same length with the same `hashCode` and no effect from `lowercase()` or `trim()`: one
-     * character lowered by d and its neighbour raised by 31 d, which `hashCode` (31 * a + b) cannot tell.
-     */
-    private fun collidingWith(word: String): String {
-        for (index in 0 until word.length - 1) {
-            for (d in 1..4) {
-                val first = word[index] - d
-                val second = word[index + 1] + 31 * d
-                val stable = { c: Char -> c.lowercaseChar() == c && !c.isWhitespace() }
-                if (stable(first) && stable(second) && first in 'a'..'z' && second.code >= 0xA0) {
-                    return word.substring(0, index) + first + second + word.substring(index + 2)
-                }
-            }
-        }
-        error("no collision for $word")
-    }
 }

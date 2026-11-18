@@ -35,6 +35,7 @@ class DockerRunCommandTest {
         strings = [
             "0", "65536", "abc", "80:", ":80", "80/sctp", "1.2.3:80:80", "300.0.0.1:80:80", "1:2:3:4", "80/", "8 0",
             "80\u0000", "+80", "000080", "1.2.3.4:80:80:80", "1.2.3.4.5:80:80", "[::g]:80:80",
+            "127.0.0.1:80:x", "127.0.0.1:0:80", "127.0.0.1:70000:80",
         ],
     )
     fun `invalid ports are refused`(port: String) {
@@ -91,6 +92,14 @@ class DockerRunCommandTest {
         assertNotNull(validate(RunOptions(image, environment = listOf(RunEnvVar("A", "x\u0000y")))))
         assertNotNull(validate(RunOptions(image, environment = listOf(RunEnvVar("A", "1"), RunEnvVar("A", "2")))))
         assertNotNull(validate(RunOptions(image, network = "-host")))
+    }
+
+    @Test
+    fun `a valid network is accepted and passed`() {
+        val options = RunOptions(image, network = "shop")
+
+        assertNull(validate(options))
+        assertEquals(listOf("run", "-d", "--network", "shop", image), args(options))
     }
 
     private fun message(options: RunOptions): String? = validate(options)

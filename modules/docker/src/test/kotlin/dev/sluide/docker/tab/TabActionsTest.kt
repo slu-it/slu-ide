@@ -132,6 +132,7 @@ class TabActionsTest {
 
         dialogs.confirmAnswer = false
         containerAction("Kill", running).run()
+        assertTrue(model.running.isEmpty(), "declined: nothing is started")
         dialogs.confirmAnswer = true
         containerAction("Kill", running).run()
 
@@ -152,6 +153,7 @@ class TabActionsTest {
 
         dialogs.removeContainerAnswer = null
         containerAction("Remove", stopped).run()
+        assertTrue(model.running.isEmpty(), "cancelled: nothing is started")
         assertEquals(
             listOf("remove web RUNNING", "remove old EXITED", "remove old EXITED"),
             dialogs.asked,
