@@ -12,7 +12,17 @@ import kotlin.test.assertEquals
 
 class FormattingTest {
     @ParameterizedTest
-    @CsvSource("0, 0 B", "999, 999 B", "1240, 1.2 kB", "25400000, 25.4 MB", "1200000000, 1.2 GB")
+    @CsvSource(
+        "0, 0 B",
+        "999, 999 B",
+        "1000, 1.0 kB",
+        "999999, 1000.0 kB",
+        "1000000, 1.0 MB",
+        "1240, 1.2 kB",
+        "25400000, 25.4 MB",
+        "1200000000, 1.2 GB",
+        "1000000000000000000, 1000.0 PB",
+    )
     fun `sizes are shown in powers of 1000 as Docker does`(
         bytes: Long,
         text: String,
@@ -23,11 +33,20 @@ class FormattingTest {
     @ParameterizedTest
     @CsvSource(
         "-5, in the future",
+        "0, just now",
         "30, just now",
+        "59, just now",
         "60, 1 minute ago",
+        "3599, 59 minutes ago",
+        "3600, 1 hour ago",
         "7200, 2 hours ago",
+        "86399, 23 hours ago",
         "86400, 1 day ago",
+        "5183999, 59 days ago",
+        "5184000, 2 months ago",
         "7776000, 3 months ago",
+        "63071999, 24 months ago",
+        "63072000, 2 years ago",
         "94608000, 3 years ago",
     )
     fun `times are shown relative to now`(

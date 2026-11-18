@@ -33,4 +33,17 @@ class DockerSettingsPageModelTest {
         model.apply()
         assertEquals("docker", model.executable.get())
     }
+
+    @Test
+    fun `the draft starts with the stored executable, a missing draft applies as the default`() {
+        settings.apply("podman")
+        assertEquals("podman", DockerSettingsPageModel(settings).executable.get())
+
+        val reopened = DockerSettingsPageModel(settings)
+        reopened.executable.set(null)
+        reopened.apply()
+
+        assertEquals("docker", settings.executable.get())
+        assertEquals("docker", reopened.executable.get())
+    }
 }

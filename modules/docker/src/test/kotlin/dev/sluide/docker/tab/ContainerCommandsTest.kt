@@ -42,6 +42,11 @@ class ContainerCommandsTest {
     }
 
     @Test
+    fun `the kill question names the container and that nothing shuts down cleanly`() {
+        assertEquals("Kill web-1? It gets no time to shut down cleanly (SIGKILL).", killMessage("web-1"))
+    }
+
+    @Test
     fun `the remove question says when the container is running or paused and so removed by force`() {
         assertEquals(
             "web-1 is running. Stop it and remove it?",
