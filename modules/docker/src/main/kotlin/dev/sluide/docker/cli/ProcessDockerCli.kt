@@ -39,7 +39,7 @@ internal class ProcessDockerCli(
     @Volatile private var flavor: EngineFlavor = docker.flavor
 
     override fun engine(): EngineInfo {
-        val info = parsing("version") { parseEngine(read("version", "--format", "json")) }
+        val info = parseEngine(read("version", "--format", "json"))
         flavor = info.flavor
         if (info.flavor == EngineFlavor.PODMAN || info.context != null) return info
         val context =
@@ -52,16 +52,13 @@ internal class ProcessDockerCli(
         return info.copy(context = context)
     }
 
-    override fun containers(): List<Container> =
-        parsing("ps") { parseContainers(read("ps", "-a", "--no-trunc", "--format", "json")) }
+    override fun containers(): List<Container> = parseContainers(read("ps", "-a", "--no-trunc", "--format", "json"))
 
     override fun images(): List<Image> =
-        parsing("images") {
-            mergeImages(
-                parseImages(read("images", "--no-trunc", "--digests", "--format", "json")),
-                parseImages(read("images", "--no-trunc", "--digests", "--filter", "dangling=true", "--format", "json")),
-            )
-        }
+        mergeImages(
+            parseImages(read("images", "--no-trunc", "--digests", "--format", "json")),
+            parseImages(read("images", "--no-trunc", "--digests", "--filter", "dangling=true", "--format", "json")),
+        )
 
     override fun volumes(): List<Volume> {
         val listed = read("volume", "ls", "--format", "json")
@@ -78,14 +75,13 @@ internal class ProcessDockerCli(
                 log.log(System.Logger.Level.DEBUG, "Unknown which volumes are in use: ${e.message}")
                 null
             }
-        return parsing("volume ls") { parseVolumes(listed, dangling) }
+        return parseVolumes(listed, dangling)
     }
 
-    override fun networks(): List<Network> =
-        parsing("network ls") { parseNetworks(read("network", "ls", "--no-trunc", "--format", "json")) }
+    override fun networks(): List<Network> = parseNetworks(read("network", "ls", "--no-trunc", "--format", "json"))
 
     override fun containerDetails(id: String): ContainerDetails =
-        parsing("container inspect") { parseContainerDetails(read("container", "inspect", positional(id))) }
+        parseContainerDetails(read("container", "inspect", positional(id)))
 
     override fun inspect(
         kind: ResourceKind,
@@ -238,20 +234,6 @@ internal class ProcessDockerCli(
 
     private fun long(vararg arguments: String) = processes.run(arguments.toList(), CommandKind.WRITE, Duration.INFINITE)
 }
-
-/**
- * Runs [parse] over the CLI's output of [command]: an output of an unexpected shape fails as a [DockerException]
- * like the CLI's own errors, not as Jackson's.
- */
-private fun <T> parsing(
-    command: String,
-    parse: () -> T,
-): T =
-    try {
-        parse()
-    } catch (e: JacksonException) {
-        throw DockerException("Unexpected output of $command: ${e.originalMessage}", cause = e)
-    }
 
 /** Feeds the JSON objects of [reader] to [onObject] as they come, while [open]; objects of other shapes are skipped. */
 private fun readObjects(
