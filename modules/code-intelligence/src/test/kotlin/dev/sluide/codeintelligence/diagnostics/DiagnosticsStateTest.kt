@@ -1,5 +1,6 @@
 package dev.sluide.codeintelligence.diagnostics
 
+import com.google.gson.Gson
 import dev.sluide.fileviewers.TextChange
 import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DocumentDiagnosticReport
@@ -87,5 +88,55 @@ class DiagnosticsStateTest {
         state.cleared()
         assertEquals(emptyList(), messages)
         assertNull(state.resultId)
+    }
+
+    @Test
+    fun `an unchanged report takes its new result id, and places nothing when there was no full report`() {
+        state.pulled(unchanged("r1"))
+        assertEquals(emptyList(), messages)
+        assertEquals("r1", state.resultId)
+
+        state.pulled(full("r2", diagnostic("pulled", 2, 3)))
+        state.pulled(unchanged("r3"))
+        assertEquals(listOf("pulled"), messages)
+        assertEquals("r3", state.resultId)
+    }
+
+    @Test
+    fun `after the end of pulls an unchanged report has nothing to place again`() {
+        state.pulled(full("r1", diagnostic("pulled", 2, 3)))
+        state.pullsEnded()
+
+        state.pulled(unchanged("r2"))
+
+        assertEquals(emptyList(), messages)
+    }
+
+    // LSP 3.17 requires `items` and `resultId`; a lenient server's report without them (JSON null) must not break.
+    // Gson sets the fields the way lsp4j's message handler does, past the constructors' null checks.
+    private fun fullJson(json: String) =
+        DocumentDiagnosticReport(Gson().fromJson(json, RelatedFullDocumentDiagnosticReport::class.java))
+
+    @Test
+    fun `a full report with null items or null entries has no diagnostics`() {
+        state.pulled(full("r1", diagnostic("pulled", 2, 3)))
+
+        state.pulled(fullJson("""{"kind":"full","resultId":"r2","items":[null,null]}"""))
+        assertEquals(emptyList(), messages)
+        state.pulled(full("r3", diagnostic("pulled", 2, 3)))
+        state.pulled(fullJson("""{"kind":"full","resultId":"r4","items":null}"""))
+        assertEquals(emptyList(), messages)
+        assertEquals("r4", state.resultId)
+    }
+
+    @Test
+    fun `an unchanged report without a result id keeps the last one`() {
+        state.pulled(full("r1", diagnostic("pulled", 2, 3)))
+        val bare = Gson().fromJson("""{"kind":"unchanged"}""", RelatedUnchangedDocumentDiagnosticReport::class.java)
+
+        state.pulled(DocumentDiagnosticReport(bare))
+
+        assertEquals("r1", state.resultId)
+        assertEquals(listOf("pulled"), messages)
     }
 }
