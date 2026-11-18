@@ -41,3 +41,18 @@ the standard the audit measures against).
   into `uiTestSplits` (ADR 0082); keep it only if the measured build is faster.
 - Update `docs/testing.md` with new patterns (fixtures, signals, parameters). Lessons and open items go where the
   `feature` skill's "Round note" section says, not into a memory note of the round.
+
+## Gap backfill (existing code without mutation runs)
+For code from before ADR 0178 the audit above finds too little; a whole-file pitest scan lists the gaps instead.
+- Scan in worktrees at master, one per tree, each going through its modules with
+  `mutation-check.sh --whole --unit-only <master> <the module's src/main files>`, about 2 trees at once on 18 GB.
+  pitest's timeout can miss a worker whose mutant spins many threads: kill workers older than 10 minutes (save a
+  `jstack` first) and treat their mutants as possibly endless. The 2026-11-18 scan: ~4 h for 1690 files.
+- Split files into logic (no `javafx.scene` import) and UI. Uncovered mutants in UI files are mostly reached only by
+  UI tests: scan those with the UI stage before packaging them.
+- Packages of about 400 left mutants, by module and package folder; each gets `backfill-brief.md` (path it), the file
+  list, its slice of the scan output as the work list, the master commit, a display and a scratch folder. Run two
+  at a time on different modules.
+- Review: a `reviewer` per package with the brief, the report and the `--verbose` after-run output. It checks first
+  the EQUIVALENT / UNOBSERVABLE / ENDLESS / LOG claims, then samples GAP tests against the kill lines.
+- BUG items come back to the main session; it decides each one as the delegate skill's "Review loop" says.
