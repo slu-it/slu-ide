@@ -147,6 +147,7 @@ class SqlSplitterTest {
         "select1 from t,false",
         "sel_ect 1,false",
         "ab!select 1,false",
+        "/x!select 1,false",
         "'select a!1 from t',true",
         "'select id, key from t',true",
         "'select share from t',true",
