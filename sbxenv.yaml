@@ -11,3 +11,7 @@ kits:
   # Docker's kit: ~/.claude/projects (transcripts, memory), sessions, todos, shell-snapshots and statsig live in a
   # folder on the host, so they survive removing and recreating the sandbox (needs sbx 0.50 or later).
   - docker.io/sbx/claude-sessions:1.1.0
+
+sandboxOptions:
+  cpus: 12
+  memory: 18g
