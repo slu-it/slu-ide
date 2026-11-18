@@ -695,4 +695,14 @@ class FileOperationsTest {
 
         assertEquals("Could not copy “gone.txt”: $gone does not exist.", failure.message)
     }
+
+    @Test
+    fun `a source that is gone is reported before the target folder is looked at`() {
+        val gone = folder.resolve("gone.txt")
+
+        val failure =
+            assertFailsWith<FileOperationException> { FileOperations.copy(gone, folder.resolve("missing")) }
+
+        assertEquals("Could not copy “gone.txt”: $gone does not exist.", failure.message)
+    }
 }

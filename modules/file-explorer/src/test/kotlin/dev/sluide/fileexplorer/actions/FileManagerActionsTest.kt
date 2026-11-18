@@ -83,7 +83,7 @@ class FileManagerActionsTest {
     }
 
     @Test
-    fun `the empty area opens the project folder also when that is a file, only a clicked file is revealed`() {
+    fun `the empty area opens the project folder also when that is a file, without revealing it`() {
         val single = root.resolve("single.txt").createFile()
         project = single
 

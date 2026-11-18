@@ -44,9 +44,12 @@ class ExplorerSettingsTest {
     @Test
     fun `a stored value is trimmed, and only exactly true or false counts`() {
         val file = dir.resolve("settings.properties")
-        file.writeText("$COMPACT_FOLDERS_KEY=false\n$HIDE_GENERATED_FOLDERS_KEY=TRUE\n")
+        file.writeText("$COMPACT_FOLDERS_KEY=false\n$HIDE_GENERATED_FOLDERS_KEY=true\n")
         assertFalse(ExplorerSettings(settings).compactFolders.get())
         assertTrue(ExplorerSettings(settings).hideGeneratedFolders.get())
+        file.writeText("$COMPACT_FOLDERS_KEY=true\n$HIDE_GENERATED_FOLDERS_KEY=false\n")
+        assertTrue(ExplorerSettings(settings).compactFolders.get())
+        assertFalse(ExplorerSettings(settings).hideGeneratedFolders.get())
 
         file.writeText("$COMPACT_FOLDERS_KEY=FALSE\n$HIDE_GENERATED_FOLDERS_KEY=false\n")
         assertTrue(ExplorerSettings(settings).compactFolders.get(), "FALSE is no boolean: the default")

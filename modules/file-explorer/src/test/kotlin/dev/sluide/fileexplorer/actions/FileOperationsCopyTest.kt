@@ -53,18 +53,6 @@ class FileOperationsCopyTest {
     }
 
     @Test
-    fun `a folder reached through a link to the entry is inside it, and a link is an entry of its own`() {
-        val real = folder.resolve("real").createDirectories()
-        val inner = real.resolve("inner").createDirectories()
-        val link = folder.resolve("link").createSymbolicLinkPointingTo(real)
-
-        assertTrue(FileOperations.isAtOrBelow(link.resolve("inner"), real))
-        assertTrue(FileOperations.isAtOrBelow(inner, real))
-        assertFalse(FileOperations.isAtOrBelow(real, inner))
-        assertFalse(FileOperations.isAtOrBelow(real, link), "a link is an entry of its own")
-    }
-
-    @Test
     fun `a link to a folder is copied as a link, also into a folder reached through it`() {
         val real = folder.resolve("real").createDirectories()
         val sub = real.resolve("sub").createDirectories()

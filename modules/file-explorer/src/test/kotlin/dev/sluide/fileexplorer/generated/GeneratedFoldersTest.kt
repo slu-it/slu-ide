@@ -21,6 +21,7 @@ import kotlin.io.path.name
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class GeneratedFoldersTest {
     @TempDir
@@ -228,6 +229,7 @@ class GeneratedFoldersTest {
         assertNull(reasonOf("cmake-build-"))
         assertNull(reasonOf("distro"), "dist is no prefix of distro")
         assertNull(reasonOf("dist-x"))
+        assertNull(reasonOf("documentation"), "13 characters, but no cmake-build- before them")
         assertEquals("dist for package.json", reasonOf("dist"))
         root.resolve("a.sbt").createFile()
         assertEquals("target for a.sbt", reasonOf("target"))
@@ -322,6 +324,9 @@ class GeneratedFoldersTest {
             }
             val folder = folder("anything")
             Files.createSymbolicLink(folder.resolve("CACHEDIR.TAG"), environ)
+            // What makes it a marker if it were read whole: readable, regular, size 0, and the signature first.
+            assertTrue(Files.readString(environ).startsWith("Signature: 8a477f597d28d172789f06886806bc55"))
+            assertEquals(0L, Files.size(environ))
 
             assertNull(reason(folder))
         } finally {
@@ -335,7 +340,10 @@ class GeneratedFoldersTest {
         val fifo = root.resolve(".DS_Store")
         assumeTrue(ProcessBuilder("mkfifo", fifo.toString()).start().waitFor() == 0)
 
-        assertNull(GeneratedFolderFilter { true }.structural(fifo, setOf(".DS_Store")))
+        // A read of the pipe would block until a writer comes: the check must not hang.
+        assertTimeoutPreemptively(Duration.ofSeconds(30)) {
+            assertNull(GeneratedFolderFilter { true }.structural(fifo, setOf(".DS_Store")))
+        }
     }
 
     @Test

@@ -358,6 +358,24 @@ class ExplorerImagePasteTest {
     }
 
     @Test
+    fun `a name taken between the check and the write is an error, the file stays as it was and nothing opens`() {
+        open()
+        fake.clipboardFiles.image = image
+        val taken = project.resolve("image-2026-03-04-050607.png")
+
+        paster({ file ->
+            // The race CREATE_NEW guards against: somebody else creates the file just before.
+            file.writeText("original")
+            Files.newOutputStream(file, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
+        }).paste(fake.projectItem)
+
+        assertEquals(listOf("“image-2026-03-04-050607.png” already exists in this folder."), fake.errors)
+        assertEquals("original", String(taken.readBytes()))
+        assertEquals(emptyList(), fake.opened)
+        assertEquals(emptyList(), fake.selectedPaths())
+    }
+
+    @Test
     fun `a failure without a message is shown with its type`() {
         open()
         fake.clipboardFiles.image = image

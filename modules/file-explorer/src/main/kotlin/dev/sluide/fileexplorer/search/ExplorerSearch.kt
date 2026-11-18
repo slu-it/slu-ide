@@ -124,6 +124,11 @@ internal class ExplorerSearch(
         if (starts == before) pending = handle
     }
 
+    /**
+     * Starts the walk of the current text. Precondition: no walk runs ([run] is `null`): [textChanged] and [cancel]
+     * end the one before, [invalidated] and [whenCurrent] start only without one, and [finish] clears it first; so
+     * nothing calls [invalidated] from [finish]'s waiting action or from [apply].
+     */
     private fun start() {
         pending = null
         starts++

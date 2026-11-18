@@ -79,7 +79,7 @@ class SystemFileManagerTest {
     }
 
     @Test
-    fun `other systems open the folder of the file itself, or the file for a root with no folder`() {
+    fun `a root has no folder, so other systems open the root itself`() {
         val root = Path.of("/")
         assertEquals(listOf("xdg-open", "/"), systemFileManager("Linux").reveal(root)[1])
     }
