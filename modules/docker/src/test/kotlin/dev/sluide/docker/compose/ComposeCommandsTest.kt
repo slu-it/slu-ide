@@ -85,9 +85,15 @@ class ComposeCommandsTest {
 
     @Test
     fun `invalid project and profile names are refused`() {
-        assertFailsWith<IllegalArgumentException> { base(ComposeOptions(projectName = "--help")) }
+        assertEquals(
+            "Not a valid project name: \"--help\"",
+            assertFailsWith<IllegalArgumentException> { base(ComposeOptions(projectName = "--help")) }.message,
+        )
         assertFailsWith<IllegalArgumentException> { base(ComposeOptions(projectName = "Demo")) }
-        assertFailsWith<IllegalArgumentException> { base(ComposeOptions(profiles = setOf("-x"))) }
+        assertEquals(
+            "Not a valid profile name: \"-x\"",
+            assertFailsWith<IllegalArgumentException> { base(ComposeOptions(profiles = setOf("-x"))) }.message,
+        )
     }
 
     @Test
@@ -127,7 +133,10 @@ class ComposeCommandsTest {
 
     @Test
     fun `a service name that looks like a flag is refused`() {
-        assertFailsWith<IllegalArgumentException> { ComposeCommands.stop(listOf("--all")) }
+        assertEquals(
+            "Not a valid service name: \"--all\"",
+            assertFailsWith<IllegalArgumentException> { ComposeCommands.stop(listOf("--all")) }.message,
+        )
         assertFailsWith<IllegalArgumentException> { ComposeCommands.upService(ComposeOptions(), "-x") }
         assertFailsWith<IllegalArgumentException> { ComposeCommands.shell(" ") }
     }
@@ -194,7 +203,31 @@ class ComposeCommandsTest {
 
     @Test
     fun `a blank env file entry is refused`() {
-        assertFailsWith<IllegalArgumentException> { base(ComposeOptions(envFiles = listOf(" "))) }
+        assertEquals(
+            "An env file name is blank",
+            assertFailsWith<IllegalArgumentException> { base(ComposeOptions(envFiles = listOf(" "))) }.message,
+        )
+    }
+
+    @Test
+    fun `a file without a folder is refused`() {
+        // The root has no parent: nothing to resolve env files against.
+        val message =
+            assertFailsWith<IllegalStateException> {
+                ComposeCommands.baseArgs(Path.of("/"), null, ComposeOptions())
+            }.message
+
+        assertEquals("No folder for /", message)
+    }
+
+    @Test
+    fun `a variable name that is not valid is refused in the command line`() {
+        val message =
+            assertFailsWith<IllegalArgumentException> {
+                ComposeCommands.commandLine("docker", listOf("up"), listOf("A=B"))
+            }.message
+
+        assertEquals("Not a valid variable name: \"A=B\"", message)
     }
 
     @Test
