@@ -3,10 +3,12 @@ package dev.sluide.databases.session
 import dev.sluide.databases.connect.CommitMode
 import dev.sluide.databases.connect.DatabaseKind
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import java.sql.SQLException
+import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
@@ -93,9 +95,24 @@ class JdbcSessionTest {
 
         gated.gate.countDown()
         assertIs<StatementOutcome.Updated>(outcome.await())
-        fixture.cancels.single().run()
+        // A hang here would mean the cancel lock was never released.
+        assertTimeoutPreemptively(Duration.ofSeconds(10)) { fixture.cancels.single().run() }
 
         assertEquals(0, db.log.count { it == "session: cancel" })
+    }
+
+    @Test
+    fun `a cancel still reaches a statement that follows an earlier one`() {
+        val blocking = FakeResult.BlocksUntilCancel()
+        db.results = { if (it == "UPDATE a") FakeResult.Count(1) else blocking }
+        val session = fixture.open()
+        session.execute("UPDATE a", 10).await()
+
+        val outcome = session.execute("SELECT pg_sleep(30)", 10)
+        assertTrue(blocking.started.await(10, TimeUnit.SECONDS))
+        session.cancel()
+
+        assertIs<StatementOutcome.Cancelled>(outcome.await())
     }
 
     @ParameterizedTest

@@ -53,7 +53,7 @@ class SessionListenersTest {
 
             assertEquals(listOf<SessionEvent>(SessionEvent.Closed("secret-host.example")), seen)
             assertEquals(listOf(Level.SEVERE to "db#7 session listener failed on Closed"), log.lines.toList())
-            assertTrue(assertIs<IllegalStateException>(log.thrown.single()).message == "secret-host.example")
+            assertEquals("secret-host.example", assertIs<IllegalStateException>(log.thrown.single()).message)
         }
     }
 }
