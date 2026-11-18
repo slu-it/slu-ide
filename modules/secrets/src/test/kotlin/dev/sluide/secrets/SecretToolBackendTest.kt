@@ -34,6 +34,10 @@ class SecretToolBackendTest {
         if (Files.exists(file("argv.log"))) Files.readAllLines(file("argv.log")) else emptyList()
 
     private fun installTool(into: Path = dir) {
+        // the orphan the fake leaves: it writes its pid and a marker, then sleeps holding the fake's stdout and stderr
+        val holder = into.resolve("holder.sh")
+        Files.writeString(holder, "#!/bin/sh\necho \$\$ > \"\$1/pid\"\n: > \"\$1/held\"\nexec sleep \"\$2\"\n")
+        holder.toFile().setExecutable(true)
         val script = into.resolve("secret-tool")
         Files.writeString(script, FAKE_TOOL)
         script.toFile().setExecutable(true)
@@ -561,16 +565,22 @@ class SecretToolBackendTest {
             echo "${'$'}*" >> "${'$'}d/argv.log"
             m=${'$'}(cat "${'$'}d/mode")
             case "${'$'}m" in "${'$'}1":*) m=${'$'}{m#*:} ;; *:*) m=ok ;; esac
+            hold() {
+              rm -f "${'$'}d/held"
+              ("${'$'}d/holder.sh" "${'$'}d" "${'$'}1" &)
+              i=0
+              while [ ! -f "${'$'}d/held" ] && [ ${'$'}i -lt 300000 ]; do i=${'$'}((i+1)); done
+            }
             case "${'$'}m" in
               sleep) sleep 30 & echo ${'$'}! > "${'$'}d/pid"; wait ;;
               hang) echo ${'$'}${'$'} > "${'$'}d/pid"; exec sleep 30 ;;
-              orphan) (sleep 20 & echo ${'$'}! > "${'$'}d/pid"); exit 0 ;;
-              holdout) echo "boom: it broke" >&2; (sleep 20 2>/dev/null & echo ${'$'}! > "${'$'}d/pid"); exit 0 ;;
-              holderr) (sleep 20 >/dev/null & echo ${'$'}! > "${'$'}d/pid"); exit 0 ;;
+              orphan) hold 20; exit 0 ;;
+              holdout) echo "boom: it broke" >&2; hold 20 2>/dev/null; exit 0 ;;
+              holderr) hold 20 >/dev/null; exit 0 ;;
               keyhang) cat "${'$'}d/store"; echo "boom: it broke" >&2; exec sleep 30 ;;
-              holdkey) cat "${'$'}d/store"; echo "boom: it broke" >&2; (sleep 5 2>/dev/null &); exit 0 ;;
-              lateout) cat "${'$'}d/store"; (sleep 1 2>/dev/null &); exit 0 ;;
-              lateerr) echo "boom: it broke" >&2; (sleep 1 >/dev/null &); exit 2 ;;
+              holdkey) cat "${'$'}d/store"; echo "boom: it broke" >&2; hold 5 2>/dev/null; exit 0 ;;
+              lateout) cat "${'$'}d/store"; hold 1 2>/dev/null; exit 0 ;;
+              lateerr) echo "boom: it broke" >&2; hold 1 >/dev/null; exit 2 ;;
               error) echo "boom: it broke" >&2; echo "second line" >&2; exit 2 ;;
               silent) exit 3 ;;
               nodbus) echo "Cannot autolaunch D-Bus without X11 \${'$'}DISPLAY" >&2; exit 1 ;;
