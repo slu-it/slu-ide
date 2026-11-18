@@ -41,6 +41,7 @@ internal class GitCommitsResetTest : GitCommitsFixture() {
             GitResult(false, "'-x' cannot be passed to git: it starts with '-'."),
             recorded.reset(repo, "-x", GitResetMode.HARD),
         )
+        assertNull(recorded.unreachableCount(repo, "-x"))
         assertEquals(emptyList(), calls())
     }
 

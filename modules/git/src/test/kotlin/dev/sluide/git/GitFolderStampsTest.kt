@@ -3,6 +3,8 @@ package dev.sluide.git
 import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -54,6 +56,8 @@ class GitFolderStampsTest {
         val head = root.resolve(".git/HEAD")
         head.parent.createDirectories()
         head.writeText("ref: refs/heads/main\n")
+        root.resolve(".git/objects").createDirectories()
+        root.resolve(".git/refs").createDirectories()
         Files.setLastModifiedTime(head, before)
         return root
     }
@@ -169,6 +173,37 @@ class GitFolderStampsTest {
         assertNotEquals(original, moved, "its HEAD")
         submodule.resolve("objects/ab/cdef").writeText("another object\n")
         assertEquals(moved, GitFolderStamps.state(root), "its objects are still not read")
+    }
+
+    @Test
+    fun `refs that look like a git folder are still refs`() {
+        val root = repository()
+        // Tags named foo/HEAD, foo/refs/a, foo/objects/b and foo/logs/c.
+        for (ref in listOf("HEAD", "refs/a", "objects/b", "logs/c")) file("repo/.git/refs/tags/foo/$ref", "1\n")
+        var previous = assertNotNull(GitFolderStamps.state(root))
+
+        for (ref in listOf("objects/b", "logs/c")) {
+            root.resolve(".git/refs/tags/foo/$ref").writeText("2\n")
+            val now = assertNotNull(GitFolderStamps.state(root))
+            assertNotEquals(previous, now, ref)
+            previous = now
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["HEAD", "objects", "refs"])
+    fun `a folder without HEAD, objects or refs is no git folder, so its logs count`(missing: String) {
+        val root = repository()
+        val folder = root.resolve(".git/modules/sub")
+        for (part in listOf("HEAD", "objects", "refs").filter { it != missing }) {
+            if (part == "HEAD") file("repo/.git/modules/sub/HEAD") else folder.resolve(part).createDirectories()
+        }
+        file("repo/.git/modules/sub/logs/x", "1\n")
+        val original = assertNotNull(GitFolderStamps.state(root))
+
+        folder.resolve("logs/x").writeText("2\n")
+
+        assertNotEquals(original, GitFolderStamps.state(root))
     }
 
     // --- trust

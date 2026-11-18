@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /**
  * Creating a branch and switching with a git that fails or a hook that does: refused names, what a failed switch
@@ -107,5 +108,23 @@ internal class GitBranchesFailuresTest : GitCommitsFixture() {
         assertContains(refused.message, "would be overwritten")
         assertEquals(main, git("rev-parse", "existing"), "moved back")
         assertFalse(branches.branchExists(repo, "fresh"), "deleted again")
+    }
+
+    @Test
+    fun `a checkout whose hook fails after it says only the hook's output, and is not undone`() {
+        val first = commit("First")
+        git("branch", "other")
+        repo.resolve(".git/hooks/post-checkout").apply {
+            writeText("#!/bin/sh\necho 'hook failed' >&2\nexit 3\n")
+            toFile().setExecutable(true)
+        }
+        val switched = branches.switchBranch(repo, "other")
+        git("-c", "core.hooksPath=/dev/null", "switch", "-q", "main")
+
+        val created = branches.createBranch(repo, "hooked", first, checkout = true, overwrite = false)
+
+        assertTrue(created.changed)
+        assertEquals(GitResult(false, switched.message.replace("other", "hooked"), changed = true), created)
+        assertEquals("hooked", git("branch", "--show-current"))
     }
 }
