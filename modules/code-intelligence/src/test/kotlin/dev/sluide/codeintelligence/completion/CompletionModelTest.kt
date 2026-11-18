@@ -1,7 +1,13 @@
 package dev.sluide.codeintelligence.completion
 
+import dev.sluide.codeintelligence.FakeCodeEditor
 import dev.sluide.codeintelligence.FeatureServer
+import dev.sluide.codeintelligence.FxServers
+import dev.sluide.codeintelligence.PySpec
+import dev.sluide.codeintelligence.TestTimers
 import dev.sluide.codeintelligence.awaitTrue
+import dev.sluide.codeintelligence.binding.DocumentBinding
+import dev.sluide.languageservers.TrustGate
 import javafx.scene.control.IndexRange
 import org.eclipse.lsp4j.CompletionItem
 import org.eclipse.lsp4j.CompletionList
@@ -557,5 +563,84 @@ internal class CompletionModelTest : CompletionModelFixture() {
         assertEquals(7, tracker.firstChange)
         tracker.changed(9)
         assertEquals(7, tracker.firstChange)
+    }
+
+    @Test
+    fun `a delayed request that was already on its way when the completion closed asks nothing`() {
+        setUp("import os\nos")
+        type(".")
+        asked(1).single().answer(list("path"))
+        awaitTrue("shown") { lastShown() == listOf("path") }
+        type("p")
+        // What the delay would run, taken before the close drops it (a real delay may have posted it already).
+        val late =
+            bound.timers.due
+                .single()
+                .second
+        bound.fx.onFx { model.close() }
+
+        bound.fx.onFx { late() }
+        bound.fx.onFx { model.invoke() }
+
+        // Requests reach the server in the order sent: a late one would be the second, the Invoked one the third.
+        val second = asked(2)[1]
+        assertEquals(CompletionTriggerKind.Invoked, second.params.context.triggerKind)
+    }
+
+    @Test
+    fun `a caret moved while more items are asked for keeps the list`() {
+        setUp("import os\nos.pa")
+        bound.fx.onFx { model.invoke() }
+        asked(1).single().answer(list("path"))
+        awaitTrue("shown") { lastShown() == listOf("path") }
+        type("z")
+        bound.fx.onFx { bound.timers.runDue() }
+        asked(2)
+
+        bound.fx.onFx { model.caretMoved() }
+
+        assertTrue(isOpen, "the request for more is on its way")
+        assertEquals(listOf("path"), bound.fx.onFx { model.shown.map { it.label } })
+    }
+
+    @Test
+    fun `an item taken before any answer is placed by the caret the completion opened at`() {
+        setUp("import os\nos.path")
+        bound.editor.moveCaret(15)
+        bound.fx.onFx { model.invoke() }
+        val wide =
+            CompletionItem("pathsep").apply {
+                textEdit =
+                    Either.forLeft(TextEdit(Range(Position(1, 3), Position(1, 7)), "pathsep"))
+            }
+
+        bound.fx.onFx { model.accept(wide, replace = false) }
+
+        assertEquals("import os\nos.pathsep", bound.editor.currentText)
+    }
+
+    @Test
+    fun `before the server is trusted nothing is asked and typing does not fail`() {
+        val spec = PySpec(runsProjectCode = true)
+        val fx = FxServers(folder, spec, trustGate = TrustGate { _, _ -> false })
+        try {
+            val editor = FakeCodeEditor(folder.resolve("a.py"), "x = ").apply { moveCaret(4) }
+            val timers = TestTimers()
+            val binding = fx.onFx { DocumentBinding(editor, spec, fx.servers) }
+            val untrusted = fx.onFx { CompletionModel(binding, view, 100.milliseconds, timers::schedule) }
+            view.model = untrusted
+            fx.onFx { editor.onTextChange(untrusted::textChanged) }
+
+            fx.onFx {
+                untrusted.keys.keyTyped("o")
+                editor.typeAtCaret("o")
+            }
+
+            assertEquals(emptyList(), timers.due)
+            assertFalse(fx.onFx { untrusted.isOpen })
+            fx.onFx { binding.close() }
+        } finally {
+            fx.close()
+        }
     }
 }

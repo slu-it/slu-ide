@@ -146,6 +146,19 @@ class LspConversionsTest {
     }
 
     @Test
+    fun `a selection range without a start falls back to the range`() {
+        // Range() has no start: a lenient server's range object without one.
+        val noStart = Range()
+        val link = linkWith(uri, range(4, 2), noStart)
+
+        assertEquals(SourcePosition(file, 4, 2), link.toSourcePosition())
+        assertEquals(
+            listOf(local(4, 2)),
+            Either.forRight<List<Location>, List<LocationLink>>(listOf(link)).toDefinitionTargets { null },
+        )
+    }
+
+    @Test
     fun `a location without a range or a URI`() {
         assertEquals(SourcePosition(file, 0, 0), Location().also { it.uri = uri }.toSourcePosition())
         assertNull(Location().also { it.range = range(1, 1) }.toSourcePosition())

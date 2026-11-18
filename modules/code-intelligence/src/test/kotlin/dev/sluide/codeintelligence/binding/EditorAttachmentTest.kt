@@ -49,4 +49,18 @@ class EditorAttachmentTest {
         fx.onFx { editor.fileProperty.set(folder.resolve("b.py")) }
         assertNull(fx.onFx { attachment.binding }, "a renamed editor of a closed attachment is not bound again")
     }
+
+    @Test
+    fun `an editor of a file no server serves has no binding, and closing it only tells the owner`() {
+        fx = FxServers(folder, spec)
+        val editor = FakeCodeEditor(folder.resolve("notes.txt"), "x")
+        var closed = 0
+        val attachment =
+            fx.onFx { EditorAttachment(editor, fx.servers, emptyList(), { null }, { emptyList() }) { closed++ } }
+        assertNull(fx.onFx { attachment.binding })
+
+        fx.onFx { attachment.close() }
+
+        assertEquals(1, closed)
+    }
 }

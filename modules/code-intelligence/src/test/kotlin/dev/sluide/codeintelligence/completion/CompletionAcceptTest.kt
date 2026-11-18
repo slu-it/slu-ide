@@ -312,6 +312,38 @@ internal class CompletionAcceptTest : CompletionModelFixture() {
     }
 
     @Test
+    fun `the popup's hide notice while nothing is open does not cancel a resolve on its way`() {
+        setUp("import os\nos", resolves = true)
+        val path = CompletionItem("path")
+        bound.fx.onFx { model.detailOf(path) }
+        awaitTrue("asked") { bound.server.resolved.size == 1 }
+
+        bound.fx.onFx { model.viewHidden() }
+        bound.server.resolved
+            .single()
+            .answer(CompletionItem("path").apply { detail = "resolved" })
+
+        awaitTrue("kept") { bound.fx.onFx { model.detailOf(path).detail } == "resolved" }
+    }
+
+    @Test
+    fun `a new completion forgets what was resolved for the one before`() {
+        val path = openWithPlainItem()
+        bound.fx.onFx { model.detailOf(path) }
+        awaitTrue("asked") { bound.server.resolved.size == 1 }
+        bound.server.resolved
+            .single()
+            .answer(CompletionItem("path").apply { detail = "resolved" })
+        awaitTrue("refreshed") { bound.fx.onFx { view.refreshes } == 1 }
+        bound.fx.onFx { model.close() }
+
+        bound.fx.onFx { model.invoke() }
+
+        assertSame(path, bound.fx.onFx { model.detailOf(path) })
+        awaitTrue("asked again") { bound.server.resolved.size == 2 }
+    }
+
+    @Test
     fun `an item taken after its resolve brings what the server added, such as an import`() {
         setUp("import os\nar", resolves = true)
         bound.fx.onFx { model.invoke() }
