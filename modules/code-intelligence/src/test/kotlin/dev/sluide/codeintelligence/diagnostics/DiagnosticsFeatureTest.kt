@@ -84,6 +84,23 @@ class DiagnosticsFeatureTest {
     }
 
     @Test
+    fun `closing stops the diagnostics, so what the server pushes later is not shown`() {
+        bind("a\nb\n")
+        push(error(0, 0, 1))
+        awaitTrue("shown") { harness.onFx { editor.layers[DIAGNOSTICS_LAYER] }?.size == 1 }
+
+        detach()
+        push(error(0, 0, 1), error(1, 0, 1))
+        // A request after the push is answered once the client handled what came before.
+        harness.server.client
+            .refreshDiagnostics()
+            .get()
+        harness.onFx {}
+
+        assertEquals(0, harness.onFx { editor.layers[DIAGNOSTICS_LAYER] }?.size)
+    }
+
+    @Test
     fun `the gutter has one column for the editor's life, attached again it is the same one`() {
         bind("x\n")
         assertEquals(listOf(12.0), harness.onFx { editor.gutterColumns.map { it.first } })

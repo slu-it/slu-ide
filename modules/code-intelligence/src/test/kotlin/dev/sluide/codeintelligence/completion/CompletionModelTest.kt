@@ -255,6 +255,22 @@ internal class CompletionModelTest : CompletionModelFixture() {
     }
 
     @Test
+    fun `leaving the word ends the completion even where an item would still match`() {
+        setUp("import os\nos.pa")
+        bound.fx.onFx { model.invoke() }
+        // A filterText with a space matches the prefix "pa " after the space is typed.
+        asked(1).single().answer(
+            Either.forRight(CompletionList(false, listOf(CompletionItem("path").apply { filterText = "pa x" }))),
+        )
+        awaitTrue("shown") { lastShown() == listOf("path") }
+
+        type(" ")
+
+        assertFalse(isOpen)
+        assertFalse(view.showing)
+    }
+
+    @Test
     fun `a typed character with text selected opens nothing`() {
         setUp("x = ")
         bound.editor.selected = IndexRange(0, 2)

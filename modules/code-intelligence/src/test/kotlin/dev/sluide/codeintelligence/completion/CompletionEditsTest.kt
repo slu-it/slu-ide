@@ -28,7 +28,7 @@ class CompletionEditsTest {
     private fun place(
         firstChange: Int? = null,
         caret: Int = 15,
-        requestCaret: Int = 15,
+        requestCaret: Int? = 15,
     ) = AcceptPlace(
         wordStart = 13,
         caret = caret,
@@ -244,6 +244,13 @@ class CompletionEditsTest {
     }
 
     @Test
+    fun `without a caret of the request the item ends at the caret like after a move`() {
+        val wide = CompletionItem("pathsep").apply { textEdit = Either.forLeft(TextEdit(range(1, 3, 7), "pathsep")) }
+
+        assertEquals(listOf(OffsetEdit(13, 15, "pathsep")), acceptEdits(wide, false, place(requestCaret = null)).edits)
+    }
+
+    @Test
     fun `a change before the server's start makes the item start at the word`() {
         // The server's range starts at line 1 column 0, behind a change in line 0: its positions are no longer true.
         val item =
@@ -333,6 +340,9 @@ class CompletionEditsTest {
                 Arguments.of("a\\", "a\\"),
                 Arguments.of("a\\n", "a\\n"),
                 Arguments.of("a}b", "a}b"),
+                Arguments.of("a{b {c} d", "a{b {c} d"),
+                Arguments.of("\${a_b:text}", "text"),
+                Arguments.of("\${a_b}x", "x"),
                 Arguments.of("\${1:a}b}", "ab}"),
                 Arguments.of("cost $", "cost $"),
                 Arguments.of("\${", ""),

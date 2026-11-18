@@ -105,6 +105,7 @@ internal class CompletionAcceptTest : CompletionModelFixture() {
             additionalTextEdits =
                 listOf(
                     TextEdit(range(0, 0), "import sys\n"),
+                    TextEdit(range(0, 6), "#"),
                     TextEdit(range(2, 0), "x"),
                 )
         }
@@ -120,7 +121,7 @@ internal class CompletionAcceptTest : CompletionModelFixture() {
 
         bound.fx.onFx { model.accept(item, replace = false) }
 
-        assertEquals("import sys\nimport os\nargv\nbb", text)
+        assertEquals("import sys\nimport# os\nargv\nbb", text)
     }
 
     @Test
@@ -136,7 +137,7 @@ internal class CompletionAcceptTest : CompletionModelFixture() {
 
         bound.fx.onFx { model.accept(item, replace = false) }
 
-        assertEquals("import sys\nimport os\nargv\nbb", text)
+        assertEquals("import sys\nimport# os\nargv\nbb", text)
     }
 
     @Test
@@ -179,6 +180,24 @@ internal class CompletionAcceptTest : CompletionModelFixture() {
                 .single()
                 .params.label,
             "the documented one was not asked for",
+        )
+    }
+
+    @Test
+    fun `an item whose resolve is on its way is not asked for again`() {
+        val path = openWithPlainItem()
+        bound.fx.onFx { model.detailOf(path) }
+        awaitTrue("asked") { bound.server.resolved.size == 1 }
+
+        bound.fx.onFx { model.detailOf(path) }
+
+        // A negative check without a signal: a second request would cancel the first one and reach the server.
+        Thread.sleep(200)
+        assertEquals(1, bound.server.resolved.size)
+        assertFalse(
+            bound.server.resolved
+                .single()
+                .future.isCancelled,
         )
     }
 

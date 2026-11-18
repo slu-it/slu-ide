@@ -320,6 +320,14 @@ internal class CompletionMatchingTest {
     }
 
     @Test
+    fun `items with other labels that insert the same text are two`() {
+        val f1 = CompletionItem("f(a)").apply { insertText = "f(" }
+        val f2 = CompletionItem("f(b)").apply { insertText = "f(" }
+
+        assertEquals(listOf("f(a)", "f(b)"), rankCompletions(listOf(f1, f2), "").map { it.label })
+    }
+
+    @Test
     fun `items inserting the same text through insertText, the label or a textEdit are one`() {
         val viaLabel = CompletionItem("a")
         val viaInsertText = CompletionItem("a").apply { insertText = "a" }
@@ -345,7 +353,7 @@ internal class CompletionMatchingTest {
     fun `how many steps the part start match decides`() {
         // One part start tried and rejected at once; the other positions are not part starts.
         assertEquals(1, boundaryMatchSteps("b", "ab"))
-        assertEquals(0, boundaryMatchSteps("", "abc"))
+        assertEquals(2, boundaryMatchSteps("abb", "aBb"), "a run stops at a part start, the rest starts there")
         assertEquals(2, boundaryMatchSteps("ac", "ab_cd"), "the match is found at the second part start")
     }
 
