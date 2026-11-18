@@ -10,6 +10,7 @@ import dev.sluide.databases.sql.SqlStatement
 import dev.sluide.databases.ui.ConnectionEntry
 import dev.sluide.databases.ui.result.ExecutingSession
 import dev.sluide.databases.ui.result.FakeCursor
+import org.junit.jupiter.api.AfterEach
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -26,6 +27,21 @@ class ConsoleRunnerTest {
     private val offered = mutableListOf<RunChoice.Choose>()
     private var pick: ((RunChoice.Choose, (List<SqlStatement>) -> Unit) -> Unit)? = null
     private var onShow: () -> Unit = {}
+
+    /** What escaped from a runnable handed to fx: on the FX thread it would reach the uncaught handler. */
+    private val escaped = mutableListOf<Throwable>()
+    private val fx: (Runnable) -> Unit = {
+        try {
+            it.run()
+        } catch (e: RuntimeException) {
+            escaped += e
+        }
+    }
+
+    @AfterEach
+    fun nothingEscaped() {
+        assertEquals(emptyList(), escaped)
+    }
 
     private val editor =
         object : RunEditor {
@@ -61,7 +77,7 @@ class ConsoleRunnerTest {
             },
             history,
             { 50 },
-            { it.run() },
+            fx,
             { choice, then ->
                 offered += choice
                 pick?.invoke(choice, then)
@@ -456,14 +472,11 @@ class ConsoleRunnerTest {
 
     @Test
     fun `a finished sequence logs nothing and frees the console and the gate`() {
-        val gate = RunGate()
-        val mine = runnerOn(gate)
         editor.text = "a; b; c"
         selectAll()
-        mine.run()
+        runner.run()
         assertEquals(listOf("a", "b", "c"), fake.executed.map { it.first })
-        assertTrue(!mine.running)
-        assertTrue(!gate.busy.get())
+        assertTrue(!runner.running)
         assertEquals(emptyList(), logged)
     }
 

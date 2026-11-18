@@ -229,4 +229,27 @@ class ResultLogicTest {
         assertEquals(listOf(listOf<Any?>(1, 3), listOf<Any?>(4, 6)), r)
         assertEquals("1\t3\n4\t6", GridText.copyText(cols, rows, listOf(1 to 2, 0 to 0, 0 to 2, 1 to 0), false))
     }
+
+    @Test
+    fun `every column order is followed by the copied text and the rectangle`() {
+        val cols = listOf(column("a"), column("b"), column("c"))
+        val rows = listOf(listOf<Any?>("a1", "b1", "c1"))
+        val cells = listOf(0 to 0, 0 to 1, 0 to 2)
+        val orders =
+            listOf(0, 1, 2).let { o ->
+                o.flatMap { x -> o.filter { it != x }.map { y -> listOf(x, y, 3 - x - y) } }
+            }
+        assertEquals(6, orders.size)
+        for (order in orders) {
+            val expected = order.map { listOf("a1", "b1", "c1")[it] }
+            assertEquals(
+                expected.joinToString("\t"),
+                GridText.copyText(cols, rows, cells, false, order),
+                "order $order",
+            )
+            val (c, r) = GridText.rectangle(cols, rows, cells, order)
+            assertEquals(order.map { listOf("a", "b", "c")[it] }, c.map { it.name }, "order $order")
+            assertEquals(listOf(expected), r, "order $order")
+        }
+    }
 }

@@ -139,11 +139,18 @@ class GridSubmitTest {
         submit.submit()
         assertEquals(emptyList(), fake.changes)
 
+        // deletes are asked about before anything else could stop a second submit
+        current!!.deleteRows(listOf(1))
+        submit.submit()
+        assertEquals(emptyList(), questions)
+        assertEquals(emptyList(), fake.changes)
+
         busy = false
         fake.hold = true
         submit.submit()
         assertTrue(submit.running)
         submit.submit()
+        assertEquals(listOf(1 to "s.t"), questions)
         assertEquals(listOf(true), fake.changes)
         fake.release()
         assertFalse(submit.running)
@@ -278,6 +285,16 @@ class GridSubmitTest {
         assertEquals(emptyList(), questions)
         assertEquals(listOf("Submitted 1 change (not committed yet)"), reloads)
         assertEquals(listOf("Submitted 1 change (not committed yet)" to false), logged)
+    }
+
+    @Test
+    fun `deletes inside a transaction of the user in Auto mode are not asked about and run in a savepoint`() {
+        fake.pendingTransaction = true
+        current!!.deleteRows(listOf(0))
+        submit.submit()
+        assertEquals(emptyList(), questions)
+        assertEquals(listOf("Submitted 1 change (not committed yet)"), reloads)
+        assertEquals(emptyList(), said)
     }
 
     @Test

@@ -357,6 +357,12 @@ class ObjectTreeModelTest {
         assertEquals("IllegalArgumentException", ObjectTreeModel.errorMessage(IllegalArgumentException()))
     }
 
+    @Test
+    fun `every kind has an icon of its own`() {
+        val literals = ObjectKind.entries.map(ObjectIcons::literal)
+        assertEquals(ObjectKind.entries.size, literals.toSet().size)
+    }
+
     @ParameterizedTest
     @EnumSource(ObjectKind::class)
     fun `every kind has an icon that exists in the pack`(kind: ObjectKind) {
