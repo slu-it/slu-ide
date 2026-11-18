@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.node.ObjectNode
 import java.io.IOException
+import java.io.UncheckedIOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.FileTime
@@ -322,6 +323,10 @@ class ProjectDataStore(
                     list.filter { it.name.endsWith(".json") && it.isRegularFile() }.toList()
                 }
             } catch (e: IOException) {
+                warnOnce("Cannot list the project data in $folder", e)
+                return Scan(emptyMap())
+            } catch (e: UncheckedIOException) {
+                // a failure while the listing is iterated
                 warnOnce("Cannot list the project data in $folder", e)
                 return Scan(emptyMap())
             }
