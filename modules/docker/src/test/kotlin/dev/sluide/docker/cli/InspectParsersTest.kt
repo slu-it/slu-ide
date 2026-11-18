@@ -287,6 +287,16 @@ class InspectParsersTest {
     }
 
     @Test
+    fun `a host port that does not fit an int is unpublished, it does not wrap around`() {
+        val details =
+            parseContainerDetails(
+                """[{"NetworkSettings":{"Ports":{"80/tcp":[{"HostPort":"4294975488"},{"HostPort":"8080"}]}}}]""",
+            )
+
+        assertEquals(listOf(PortMapping(null, null, 80, "tcp"), PortMapping(null, 8080, 80, "tcp")), details.ports)
+    }
+
+    @Test
     fun `present but empty parts give the same empty details as missing ones`() {
         val empty =
             parseContainerDetails(

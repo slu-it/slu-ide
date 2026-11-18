@@ -123,7 +123,7 @@ private fun inspectPorts(node: JsonNode?): List<PortMapping> =
         val protocol = key.substringAfter('/', "tcp")
         val published =
             bindings?.takeIf { it.isArray }?.values()?.map { binding ->
-                PortMapping(binding.text("HostIp"), binding.long("HostPort")?.toInt(), containerPort, protocol)
+                PortMapping(binding.text("HostIp"), binding.int("HostPort"), containerPort, protocol)
             } ?: emptyList()
         published.ifEmpty { listOf(PortMapping(null, null, containerPort, protocol)) }
     } ?: emptyList()

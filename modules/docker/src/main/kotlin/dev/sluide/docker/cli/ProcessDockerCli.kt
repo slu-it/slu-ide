@@ -247,6 +247,7 @@ private fun readObjects(
                 try {
                     onObject(node)
                 } catch (e: JacksonException) {
+                    // Not for the parsers, which never throw it: the callback of the caller may (its own parsing).
                     log.log(
                         System.Logger.Level.DEBUG,
                         "Skipped a stream object of an unexpected shape: ${e.originalMessage}",

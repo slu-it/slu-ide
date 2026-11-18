@@ -103,8 +103,8 @@ internal fun parsePorts(text: String): List<PortMapping> =
 
 /** Podman's port object: `{"host_ip": "", "container_port": 80, "host_port": 8080, "range": 1, "protocol": "tcp"}`. */
 private fun podmanPort(node: JsonNode): List<PortMapping> {
-    val containerPort = node.long("container_port", "containerPort", "PrivatePort")?.toInt() ?: return emptyList()
-    val hostPort = node.long("host_port", "hostPort", "PublicPort")?.toInt()?.takeIf { it > 0 }
+    val containerPort = node.int("container_port", "containerPort", "PrivatePort") ?: return emptyList()
+    val hostPort = node.int("host_port", "hostPort", "PublicPort")?.takeIf { it > 0 }
     val range = (node.long("range")?.toInt() ?: 1).coerceIn(1, MAX_RANGE_PORTS)
     return (0 until range).map { offset ->
         PortMapping(

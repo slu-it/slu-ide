@@ -20,8 +20,15 @@ internal fun JsonNode.field(vararg names: String): JsonNode? {
 internal fun JsonNode.text(vararg names: String): String? =
     field(*names)?.takeIf { it.isValueNode }?.asString()?.takeIf { it.isNotBlank() }
 
-/** This node as a long, a fraction cut off; `null` if it is no number or does not fit (`asLong` throws for `1e30`). */
-internal fun JsonNode.longOrNull(): Long? = asLongOpt().let { if (it.isPresent) it.asLong else null }
+/** This number node as a long, a fraction cut off; `null` if it is no number or does not fit (`asLong` throws for `1e30`). */
+internal fun JsonNode.longOrNull(): Long? =
+    if (isNumber) {
+        asLongOpt().let {
+            if (it.isPresent) it.asLong else null
+        }
+    } else {
+        null
+    }
 
 /**
  * The number of the first of [names], also when written as text; `null` if missing, not a number or outside the range
@@ -35,6 +42,10 @@ internal fun JsonNode.long(vararg names: String): Long? {
         else -> null
     }
 }
+
+/** Like [long], but `null` too if the number does not fit an int (a port number must not wrap around). */
+internal fun JsonNode.int(vararg names: String): Int? =
+    long(*names)?.takeIf { it in Int.MIN_VALUE..Int.MAX_VALUE }?.toInt()
 
 /** The truth value of the first of [names], also when written as text; `null` if missing or not a truth value. */
 internal fun JsonNode.bool(vararg names: String): Boolean? {

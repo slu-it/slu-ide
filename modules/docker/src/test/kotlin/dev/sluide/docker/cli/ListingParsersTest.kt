@@ -247,6 +247,8 @@ class ListingParsersTest {
         "'\"CreatedAt\":\"2 minutes ago\",\"Created\":\"2026-11-01T13:44:03Z\"', 2026-11-01T13:44:03Z",
         "'\"CreatedAt\":\"2 minutes ago\"', ",
         "'\"x\":1', ",
+        "'\"Created\":\"1700000000\",\"CreatedAt\":\"2020-01-01 00:00:00 +0000 UTC\"', 2020-01-01T00:00:00Z",
+        "'\"Created\":\"0\",\"CreatedAt\":\"2020-01-01 00:00:00 +0000 UTC\"', 2020-01-01T00:00:00Z",
     )
     fun `the creation time is Podman's seconds, Docker's CreatedAt or a Created text`(
         fields: String,
@@ -337,6 +339,17 @@ class ListingParsersTest {
         assertEquals(listOf("a", "b"), containers.map { it.name })
         assertEquals(listOf(PortMapping(null, null, 80, "tcp")), containers[0].ports)
         assertEquals(listOf(null), parsePorts("0.0.0.0:99999999999->80/tcp").map { it.hostPort }, "unpublished")
+    }
+
+    @Test
+    fun `Podman's port numbers that do not fit an int drop the port or the host side, none wraps around`() {
+        val ports =
+            parseContainers(
+                """{"ID":"x","Ports":[{"container_port":4294967376,"host_port":8080},""" +
+                    """{"container_port":80,"host_port":4294975488}]}""",
+            ).single().ports
+
+        assertEquals(listOf(PortMapping(null, null, 80, "tcp")), ports)
     }
 
     @Test

@@ -29,7 +29,11 @@ internal fun parseEvent(node: JsonNode): DockerEvent? {
 }
 
 private fun eventTime(node: JsonNode): Instant? {
-    node.long("timeNano")?.let { return Instant.ofEpochSecond(it / 1_000_000_000, it % 1_000_000_000) }
+    node
+        .long(
+            "timeNano",
+        )?.takeIf { it > 0 }
+        ?.let { return Instant.ofEpochSecond(it / 1_000_000_000, it % 1_000_000_000) }
     val time = node.field("time", "Time") ?: return null
     return if (time.isNumber) time.longOrNull()?.let(::epochSeconds) else parseTime(time.scalarText())
 }

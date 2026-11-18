@@ -135,6 +135,13 @@ class StreamParsersTest {
         assertNull(event(head + """"Time":"yesterday"}""")?.time)
         assertNull(event(head + """"time":1e30}""")?.time, "outside the range of a long")
         assertNull(event(head + """"time":9000000000000000000}""")?.time, "a long beyond the last instant")
+        assertNull(event(head + """"timeNano":0}""")?.time, "no time")
+        assertNull(event(head + """"timeNano":-5}""")?.time)
+        assertEquals(
+            Instant.ofEpochSecond(1700000000),
+            event(head + """"timeNano":0,"time":1700000000}""")?.time,
+            "an empty timeNano falls back to time",
+        )
         assertNull(event(head + """"time":0}""")?.time, "no time, as everywhere else")
         assertNull(event(head + """"time":-5}""")?.time)
         assertEquals(Instant.parse("2023-11-14T22:13:20Z"), event(head + """"time":1.7e9}""")?.time)
