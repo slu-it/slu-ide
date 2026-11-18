@@ -197,6 +197,19 @@ class EntrySessionsTest {
     }
 
     @Test
+    fun `an unreadable saved password stays when another one replaced it during the decrypt`() {
+        withSaved("v1:other:x")
+        saved.duringDecrypt = { withSaved("v1:o:newer") }
+        dialogs.password = null
+
+        sessions.connect(entry)
+        runWorkers()
+
+        assertEquals(emptyList(), setSaved)
+        assertEquals("v1:o:newer", entry.config.get().savedPassword)
+    }
+
+    @Test
     fun `a close ends the attempt that a guard left behind`() {
         withSaved("v1:other:x")
         saved.duringDecrypt = { entries.remove(entry) }
