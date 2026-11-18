@@ -179,6 +179,9 @@ internal class FakeSavedPasswords : SavedPasswords {
     /** Makes decrypt answer NoKey with this reason. */
     var noKey: String? = null
 
+    /** Makes encrypt throw this, as a key store that breaks does. */
+    var encryptThrows: RuntimeException? = null
+
     /** Runs inside decrypt, before it returns, e.g. to cancel the connect meanwhile. */
     var duringDecrypt: () -> Unit = {}
 
@@ -195,6 +198,7 @@ internal class FakeSavedPasswords : SavedPasswords {
         password: CharArray,
     ): Encrypted {
         calls += "encrypt $id ${String(password)}"
+        encryptThrows?.let { throw it }
         return encryptFails?.let(Encrypted::Failed) ?: Encrypted.Value(value(id, String(password)))
     }
 
