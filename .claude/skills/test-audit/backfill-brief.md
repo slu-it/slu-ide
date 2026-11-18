@@ -39,7 +39,8 @@ and read a neighbouring test as a pattern, never the whole class.
 5. After the last commit: `.claude/scripts/mutation-check.sh --display <N> --detach --whole --unit-only --verbose
    <master commit> <the package's files>`, then `--wait` until it ends (`--wait 100` per call). Save its output as
    `<scratch>/mutation-after.txt`. Every mutant left must be one of your EQUIVALENT, UNOBSERVABLE, ENDLESS, LOG or BUG
-   items; a GAP still alive gets a sharper test and another run. The `killed ... [Test.method]` lines are the red
+   items; a GAP still alive gets a sharper test and another run. "Not understood" is not a class: read the bytecode
+   (`javap -c -p` on the class in `build/classes`) until you can name one, or report it as an open GAP and why. The `killed ... [Test.method]` lines are the red
    evidence for your GAP tests: each GAP must show its targeted line killed by the test you wrote.
 6. Verification in your worktree: `.claude/scripts/verify.sh --display <N> :modules:<m>` for each module of the
    package (all its unit tests), plus the UI test classes your prompt names.
