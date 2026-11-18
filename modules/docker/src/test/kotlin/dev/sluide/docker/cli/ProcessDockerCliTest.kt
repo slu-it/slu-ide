@@ -44,6 +44,15 @@ class ProcessDockerCliTest {
         dir.resolve("images.jsonl").writeText(fixture("docker/images.jsonl"))
         dir.resolve("dangling.jsonl").writeText(fixture("docker/images-dangling.jsonl"))
         dir.resolve("volumes.jsonl").writeText(fixture("docker/volumes.jsonl"))
+        dir.resolve("networks.jsonl").writeText(fixture("docker/networks.jsonl"))
+        dir.resolve("inspect.json").writeText(fixture("docker/inspect-container.json"))
+        dir.resolve("inspect-volume.json").writeText(fixture("docker/inspect-volume.json"))
+        dir.resolve("stats.txt").writeText(fixture("docker/stats-stream.txt"))
+        dir.resolve("events.jsonl").writeText(fixture("docker/events.jsonl"))
+        dir
+            .resolve(
+                "version-no-context.json",
+            ).writeText("""{"Client":{"Version":"19.03.0"},"Server":{"Version":"19.03.0"}}""")
         dir.resolve("docker").apply {
             writeText(
                 """
@@ -51,14 +60,29 @@ class ProcessDockerCliTest {
                 echo "${'$'}*" >> "${'$'}STUB/calls.log"
                 case "${'$'}1 ${'$'}2" in
                   "version "*) cat "${'$'}STUB/${'$'}{VERSION:-version.json}" ;;
+                  "context show") if [ -n "${'$'}NO_CONTEXT" ]; then echo "context failed" >&2; exit 1; fi; if [ -n "${'$'}CONTEXT_EMPTY" ]; then echo ""; else echo "colima"; fi ;;
+                  "network ls") cat "${'$'}STUB/networks.jsonl" ;;
+                  "container inspect") cat "${'$'}STUB/inspect.json" ;;
+                  "volume inspect") cat "${'$'}STUB/inspect-volume.json" ;;
+                  "image prune") echo "Total reclaimed space: 0B" ;;
+                  "network prune") printf 'Deleted Networks:\nold-net\n\n' ;;
+                  "volume prune") echo "Total reclaimed space: 0B" ;;
+                  "stats "*) [ -n "${'$'}JUNK" ] && echo '{"MemUsage":"1B / 2B"}'; cat "${'$'}STUB/stats.txt" ;;
                   "ps "*) cat "${'$'}STUB/ps.jsonl" ;;
                   "images "*) case "${'$'}*" in *dangling*) cat "${'$'}STUB/dangling.jsonl" ;; *) cat "${'$'}STUB/images.jsonl" ;; esac ;;
                   "volume ls") case "${'$'}*" in *dangling*) echo sluidefx-data ;; *) cat "${'$'}STUB/volumes.jsonl" ;; esac ;;
                   "stop "*) echo "Error response from daemon: No such container: ${'$'}2" >&2; exit 1 ;;
+                  "pull late"*) echo "Pulling"; exec >&- 2>&-; sleep 1 ;;
                   "pull slow"*) echo ${'$'}${'$'} > "${'$'}STUB/pid"; echo "Pulling"; exec sleep 30 ;;
                   "run "*) case "${'$'}*" in *fail*) echo "boom" >&2; exit 1 ;; *noid*) echo "Unable to find image" >&2 ;; *) echo "Unable to find image" >&2; echo "  id-from-stub  " ;; esac ;;
                   "pull "*) echo "5.2: Pulling from library/bash"; echo "Digest: sha256:abc" >&2; echo "Status: Downloaded newer image" ;;
                   "events "*)
+                    if [ -n "${'$'}SPLIT_EVENTS" ]; then
+                      printf '{"Type":"container","Action":"st'; sleep 0.3
+                      printf 'art","Actor":{"ID":"abc","Attributes":{"name":"web"}}}\\n'; exit 0
+                    fi
+                    if [ -n "${'$'}JUNK" ]; then echo '{"Action":"start"}'; fi
+                    if [ -n "${'$'}MANY_EVENTS" ]; then cat "${'$'}STUB/events.jsonl"; exit 0; fi
                     echo '{"Type":"container","Action":"start","Actor":{"ID":"abc","Attributes":{"name":"web"}}}'
                     if [ -n "${'$'}END_EVENTS" ]; then echo "error during connect: engine gone" >&2; exit 2; fi
                     echo ${'$'}${'$'} > "${'$'}STUB/pid"; exec sleep 30 ;;
@@ -202,12 +226,17 @@ class ProcessDockerCliTest {
         try {
             cli().run(listOf("run", "-d", "-e", "TOKEN=s3cret", "bash:5.2"))
             assertFailsWith<DockerException> { cli().run(listOf("run", "-d", "-e", "TOKEN=s3cret", "fail")) }
+            cli().run(listOf("run", "-d", "-e", "FOO", "--label", "a=b", "-e", "K=v", "bash:5.2"))
         } finally {
             logger.removeHandler(handler)
             logger.level = level
         }
 
         assertTrue(lines.any { "-e TOKEN=••••" in it }, "the run is logged with a masked value: $lines")
+        assertTrue(
+            lines.any { "-e FOO --label a=b -e K=•••• bash:5.2" in it },
+            "only the value after -e is masked, and only when there is one: $lines",
+        )
         assertTrue(lines.none { "s3cret" in it }, lines.toString())
     }
 
@@ -215,7 +244,8 @@ class ProcessDockerCliTest {
     fun `run refuses arguments that do not start with run or are not detached, before starting anything`() {
         assertFailsWith<DockerException> { cli().run(listOf("rm", "-f", "abc")) }
         assertFailsWith<DockerException> { cli().run(emptyList()) }
-        assertFailsWith<IllegalArgumentException> { cli().run(listOf("run", "bash:5.2")) }
+        val attached = assertFailsWith<IllegalArgumentException> { cli().run(listOf("run", "bash:5.2")) }
+        assertEquals("Only detached runs are supported", attached.message)
 
         assertEquals(emptyList(), calls(), "nothing was started")
     }
@@ -394,6 +424,231 @@ class ProcessDockerCliTest {
 
         assertTrue("interrupted" in (pulled.get(5, TimeUnit.SECONDS) as DockerException).message!!)
         assertGone(pidFile.readText().trim().toLong())
+    }
+
+    @Test
+    fun `the engine's context comes from context show when the version has none, and stays unknown if that fails`() {
+        assertEquals("colima", cli("VERSION" to "version-no-context.json").engine().context)
+        assertEquals(listOf("version --format json", "context show"), calls())
+        assertNull(cli("VERSION" to "version-no-context.json", "NO_CONTEXT" to "1").engine().context)
+        assertEquals("default", cli().engine().context, "a version that names its context needs no second call")
+    }
+
+    @Test
+    fun `networks, container details and inspects are read and parsed from their commands`() {
+        val cli = cli()
+
+        assertEquals(listOf("bridge", "host", "none", "sluidefx-net"), cli.networks().map { it.name })
+        assertEquals("sluidefx-web-1", cli.containerDetails("abc").name)
+        val pretty = cli.inspect(dev.sluide.docker.model.ResourceKind.VOLUME, "sluidefx-data")
+        assertTrue(pretty.startsWith("{\n  \"CreatedAt\": "), pretty)
+        assertFailsWith<DockerException> { cli.containerDetails("-x") }
+        assertFailsWith<DockerException> { cli.inspect(dev.sluide.docker.model.ResourceKind.VOLUME, " ") }
+
+        assertEquals(
+            listOf(
+                "network ls --no-trunc --format json",
+                "container inspect abc",
+                "volume inspect sluidefx-data",
+            ),
+            calls(),
+        )
+    }
+
+    @Test
+    fun `volumes without the in-use list when its command fails`() {
+        // The stub's volume ls fails for the dangling filter when asked to: a CLI that cannot filter.
+        dir.resolve("docker").also { script ->
+            script.writeText(script.readText().replace("echo sluidefx-data ;;", "echo old >&2; exit 1 ;;"))
+        }
+
+        val volumes = cli().volumes()
+
+        assertTrue(volumes.isNotEmpty())
+        assertTrue(volumes.all { it.inUse == null })
+    }
+
+    @Test
+    fun `removals, creations and prunes name their targets and prunes return the CLI's trimmed report`() {
+        val cli = cli()
+
+        cli.removeVolume("data")
+        cli.removeNetwork("net")
+        cli.createVolume("data")
+        assertFailsWith<DockerException> { cli.removeNetwork("-f") }
+        assertFailsWith<DockerException> { cli.createVolume("") }
+        assertFailsWith<DockerException> { cli.createNetwork("net", "-bad") }
+        assertFailsWith<DockerException> { cli.removeImage("-f", force = false) }
+
+        assertEquals("Total reclaimed space: 0B", cli.pruneImages())
+        assertEquals("Total reclaimed space: 0B", cli.pruneVolumes())
+        assertEquals("Deleted Networks:\nold-net", cli.pruneNetworks())
+        assertEquals(
+            listOf(
+                "volume rm data",
+                "network rm net",
+                "volume create data",
+                "image prune -f",
+                "volume prune -a -f",
+                "network prune -f",
+            ),
+            calls(),
+        )
+        assertEquals(
+            "Total reclaimed space: 0B",
+            cli("VERSION" to "podman-version.json").also { it.engine() }.pruneVolumes(),
+        )
+    }
+
+    @Test
+    fun `a blank driver adds no option to a network`() {
+        cli().createNetwork("shop", "  ")
+
+        assertEquals(listOf("network create shop"), calls())
+    }
+
+    @Test
+    fun `stats samples are delivered, none after the stream was closed inside the callback`() {
+        val samples = CopyOnWriteArrayList<Double>()
+        val handle = AtomicReference<AutoCloseable>()
+        val ready = CountDownLatch(1)
+
+        handle.set(
+            cli().stats("web", { sample ->
+                ready.await(5, TimeUnit.SECONDS)
+                samples += sample.cpuPercent
+                handle.get().close()
+            }, {}),
+        )
+        ready.countDown()
+
+        waitFor { samples.isNotEmpty() }
+        // No signal tells that no more samples will come; the reader ends right after the CLI.
+        Thread.sleep(200)
+        assertEquals(listOf(0.01), samples)
+        assertEquals(listOf("stats --format json web"), calls())
+    }
+
+    @Test
+    fun `all stats samples of a stream arrive and it ends normally`() {
+        val samples = CopyOnWriteArrayList<Double>()
+        val ended = CountDownLatch(1)
+
+        cli().stats("web", { samples += it.cpuPercent }, { ended.countDown() })
+
+        assertTrue(ended.await(5, TimeUnit.SECONDS))
+        assertTrue(samples.size >= 3, "samples: $samples")
+        assertFailsWith<DockerException> { cli().stats("-x", {}, {}) }
+    }
+
+    @Test
+    fun `no event is delivered after the stream was closed inside the callback`() {
+        val events = CopyOnWriteArrayList<String>()
+        val handle = AtomicReference<AutoCloseable>()
+        val ready = CountDownLatch(1)
+
+        handle.set(
+            cli("MANY_EVENTS" to "1").events({ event ->
+                ready.await(5, TimeUnit.SECONDS)
+                events += event.action
+                handle.get().close()
+            }, {}),
+        )
+        ready.countDown()
+
+        waitFor { events.isNotEmpty() }
+        // No signal tells that no more events will come; the reader ends right after the CLI.
+        Thread.sleep(200)
+        assertEquals(1, events.size)
+    }
+
+    @Test
+    fun `an object the callback fails on with a JSON error is skipped, the next one still arrives`() {
+        val actions = CopyOnWriteArrayList<String>()
+        val ended = CountDownLatch(1)
+
+        cli("MANY_EVENTS" to "1").events({ event ->
+            actions += event.action
+            if (actions.size == 1) dockerJson.readTree("{broken")
+        }, { ended.countDown() })
+
+        assertTrue(ended.await(5, TimeUnit.SECONDS))
+        assertTrue(actions.size > 1, "events: $actions")
+    }
+
+    @Test
+    fun `logs without a tail ask for all lines, a negative tail for none, and refuse option-like ids`() {
+        cli().logs("web", null, {}, {})
+        cli().logs("web", -5, {}, {})
+        assertFailsWith<DockerException> { cli().logs("-f", null, {}, {}) }
+
+        waitFor { calls().size == 2 }
+        assertEquals(
+            setOf("logs -f --timestamps web", "logs -f --timestamps --tail 0 web"),
+            calls().toSet(),
+        )
+    }
+
+    @Test
+    fun `a context show that prints nothing leaves the context unknown`() {
+        assertNull(cli("VERSION" to "version-no-context.json", "CONTEXT_EMPTY" to "1").engine().context)
+    }
+
+    @Test
+    fun `an image is removed with force, and the executable's name tells Podman before the engine is asked`() {
+        cli().removeImage("bash:5.2", force = true)
+        Files.copy(dir.resolve("docker"), dir.resolve("podman"))
+        val podman =
+            ProcessDockerCli(
+                ResolvedDocker(dir.resolve("podman"), mapOf("PATH" to "/usr/bin:/bin", "STUB" to dir.toString())),
+            )
+
+        podman.pruneVolumes()
+
+        assertEquals(listOf("rmi -f bash:5.2", "volume prune -f"), calls())
+    }
+
+    @Test
+    fun `a pull may outlive its output without a time limit`() {
+        val lines = mutableListOf<String>()
+
+        cli().pull("late:1") { lines += it }
+
+        assertEquals(listOf("Pulling"), lines)
+    }
+
+    @Test
+    fun `run says what it was given when it is no run command`() {
+        val rm = assertFailsWith<DockerException> { cli().run(listOf("rm", "-d")) }
+        val none = assertFailsWith<DockerException> { cli().run(emptyList()) }
+
+        assertEquals("Not a run command: rm", rm.message)
+        assertEquals("Not a run command: ", none.message)
+    }
+
+    @Test
+    fun `objects that are no event or no sample are skipped, the stream goes on`() {
+        val actions = CopyOnWriteArrayList<String>()
+        val samples = CopyOnWriteArrayList<Double>()
+        val ended = CountDownLatch(2)
+
+        cli("JUNK" to "1", "MANY_EVENTS" to "1").events({ actions += it.action }, { ended.countDown() })
+        cli("JUNK" to "1").stats("web", { samples += it.cpuPercent }, { ended.countDown() })
+
+        assertTrue(ended.await(5, TimeUnit.SECONDS))
+        assertTrue(actions.size > 1, "events: $actions")
+        assertTrue(samples.size >= 3, "samples: $samples")
+    }
+
+    @Test
+    fun `an event cut in two by the pipe is still one event`() {
+        val actions = CopyOnWriteArrayList<String>()
+        val ended = CountDownLatch(1)
+
+        cli("SPLIT_EVENTS" to "1").events({ actions += it.action }, { ended.countDown() })
+
+        assertTrue(ended.await(5, TimeUnit.SECONDS))
+        assertEquals(listOf("start"), actions)
     }
 
     private fun assertGone(pid: Long) {
