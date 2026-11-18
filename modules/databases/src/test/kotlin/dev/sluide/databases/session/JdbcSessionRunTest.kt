@@ -281,6 +281,9 @@ class JdbcSessionRunTest {
         val result = assertIs<StatementOutcome.Rows>(session.execute("SELECT * FROM t", 10).await())
         result.cursor.close()
         fixture.eventually("the cursor closed") { result.cursor.closed }
+        // `closed` is set at once; the session thread ends the transaction a little later, and its log lines must
+        // not land after the clear
+        fixture.eventually("the transaction ended") { db.log.lastOrNull() == "session: autoCommit=true" }
         db.log.clear()
 
         result.cursor.page(2).await()
