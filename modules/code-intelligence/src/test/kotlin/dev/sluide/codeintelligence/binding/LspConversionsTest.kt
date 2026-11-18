@@ -125,4 +125,104 @@ class LspConversionsTest {
 
         assertEquals(emptyList(), asked)
     }
+
+    // LSP 3.17 requires uri and range of a Location and the ranges of a LocationLink, so a missing one is a lenient
+    // server's answer; the code opens such a place at the start of the file instead of dropping it.
+    private fun linkWith(
+        uri: String,
+        range: Range? = null,
+        selection: Range? = null,
+    ) = LocationLink().also {
+        it.targetUri = uri
+        if (range != null) it.targetRange = range
+        if (selection != null) it.targetSelectionRange = selection
+    }
+
+    @Test
+    fun `a link without a selection range starts at its range, one without either at the start of the file`() {
+        assertEquals(SourcePosition(file, 4, 2), linkWith(uri, range(4, 2)).toSourcePosition())
+        assertEquals(SourcePosition(file, 0, 0), linkWith(uri).toSourcePosition())
+        assertEquals(SourcePosition(file, 6, 1), linkWith(uri, range(4, 0), range(6, 1)).toSourcePosition())
+    }
+
+    @Test
+    fun `a location without a range or a URI`() {
+        assertEquals(SourcePosition(file, 0, 0), Location().also { it.uri = uri }.toSourcePosition())
+        assertNull(Location().also { it.range = range(1, 1) }.toSourcePosition())
+        assertNull(LocationLink().toSourcePosition())
+    }
+
+    @Test
+    fun `a negative position starts at 0`() {
+        val negative = Range(Position(-2, -7), Position(0, 0))
+
+        assertEquals(SourcePosition(file, 0, 0), Location(uri, negative).toSourcePosition())
+        assertEquals(
+            SourcePosition(file, 0, 3),
+            Location(uri, Range(Position(-2, 3), Position(0, 0))).toSourcePosition(),
+        )
+        assertEquals(
+            SourcePosition(file, 3, 0),
+            Location(uri, Range(Position(3, -2), Position(4, 0))).toSourcePosition(),
+        )
+    }
+
+    @Test
+    fun `an answer with an empty side, null entries or entries without a URI or range`() {
+        val noUri = Location().also { it.range = range(1, 1) }
+        val noRange = Location().also { it.uri = uri }
+        assertEquals(emptyList(), Either.forLeft<List<Location>, List<LocationLink>>(null).toDefinitionTargets { null })
+        assertEquals(
+            emptyList(),
+            Either.forRight<List<Location>, List<LocationLink>>(null).toDefinitionTargets { null },
+        )
+        assertEquals(
+            listOf(local(0, 0)),
+            Either
+                .forLeft<List<Location?>, List<LocationLink?>>(listOf(null, noUri, noRange))
+                .toDefinitionTargets { null },
+        )
+        assertEquals(
+            listOf(local(0, 0), local(4, 2), local(6, 1)),
+            Either
+                .forRight<List<Location?>, List<LocationLink?>>(
+                    listOf(
+                        null,
+                        LocationLink().also { it.targetRange = range(1, 1) },
+                        linkWith(uri),
+                        linkWith(uri, range(4, 2)),
+                        linkWith(uri, range(4, 0), range(6, 1)),
+                    ),
+                ).toDefinitionTargets { null },
+        )
+    }
+
+    @Test
+    fun `a fetched target without a range starts at the start of the document`() {
+        val bare = Location().also { it.uri = "jdt://contents/a.class" }
+        val link = linkWith("jdt://contents/b.class", range(4, 2))
+        val onlyLink = linkWith("jdt://contents/c.class", range(4, 2), range(9, 5))
+
+        val left = Either.forLeft<List<Location>, List<LocationLink>>(listOf(bare))
+        val right = Either.forRight<List<Location>, List<LocationLink>>(listOf(link, onlyLink))
+
+        assertEquals(
+            SourcePosition(cached, 0, 0),
+            (left.toDefinitionTargets(::library).single() as DefinitionTarget.Fetched).position,
+        )
+        assertEquals(
+            listOf(SourcePosition(cached, 4, 2), SourcePosition(cached, 9, 5)),
+            right.toDefinitionTargets(::library).map { (it as DefinitionTarget.Fetched).position },
+        )
+        assertEquals(
+            SourcePosition(cached, 0, 3),
+            (
+                Either
+                    .forLeft<List<Location>, List<LocationLink>>(
+                        listOf(Location("jdt://contents/d.class", Range(Position(-1, 3), Position(0, 0)))),
+                    ).toDefinitionTargets(::library)
+                    .single() as DefinitionTarget.Fetched
+            ).position,
+        )
+    }
 }
