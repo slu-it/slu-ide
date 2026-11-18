@@ -20,6 +20,7 @@ class CardLogicTest {
         assertEquals(2, dropIndex(mids, 80.0), "between")
         assertEquals(3, dropIndex(mids, 500.0), "bottom")
         assertEquals(0, dropIndex(emptyList(), 10.0), "empty list")
+        assertEquals(1, dropIndex(mids, 60.0), "exactly on a centre counts as above it")
     }
 
     @Test

@@ -15,6 +15,7 @@ class SqlNamesTest {
     fun `qualifies with a schema and leaves it out without one`() {
         assertEquals("\"public\".\"t\"", SqlNames.qualified(DatabaseKind.POSTGRESQL, "public", "t"))
         assertEquals("`t`", SqlNames.qualified(DatabaseKind.MARIADB, null, "t"))
+        assertEquals("`t`", SqlNames.qualified(DatabaseKind.MARIADB, "", "t"), "an empty schema is none")
     }
 
     @Test
