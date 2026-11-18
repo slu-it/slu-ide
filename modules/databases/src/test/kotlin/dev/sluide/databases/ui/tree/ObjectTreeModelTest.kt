@@ -10,6 +10,7 @@ import org.kordamp.ikonli.IkonHandler
 import java.sql.SQLException
 import java.util.ServiceLoader
 import java.util.concurrent.CompletionException
+import java.util.concurrent.ExecutionException
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -206,6 +207,154 @@ class ObjectTreeModelTest {
         val failure = CompletionException(SQLException("ERROR: permission denied for schema x\n  Position: 3", "42501"))
         assertEquals("permission denied for schema x", ObjectTreeModel.errorMessage(failure))
         assertEquals("IllegalStateException", ObjectTreeModel.errorMessage(IllegalStateException()))
+    }
+
+    @Test
+    fun `node keys carry kind, schema, table, name and ref of their object`() {
+        val orders = table("id")
+        val groups = listOf(DbObject(ObjectKind.GROUP, "public", "tables", children = listOf(orders)))
+        val loaded = nodes(listOf("public"), expanded = { true }) { Load.Loaded(groups) }
+        val tables = loaded.single().children.single()
+        assertEquals(
+            NodeKey(ObjectTreeModel.schemaKey("public"), ObjectKind.GROUP, "public", null, "tables", ""),
+            tables.key,
+        )
+        val ordersNode = tables.children.single()
+        assertEquals(NodeKey(tables.key, ObjectKind.TABLE, "public", null, "orders", ""), ordersNode.key)
+        assertEquals(
+            NodeKey(ordersNode.key, ObjectKind.COLUMN, "public", "orders", "id", ""),
+            ordersNode.children.single().key,
+        )
+    }
+
+    @Test
+    fun `only the tables group of a schema opens by itself`() {
+        fun group(
+            name: String,
+            vararg children: DbObject,
+        ) = DbObject(ObjectKind.GROUP, "public", name, children = children.toList())
+        val inner = group("tables")
+        val roots =
+            listOf(
+                group("tables"),
+                group("views"),
+                DbObject(ObjectKind.TABLE, "public", "tables"),
+                group("outer", inner),
+            )
+        val schema = nodes(listOf("public")) { Load.Loaded(roots) }.single()
+        assertEquals(listOf(true, false, false, false), schema.children.map { it.expanded })
+        assertFalse(
+            schema.children[3]
+                .children
+                .single()
+                .expanded,
+            "a tables group below another group stays closed",
+        )
+    }
+
+    @Test
+    fun `placeholders are keyed loading or error below their parent`() {
+        val loading = nodes(null) { Load.Loading }.single()
+        assertEquals(NodeKey(null, null, null, null, "loading", ""), loading.key)
+        val failed = nodes(null, error = "down") { Load.Loading }.single()
+        assertEquals(NodeKey(null, null, null, null, "error", ""), failed.key)
+        val key = ObjectTreeModel.schemaKey("a")
+        assertEquals(
+            NodeKey(key, null, null, null, "loading", ""),
+            nodes(listOf("a")) {
+                Load.Loading
+            }.single().children.single().key,
+        )
+        assertEquals(
+            NodeKey(key, null, null, null, "error", ""),
+            nodes(listOf("a")) {
+                Load.Failed("x")
+            }.single().children.single().key,
+        )
+    }
+
+    @Test
+    fun `rows of other types are the same only when equal`() {
+        val loaded = ObjectRow(table("id"))
+        assertFalse(ObjectTreeModel.sameRow(LoadingRow, loaded))
+        assertFalse(ObjectTreeModel.sameRow(loaded, LoadingRow))
+        assertFalse(ObjectTreeModel.sameRow(LoadingRow, ObjectRow(column("id"))))
+        assertFalse(ObjectTreeModel.sameRow(ObjectRow(column("id")), ErrorRow("id")))
+        assertTrue(ObjectTreeModel.sameRow(LoadingRow, LoadingRow))
+        assertTrue(ObjectTreeModel.sameRow(ErrorRow("a"), ErrorRow("a")))
+        assertFalse(ObjectTreeModel.sameRow(ErrorRow("a"), ErrorRow("b")))
+        // An object that gained children is not the same row, whichever side has them.
+        assertFalse(ObjectTreeModel.sameRow(ObjectRow(table()), loaded))
+        assertFalse(ObjectTreeModel.sameRow(loaded, ObjectRow(table())))
+    }
+
+    @Test
+    fun `only table-like rows load their children on expand`() {
+        val loads =
+            ObjectKind.entries.filter {
+                ObjectTreeModel.loadsChildrenOnExpand(
+                    ObjectRow(DbObject(it, "s", "n")),
+                )
+            }
+        assertEquals(listOf(ObjectKind.TABLE, ObjectKind.VIEW, ObjectKind.MATERIALIZED_VIEW), loads)
+        assertFalse(ObjectTreeModel.loadsChildrenOnExpand(LoadingRow))
+        assertFalse(ObjectTreeModel.loadsChildrenOnExpand(ErrorRow("x")))
+    }
+
+    @Test
+    fun `an error row shows its message and an empty group name stays empty`() {
+        assertEquals("boom", ObjectTreeModel.label(ErrorRow("boom")))
+        assertEquals("", ObjectTreeModel.label(ObjectRow(DbObject(ObjectKind.GROUP, "public", ""))))
+    }
+
+    @Test
+    fun `names of routines, columns without a table and other objects with a ref`() {
+        val pg = DatabaseKind.POSTGRESQL
+        assertEquals(
+            "\"public\".\"p\"(integer)",
+            ObjectTreeModel.qualifiedName(pg, DbObject(ObjectKind.PROCEDURE, "public", "p", ref = "integer")),
+        )
+        assertEquals(
+            "\"public\".\"id\"",
+            ObjectTreeModel.qualifiedName(pg, DbObject(ObjectKind.COLUMN, "public", "id")),
+        )
+        assertEquals(
+            "\"public\".\"orders\"",
+            ObjectTreeModel.qualifiedName(pg, DbObject(ObjectKind.TABLE, "public", "orders", ref = "x")),
+        )
+    }
+
+    @Test
+    fun `generate select takes the columns only, not the keys and indexes below the table`() {
+        val keys =
+            DbObject(
+                ObjectKind.GROUP,
+                "public",
+                "keys",
+                children = listOf(DbObject(ObjectKind.PRIMARY_KEY, "public", "pk", table = "orders")),
+            )
+        val orders = DbObject(ObjectKind.TABLE, "public", "orders", children = listOf(column("a"), keys))
+        assertEquals(
+            "SELECT \"a\" FROM \"public\".\"orders\";",
+            ObjectTreeModel.generateSelect(DatabaseKind.POSTGRESQL, orders),
+        )
+    }
+
+    @Test
+    fun `error messages unwrap every wrapper, skip blank lines and fall back to the class name`() {
+        val deep = ExecutionException(CompletionException(SQLException("ERROR: deep", "42501")))
+        assertEquals("deep", ObjectTreeModel.errorMessage(deep))
+        assertEquals(
+            "deep",
+            ObjectTreeModel.errorMessage(CompletionException(ExecutionException(SQLException("deep")))),
+        )
+        // Without a cause the wrapper itself is the message; a plain exception keeps its own message.
+        assertEquals("outer", ObjectTreeModel.errorMessage(CompletionException("outer", null)))
+        assertEquals("top", ObjectTreeModel.errorMessage(IllegalStateException("top", java.io.IOException("deep"))))
+        assertEquals("real text", ObjectTreeModel.errorMessage(IllegalStateException("\n \n  real text  \nnext")))
+        assertEquals("IllegalStateException", ObjectTreeModel.errorMessage(IllegalStateException("  \n ")))
+        assertEquals("IllegalStateException", ObjectTreeModel.errorMessage(IllegalStateException("")))
+        assertEquals("IllegalArgumentException", ObjectTreeModel.errorMessage(IllegalArgumentException()))
     }
 
     @ParameterizedTest
