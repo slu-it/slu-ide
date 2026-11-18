@@ -49,6 +49,43 @@ class ContainerTreeTest {
     }
 
     @Test
+    fun `a container without a service label comes first, the others by service`() {
+        val tree =
+            containerTree(
+                listOf(
+                    container("shop-db-1", project = "shop", service = "db"),
+                    container("shop-sidecar", project = "shop"),
+                    container("shop-api", project = "shop", service = "api"),
+                    container("shop-aaa", project = "shop"),
+                ),
+                project,
+            )
+
+        assertEquals(
+            listOf("shop-aaa", "shop-sidecar", "shop-api", "shop-db-1"),
+            tree.projects
+                .single()
+                .containers
+                .map { it.name },
+        )
+    }
+
+    @Test
+    fun `the working folder is the first one any container of the project names`() {
+        val tree =
+            containerTree(
+                listOf(
+                    container("shop-a-1", project = "shop", service = "a"),
+                    container("shop-b-1", project = "shop", service = "b", workingDir = "/home/me/shop"),
+                ),
+                project,
+            )
+
+        assertEquals("/home/me/shop", tree.projects.single().workingDir)
+        assertEquals(true, tree.projects.single().local)
+    }
+
+    @Test
     fun `a project is local only inside the folder, not in a sibling with the same prefix or without a folder`() {
         val tree =
             containerTree(

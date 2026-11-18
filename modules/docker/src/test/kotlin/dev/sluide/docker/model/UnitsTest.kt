@@ -42,8 +42,28 @@ class UnitsTest {
         assertEquals(1170L to 126L, parseSizePair("1.17kB / 126B"))
         assertEquals(0L to 0L, parseSizePair("-- / --"))
         assertEquals(0L to 0L, parseSizePair(null))
+        assertEquals(0L to 0L, parseSizePair("5MB"))
+        assertEquals(0L to 0L, parseSizePair("1B / 2B / 3B"))
         assertEquals(0.28, parsePercent("0.28%"))
+        assertEquals(12.0, parsePercent(" 12 % "))
+        assertEquals(3.5, parsePercent("3.5"))
         assertNull(parsePercent("--"))
+        assertNull(parsePercent(null))
+    }
+
+    @Test
+    fun `no text is no size and no time`() {
+        assertNull(parseSize(null))
+        assertNull(parseTime(null))
+        assertNull(parseTime("   "))
+    }
+
+    @Test
+    fun `the first second after the epoch is a time, zero and below are not`() {
+        assertEquals(Instant.ofEpochSecond(1), epochSeconds(1))
+        assertEquals(Instant.ofEpochSecond(1), parseTime(" 1 "))
+        assertNull(epochSeconds(0))
+        assertNull(epochSeconds(-1))
     }
 
     @ParameterizedTest

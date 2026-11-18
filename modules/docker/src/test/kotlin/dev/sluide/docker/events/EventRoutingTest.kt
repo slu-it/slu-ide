@@ -3,6 +3,7 @@ package dev.sluide.docker.events
 import dev.sluide.docker.model.DockerEvent
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class EventRoutingTest {
@@ -28,6 +29,7 @@ class EventRoutingTest {
         "volume, destroy, VOLUME",
         "volume, prune, VOLUME",
         "volume, mount, ''",
+        "volume, unmount, ''",
         "network, create, NETWORK",
         "network, destroy, NETWORK",
         "network, connect, CONTAINER",
@@ -54,5 +56,22 @@ class EventRoutingTest {
         kind: String,
     ) {
         assertEquals(setOf(kind), reloadsFor(DockerEvent(type, action, "id")).map { it.name }.toSet())
+    }
+
+    @Test
+    fun `a type that only shares the hash code of a known type reloads nothing`() {
+        // Same hashCode as container, image, volume and network (two neighbouring characters shifted by 1 and 31).
+        val colliding =
+            mapOf(
+                "container" to "dPntainer",
+                "image" to "jNage",
+                "volume" to "wPlume",
+                "network" to "oFtwork",
+            )
+
+        colliding.forEach { (type, other) ->
+            assertEquals(type.hashCode(), other.hashCode(), other)
+            assertEquals(emptySet(), reloadsFor(DockerEvent(other, "create", "id")), other)
+        }
     }
 }
