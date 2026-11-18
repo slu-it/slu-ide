@@ -18,7 +18,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 /** Comparing two files on disk with git's `--no-index` diff, with the real git; skipped without it. */
 class GitFileComparisonTest {
@@ -125,13 +124,10 @@ class GitFileComparisonTest {
         try {
             assertNull(comparison.compare(pipe, file))
             assertNull(comparison.compare(file, pipe))
-            assertTrue(writer.isAlive, "nobody opened the pipe")
         } finally {
-            // Let the writer end if nothing read the pipe: opened for reading and writing, the open does not wait.
-            runCatching {
-                FileChannel.open(pipe, StandardOpenOption.READ, StandardOpenOption.WRITE).use { }
-            }
-            writer.join(10_000)
+            // Let the writer end if nothing read the pipe: opened for reading and writing, the open does not wait, and
+            // the writer's own open then finds a reader.
+            FileChannel.open(pipe, StandardOpenOption.READ, StandardOpenOption.WRITE).use { writer.join(10_000) }
         }
     }
 

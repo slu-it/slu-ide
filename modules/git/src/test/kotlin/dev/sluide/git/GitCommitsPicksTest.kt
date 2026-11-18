@@ -275,4 +275,15 @@ internal class GitCommitsPicksTest : GitCommitsFixture() {
         assertIs<GitPickResult.Failed>(result)
         assertFalse(gitFile("CHERRY_PICK_HEAD").exists())
     }
+
+    @Test
+    fun `a pick while a merge is stopped is refused with what is in progress`() {
+        conflicting()
+        assertTrue(runCatching { git("merge", "other") }.isFailure, "conflicts")
+
+        assertEquals(
+            GitPickResult.Failed("A merge is in progress; finish or abort it first."),
+            commits.pick(repo, GitPick.CHERRY_PICK, head(), firstParent = false),
+        )
+    }
 }

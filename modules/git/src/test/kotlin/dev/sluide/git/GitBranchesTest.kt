@@ -467,15 +467,7 @@ class GitBranchesTest {
         assertEquals(main, git("rev-parse", "existing"), "moved back, not deleted")
     }
 
-    /** The real git behind a wrapper that writes each call's arguments as a line to [log]. */
-    private fun recording(log: Path): GitBranches {
-        val wrapper =
-            folder.resolve("git-recorder").apply {
-                writeText("#!/bin/sh\necho \"$*\" >> '$log'\nexec git \"$@\"\n")
-                toFile().setExecutable(true)
-            }
-        return GitBranches(GitCli(wrapper.toString(), testGitEnvironment()))
-    }
+    private fun recording(log: Path) = GitBranches(recordingGit(folder, log))
 
     @Test
     fun `overwriting a branch that is not there passes no -f`() {

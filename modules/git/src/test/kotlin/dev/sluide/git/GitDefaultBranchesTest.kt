@@ -203,4 +203,19 @@ class GitDefaultBranchesTest {
             reviewBases(more, listOf("a", "a/b"), "refs/remotes/a/feature"),
         )
     }
+
+    @Test
+    fun `a remote's HEAD that points at a remote that is not listed comes after the listed remotes'`() {
+        val refs =
+            listOf(
+                symbolic("refs/remotes/origin/HEAD", "refs/remotes/old/main"),
+                ref("refs/remotes/old/main"),
+                ref("refs/remotes/upstream/main"),
+            )
+
+        assertEquals(
+            listOf("refs/remotes/upstream/main", "refs/remotes/old/main"),
+            reviewBases(refs, listOf("origin", "upstream"), ""),
+        )
+    }
 }

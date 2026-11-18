@@ -84,7 +84,7 @@ internal fun recordingGit(
     val script = folder.resolve("recording-git-${System.nanoTime()}")
     script.toFile().writeText(
         FAKE_GIT_START.replace("exit 1;; esac", "exec git \"\$@\";; esac") +
-            "echo \"\$*\" >> '$log'\nexec git \"\$@\"\n",
+            "printf '%s\\n' \"\$*\" >> '$log'\nexec git \"\$@\"\n",
     )
     script.toFile().setExecutable(true)
     return GitCli(script.toString(), testGitEnvironment())
