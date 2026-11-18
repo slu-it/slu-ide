@@ -66,7 +66,7 @@ private fun container(node: JsonNode): Container? {
 /** Podman's `Created` is Unix seconds (its `CreatedAt` reads "2 minutes ago"); Docker's `CreatedAt` a timestamp. */
 private fun created(node: JsonNode): Instant? {
     val created = node.field("Created")
-    if (created != null && created.isNumber) return epochSeconds(created.asLong())
+    created?.longOrNull()?.let { return epochSeconds(it) }
     return parseTime(node.text("CreatedAt")) ?: parseTime(node.text("Created"))
 }
 
@@ -119,7 +119,14 @@ private fun podmanPort(node: JsonNode): List<PortMapping> {
 private fun images(node: JsonNode): List<Image> {
     val id = node.text("ID", "Id") ?: return emptyList()
     val sizeNode = node.field("Size")
-    val size = if (sizeNode != null && sizeNode.isNumber) sizeNode.asLong() else parseSize(sizeNode?.scalarText()) ?: 0
+    val size =
+        if (sizeNode != null &&
+            sizeNode.isNumber
+        ) {
+            sizeNode.longOrNull() ?: 0
+        } else {
+            parseSize(sizeNode?.scalarText()) ?: 0
+        }
     val digest = node.text("Digest")?.takeIf { it != NONE }
     val created = created(node)
     val podmanDangling = node.bool("Dangling")

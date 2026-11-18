@@ -133,6 +133,7 @@ class StreamParsersTest {
         assertEquals(Instant.ofEpochSecond(1700000000), event(head + """"time":1700000000}""")?.time)
         assertEquals(Instant.parse("2023-11-14T21:13:20Z"), event(head + """"Time":"2023-11-14T21:13:20Z"}""")?.time)
         assertNull(event(head + """"Time":"yesterday"}""")?.time)
+        assertNull(event(head + """"time":1e30}""")?.time, "outside the range of a long")
         assertNull(event(head + """"Time":{"a":1}}""")?.time)
         assertNull(event(head + """"x":1}""")?.time)
     }

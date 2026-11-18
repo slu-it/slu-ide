@@ -20,11 +20,17 @@ internal fun JsonNode.field(vararg names: String): JsonNode? {
 internal fun JsonNode.text(vararg names: String): String? =
     field(*names)?.takeIf { it.isValueNode }?.asString()?.takeIf { it.isNotBlank() }
 
-/** The number of the first of [names], also when written as text; `null` if missing or not a number. */
+/** This number node as a long; `null` if it is no number or does not fit (Jackson's `asLong` throws for `1e30`). */
+internal fun JsonNode.longOrNull(): Long? = if (isNumber && canConvertToLong()) asLong() else null
+
+/**
+ * The number of the first of [names], also when written as text; `null` if missing, not a number or outside the range
+ * of a long.
+ */
 internal fun JsonNode.long(vararg names: String): Long? {
     val node = field(*names) ?: return null
     return when {
-        node.isNumber -> node.asLong()
+        node.isNumber -> node.longOrNull()
         node.isValueNode -> node.asString().trim().toLongOrNull()
         else -> null
     }

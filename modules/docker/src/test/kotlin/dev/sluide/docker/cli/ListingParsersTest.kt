@@ -288,6 +288,27 @@ class ListingParsersTest {
     }
 
     @Test
+    fun `a number outside the range of a long leaves its field empty, the rest of the listing stays`() {
+        val huge = "123456789012345678901234567890"
+        val containers =
+            parseContainers(
+                """{"ID":"a","Created":1e30}""" + "\n" +
+                    """{"ID":"b","Created":1700000000,"Ports":[{"container_port":$huge,"host_port":1e30},""" +
+                    """{"container_port":80,"host_port":$huge,"range":$huge}]}""",
+            )
+        val images = parseImages("""{"Id":"i","Size":1e30,"Created":$huge,"RepoTags":["a:1"]}""")
+        val details =
+            parseContainerDetails("""[{"Id":"d","RestartCount":1e30,"State":{"Status":"exited","ExitCode":$huge}}]""")
+
+        assertEquals(listOf("a", "b"), containers.map { it.name })
+        assertNull(containers[0].createdAt)
+        assertEquals(Instant.ofEpochSecond(1700000000), containers[1].createdAt)
+        assertEquals(listOf(PortMapping(null, null, 80, "tcp")), containers[1].ports)
+        assertEquals(listOf(0L to null), images.map { it.size to it.createdAt })
+        assertEquals(0 to null, details.restartCount to details.exitCode)
+    }
+
+    @Test
     fun `a range is cut at the limit`() {
         val ports = parsePorts("0.0.0.0:1000-9000->1000-9000/tcp")
 
