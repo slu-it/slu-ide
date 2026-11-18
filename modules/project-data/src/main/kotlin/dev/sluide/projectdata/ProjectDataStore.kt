@@ -251,9 +251,15 @@ class ProjectDataStore(
         create: Boolean,
         change: (ObjectNode) -> Unit,
     ): Boolean {
-        val existing = scan().newest(folder)
+        val scan = scan()
+        val existing = scan.newest(folder)
         if (existing == null) {
             if (!create) return true
+            if (!scan.complete) {
+                // an earlier file of this project may be there: a second one would hide its data once listing works
+                warnOnce("Not creating a project file in ${this.folder}, it cannot be listed")
+                return false
+            }
             val root = mapper.createObjectNode().put(VERSION_FIELD, VERSION).put(PATH_FIELD, folder.toString())
             change(root)
             root.put(VERSION_FIELD, VERSION).put(PATH_FIELD, folder.toString())
@@ -311,6 +317,8 @@ class ProjectDataStore(
      */
     private class Scan(
         val projects: Map<Path, List<Stored>>,
+        /** `false` if the folder could not be listed: files may exist that this scan does not show. */
+        val complete: Boolean = true,
     ) {
         fun newest(folder: Path) = projects[folder]?.first()
     }
@@ -324,11 +332,11 @@ class ProjectDataStore(
                 }
             } catch (e: IOException) {
                 warnOnce("Cannot list the project data in $folder", e)
-                return Scan(emptyMap())
+                return Scan(emptyMap(), complete = false)
             } catch (e: UncheckedIOException) {
                 // a failure while the listing is iterated
                 warnOnce("Cannot list the project data in $folder", e)
-                return Scan(emptyMap())
+                return Scan(emptyMap(), complete = false)
             }
         val stored = mutableListOf<Pair<Path, Stored>>()
         for (file in files) {

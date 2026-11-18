@@ -221,6 +221,31 @@ class ProjectDataStoreWriteTest {
     }
 
     @Test
+    fun `no project file is created while the folder cannot be listed, so no earlier data is hidden`() {
+        val content = """{"version":1,"path":${quoted(project)},"trust":"kept"}"""
+        val file = projectFile("p.json", content)
+        val other = dir.resolve("other").createDirectories()
+
+        LogCapture(ProjectDataStore::class.java.name).use { log ->
+            withPermissions(projects, "-wx------", { Files.isReadable(projects) }) {
+                val store = store()
+                assertFalse(store.update(project) { it.put("a", 1) })
+                assertFalse(store.update(other) { it.put("a", 1) })
+                assertFalse(store.updateFileData(project.resolve("x.txt"), project) { it.put("a", 1) })
+            }
+
+            assertEquals(
+                1,
+                log.messages().count { it == "Not creating a project file in $projects, it cannot be listed" },
+                log.messages().toString(),
+            )
+        }
+
+        assertEquals(listOf(file), projects.listDirectoryEntries())
+        assertEquals(content, file.readText())
+    }
+
+    @Test
     fun `of files with the same time the one with the smallest name wins, else the newest wins whatever its name`() {
         // many files, so that the folder's listing order is unlikely to be the name order by chance
         val files =

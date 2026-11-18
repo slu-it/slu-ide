@@ -45,12 +45,15 @@ Files outside any project have per-file data too: scratch scripts in `~/.sluide/
   cannot be read, or has no `path`, is skipped in scans (logged once) and, since it matches no folder, never replaced or
   deleted. It blocks no other project: an update of a folder without a readable file creates a new file as usual. If
   the damaged file becomes readable again and names the same folder, the duplicate rule applies (newest wins). An
-  unreadable outside file is never replaced; its updates return `false`.
+  unreadable outside file is never replaced; its updates return `false`. A projects folder that cannot be listed
+  (writable but not readable) gives an incomplete scan: no new project file is created then (the update returns
+  `false`, logged once), since a second file for a project whose earlier file is not shown would hide its data once
+  listing works again.
 - **Migration:** each owning module implements `LegacyProjectData` (its old properties file and how to write its
   entries into the store, never overwriting a value already there). Before the first read or write of a store, once,
   the store loads each existing old file and hands its entries to the migration; the old file is deleted only when
-  everything was written, otherwise (or if it cannot be read) it is kept and the migration runs again at the next
-  start. Running before the first access keeps a later migration from re-creating a project just removed.
+  everything was written, otherwise (or if it cannot be read, or the migration fails or throws: logged, and the other
+  migrations still run) it is kept and the migration runs again at the next start. Running before the first access keeps a later migration from re-creating a project just removed.
   Implementations are beans of their own that do not inject `ProjectDataStore` (the store collects them, so that would
   be a circular reference); the store is handed to `migrate`.
 - **Locking:** every method holds the store's lock; the `change` functions of `update`/`updateFileData` and
