@@ -73,8 +73,12 @@ fun parseTime(text: String?): Instant? {
     return instant?.takeIf { it.isAfter(ZERO_TIME) }
 }
 
-/** The time of Unix [seconds]; `null` for zero and negative values, which the CLIs print for "never". */
-fun epochSeconds(seconds: Long): Instant? = if (seconds > 0) Instant.ofEpochSecond(seconds) else null
+/**
+ * The time of Unix [seconds]; `null` for zero and negative values, which the CLIs print for "never", and for values
+ * beyond the last instant (`Instant.ofEpochSecond` throws for them).
+ */
+fun epochSeconds(seconds: Long): Instant? =
+    if (seconds in 1..Instant.MAX.epochSecond) Instant.ofEpochSecond(seconds) else null
 
 private val ZERO_TIME = Instant.parse("0001-01-02T00:00:00Z")
 

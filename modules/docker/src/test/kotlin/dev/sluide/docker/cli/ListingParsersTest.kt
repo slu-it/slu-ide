@@ -302,6 +302,19 @@ class ListingParsersTest {
     }
 
     @Test
+    fun `Unix seconds beyond what an Instant holds leave the time empty, the listing stays`() {
+        val containers =
+            parseContainers(
+                """{"ID":"a","Created":9000000000000000000}""" + "\n" +
+                    """{"ID":"b","Created":"9000000000000000000"}""" + "\n" +
+                    """{"ID":"c","Created":1700000000}""",
+            )
+
+        assertEquals(listOf("a", "b", "c"), containers.map { it.name })
+        assertEquals(listOf(null, null, Instant.ofEpochSecond(1700000000)), containers.map { it.createdAt })
+    }
+
+    @Test
     fun `a range is cut at the limit`() {
         val ports = parsePorts("0.0.0.0:1000-9000->1000-9000/tcp")
 
