@@ -1,8 +1,14 @@
 package dev.sluide.fileexplorer.actions
 
+import dev.sluide.fileexplorer.ClipboardFiles
 import dev.sluide.fileexplorer.ClipboardImage
+import dev.sluide.fileexplorer.ExplorerClipboard
 import org.junit.jupiter.api.io.TempDir
+import java.io.IOException
+import java.io.OutputStream
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import javax.imageio.ImageIO
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
@@ -234,5 +240,134 @@ class ExplorerImagePasteTest {
         fake.copies.paste(emptyList())
 
         assertFalse(fake.clipboard.isCut(project.resolve("a.txt")))
+    }
+
+    private fun paster(
+        create: ((Path) -> OutputStream)? = null,
+        clipboard: ExplorerClipboard = fake.clipboard,
+    ) = if (create == null) {
+        ExplorerImagePaste(fake.host, { clipboard }, fake.clock)
+    } else {
+        ExplorerImagePaste(fake.host, { clipboard }, fake.clock, create)
+    }
+
+    /** A file that is created, then fails when written: the disk is full or goes away. */
+    private fun failingStream(failure: () -> Throwable): (Path) -> OutputStream =
+        { file ->
+            val real = Files.newOutputStream(file, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
+            object : OutputStream() {
+                override fun write(b: Int) = throw failure()
+
+                override fun write(
+                    b: ByteArray,
+                    off: Int,
+                    len: Int,
+                ) = throw failure()
+
+                override fun close() = real.close()
+            }
+        }
+
+    @Test
+    fun `no image on the clipboard asks nothing and shows nothing`() {
+        open()
+
+        paster().paste(fake.projectItem)
+
+        assertEquals(emptyList(), fake.imageNameAsks)
+        assertEquals(emptyList(), fake.errors)
+        assertEquals(emptyList(), names())
+    }
+
+    @Test
+    fun `a clipboard that fails without a message shows an empty message`() {
+        open()
+        val failing =
+            object : ClipboardFiles {
+                override fun files(): List<Path> = emptyList()
+
+                override fun hasImage() = true
+
+                override fun image(): ClipboardImage = throw IOException()
+
+                override fun put(files: List<Path>) {}
+
+                override fun clear() {}
+            }
+
+        paster(clipboard = ExplorerClipboard(failing)).paste(fake.projectItem)
+
+        assertEquals(listOf(""), fake.errors)
+        assertEquals(emptyList(), fake.imageNameAsks)
+    }
+
+    @Test
+    fun `a name ending with a slash is refused as the name of a folder`() {
+        open()
+        fake.clipboardFiles.image = image
+        fake.answerImageName = { null }
+
+        fake.copies.paste(emptyList())
+
+        val ask = fake.imageNameAsks.single()
+        assertEquals("The name must not end with /.", ask.validate("dir/"))
+        assertNull(ask.note("dir/"), "no png is added to a folder name")
+        assertNull(ask.note(" "), "nor to a blank name")
+        // A backslash ends a folder name on Windows only; elsewhere it is no separator but not allowed in a name.
+        val expected = if (IS_WINDOWS) "The name must not end with /." else "The name must not contain / or \\."
+        assertEquals(expected, ask.validate("dir\\"))
+    }
+
+    @Test
+    fun `a file that cannot be written is removed again and the failure is shown with its reason`() {
+        open()
+        fake.clipboardFiles.image = image
+
+        paster(failingStream { IOException("disk full") }).paste(fake.projectItem)
+
+        assertEquals(listOf("Could not save “image-2026-03-04-050607.png”: disk full"), fake.errors)
+        assertEquals(emptyList(), names(), "no partial PNG stays")
+        assertEquals(emptyList(), fake.opened)
+    }
+
+    @Test
+    fun `a failure without a message is shown with its type`() {
+        open()
+        fake.clipboardFiles.image = image
+
+        paster(failingStream { IOException() }).paste(fake.projectItem)
+
+        assertEquals(listOf("Could not save “image-2026-03-04-050607.png”: IOException"), fake.errors)
+        assertEquals(emptyList(), names())
+    }
+
+    @Test
+    fun `an unexpected failure while writing removes the file, too, and is shown`() {
+        open()
+        fake.clipboardFiles.image = image
+
+        assertFailsWith<IllegalStateException> {
+            paster(failingStream { IllegalStateException("boom") }).paste(fake.projectItem)
+        }
+
+        assertEquals(listOf("Could not save “image-2026-03-04-050607.png”."), fake.errors)
+        assertEquals(emptyList(), names())
+    }
+
+    @Test
+    fun `a file written for a folder that is not shown any more is neither selected nor opened`() {
+        open()
+        fake.clipboardFiles.image = image
+        fake.inline = false
+        val folder = fake.projectItem
+
+        paster().paste(folder)
+        fake.reopen()
+        fake.pending.single().run()
+
+        assertEquals(listOf("image-2026-03-04-050607.png"), names())
+        assertEquals(emptyList(), fake.selectedPaths())
+        assertEquals(emptyList(), fake.opened)
+        assertEquals(emptyList(), fake.errors)
     }
 }

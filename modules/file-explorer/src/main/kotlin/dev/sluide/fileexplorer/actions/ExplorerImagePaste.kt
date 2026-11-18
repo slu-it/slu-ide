@@ -4,6 +4,7 @@ import dev.sluide.fileexplorer.ClipboardImage
 import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import java.io.IOException
+import java.io.OutputStream
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -20,6 +21,10 @@ internal class ExplorerImagePaste(
     private val host: ExplorerEditHost,
     private val clipboard: () -> ExplorerClipboard,
     private val clock: Clock,
+    /** Creates the new file for writing, failing if it exists; tests replace it by a stream that fails. */
+    private val create: (
+        Path,
+    ) -> OutputStream = { Files.newOutputStream(it, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE) },
 ) {
     /** Pastes the clipboard image into [folder]; shows an error if it cannot be read. */
     fun paste(folder: FileTreeItem) {
@@ -68,7 +73,7 @@ internal class ExplorerImagePaste(
             val bytes = pngBytes(image)
             val file = FileOperations.createParents(target, name)
             try {
-                Files.newOutputStream(file, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use {
+                create(file).use {
                     // The file exists from here on; it is removed again if writing fails.
                     created = file
                     it.write(bytes)
