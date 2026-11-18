@@ -58,7 +58,7 @@ fun Either<out List<Location?>?, out List<LocationLink?>?>?.toDefinitionTargets(
     if (this == null) return emptyList()
     val targets =
         if (isLeft) {
-            left.orEmpty().mapNotNull {
+            left.mapNotNull {
                 it?.let { location ->
                     targetOf(location.uri, location.range?.start, libraryDocument)
                 }
