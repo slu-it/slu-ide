@@ -274,6 +274,67 @@ class SecretsTest {
         assertEquals(4, values.filterIsInstance<Encrypted.Value>().size)
     }
 
+    @Test
+    fun `the default secrets use the store of the system`() {
+        assertEquals(KeyBackends.forPlatform().storeName, Secrets().storeName)
+    }
+
+    @Test
+    fun `a key stored meanwhile that is denied on the second read is denied and sticky`() {
+        backend.onCreate = { KeyCreate.AlreadyExists }
+        backend.onRead = { if (backend.reads == 1) KeyRead.Missing else KeyRead.Denied("Keychain access denied") }
+
+        assertEquals(Encrypted.Failed("Keychain access denied"), secrets.encrypt("secret".toCharArray(), context))
+
+        assertEquals("Keychain access denied", secrets.saveUnavailableReason())
+        assertEquals(Encrypted.Failed("Keychain access denied"), secrets.encrypt("secret".toCharArray(), context))
+        assertEquals(2, backend.reads)
+    }
+
+    @Test
+    fun `a key stored meanwhile that fails on the second read fails only that call`() {
+        backend.onCreate = { KeyCreate.AlreadyExists }
+        backend.onRead = { if (backend.reads == 1) KeyRead.Missing else KeyRead.Failed("timed out") }
+
+        assertEquals(Encrypted.Failed("timed out"), secrets.encrypt("secret".toCharArray(), context))
+
+        assertNull(secrets.saveUnavailableReason())
+    }
+
+    @Test
+    fun `no call leaves the lock taken`() {
+        backend.stored = ByteArray(32) { 1 }
+        val value = secrets.encryptText("secret")
+
+        // every call on a thread of its own: a lock left taken by a call (its thread ends) blocks the next call
+        onOtherThread { secrets.decrypt(value, context) }
+        onOtherThread { secrets.encrypt("secret".toCharArray(), context) }
+        onOtherThread { assertTrue(secrets.forgetAll()) }
+        backend.deleted = false
+        onOtherThread { assertFalse(secrets.forgetAll()) }
+        backend.onDelete = { throw IllegalStateException() }
+        onOtherThread { assertFalse(secrets.forgetAll()) }
+        backend.unavailable = "needs secret-tool"
+        onOtherThread { assertFalse(secrets.forgetAll()) }
+        onOtherThread { secrets.decrypt(value, context) }
+    }
+
+    /** Runs [call] on a new thread that must end, so a call waiting for a lock that was not released fails. */
+    private fun onOtherThread(call: () -> Unit) {
+        var failure: Throwable? = null
+        val other =
+            thread(isDaemon = true) {
+                try {
+                    call()
+                } catch (e: Throwable) {
+                    failure = e
+                }
+            }
+        other.join(5_000)
+        assertFalse(other.isAlive, "the call waits for a lock that was not released")
+        failure?.let { throw it }
+    }
+
     private fun Secrets.encryptText(plain: String) =
         assertInstanceOf<Encrypted.Value>(encrypt(plain.toCharArray(), context)).text
 

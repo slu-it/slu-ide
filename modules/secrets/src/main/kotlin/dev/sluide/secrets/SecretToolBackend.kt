@@ -15,8 +15,9 @@ import java.util.concurrent.TimeUnit
  * which lists the item without unlocking it: an item found is [KeyRead.Denied] ("Secret Service locked"), nothing
  * found is [KeyRead.Missing], the only case that leads to a new key. `clear` of a locked item also exits 1 without
  * a message, so `delete` confirms with `search`. Each call ends after [timeout] (an unlock prompt may be open).
- * Without the command, [unavailableReason] is "needs secret-tool". Tests pass their own attributes, or a fake command
- * on their own [path].
+ * Without the command, [unavailableReason] is "needs secret-tool". After the tool ended, each output reader gets
+ * [readerJoin] (at least 1 ms: `join(0)` would wait for ever) to finish: a process that outlives it and keeps the pipe open is a failed call. Tests pass their own
+ * attributes, or a fake command on their own [path].
  *
  * Accepted limit: two Thoreau processes that find the item missing at the same moment can both store a key, and the
  * later one replaces the first (no lock file; ADR 0122). The stdin copy of the base64 key inside the process stream
@@ -28,6 +29,9 @@ internal class SecretToolBackend(
     private val command: String = "secret-tool",
     private val timeout: Duration = Duration.ofSeconds(120),
     private val path: String? = System.getenv("PATH"),
+    private val readerJoin: Duration = Duration.ofSeconds(5),
+    /** Called with every array that held key material or tool output, right after it was zeroed; for tests. */
+    private val onZeroed: (ByteArray) -> Unit = {},
 ) : KeyBackend {
     override val storeName = "Secret Service (secret-tool)"
 
@@ -43,7 +47,7 @@ internal class SecretToolBackend(
                 is Outcome.Done -> readResult(outcome)
             }
         } finally {
-            (outcome as? Outcome.Done)?.stdout?.fill(0)
+            (outcome as? Outcome.Done)?.stdout?.let(::zero)
         }
     }
 
@@ -63,14 +67,14 @@ internal class SecretToolBackend(
         } catch (_: IllegalArgumentException) {
             return KeyRead.Failed(UNREADABLE)
         } finally {
-            text.fill(0)
+            zero(text)
         }
     }
 
     override fun create(key: ByteArray): KeyCreate {
         when (val existing = read()) {
             is KeyRead.Found -> {
-                existing.key.fill(0)
+                zero(existing.key)
                 return KeyCreate.AlreadyExists
             }
 
@@ -94,12 +98,12 @@ internal class SecretToolBackend(
                 }
 
                 is Outcome.Done -> {
-                    outcome.stdout.fill(0)
+                    zero(outcome.stdout)
                     if (outcome.exit == 0) KeyCreate.Created else KeyCreate.Failed(failureReason(outcome))
                 }
             }
         } finally {
-            input.fill(0)
+            zero(input)
         }
     }
 
@@ -115,7 +119,7 @@ internal class SecretToolBackend(
 
             is Outcome.Done -> {
                 val found = search.stdout.isNotEmpty()
-                search.stdout.fill(0)
+                zero(search.stdout)
                 when {
                     search.exit != 0 -> KeyRead.Failed(failureReason(search))
                     found -> KeyRead.Denied("Secret Service locked")
@@ -131,7 +135,7 @@ internal class SecretToolBackend(
             }
 
             is Outcome.Done -> {
-                outcome.stdout.fill(0)
+                zero(outcome.stdout)
                 when {
                     outcome.exit == 0 -> true
                     outcome.exit == 1 && outcome.stderr.isBlank() -> nothingLeft()
@@ -148,10 +152,15 @@ internal class SecretToolBackend(
 
             is Outcome.Done -> {
                 val empty = search.stdout.isEmpty()
-                search.stdout.fill(0)
+                zero(search.stdout)
                 search.exit == 0 && empty
             }
         }
+
+    private fun zero(array: ByteArray) {
+        array.fill(0)
+        onZeroed(array)
+    }
 
     private fun attributeArguments() = attributes.flatMap { listOf(it.key, it.value) }
 
@@ -211,12 +220,12 @@ internal class SecretToolBackend(
                 err.abandon()
                 return Outcome.Failed("the Secret Service did not answer")
             }
-            out.join(READER_JOIN_MS)
-            err.join(READER_JOIN_MS)
+            out.join(readerJoin.toMillis().coerceAtLeast(1))
+            err.join(readerJoin.toMillis().coerceAtLeast(1))
             val stdout = out.bytes()
             val stderr = err.bytes()
             if (stdout == null || stderr == null) {
-                stdout?.fill(0)
+                stdout?.let(::zero)
                 kill(started)
                 out.abandon()
                 err.abandon()
@@ -273,6 +282,5 @@ internal class SecretToolBackend(
     private companion object {
         const val UNREADABLE = "unreadable key in the Secret Service"
         const val MAX_REASON = 200
-        const val READER_JOIN_MS = 5_000L
     }
 }

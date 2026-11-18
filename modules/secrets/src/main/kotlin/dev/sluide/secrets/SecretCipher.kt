@@ -19,6 +19,9 @@ import kotlin.text.Charsets.UTF_8
  */
 internal class SecretCipher(
     private val random: SecureRandom,
+    /** Called with each buffer that held plain text, right after it was zeroed; for tests. */
+    private val onBytesZeroed: (ByteArray) -> Unit = {},
+    private val onCharsZeroed: (CharArray) -> Unit = {},
 ) {
     fun encrypt(
         key: ByteArray,
@@ -32,7 +35,7 @@ internal class SecretCipher(
             val sealed = cipher.doFinal(encoded.array(), 0, encoded.position())
             return PREFIX + Base64.getEncoder().encodeToString(nonce + sealed)
         } finally {
-            encoded.array().fill(0)
+            encoded.array().also { it.fill(0) }.let(onBytesZeroed)
         }
     }
 
@@ -54,6 +57,7 @@ internal class SecretCipher(
             return chars(plain)
         } finally {
             plain.fill(0)
+            onBytesZeroed(plain)
         }
     }
 
@@ -93,7 +97,7 @@ internal class SecretCipher(
             decoder.flush(out)
             return out.array().copyOf(out.position())
         } finally {
-            out.array().fill('\u0000')
+            out.array().also { it.fill('\u0000') }.let(onCharsZeroed)
         }
     }
 

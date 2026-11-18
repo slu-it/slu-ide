@@ -38,6 +38,11 @@ class SecretsSettingsPageModelTest {
     private val model = SecretsSettingsPageModel(secrets) { listOf(first, empty, second) }
 
     @Test
+    fun `before the first load there are no sections`() {
+        assertEquals(emptyList(), model.sections.map { it.source.title })
+    }
+
+    @Test
     fun `the store line for each state`() {
         assertEquals("Store: Fake Store", model.storeLine())
         assertFalse(model.denied())

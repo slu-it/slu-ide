@@ -75,6 +75,24 @@ class SecretCipherTest {
         assertNull(cipher.decrypt(key, value, context))
     }
 
+    @Test
+    fun `every buffer that held plain text is zeroed`() {
+        val bytes = mutableListOf<ByteArray>()
+        val chars = mutableListOf<CharArray>()
+        val watched = SecretCipher(SecureRandom(), bytes::add, chars::add)
+
+        val value = watched.encrypt(key, "secret".toCharArray(), context)
+        assertEquals(listOf(18), bytes.map { it.size }, "the UTF-8 buffer, sized for the worst case")
+        assertTrue(bytes.single().all { it == 0.toByte() })
+
+        bytes.clear()
+        assertArrayEquals("secret".toCharArray(), watched.decrypt(key, value, context))
+        assertEquals(listOf(6), bytes.map { it.size }, "the decrypted bytes")
+        assertTrue(bytes.single().all { it == 0.toByte() })
+        assertEquals(listOf(6), chars.map { it.size }, "the decoder's buffer")
+        assertTrue(chars.single().all { it == '\u0000' })
+    }
+
     companion object {
         private fun base64(size: Int) = Base64.getEncoder().encodeToString(ByteArray(size) { 7 })
 

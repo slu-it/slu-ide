@@ -1,6 +1,8 @@
 package dev.sluide.secrets
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
@@ -18,5 +20,10 @@ class KeyBackendsTest {
         backend: String,
     ) {
         assertEquals(backend, KeyBackends.forPlatform(osName)::class.simpleName)
+    }
+
+    @Test
+    fun `without a store there is nothing left to delete`() {
+        assertTrue(NoBackend.delete())
     }
 }
