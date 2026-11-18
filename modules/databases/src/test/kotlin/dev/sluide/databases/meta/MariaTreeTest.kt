@@ -164,4 +164,185 @@ class MariaTreeTest {
     ) {
         assertEquals(ShowCreate(sql, column), mariaShowCreate(DbObject(kind, "shop", name, table)))
     }
+
+    private fun keysOf(
+        constraints: List<Row>,
+        keyColumns: List<Row>,
+        referential: List<Row> = emptyList(),
+    ) = mariaSchemaTree(
+        "shop",
+        MariaSchemaRows(
+            tables = listOf(mapOf("name" to "order", "kind" to "BASE TABLE")),
+            constraints = constraints,
+            keyColumns = keyColumns,
+            referential = referential,
+        ),
+    ).single()
+        .children
+        .single()
+        .children
+        .single { it.name == "keys" || it.name == "foreign keys" }
+        .children
+
+    @Test
+    fun `a unique constraint is a key with its columns in key order`() {
+        val keys =
+            keysOf(
+                constraints = listOf(mapOf("tbl" to "order", "name" to "uq", "type" to "UNIQUE")),
+                keyColumns = listOf(kc("uq", "b", 2), kc("uq", "a", 1)),
+            )
+
+        assertEquals(listOf(ObjectKind.UNIQUE), keys.map { it.kind })
+        assertEquals("(a, b)", keys.single().detail)
+    }
+
+    @Test
+    fun `a primary key lists its columns in key order`() {
+        val keys =
+            keysOf(
+                constraints = listOf(mapOf("tbl" to "order", "name" to "PRIMARY", "type" to "PRIMARY KEY")),
+                keyColumns = listOf(kc("PRIMARY", "b", 2), kc("PRIMARY", "a", 1)),
+            )
+
+        assertEquals(ObjectKind.PRIMARY_KEY, keys.single().kind)
+        assertEquals("(a, b)", keys.single().detail)
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "CASCADE,' on delete cascade'",
+        "SET NULL,' on delete set null'",
+        "RESTRICT,''",
+        "NO ACTION,''",
+        "'',''",
+    )
+    fun `only a delete rule that is not the default is shown`(
+        rule: String,
+        shown: String,
+    ) {
+        val keys =
+            keysOf(
+                constraints = listOf(mapOf("tbl" to "order", "name" to "fk", "type" to "FOREIGN KEY")),
+                keyColumns = listOf(kc("fk", "b", 2, "customer", "y"), kc("fk", "a", 1, "customer", "x")),
+                referential = listOf(mapOf("tbl" to "order", "name" to "fk", "ondelete" to rule)),
+            )
+
+        assertEquals("(a, b) → shop.customer(x, y)$shown", keys.single().detail)
+    }
+
+    @Test
+    fun `a foreign key without a referential row has no delete rule`() {
+        val keys =
+            keysOf(
+                constraints = listOf(mapOf("tbl" to "order", "name" to "fk", "type" to "FOREIGN KEY")),
+                keyColumns = listOf(kc("fk", "a", 1, "customer", "x")),
+            )
+
+        assertEquals("(a) → shop.customer(x)", keys.single().detail)
+    }
+
+    @Test
+    fun `a foreign key without key columns is still listed`() {
+        val keys = keysOf(listOf(mapOf("tbl" to "order", "name" to "fk", "type" to "FOREIGN KEY")), emptyList())
+
+        assertEquals(listOf("fk"), keys.map { it.name })
+        assertEquals(ObjectKind.FOREIGN_KEY, keys.single().kind)
+    }
+
+    @Test
+    fun `an index orders its columns by position and shows an expression for a missing column`() {
+        val tree =
+            mariaSchemaTree(
+                "shop",
+                MariaSchemaRows(
+                    tables = listOf(mapOf("name" to "order", "kind" to "BASE TABLE")),
+                    statistics =
+                        listOf(
+                            mapOf("tbl" to "order", "name" to "i", "nonunique" to 1, "col" to "b", "seq" to 3),
+                            mapOf("tbl" to "order", "name" to "i", "nonunique" to 1, "col" to null, "seq" to 2),
+                            mapOf("tbl" to "order", "name" to "i", "nonunique" to 1, "col" to "a", "seq" to 1),
+                        ),
+                ),
+            )
+
+        val index =
+            tree
+                .single()
+                .children
+                .single()
+                .children
+                .single()
+                .children
+                .single()
+        assertEquals("(a, (expression), b)", index.detail)
+    }
+
+    @Test
+    fun `parameters are ordered by position and a procedure shows no result`() {
+        val tree =
+            mariaSchemaTree(
+                "shop",
+                MariaSchemaRows(
+                    routines =
+                        listOf(
+                            mapOf("name" to "p", "kind" to "PROCEDURE", "result" to "int(11)"),
+                            mapOf("name" to "f", "kind" to "FUNCTION", "result" to "text"),
+                            mapOf("name" to "g", "kind" to "FUNCTION", "result" to " "),
+                        ),
+                    parameters =
+                        listOf(
+                            mapOf("routine" to "p", "rtype" to "PROCEDURE", "ord" to 2, "type" to "b"),
+                            mapOf("routine" to "p", "rtype" to "PROCEDURE", "ord" to 1, "type" to "a"),
+                            mapOf("routine" to "f", "rtype" to "FUNCTION", "ord" to 2, "type" to "d"),
+                            mapOf("routine" to "f", "rtype" to "FUNCTION", "ord" to 1, "type" to "c"),
+                        ),
+                ),
+            )
+
+        assertEquals(listOf("(c, d) → text", "()", "(a, b)"), tree.single().children.map { it.detail })
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "BASE TABLE,TABLE",
+        "SYSTEM VERSIONED,TABLE",
+        "SEQUENCE,SEQUENCE",
+        "VIEW,VIEW",
+        "SYSTEM VIEW,VIEW",
+        "TEMPORARY,VIEW",
+    )
+    fun `table types map to object kinds`(
+        type: String,
+        expected: ObjectKind,
+    ) {
+        val tree = mariaSchemaTree("shop", MariaSchemaRows(tables = listOf(mapOf("name" to "x", "kind" to type))))
+
+        assertEquals(
+            expected.name,
+            tree
+                .single()
+                .children
+                .single()
+                .kind.name,
+        )
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "int(11),NO,,,int(11) not null",
+        "int(11),no,5,AUTO_INCREMENT,int(11) not null default 5 auto_increment",
+        "text,YES,NULL,'  ',text",
+        "text,,,,text",
+    )
+    fun `column detail`(
+        type: String,
+        nullable: String?,
+        default: String?,
+        extra: String?,
+        expected: String,
+    ) {
+        val row = mapOf("type" to type, "nullable" to nullable, "dflt" to default, "extra" to extra)
+
+        assertEquals(expected, mariaColumnDetail(row))
+    }
 }
