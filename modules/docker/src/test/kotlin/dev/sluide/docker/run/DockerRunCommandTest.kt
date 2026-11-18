@@ -1,11 +1,13 @@
 package dev.sluide.docker.run
 
+import dev.sluide.commandruns.ShellWords
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -21,6 +23,7 @@ class DockerRunCommandTest {
     @ValueSource(
         strings = [
             "80", "8080:80", "8080:80/udp", "127.0.0.1:8080:80", "127.0.0.1:8080:80/tcp", "[::1]:8080:80", "65535:1",
+            "255.255.255.255:80:80", "0.0.0.0:80:80",
         ],
     )
     fun `valid ports are accepted`(port: String) {
@@ -31,7 +34,7 @@ class DockerRunCommandTest {
     @ValueSource(
         strings = [
             "0", "65536", "abc", "80:", ":80", "80/sctp", "1.2.3:80:80", "300.0.0.1:80:80", "1:2:3:4", "80/", "8 0",
-            "80\u0000",
+            "80\u0000", "+80", "000080", "1.2.3.4:80:80:80", "1.2.3.4.5:80:80", "[::g]:80:80",
         ],
     )
     fun `invalid ports are refused`(port: String) {
@@ -88,6 +91,100 @@ class DockerRunCommandTest {
         assertNotNull(validate(RunOptions(image, environment = listOf(RunEnvVar("A", "x\u0000y")))))
         assertNotNull(validate(RunOptions(image, environment = listOf(RunEnvVar("A", "1"), RunEnvVar("A", "2")))))
         assertNotNull(validate(RunOptions(image, network = "-host")))
+    }
+
+    private fun message(options: RunOptions): String? = validate(options)
+
+    @Test
+    fun `an invalid image, name, port, variable or network is named in the message`() {
+        assertEquals("The image -x is not valid.", message(RunOptions("-x")))
+        assertEquals("The image a\u0000b is not valid.", message(RunOptions("a\u0000b")))
+        assertEquals("The image    is not valid.", message(RunOptions("  ")))
+        assertEquals(
+            "The name must start with a letter or digit and use only letters, digits, _, . and -.",
+            message(RunOptions(image, name = "-web")),
+        )
+        assertEquals(
+            "The port 0 is not [host-ip:]host-port:container-port[/tcp|udp] or a container port (1-65535).",
+            message(RunOptions(image, ports = listOf("80", "0"))),
+        )
+        assertEquals(
+            "The variable name 1A must be letters, digits and _, not starting with a digit.",
+            message(RunOptions(image, environment = listOf(RunEnvVar("1A", "v")))),
+        )
+        assertEquals(
+            "The value of A contains a NUL character.",
+            message(RunOptions(image, environment = listOf(RunEnvVar("A", "x\u0000y")))),
+        )
+        assertEquals(
+            "The variable A is set twice.",
+            message(
+                RunOptions(image, environment = listOf(RunEnvVar("A", "1"), RunEnvVar("B", "2"), RunEnvVar("A", "3"))),
+            ),
+        )
+        assertEquals("The network -host is not valid.", message(RunOptions(image, network = "-host")))
+        assertEquals("The network a\u0000b is not valid.", message(RunOptions(image, network = "a\u0000b")))
+        assertEquals("The command contains a NUL character.", message(RunOptions(image, command = "a\u0000b")))
+    }
+
+    @Test
+    fun `a command with an open quote gives the message of the tokenizer`() {
+        val expected = assertFailsWith<IllegalArgumentException> { ShellWords.tokenize("echo 'open") }.message
+
+        assertEquals(expected, message(RunOptions(image, command = "echo 'open")))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        delimiter = '|',
+        value = [
+            "|/x|A volume has no source (a host path or a volume name).",
+            "a:b|/x|The volume source a:b is not valid.",
+            "/data|/x\u0000y|The volume source /data is not valid.",
+            "/da\u0000ta|/x|The volume source /da\u0000ta is not valid.",
+            "../x|/app|The volume source ../x must be an absolute path, a ./ or ~/ path or a volume name.",
+            "/data|app|The volume target app must be an absolute path in the container.",
+            "/data|/a:b|The volume target /a:b must be an absolute path in the container.",
+            "/data||The volume target  must be an absolute path in the container.",
+        ],
+    )
+    fun `an invalid volume is named in the message`(
+        source: String?,
+        target: String?,
+        message: String,
+    ) {
+        val volume = RunVolume(source.orEmpty(), target.orEmpty())
+
+        assertEquals(message, validate(RunOptions(image, volumes = listOf(RunVolume("/ok", "/ok"), volume))))
+    }
+
+    @Test
+    fun `blank rows that hold something are not dropped`() {
+        assertEquals(
+            "The variable name  must be letters, digits and _, not starting with a digit.",
+            message(RunOptions(image, environment = listOf(RunEnvVar(" ", "x")))),
+        )
+        assertEquals(
+            "A volume has no source (a host path or a volume name).",
+            message(RunOptions(image, volumes = listOf(RunVolume(" ", "/x")))),
+        )
+        assertEquals(
+            "The volume target  must be an absolute path in the container.",
+            message(RunOptions(image, volumes = listOf(RunVolume("/x", " ")))),
+        )
+    }
+
+    @Test
+    fun `a variable with an empty value is passed, one with no name and no value is not, a blank network is none`() {
+        val options =
+            RunOptions(
+                image,
+                environment = listOf(RunEnvVar("A", ""), RunEnvVar(" ", "")),
+                network = "  ",
+            )
+
+        assertNull(validate(options))
+        assertEquals(listOf("run", "-d", "-e", "A=", image), args(options))
     }
 
     @Test
@@ -249,6 +346,7 @@ class DockerRunCommandTest {
         "reg:5000/app,reg:5000/app",
         "app@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef,app",
         "ghcr.io/o/app:v2,ghcr.io/o/app",
+        "a:/b,a:/b",
     )
     fun `repositoryOf drops tag and digest`(
         reference: String,
@@ -263,5 +361,11 @@ class DockerRunCommandTest {
     )
     fun `an image id has no repository`(id: String) {
         assertNull(repositoryOf(id))
+    }
+
+    @Test
+    fun `a reference that is only a tag has no repository`() {
+        assertNull(repositoryOf(":tag"))
+        assertNull(repositoryOf(""))
     }
 }
