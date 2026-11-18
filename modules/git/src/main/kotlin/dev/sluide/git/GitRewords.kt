@@ -90,8 +90,8 @@ class GitRewords(
                 ?: return GitRewordResult.Failed("The commits from '$short' on could not be read.")
         val rewritten = HashMap<String, String>()
         for (hash in plan.chain) {
-            val raw =
-                objects[hash] ?: return GitRewordResult.Failed("The commit '${hash.take(SHORT_HASH)}' is missing.")
+            // rawCommits gives every hash asked for or nothing at all.
+            val raw = objects.getValue(hash)
             val newMessage = if (hash == commit) cleaned.toByteArray(Charsets.UTF_8) else null
             val written = git.writeCommit(root, rewordedCommit(raw, rewritten, committer, newMessage))
             if (!written.success) return GitRewordResult.Failed(written.message)
