@@ -114,8 +114,8 @@ class GitRebasesGuardsTest {
     fun `a rebase that stopped is a failure with git's message when what is in progress cannot be read afterwards`() {
         diverged()
 
-        // `--git-path` is read once before the rebase (the guard) and once after it; only the second fails.
-        val result = rebase(GitRebases(failingGit(folder, "--git-path", after = 1)))
+        // The reads after the rebase command fail.
+        val result = rebase(GitRebases(failingAfterGit(folder, "rebase", "--git-path")))
 
         val failed = assertIs<GitRebaseResult.Failed>(result)
         assertTrue("Rebasing (1/2)" in failed.message, failed.message)
@@ -127,7 +127,7 @@ class GitRebasesGuardsTest {
         assertIs<GitRebaseResult.Stopped>(rebase(GitRebases(git)))
         val before = git("rev-parse", "feature")
 
-        val result = GitRebases(failingGit(folder, "--git-path", after = 1)).abortRebase(repo)
+        val result = GitRebases(failingAfterGit(folder, "rebase", "--git-path")).abortRebase(repo)
 
         assertEquals(GitRebaseResult.Done(before), result)
     }
@@ -139,7 +139,8 @@ class GitRebasesGuardsTest {
         repo.resolve("file.txt").writeText("resolved\n")
         val unreadable = GitRebaseResult.Failed(CONFLICTS_UNREADABLE)
 
-        // The first read of `--unmerged` finds what is in progress, the one after it lists the unmerged entries.
+        // `--unmerged` is read first to find what is in progress, then for the unmerged entries: git cannot tell the two
+        // by their arguments, so the count of 1 lets the first through and fails the entries.
         assertEquals(unreadable, GitRebases(failingGit(folder, "--unmerged", after = 1)).continueRebase(repo))
         assertEquals(unreadable, GitRebases(failingGit(folder, "check-attr")).continueRebase(repo))
         assertEquals(
@@ -168,30 +169,39 @@ class GitRebasesGuardsTest {
     }
 
     @ParameterizedTest
-    @CsvSource("diff-index,0", "--name-only,0", "--unmerged,2")
+    @CsvSource("diff-index,Stopped", "--name-only,Stopped", "--unmerged,Failed")
     fun `an empty resolution is not skipped when the index, the unmerged paths or the changes cannot be read`(
         word: String,
-        after: Int,
+        outcome: String,
     ) {
         diverged()
-        val failing = runCatching { git("rebase", "--apply", "main") }
-        assertTrue(failing.isFailure)
+        val applied = runCatching { git("rebase", "--apply", "main") }
+        assertTrue(applied.isFailure)
         git("checkout", "--ours", "file.txt")
 
-        // With the apply backend git refuses to continue an empty resolution: not skipping leaves the rebase stopped.
-        // `--unmerged` is read four times: twice finding what is in progress, once for the unmerged entries, and then
-        // by `nothingToCommit` (after the staging), whose read the count of 2 fails: git cannot tell the step by its
-        // arguments. The read after the run fails too, so the rebase is unreadable afterwards: failed, not stopped.
-        val result = GitRebases(failingGit(folder, word, after = after)).continueRebase(repo)
+        // With the apply backend git refuses to continue an empty resolution, so not skipping leaves it stopped. The
+        // reads that decide the skip come after the staging (`update-index`). When `--unmerged` fails there, the read
+        // after `rebase --continue` fails too: the rebase is unreadable afterwards and the result is git's failure.
+        val result = GitRebases(failingAfterGit(folder, "update-index", word)).continueRebase(repo)
 
-        assertFalse(result is GitRebaseResult.Done, result.toString())
+        when (outcome) {
+            "Stopped" -> {
+                assertIs<GitRebaseResult.Stopped>(result)
+            }
+
+            else -> {
+                assertTrue(
+                    assertIs<GitRebaseResult.Failed>(result).message.startsWith("hint: Resolve all conflicts"),
+                )
+            }
+        }
     }
 
     @Test
     fun `an empty resolution is skipped when everything can be read`() {
         diverged()
-        val failing = runCatching { git("rebase", "--apply", "main") }
-        assertTrue(failing.isFailure)
+        val applied = runCatching { git("rebase", "--apply", "main") }
+        assertTrue(applied.isFailure)
         git("checkout", "--ours", "file.txt")
 
         assertIs<GitRebaseResult.Done>(GitRebases(git).continueRebase(repo))
@@ -266,28 +276,5 @@ class GitRebasesGuardsTest {
         remoteRef("origin", "MASTER")
 
         assertEquals("refs/remotes/origin/main", GitRebases(git).remoteDefaultBranch(repo, "origin"))
-    }
-
-    @Test
-    fun `local changes that git cannot apply after a skip are kept in the stash`() {
-        commit("Base")
-        commit("Other", "other.txt", "1\n2\n3")
-        git("switch", "-q", "-c", "feature")
-        commit("A", content = "A")
-        git("switch", "-q", "main")
-        repo.resolve("file.txt").writeText("Main\n")
-        repo.resolve("other.txt").writeText("main\n2\n3\n")
-        git("add", "-A")
-        git("commit", "-q", "-m", "Main")
-        git("switch", "-q", "feature")
-        repo.resolve("other.txt").writeText("local\n2\n3\n")
-        val rebases = GitRebases(git)
-        assertIs<GitRebaseResult.Stopped>(rebases.rebase(repo, "feature", "refs/heads/main", autostash = true))
-
-        val result = rebases.skipRebase(repo)
-
-        val done = assertIs<GitRebaseResult.Done>(result)
-        assertTrue(done.stashKept, "the changes were kept as a stash entry")
-        assertEquals(1, git("stash", "list").lines().size)
     }
 }

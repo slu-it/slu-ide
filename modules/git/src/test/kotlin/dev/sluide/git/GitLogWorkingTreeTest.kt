@@ -59,12 +59,15 @@ internal class GitLogWorkingTreeTest : GitLogFixture() {
     }
 
     @Test
-    fun `an added file is all new, a deleted one all gone, one that did not change has no hunks`() {
+    fun `an added, a deleted and an unchanged file are not given to git diff, which would need a temporary folder`() {
         val base = commitFiles("Base", "a.txt" to "one\ntwo\n", "same.txt" to "same\n")
         repo.resolve("new.txt").writeText("x\ny\nz\n")
         repo.resolve("a.txt").deleteExisting()
+        // Only its mode changed: the same text on both sides (GitCompareTest has the added and deleted values).
         git("update-index", "--chmod=+x", "same.txt")
         repo.resolve("same.txt").toFile().setExecutable(true)
+        // A folder that does not exist: a diff by git would fail.
+        log.temporaryFolder = repo.resolve(".git/no-such-folder")
 
         assertEquals(
             GitFileDiff.Text("", "x\ny\nz\n", listOf(GitHunk(0 until 0, 0 until 3))),
@@ -164,18 +167,17 @@ internal class GitLogWorkingTreeTest : GitLogFixture() {
     }
 
     @Test
-    fun `a submodule in the index, or in the commit, is not compared`() {
+    fun `a submodule in the commit is not compared (GitCompareTest has the one in the index)`() {
         val base = base()
         git("update-index", "--add", "--cacheinfo", "160000,${"1".repeat(40)},a.txt")
-
-        assertEquals(GitFileDiff.Submodule(null, null), log.workingTreeFileDiff(repo, base, file))
-
         git("commit", "-q", "-m", "Submodule")
         val committed = git("rev-parse", "HEAD")
         git("rm", "-q", "--cached", "a.txt")
         repo.resolve("a.txt").deleteExisting()
         val gone = GitChangedFile(GitChange.DELETED, "a.txt")
+
         assertEquals(GitFileDiff.Submodule("1".repeat(40), null), log.workingTreeFileDiff(repo, committed, gone))
+        assertIs<GitFileDiff.Text>(log.workingTreeFileDiff(repo, base, gone))
     }
 
     @Test

@@ -33,6 +33,9 @@ class GitMerges(
     /** Whether the JVM can name the working-tree file at a path (ADR 0038); tests take the fallback through git. */
     internal var canNameFile: (String) -> Boolean = { canPassArgument(it) }
 
+    /** Where the temporary file of a message goes; `null` for the JVM's temporary folder. */
+    internal var temporaryFolder: Path? = null
+
     private val conflicts = GitConflictCheck(git) { canNameFile(it) }
 
     /**
@@ -72,7 +75,10 @@ class GitMerges(
         // git merge reads no message from its standard input (git 2.53: "could not read file '-'").
         val file =
             try {
-                text?.let { Files.createTempFile("sluide-merge-", ".txt") }
+                text?.let {
+                    temporaryFolder?.let { folder -> Files.createTempFile(folder, "sluide-merge-", ".txt") }
+                        ?: Files.createTempFile("sluide-merge-", ".txt")
+                }
             } catch (e: IOException) {
                 return GitMergeResult.Failed("The message could not be written: ${e.message}")
             }

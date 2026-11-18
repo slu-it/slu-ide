@@ -1,10 +1,15 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import java.nio.file.Files
 import java.nio.file.attribute.FileTime
+import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.deleteExisting
+import kotlin.io.path.exists
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -12,6 +17,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.fail
 
 /**
  * What the review window's reads give when git fails, for refs that are not the usual ones, and at the limits of its
@@ -268,5 +274,107 @@ internal class GitReviewsReadsTest : GitLogFixture() {
         val diffs = failing("diff").fileDiffs(repo, from, commitSide(to), files, ignoreWhitespace = false)
 
         assertEquals(emptyMap(), diffs)
+    }
+
+    @Test
+    fun `a file missing on only one side of the range is left out, whichever side`() {
+        val from = commitFiles("First", "a.txt" to "a\n")
+        val to = commitFiles("Second", "a.txt" to null, "b.txt" to "b\n")
+        val onlyInTo = GitChangedFile(GitChange.MODIFIED, "b.txt")
+        val onlyInFrom = GitChangedFile(GitChange.MODIFIED, "a.txt")
+
+        val diffs = reviews.fileDiffs(repo, from, commitSide(to), listOf(onlyInTo, onlyInFrom), false)
+
+        assertEquals(emptyMap(), diffs)
+    }
+
+    @Test
+    fun `the files of the working tree are sorted by path, the untracked ones among the tracked`() {
+        commitFiles("First", "a.txt" to "a\n", "c.txt" to "c\n")
+        repo.resolve("a.txt").writeText("changed\n")
+        repo.resolve("c.txt").writeText("changed\n")
+        repo.resolve("b.txt").writeText("new\n")
+
+        val files = reviews.changedFiles(repo, git("rev-parse", "HEAD"), GitReviewSide.WorkingTree)
+
+        assertEquals(
+            listOf(
+                GitChangedFile(GitChange.MODIFIED, "a.txt"),
+                GitChangedFile(GitChange.ADDED, "b.txt"),
+                GitChangedFile(GitChange.MODIFIED, "c.txt"),
+            ),
+            files,
+        )
+    }
+
+    private fun recordingReviews(): GitReviews =
+        GitReviews(recordingGit(repo.resolve(".git"), repo.resolve(".git/calls.log")))
+
+    /** The blobs are read by `git cat-file --batch`; `--batch-check` only sizes them. */
+    private fun blobReads() = recordedCalls(repo.resolve(".git/calls.log")).count { it.endsWith("cat-file --batch") }
+
+    @Test
+    fun `a file above the largest size is not read at all`() {
+        val from = commitFiles("First", "big.txt" to "small\n")
+        val to = commitFiles("Second", "big.txt" to "now larger than ten bytes\n")
+        val reviews = recordingReviews()
+        reviews.maxSize = 10
+        val files = listOf(GitChangedFile(GitChange.MODIFIED, "big.txt"))
+
+        val diffs = reviews.fileDiffs(repo, from, commitSide(to), files, ignoreWhitespace = false)
+
+        assertEquals(mapOf("big.txt" to GitFileDiff.TooLarge), diffs)
+        assertEquals(0, blobReads(), "no blob is read")
+    }
+
+    @Test
+    fun `a submodule is not read at all`() {
+        git("update-index", "--add", "--cacheinfo", "160000,${"1".repeat(40)},lib")
+        val from = commit("First", 1000)
+        git("update-index", "--add", "--cacheinfo", "160000,${"2".repeat(40)},lib")
+        val to = commit("Second", 2000)
+        val reviews = recordingReviews()
+        val files = listOf(GitChangedFile(GitChange.MODIFIED, "lib"))
+
+        val diffs = reviews.fileDiffs(repo, from, commitSide(to), files, ignoreWhitespace = false)
+
+        assertEquals(mapOf("lib" to GitFileDiff.Submodule("1".repeat(40), "2".repeat(40))), diffs)
+        assertEquals(0, blobReads(), "no blob is read")
+    }
+
+    @Test
+    fun `diffs of the working tree are none when the read was cancelled while git filtered the file`() {
+        val from = commitFiles("First", "a.txt" to "a\n")
+        repo.resolve("a.txt").writeText("b\n")
+        val started = repo.resolve(".git/filters-started")
+        val go = repo.resolve(".git/filters-go")
+        // The filtered read of the file (no cancellation reaches it) waits until the test has cancelled.
+        val script = repo.resolve(".git/slow-filters-git")
+        script.writeText(
+            FAKE_GIT_START +
+                "case \" \$* \" in *' --filters '*) touch '$started'; i=0\n" +
+                "while [ ! -e '$go' ] && [ \$i -lt 400 ]; do sleep 0.05; i=\$((i+1)); done;; esac\n" +
+                "exec git \"\$@\"\n",
+        )
+        script.toFile().setExecutable(true)
+        val slow = GitReviews(GitCli(script.toString(), testGitEnvironment()))
+        val cancellation = GitCancellation()
+        val files = listOf(GitChangedFile(GitChange.MODIFIED, "a.txt"))
+
+        assertTimeoutPreemptively(Duration.ofSeconds(30)) {
+            val reading =
+                CompletableFuture.supplyAsync {
+                    slow.fileDiffs(repo, from, GitReviewSide.WorkingTree, files, false, cancellation)
+                }
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+            while (!started.exists()) {
+                if (System.nanoTime() > deadline) fail("git did not start filtering")
+                Thread.sleep(20)
+            }
+            cancellation.cancel()
+            go.writeText("")
+
+            assertNull(reading.get(10, TimeUnit.SECONDS))
+        }
     }
 }

@@ -461,6 +461,52 @@ class GitMergesTest {
         )
     }
 
+    /** main changes file.txt (a conflict with feature) and the first line of other.txt; feature changes file.txt. */
+    private fun divergedWithOther() {
+        commit("Base")
+        commit("Other", "other.txt", OTHER)
+        git("switch", "-q", "-c", "feature")
+        commit("A")
+        git("switch", "-q", "main")
+        repo.resolve("file.txt").writeText("Main\n")
+        repo.resolve("other.txt").writeText("main\n2\n3\n4\n5\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", "Main")
+        git("switch", "-q", "feature")
+    }
+
+    @Test
+    fun `local changes git cannot apply when the merge is continued are kept in the stash`() {
+        divergedWithOther()
+        repo.resolve("other.txt").writeText("local\n2\n3\n4\n5\n")
+        assertIs<GitMergeResult.Stopped>(merge())
+        repo.resolve("file.txt").writeText("resolved\n")
+
+        val result = merges.continueMerge(repo)
+
+        assertEquals(
+            GitMergeResult.Done(null, stashKept = true),
+            assertIs<GitMergeResult.Done>(result).copy(head = null),
+        )
+        assertEquals(1, git("stash", "list").lines().size)
+    }
+
+    @Test
+    fun `local changes git cannot apply when the merge is aborted are kept in the stash`() {
+        diverged(conflict = true)
+        repo.resolve("other.txt").writeText(LOCAL)
+        assertIs<GitMergeResult.Stopped>(merge())
+        // The user edits the file git stashed while the merge is in progress.
+        repo.resolve("other.txt").writeText("edited meanwhile\n")
+
+        val result = merges.abortMerge(repo)
+
+        // git: "could not apply autostash; your changes are safe in the stash" and exit 0.
+        assertEquals(GitMergeResult.Done(null, stashKept = true), result.withoutHead())
+        assertEquals(1, git("stash", "list").lines().size)
+        assertNull(pending())
+    }
+
     private companion object {
         const val OTHER = "1\n2\n3\n4\n5"
         const val LOCAL = "1\n2\n3\n4\nlocal\n"

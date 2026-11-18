@@ -120,8 +120,8 @@ class GitMergesGuardsTest {
     fun `a merge that stopped is a failure with git's message when what is in progress cannot be read afterwards`() {
         diverged(conflict = true)
 
-        // `--git-path` is read once before the merge (the guard) and once after it; only the second fails.
-        val result = merge(GitMerges(failingGit(folder, "--git-path", after = 1)))
+        // The reads after the merge command fail.
+        val result = merge(GitMerges(failingAfterGit(folder, "merge", "--git-path")))
 
         val failed = assertIs<GitMergeResult.Failed>(result)
         assertTrue("CONFLICT" in failed.message, failed.message)
@@ -135,12 +135,12 @@ class GitMergesGuardsTest {
 
         assertEquals(
             GitMergeResult.Done(before),
-            GitMerges(failingGit(folder, "--git-path", after = 1)).abortMerge(repo),
+            GitMerges(failingAfterGit(folder, "merge", "--git-path")).abortMerge(repo),
         )
 
         assertIs<GitMergeResult.Stopped>(merge(GitMerges(git)))
         repo.resolve("file.txt").writeText("resolved\n")
-        val continued = GitMerges(failingGit(folder, "--git-path", after = 1)).continueMerge(repo)
+        val continued = GitMerges(failingAfterGit(folder, "merge", "--git-path")).continueMerge(repo)
         assertIs<GitMergeResult.Done>(continued)
         assertEquals("resolved\n", repo.resolve("file.txt").toFile().readText())
     }
@@ -152,7 +152,8 @@ class GitMergesGuardsTest {
         repo.resolve("file.txt").writeText("resolved\n")
         val unreadable = GitMergeResult.Failed(CONFLICTS_UNREADABLE)
 
-        // The first read of `--unmerged` finds what is in progress, the one after it lists the unmerged entries.
+        // `--unmerged` is read first to find what is in progress, then for the unmerged entries: git cannot tell the two
+        // by their arguments, so the count of 1 lets the first through and fails the entries.
         assertEquals(unreadable, GitMerges(failingGit(folder, "--unmerged", after = 1)).continueMerge(repo))
         assertEquals(unreadable, GitMerges(failingGit(folder, "check-attr")).continueMerge(repo))
         val staging = GitMerges(failingGit(folder, "update-index")).continueMerge(repo)
@@ -241,7 +242,7 @@ class GitMergesGuardsTest {
         git("switch", "-q", "feature")
         repo.resolve("main.txt").writeText("local\n")
 
-        // Git refuses with exit 1, and there are no conflicts: no squash was done.
+        // Git refuses ("Merge with strategy ort failed.", exit 2) and leaves no conflicts: no squash was done.
         val refused = merge(GitMerges(git), GitMergeMode.SQUASH)
 
         val failed = assertIs<GitMergeResult.Failed>(refused)
@@ -253,10 +254,8 @@ class GitMergesGuardsTest {
         diverged(conflict = true)
         val head = git("rev-parse", "HEAD")
 
-        // Git exits with 1 and leaves conflicts. `--unmerged` is read by the guard (twice, finding what is in progress),
-        // then after the merge for what is in progress (the third read) and for the conflicted paths (the fourth); git
-        // cannot tell the step by its arguments, so the count of 2 fails the reads after the merge.
-        val result = merge(GitMerges(failingGit(folder, "--unmerged", after = 2)), GitMergeMode.SQUASH)
+        // Git exits with 1 and leaves conflicts; the reads of the unmerged paths after the merge command fail.
+        val result = merge(GitMerges(failingAfterGit(folder, "merge", "--unmerged")), GitMergeMode.SQUASH)
 
         val failed = assertIs<GitMergeResult.Failed>(result)
         assertTrue(failed.message.startsWith("Auto-merging file.txt"), failed.message)
@@ -276,34 +275,6 @@ class GitMergesGuardsTest {
         val result = merge(GitMerges(git), GitMergeMode.SQUASH)
 
         assertEquals(GitMergeResult.Done(git("rev-parse", "HEAD"), squashed = true, stashKept = true), result)
-        assertEquals(1, git("stash", "list").lines().size)
-    }
-
-    /** main changes file.txt (a conflict with feature) and the first line of other.txt; feature changes file.txt. */
-    private fun divergedWithOther() {
-        commit("Base")
-        commit("Other", "other.txt", "1\n2\n3")
-        git("switch", "-q", "-c", "feature")
-        commit("A")
-        git("switch", "-q", "main")
-        repo.resolve("file.txt").writeText("Main\n")
-        repo.resolve("other.txt").writeText("main\n2\n3\n")
-        git("add", "-A")
-        git("commit", "-q", "-m", "Main")
-        git("switch", "-q", "feature")
-    }
-
-    @Test
-    fun `local changes that git cannot apply when the merge is continued are kept in the stash`() {
-        divergedWithOther()
-        repo.resolve("other.txt").writeText("local\n2\n3\n")
-        assertIs<GitMergeResult.Stopped>(merge(GitMerges(git)))
-        repo.resolve("file.txt").writeText("resolved\n")
-
-        val result = GitMerges(git).continueMerge(repo)
-
-        val done = assertIs<GitMergeResult.Done>(result)
-        assertTrue(done.stashKept, "the changes were kept as a stash entry")
         assertEquals(1, git("stash", "list").lines().size)
     }
 
@@ -351,5 +322,41 @@ class GitMergesGuardsTest {
         val result = merge(GitMerges(git), GitMergeMode.SQUASH)
 
         assertIs<GitMergeResult.Stopped>(result)
+    }
+
+    @Test
+    fun `a message that cannot be written fails the merge with the reason, whether the file or its text is at fault`() {
+        diverged()
+        val head = git("rev-parse", "HEAD")
+        val merges = GitMerges(git)
+        merges.temporaryFolder = folder.resolve("no-such-folder")
+
+        val noFile = assertIs<GitMergeResult.Failed>(merge(merges, message = "By hand"))
+        assertTrue(noFile.message.startsWith("The message could not be written: "), noFile.message)
+        assertTrue("no-such-folder" in noFile.message, noFile.message)
+
+        // A lone surrogate has no UTF-8 encoding: the file is made, the text cannot be written to it.
+        val inFolder = folder.resolve("messages").createDirectories()
+        merges.temporaryFolder = inFolder
+        val noText = merge(merges, message = "Broken \uD800")
+        assertEquals(GitMergeResult.Failed("The message could not be written: Input length = 1"), noText)
+        assertEquals(emptyList(), inFolder.toFile().list()?.toList(), "the file is deleted")
+        assertEquals(head, git("rev-parse", "HEAD"))
+    }
+
+    // The wrapper makes itself not executable when it is asked for the stash, the last read before the merge command:
+    // the next start of git fails, as when git is gone (GitCli.available is read once, when it is made).
+    @Test
+    fun `a squash with a git that cannot be started fails with the reason`() {
+        diverged()
+        val script = folder.resolve("vanishing-git")
+        script.writeText(
+            FAKE_GIT_START + "case \" \$* \" in *' refs/stash '*) chmod -x \"\$0\";; esac\nexec git \"\$@\"\n",
+        )
+        script.toFile().setExecutable(true)
+
+        val result = merge(GitMerges(GitCli(script.toString(), testGitEnvironment())), GitMergeMode.SQUASH)
+
+        assertEquals(GitMergeResult.Failed("git could not be run."), result)
     }
 }

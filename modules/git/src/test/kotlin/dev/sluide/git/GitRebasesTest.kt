@@ -508,4 +508,44 @@ class GitRebasesTest {
 
         assertEquals("refs/remotes/origin/main", rebases.remoteDefaultBranch(repo, "origin"))
     }
+
+    @Test
+    fun `local changes git cannot apply after a skip are kept in the stash`() {
+        commit("Base")
+        commit("Other", "other.txt", "1\n2\n3")
+        git("switch", "-q", "-c", "feature")
+        commit("A", content = "A")
+        git("switch", "-q", "main")
+        repo.resolve("file.txt").writeText("Main\n")
+        repo.resolve("other.txt").writeText("main\n2\n3\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", "Main")
+        git("switch", "-q", "feature")
+        repo.resolve("other.txt").writeText("local\n2\n3\n")
+        assertIs<GitRebaseResult.Stopped>(rebases.rebase(repo, "feature", "refs/heads/main", autostash = true))
+
+        val result = rebases.skipRebase(repo)
+
+        val done = assertIs<GitRebaseResult.Done>(result)
+        assertTrue(done.stashKept, "the changes were kept as a stash entry")
+        assertEquals(1, git("stash", "list").lines().size)
+    }
+
+    @Test
+    fun `local changes git cannot apply when the rebase is aborted are kept in the stash`() {
+        diverged()
+        // A new file in the index, which git stashes for the rebase.
+        repo.resolve("n.txt").writeText("staged\n")
+        git("add", "n.txt")
+        assertIs<GitRebaseResult.Stopped>(rebases.rebase(repo, "feature", "refs/heads/main", autostash = true))
+        // The user creates the file again while the rebase is stopped.
+        repo.resolve("n.txt").writeText("untracked meanwhile\n")
+
+        val result = rebases.abortRebase(repo)
+
+        // git: "could not apply autostash; your changes are safe in the stash" and exit 0.
+        val done = assertIs<GitRebaseResult.Done>(result)
+        assertTrue(done.stashKept, "the changes were kept as a stash entry")
+        assertEquals(1, git("stash", "list").lines().size)
+    }
 }

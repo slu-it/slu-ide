@@ -55,6 +55,29 @@ internal fun failingGit(
     return GitCli(script.toString(), testGitEnvironment())
 }
 
+/**
+ * A git that fails every call with one of the [words] among its arguments, but only after a call with [marker] among
+ * its arguments has run (as git does: exit 128 and a `fatal:` line), and runs the real git for the rest: to fail the
+ * reads that follow the command under test, whatever number of reads run before it.
+ */
+internal fun failingAfterGit(
+    folder: java.nio.file.Path,
+    marker: String,
+    vararg words: String,
+): GitCli {
+    val id = System.nanoTime()
+    val script = folder.resolve("failing-after-git-$id")
+    val flag = folder.resolve("failing-after-git-$id.ran")
+    val patterns = words.joinToString("|") { "*' $it '*" }
+    script.toFile().writeText(
+        FAKE_GIT_START + "case \" \$* \" in *' $marker '*) touch '$flag';; esac\n" +
+            "case \" \$* \" in $patterns) [ -e '$flag' ] && { echo 'fatal: refused by test' >&2; exit 128; };; esac\n" +
+            "exec git \"\$@\"\n",
+    )
+    script.toFile().setExecutable(true)
+    return GitCli(script.toString(), testGitEnvironment())
+}
+
 /** [failingGit] for only the [nth] (1-based) call with [word] among its arguments, which fails as git does (exit 128). */
 internal fun failingNthGit(
     folder: java.nio.file.Path,

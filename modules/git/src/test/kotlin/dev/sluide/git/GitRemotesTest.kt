@@ -17,7 +17,6 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -363,7 +362,7 @@ class GitRemotesTest {
     }
 
     @Test
-    fun `a fetch counts nothing and prunes nothing when its refspecs or refs cannot be read`() {
+    fun `a fetch counts nothing when its refspecs or refs cannot be read, and prunes only with readable refspecs`() {
         val second = commit("Second")
 
         val refspecs = GitRemotes(failingGit(folder, "--get-all")).fetch(repo, "origin", GitCancellation())
@@ -439,6 +438,6 @@ class GitRemotesTest {
 
         assertFalse(fetched.cancelled)
         assertFalse(fetched.result.success)
-        assertNotEquals("Cancelled.", fetched.result.message)
+        assertEquals("git is not available.", fetched.result.message)
     }
 }

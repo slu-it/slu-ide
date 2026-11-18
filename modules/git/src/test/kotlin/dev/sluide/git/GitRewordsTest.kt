@@ -344,8 +344,12 @@ class GitRewordsTest {
     fun `takes only lowercase full hashes`() {
         val hash = commit("Base")
 
-        assertFailsWith<IllegalArgumentException> { rewords.check(repo, "feature", hash.uppercase()) }
-        assertFailsWith<IllegalArgumentException> { rewords.reword(repo, "feature", hash.uppercase(), "New") }
+        for (bad in listOf(hash.uppercase(), hash.take(12))) {
+            val check = assertFailsWith<IllegalArgumentException> { rewords.check(repo, "feature", bad) }
+            val reword = assertFailsWith<IllegalArgumentException> { rewords.reword(repo, "feature", bad, "New") }
+            assertEquals("not a commit hash: $bad", check.message)
+            assertEquals("not a commit hash: $bad", reword.message)
+        }
     }
 
     @Test
