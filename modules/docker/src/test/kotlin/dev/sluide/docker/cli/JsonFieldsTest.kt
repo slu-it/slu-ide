@@ -55,6 +55,16 @@ class JsonFieldsTest {
         for (name in listOf("bad", "t", "o", "a", "big", "huge", "digits", "missing")) assertNull(node.long(name), name)
     }
 
+    @Test
+    fun `int is a long that fits an int, to its last value, and no wrapped one`() {
+        val node =
+            json("""{"max":2147483647,"over":2147483648,"min":-2147483648,"under":-2147483649,"wrap":4294967376}""")
+
+        assertEquals(Int.MAX_VALUE, node.int("max"))
+        assertEquals(Int.MIN_VALUE, node.int("min"))
+        for (name in listOf("over", "under", "wrap", "missing")) assertNull(node.int(name), name)
+    }
+
     @ParameterizedTest
     @CsvSource(
         "true, true",
