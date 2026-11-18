@@ -16,6 +16,9 @@ internal class ConnectionWorker(
     private val executor = NamedThreads.single(threadName)
     private val unfinished = ConcurrentHashMap.newKeySet<CompletableFuture<*>>()
 
+    /** How many futures are not completed yet (queued or running); for tests, which cannot see a leak otherwise. */
+    internal val unfinishedCount: Int get() = unfinished.size
+
     fun <T> submit(work: () -> T): CompletableFuture<T> = enqueue(work) { isClosed() }
 
     /** Runs [work] even after the close, as the last task, and then ends the thread. */
