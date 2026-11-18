@@ -190,6 +190,21 @@ class GitFolderStampsTest {
         }
     }
 
+    @Test
+    fun `the git folder of a submodule named a-refs is a git folder, not a refs tree`() {
+        val root = repository()
+        // `.git/modules/a/refs` is the git folder of the submodule `a/refs`.
+        val submodule = root.resolve(".git/modules/a/refs")
+        file("repo/.git/modules/a/refs/HEAD", "ref: refs/heads/main\n")
+        file("repo/.git/modules/a/refs/refs/heads/main", "1\n")
+        file("repo/.git/modules/a/refs/objects/ab/cdef", "object\n")
+        val original = assertNotNull(GitFolderStamps.state(root))
+
+        submodule.resolve("objects/ab/cdef").writeText("another object\n")
+
+        assertEquals(original, GitFolderStamps.state(root), "its objects are not read")
+    }
+
     @ParameterizedTest
     @ValueSource(strings = ["HEAD", "objects", "refs"])
     fun `a folder without HEAD, objects or refs is no git folder, so its logs count`(missing: String) {
