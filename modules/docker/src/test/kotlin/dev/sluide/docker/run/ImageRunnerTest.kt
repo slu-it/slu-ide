@@ -45,6 +45,8 @@ class ImageRunnerTest {
     private var terminalFailure: TerminalStartException? = null
     private var engine: ResolvedDocker? = ResolvedDocker(Path.of("/usr/bin/docker"), mapOf("DOCKER_HOST" to "x"))
     private var project: Path? = null
+    private val cancels = mutableListOf<() -> Unit>()
+    private var pendingRun: CompletableFuture<String>? = null
     private val home = Path.of("/home/me")
 
     private val data by lazy { ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList()) }
@@ -67,7 +69,7 @@ class ImageRunnerTest {
                 name: String,
                 action: (DockerCli) -> String,
             ): CompletableFuture<String> =
-                CompletableFuture<String>().also {
+                pendingRun ?: CompletableFuture<String>().also {
                     try {
                         it.complete(action(cli))
                     } catch (e: DockerException) {
@@ -78,7 +80,10 @@ class ImageRunnerTest {
             override fun startTask(
                 name: String,
                 cancel: () -> Unit,
-            ): BackgroundTask = tasks.start(name, cancel)
+            ): BackgroundTask {
+                cancels += cancel
+                return tasks.start(name, cancel)
+            }
 
             override fun openTerminal(
                 folder: Path,
@@ -160,6 +165,75 @@ class ImageRunnerTest {
         assertEquals(listOf("port is already allocated"), errors)
         assertEquals(emptyList(), shown)
         assertTrue(taskLog.any { "failed" in it && "Run nginx:1" in it }, taskLog.toString())
+    }
+
+    @Test
+    fun `cancelling the task cancels the run and shows no error`() {
+        val pending = CompletableFuture<String>()
+        pendingRun = pending
+
+        runner.run("nginx:1")
+        assertEquals(1, cancels.size)
+        cancels.single()()
+
+        assertTrue(pending.isCancelled, "the CLI call is cancelled")
+        assertEquals(emptyList(), errors)
+        assertEquals(emptyList(), shown)
+        assertTrue(taskLog.any { "cancelled" in it && "Run nginx:1" in it }, taskLog.toString())
+    }
+
+    @Test
+    fun `a wrapped failure shows the message of its cause, a cancellation inside shows nothing`() {
+        pendingRun = CompletableFuture<String>().also { it.completeExceptionally(DockerException("no space left")) }
+        runner.run("nginx:1")
+        assertEquals(listOf("no space left"), errors)
+
+        errors.clear()
+        pendingRun =
+            CompletableFuture<String>().also {
+                it.completeExceptionally(java.util.concurrent.CompletionException(DockerException("wrapped")))
+            }
+        runner.run("nginx:1")
+        assertEquals(listOf("wrapped"), errors)
+
+        errors.clear()
+        pendingRun =
+            CompletableFuture<String>().also {
+                it.completeExceptionally(
+                    java.util.concurrent.CompletionException(java.util.concurrent.CancellationException()),
+                )
+            }
+        runner.run("nginx:1")
+        assertEquals(emptyList(), errors)
+    }
+
+    @Test
+    fun `a failure without a usable message shows what it is`() {
+        pendingRun = CompletableFuture<String>().also { it.completeExceptionally(IllegalStateException("  ")) }
+        runner.run("nginx:1")
+        assertEquals(listOf("java.lang.IllegalStateException:   "), errors)
+
+        errors.clear()
+        pendingRun =
+            CompletableFuture<String>().also {
+                it.completeExceptionally(
+                    java.util.concurrent.CompletionException(null),
+                )
+            }
+        runner.run("nginx:1")
+        assertEquals(listOf("java.util.concurrent.CompletionException"), errors)
+    }
+
+    @Test
+    fun `invalid values are shown and nothing is started`() {
+        answer = { options.copy(ports = listOf("x")) }
+
+        runner.run("nginx:1")
+
+        assertEquals(1, errors.size)
+        assertTrue(errors.single().startsWith("The port x is not"), errors.single())
+        assertEquals(emptyList(), cli.runCalls)
+        assertEquals(emptyList(), terminals)
     }
 
     @Test

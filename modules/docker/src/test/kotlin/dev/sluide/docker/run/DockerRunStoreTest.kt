@@ -2,8 +2,11 @@ package dev.sluide.docker.run
 
 import dev.sluide.projectdata.ProjectDataStore
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
+import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -109,6 +112,80 @@ class DockerRunStoreTest {
             ),
             store.load("nginx:1", null),
         )
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            """"name":5""",
+            """"name":"-bad"""",
+            """"name":"a\u0000b"""",
+            """"ports":"80"""",
+            """"ports":["80\u0000",7,"x"]""",
+            """"env":"A=1"""",
+            """"env":[{"name":"A"},{"value":"v"},{"name":"B","value":5},{"name":"C","value":"x\u0000"},{"name":"1"}]""",
+            """"volumes":{"source":"/a","target":"/b"}""",
+            """"volumes":[{"source":"/a"},{"target":"/a"},{"source":5,"target":"/a"},{"source":"/a","target":"/b\u0000"}]""",
+            """"network":"-host"""",
+            """"network":"  """",
+            """"network":false""",
+            """"command":5""",
+            """"command":"a\u0000b"""",
+            """"detached":"x"""",
+            """"rm":"x"""",
+        ],
+    )
+    fun `a stored value of the wrong shape falls back alone, the rest is kept`(invalid: String) {
+        // The companion is valid and not what the invalid entry is about; losing it shows a fallback to all defaults.
+        val aboutName = invalid.startsWith("\"name\"")
+        val companion = if (aboutName) """"network":"shop"""" else """"name":"web""""
+        val expected = if (aboutName) RunOptions("nginx:1", network = "shop") else RunOptions("nginx:1", name = "web")
+        shared.writeText("""{"version":1,"dockerRuns":{"nginx":{$invalid,$companion}}}""")
+
+        assertEquals(expected, store.load("nginx:1", null))
+    }
+
+    @Test
+    fun `stored booleans of the defaults are read and a read-only flag of the wrong type is off`() {
+        shared.writeText(
+            """
+            {"version":1,"dockerRuns":{"nginx":{"detached":true,"rm":false,
+            "volumes":[{"source":"/a","target":"/b","readOnly":"yes"},{"source":"/c","target":"/d","readOnly":true}]}}}
+            """.trimIndent(),
+        )
+
+        val loaded = store.load("nginx:1", null)
+
+        assertTrue(loaded.detached)
+        assertFalse(loaded.removeWhenStopped)
+        assertEquals(listOf(RunVolume("/a", "/b", false), RunVolume("/c", "/d", true)), loaded.volumes)
+    }
+
+    @Test
+    fun `only values that differ from the defaults are written`() {
+        assertTrue(write(RunOptions("nginx:1")).isEmpty)
+        assertEquals("""{"detached":false}""", write(RunOptions("nginx:1", detached = false)).toString())
+        assertEquals("""{"rm":true}""", write(RunOptions("nginx:1", removeWhenStopped = true)).toString())
+    }
+
+    @Test
+    fun `the values of other repositories stay, and a stored field of the wrong shape is replaced`() {
+        assertTrue(store.save(RunOptions("nginx:1", name = "web"), null))
+        assertTrue(store.save(RunOptions("redis:7", name = "cache"), null))
+        assertEquals("web", DockerRunStore(data).load("nginx:1", null).name)
+        assertEquals("cache", DockerRunStore(data).load("redis:7", null).name)
+
+        shared.writeText("""{"version":1,"dockerRuns":"x"}""")
+        assertTrue(DockerRunStore(data).save(RunOptions("nginx:1", name = "web"), null))
+        assertEquals("web", DockerRunStore(data).load("nginx:1", null).name)
+    }
+
+    @Test
+    fun `saving into a store file that cannot be read fails and leaves it as it is`() {
+        shared.writeText("{not json")
+
+        assertFalse(store.save(used, null))
+        assertEquals("{not json", shared.readText())
     }
 
     @Test
