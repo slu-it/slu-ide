@@ -85,6 +85,33 @@ class DockerfileStagesTest {
                     listOf("one", "two", "three"),
                 ),
                 Arguments.of("empty line in a continuation", "FROM node:20 \\\n\n  AS deps\n", listOf("deps")),
+                Arguments.of(
+                    "escape directive in capitals, after another directive",
+                    "# syntax=docker/dockerfile:1\n# ESCAPE=`\nFROM a `\n  AS win\n",
+                    listOf("win"),
+                ),
+                Arguments.of(
+                    "escape directive naming the backslash",
+                    "# escape=\\\nFROM a \\\n  AS w\n",
+                    listOf("w"),
+                ),
+                Arguments.of(
+                    "another directive does not change the escape character",
+                    "# syntax=`\nFROM a `\n  AS w\n",
+                    emptyList<String>(),
+                ),
+                Arguments.of("a second word that is not AS", "FROM a B c\n", emptyList<String>()),
+                Arguments.of("only the platform flag and the image", "FROM --platform=x a\n", emptyList<String>()),
+                Arguments.of(
+                    "ADD and COPY heredoc bodies are no instructions",
+                    "FROM a AS one\nADD <<EOF /x\nFROM b AS fake\nEOF\nCOPY <<E /y\nFROM c AS fake2\nE\nFROM d AS two\n",
+                    listOf("one", "two"),
+                ),
+                Arguments.of(
+                    "an indented delimiter ends a heredoc only with the dash",
+                    "FROM a AS one\nRUN <<EOF\n\tEOF\nFROM b AS fake\nEOF\nFROM c AS two\n",
+                    listOf("one", "two"),
+                ),
                 Arguments.of("a name once", "FROM a AS app\nFROM b AS App\n", listOf("app")),
             )
 
@@ -130,6 +157,24 @@ class DockerfileStagesTest {
                     "empty line in a continuation",
                     "ARG A=1 \\\n\n    B=2\n",
                     listOf(arg("A", "1"), arg("B", "2")),
+                ),
+                Arguments.of("a backslash at the very end is kept", "ARG A=b\\", listOf(arg("A", "b\\"))),
+                Arguments.of(
+                    "a continuation joins the lines with a blank",
+                    "ARG A=1\\\nB=2\n",
+                    listOf(arg("A", "1"), arg("B", "2")),
+                ),
+                Arguments.of(
+                    "a continuation followed by comments to the end of the file",
+                    "ARG A=1 \\\n# note\n# another",
+                    listOf(arg("A", "1")),
+                ),
+                Arguments.of("single quotes keep the backslash", "ARG X='a\\b'\n", listOf(arg("X", "a\\b"))),
+                Arguments.of("an escaped quote inside double quotes", "ARG X=\"a\\\"b\"\n", listOf(arg("X", "a\"b"))),
+                Arguments.of(
+                    "indented tab heredoc after ARG keeps reading",
+                    "RUN <<-EOF\n\tARG FAKE\n\tEOF\nARG REAL\n",
+                    listOf(arg("REAL")),
                 ),
                 Arguments.of("commented", "# ARG HIDDEN\n  # ARG ALSO\nARG SHOWN\n", listOf(arg("SHOWN"))),
             )

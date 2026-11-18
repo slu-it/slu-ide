@@ -5,6 +5,7 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.ExtensionFileViewer
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.settings.SettingsStore
 import org.junit.jupiter.api.io.TempDir
@@ -16,6 +17,7 @@ import kotlin.io.path.extension
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -89,5 +91,15 @@ class DockerfileBuildViewerTest {
         for (order in listOf(listOf(viewer, markdown), listOf(markdown, viewer))) {
             assertSame(markdown, FileViewers(order, fallback).viewerFor(file("Dockerfile.md")))
         }
+    }
+
+    @Test
+    fun `it names Dockerfiles by name and extension, and by the weak pattern alone`() {
+        assertEquals(setOf("Dockerfile", "Containerfile"), viewer.fileNames)
+        assertEquals(setOf("dockerfile"), viewer.fileExtensions)
+        assertEquals(emptyList(), viewer.fileNamePatterns)
+        assertTrue(viewer.weakFileNamePatterns.single().matches("Dockerfile.dev"))
+        assertFalse(viewer.weakFileNamePatterns.single().matches("Dockerfile.dockerignore"))
+        assertSame(Highlighters.dockerfile, viewer.sourceHighlighter)
     }
 }

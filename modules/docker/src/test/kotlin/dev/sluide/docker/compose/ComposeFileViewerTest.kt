@@ -1,6 +1,7 @@
 package dev.sluide.docker.compose
 
 import dev.sluide.docker.settings.DockerSettings
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.settings.SettingsStore
 import org.junit.jupiter.api.io.TempDir
@@ -10,7 +11,9 @@ import java.nio.file.Path
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -49,5 +52,13 @@ class ComposeFileViewerTest {
     fun `does not open a missing or binary compose file`() {
         assertFalse(viewer.canOpen(dir.resolve("compose.yaml")))
         assertFalse(viewer.canOpen(dir.resolve("compose.yml").apply { writeBytes(byteArrayOf(0, 1, 2, 0)) }))
+    }
+
+    @Test
+    fun `it names the compose files and ranks as a named viewer`() {
+        assertEquals(COMPOSE_FILE_NAMES, viewer.fileNames)
+        assertEquals(COMPOSE_FILE_PATTERNS, viewer.fileNamePatterns)
+        assertEquals(emptyList(), viewer.weakFileNamePatterns)
+        assertSame(Highlighters.yaml, viewer.sourceHighlighter)
     }
 }
