@@ -21,6 +21,7 @@ private const val ESC = '\u001b'
  * stream. Not thread-safe; feed it from one reader.
  */
 internal class JsonValueSplitter(
+    private val maxValueChars: Int = MAX_VALUE_CHARS,
     private val onValue: (String) -> Unit,
 ) {
     private val value = StringBuilder()
@@ -62,8 +63,8 @@ internal class JsonValueSplitter(
             val text = value.toString()
             value.setLength(0)
             onValue(text)
-        } else if (value.length > MAX_VALUE_CHARS) {
-            log.log(System.Logger.Level.WARNING, "Dropped a JSON value of more than $MAX_VALUE_CHARS characters")
+        } else if (value.length > maxValueChars) {
+            log.log(System.Logger.Level.WARNING, "Dropped a JSON value of more than $maxValueChars characters")
             value.setLength(0)
             depth = 0
         }
