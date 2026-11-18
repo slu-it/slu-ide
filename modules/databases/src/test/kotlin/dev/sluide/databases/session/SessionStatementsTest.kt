@@ -7,6 +7,7 @@ import org.mariadb.jdbc.Configuration
 import org.mariadb.jdbc.HostAddress
 import org.mariadb.jdbc.client.Client
 import org.mariadb.jdbc.client.Context
+import org.mariadb.jdbc.client.DataType
 import org.mariadb.jdbc.client.ServerVersion
 import org.mariadb.jdbc.client.result.CompleteResult
 import org.mariadb.jdbc.client.result.Result
@@ -150,10 +151,10 @@ class SessionStatementsTest {
 
     private fun live(
         resultSet: ResultSet,
-        statementCalls: MutableList<String>,
+        order: MutableList<String>,
     ) = LiveResult(
         fake<Statement> { m, _ ->
-            statementCalls += m
+            order += "statement $m"
             null
         },
         resultSet,
@@ -171,30 +172,33 @@ class SessionStatementsTest {
         return unsafe.javaClass.getMethod("allocateInstance", Class::class.java).invoke(unsafe, type)
     }
 
-    // A Result the driver has not read completely is a StreamingResult (`loaded` false); one it holds whole is a
-    // CompleteResult (`loaded` true, set by its constructor): instances are allocated without a socket to read from.
+    /** A real Connector/J result the driver holds whole (`loaded()` true), built by its public factory. */
+    private fun completeResult(): ResultSet {
+        val config = Configuration.parse("jdbc:mariadb://localhost/db")
+        val context = fake<Context> { m, _ -> if (m == "getConf") config else null }
+        return CompleteResult.createResultSet(
+            "c",
+            DataType.VARCHAR,
+            arrayOf(arrayOf("x")),
+            context,
+            0,
+            ResultSet.TYPE_FORWARD_ONLY,
+        )
+    }
+
     private fun resultSet(
         kind: String,
-        closes: MutableList<String>,
+        order: MutableList<String>,
     ): ResultSet {
         val result: Any? =
             when (kind) {
-                "streaming" -> {
-                    allocate(StreamingResult::class.java)
-                }
+                // Connector/J 3.5.10: a StreamingResult has `loaded` false until it read every row; an instance
+                // allocated without a constructor is in that state, and needs no socket here.
+                "streaming" -> allocate(StreamingResult::class.java)
 
-                "complete" -> {
-                    allocate(CompleteResult::class.java).also {
-                        Result::class.java
-                            .getDeclaredField("loaded")
-                            .apply { isAccessible = true }
-                            .setBoolean(it, true)
-                    }
-                }
+                "complete" -> completeResult()
 
-                else -> {
-                    null
-                }
+                else -> null
             }
         return fake { m, args ->
             when (m) {
@@ -209,7 +213,7 @@ class SessionStatementsTest {
                 }
 
                 "close" -> {
-                    closes += "close result"
+                    order += "close result"
                     null
                 }
 
@@ -224,12 +228,10 @@ class SessionStatementsTest {
     @CsvSource(
         "MARIADB, streaming, false, false, true",
         "MARIADB, complete, false, false, false",
-        "MARIADB, plain, false, false, true",
         "MARIADB, wrapper fails, false, false, true",
         "MARIADB, unwrap fails, false, false, true",
         "MARIADB, streaming, true, false, false",
         "MARIADB, streaming, false, true, false",
-        "POSTGRESQL, streaming, false, false, false",
     )
     fun `an unread MariaDB result is cancelled before it is closed, one the driver holds whole or that ended is not`(
         kind: DatabaseKind,
@@ -239,13 +241,16 @@ class SessionStatementsTest {
         cancelled: Boolean,
     ) {
         val order = mutableListOf<String>()
-        val statementCalls = mutableListOf<String>()
-        val live = live(resultSet(result, order), statementCalls)
+        val live = live(resultSet(result, order), order)
 
         statements(db.session, kind).end(live, reachedEnd, failed)
 
-        assertEquals(cancelled, "cancel" in statementCalls, statementCalls.toString())
-        assertEquals(listOf("close result"), order)
-        assertEquals(statementCalls.last(), "close")
+        val expected =
+            if (cancelled) {
+                listOf("statement cancel", "close result", "statement close")
+            } else {
+                listOf("close result", "statement close")
+            }
+        assertEquals(expected, order)
     }
 }

@@ -30,11 +30,11 @@ class JdbcSessionRunTest {
 
     private fun rows(count: Int = 25) = FakeResult.Rows(fakeRows(count))
 
-    /** Lets about [millis] pass: a poll on the clock, since the statement under test measures real time. */
-    private fun letTimePass(millis: Long) {
-        val until = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis)
-        while (System.nanoTime() < until) Thread.onSpinWait()
-    }
+    /**
+     * Lets [millis] pass: the statement under test measures real time with System.nanoTime, and there is no signal
+     * for "time has passed"; sleep never returns early, so the elapsed time is at least [millis].
+     */
+    private fun letTimePass(millis: Long) = Thread.sleep(millis) // real time must pass, see above
 
     @Test
     fun `a statement without rows ends its run before it closes, an AUTO query commits its own transaction`() {
