@@ -26,6 +26,7 @@ import java.security.MessageDigest
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.HexFormat
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -59,6 +60,10 @@ class RemoteSourceCache internal constructor(
     folder: Path,
     /** Tests only: allows `file://` URLs, local "servers". */
     private val allowFileUrls: Boolean,
+    /** How long a command that cannot connect may take; tests make it short. */
+    private val localTimeout: Duration = LOCAL_TIMEOUT,
+    /** How long a command that may connect (a fetch) may take; tests make it short. */
+    private val networkTimeout: Duration = NETWORK_TIMEOUT,
 ) {
     constructor(git: GitCli, folder: Path) : this(git, folder, allowFileUrls = false)
 
@@ -328,7 +333,7 @@ class RemoteSourceCache internal constructor(
         val fresh = directory.resolveSibling("${directory.fileName}.new")
         deleteRecursively(fresh)
         val arguments = listOf("init", "--bare", "--quiet", "--template=", fresh.toString())
-        val init = git.execute(arguments, directory.parent, LOCAL_TIMEOUT, null, write = true, LOCAL_ENVIRONMENT)
+        val init = git.execute(arguments, directory.parent, localTimeout, null, write = true, LOCAL_ENVIRONMENT)
         if (init?.exitValue != 0) return "could not create the cache"
         val config = if (allowFileUrls) CONFIG + "[protocol \"file\"]\n\tallow = always\n" else CONFIG
         Files.writeString(fresh.resolve("config"), config, StandardOpenOption.APPEND)
@@ -392,7 +397,7 @@ class RemoteSourceCache internal constructor(
                     fetchEnvironment(git.environment, sshConfigured = false)
             }
         val options = listOf("--git-dir=$directory") + protocols
-        val timeout = if (url != null) NETWORK_TIMEOUT else LOCAL_TIMEOUT
+        val timeout = if (url != null) networkTimeout else localTimeout
         return git.execute(
             options + arguments,
             directory,
@@ -411,7 +416,7 @@ class RemoteSourceCache internal constructor(
      * Deletes [path] and what is in it, without following links; only ever below a host folder of the cache, which
      * [path] is built from validated names to be. Throws IOException, also for a path outside it.
      */
-    private fun deleteRecursively(path: Path) {
+    internal fun deleteRecursively(path: Path) {
         val normalized = path.toAbsolutePath().normalize()
         if (!normalized.startsWith(folder) || normalized.nameCount < folder.nameCount + 2) {
             throw IOException("Refusing to delete $path outside the cache $folder")
