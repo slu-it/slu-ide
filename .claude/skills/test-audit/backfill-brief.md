@@ -45,6 +45,18 @@ and read a neighbouring test as a pattern, never the whole class.
 6. Verification in your worktree: `.claude/scripts/verify.sh --display <N> :modules:<m>` for each module of the
    package (all its unit tests), plus the UI test classes your prompt names.
 
+## Pitfalls the first reviews found
+- Most "equivalent" claims that failed review had a killing input nobody tried: an input where the old test's value
+  hid the mutant (a readable entry where only an unreadable one tells), a second call of a selector
+  (`maxByOrNull` calls it twice), a store that "never throws" but has a throwing getter, a folder `chmod 000` that
+  makes a walk fail, `/dev/null` or `/dev/zero` for size and read limits. Name the input you tried; check JDK,
+  library and tool behavior in jshell or with the real tool.
+- A blocked read (a FIFO) is not ENDLESS; find an input that differs without blocking.
+- Tests go into the class of the neighbouring behavior or a class named by topic, never a `*GapsTest` class;
+  search for an existing test first and extend it instead of restating it.
+- Assert the behavior (the message equals git's message), not the absence of the mutant's text.
+- A test that could hang on a regression (a FIFO, a blocking read) runs under `assertTimeoutPreemptively`.
+
 ## Limits
 - Production changes only: an `internal` extraction a test needs (ADR 0084), a constructor parameter with the real
   default, DEAD removals. Anything else in production code, or files outside the package's modules: stop and report.
