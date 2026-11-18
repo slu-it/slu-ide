@@ -116,6 +116,17 @@ class SqlFailuresTest {
     }
 
     @Test
+    fun `a driver's timeout exception is a statement timeout as soon as a timeout is set`() {
+        val failed =
+            assertIs<StatementOutcome.Failed>(
+                SqlFailures.outcome("x", 1, SQLTimeoutException("slow", "HYT00"), false, 5),
+            )
+
+        assertEquals("Statement timeout of 5 s exceeded: slow", failed.message)
+        assertEquals("HYT00", failed.sqlState)
+    }
+
+    @Test
     fun `a negative statement timeout counts as none`() {
         assertIs<StatementOutcome.Cancelled>(
             SqlFailures.outcome("x", 1, SQLException("c", "57014"), userCancelled = false, timeoutSeconds = -1),
