@@ -26,6 +26,23 @@ internal class GitCommitsGapsTest : GitCommitsFixture() {
         after: Int = 0,
     ) = GitCommits(failingGit(folder, *words, after = after))
 
+    /** A git that fails only the [nth] (1-based) call with [word] among its arguments, as git fails (exit 128). */
+    private fun failingNth(
+        word: String,
+        nth: Int,
+    ): GitCommits {
+        val id = System.nanoTime()
+        val counter = folder.resolve("nth-$id.count")
+        val script = folder.resolve("nth-git-$id")
+        val bump = "n=\$(cat '$counter' 2>/dev/null || echo 0); n=\$((n+1)); echo \$n > '$counter';"
+        script.writeText(
+            FAKE_GIT_START + "case \" \$* \" in *' $word '*) $bump " +
+                "[ \$n -eq $nth ] && { echo 'fatal: refused by test' >&2; exit 128; };; esac\nexec git \"\$@\"\n",
+        )
+        script.toFile().setExecutable(true)
+        return GitCommits(GitCli(script.toString(), testGitEnvironment()))
+    }
+
     /** The real git behind a wrapper that writes each call's arguments as a line to [callLog]. */
     private fun recording(): GitCommits {
         val wrapper = folder.resolve("git-recorder")
@@ -59,10 +76,42 @@ internal class GitCommitsGapsTest : GitCommitsFixture() {
 
         assertNotNull(commits.commitChanges(repo))
         assertNull(failing("rev-parse").commitChanges(repo), "is HEAD unborn")
-        assertNull(failing("rev-parse", after = 1).commitChanges(repo), "the commit of HEAD")
+        // Only `rev-parse --verify -q` reads the commit of HEAD; the other reads would fail on their own.
+        assertNull(failing("--verify -q").commitChanges(repo), "the commit of HEAD")
         assertNull(failing("diff").commitChanges(repo), "the tracked changes")
-        assertNull(failing("ls-files").commitChanges(repo), "the untracked files")
+        assertNull(failing("--others").commitChanges(repo), "the untracked files")
         assertNull(failing("--git-path").commitChanges(repo), "what is in progress")
+        assertNull(failing("--git-path").inProgress(repo))
+    }
+
+    @Test
+    fun `a branch without a commit that has an upstream is not pushed`() {
+        val base = commit("Base")
+        git("update-ref", "refs/remotes/origin/main", base)
+        git("config", "remote.origin.url", "/nowhere")
+        git("config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")
+        git("switch", "-q", "--orphan", "fresh")
+        git("config", "branch.fresh.remote", "origin")
+        git("config", "branch.fresh.merge", "refs/heads/main")
+
+        val changes = assertNotNull(commits.commitChanges(repo))
+
+        assertFalse(changes.headPushed)
+    }
+
+    @Test
+    fun `a detached HEAD is not pushed`() {
+        val base = commit("Base")
+        git("update-ref", "refs/remotes/origin/main", base)
+        git("config", "remote.origin.url", "/nowhere")
+        git("config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")
+        git("config", "branch.main.remote", "origin")
+        git("config", "branch.main.merge", "refs/heads/main")
+        assertTrue(assertNotNull(commits.commitChanges(repo)).headPushed)
+
+        git("switch", "-q", "--detach")
+
+        assertFalse(assertNotNull(commits.commitChanges(repo)).headPushed)
     }
 
     @Test
@@ -74,8 +123,8 @@ internal class GitCommitsGapsTest : GitCommitsFixture() {
 
         assertEquals(listOf(GitChangedFile(GitChange.ADDED, "a.txt")), changes.files)
         assertFalse(changes.headPushed)
-        assertNull(failing("ls-files").commitChanges(repo), "the indexed files")
-        assertNull(failing("ls-files", after = 1).commitChanges(repo), "the untracked files")
+        assertNull(failingNth("ls-files", 1).commitChanges(repo), "the indexed files")
+        assertNull(failing("--others").commitChanges(repo), "the untracked files")
     }
 
     // --- commit
@@ -302,7 +351,8 @@ internal class GitCommitsGapsTest : GitCommitsFixture() {
         )
         assertEquals(
             GitPickResult.Failed(IN_PROGRESS_UNREADABLE),
-            failing("--git-path").pick(repo, GitPick.REVERT, added, firstParent = false),
+            // The reads before it (the pick's and the outcome's) work, the one for MERGE_MSG's path fails.
+            failing("--git-path", after = 2).pick(repo, GitPick.REVERT, added, firstParent = false),
         )
     }
 
@@ -325,7 +375,109 @@ internal class GitCommitsGapsTest : GitCommitsFixture() {
 
         assertIs<GitPickResult.Failed>(result)
         assertTrue(" could not be deleted: " in result.message, result.message)
-        assertTrue(result.message.startsWith(repo.resolve(".git/MERGE_MSG").toString()), result.message)
+        val message = repo.resolve(".git/MERGE_MSG").toString()
+        assertTrue(result.message.startsWith(message), result.message)
+        assertTrue(result.message.endsWith(": $message"), "what the file system said: ${result.message}")
+    }
+
+    @Test
+    fun `a pick stopped without conflicts is continued without looking at conflicts`() {
+        commit("Base")
+        git("switch", "-q", "-c", "other")
+        val added = commit("Add", "added.txt", "added")
+        git("switch", "-q", "main")
+        git("config", "commit.gpgSign", "true")
+        git("config", "gpg.program", "false")
+        assertIs<GitPickResult.Stopped>(commits.pick(repo, GitPick.CHERRY_PICK, added, firstParent = false))
+        git("config", "commit.gpgSign", "false")
+        val noConflicts = failing("--deleted", "check-attr", "update-index", "hash-object")
+
+        val result = noConflicts.continuePick(repo, GitPick.CHERRY_PICK)
+
+        assertEquals(GitPickResult.Done(head()), result)
+        assertEquals("Add", git("log", "-1", "--format=%s"))
+    }
+
+    private fun appliedAlready(): String {
+        commit("Base")
+        git("switch", "-q", "-c", "other")
+        val picked = commit("Change", "kept.txt", "kept")
+        git("switch", "-q", "main")
+        git("merge", "-q", "--ff-only", "other")
+        return picked
+    }
+
+    @Test
+    fun `a pick whose state cannot be read afterwards is no stop and no empty pick`() {
+        val picked = appliedAlready()
+
+        // The first read of what is in progress is the pick's own, the second the outcome's.
+        val empty = failing("--git-path", after = 1).pick(repo, GitPick.CHERRY_PICK, picked, firstParent = false)
+        assertIs<GitPickResult.Failed>(empty)
+        git("cherry-pick", "--quit")
+    }
+
+    @Test
+    fun `a conflict whose state cannot be read afterwards is a failure`() {
+        val theirs = conflicting()
+
+        val conflict = failing("--git-path", after = 1).pick(repo, GitPick.CHERRY_PICK, theirs, firstParent = false)
+
+        assertIs<GitPickResult.Failed>(conflict)
+    }
+
+    @Test
+    fun `unreadable unmerged paths leave a pick stopped without conflicts and a revert not cleared`() {
+        val picked = appliedAlready()
+        // Reads of ls-files: the pick's, the outcome's, then the unmerged paths, which fail.
+        val cherry = failing("ls-files", after = 2).pick(repo, GitPick.CHERRY_PICK, picked, firstParent = false)
+        assertIs<GitPickResult.Stopped>(cherry)
+        assertEquals(emptyList(), cherry.conflicts)
+        git("cherry-pick", "--quit")
+
+        val added = commit("Add", "added.txt", "added")
+        assertIs<GitPickResult.Done>(commits.pick(repo, GitPick.REVERT, added, firstParent = false))
+        val revert = failing("ls-files", after = 2).pick(repo, GitPick.REVERT, added, firstParent = false)
+        assertIs<GitPickResult.Failed>(revert)
+    }
+
+    @Test
+    fun `names git cannot take give no answer for what a reset or pick reads, without running git`() {
+        commit("Base")
+        val recorded = recording()
+
+        assertNull(recorded.unreachableCount(repo, "-x"))
+        assertNull(recorded.overwrittenFiles(repo, "-x"))
+        assertNull(recorded.pickOverwrites(repo, GitPick.CHERRY_PICK, "-x", firstParent = false))
+        assertNull(recorded.pickOverwrites(repo, GitPick.REVERT, "", firstParent = false))
+
+        assertEquals(emptyList(), calls())
+    }
+
+    @Test
+    fun `staged paths that cannot be read give no count even if the unstaged ones can`() {
+        commit("Base")
+
+        assertNull(failing("--cached").stagedOnlyCount(repo))
+    }
+
+    @Test
+    fun `a pick that changes a tracked file is merged onto HEAD, not onto nothing`() {
+        commit("Base", "kept.txt")
+        git("switch", "-q", "-c", "other")
+        repo.resolve("kept.txt").writeText("changed\n")
+        repo.resolve(".env").writeText("FROM_COMMIT=1\n")
+        git("add", "-f", "kept.txt", ".env")
+        git("commit", "-q", "-m", "Change and add")
+        val picked = head()
+        git("switch", "-q", "main")
+        repo.resolve(".gitignore").writeText(".env\n")
+        git("add", ".gitignore")
+        git("commit", "-q", "-m", "Ignore .env")
+        repo.resolve(".env").writeText("MY_SECRET=1\n")
+
+        assertEquals(listOf(".env"), commits.pickOverwrites(repo, GitPick.CHERRY_PICK, picked, firstParent = false))
+        assertNull(failing("merge-tree").pickOverwrites(repo, GitPick.CHERRY_PICK, picked, firstParent = false))
     }
 
     // --- reset and its reads

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.appendText
 import kotlin.io.path.createDirectories
@@ -94,6 +95,27 @@ class GitFileComparisonTest {
         assertEquals(GitFileDiff.TooLarge, comparison.compare(small, big, maxSize = 5))
         assertEquals(GitFileDiff.TooLarge, comparison.compare(big, small, maxSize = 5))
         assertIs<GitFileDiff.Text>(comparison.compare(small, big, maxSize = 7))
+        assertIs<GitFileDiff.Text>(comparison.compare(big, small, maxSize = 7), "exactly the limit is not above it")
+    }
+
+    @Test
+    fun `a named pipe is no comparison and is not read`() {
+        val file = file("a", "a\n")
+        val pipe = folder.resolve("pipe")
+        val made = runCatching { ProcessBuilder("mkfifo", pipe.toString()).start().waitFor() == 0 }.getOrDefault(false)
+        assumeTrue(made, "mkfifo is not available")
+        // Someone writes to the pipe, so that reading it ends instead of waiting for ever.
+        val writer = Thread { runCatching { Files.newOutputStream(pipe).use { it.write("x\n".toByteArray()) } } }
+        writer.isDaemon = true
+        writer.start()
+        try {
+            assertNull(comparison.compare(pipe, file))
+            assertNull(comparison.compare(file, pipe))
+        } finally {
+            // Let the writer end if nothing read the pipe.
+            runCatching { Files.newInputStream(pipe).use { it.readAllBytes() } }
+            writer.join(10_000)
+        }
     }
 
     @Test
