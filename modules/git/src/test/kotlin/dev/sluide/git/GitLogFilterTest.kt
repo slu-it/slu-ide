@@ -306,4 +306,13 @@ internal class GitLogFilterTest : GitLogFixture() {
         assertTrue(GitLogFilter(noMerges = true).hidesCommits)
         assertFalse(GitLogFilter(noMerges = true).isDefault)
     }
+
+    @Test
+    fun `each filter alone makes it not default`() {
+        assertFalse(GitLogFilter(text = "x").isDefault)
+        assertFalse(GitLogFilter(revisions = listOf("HEAD")).isDefault)
+        assertFalse(GitLogFilter(excluded = listOf("HEAD")).isDefault)
+        assertFalse(GitLogFilter(users = listOf("x")).isDefault)
+        assertFalse(GitLogFilter(paths = listOf("a")).isDefault)
+    }
 }
