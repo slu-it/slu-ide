@@ -42,6 +42,21 @@ class ExplorerSettingsTest {
     }
 
     @Test
+    fun `a stored value is trimmed, and only exactly true or false counts`() {
+        val file = dir.resolve("settings.properties")
+        file.writeText("$COMPACT_FOLDERS_KEY=false\n$HIDE_GENERATED_FOLDERS_KEY=TRUE\n")
+        assertFalse(ExplorerSettings(settings).compactFolders.get())
+        assertTrue(ExplorerSettings(settings).hideGeneratedFolders.get())
+
+        file.writeText("$COMPACT_FOLDERS_KEY=FALSE\n$HIDE_GENERATED_FOLDERS_KEY=false\n")
+        assertTrue(ExplorerSettings(settings).compactFolders.get(), "FALSE is no boolean: the default")
+        assertFalse(ExplorerSettings(settings).hideGeneratedFolders.get())
+
+        file.writeText("$COMPACT_FOLDERS_KEY=  false \n")
+        assertFalse(ExplorerSettings(settings).compactFolders.get())
+    }
+
+    @Test
     fun `settings that cannot be read give the default, a change that cannot be stored is logged and still applies`() {
         // A folder where the settings file should be: it cannot be read, so it is not replaced.
         val explorer = ExplorerSettings(SettingsStore(dir.resolve("settings").createDirectories()))
