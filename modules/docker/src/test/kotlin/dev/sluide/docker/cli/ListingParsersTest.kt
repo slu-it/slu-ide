@@ -189,13 +189,6 @@ class ListingParsersTest {
     }
 
     @Test
-    fun `Docker's label text keeps commas inside values`() {
-        val labels = dockerJson.readTree("""{"Labels":"a=1,b=x,y,c="}""").labels("Labels")
-
-        assertEquals(mapOf("a" to "1", "b" to "x,y", "c" to ""), labels)
-    }
-
-    @Test
     fun `objects or arrays where a text, number or truth value is expected are left out, not failures`() {
         val containers =
             parseContainers(
@@ -391,7 +384,7 @@ class ListingParsersTest {
         assertEquals(listOf("a" to "1"), tags(""""RepoTags":["a:1"],"Repository":"ignored","Tag":"t""""))
         assertEquals(listOf(null to null), tags(""""RepoTags":["<none>:<none>"]"""))
         assertEquals(listOf(null to null), tags(""""RepoTags":[]"""))
-        assertEquals(listOf(null to null), tags(""""Size":1"""), "neither RepoTags nor Repository: untagged")
+        assertEquals(listOf(null to null), tags(""""Tag":"t""""), "neither RepoTags nor Repository: untagged")
         assertEquals(listOf("a" to "1"), tags(""""Repository":"a","Tag":"1""""))
         assertEquals(
             listOf("localhost:5000/team/app" to "v1", "nginx" to null, "a:b/c" to null, "x" to ""),

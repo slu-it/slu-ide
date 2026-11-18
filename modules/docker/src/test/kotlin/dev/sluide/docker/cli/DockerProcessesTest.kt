@@ -1,5 +1,6 @@
 package dev.sluide.docker.cli
 
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -24,6 +25,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import java.time.Duration as JavaDuration
 
 /** [DockerProcesses] running small `/bin/sh` scripts in place of the CLI. */
 class DockerProcessesTest {
@@ -54,6 +56,9 @@ class DockerProcessesTest {
         onLine: ((String) -> Unit)? = null,
         onErrors: ((String) -> Unit)? = null,
     ) = run(arguments.toList(), CommandKind.READ, timeout, onLine = onLine, onErrors = onErrors)
+
+    /** A hung reader (a mutant that never ends the progress loop) fails the test instead of hanging the build. */
+    private fun <T> bounded(block: () -> T): T = assertTimeoutPreemptively(JavaDuration.ofSeconds(30), block)
 
     private fun waitFor(condition: () -> Boolean) {
         val deadline = System.nanoTime() + 5_000_000_000
@@ -176,18 +181,17 @@ class DockerProcessesTest {
         val cli = processes("""seq 1 8; echo "oops" >&2; exit 4""")
         val lines = mutableListOf<String>()
 
-        val failure = assertFailsWith<DockerException> { cli.read("pull", onLine = { lines += it }) }
+        val failure = assertFailsWith<DockerException> { bounded { cli.read("pull", onLine = { lines += it }) } }
 
-        assertEquals("5\n6\n7\n8\noops".lines().size, failure.message!!.lines().size)
-        assertTrue(failure.message!!.lines().containsAll(listOf("oops", "8", "5")), failure.message)
-        assertFalse("4" in failure.message!!.lines())
+        // One pipe carries both streams, so the order is the script's.
+        assertEquals("5\n6\n7\n8\noops", failure.message)
         assertEquals(4, failure.exitCode)
         assertEquals(9, lines.size)
         val silent = processes("exit 5")
         assertEquals(
             "stub pull exited with code 5",
             assertFailsWith<DockerException> {
-                silent.read("pull", onLine = {})
+                bounded { silent.read("pull", onLine = {}) }
             }.message,
         )
     }
@@ -198,7 +202,7 @@ class DockerProcessesTest {
         val lines = mutableListOf<String>() // onLine runs on the calling thread
 
         val text = cli.read("x")
-        val withLines = cli.read("x", onLine = { lines += it })
+        val withLines = bounded { cli.read("x", onLine = { lines += it }) }
 
         assertEquals(200000, text.lines().count { it.isNotEmpty() })
         assertTrue(text.endsWith("200000\n"))
@@ -279,15 +283,15 @@ class DockerProcessesTest {
         val cli = processes("""echo ${'$'}${'$'} > "${dir.resolve("pid")}"; exec sleep 30""")
         val ended = CompletableFuture<Throwable?>()
 
+        // Threads of earlier streams may still be around: only one that was not there before is ours.
+        val before = Thread.getAllStackTraces().keys.toSet()
         cli.stream(listOf("x"), mergeErrors = false, consume = { _, _ -> }, onEnd = { ended.complete(it) })
         val pid = pidIn("pid")
         var thread: Thread? = null
         waitFor {
             thread =
                 Thread.getAllStackTraces().keys.firstOrNull {
-                    it.name.startsWith(
-                        "stub#",
-                    ) && it.name.endsWith("-stream")
+                    it !in before && it.name.startsWith("stub#") && it.name.endsWith("-stream")
                 }
             thread != null
         }

@@ -329,7 +329,7 @@ class DockerExecutableTest {
     }
 
     @Test
-    fun `the flavor follows the file name, none for a root`() {
+    fun `the flavor follows the file name, Docker for a path without one`() {
         assertEquals(EngineFlavor.PODMAN, flavorOf(Path.of("/usr/bin/podman")))
         assertEquals(EngineFlavor.PODMAN, flavorOf(Path.of("/usr/bin/podman-remote")))
         assertEquals(EngineFlavor.DOCKER, flavorOf(Path.of("/usr/bin/mypodman")))

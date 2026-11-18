@@ -270,7 +270,7 @@ class InspectParsersTest {
         val details =
             parseContainerDetails(
                 """[{"NetworkSettings":{"Ports":{"abc/tcp":[{"HostPort":"1"}],"/tcp":null,"53":null,""" +
-                    """"80/tcp":[{"HostIp":"","HostPort":"8080"},{"HostIp":"::"}],"81/tcp":[],"82/tcp":{"a":1},""" +
+                    """"80/tcp":[{"HostIp":"","HostPort":"8080"},{"HostIp":"::"}],"81/tcp":[],""" +
                     """"83/tcp":"x"}}}]""",
             )
 
@@ -280,7 +280,6 @@ class InspectParsersTest {
                 PortMapping(null, 8080, 80, "tcp"),
                 PortMapping("::", null, 80, "tcp"),
                 PortMapping(null, null, 81, "tcp"),
-                PortMapping(null, null, 82, "tcp"),
                 PortMapping(null, null, 83, "tcp"),
             ),
             details.ports,

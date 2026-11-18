@@ -35,6 +35,9 @@ class ProcessDockerCliTest {
     private val log by lazy { dir.resolve("calls.log") }
     private val pidFile by lazy { dir.resolve("pid") }
 
+    // The stub's answers for the commands that change or list the engine were checked once against the sandbox's
+    // Docker 29.10.0: `network prune -f` after creating a network prints "Deleted Networks:\n<name>\n\n", `image prune -f`
+    // and `volume prune -f` print "Total reclaimed space: 0B\n", `context show` prints "default\n".
     @BeforeEach
     fun stubCli() {
         assumeTrue(Files.isExecutable(Path.of("/bin/sh")), "no /bin/sh")
@@ -79,7 +82,7 @@ class ProcessDockerCliTest {
                   "events "*)
                     if [ -n "${'$'}SPLIT_EVENTS" ]; then
                       printf '{"Type":"container","Action":"st'; sleep 0.3
-                      printf 'art","Actor":{"ID":"abc","Attributes":{"name":"web"}}}\\n'; exit 0
+                      printf 'art","Actor":{"ID":"abc","Attributes":{"name":"web"}}}\n'; exit 0
                     fi
                     if [ -n "${'$'}JUNK" ]; then echo '{"Action":"start"}'; fi
                     if [ -n "${'$'}MANY_EVENTS" ]; then cat "${'$'}STUB/events.jsonl"; exit 0; fi
@@ -207,29 +210,10 @@ class ProcessDockerCliTest {
     @Test
     fun `run keeps the variable values out of the IDE log, also when it fails`() {
         val lines = CopyOnWriteArrayList<String>()
-        val logger =
-            java.util.logging.Logger
-                .getLogger("dev.sluide.docker.cli.DockerProcesses")
-        val handler =
-            object : java.util.logging.Handler() {
-                override fun publish(record: java.util.logging.LogRecord) {
-                    lines += record.message
-                }
-
-                override fun flush() {}
-
-                override fun close() {}
-            }
-        val level = logger.level
-        logger.level = java.util.logging.Level.ALL
-        logger.addHandler(handler)
-        try {
+        capturingLog(lines) {
             cli().run(listOf("run", "-d", "-e", "TOKEN=s3cret", "bash:5.2"))
             assertFailsWith<DockerException> { cli().run(listOf("run", "-d", "-e", "TOKEN=s3cret", "fail")) }
             cli().run(listOf("run", "-d", "-e", "FOO", "--label", "a=b", "-e", "K=v", "bash:5.2"))
-        } finally {
-            logger.removeHandler(handler)
-            logger.level = level
         }
 
         assertTrue(lines.any { "-e TOKEN=••••" in it }, "the run is logged with a masked value: $lines")
@@ -316,7 +300,7 @@ class ProcessDockerCliTest {
     fun `a pull reports each progress line, standard error too`() {
         val lines = mutableListOf<String>()
 
-        cli().pull("bash:5.2") { lines += it }
+        bounded { cli().pull("bash:5.2") { lines += it } }
 
         assertEquals(
             listOf("5.2: Pulling from library/bash", "Digest: sha256:abc", "Status: Downloaded newer image"),
@@ -512,19 +496,20 @@ class ProcessDockerCliTest {
         val samples = CopyOnWriteArrayList<Double>()
         val handle = AtomicReference<AutoCloseable>()
         val ready = CountDownLatch(1)
+        val logged = CopyOnWriteArrayList<String>()
 
-        handle.set(
-            cli().stats("web", { sample ->
-                ready.await(5, TimeUnit.SECONDS)
-                samples += sample.cpuPercent
-                handle.get().close()
-            }, {}),
-        )
-        ready.countDown()
+        capturingLog(logged) {
+            handle.set(
+                cli().stats("web", { sample ->
+                    ready.await(5, TimeUnit.SECONDS)
+                    samples += sample.cpuPercent
+                    handle.get().close()
+                }, {}),
+            )
+            ready.countDown()
+            waitForStreamClosed(logged)
+        }
 
-        waitFor { samples.isNotEmpty() }
-        // No signal tells that no more samples will come; the reader ends right after the CLI.
-        Thread.sleep(200)
         assertEquals(listOf(0.01), samples)
         assertEquals(listOf("stats --format json web"), calls())
     }
@@ -546,19 +531,20 @@ class ProcessDockerCliTest {
         val events = CopyOnWriteArrayList<String>()
         val handle = AtomicReference<AutoCloseable>()
         val ready = CountDownLatch(1)
+        val logged = CopyOnWriteArrayList<String>()
 
-        handle.set(
-            cli("MANY_EVENTS" to "1").events({ event ->
-                ready.await(5, TimeUnit.SECONDS)
-                events += event.action
-                handle.get().close()
-            }, {}),
-        )
-        ready.countDown()
+        capturingLog(logged) {
+            handle.set(
+                cli("MANY_EVENTS" to "1").events({ event ->
+                    ready.await(5, TimeUnit.SECONDS)
+                    events += event.action
+                    handle.get().close()
+                }, {}),
+            )
+            ready.countDown()
+            waitForStreamClosed(logged)
+        }
 
-        waitFor { events.isNotEmpty() }
-        // No signal tells that no more events will come; the reader ends right after the CLI.
-        Thread.sleep(200)
         assertEquals(1, events.size)
     }
 
@@ -609,10 +595,10 @@ class ProcessDockerCliTest {
     }
 
     @Test
-    fun `a pull may outlive its output without a time limit`() {
+    fun `a pull that goes on after closing its output still ends normally`() {
         val lines = mutableListOf<String>()
 
-        cli().pull("late:1") { lines += it }
+        bounded { cli().pull("late:1") { lines += it } }
 
         assertEquals(listOf("Pulling"), lines)
     }
@@ -650,6 +636,43 @@ class ProcessDockerCliTest {
         assertTrue(ended.await(5, TimeUnit.SECONDS))
         assertEquals(listOf("start"), actions)
     }
+
+    /** Runs [block] with the messages of the processes' logger collected in [lines]. */
+    private fun capturingLog(
+        lines: MutableList<String>,
+        block: () -> Unit,
+    ) {
+        val logger =
+            java.util.logging.Logger
+                .getLogger("dev.sluide.docker.cli.DockerProcesses")
+        val handler =
+            object : java.util.logging.Handler() {
+                override fun publish(record: java.util.logging.LogRecord) {
+                    lines += record.message
+                }
+
+                override fun flush() {}
+
+                override fun close() {}
+            }
+        val level = logger.level
+        logger.level = java.util.logging.Level.ALL
+        logger.addHandler(handler)
+        try {
+            block()
+        } finally {
+            logger.removeHandler(handler)
+            logger.level = level
+        }
+    }
+
+    /** The reader logs "stream closed" once it is done, after the last delivery it could have made. */
+    private fun waitForStreamClosed(lines: List<String>) = waitFor { lines.any { "stream closed after" in it } }
+
+    /** A pull whose progress loop never ends (a mutant that loses the end marker) fails instead of hanging. */
+    private fun <T> bounded(block: () -> T): T =
+        org.junit.jupiter.api.Assertions
+            .assertTimeoutPreemptively(java.time.Duration.ofSeconds(30), block)
 
     private fun assertGone(pid: Long) {
         ProcessHandle.of(pid).ifPresent { it.onExit().get(5, TimeUnit.SECONDS) }
