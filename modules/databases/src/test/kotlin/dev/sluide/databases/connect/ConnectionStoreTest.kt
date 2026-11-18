@@ -209,6 +209,17 @@ class ConnectionStoreTest {
     }
 
     @Test
+    fun `a databases field without connections keeps its other keys on save`() {
+        storeDatabases("""{"future":1}""")
+
+        assertTrue(store.save(projectFolder, listOf(minimal)))
+
+        val databases = data.read(projectFolder)!!.get("databases")
+        assertEquals(1, databases.get("future").intValue())
+        assertEquals(listOf(minimal), store.load(projectFolder))
+    }
+
+    @Test
     fun `a databases field that is no object is replaced on save`() {
         storeDatabases("[1]")
 

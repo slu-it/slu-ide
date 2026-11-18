@@ -147,4 +147,43 @@ class JdbcUrlsTest {
         assertEquals("jdbc:mariadb://h/db", JdbcUrls.display(maria.copy(customUrl = "jdbc:mariadb://u:pa?ss@h/db")))
         assertEquals("jdbc:mariadb://h/db", JdbcUrls.display(maria.copy(customUrl = "jdbc:mariadb://a@h/db?user=u")))
     }
+
+    @Test
+    fun `a blank ca file sets no ssl certificate property`() {
+        assertNull(JdbcUrls.properties(pg.copy(caFile = "  "), null).getProperty("sslrootcert"))
+        assertNull(JdbcUrls.properties(maria.copy(caFile = "  "), null).getProperty("serverSslCert"))
+    }
+
+    @Test
+    fun `a blank custom url does not stop MariaDB from getting the database property`() {
+        assertEquals("shop", JdbcUrls.properties(maria.copy(customUrl = "  "), null).getProperty("database"))
+    }
+
+    @Test
+    fun `PostgreSQL compares the ssl keys of the driver properties case-sensitively`() {
+        val props = JdbcUrls.properties(pg.copy(driverProperties = mapOf("SSLMODE" to "x")), null)
+
+        assertEquals("x", props.getProperty("SSLMODE"))
+        assertEquals("prefer", props.getProperty("sslmode"))
+    }
+
+    @Test
+    fun `display of a blank custom url shows the generated one`() {
+        assertEquals("app@localhost:5432/shop", JdbcUrls.display(pg.copy(customUrl = "  ")))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "sqlite:file.db?mode=ro,sqlite:file.db",
+        "foo;user=x,foo",
+        "//u:p@host?x,//host",
+        "jdbc:postgresql://host:5432/db?x=1,jdbc:postgresql://host:5432/db",
+        "jdbc:mariadb://h:3306;x=1,jdbc:mariadb://h:3306",
+    )
+    fun `display of a custom url without credentials cuts the query`(
+        custom: String,
+        expected: String,
+    ) {
+        assertEquals(expected, JdbcUrls.display(pg.copy(customUrl = custom)))
+    }
 }

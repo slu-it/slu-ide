@@ -3,6 +3,7 @@ package dev.sluide.databases.connect
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class PasswordCacheTest {
@@ -50,5 +51,16 @@ class PasswordCacheTest {
         assertContentEquals("two".toCharArray(), cache.get(null, "a"))
         assertNull(cache.get(folder, "b"))
         assertNull(cache.get(Path.of("/work/other"), "a"))
+    }
+
+    @Test
+    fun `forgetting a password that is not cached does nothing`() {
+        cache.put(folder, "a", "secret".toCharArray())
+
+        cache.forget(folder, "b")
+        cache.forget(null, "a")
+
+        assertContentEquals("secret".toCharArray(), cache.get(folder, "a"))
+        assertEquals(emptyList(), zeroed)
     }
 }
