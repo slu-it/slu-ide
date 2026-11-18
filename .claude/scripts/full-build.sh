@@ -50,6 +50,8 @@ status=0
 ./gradlew build -q "$@" || status=$?
 "$root/.claude/scripts/check-docs-index.sh" || status=$((status == 0 ? 1 : status))
 "$root/.claude/scripts/check-unused-imports.sh" || status=$((status == 0 ? 1 : status))
+# The unit tests of mutation-check.sh's pure parts.
+python3 -I "$root/.claude/scripts/test_mutation_check.py" || status=$((status == 0 ? 1 : status))
 # Report only: the totals line of check-tests.sh, the findings are listed by running it alone.
 "$root/.claude/scripts/check-tests.sh" | tail -n 1 || true
 # Report only: production files over the size limit of ADR 0054 (a round once pushed MainWindow to 601 lines).
