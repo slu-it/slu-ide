@@ -313,23 +313,26 @@ class ProcessDockerCliTest {
         val events = CopyOnWriteArrayList<DockerEvent>()
         val ends = CopyOnWriteArrayList<Throwable?>()
         val first = CountDownLatch(1)
+        val logged = CopyOnWriteArrayList<String>()
 
-        val stream =
-            cli().events({
-                events += it
-                first.countDown()
-            }, { ends += it })
-        assertTrue(first.await(5, TimeUnit.SECONDS))
-        assertEquals(listOf("container start web"), events.map { "${it.type} ${it.action} ${it.name}" })
-        waitFor { pidFile.exists() && pidFile.readText().isNotBlank() }
-        val pid = pidFile.readText().trim().toLong()
+        capturingLog(logged) {
+            val stream =
+                cli().events({
+                    events += it
+                    first.countDown()
+                }, { ends += it })
+            assertTrue(first.await(5, TimeUnit.SECONDS))
+            assertEquals(listOf("container start web"), events.map { "${it.type} ${it.action} ${it.name}" })
+            waitFor { pidFile.exists() && pidFile.readText().isNotBlank() }
+            val pid = pidFile.readText().trim().toLong()
 
-        stream.close()
+            stream.close()
 
-        ProcessHandle.of(pid).ifPresent { it.onExit().get(5, TimeUnit.SECONDS) }
-        assertFalse(ProcessHandle.of(pid).map { it.isAlive }.orElse(false), "the CLI is gone")
-        // No signal tells that onEnd will not come; the reader ends right after the CLI.
-        Thread.sleep(200)
+            ProcessHandle.of(pid).ifPresent { it.onExit().get(5, TimeUnit.SECONDS) }
+            assertFalse(ProcessHandle.of(pid).map { it.isAlive }.orElse(false), "the CLI is gone")
+            // The reader logs "closed" when it is done, after the last point at which onEnd could have been called.
+            waitForStreamClosed(logged)
+        }
         assertEquals(emptyList(), ends)
     }
 
@@ -371,22 +374,25 @@ class ProcessDockerCliTest {
         val ends = CopyOnWriteArrayList<Throwable?>()
         val handle = AtomicReference<AutoCloseable>()
         val opened = CountDownLatch(1)
+        val logged = CopyOnWriteArrayList<String>()
 
-        // The CLI prints 5000 lines at once; the first one closes the stream, the rest sits in the pipe and buffer.
-        handle.set(
-            cli().logs("many", null, { line ->
-                opened.await(5, TimeUnit.SECONDS)
-                lines += line
-                if (lines.size == 1) handle.get().close()
-            }, { ends += it }),
-        )
-        opened.countDown()
+        capturingLog(logged) {
+            // The CLI prints 5000 lines at once; the first one closes the stream, the rest sits in the pipe and buffer.
+            handle.set(
+                cli().logs("many", null, { line ->
+                    opened.await(5, TimeUnit.SECONDS)
+                    lines += line
+                    if (lines.size == 1) handle.get().close()
+                }, { ends += it }),
+            )
+            opened.countDown()
 
-        waitFor { lines.isNotEmpty() && pidFile.exists() && pidFile.readText().isNotBlank() }
-        val pid = pidFile.readText().trim().toLong()
-        ProcessHandle.of(pid).ifPresent { it.onExit().get(5, TimeUnit.SECONDS) }
-        // No signal tells that no more lines will come; the reader ends right after the CLI.
-        Thread.sleep(200)
+            waitFor { lines.isNotEmpty() && pidFile.exists() && pidFile.readText().isNotBlank() }
+            val pid = pidFile.readText().trim().toLong()
+            ProcessHandle.of(pid).ifPresent { it.onExit().get(5, TimeUnit.SECONDS) }
+            // The reader logs "closed" when it is done, after the last line it could have delivered.
+            waitForStreamClosed(logged)
+        }
         assertEquals(listOf("1"), lines)
         assertEquals(emptyList(), ends)
     }
@@ -667,7 +673,12 @@ class ProcessDockerCliTest {
     }
 
     /** The reader logs "stream closed" once it is done, after the last delivery it could have made. */
-    private fun waitForStreamClosed(lines: List<String>) = waitFor { lines.any { "stream closed after" in it } }
+    private fun waitForStreamClosed(lines: List<String>) {
+        // Only this test's stream started while the log was captured; a reader of an earlier test has another name.
+        waitFor { lines.any { " stream start " in it } }
+        val name = lines.first { " stream start " in it }.substringBefore(' ')
+        waitFor { lines.any { it.startsWith("$name stream closed after") } }
+    }
 
     /** A pull whose progress loop never ends (a mutant that loses the end marker) fails instead of hanging. */
     private fun <T> bounded(block: () -> T): T =

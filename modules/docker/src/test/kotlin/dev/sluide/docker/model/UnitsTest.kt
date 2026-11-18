@@ -4,6 +4,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -71,8 +72,8 @@ class UnitsTest {
     fun `Unix seconds beyond what an Instant holds are no time, the last one that fits is`() {
         val last = Instant.MAX.epochSecond
 
-        assertEquals(Instant.MAX.truncatedTo(java.time.temporal.ChronoUnit.SECONDS), epochSeconds(last))
-        assertEquals(Instant.MAX.truncatedTo(java.time.temporal.ChronoUnit.SECONDS), parseTime("$last"))
+        assertEquals(Instant.MAX.truncatedTo(ChronoUnit.SECONDS), epochSeconds(last))
+        assertEquals(Instant.MAX.truncatedTo(ChronoUnit.SECONDS), parseTime("$last"))
         assertNull(epochSeconds(last + 1))
         assertNull(epochSeconds(Long.MAX_VALUE))
         assertNull(parseTime("9000000000000000000"))
