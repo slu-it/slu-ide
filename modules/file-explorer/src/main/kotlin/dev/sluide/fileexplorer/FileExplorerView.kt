@@ -9,6 +9,7 @@ import dev.sluide.fileexplorer.actions.ExplorerMenuHost
 import dev.sluide.fileexplorer.actions.ExplorerMoves
 import dev.sluide.fileexplorer.actions.MoveQuestion
 import dev.sluide.fileexplorer.actions.askForName
+import dev.sluide.fileexplorer.actions.askForTextName
 import dev.sluide.fileexplorer.actions.askToCopy
 import dev.sluide.fileexplorer.actions.askToDelete
 import dev.sluide.fileexplorer.actions.askToMove
@@ -38,6 +39,8 @@ import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
+import dev.sluide.texttypes.TextType
+import dev.sluide.texttypes.TextTypeDetector
 import javafx.application.Platform
 import javafx.beans.InvalidationListener
 import javafx.beans.Observable
@@ -190,6 +193,19 @@ class FileExplorerView(
      */
     internal var askImageName: (initial: String, validate: (String) -> String?, note: (String) -> String?) -> String? =
         { initial, validate, note -> askForName(scene?.window, "Paste Image", initial, validate, note) }
+
+    /**
+     * Asks for the name and type of pasted text like [askImageName]: the final name or `null`; tests replace it, since
+     * it blocks.
+     */
+    internal var askTextName: (initialName: String, detected: TextType, folder: Path) -> String? =
+        { initial, detected, folder -> askForTextName(scene?.window, initial, detected, folder) }
+
+    /**
+     * Names the type of pasted text (ADR 0188), read when a paste runs. `ide` sets it with the data detection of
+     * Converting; this default knows the built-in rules only.
+     */
+    var textTypes: TextTypeDetector = TextTypeDetector()
 
     /** Shows an error message and waits until it is closed; tests replace it, since it blocks. */
     internal var showError: (String) -> Unit = { showAlert(scene?.window, Alert.AlertType.ERROR, it) }

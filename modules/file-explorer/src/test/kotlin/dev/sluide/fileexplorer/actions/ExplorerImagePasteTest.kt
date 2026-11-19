@@ -253,23 +253,6 @@ class ExplorerImagePasteTest {
         ExplorerImagePaste(fake.host, { clipboard }, fake.clock, create)
     }
 
-    /** A file that is created, then fails when written: the disk is full or goes away. */
-    private fun failingStream(failure: () -> Throwable): (Path) -> OutputStream =
-        { file ->
-            val real = Files.newOutputStream(file, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
-            object : OutputStream() {
-                override fun write(b: Int) = throw failure()
-
-                override fun write(
-                    b: ByteArray,
-                    off: Int,
-                    len: Int,
-                ) = throw failure()
-
-                override fun close() = real.close()
-            }
-        }
-
     @Test
     fun `no image on the clipboard asks nothing and shows nothing`() {
         open()

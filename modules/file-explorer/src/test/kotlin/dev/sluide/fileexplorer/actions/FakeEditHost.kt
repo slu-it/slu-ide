@@ -7,9 +7,13 @@ import dev.sluide.fileexplorer.UnreadableClipboardImage
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.TreeSearchFilter
 import dev.sluide.fileexplorer.tree.expandTo
+import dev.sluide.texttypes.TextType
+import dev.sluide.texttypes.TextTypeDetector
 import javafx.scene.control.TreeItem
+import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -53,6 +57,13 @@ internal class FakeEditHost(
     /** Answers the image name question; gets the default name, may change the disk first. */
     var answerImageName: (String) -> String? = { it }
     val imageNameAsks = mutableListOf<NameAsk>()
+
+    /** Answers the text name question with the final name; by default the offered name with the detected extension. */
+    var answerTextName: (TextNameAsk) -> String? = { ask -> finalTextName(ask.initialName, ask.detected) }
+    val textNameAsks = mutableListOf<TextNameAsk>()
+
+    /** The detector the text paste uses, with the built-in rules only; tests replace it. */
+    var textTypes = TextTypeDetector()
     val moved = mutableListOf<Pair<Path, Path>>()
     val deleted = mutableListOf<Pair<Path, List<Path>>>()
     val opened = mutableListOf<Path>()
@@ -74,6 +85,12 @@ internal class FakeEditHost(
         val note: (String) -> String? = { null },
     )
 
+    class TextNameAsk(
+        val initialName: String,
+        val detected: TextType,
+        val folder: Path,
+    )
+
     val host =
         ExplorerEditHost(
             projectItem = { projectItem },
@@ -84,6 +101,11 @@ internal class FakeEditHost(
             askImageName = { initial, validate, note ->
                 imageNameAsks += NameAsk("Paste Image", initial, validate, note)
                 answerImageName(initial)
+            },
+            askTextName = { initialName, detected, folder ->
+                val ask = TextNameAsk(initialName, detected, folder)
+                textNameAsks += ask
+                answerTextName(ask)
             },
             showError = { errors += it },
             showInfo = { infos += it },
@@ -228,3 +250,20 @@ internal class FakeClipboardFiles : ClipboardFiles {
         content = null
     }
 }
+
+/** A file that is created, then fails when written: the disk is full or goes away. */
+internal fun failingStream(failure: () -> Throwable): (Path) -> OutputStream =
+    { file ->
+        val real = Files.newOutputStream(file, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
+        object : OutputStream() {
+            override fun write(b: Int) = throw failure()
+
+            override fun write(
+                b: ByteArray,
+                off: Int,
+                len: Int,
+            ) = throw failure()
+
+            override fun close() = real.close()
+        }
+    }

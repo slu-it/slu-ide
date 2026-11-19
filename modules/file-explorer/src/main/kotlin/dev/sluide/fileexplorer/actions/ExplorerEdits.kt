@@ -3,6 +3,7 @@ package dev.sluide.fileexplorer.actions
 import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.sourceRows
+import dev.sluide.texttypes.TextType
 import javafx.scene.control.TreeItem
 import java.io.IOException
 import java.io.UncheckedIOException
@@ -21,6 +22,11 @@ internal class ExplorerEditHost(
     val askName: (title: String, initial: String, validate: (String) -> String?) -> String?,
     /** Asks for the name of a pasted image (ADR 0167): like [askName], with a note shown below the field. */
     val askImageName: (initial: String, validate: (String) -> String?, note: (String) -> String?) -> String?,
+    /**
+     * Asks for the name and type of pasted text (ADR 0188): the final name, name and extension, or `null` if
+     * cancelled. Gets the offered base name, the type detected for the text and the folder the file goes into.
+     */
+    val askTextName: (initialName: String, detected: TextType, folder: Path) -> String?,
     val showError: (String) -> Unit,
     val showInfo: (String) -> Unit,
     val confirmDelete: (DeleteQuestion) -> Boolean,
