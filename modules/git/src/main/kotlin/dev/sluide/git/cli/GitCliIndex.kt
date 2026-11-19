@@ -49,9 +49,12 @@ internal fun GitCli.otherPaths(root: Path): List<String>? = listFiles(root, "--o
 /**
  * The paths of the repository at [root] whose index differs from `HEAD` ([staged]) or whose working-tree file
  * differs from the index (not [staged]): `git diff [--cached HEAD] --name-only -z --no-renames`, each path of a
- * rename on its own, without unmerged paths (`--diff-filter=u`, their stages come from commits) and without
- * submodules that differ only by changes inside their checkout (`--ignore-submodules=dirty`); `null` if git is not
- * available, fails (also without a `HEAD` commit for [staged]) or takes longer than 10 s.
+ * rename on its own, and without submodules that differ only by changes inside their checkout
+ * (`--ignore-submodules=dirty`); `null` if git is not available, fails (also without a `HEAD` commit for [staged]) or takes longer than 10 s.
+ *
+ * An unmerged path (a conflict): never for [staged], its stages come from commits. For the working tree git prints a
+ * `U` record and an `M` record for it (stage 2, ours, against the file); `--diff-filter=u` drops only the `U` one, so
+ * it is listed while its file differs from ours, and not after `git checkout --ours`.
  */
 internal fun GitCli.changedPaths(
     root: Path,
