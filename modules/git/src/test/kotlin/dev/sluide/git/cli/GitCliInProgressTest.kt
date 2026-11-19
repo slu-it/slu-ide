@@ -1,7 +1,13 @@
 package dev.sluide.git.cli
 
+import dev.sluide.git.GitInProgress
+import dev.sluide.git.GitOperation
+import dev.sluide.git.GitPendingConflicts
 import dev.sluide.git.GitPendingMerge
+import dev.sluide.git.GitPendingOperation
+import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPendingRebase
+import dev.sluide.git.GitPick
 import dev.sluide.git.failingGit
 import dev.sluide.git.testGitEnvironment
 import dev.sluide.git.unavailableGit
@@ -9,6 +15,7 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -231,5 +238,173 @@ class GitCliInProgressTest {
         assertEquals(0, git.mergeCount(repo, "refs/heads/topic"))
         assertNull(failingGit(folder, "rev-list").mergeCount(repo, "refs/heads/topic"))
         assertNull(GitCli(folder.resolve("no-such-git").toString(), testGitEnvironment()).mergeCount(repo, "x"))
+    }
+
+    private val gitDirectory get() = repo.resolve(".git")
+
+    /** The state of a git that is in the middle of nothing, but for what [setUp] adds. */
+    private fun inProgress(
+        git: GitCli = this.git,
+        setUp: () -> Unit = {},
+    ): Result<GitInProgress?> {
+        setUp()
+        return git.inProgress(repo)
+    }
+
+    /** Conflicts in `file.txt`: main and `other` change it differently; returns the commit of `other`. */
+    private fun conflicting(): String {
+        commit("base")
+        git("switch", "-q", "-c", "other")
+        val other = commit("other")
+        git("switch", "-q", "main")
+        commit("main")
+        return other
+    }
+
+    private fun stops(vararg arguments: String) {
+        val process =
+            ProcessBuilder(listOf("git") + arguments)
+                .directory(repo.toFile())
+                .redirectErrorStream(true)
+                .apply {
+                    environment().clear()
+                    environment().putAll(testGitEnvironment())
+                }.start()
+        process.outputStream.close()
+        process.inputStream.readAllBytes()
+        assertTrue(process.waitFor() != 0, "git ${arguments.joinToString(" ")} stops")
+    }
+
+    @Test
+    fun `nothing is in progress in a clean repository, and git that cannot be read is a failure`() {
+        commit("base")
+
+        assertEquals(Result.success(null), inProgress())
+        assertTrue(inProgress(unavailableGit(folder)).isFailure)
+        assertTrue(inProgress(failingGit(folder, "rev-parse")).isFailure)
+    }
+
+    @Test
+    fun `a rebase with the merge backend is read from rebase-merge`() {
+        commit("base")
+        val rebaseMerge = gitDirectory.resolve("rebase-merge").createDirectories()
+        rebaseMerge.resolve("msgnum").writeText("2\n")
+        rebaseMerge.resolve("end").writeText("4\n")
+        gitDirectory
+            .resolve("rebase-apply")
+            .createDirectories()
+            .resolve("next")
+            .writeText("7\n")
+
+        assertEquals(
+            Result.success(GitPendingRebase(null, null, null, 2, 4, emptyList())),
+            inProgress(),
+        )
+    }
+
+    @Test
+    fun `a rebase with the apply backend is read from rebase-apply, git am is not a rebase`() {
+        commit("base")
+        val rebaseApply = gitDirectory.resolve("rebase-apply").createDirectories()
+        rebaseApply.resolve("next").writeText("3\n")
+        rebaseApply.resolve("last").writeText("5\n")
+        rebaseApply.resolve("msgnum").writeText("9\n")
+
+        assertEquals(Result.success(GitPendingRebase(null, null, null, 3, 5, emptyList())), inProgress())
+
+        rebaseApply.resolve("applying").writeText("")
+
+        assertEquals(Result.success(GitPendingOperation(GitOperation.AM)), inProgress())
+    }
+
+    @Test
+    fun `a rebase whose unmerged paths cannot be read is a failure`() {
+        commit("base")
+        gitDirectory.resolve("rebase-merge").createDirectories()
+
+        assertTrue(inProgress(failingGit(folder, "ls-files")).isFailure)
+    }
+
+    @Test
+    fun `a merge is read from MERGE_HEAD, git am wins over it`() {
+        val head = commit("base")
+        gitDirectory.resolve("MERGE_HEAD").writeText("$head\n")
+        gitDirectory.resolve("MERGE_MSG").writeText("Merge branch 'x'\n")
+
+        assertEquals(Result.success(GitPendingMerge(listOf(head), "Merge branch 'x'", emptyList())), inProgress())
+        assertTrue(inProgress(failingGit(folder, "ls-files")).isFailure)
+
+        gitDirectory
+            .resolve("rebase-apply")
+            .createDirectories()
+            .resolve("applying")
+            .writeText("")
+
+        assertEquals(Result.success(GitPendingOperation(GitOperation.AM)), inProgress())
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "pick abc subject,CHERRY_PICK_SEQUENCE",
+        "p abc subject,CHERRY_PICK_SEQUENCE",
+        "revert abc subject,REVERT_SEQUENCE",
+        "'  pick abc',CHERRY_PICK_SEQUENCE",
+        "edit abc,SEQUENCE",
+        "r abc,SEQUENCE",
+        "pickabc,SEQUENCE",
+    )
+    fun `a sequence is a cherry-pick or a revert as its first instruction says`(
+        todo: String,
+        expected: GitOperation,
+    ) {
+        commit("base")
+        gitDirectory
+            .resolve(
+                "sequencer",
+            ).createDirectories()
+            .resolve("todo")
+            .writeText("\n# a comment\n   \n$todo\nrevert zzz\n")
+
+        assertEquals(Result.success(GitPendingOperation(expected)), inProgress())
+    }
+
+    @Test
+    fun `a sequence without a readable todo list, or only comments, is a sequence of unknown kind`() {
+        commit("base")
+        val sequencer = gitDirectory.resolve("sequencer").createDirectories()
+
+        assertEquals(Result.success(GitPendingOperation(GitOperation.SEQUENCE)), inProgress())
+
+        sequencer.resolve("todo").writeText("# only\n  # comments\n\n")
+
+        assertEquals(Result.success(GitPendingOperation(GitOperation.SEQUENCE)), inProgress())
+    }
+
+    @Test
+    fun `a stopped cherry-pick and a stopped revert are read with their conflicts`() {
+        val other = conflicting()
+        stops("cherry-pick", other)
+
+        assertEquals(Result.success(GitPendingPick(GitPick.CHERRY_PICK, other, listOf("file.txt"))), inProgress())
+
+        git("cherry-pick", "--abort")
+        val main = git("rev-parse", "HEAD")
+        stops("revert", "HEAD~1")
+
+        assertEquals(
+            Result.success(GitPendingPick(GitPick.REVERT, git("rev-parse", "HEAD~1"), listOf("file.txt"))),
+            inProgress(),
+        )
+        assertEquals(main, git("rev-parse", "HEAD"))
+        assertTrue(inProgress(failingGit(folder, "ls-files")).isFailure)
+    }
+
+    @Test
+    fun `conflicts of nothing else in progress are pending conflicts`() {
+        val other = conflicting()
+        stops("merge", "--squash", other)
+
+        assertEquals(Result.success(GitPendingConflicts(listOf("file.txt"))), inProgress())
+        assertTrue(inProgress(failingGit(folder, "ls-files")).isFailure)
     }
 }

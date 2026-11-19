@@ -5,6 +5,7 @@ import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 
 /** A repository in [root] that tests change with the real git, to read it with the wrappers of [GitCli]. */
 internal class TestRepository(
@@ -21,6 +22,15 @@ internal class TestRepository(
     fun git(
         vararg arguments: String,
         input: String? = null,
+    ): String = run(arguments, input, expectedExit = 0)
+
+    /** Runs git that is meant to stop with an exit value other than 0 (a conflict); its output, trimmed. */
+    fun gitStops(vararg arguments: String): String = run(arguments, null, expectedExit = null)
+
+    private fun run(
+        arguments: Array<out String>,
+        input: String?,
+        expectedExit: Int?,
     ): String {
         val process =
             ProcessBuilder(listOf("git") + arguments)
@@ -32,7 +42,12 @@ internal class TestRepository(
                 }.start()
         process.outputStream.use { stdin -> input?.let { stdin.write(it.toByteArray(Charsets.UTF_8)) } }
         val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
+        val exit = process.waitFor()
+        if (expectedExit == null) {
+            assertNotEquals(0, exit, "git ${arguments.joinToString(" ")}: $output")
+        } else {
+            assertEquals(expectedExit, exit, "git ${arguments.joinToString(" ")}: $output")
+        }
         return output.trim()
     }
 
