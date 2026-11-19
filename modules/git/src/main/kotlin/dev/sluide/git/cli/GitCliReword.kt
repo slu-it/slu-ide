@@ -3,6 +3,7 @@ package dev.sluide.git.cli
 import dev.sluide.git.GitResult
 import java.io.ByteArrayOutputStream
 import java.nio.file.Path
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -80,14 +81,17 @@ internal fun GitCli.stripSpace(
  * GIT_COMMITTER_IDENT`: `Name <email> <seconds> <zone>`), as git gives its bytes; a failure with git's message if it
  * cannot tell (no identity configured, e.g.).
  */
-internal fun GitCli.committerIdent(root: Path): Result<ByteArray> {
+internal fun GitCli.committerIdent(
+    root: Path,
+    timeout: Duration = GitCli.WRITE_TIMEOUT,
+): Result<ByteArray> {
     fun failed(message: String) = Result.failure<ByteArray>(IllegalStateException(message))
     if (!available) return failed("git is not available.")
     // As a write, which keeps git's whole message; it changes nothing.
     val execution =
-        execute(listOf("var", "GIT_COMMITTER_IDENT"), root, GitCli.WRITE_TIMEOUT, null, write = true)
+        execute(listOf("var", "GIT_COMMITTER_IDENT"), root, timeout, null, write = true)
             ?: return failed("git could not be run.")
-    val exitValue = execution.exitValue ?: return failed(timedOut(GitCli.WRITE_TIMEOUT, writesFiles = false))
+    val exitValue = execution.exitValue ?: return failed(timedOut(timeout, writesFiles = false))
     val ident = execution.output.dropLastWhile { it == NEWLINE }.toByteArray()
     if (exitValue == 0 && execution.complete && ident.isNotEmpty()) return Result.success(ident)
     val message = withoutHints(execution.errors.toString(Charsets.UTF_8).trim())
