@@ -22,6 +22,13 @@ class TextPositionTest {
     }
 
     @Test
+    fun `an empty line is skipped like any other`() {
+        assertEquals(1, TextPosition(1, 0).offsetIn("\nab"))
+        assertEquals(3, TextPosition(1, 5).offsetIn("\nab"))
+        assertEquals(2, TextPosition(2, 0).offsetIn("\n\nab"))
+    }
+
+    @Test
     fun `rejects blank and other input`() {
         assertNull(parseGoTo("", 10))
         assertNull(parseGoTo("  ", 10))

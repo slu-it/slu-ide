@@ -27,6 +27,12 @@ class LineEndingTest {
     }
 
     @Test
+    fun `a CR and an LF alone tie to LF`() {
+        assertEquals(LineEnding.LF, LineEnding.of("a\rb\n"))
+        assertEquals(LineEnding.LF, LineEnding.of("a\nb\r"))
+    }
+
+    @Test
     fun `normalizes all endings to LF`() {
         assertEquals("a\nb\nc\nd", LineEnding.normalize("a\r\nb\rc\nd"))
     }

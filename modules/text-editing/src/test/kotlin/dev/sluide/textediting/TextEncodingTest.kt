@@ -37,12 +37,28 @@ class TextEncodingTest {
     }
 
     @Test
+    fun `decodes leniently as decodeText does when it can`() {
+        assertEquals("ä€", decodeTextLeniently("ä€".toByteArray()))
+        assertEquals("", decodeTextLeniently(ByteArray(0)))
+    }
+
+    @Test
     fun `UTF-8 and Windows-1252 samples are text`() {
         assertTrue(
             isTextSample("fun main() = println(\"Grüße ✓\")\r\n\t\u000C\u001B[0m".toByteArray(), complete = true),
         )
         assertTrue(isTextSample(bytes(0x47, 0x72, 0xFC, 0x65, 0x0A), complete = true))
         assertTrue(isTextSample(ByteArray(0), complete = true))
+    }
+
+    @Test
+    fun `the control bytes are 0x01 to 0x1F, except tab, line feed, form feed, carriage return and escape`() {
+        for (control in 0x01..0x1F) {
+            val expected = control in setOf(0x09, 0x0A, 0x0C, 0x0D, 0x1B)
+            assertEquals(expected, isTextSample(bytes(0xE4, control), complete = true), "0x${control.toString(16)}")
+        }
+        assertTrue(isTextSample(bytes(0xE4, 0x20), complete = true))
+        assertTrue(isTextSample(bytes(0xE4, 0x7F), complete = true))
     }
 
     @Test

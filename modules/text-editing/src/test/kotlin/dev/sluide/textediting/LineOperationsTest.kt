@@ -45,6 +45,13 @@ class LineOperationsTest {
     }
 
     @Test
+    fun `the caret goes to the end of a shorter line that takes the place of the deleted last line`() {
+        assertEquals("x\nab|", delete("x\nab\ncdefg|"))
+        assertEquals("x\nabc|", delete("x\nabc\nxyz|"))
+        assertEquals("x\na|bc", delete("x\nabc\nx|yz"))
+    }
+
+    @Test
     fun `does not delete in an empty text`() {
         assertNull(delete("|"))
     }
@@ -61,6 +68,12 @@ class LineOperationsTest {
         assertEquals("b\na|a\nc", down("a|a\nb\nc"))
         assertEquals("c\n^a\nb|\n", down("^a\nb|\nc\n"))
         assertEquals("b\n^a\n|c", down("^a\n|b\nc"))
+    }
+
+    @Test
+    fun `moves a line in the middle of a longer text`() {
+        assertEquals("a\nc|\nb\nd", up("a\nb\nc|\nd"))
+        assertEquals("a\nc\nb|\nd", down("a\nb|\nc\nd"))
     }
 
     @Test
