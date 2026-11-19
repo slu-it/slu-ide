@@ -110,6 +110,28 @@ internal class EnvEditorTest {
     }
 
     @Test
+    fun `removes an object, which has no owner, from every file that holds a part of it`() {
+        val document =
+            EnvDocument(
+                """{"dev": {"both": {"a": 1}, "pub": {"b": 2}, "keep": 1}}""",
+                """{"dev": {"both": {"c": 3}, "priv": {"d": 4}}}""",
+            )
+
+        assertEquals(
+            edit("""{ "dev": { "pub": { "b": 2 }, "keep": 1 } }""", """{ "dev": { "priv": { "d": 4 } } }"""),
+            document.remove("dev", path("both")),
+        )
+        assertEquals(
+            edit("""{ "dev": { "both": { "a": 1 }, "keep": 1 } }""", null),
+            document.remove("dev", path("pub")),
+        )
+        assertEquals(
+            edit(null, """{ "dev": { "both": { "c": 3 } } }"""),
+            document.remove("dev", path("priv")),
+        )
+    }
+
+    @Test
     fun `removes a list below merged objects from the file it comes from only when it is an entry of it`() {
         val document =
             EnvDocument("""{"dev": {"db": {"roles": [1, 2], "a": 1}}}""", """{"dev": {"db": {"roles": [3, 4]}}}""")
@@ -138,6 +160,13 @@ internal class EnvEditorTest {
         assertEquals(
             edit(null, """{ "dev": { "Security": { "Auth": { "api": { "Type": "5" } } } } }"""),
             inPrivate.setType(path("Security", "Auth", "api", "Type"), ValueType.TEXT),
+        )
+        // Objects have no owner, so the file that holds one alone decides, not the row's default file.
+        val objectInPublic =
+            EnvDocument("""{"dev": {"Security": {"Auth": {"api": {"Client Secret": {"a": 1}}}}}}""", null)
+        assertEquals(
+            edit("""{ "dev": { "Security": { "Auth": { "api": { "Client Secret": "" } } } } }""", null),
+            objectInPublic.setType(secret, ValueType.TEXT),
         )
     }
 
