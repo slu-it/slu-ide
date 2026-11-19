@@ -120,8 +120,6 @@ A behavior is tested once, at the lowest level that can see it
   mutation visibly makes a loop endless or an allocation unbounded; name that per timeout. Not mutated (accepted gaps):
   removing an inlined `filter { }` (its predicate always true), `close()`, an inline function of ours used only from
   another package or module (0 mutants on its lines).
-  The sandbox's default locale is not UTF-8, so `LspUrisTest`'s Unicode cases are skipped there and a mutation run reports
-  `LspUris` survivors; run it with `LC_ALL=C.UTF-8` (CI has a UTF-8 locale).
 - `.claude/scripts/check-tests.sh [files]` reports fixed sleeps without a reason (poll intervals inside a `while`
   loop do not count), synthetic OS input without a `//` reason, `waitForFxEvents()` right after `interact` and test
   classes over 800 lines; a hook runs it on newly written test code. `.claude/scripts/test-times.sh` lists task
@@ -257,6 +255,8 @@ CI once.
   For a real translation, link the pair folders of `~/.sluide/models/opus-mt/` (`de-en`, ...) into
   `<home>/.sluide/models/opus-mt/`; a model the app downloads itself lands in the throwaway home and is gone after
   `--stop`. The catalog's URLs and sha256 values download them by hand (`curl -L`, then `sha256sum`).
+- **Locale:** CI has a UTF-8 locale, the sandbox's default is not: tests with Unicode file names (`LspUrisTest`) skip
+  those cases there, and a mutation run reports their survivors (`LspUris`). Run them with `LC_ALL=C.UTF-8`.
 
 ## Running and screenshotting the real app (headless Linux sandbox)
 A sandbox started from `sbxenv.yaml` (`sbx env run`) has JDK 25 and the packages these scripts need preinstalled by the

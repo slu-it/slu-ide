@@ -53,7 +53,8 @@ Files outside any project have per-file data too: scratch scripts in `~/.sluide/
   entries into the store, never overwriting a value already there). Before the first read or write of a store, once,
   the store loads each existing old file and hands its entries to the migration; the old file is deleted only when
   everything was written, otherwise (or if it cannot be read, or the migration fails or throws: logged, and the other
-  migrations still run) it is kept and the migration runs again at the next start. Running before the first access keeps a later migration from re-creating a project just removed.
+  migrations still run) it is kept and the migration runs again at the next start. Running before the first access
+  keeps a later migration from re-creating a project just removed.
   Implementations are beans of their own that do not inject `ProjectDataStore` (the store collects them, so that would
   be a circular reference); the store is handed to `migrate`.
 - **Locking:** every method holds the store's lock; the `change` functions of `update`/`updateFileData` and
