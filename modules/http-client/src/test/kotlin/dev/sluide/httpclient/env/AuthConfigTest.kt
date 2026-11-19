@@ -34,6 +34,12 @@ internal class AuthConfigTest {
     }
 
     @Test
+    fun `client credentials that are not given are basic without a problem`() {
+        assertEquals(ClientCredentials.BASIC, parse("{}").clientCredentials)
+        assertEquals(emptyList(), problems)
+    }
+
+    @Test
     fun `unknown client credentials give basic and a problem with the text as written`() {
         assertEquals(ClientCredentials.BASIC, parse("""{"Client Credentials": "Header"}""").clientCredentials)
         assertEquals(

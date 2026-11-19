@@ -241,7 +241,7 @@ internal class MultipartsTest {
                 Arguments.of("a delimiter that is longer", lines(*one.toTypedArray(), "--bb--")),
                 Arguments.of(
                     "a part that starts with its header instead of a delimiter",
-                    lines(NAME, "", "v", "--b--"),
+                    lines("junk", NAME, "", "v", "--b--"),
                 ),
                 Arguments.of(
                     "a file where the headers end",
