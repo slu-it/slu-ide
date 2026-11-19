@@ -5,6 +5,7 @@ import dev.sluide.codeintelligence.ui.DocSpan
 import org.eclipse.lsp4j.ParameterInformation
 import org.eclipse.lsp4j.SignatureHelp
 import org.eclipse.lsp4j.SignatureInformation
+import org.eclipse.lsp4j.jsonrpc.json.MessageJsonHandler
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple
 import org.junit.jupiter.api.Test
@@ -16,8 +17,8 @@ import kotlin.test.assertNull
 /** Which signature the popup shows, which characters of it are the active parameter, the count and the docs. */
 class SignatureLabelsTest {
     private fun offsets(
-        start: Int,
-        end: Int,
+        start: Int?,
+        end: Int?,
     ) = ParameterInformation().apply { label = Either.forRight(Tuple.two(start, end)) }
 
     @ParameterizedTest
@@ -62,18 +63,15 @@ class SignatureLabelsTest {
     }
 
     @Test
-    fun `a parameter label the JSON leaves without text, offsets or a start or end is none`() {
+    fun `a parameter label the JSON leaves null, empty or without a start or end is none`() {
+        val gson = MessageJsonHandler(emptyMap()).gson
+        val nullLabel = gson.fromJson("""{"label":null}""", ParameterInformation::class.java)
+        assertNull(parameterRange("(a)", nullLabel))
         assertNull(parameterRange("(a)", ParameterInformation()), "no label")
-        assertNull(parameterRange("(a)", ParameterInformation().apply { label = Either.forLeft(null) }))
         assertNull(parameterRange("(a)", ParameterInformation(""))) // empty
-        assertNull(parameterRange("(a, b)", offsetsOf(null, 3)))
-        assertNull(parameterRange("(a, b)", offsetsOf(1, null)))
+        assertNull(parameterRange("(a, b)", offsets(null, 3)))
+        assertNull(parameterRange("(a, b)", offsets(1, null)))
     }
-
-    private fun offsetsOf(
-        start: Int?,
-        end: Int?,
-    ) = ParameterInformation().apply { label = Either.forRight(Tuple.two(start, end)) }
 
     @Test
     fun `an answer the JSON leaves incomplete shows what it has`() {

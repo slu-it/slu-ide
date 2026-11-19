@@ -187,7 +187,7 @@ class UsagesFlowTest {
     }
 
     @Test
-    fun `an answer or an error for a binding that closed meanwhile shows nothing`() {
+    fun `an answer for a binding that closed meanwhile shows nothing`() {
         val editor = editor(caret = 17)
         server.holdReferences = true
         usagesAtCaret(editor)

@@ -4,6 +4,7 @@ import dev.sluide.codeintelligence.BoundEditor
 import dev.sluide.codeintelligence.FeatureServer
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.fileviewers.TextChange
+import dev.sluide.languageservers.ServerState
 import org.eclipse.lsp4j.ParameterInformation
 import org.eclipse.lsp4j.SignatureHelp
 import org.eclipse.lsp4j.SignatureHelpTriggerKind
@@ -258,7 +259,7 @@ class SignatureModelTest {
         open()
         type("1")
         bound.fx.onFx { model.viewHidden() }
-        assertFalse(model.isOpen)
+        assertFalse(bound.fx.onFx { model.isOpen })
         assertEquals(emptyList(), bound.timers.due, "the waiting request is dropped")
         assertEquals(0, view.hides, "it hid by itself")
 
@@ -270,7 +271,7 @@ class SignatureModelTest {
         bound.fx.onFx { model.viewHidden() }
         bound.server.signatures[1].answer(help)
         awaitTrue("shown") { bound.fx.onFx { view.shown.size } == 2 }
-        assertTrue(model.isOpen, "a hide of no popup does not drop the question on its way")
+        assertTrue(bound.fx.onFx { model.isOpen }, "a hide of no popup does not drop the question on its way")
 
         bound.fx.onFx { model.close() }
         assertEquals(1, view.hides)
@@ -330,7 +331,7 @@ class SignatureModelTest {
     }
 
     @Test
-    fun `typing while the server restarts and has no capabilities yet asks nothing`() {
+    fun `typing while the server restarts and has no capabilities yet asks nothing, not the new server either`() {
         setUp("f")
         bound.fx.onFx {
             bound.binding.session.restart()
@@ -338,5 +339,42 @@ class SignatureModelTest {
             bound.editor.typeAtCaret("(")
         }
         assertEquals(emptyList(), bound.timers.due)
+        awaitTrue("restarted") { bound.fx.fake.started.size == 2 }
+        awaitTrue("running") { bound.fx.onFx { bound.binding.session.state.value } == ServerState.Running }
+        bound.serverIdle()
+        assertEquals(
+            emptyList(),
+            (
+                bound.fx.fake.started
+                    .last() as FeatureServer
+            ).signatures,
+        )
+    }
+
+    /** A server whose trigger and retrigger lists hold a JSON null, which lsp4j parses into a null entry. */
+    private fun nullTriggerServer() =
+        FeatureServer(
+            signatureTriggers = listOf<String?>(null) as List<String>,
+            signatureRetriggers = listOf<String?>(null) as List<String>,
+        )
+
+    @Test
+    fun `a change nobody typed is not a trigger character even when the server lists a null one`() {
+        setUp("f", newServer = ::nullTriggerServer)
+        bound.fx.onFx { bound.editor.edit(0, 0, "x") }
+        bound.serverIdle()
+        assertEquals(emptyList(), bound.server.signatures)
+    }
+
+    @Test
+    fun `while open, a change nobody typed is not a retrigger character even when the server lists a null one`() {
+        setUp("f", newServer = ::nullTriggerServer)
+        assertTrue(bound.fx.onFx { model.invoke() })
+        asked(1).single().answer(help)
+        awaitTrue("shown") { bound.fx.onFx { view.shown.size } == 1 }
+        bound.fx.onFx { bound.editor.edit(0, 0, "x") }
+        bound.serverIdle()
+        assertEquals(1, bound.server.signatures.size, "it waits for the debounce")
+        assertEquals(1, bound.timers.due.size)
     }
 }

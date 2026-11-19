@@ -15,6 +15,9 @@ import org.eclipse.lsp4j.WorkspaceEdit
 import org.eclipse.lsp4j.jsonrpc.json.MessageJsonHandler
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.eclipse.lsp4j.jsonrpc.messages.Either3
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseMessage
+import org.eclipse.lsp4j.jsonrpc.services.ServiceEndpoints
+import org.eclipse.lsp4j.services.LanguageServer
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Path
@@ -172,12 +175,33 @@ class RenameModelTest {
         assertEquals(13 + 1, caretAfterRename(listOf(OffsetEdit(11, 14, "xx")), 13, 1, 5))
     }
 
+    /** What lsp4j's message parser (the one the connection uses) makes of a `prepareRename` result. */
+    private fun parsedPrepare(result: String): Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>? {
+        val handler =
+            MessageJsonHandler(LinkedHashMap(ServiceEndpoints.getSupportedMethods(LanguageServer::class.java)))
+        handler.setMethodProvider { "textDocument/prepareRename" }
+        val message = handler.parseMessage("""{"jsonrpc":"2.0","id":1,"result":$result}""") as ResponseMessage
+
+        @Suppress("UNCHECKED_CAST")
+        return message.result as Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>?
+    }
+
     @Test
-    fun `an answer the JSON leaves incomplete is refused`() {
-        val json = MessageJsonHandler(emptyMap()).gson
-        val withoutRange = json.fromJson("""{"placeholder":"run"}""", PrepareRenameResult::class.java)
-        assertEquals(PrepareAnswer.Refused, prepareAnswer(Either3.forSecond(withoutRange)), "a result without a range")
-        assertEquals(PrepareAnswer.Refused, prepareAnswer(Either3.forFirst(null)), "an answer of no kind")
+    fun `answers as lsp4j parses them from the server's JSON, also those that name no range`() {
+        val start = """{"line":1,"character":4}"""
+        val end = """{"line":1,"character":7}"""
+        assertEquals(
+            PrepareAnswer.At(range, "run"),
+            prepareAnswer(parsedPrepare("""{"range":{"start":$start,"end":$end},"placeholder":"run"}""")),
+        )
+        assertEquals(
+            PrepareAnswer.Refused,
+            prepareAnswer(parsedPrepare("""{"range":null,"placeholder":"run"}""")),
+            "a result without a range",
+        )
+        assertEquals(PrepareAnswer.Refused, prepareAnswer(parsedPrepare("""{"defaultBehavior":false}""")))
+        assertEquals(PrepareAnswer.WordAtCaret, prepareAnswer(parsedPrepare("""{"defaultBehavior":true}""")))
+        assertEquals(PrepareAnswer.Refused, prepareAnswer(parsedPrepare("null")))
     }
 
     @Test

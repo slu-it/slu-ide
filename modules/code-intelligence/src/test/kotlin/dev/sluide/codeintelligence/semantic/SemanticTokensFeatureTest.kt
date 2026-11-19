@@ -146,7 +146,7 @@ class SemanticTokensFeatureTest {
     }
 
     @Test
-    fun `a server that does not offer the tokens is asked once it registers them, and not after it unregisters`() {
+    fun `a server that does not offer the tokens is asked once it registers them, colours go on unregistering`() {
         open(serverWith(providerWithFull(false)))
         val server = harness.server
         harness.serverIdle()
@@ -177,7 +177,6 @@ class SemanticTokensFeatureTest {
         harness.serverIdle()
         assertEquals(2, server.tokenRequests.size, "an unrelated registration asks nothing")
         assertEquals(listOf(StyledRange(7, 8, "sem-parameter")), layer, "and keeps the colours")
-        assertEquals(listOf(StyledRange(7, 8, "sem-parameter")), layer, "and keeps the colours")
 
         server.client.unregisterCapability(UnregistrationParams(listOf(Unregistration("t", full)))).get()
         awaitTrue("colours gone") { layer == emptyList<StyledRange>() }
@@ -187,6 +186,9 @@ class SemanticTokensFeatureTest {
     fun `a server without a provider or a legend is not asked even when it registers the tokens`() {
         open(serverWith(null))
         registerFull()
+        harness.onFx { harness.editor.edit(0, 0, "#") }
+        // The waiting request ends quietly: an exception would come out of the delay's action here.
+        harness.run(delays)
         assertEquals(0, harness.server.tokenRequests.size, "no provider")
         harness.close()
 

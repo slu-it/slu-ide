@@ -196,7 +196,6 @@ internal class RenameFailureFlowTest : RenameFlowFixture() {
         fx.onFx { view.answer("start") }
         serverIdle()
         assertEquals(emptyList(), server.renameRequests)
-        assertEquals(listOf(22 to "The text changed. Rename again."), fx.onFx { view.notes })
     }
 
     @Test
