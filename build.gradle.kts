@@ -112,6 +112,20 @@ val nullAlsaConfigPath: String? =
 
 // Shared configuration for every Kotlin module (modules/*, ide and tools/*).
 subprojects {
+    // The test-only module (ADR 0186) is for tests: a dependency on it from a configuration that is not a test one
+    // (implementation, api, runtimeOnly, …) would put its helpers into the app, so the build refuses it.
+    configurations.configureEach {
+        val configurationName = name
+        if (!configurationName.startsWith("test")) {
+            dependencies.withType<ProjectDependency>().configureEach {
+                check(path != ":modules:test-support") {
+                    "${project.path} depends on :modules:test-support from `$configurationName`; " +
+                        "only test configurations may (ADR 0186)"
+                }
+            }
+        }
+    }
+
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
         val javaVersion =
             rootProject.libs.versions.java
