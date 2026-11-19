@@ -1,20 +1,35 @@
 package dev.sluide.httpclient.auth
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.httpclient.env.Environment
+import dev.sluide.httpclient.env.EnvironmentFiles
+import dev.sluide.httpclient.env.Environments
 import dev.sluide.httpclient.send.HttpClients
+import dev.sluide.httpclient.send.PassphraseAnswer
+import dev.sluide.httpclient.send.SslConfigException
 import dev.sluide.httpclient.send.SslContexts
+import dev.sluide.httpclient.send.TlsServer
+import org.junit.jupiter.api.io.TempDir
 import java.net.http.HttpClient
+import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.Callable
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.io.path.copyTo
+import kotlin.io.path.writeText
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class OAuth2TokenCacheTest {
@@ -286,5 +301,275 @@ class OAuth2TokenCacheTest {
         endpoint.respond = { 200 to """{"access_token": "t", "expires_in": "soon"}""" }
         cache.acquire(dev, "a", notes::add)
         assertTrue(notes.last().startsWith("The token response for 'a' has an unusable expires_in"), notes.toString())
+    }
+
+    private val acquire = "Acquiring token"
+
+    /** The environment [name] with the auths `a` and `b` for the token endpoint. */
+    private fun twoAuths(name: String) =
+        environment(
+            """
+            {"tokenUrl": "${endpoint.url}", "Security": {"Auth": {
+              "a": {"Type": "OAuth2", "Grant Type": "Client Credentials", "Token URL": "{{tokenUrl}}", "Client ID": "a"},
+              "b": {"Type": "OAuth2", "Grant Type": "Client Credentials", "Token URL": "{{tokenUrl}}", "Client ID": "b"}
+            }}}
+            """.trimIndent(),
+            name,
+        )
+
+    private fun <T> onOtherThread(block: () -> T): T {
+        val result = CompletableFuture<Result<T>>()
+        Thread { result.complete(runCatching(block)) }.apply { isDaemon = true }.start()
+        return result.get(10, TimeUnit.SECONDS).getOrThrow()
+    }
+
+    @Test
+    fun `lists the tokens by environment and then auth id and clear forgets one auth in all environments`() {
+        val environments = listOf("prod", "dev").map(::twoAuths)
+        for (environment in environments) for (id in listOf("b", "a")) cache.acquire(environment, id)
+
+        assertEquals(
+            listOf("dev" to "a", "dev" to "b", "prod" to "a", "prod" to "b"),
+            cache.tokens().map { it.environment to it.id },
+        )
+
+        cache.clear("a")
+
+        assertEquals(listOf("dev" to "b", "prod" to "b"), cache.tokens().map { it.environment to it.id })
+    }
+
+    @Test
+    fun `treats a token as expired from exactly 10 seconds before its expiry`() {
+        respondWithRefreshTokens()
+        assertEquals("t1", token())
+
+        clock.now = clock.now.plusSeconds(50).minusNanos(1)
+        assertEquals("t1", token())
+        clock.now = clock.now.plusNanos(1)
+        assertEquals("r2", token())
+    }
+
+    private val manual =
+        oauthEnvironment(
+            endpoint.url,
+            """"Grant Type": "Client Credentials", "Client ID": "c", "Acquire Automatically": false""",
+        )
+
+    @Test
+    fun `says an expired token must be acquired again when it has no refresh token and acquiring is manual`() {
+        endpoint.respond = { 200 to """{"access_token": "at", "expires_in": 30}""" }
+        cache.acquire(manual, "a")
+        clock.now = clock.now.plusSeconds(30)
+
+        assertEquals(
+            "The token for 'a' has expired; acquire it again",
+            assertFailsWith<OAuth2Exception> { token(manual) }.message,
+        )
+    }
+
+    @Test
+    fun `a failed refresh drops the token and is passed on when acquiring is manual`() {
+        respondWithRefreshTokens()
+        cache.acquire(manual, "a")
+        endpoint.respond = { 400 to """{"error": "invalid_grant"}""" }
+        clock.now = clock.now.plusSeconds(60)
+
+        assertEquals(
+            "Token request for 'a' failed: 400 invalid_grant",
+            assertFailsWith<OAuth2Exception> { token(manual) }.message,
+        )
+
+        assertEquals(emptyList(), cache.tokens())
+        assertEquals(listOf("client_credentials", "refresh_token"), endpoint.requests.map { it.param("grant_type") })
+    }
+
+    @Test
+    fun `a refresh response may leave out what the old one keeps valid`() {
+        // RFC 6749 6: the server may issue a new refresh token; if it does not, the client keeps using the old one.
+        endpoint.respond = {
+            200 to """{"access_token": "t1", "expires_in": 60, "refresh_token": "rt", "id_token": "it"}"""
+        }
+        token()
+        clock.now = clock.now.plusSeconds(60)
+        endpoint.respond = { 200 to """{"access_token": "r1", "expires_in": 60}""" }
+
+        assertEquals("r1", token())
+
+        assertEquals("rt", endpoint.last.param("refresh_token"))
+        assertEquals("it", token(idToken = true))
+        assertEquals(
+            listOf(OAuth2TokenCache.TokenInfo("a", "dev", clock.now.plusSeconds(60), true)),
+            cache.tokens(),
+        )
+
+        clock.now = clock.now.plusSeconds(60)
+        endpoint.respond = {
+            200 to """{"access_token": "r2", "expires_in": 60, "refresh_token": "rt2", "id_token": "it2"}"""
+        }
+        assertEquals("r2", token())
+        assertEquals("it2", token(idToken = true))
+
+        clock.now = clock.now.plusSeconds(60)
+        endpoint.respond = { 200 to """{"access_token": "r3"}""" }
+        assertEquals("r3", token())
+        assertEquals("rt2", endpoint.last.param("refresh_token"))
+        assertEquals(listOf(OAuth2TokenCache.TokenInfo("a", "dev", null, true)), cache.tokens())
+    }
+
+    @Test
+    fun `tells how long token requests took`() {
+        // A clock that moves 7 ms with every reading, so that each request takes exactly 7 ms.
+        val nanos = AtomicLong()
+        val timed =
+            OAuth2TokenCache(
+                OAuth2Client(clients, Duration.ofSeconds(5)),
+                SslContexts(),
+                tasks,
+                clock,
+                nanoTime = { nanos.addAndGet(7_000_000) },
+            )
+        respondWithRefreshTokens()
+
+        timed.token(dev, "a", note = notes::add)
+        clock.now = clock.now.plusSeconds(60)
+        timed.token(dev, "a", note = notes::add)
+
+        assertEquals(
+            listOf("Acquired the token for 'a' (Client Credentials) in 7 ms", "Refreshed the token for 'a' in 7 ms"),
+            notes,
+        )
+    }
+
+    @Test
+    fun `measures the real time of a token request by default`() {
+        // The endpoint answers after 25 ms of its own clock (a poll loop, not a sleep).
+        endpoint.respond = {
+            val until = System.nanoTime() + Duration.ofMillis(25).toNanos()
+            while (System.nanoTime() < until) Thread.onSpinWait()
+            200 to """{"access_token": "at"}"""
+        }
+
+        token()
+
+        val milliseconds =
+            Regex("in (\\d+) ms")
+                .find(notes.single())
+                ?.groupValues
+                ?.get(1)
+                ?.toLong()
+        assertTrue(milliseconds != null && milliseconds in 25..4_000, notes.toString())
+    }
+
+    @Test
+    fun `acquiring on a fresh cache works and every call releases the lock for other threads`() {
+        assertEquals(OAuth2TokenCache.TokenInfo("a", "dev", null, false), cache.acquire(dev, "a"))
+        assertEquals("t1", onOtherThread { token() })
+
+        // Another thread would wait for ever if either way of taking the lock did not release it.
+        assertEquals("t1", onOtherThread { token() })
+        onOtherThread { cache.acquire(dev, "a") }
+        assertEquals("t2", onOtherThread { token() })
+    }
+
+    @Test
+    fun `ends the task of a failure with the thread interrupted as cancelled`() {
+        Thread.currentThread().interrupt()
+        try {
+            assertFailsWith<OAuth2Exception> { cache.acquire(dev, "missing") }
+        } finally {
+            Thread.interrupted()
+        }
+
+        assertTrue(
+            taskLines.any { it.startsWith("task cancelled after ") && it.endsWith(": $acquire 'missing'") },
+            taskLines.toString(),
+        )
+    }
+
+    @TempDir
+    lateinit var folder: Path
+
+    private val prompts = AtomicInteger()
+    private val sslContexts =
+        SslContexts(
+            { _, _, _ ->
+                prompts.incrementAndGet()
+                PassphraseAnswer("secret".toCharArray(), save = false)
+            },
+            TlsServer.trustedCa(),
+        )
+    private val mtlsCache =
+        OAuth2TokenCache(OAuth2Client(clients, Duration.ofSeconds(5)), sslContexts, tasks, clock)
+
+    /** An environment `mtls` with the test client certificate (encrypted key) and the auth `a` at the endpoint. */
+    private fun mtlsEnvironment(certificate: String = "client.pem"): Environment {
+        TlsServer.fixture("client.pem").copyTo(folder.resolve("client.pem"))
+        TlsServer.fixture("client-encrypted.key").copyTo(folder.resolve("client.key"))
+        val private =
+            folder.resolve(EnvironmentFiles.PRIVATE).apply {
+                writeText(
+                    """
+                    {"mtls": {"tokenUrl": "${endpoint.url}",
+                      "Security": {"Auth": {"a": {"Type": "OAuth2", "Grant Type": "Client Credentials",
+                        "Token URL": "{{tokenUrl}}", "Client ID": "c"}}},
+                      "SSLConfiguration": {
+                        "clientCertificate": "$certificate",
+                        "clientCertificateKey": {"path": "client.key", "format": "PEM"},
+                        "hasCertificatePassphrase": true}}}
+                    """.trimIndent(),
+                )
+            }
+        return checkNotNull(Environments.load(EnvironmentFiles(null, private))["mtls"])
+    }
+
+    @Test
+    fun `token requests use the SSL context of the environment, also when refreshing and acquiring again`() {
+        respondWithRefreshTokens()
+        val mtls = mtlsEnvironment()
+
+        assertEquals("t1", mtlsCache.token(mtls, "a"))
+        assertEquals(1, prompts.get())
+
+        // A context that is created anew asks for the passphrase again, which shows that the call asked for it.
+        sslContexts.clear()
+        clock.now = clock.now.plusSeconds(60)
+        assertEquals("r2", mtlsCache.token(mtls, "a"))
+        assertEquals(2, prompts.get())
+
+        sslContexts.clear()
+        mtlsCache.acquire(mtls, "a")
+        assertEquals(3, prompts.get())
+
+        // The refresh fails and the new acquisition needs the context as well.
+        sslContexts.clear()
+        endpoint.respond = { request ->
+            if (request.param("grant_type") == "refresh_token") {
+                400 to """{"error": "x"}"""
+            } else {
+                200 to """{"access_token": "n"}"""
+            }
+        }
+        clock.now = clock.now.plusSeconds(60)
+        assertEquals("n", mtlsCache.token(mtls, "a"))
+        assertEquals(4, prompts.get())
+    }
+
+    @Test
+    fun `fails the task with the exception when the SSL configuration cannot be used`() {
+        val broken = mtlsEnvironment(certificate = "missing.pem")
+
+        assertIs<SslConfigException>(assertFailsWith<RuntimeException> { mtlsCache.token(broken, "a") })
+        assertIs<SslConfigException>(assertFailsWith<RuntimeException> { mtlsCache.acquire(broken, "a") })
+
+        assertEquals(0, endpoint.calls)
+        val failed = taskLines.filter { it.startsWith("task failed after ") }
+        assertEquals(2, failed.size, taskLines.toString())
+        assertTrue(failed.all { it.endsWith(": $acquire 'a'") }, failed.toString())
+    }
+
+    @Test
+    fun `works without a note callback`() {
+        assertEquals("t1", cache.token(dev, "a"))
+        assertNull(cache.acquire(dev, "a").expiresAt)
     }
 }

@@ -32,6 +32,7 @@ internal class OAuth2TokenCache(
     private val tasks: BackgroundTasks,
     private val clock: Clock = Clock.systemUTC(),
     private val dynamic: DynamicVariables = DynamicVariables(),
+    private val nanoTime: () -> Long = System::nanoTime,
 ) {
     /** What the Auth menu shows of a token; [expiresAt] is null if the token response did not say. */
     data class TokenInfo(
@@ -152,7 +153,7 @@ internal class OAuth2TokenCache(
         val config = cached.config
         val refreshToken = checkNotNull(cached.response.refreshToken)
         val start = clock.instant()
-        val started = System.nanoTime()
+        val started = nanoTime()
         val response =
             try {
                 tokenRequest("Refreshing token '${config.id}'") { client.refresh(config, refreshToken, ssl()) }
@@ -185,7 +186,7 @@ internal class OAuth2TokenCache(
         task: Boolean = true,
     ): Token {
         val start = clock.instant()
-        val started = System.nanoTime()
+        val started = nanoTime()
         val grant = { client.grant(config, ssl()) }
         val response = if (task) tokenRequest(acquiring(config.id), grant) else grant()
         note("Acquired the token for '${config.id}' (${config.grant.label}) in ${millis(started)} ms")
@@ -247,7 +248,7 @@ internal class OAuth2TokenCache(
 
     private fun acquiring(id: String) = "Acquiring token '$id'"
 
-    private fun millis(started: Long) = Duration.ofNanos(System.nanoTime() - started).toMillis()
+    private fun millis(started: Long) = Duration.ofNanos(nanoTime() - started).toMillis()
 
     private inline fun <T> ReentrantLock.withLockInterruptibly(action: () -> T): T {
         lockInterruptibly()
