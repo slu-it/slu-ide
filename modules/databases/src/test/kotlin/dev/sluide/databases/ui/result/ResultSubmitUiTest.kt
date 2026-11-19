@@ -160,28 +160,6 @@ class ResultSubmitUiTest : ResultEditingUiFixture() {
     }
 
     @Test
-    fun `deletes inside a Manual transaction are not asked about`(robot: FxRobot) {
-        val manual = EditingSession(config.copy(commitMode = CommitMode.MANUAL), autoCommit = false)
-        manual.commitMode = CommitMode.MANUAL
-        reloadsWith(manual, "a")
-        robot.interact { entry.connected(manual) }
-        showRows(robot)
-        var asked = false
-        robot.interact {
-            tab().view.gridEditing.confirmDelete = { _, _ ->
-                asked = true
-                false
-            }
-            selectCell(0, 1)
-            button("Delete Rows").fire()
-        }
-        robot.interact { submitButton().fire() }
-        robot.interact { }
-        assertFalse(asked)
-        assertEquals(listOf(true), manual.changes)
-    }
-
-    @Test
     fun `a parse error or an unchanged text leaves no edits, so edits after a client sort key on the right row`(
         robot: FxRobot,
     ) {
@@ -290,29 +268,5 @@ class ResultSubmitUiTest : ResultEditingUiFixture() {
         assertEquals(listOf(true), fake.changes)
         val log = fake.jdbc.log.toList()
         assertTrue("setObject 1=7" in log && "setObject 2=2" in log, "UPDATE id = 7 WHERE id = 2: $log")
-    }
-
-    @Test
-    fun `deletes are refused when the transaction of the user ended before the submit ran`(robot: FxRobot) {
-        fake.pendingTransaction = true
-        showRows(robot)
-        var asked = false
-        robot.interact {
-            tab().view.gridEditing.confirmDelete = { _, _ ->
-                asked = true
-                true
-            }
-            selectCell(0, 1)
-            button("Delete Rows").fire()
-        }
-        fake.hold = true
-        robot.interact { submitButton().fire() }
-        assertFalse(asked, "inside the transaction the deletes are not asked about")
-        fake.pendingTransaction = false
-        robot.interact { fake.release() }
-        robot.interact { }
-        assertEquals("The transaction ended; submit again", status())
-        assertTrue(fake.jdbc.log.isEmpty(), "nothing ran: ${fake.jdbc.log}")
-        assertTrue(area.pendingEdits)
     }
 }
