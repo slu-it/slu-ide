@@ -116,6 +116,5 @@ internal class ConfigProblemsModel(
 private fun firstLine(message: String) =
     message
         .lineSequence()
-        .firstOrNull()
-        .orEmpty()
+        .first()
         .trim()
