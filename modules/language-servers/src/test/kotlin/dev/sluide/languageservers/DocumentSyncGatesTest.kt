@@ -208,6 +208,12 @@ internal class DocumentSyncGatesTest : DocumentSyncTestBase() {
         val document = session.open("a.py", "x")
         answer()
         settle()
+        session.connected()
+        // The start asks the folder worker for the window folder's watches asynchronously: run what it held, so that
+        // it cannot land among the tasks of b.py's question below.
+        generateSequence { held.poll() }.forEach(Runnable::run)
+        settle()
+        generateSequence { held.poll() }.forEach(Runnable::run)
         val before = fired.get()
 
         onFx { document.moved(folder.resolve("b.py")) }
