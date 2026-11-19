@@ -209,12 +209,8 @@ internal class ServerLifecycle(
         val started = nanoTime()
         val result = initialize(gen, conn, root, workspaceFolders(root)) ?: return
         features.initialized(result.capabilities)
-        try {
-            conn.server.initialized(InitializedParams())
-        } catch (e: RuntimeException) {
-            crashed(gen, "${spec.name} language server: ${e.message ?: e.toString()}")
-            return
-        }
+        // lsp4j logs a notification it cannot write and returns, so the end of the process is what tells a crash.
+        conn.server.initialized(InitializedParams())
         synchronized(lock) {
             if (!isCurrentLocked(gen)) return
             running = conn
