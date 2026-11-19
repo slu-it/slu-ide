@@ -129,7 +129,7 @@ internal fun writeClosedFile(
  * permissions where the file system has POSIX ones, and a failure leaves [path] as it was. Throws IOException. After
  * `writeAtomically` in `ide`'s conversions (modules never depend on `ide`).
  */
-private fun writeAtomically(
+internal fun writeAtomically(
     path: Path,
     bytes: ByteArray,
 ) {
