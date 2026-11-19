@@ -326,6 +326,10 @@ internal class CurlTokenizerTest {
                 ),
                 Arguments.of(Shell.POSIX.label, "curl \$'\\c\\\\x'", listOf("curl", "\u001cx")),
                 Arguments.of(Shell.POSIX.label, "curl \$'\\c'", listOf("curl", "\\c")),
+                // bash finds the closing quote first (a \' pair does not close), then \c takes one backslash of \c\'.
+                Arguments.of(Shell.POSIX.label, "curl \$'\\c\\'x' y", listOf("curl", "\u001c'x", "y")),
+                // For a character beyond ASCII (not checked against bash, whose result is bytes): code point & 0x1F.
+                Arguments.of(Shell.POSIX.label, "curl \$'\\c\u00e9\\c\uD83D\uDE01'", listOf("curl", "\t\u0001")),
                 // A single backslash after \c is Ctrl+\ on its own (bash: $'\c\x41' is 1C, x, 4, 1).
                 Arguments.of(Shell.POSIX.label, "curl \$'\\c\\x41'", listOf("curl", "\u001cx41")),
                 // bash gives the byte E9 for \xe9, which is no character; the tokenizer reads the code point U+00E9.

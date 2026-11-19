@@ -31,7 +31,7 @@ leaking the secrets of the private environment file (ADR 0028).
   The tokenizer deliberately differs from the shells in what pasted text needs: a leading `$ ` is a pasted prompt, a
   backslash followed by CR LF continues a line (bash would keep the CR), a bare CR splits words like a blank, `$'\xNN'`
   gives the code point U+00NN (bash a raw byte), `&` is plain text in PowerShell and `;` in cmd (a URL with them stays
-  whole). `$'\cX'` is the control character, as bash.
+  whole). `$'\cX'` is the control character, as bash; for X beyond ASCII it is the code point & 0x1F (bash works on bytes).
 - **The cURL mapping**: `-X`, `-H` (`Name;` is an empty header), `-d`/`--data-ascii`/`--data-binary`/`--data-raw`
   (`@file` becomes `< ./file`), `--data-urlencode`, `--json` (POST with JSON content type and accept),
   `-F`/`--form-string` (multipart in the client's layout with the boundary `WebAppBoundary`), `-u` (+ `--digest`) as

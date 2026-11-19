@@ -254,42 +254,67 @@ internal object CurlTokenizer {
                 else -> POWERSHELL_ESCAPES[next]?.toString() ?: next.toString()
             }
 
-        /** Bash's `$'…'`: backslash escapes like C's. */
+        /**
+         * Bash's `$'…'`: backslash escapes like C's. The closing quote is found first, a backslash pair never closes, and
+         * only then are the escapes read.
+         */
         private fun ansiC(at: Int): Int {
             startWord(at)
+            val close = ansiCEnd(at + 2) ?: unclosed('\'', at + 1)
             var j = at + 2
-            while (true) {
-                if (j >= text.length) unclosed('\'', at + 1)
-                val c = text[j]
-                if (c == '\'') return j + 1
-                if (c != '\\' || j + 1 >= text.length) {
-                    append(c.toString(), j)
+            while (j < close) {
+                if (text[j] != '\\') {
+                    append(text[j].toString(), j)
                     j++
                     continue
                 }
-                val (value, length) = ansiCEscape(j + 1)
+                val (value, length) = ansiCEscape(j + 1, close)
                 append(value, j)
                 j += 1 + length
             }
+            return close + 1
+        }
+
+        /** The index of the quote that closes a `$'…'` whose text starts at [from], null if there is none. */
+        private fun ansiCEnd(from: Int): Int? {
+            var j = from
+            while (j < text.length) {
+                when (text[j]) {
+                    '\'' -> return j
+                    '\\' -> j += 2
+                    else -> j++
+                }
+            }
+            return null
         }
 
         /**
-         * `\cX` (the `c` at [from]): the control character of X, as bash makes it (`?` is DEL, `\c\\` is Ctrl+\); a
-         * `\c` at the closing quote or the end is text.
+         * `\cX` (the `c` at [from]): the control character of the code point X, as bash makes it (`?` is DEL, `\c\\` is
+         * Ctrl+\); a `\c` at the end of the text before [limit] is text.
          */
-        private fun controlEscape(from: Int): Pair<String, Int> {
-            val x = text.getOrNull(from + 1)
-            if (x == null || x == '\'') return "\\c" to 1
-            val length = if (x == '\\' && text.getOrNull(from + 2) == '\\') 3 else 2
-            val code = if (x == '?') DEL else x.uppercaseChar().code and CONTROL_MASK
-            return code.toChar().toString() to length
+        private fun controlEscape(
+            from: Int,
+            limit: Int,
+        ): Pair<String, Int> {
+            if (from + 1 >= limit) return "\\c" to 1
+            val x = text.codePointAt(from + 1)
+            // The character at limit is the closing quote, never a backslash: no need to look at limit.
+            val length = if (x == '\\'.code && text[from + 2] == '\\') 3 else 1 + Character.charCount(x)
+            val code = if (x == '?'.code) DEL else x and CONTROL_MASK
+            return String(Character.toChars(code)) to length
         }
 
-        /** The value of the escape after the backslash at [from] - 1, and how many characters it takes. */
-        private fun ansiCEscape(from: Int): Pair<String, Int> {
+        /**
+         * The value of the escape after the backslash at [from] - 1, and how many characters it takes; the text of an
+         * escape ends before [limit].
+         */
+        private fun ansiCEscape(
+            from: Int,
+            limit: Int,
+        ): Pair<String, Int> {
             val c = text[from]
             ANSI_C_ESCAPES[c]?.let { return it.toString() to 1 }
-            if (c == 'c') return controlEscape(from)
+            if (c == 'c') return controlEscape(from, limit)
             val (digits, radix, max) =
                 when (c) {
                     'x' -> Triple(HEX, 16, 2)
@@ -300,7 +325,7 @@ internal object CurlTokenizer {
                 }
             val start = if (radix == 8) from else from + 1
             var end = start
-            while (end < text.length && end - start < max && text[end] in digits) end++
+            while (end < limit && end - start < max && text[end] in digits) end++
             if (end == start) return "\\$c" to 1
             val code = text.substring(start, end).toLong(radix)
             if (code > Character.MAX_CODE_POINT) {
