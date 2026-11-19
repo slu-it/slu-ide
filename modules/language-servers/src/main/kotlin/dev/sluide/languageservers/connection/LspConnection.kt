@@ -137,11 +137,8 @@ internal class LspConnection(
                 } catch (e: Exception) {
                     log.log(System.Logger.Level.INFO, "lsp ${process.name} shutdown not answered: $e")
                 }
-                try {
-                    server.exit()
-                } catch (e: RuntimeException) {
-                    log.log(System.Logger.Level.INFO, "lsp ${process.name} exit not sent: $e")
-                }
+                // A notification that cannot be written is logged by lsp4j and does not throw.
+                server.exit()
             }
         polite.join(shutdownMillis + exitMillis)
         if (!process.waitFor(exitMillis)) {
