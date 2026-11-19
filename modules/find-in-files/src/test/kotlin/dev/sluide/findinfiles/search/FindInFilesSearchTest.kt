@@ -242,6 +242,47 @@ class FindInFilesSearchTest {
     }
 
     @Test
+    fun `asking whether the walk is cancelled before it found a file starts no interval`() {
+        walkScript = { _, cancelled, onFile ->
+            cancelled()
+            now = 10_000_000
+            onFile(hits("a"))
+            null
+        }
+        search.runNow(request("ab"))
+        runBackground()
+        runFx()
+
+        assertEquals(listOf("started", "added [a] 1 match in 1 file…"), events)
+    }
+
+    @Test
+    fun `the real clock separates the batches by the interval`() {
+        var spun = 0L
+        val timed =
+            FindInFilesSearch(
+                scheduler = { _, _ -> AutoCloseable { } },
+                background = Executor { backgroundTasks += it },
+                runOnFx = { fxTasks += it },
+                batchEvery = Duration.ofNanos(1),
+                walk = { _, _, onFile ->
+                    onFile(hits("a"))
+                    // Waits for the clock to move on, never longer than a tick of it.
+                    val before = System.nanoTime()
+                    while (System.nanoTime() == before) spun++
+                    onFile(hits("b"))
+                    SearchOutcome.Done(2, 2, 0, totalCapped = false, visitCapped = false)
+                },
+                listener = NoListener,
+            )
+
+        timed.runNow(request("ab"))
+        runBackground()
+
+        assertEquals(3, fxTasks.size, "a batch for each file, then the end")
+    }
+
+    @Test
     fun `a walk that throws fails without results`() {
         walkScript = { _, _, onFile ->
             onFile(hits("a"))

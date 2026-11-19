@@ -40,6 +40,14 @@ class FilePreviewTextsTest {
     }
 
     @Test
+    fun `an unsaved buffer over the size limit gives null`() {
+        val file = dir.resolve("a.txt").apply { writeText("disk") }
+        unsaved = mapOf(file to "a".repeat(2 * 1024 * 1024 + 1))
+
+        assertEquals(null, load(file))
+    }
+
+    @Test
     fun `without a buffer the file is read on the background thread`() {
         val file = dir.resolve("a.txt").apply { writeText("one\r\ntwo") }
         var result: String? = null

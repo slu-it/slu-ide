@@ -51,6 +51,20 @@ class FileMaskTest {
             "**/test/*.kt     | m/test/A.kt            | true",
             "**/test/*.kt     | m/test/x/A.kt          | false",
             "SRC/*.KT         | src/Main.kt            | true",
+            // one-character names: every token reaches the last character
+            "*                | src/a                | true",
+            "**               | src/a                | true",
+            "?                | src/a                | true",
+            "**/a             | a                    | true",
+            // ? and * stay inside one path part, ** and **/ cross them, **/ ends only after a /
+            "a?b/x            | a/b/x                | false",
+            "a?b/x            | aXb/x                | true",
+            "a*b/x            | a/b/x                | false",
+            "a**b/x           | a/b/x                | true",
+            "src/**/Main.kt   | src/aMain.kt         | false",
+            "src/**/Main.kt   | src/a/Main.kt        | true",
+            "src/**/Main.kt   | src/Main.kt          | true",
+            "src/**Main.kt    | src/aMain.kt         | true",
             // only excludes: everything else
             "!*Test.kt        | src/MainTest.kt        | false",
             "!*Test.kt        | src/Main.kt            | true",
@@ -82,6 +96,15 @@ class FileMaskTest {
         val root = Path.of("/project")
 
         assertEquals(expected, FileMask.parse(mask).matches(root, root.resolve(relative)))
+    }
+
+    @Test
+    fun `a file without a name is matched by the empty name`() {
+        val root = Path.of("/")
+
+        assertEquals(true, FileMask.parse("*").matches(root, root))
+        assertEquals(false, FileMask.parse("*.kt").matches(root, root))
+        assertEquals(true, FileMask.parse("!*.kt").matches(root, root))
     }
 
     @Test
