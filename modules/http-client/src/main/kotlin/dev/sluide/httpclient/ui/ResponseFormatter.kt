@@ -238,7 +238,7 @@ internal object ResponseFormatter {
                     }
                 }
             }
-            if (writer.buffer.isEmpty()) invalid("JSON") else Pretty.Formatted(writer.toString())
+            Pretty.Formatted(writer.toString())
         } catch (_: StreamConstraintsException) {
             tooComplex
         } catch (_: JacksonException) {
