@@ -80,9 +80,9 @@ internal class EnvTreesTest {
     fun `puts into a list by replacing an entry, appending at the end or refusing an index beyond it`() {
         val trees = trees("""{"e": {"a": [1, 2]}}""")
 
-        trees.put(FileSide.PUBLIC, "e", a.index(0), json("9"))
+        trees.put(FileSide.PUBLIC, "e", a.index(1), json("9"))
         trees.put(FileSide.PUBLIC, "e", a.index(2), json("3"))
-        assertEquals(json("[9, 2, 3]"), trees.public.get("e").get("a"))
+        assertEquals(json("[1, 9, 3]"), trees.public.get("e").get("a"))
 
         assertEquals(
             "http-client.env.json: \"a[5]\" of environment \"e\" is beyond the end of its list",
@@ -92,7 +92,7 @@ internal class EnvTreesTest {
             "http-client.env.json: \"a[-1]\" of environment \"e\" is beyond the end of its list",
             assertThrows<IllegalStateException> { trees.put(FileSide.PUBLIC, "e", a.index(-1), json("0")) }.message,
         )
-        assertEquals(json("[9, 2, 3]"), trees.public.get("e").get("a"))
+        assertEquals(json("[1, 9, 3]"), trees.public.get("e").get("a"))
     }
 
     @Test
@@ -151,6 +151,7 @@ internal class EnvTreesTest {
         assertFalse(trees.delete(FileSide.PUBLIC, "e", list.index(7)))
         assertFalse(trees.delete(FileSide.PUBLIC, "e", list.key("x")))
         assertFalse(trees.delete(FileSide.PUBLIC, "e", a.key("k").index(0)))
+        assertFalse(trees.delete(FileSide.PUBLIC, "e", a.index(0)))
         assertFalse(trees.delete(FileSide.PUBLIC, "e", ValuePath.of("nowhere", "x")))
         assertEquals(json("""{"k": 1, "l": [1, 2]}"""), trees.public.get("e").get("a"))
 
