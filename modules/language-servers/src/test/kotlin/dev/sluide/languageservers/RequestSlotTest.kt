@@ -13,6 +13,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -98,6 +99,25 @@ class RequestSlotTest {
 
         assertTrue(future.isCancelled)
         assertTrue(pending.isCancelled)
+    }
+
+    @Test
+    fun `cancelling a sent request twice cancels its future once`() {
+        val cancels = AtomicInteger()
+        val future =
+            object : CompletableFuture<Any>() {
+                override fun cancel(mayInterruptIfRunning: Boolean): Boolean {
+                    cancels.incrementAndGet()
+                    return super.cancel(mayInterruptIfRunning)
+                }
+            }
+        val pending = PendingRequest()
+        assertTrue(pending.sent(future))
+
+        pending.cancel()
+        pending.cancel()
+
+        assertEquals(1, cancels.get())
     }
 
     private fun definitionParams() =
