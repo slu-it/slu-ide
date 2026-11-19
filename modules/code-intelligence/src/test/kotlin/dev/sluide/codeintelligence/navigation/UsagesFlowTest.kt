@@ -123,6 +123,17 @@ class UsagesFlowTest {
     }
 
     @Test
+    fun `a caret inside a name asks where it is`() {
+        val editor = editor(caret = 15)
+        for ((count, caret) in listOf(15, 16, 17).withIndex()) {
+            fx.onFx { editor.caret = caret }
+            usagesAtCaret(editor)
+            awaitTrue("asked at $caret") { server.referenceRequests.size == count + 1 }
+            assertEquals(Position(2, caret - 11), server.referenceRequests[count].position)
+        }
+    }
+
+    @Test
     fun `a server that cannot find usages is not asked, the list hides and the note names the action`() {
         val editor = editor(caret = 17, supported = setOf(DEFINITION))
         fx.onFx { view.show(15 until 18, listOf(NavigationTarget(SourcePosition(file, 0, 0), "x")), "Choose", false) }
