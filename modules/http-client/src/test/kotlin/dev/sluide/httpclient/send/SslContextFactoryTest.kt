@@ -385,6 +385,15 @@ class SslContextFactoryTest {
     }
 
     @Test
+    fun `a PKCS 12 file with a broken certificate is no wrong passphrase`() {
+        val error = failure(config(fixture("client-bad-cert.p12"), passphrase = true), "secret".toCharArray())
+
+        assertIs<java.security.GeneralSecurityException>(error.cause)
+        assertEquals("client-bad-cert.p12 cannot be read as PKCS#12: ${error.cause?.message}", error.message)
+        assertFalse(error.passphraseRejected)
+    }
+
+    @Test
     fun `a PKCS 12 passphrase is zeroed once the key managers exist, and when the file cannot be loaded`() {
         val right = "secret".toCharArray()
         create(config(fixture("client.p12"), passphrase = true), right)

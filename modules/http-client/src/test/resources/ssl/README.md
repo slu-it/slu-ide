@@ -24,6 +24,7 @@ Certificates and keys for the TLS tests (`SslContextsTest`, `RequestRunnerTest`)
 | `client-ecdsa-encrypted.key` | The same EC key, encrypted PEM PKCS#8 (PBES2, AES-256), passphrase `secret` |
 | `client-ed25519.pem`, `client-ed25519.key` | Self-signed certificate and its Ed25519 key, PEM PKCS#8 |
 | `client-dsa.pem`, `client-dsa.key` | Self-signed certificate and its DSA (2048/256) key, PEM PKCS#8 |
+| `client-bad-cert.p12` | `client.p12` re-saved by the JDK with `keystore.pkcs12.certProtectionAlgorithm=NONE` and `keystore.pkcs12.macAlgorithm=NONE` (passphrase `secret`), then the first byte inside its certificate (the tbsCertificate SEQUENCE tag `0x30`) changed to `0x31`: loading it throws a `CertificateParsingException`. Not made by `generate.sh` (it needs the JDK) |
 | `other-ecdsa.key`, `other-ed25519.key`, `other-dsa.key` | Keys of those algorithms that belong to none of the certificates |
 
 To regenerate all of them (the tests do not depend on particular keys), run `./generate.sh` in this folder; it needs
