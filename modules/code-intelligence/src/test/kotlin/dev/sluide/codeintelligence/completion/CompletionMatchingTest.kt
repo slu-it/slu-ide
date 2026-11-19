@@ -353,6 +353,10 @@ internal class CompletionMatchingTest {
     fun `how many steps the part start match decides`() {
         // One part start tried and rejected at once; the other positions are not part starts.
         assertEquals(1, boundaryMatchSteps("b", "ab"))
+        // matchKind never builds a match for an empty prefix (startsWith answers first); the base case still holds.
+        assertEquals(0, boundaryMatchSteps("", "abc"))
+        // Many parts: 30 steps with the memo, 255 without it.
+        assertTrue(boundaryMatchSteps("aaab", "a_".repeat(8) + "z") <= 90)
         assertEquals(2, boundaryMatchSteps("abb", "aBb"), "a run stops at a part start, the rest starts there")
         assertEquals(2, boundaryMatchSteps("ac", "ab_cd"), "the match is found at the second part start")
     }
