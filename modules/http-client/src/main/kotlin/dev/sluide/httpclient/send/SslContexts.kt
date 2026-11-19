@@ -52,6 +52,7 @@ internal class SslContexts(
     private val discarded: (SSLContext) -> Unit = {},
     private val saved: PassphraseStore? = null,
     private val notSaved: (reason: String) -> Unit = {},
+    private val onZeroed: (CharArray) -> Unit = {},
 ) {
     private data class Key(
         val config: SslConfig,
@@ -96,7 +97,7 @@ internal class SslContexts(
                 try {
                     create(config, ask::passphrase, trustStore)
                 } catch (e: Throwable) {
-                    ask.answer?.passphrase?.fill('\u0000')
+                    wipe(ask.answer?.passphrase)
                     remember(ask, generation, rejected = e is SslConfigException && e.passphraseRejected)
                     throw e
                 }
@@ -104,7 +105,7 @@ internal class SslContexts(
             try {
                 savedNow = ask.saveAnswer()
             } finally {
-                ask.answer?.passphrase?.fill('\u0000')
+                wipe(ask.answer?.passphrase)
                 remember(ask, generation, savedNow = savedNow)
             }
             val replaced =
@@ -135,14 +136,14 @@ internal class SslContexts(
         synchronized(storeLock) {
             val current = this.generation == generation
             if (rejected) {
-                passphrases.remove(ask.files)?.value?.fill('\u0000')
+                wipe(passphrases.remove(ask.files)?.value)
                 if (current && ask.usedSaved) rejectedSaved += ask.files
             }
             val keep = ask.kept?.takeIf { !rejected && current }
             if (keep != null) {
                 passphrases[ask.files] = Remembered(keep, ask.usedSaved || savedNow == true)
             } else {
-                ask.kept?.fill('\u0000')
+                wipe(ask.kept)
             }
             if (savedNow != null && ask.answer != null) rejectedSaved -= ask.files
         }
@@ -244,12 +245,19 @@ internal class SslContexts(
         val cleared =
             synchronized(storeLock) {
                 generation++
-                passphrases.values.forEach { it.value.fill('\u0000') }
+                passphrases.values.forEach { wipe(it.value) }
                 passphrases.clear()
                 rejectedSaved.clear()
                 contexts.values.toList().also { contexts.clear() }
             }
         cleared.forEach(discarded)
+    }
+
+    /** Zeroes a passphrase this class holds and tells [onZeroed] (a test seam). */
+    private fun wipe(passphrase: CharArray?) {
+        if (passphrase == null) return
+        passphrase.fill('\u0000')
+        onZeroed(passphrase)
     }
 
     /** No [clear] since [generation] was read. */

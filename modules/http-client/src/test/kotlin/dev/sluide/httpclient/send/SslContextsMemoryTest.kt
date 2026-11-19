@@ -101,6 +101,7 @@ class SslContextsMemoryTest {
         asked: MutableList<Asked>,
         vararg answers: PassphraseAnswer?,
         discarded: (SSLContext) -> Unit = {},
+        onZeroed: (CharArray) -> Unit = {},
     ): SslContexts {
         val queue = ArrayDeque(answers.toList())
         return SslContexts(
@@ -110,17 +111,8 @@ class SslContextsMemoryTest {
             },
             discarded = discarded,
             saved = store,
+            onZeroed = onZeroed,
         )
-    }
-
-    /** The passphrases [contexts] holds in memory, by reflection: they are the one thing no API hands out. */
-    private fun remembered(contexts: SslContexts): List<CharArray> {
-        val field = SslContexts::class.java.getDeclaredField("passphrases").apply { isAccessible = true }
-        val map = field.get(contexts) as Map<*, *>
-        return map.values.map { entry ->
-            val value = entry!!.javaClass.getDeclaredField("value").apply { isAccessible = true }
-            value.get(entry) as CharArray
-        }
     }
 
     /**
@@ -382,27 +374,48 @@ class SslContextsMemoryTest {
         assertEquals(listOf(first), discarded.toList())
     }
 
+    /** The arrays [SslContexts] zeroed, in order; each is checked to be zero when reported. */
+    private class Zeroed {
+        val arrays = CopyOnWriteArrayList<CharArray>()
+
+        fun record(array: CharArray) {
+            assertContentEquals(CharArray(array.size), array)
+            arrays += array
+        }
+    }
+
     @Test
-    fun `a saved passphrase is zeroed after saving and the ones in memory when cleared or rejected`() {
+    fun `the copies of a passphrase are zeroed when they are dropped, saved, rejected or cleared`() {
+        val zeroed = Zeroed()
         val store = Store()
-        val contexts = contexts(store, mutableListOf(), answer("secret", save = true), answer("wrong"))
+        val contexts = contexts(store, mutableListOf(), answer("secret", save = true), onZeroed = zeroed::record)
+
+        // The prompt's copy goes to the store and is zeroed right after.
         contexts.context(p12Config)
+        assertEquals(1, zeroed.arrays.size)
+        assertSame(store.savedArrays.single(), zeroed.arrays.single())
 
-        assertContentEquals(CharArray(6), store.savedArrays.single())
-        assertEquals("secret", store.value)
-
-        val inMemory = remembered(contexts).single()
-        assertContentEquals("secret".toCharArray(), inMemory)
+        // The passphrase in memory is zeroed when the file rejects it.
         breakP12()
         assertFailsWith<SslConfigException> { contexts.context(p12Config) }
-        assertContentEquals(CharArray(6), inMemory, "a rejected passphrase is wiped")
+        assertEquals(listOf(6, 6), zeroed.arrays.map { it.size })
 
+        // And when clear drops it.
         restoreP12()
-        val another = contexts(null, mutableListOf(), answer("secret"))
+        val another = contexts(null, mutableListOf(), answer("secret"), onZeroed = zeroed::record)
         another.context(p12Config)
-        val kept = remembered(another).single()
+        assertEquals(3, zeroed.arrays.size)
         another.clear()
-        assertContentEquals(CharArray(6), kept, "clear wipes the passphrases")
-        assertEquals(emptyList<CharArray>(), remembered(another))
+        assertEquals(listOf(6, 6, 6, 6), zeroed.arrays.map { it.size })
+    }
+
+    @Test
+    fun `a wrong prompted passphrase is zeroed in both copies this class made`() {
+        val zeroed = Zeroed()
+        val contexts = contexts(null, mutableListOf(), answer("wrong"), onZeroed = zeroed::record)
+
+        assertFailsWith<SslConfigException> { contexts.context(p12Config) }
+
+        assertEquals(listOf(5, 5), zeroed.arrays.map { it.size })
     }
 }
