@@ -25,6 +25,8 @@ class FakeLanguageServersTest {
 
             assertNotSame(first, second)
             assertEquals(listOf(first, second), fake.started)
+            // `initialized` is a notification: the fake records it on its own thread, after Running is published.
+            awaitTrue("initialized received") { "initialized" in second.calls }
             assertEquals(listOf("initialize", "initialized"), second.calls)
         }
     }

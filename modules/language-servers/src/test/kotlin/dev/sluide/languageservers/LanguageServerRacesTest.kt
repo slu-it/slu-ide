@@ -388,6 +388,8 @@ class LanguageServerRacesTest {
 
         servers.awaitRunning(spec, 2, starter)
         assertTrue(starter.processes[0].destroyed)
+        // `initialized` is a notification: the fake records it on its own thread, after Running is published.
+        awaitTrue("initialized received") { "initialized" in starter.processes[1].server.calls }
         assertEquals(listOf("initialize", "initialized"), starter.processes[1].server.calls)
         assertEquals(listOf(emptyList(), listOf(true)), seen)
     }
