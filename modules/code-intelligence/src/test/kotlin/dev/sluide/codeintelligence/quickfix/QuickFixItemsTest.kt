@@ -6,6 +6,7 @@ import org.eclipse.lsp4j.CodeAction
 import org.eclipse.lsp4j.CodeActionDisabled
 import org.eclipse.lsp4j.Command
 import org.eclipse.lsp4j.WorkspaceEdit
+import org.eclipse.lsp4j.jsonrpc.json.MessageJsonHandler
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
@@ -108,5 +109,70 @@ class QuickFixItemsTest {
                 ),
             ),
         )
+    }
+
+    /** A value as lsp4j parses a server's JSON: what the JSON lacks stays null. */
+    private inline fun <reified T> parsed(json: String): T =
+        MessageJsonHandler(emptyMap()).gson.fromJson(json, T::class.java)
+
+    @Test
+    fun `entries the JSON leaves without a title or a usable shape are left out`() {
+        val fixes =
+            quickFixesOf(
+                listOf(
+                    Either.forLeft(parsed<Command>("""{"command":"x.run"}""")),
+                    Either.forRight(parsed<CodeAction>("""{"edit":{}}""")),
+                    Either.forLeft(null),
+                    action("kept"),
+                ),
+            )
+        assertEquals(listOf("kept"), fixes.map { it.title })
+    }
+
+    @Test
+    fun `a disabled action without a usable reason says it is not available, preferred is only true when sent`() {
+        val fixes =
+            quickFixesOf(
+                listOf(
+                    Either.forRight(parsed<CodeAction>("""{"title":"a","disabled":{}}""")),
+                    Either.forRight(parsed<CodeAction>("""{"title":"b","disabled":{"reason":" "}}""")),
+                    Either.forRight(parsed<CodeAction>("""{"title":"c","disabled":{"reason":"Why"}}""")),
+                    Either.forRight(parsed<CodeAction>("""{"title":"d","isPreferred":false}""")),
+                    Either.forRight(parsed<CodeAction>("""{"title":"e"}""")),
+                    Either.forRight(parsed<CodeAction>("""{"title":"f","isPreferred":true}""")),
+                ),
+            )
+        assertEquals(listOf("f", "d", "e", "a", "b", "c"), fixes.map { it.title })
+        assertEquals(
+            listOf(null, null, null, "not available", "not available", "Why"),
+            fixes.map { it.disabledReason },
+        )
+        assertEquals(listOf(true, false, false, false, false, false), fixes.map { it.preferred })
+    }
+
+    @Test
+    fun `a command the JSON leaves without a command name is asked about as empty`() {
+        val asked = mutableListOf<String>()
+        val answer =
+            listOf(
+                Either.forRight<Command, CodeAction>(
+                    CodeAction("t").apply {
+                        command =
+                            parsed<Command>("""{"title":"c"}""")
+                    },
+                ),
+            )
+        val fixes =
+            quickFixesOf(answer) {
+                asked += it
+                false
+            }
+        assertEquals(listOf(""), asked)
+        assertEquals(emptyList(), fixes)
+    }
+
+    @Test
+    fun `an action with an edit and no command needs no resolve`() {
+        assertFalse(needsResolve(CodeAction("e").apply { edit = WorkspaceEdit(emptyMap()) }, serverResolves = true))
     }
 }
