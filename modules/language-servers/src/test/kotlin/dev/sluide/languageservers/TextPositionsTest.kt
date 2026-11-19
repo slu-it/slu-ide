@@ -41,6 +41,7 @@ class TextPositionsTest {
         "2, 5, 8",
         "7, 0, 8",
         "-1, 0, 0",
+        "-1, 3, 0",
         "0, -2, 0",
     )
     fun `offsetOf is the inverse and clamps lines and characters`(
@@ -57,6 +58,9 @@ class TextPositionsTest {
         "3, 6, 0, 3, 1, 1",
         "0, 8, 0, 0, 2, 0",
         "6, 6, 1, 1, 1, 1",
+        "6, 7, 1, 1, 1, 2",
+        "99, 99, 2, 0, 2, 0",
+        "7, 99, 1, 2, 2, 0",
     )
     fun `rangeOf spans lines`(
         start: Int,
@@ -70,5 +74,16 @@ class TextPositionsTest {
             Range(Position(startLine, startCharacter), Position(endLine, endCharacter)),
             TextPositions.rangeOf(text, start, end),
         )
+    }
+
+    // "\nab": a first line that is empty, so its newline is at index 0.
+    @ParameterizedTest(name = "{0}:{1} in a text that starts with a newline is offset {2}")
+    @CsvSource("0, 0, 0", "0, 1, 0", "1, 0, 1", "1, 5, 3", "2, 0, 3", "-1, 3, 0")
+    fun `offsetOf in a text whose first line is empty`(
+        line: Int,
+        character: Int,
+        offset: Int,
+    ) {
+        assertEquals(offset, TextPositions.offsetOf("\nab", Position(line, character)))
     }
 }
