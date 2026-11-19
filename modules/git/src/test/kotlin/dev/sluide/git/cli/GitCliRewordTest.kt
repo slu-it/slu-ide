@@ -1,8 +1,8 @@
 package dev.sluide.git.cli
 
-import dev.sluide.git.FAKE_GIT_START
 import dev.sluide.git.GitResult
 import dev.sluide.git.failingGit
+import dev.sluide.git.fakeGit
 import dev.sluide.git.recordedCalls
 import dev.sluide.git.recordingGit
 import dev.sluide.git.testGitEnvironment
@@ -22,7 +22,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /** The wrappers for rewording commits (`GitCliReword.kt`) with the real git, and with a stand-in for what it prints. */
@@ -41,21 +40,6 @@ class GitCliRewordTest {
         assumeTrue(git.available, "git is not installed")
         repo = TestRepository(folder.resolve("repo"))
         commits = (1..4).map { repo.commit("commit $it", "f$it.txt") }
-    }
-
-    /** A stand-in for git that runs [body] for anything but `--version`. */
-    private fun fakeGit(
-        body: String,
-        pipeGrace: kotlin.time.Duration = 300.milliseconds,
-    ): GitCli {
-        val script =
-            folder.resolve("fake-git-${System.nanoTime()}").apply {
-                writeText(FAKE_GIT_START + body + "\n")
-                toFile().setExecutable(true)
-            }
-        return GitCli(script.toString(), testGitEnvironment(), 2.seconds, pipeGrace).also {
-            assumeTrue(it.available, "no /bin/sh to stand in for git")
-        }
     }
 
     @Test
@@ -146,17 +130,18 @@ class GitCliRewordTest {
             )
 
         for ((shape, command) in shapes) {
-            assertNull(fakeGit("cat > /dev/null; $command").rawCommits(root, listOf("h")), shape)
+            assertNull(fakeGit(folder, "cat > /dev/null; $command").rawCommits(root, listOf("h")), shape)
         }
         assertEquals(
             "abc",
             fakeGit(
+                folder,
                 "cat > /dev/null; printf 'h commit 3\\n$body\\n'",
             ).rawCommits(root, listOf("h"))?.get("h")?.let(::String),
         )
         assertEquals(
             mapOf("h" to "", "i" to "x\ny"),
-            fakeGit("cat > /dev/null; printf 'h commit 0\\n\\ni commit 3\\nx\\ny\\n'")
+            fakeGit(folder, "cat > /dev/null; printf 'h commit 0\\n\\ni commit 3\\nx\\ny\\n'")
                 .rawCommits(root, listOf("h", "i"))
                 ?.mapValues { String(it.value) },
         )
@@ -186,24 +171,31 @@ class GitCliRewordTest {
         assertEquals("git is not available.", message(unavailableGit(folder)))
         assertEquals("git could not be run.", message(vanishedGit(folder)))
         assertEquals("fatal: refused by test", message(failingGit(folder, "var")))
-        assertEquals("fatal: no name", message(fakeGit("echo 'hint: x' >&2; echo 'fatal: no name' >&2; exit 128")))
-        assertEquals("git failed with exit code 128.", message(fakeGit("exit 128")))
-        assertEquals("git failed with exit code 0.", message(fakeGit("exit 0")), "nothing printed")
-        assertEquals("git failed with exit code 1.", message(fakeGit("echo 'A <a> 1 +0000'; exit 1")), "a failure")
+        assertEquals(
+            "fatal: no name",
+            message(fakeGit(folder, "echo 'hint: x' >&2; echo 'fatal: no name' >&2; exit 128")),
+        )
+        assertEquals("git failed with exit code 128.", message(fakeGit(folder, "exit 128")))
+        assertEquals("git failed with exit code 0.", message(fakeGit(folder, "exit 0")), "nothing printed")
+        assertEquals(
+            "git failed with exit code 1.",
+            message(fakeGit(folder, "echo 'A <a> 1 +0000'; exit 1")),
+            "a failure",
+        )
         assertEquals(
             "git failed with exit code 0.",
-            message(fakeGit("(sleep 3 &); echo 'A <a> 1 +0000'; sleep 0.3")),
+            message(fakeGit(folder, "(sleep 3 &); echo 'A <a> 1 +0000'; sleep 0.3")),
             "output a process git started holds open is not complete",
         )
         assertEquals(
             "git did not finish within 1 s.",
-            fakeGit("sleep 5").committerIdent(root, 1.seconds).exceptionOrNull()?.message,
+            fakeGit(folder, "sleep 5").committerIdent(root, 1.seconds).exceptionOrNull()?.message,
         )
     }
 
     @Test
     fun `committerIdent gives the bytes without the final line breaks`() {
-        val ident = fakeGit("echo 'A <a> 1 +0000'; echo").committerIdent(root).getOrThrow()
+        val ident = fakeGit(folder, "echo 'A <a> 1 +0000'; echo").committerIdent(root).getOrThrow()
 
         assertEquals("A <a> 1 +0000", ident.toString(Charsets.UTF_8))
     }
@@ -220,26 +212,28 @@ class GitCliRewordTest {
         assertTrue(broken.message.startsWith("error:") || broken.message.startsWith("fatal:"), broken.message)
         assertEquals(
             GitResult(false, "git gave no commit hash."),
-            fakeGit("cat > /dev/null; echo 'not a hash'").writeCommit(root, content),
+            fakeGit(folder, "cat > /dev/null; echo 'not a hash'").writeCommit(root, content),
         )
         assertEquals(
             GitResult(false, "git gave no commit hash."),
-            fakeGit("cat > /dev/null; echo '${"a".repeat(41)}'").writeCommit(root, content),
+            fakeGit(folder, "cat > /dev/null; echo '${"a".repeat(41)}'").writeCommit(root, content),
             "a hash with one more digit",
         )
         assertEquals(
             GitResult(false, "git gave no commit hash."),
-            fakeGit("cat > /dev/null; echo 'x${"a".repeat(40)}'").writeCommit(root, content),
+            fakeGit(folder, "cat > /dev/null; echo 'x${"a".repeat(40)}'").writeCommit(root, content),
         )
         assertEquals(
             GitResult(true, "b".repeat(64)),
-            fakeGit("cat > /dev/null; echo ${"b".repeat(64)}").writeCommit(root, content),
+            fakeGit(folder, "cat > /dev/null; echo ${"b".repeat(64)}").writeCommit(root, content),
         )
         assertEquals(
             GitResult(true, "b".repeat(40)),
-            fakeGit("cat > /dev/null; echo ' ${"b".repeat(40)} '").writeCommit(root, content),
+            fakeGit(folder, "cat > /dev/null; echo ' ${"b".repeat(40)} '").writeCommit(root, content),
         )
-        assertFalse(fakeGit("cat > /dev/null; echo 'fatal: x' >&2; exit 128").writeCommit(root, content).success)
+        assertFalse(
+            fakeGit(folder, "cat > /dev/null; echo 'fatal: x' >&2; exit 128").writeCommit(root, content).success,
+        )
     }
 
     @Test
@@ -342,6 +336,7 @@ class GitCliRewordTest {
         val runs = folder.resolve("runs.log")
         val counting =
             fakeGit(
+                folder,
                 "echo run >> '$runs'; while IFS= read -r name; do printf '%s commit 0\\n\\n' \"\$name\"; done",
             )
         val short = List(300) { "a".repeat(40) + it.toString().padStart(4, '0') }.map { it.take(40) }

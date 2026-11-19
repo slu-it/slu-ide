@@ -1,6 +1,10 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import org.junit.jupiter.api.Assumptions.assumeTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The start of a script that stands in for git: it answers `--version`, and fails what `GitCli` asks on its own (the
@@ -151,3 +155,20 @@ internal fun recordedCalls(log: java.nio.file.Path): List<String> =
     } else {
         emptyList()
     }
+
+/**
+ * A script in [folder] that stands in for git: [FAKE_GIT_START] and then [body]. The test is skipped when the stand-in
+ * cannot run (no `/bin/sh`). [pipeGrace] is how long `GitCli` waits for a pipe that a grandchild process holds open.
+ */
+internal fun fakeGit(
+    folder: java.nio.file.Path,
+    body: String,
+    pipeGrace: Duration = 300.milliseconds,
+): GitCli {
+    val script = folder.resolve("fake-git-${System.nanoTime()}")
+    script.toFile().writeText(FAKE_GIT_START + body + "\n")
+    script.toFile().setExecutable(true)
+    return GitCli(script.toString(), testGitEnvironment(), 2.seconds, pipeGrace).also {
+        assumeTrue(it.available, "no /bin/sh to stand in for git")
+    }
+}

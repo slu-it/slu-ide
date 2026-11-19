@@ -1,8 +1,8 @@
 package dev.sluide.git.cli
 
-import dev.sluide.git.FAKE_GIT_START
 import dev.sluide.git.GitBranchTip
 import dev.sluide.git.failingGit
+import dev.sluide.git.fakeGit
 import dev.sluide.git.testGitEnvironment
 import dev.sluide.git.unavailableGit
 import dev.sluide.git.vanishedGit
@@ -16,7 +16,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * The ref readers of [GitCli] (`GitCliRefs.kt`) with the real git: what they answer for a repository, and that a git
@@ -57,18 +56,6 @@ class GitCliRefsTest {
     private val unavailable get() = unavailableGit(folder)
 
     private fun failing(word: String) = failingGit(folder, word)
-
-    /** A stand-in for git that runs [body] for anything but `--version`; a body that holds its output open says so. */
-    private fun fakeGit(body: String): GitCli {
-        val script =
-            folder.resolve("fake-git-${System.nanoTime()}").apply {
-                writeText(FAKE_GIT_START + body + "\n")
-                toFile().setExecutable(true)
-            }
-        return GitCli(script.toString(), testGitEnvironment(), 2.seconds, 300.milliseconds).also {
-            assumeTrue(it.available, "no /bin/sh to stand in for git")
-        }
-    }
 
     @Test
     fun `refs lists the branches, remote branches and tags with their targets`() {
@@ -178,11 +165,14 @@ class GitCliRefsTest {
     @Test
     fun `a revision that git answers with nothing is no commit`() {
         // Exit 0 without output: not a hash.
-        assertNull(fakeGit("case \" \$* \" in *' rev-parse '*) exit 0;; esac").commitOfRevision(root, "HEAD"))
-        assertNull(fakeGit("case \" \$* \" in *' symbolic-ref '*) exit 0;; esac").currentBranch(root))
+        assertNull(fakeGit(folder, "case \" \$* \" in *' rev-parse '*) exit 0;; esac").commitOfRevision(root, "HEAD"))
+        assertNull(fakeGit(folder, "case \" \$* \" in *' symbolic-ref '*) exit 0;; esac").currentBranch(root))
         assertEquals(
             second,
-            fakeGit("case \" \$* \" in *' rev-parse '*) echo ' $second ';; esac").commitOfRevision(root, "HEAD"),
+            fakeGit(
+                folder,
+                "case \" \$* \" in *' rev-parse '*) echo ' $second ';; esac",
+            ).commitOfRevision(root, "HEAD"),
         )
     }
 
@@ -270,11 +260,11 @@ class GitCliRefsTest {
     fun `headBranch has no answer for an output that is not complete or empty`() {
         // The script ends at once; a process it left behind holds the output open (docs/testing.md "Portability").
         val held = "case \" \$* \" in *' symbolic-ref '*) echo refs/heads/x; (sleep 3 &); sleep 0.3; exit 0;; esac"
-        assertNull(fakeGit(held).headBranch(root))
-        assertNull(fakeGit("case \" \$* \" in *' symbolic-ref '*) exit 0;; esac").headBranch(root))
+        assertNull(fakeGit(folder, held).headBranch(root))
+        assertNull(fakeGit(folder, "case \" \$* \" in *' symbolic-ref '*) exit 0;; esac").headBranch(root))
         assertEquals(
             "refs/heads/x",
-            fakeGit("case \" \$* \" in *' symbolic-ref '*) echo ' refs/heads/x ';; esac").headBranch(root),
+            fakeGit(folder, "case \" \$* \" in *' symbolic-ref '*) echo ' refs/heads/x ';; esac").headBranch(root),
         )
     }
 
@@ -371,16 +361,17 @@ class GitCliRefsTest {
         assertNull(vanished.isAncestor(root, first, second))
 
         val slow = 300.milliseconds
-        assertNull(fakeGit("case \" \$* \" in *' rev-parse '*) sleep 30;; esac").isHeadUnborn(root, slow))
-        assertNull(fakeGit("case \" \$* \" in *' symbolic-ref '*) sleep 30;; esac").headBranch(root, slow))
-        assertNull(fakeGit("case \" \$* \" in *' merge-base '*) sleep 30;; esac").isAncestor(root, first, second, slow))
+        assertNull(fakeGit(folder, "case \" \$* \" in *' rev-parse '*) sleep 30;; esac").isHeadUnborn(root, slow))
+        assertNull(fakeGit(folder, "case \" \$* \" in *' symbolic-ref '*) sleep 30;; esac").headBranch(root, slow))
+        val slowMergeBase = fakeGit(folder, "case \" \$* \" in *' merge-base '*) sleep 30;; esac")
+        assertNull(slowMergeBase.isAncestor(root, first, second, slow))
     }
 
     @Test
     fun `exit values 0 and 1 of the fakes are what git gives, others are unknown`() {
         // `git merge-base --is-ancestor` exits with 0, 1, and 128 for an unknown revision (checked with git 2.56).
         fun ancestor(exit: Int) =
-            fakeGit("case \" \$* \" in *' merge-base '*) exit $exit;; esac").isAncestor(root, "a", "b")
+            fakeGit(folder, "case \" \$* \" in *' merge-base '*) exit $exit;; esac").isAncestor(root, "a", "b")
         assertEquals(true, ancestor(0))
         assertEquals(false, ancestor(1))
         assertNull(ancestor(2))
@@ -401,10 +392,10 @@ class GitCliRefsTest {
 
     @Test
     fun `mergeBase has no answer for an output that is empty, and trims what git adds around a hash`() {
-        assertNull(fakeGit("case \" \$* \" in *' merge-base '*) exit 0;; esac").mergeBase(root, "a", "b"))
+        assertNull(fakeGit(folder, "case \" \$* \" in *' merge-base '*) exit 0;; esac").mergeBase(root, "a", "b"))
         assertEquals(
             first,
-            fakeGit("case \" \$* \" in *' merge-base '*) echo ' $first ';; esac").mergeBase(root, "a", "b"),
+            fakeGit(folder, "case \" \$* \" in *' merge-base '*) echo ' $first ';; esac").mergeBase(root, "a", "b"),
         )
     }
 

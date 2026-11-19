@@ -1,7 +1,7 @@
 package dev.sluide.git.cli
 
-import dev.sluide.git.FAKE_GIT_START
 import dev.sluide.git.GitCancellation
+import dev.sluide.git.fakeGit
 import dev.sluide.git.parse.GitLogParser
 import dev.sluide.git.recordedCalls
 import dev.sluide.git.recordingGit
@@ -20,8 +20,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 /** The review readers of [GitCli] (`GitCliReview.kt`) with the real git, and with a stand-in for what git may print. */
 class GitCliReviewTest {
@@ -41,18 +39,6 @@ class GitCliReviewTest {
         repo = TestRepository(folder.resolve("repo"))
         first = repo.commit("first", "a.txt", "a")
         second = repo.commit("second", "b.txt", "bb")
-    }
-
-    /** A stand-in for git that runs [body] for anything but `--version`; it holds no pipe open unless [body] does. */
-    private fun fakeGit(body: String): GitCli {
-        val script =
-            folder.resolve("fake-git-${System.nanoTime()}").apply {
-                writeText(FAKE_GIT_START + body + "\n")
-                toFile().setExecutable(true)
-            }
-        return GitCli(script.toString(), testGitEnvironment(), 2.seconds, 300.milliseconds).also {
-            assumeTrue(it.available, "no /bin/sh to stand in for git")
-        }
     }
 
     private fun hashes(log: String?) = GitLogParser.parse(log.orEmpty()).map { it.hash }
@@ -126,10 +112,13 @@ class GitCliReviewTest {
     @Test
     fun `objectInfos is null for fewer lines than names, and takes only as many as there are names`() {
         // A real cat-file --batch-check prints one line per name; this is a git that prints too few or too many.
-        assertNull(fakeGit("true").objectInfos(root, listOf("a", "b")), "no line for two names")
-        assertNull(fakeGit("printf 'one'").objectInfos(root, listOf("a", "b")), "one line for two names")
-        assertEquals(listOf("one", "two"), fakeGit("printf 'one\\ntwo\\nthree\\n'").objectInfos(root, listOf("a", "b")))
-        assertNull(fakeGit("exit 128").objectInfos(root, listOf("a")))
+        assertNull(fakeGit(folder, "true").objectInfos(root, listOf("a", "b")), "no line for two names")
+        assertNull(fakeGit(folder, "printf 'one'").objectInfos(root, listOf("a", "b")), "one line for two names")
+        assertEquals(
+            listOf("one", "two"),
+            fakeGit(folder, "printf 'one\\ntwo\\nthree\\n'").objectInfos(root, listOf("a", "b")),
+        )
+        assertNull(fakeGit(folder, "exit 128").objectInfos(root, listOf("a")))
     }
 
     /** The full name of the blob of [file] in the second commit, as `git cat-file --batch` names it. */
@@ -149,7 +138,7 @@ class GitCliReviewTest {
         assertNull(unavailableGit(folder).blobs(root, sizes))
         assertNull(git.blobs(root, mapOf("${blobName("a.txt")}\n$gone" to 1L)))
         assertNull(git.blobs(root, mapOf("${blobName("a.txt")}\r" to 1L)))
-        assertNull(fakeGit("exit 128").blobs(root, sizes))
+        assertNull(fakeGit(folder, "exit 128").blobs(root, sizes))
     }
 
     @Test
@@ -174,10 +163,10 @@ class GitCliReviewTest {
         val record = "printf 'a blob 54\\n$content\\nextra'"
         val late = "(while kill -0 \$\$ 2>/dev/null; do sleep 0.01; done; $record) & exit 0"
 
-        assertNull(fakeGit("cat > /dev/null; $late").blobs(root, mapOf("a" to 0L)))
+        assertNull(fakeGit(folder, "cat > /dev/null; $late").blobs(root, mapOf("a" to 0L)))
         assertEquals(
             mapOf("a" to content),
-            fakeGit("cat > /dev/null; printf 'a blob 54\\n$content\\n'")
+            fakeGit(folder, "cat > /dev/null; printf 'a blob 54\\n$content\\n'")
                 .blobs(root, mapOf("a" to 54L))
                 ?.mapValues { String(it.value) },
         )
@@ -187,14 +176,14 @@ class GitCliReviewTest {
     fun `blobs is null for a git that fails after it wrote a valid answer, or whose output is not read to its end`() {
         val answer = "printf 'a blob 1\\nx\\n'"
 
-        assertNotNull(fakeGit(answer).blobs(root, mapOf("a" to 1L)))
-        assertNull(fakeGit("$answer; exit 1").blobs(root, mapOf("a" to 1L)))
+        assertNotNull(fakeGit(folder, answer).blobs(root, mapOf("a" to 1L)))
+        assertNull(fakeGit(folder, "$answer; exit 1").blobs(root, mapOf("a" to 1L)))
         assertNull(
-            fakeGit("(sleep 3 &); $answer; sleep 0.3").blobs(root, mapOf("a" to 1L)),
+            fakeGit(folder, "(sleep 3 &); $answer; sleep 0.3").blobs(root, mapOf("a" to 1L)),
             "a process git started holds the output open",
         )
         val cancelled = GitCancellation().apply { cancel() }
-        assertNull(fakeGit(answer).blobs(root, mapOf("a" to 1L), cancelled))
+        assertNull(fakeGit(folder, answer).blobs(root, mapOf("a" to 1L), cancelled))
     }
 
     @Test
@@ -217,16 +206,19 @@ class GitCliReviewTest {
             )
 
         for ((shape, body) in shapes) {
-            assertNull(fakeGit("cat > /dev/null; $body").blobs(root, sizes), shape)
+            assertNull(fakeGit(folder, "cat > /dev/null; $body").blobs(root, sizes), shape)
         }
-        assertNull(fakeGit("cat > /dev/null; printf 'a missing\\n'").blobs(root, mapOf("a" to 1L, "b" to 1L)), "b")
+        assertNull(
+            fakeGit(folder, "cat > /dev/null; printf 'a missing\\n'").blobs(root, mapOf("a" to 1L, "b" to 1L)),
+            "b",
+        )
     }
 
     @Test
     fun `blobs reads a zero-size blob and a blob that holds a line break and a header-like line`() {
         val tricky = "a blob 1\nx\n"
         val blobs =
-            fakeGit("cat > /dev/null; printf 'a blob 0\\n\\nb blob 11\\na blob 1\\nx\\n\\n'")
+            fakeGit(folder, "cat > /dev/null; printf 'a blob 0\\n\\nb blob 11\\na blob 1\\nx\\n\\n'")
                 .blobs(root, mapOf("a" to 0L, "b" to 11L))
 
         assertEquals(setOf("a", "b"), blobs?.keys)
@@ -261,8 +253,8 @@ class GitCliReviewTest {
         )
         assertEquals(4, status?.size)
         assertNull(unavailableGit(folder).porcelainStatus(root))
-        assertNull(fakeGit("exit 128").porcelainStatus(root))
-        assertEquals(listOf("x", "y"), fakeGit("printf 'x\\0\\0y\\0'").porcelainStatus(root))
+        assertNull(fakeGit(folder, "exit 128").porcelainStatus(root))
+        assertEquals(listOf("x", "y"), fakeGit(folder, "printf 'x\\0\\0y\\0'").porcelainStatus(root))
     }
 
     @Test
@@ -298,7 +290,7 @@ class GitCliReviewTest {
     @Test
     fun `blobs does not take a byte that is no line break for the end of a blob`() {
         // "a" has one byte, then "Z" where git would end the record, then a valid record of "b".
-        val shifted = fakeGit("cat > /dev/null; printf 'a blob 1\\nxZb blob 1\\ny\\n'")
+        val shifted = fakeGit(folder, "cat > /dev/null; printf 'a blob 1\\nxZb blob 1\\ny\\n'")
 
         assertNull(shifted.blobs(root, mapOf("a" to 1L, "b" to 1L)))
     }
@@ -319,10 +311,10 @@ class GitCliReviewTest {
         // is a complete, valid answer of 112 bytes.
         val content = "x".repeat(100)
 
-        assertNull(fakeGit("cat > /dev/null; printf 'a blob 100\\n$content\\n'").blobs(root, mapOf("a" to 0L)))
+        assertNull(fakeGit(folder, "cat > /dev/null; printf 'a blob 100\\n$content\\n'").blobs(root, mapOf("a" to 0L)))
         assertEquals(
             setOf("a"),
-            fakeGit("cat > /dev/null; printf 'a blob 100\\n$content\\n'").blobs(root, mapOf("a" to 100L))?.keys,
+            fakeGit(folder, "cat > /dev/null; printf 'a blob 100\\n$content\\n'").blobs(root, mapOf("a" to 100L))?.keys,
         )
     }
 }

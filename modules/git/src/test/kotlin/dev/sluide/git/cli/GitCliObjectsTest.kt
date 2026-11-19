@@ -3,6 +3,7 @@ package dev.sluide.git.cli
 import dev.sluide.git.FAKE_GIT_START
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.failingGit
+import dev.sluide.git.fakeGit
 import dev.sluide.git.recordedCalls
 import dev.sluide.git.recordingGit
 import dev.sluide.git.testGitEnvironment
@@ -26,9 +27,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * The object readers of [GitCli] (`GitCliObjects.kt`) with the real git: what they answer for a repository, and that a
@@ -60,21 +59,6 @@ class GitCliObjectsTest {
 
     private fun failing(word: String) = failingGit(folder, word)
 
-    /** A stand-in for git that runs [body] for anything but `--version`. */
-    private fun fakeGit(
-        body: String,
-        pipeGrace: Duration = 300.milliseconds,
-    ): GitCli {
-        val script =
-            folder.resolve("fake-git-${System.nanoTime()}").apply {
-                writeText(FAKE_GIT_START + body + "\n")
-                toFile().setExecutable(true)
-            }
-        return GitCli(script.toString(), testGitEnvironment(), 2.seconds, pipeGrace).also {
-            assumeTrue(it.available, "no /bin/sh to stand in for git")
-        }
-    }
-
     /** A call of [word] that ends with [exit] after it wrote [output] (a shell word). */
     private fun answering(
         word: String,
@@ -82,6 +66,7 @@ class GitCliObjectsTest {
         exit: Int = 0,
         hold: Boolean = false,
     ) = fakeGit(
+        folder,
         "case \" \$* \" in *' $word '*) $output; ${if (hold) "(sleep 3 &); sleep 0.3;" else ""} exit $exit;; esac",
     )
 
@@ -448,7 +433,7 @@ class GitCliObjectsTest {
         ): String? {
             val held = if (hold) "(sleep 3 &); sleep 0.3;" else ""
             val body = "case \" \$* \" in $config *' diff '*) printf '$output'; $held exit $exit;; esac"
-            return fakeGit(body).diffFiles(cmp, "o", "c", null)
+            return fakeGit(folder, body).diffFiles(cmp, "o", "c", null)
         }
 
         assertEquals(hunk.replace("\\n", "\n"), reply(0))
@@ -469,16 +454,18 @@ class GitCliObjectsTest {
         cmp.resolve("o.txt").writeText("a\n")
         cmp.resolve("c.txt").writeText("b\n")
 
-        assertNull(fakeGit("case \" \$* \" in *' cat-file '*) sleep 30;; esac").filteredBlob(root, name, "p", 10, slow))
+        val slowCatFile = fakeGit(folder, "case \" \$* \" in *' cat-file '*) sleep 30;; esac")
+        assertNull(slowCatFile.filteredBlob(root, name, "p", 10, slow))
         assertNull(
             fakeGit(
+                folder,
                 "case \" \$* \" in *' diff '*) sleep 30;; esac",
             ).diffFiles(cmp, "o.txt", "c.txt", null, timeout = slow),
         )
 
         // A header and then output without end: the limit stops it, at once; without a limit it would run until the
         // timeout, which gives no blob.
-        val endless = fakeGit("case \" \$* \" in *' cat-file '*) printf '$name blob 5\\n'; yes x;; esac")
+        val endless = fakeGit(folder, "case \" \$* \" in *' cat-file '*) printf '$name blob 5\\n'; yes x;; esac")
         val result =
             assertTimeoutPreemptively(ofSeconds(20), ThrowingSupplier { endless.filteredBlob(root, name, "p", 10) })
         assertEquals(FilteredBlob.TooLarge, result)

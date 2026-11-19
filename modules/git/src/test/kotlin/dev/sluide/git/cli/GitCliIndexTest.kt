@@ -1,8 +1,8 @@
 package dev.sluide.git.cli
 
-import dev.sluide.git.FAKE_GIT_START
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.failingGit
+import dev.sluide.git.fakeGit
 import dev.sluide.git.testGitEnvironment
 import dev.sluide.git.unavailableGit
 import dev.sluide.git.vanishedGit
@@ -19,7 +19,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * The index readers of [GitCli] (`GitCliIndex.kt`) with the real git: what they answer for a repository, and that a
@@ -48,21 +47,6 @@ class GitCliIndexTest {
     private val unavailable get() = unavailableGit(folder)
 
     private fun failing(word: String) = failingGit(folder, word)
-
-    /** A stand-in for git that runs [body] for anything but `--version`. */
-    private fun fakeGit(
-        body: String,
-        pipeGrace: kotlin.time.Duration = 300.milliseconds,
-    ): GitCli {
-        val script =
-            folder.resolve("fake-git-${System.nanoTime()}").apply {
-                writeText(FAKE_GIT_START + body + "\n")
-                toFile().setExecutable(true)
-            }
-        return GitCli(script.toString(), testGitEnvironment(), 2.seconds, pipeGrace).also {
-            assumeTrue(it.available, "no /bin/sh to stand in for git")
-        }
-    }
 
     /** Conflicts in `a.txt`: main and `other` change it differently from [first]; returns the commit of `other`. */
     private fun conflicting(): String {
@@ -213,6 +197,7 @@ class GitCliIndexTest {
         assertEquals(
             name,
             fakeGit(
+                folder,
                 "case \" \$* \" in *' merge-tree '*) printf '%s\\nfile\\n' $name;; esac",
             ).mergeTree(root, "a", "b", "c"),
         )
@@ -221,7 +206,7 @@ class GitCliIndexTest {
     @ParameterizedTest
     @ValueSource(strings = ["/", ":", "`", "g", "A", "ab/", "a b"])
     fun `mergeTree gives no tree for a first line that is no lowercase hexadecimal name`(line: String) {
-        val answering = fakeGit("case \" \$* \" in *' merge-tree '*) printf '%s\\n' '$line';; esac")
+        val answering = fakeGit(folder, "case \" \$* \" in *' merge-tree '*) printf '%s\\n' '$line';; esac")
 
         assertNull(answering.mergeTree(root, "a", "b", "c"))
     }
@@ -231,7 +216,10 @@ class GitCliIndexTest {
     fun `mergeTree takes exit values 0 and 1 for an answer`(exit: Int) {
         assertEquals(
             "abc",
-            fakeGit("case \" \$* \" in *' merge-tree '*) echo abc; exit $exit;; esac").mergeTree(root, "a", "b", "c"),
+            fakeGit(
+                folder,
+                "case \" \$* \" in *' merge-tree '*) echo abc; exit $exit;; esac",
+            ).mergeTree(root, "a", "b", "c"),
         )
     }
 
@@ -239,15 +227,18 @@ class GitCliIndexTest {
     @ValueSource(ints = [2, 128])
     fun `mergeTree takes other exit values for a failure, whatever git printed`(exit: Int) {
         assertNull(
-            fakeGit("case \" \$* \" in *' merge-tree '*) echo abc; exit $exit;; esac").mergeTree(root, "a", "b", "c"),
+            fakeGit(
+                folder,
+                "case \" \$* \" in *' merge-tree '*) echo abc; exit $exit;; esac",
+            ).mergeTree(root, "a", "b", "c"),
         )
     }
 
     @Test
     fun `mergeTree has no answer for an output that is not complete or empty`() {
         val held = "case \" \$* \" in *' merge-tree '*) echo abc; (sleep 3 &); sleep 0.3; exit 0;; esac"
-        assertNull(fakeGit(held).mergeTree(root, "a", "b", "c"))
-        assertNull(fakeGit("case \" \$* \" in *' merge-tree '*) exit 0;; esac").mergeTree(root, "a", "b", "c"))
+        assertNull(fakeGit(folder, held).mergeTree(root, "a", "b", "c"))
+        assertNull(fakeGit(folder, "case \" \$* \" in *' merge-tree '*) exit 0;; esac").mergeTree(root, "a", "b", "c"))
     }
 
     @Test
@@ -279,12 +270,12 @@ class GitCliIndexTest {
     @Test
     fun `unmerged records that are not git's are no answer`() {
         // <mode> <object> <stage> TAB <path>: two fields, or a stage that is no number, is not that.
-        assertNull(fakeGit("printf '100644 abc\\tp\\000'").unmergedEntries(root))
-        assertNull(fakeGit("printf '100644 abc x\\tp\\000'").unmergedEntries(root))
-        assertNull(fakeGit("printf '100644 abc 1 2\\tp\\000'").unmergedEntries(root))
+        assertNull(fakeGit(folder, "printf '100644 abc\\tp\\000'").unmergedEntries(root))
+        assertNull(fakeGit(folder, "printf '100644 abc x\\tp\\000'").unmergedEntries(root))
+        assertNull(fakeGit(folder, "printf '100644 abc 1 2\\tp\\000'").unmergedEntries(root))
         assertEquals(
             listOf(UnmergedEntry("p q", 2, "100644", "abc")),
-            fakeGit("printf 'ignored\\000100644 abc 2\\tp q\\000'").unmergedEntries(root),
+            fakeGit(folder, "printf 'ignored\\000100644 abc 2\\tp q\\000'").unmergedEntries(root),
         )
     }
 
@@ -349,7 +340,7 @@ class GitCliIndexTest {
         val names = listOf("one", "two")
 
         fun paths(output: String) =
-            fakeGit("case \" \$* \" in *' rev-parse '*) printf '$output';; esac").gitPaths(root, names)
+            fakeGit(folder, "case \" \$* \" in *' rev-parse '*) printf '$output';; esac").gitPaths(root, names)
 
         assertEquals(listOf(root.resolve("a"), root.resolve("b")), paths("a\\n\\nb\\n"))
         assertNull(paths("a\\n"))
@@ -369,6 +360,7 @@ class GitCliIndexTest {
 
         val paths =
             fakeGit(
+                folder,
                 "case \" \$* \" in *' rev-parse '*) printf 'k\\303\\266ln\\n';; esac",
             ).gitPaths(root, listOf("x"))
 
@@ -382,14 +374,15 @@ class GitCliIndexTest {
         assertNull(vanished.indexMatchesHead(root))
 
         val slow = 300.milliseconds
-        val hangs = fakeGit("case \" \$* \" in *' merge-tree '*|*' diff-index '*) sleep 30;; esac")
+        val hangs = fakeGit(folder, "case \" \$* \" in *' merge-tree '*|*' diff-index '*) sleep 30;; esac")
         assertNull(hangs.mergeTree(root, first, first, first, slow))
         assertNull(hangs.indexMatchesHead(root, slow))
     }
 
     @Test
     fun `indexMatchesHead takes exit values 0 and 1 for an answer`() {
-        fun matches(exit: Int) = fakeGit("case \" \$* \" in *' diff-index '*) exit $exit;; esac").indexMatchesHead(root)
+        fun matches(exit: Int) =
+            fakeGit(folder, "case \" \$* \" in *' diff-index '*) exit $exit;; esac").indexMatchesHead(root)
 
         assertEquals(true, matches(0))
         assertEquals(false, matches(1))
