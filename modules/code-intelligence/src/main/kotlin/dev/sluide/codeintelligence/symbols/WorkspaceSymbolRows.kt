@@ -51,9 +51,9 @@ internal fun workspaceSymbolRows(
     }
     return result.right.orEmpty().filterNotNull().mapNotNull { symbol ->
         val location = symbol.location ?: return@mapNotNull null
-        val uri = if (location.isLeft) location.left?.uri else location.right?.uri
+        val uri = location.left?.uri ?: location.right?.uri
         val file = uri?.let(LspUris::toPath) ?: return@mapNotNull null
-        val position = if (location.isLeft) location.left?.range?.start else null
+        val position = location.left?.range?.start
         WorkspaceSymbolRow(
             symbol.name ?: return@mapNotNull null,
             symbol.containerName,
