@@ -90,6 +90,9 @@ A behavior is tested once, at the lowest level that can see it
   (`ExplorerEditHost`, a class of function properties; `FakeEditHost` in the tests). Keep one UI test per such
   connection that fails if the view stops calling the logic (save → lookup again, move → `moved`, dispose → late
   answers dropped); the logic's cases stay in the unit test.
+- **Generic helper?** Capturing a logger's records (`LogCapture`) and strings that collide in `hashCode`
+  (`collidingWith`) come from the `test-support` module (`testImplementation`, ADR 0186), not from a copy; fakes of a
+  module's own domain stay in its `testFixtures`.
 - **Search before adding.** Grep for the asserted message, the function and its test class; extend that test instead
   of adding a second one. Shared code (the fold tree of JSON/XML/YAML, `ZoomControls`, `FoldControls`) is tested in
   one place, with one smoke test per preview that uses it. Feature behavior is tested in its module; `ide` tests only
