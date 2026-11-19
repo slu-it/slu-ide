@@ -63,6 +63,9 @@ dependencies {
     implementation(project(":modules:barcodes"))
     // The Converting tool: a tab opened from the Tools menu, one per window (ADR 0110, ADR 0115).
     implementation(project(":modules:converting"))
+    // The type of a pasted text: Converting's data detection is wired in as a TextTypeSource, and the explorer's Paste
+    // Text and File → New Scratch from Clipboard use the detector (ADR 0187, ADR 0188).
+    implementation(project(":modules:text-types"))
     // Docker through its CLI: the window's DockerSession and the Docker settings page (ADR 0117).
     implementation(project(":modules:docker"))
     // The Databases tab of the Services menu: JDBC connections, consoles, results and the object tree (ADR 0121).
