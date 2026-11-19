@@ -121,7 +121,7 @@ internal class GoToSymbol(
             session,
             { it.workspaceService.resolveWorkspaceSymbol(symbol) },
             { resolved ->
-                val location = resolved?.location?.takeIf { it.isLeft }?.left
+                val location = resolved?.location?.left
                 val file = location?.uri?.let(LspUris::toPath)
                 val start = location?.range?.start
                 go(if (file != null && start != null) SourcePosition(file, start.line, start.character) else fileStart)
