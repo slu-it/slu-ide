@@ -108,6 +108,44 @@ class SentenceRangesTest {
     }
 
     @Test
+    fun `a text that starts with a line break loses nothing`() {
+        assertEquals(listOf("A", "B"), texts("\nA\nB"))
+        assertEquals(listOf("Ok.", "B"), texts("\n\nOk. B\n"))
+    }
+
+    @Test
+    fun `whitespace after an abbreviation up to the end of the line ends the sentence`() {
+        assertEquals(listOf("See Dr."), texts("See Dr. "))
+        assertEquals(listOf("See Dr.", "Next"), texts("See Dr.  \nNext"))
+    }
+
+    @Test
+    fun `an ellipsis before a lowercase word ends no sentence, also two periods and after a bracket`() {
+        assertEquals(listOf("Wait… what"), texts("Wait… what"))
+        assertEquals(listOf("Wait.. what"), texts("Wait.. what"))
+        assertEquals(listOf("Wait..", "What"), texts("Wait.. What"))
+        assertEquals(listOf("Wait…", "(then"), texts("Wait… (then"))
+    }
+
+    @Test
+    fun `an abbreviation ends a sentence when another mark or a closer follows its period`() {
+        assertEquals(listOf("Dr!", "Smith"), texts("Dr! Smith"))
+        assertEquals(listOf("Say \"Dr.\"", "Smith"), texts("Say \"Dr.\" Smith"))
+        assertEquals(listOf("Say Dr?", "Smith"), texts("Say Dr? Smith"))
+    }
+
+    @Test
+    fun `a multi-part abbreviation takes the word before with any whitespace between`() {
+        assertEquals(listOf("Es ist z.   B. gut ende."), texts("Es ist z.   B. gut ende.", Abbreviations.GERMAN))
+        assertEquals(listOf("Es ist z.\tb. gut ende."), texts("Es ist z.\tb. gut ende.", Abbreviations.GERMAN))
+    }
+
+    @Test
+    fun `an entry that starts with a period matches no word without a word before it`() {
+        assertEquals(listOf("Hello b.", "world"), texts("Hello b. world", setOf(". b")))
+    }
+
+    @Test
     fun `a range's last is inclusive`() {
         assertEquals(listOf(0..7, 9..14), SentenceRanges.split("One two. Three!"))
     }
@@ -161,6 +199,20 @@ class SentenceRangesTest {
             listOf("We counted up to exactly 1,000,000 of", "those things"),
             clauses("We counted up to exactly 1,000,000 of those things", maxChars = 40),
         )
+    }
+
+    @Test
+    fun `a range of exactly the limit is kept whole and a space at the limit is not a place to split`() {
+        assertEquals(listOf("ab cd"), clauses("ab cd", maxChars = 5))
+        assertEquals(listOf("ab", "cdefgh ijklm"), clauses("ab cdefgh ijklm", maxChars = 9))
+    }
+
+    @Test
+    fun `a range with whitespace at its ends comes back whole when a piece would be empty`() {
+        val blank = " ".repeat(30) + "x"
+        assertEquals(listOf(0..30), SentenceRanges.splitAtClause(blank, 0..30, maxChars = 10))
+        val trailing = "aaaaaaaaaaaaaaaaaaaaaaaaa, " + " ".repeat(10)
+        assertEquals(listOf(0..trailing.length - 1), SentenceRanges.splitAtClause(trailing, 0..trailing.length - 1, 30))
     }
 
     @Test

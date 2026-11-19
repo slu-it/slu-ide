@@ -80,6 +80,7 @@ class TextSearchTest {
         assertEquals(1, TextSearch.previous(matches, 10))
         assertEquals(2, TextSearch.previous(matches, 12))
         assertEquals(2, TextSearch.previous(matches, 2))
+        assertEquals(0, TextSearch.previous(matches, 3))
         assertNull(TextSearch.next(emptyList(), 0))
         assertNull(TextSearch.previous(emptyList(), 0))
     }
@@ -122,6 +123,35 @@ class TextSearchTest {
         assertNull(TextSearch.replace("foo", 0..1, "foo", "x", plain))
         assertNull(TextSearch.replace("foo", 1..5, "o", "x", plain))
         assertNull(TextSearch.replace("foo", -1..1, "f", "x", plain))
+    }
+
+    @Test
+    fun `replaces a match at the start of the text and refuses an empty range for an empty query`() {
+        assertEquals("xoo", TextSearch.replace("foo", 0..0, "f", "x", plain).applied("foo"))
+        assertNull(TextSearch.replace("abc", 1..0, "", "x", plain))
+    }
+
+    @Test
+    fun `a caret in regex mode matches only at a line start, not at the start of the replaced match`() {
+        assertNull(TextSearch.replace("ab", 1..1, "^b", "x", regex))
+        assertEquals("a\nx", TextSearch.replace("a\nb", 2..2, "^b", "x", regex).applied("a\nb"))
+    }
+
+    @Test
+    fun `an invalid replacement is reported with the message of the regex engine`() {
+        fun message(replacement: String) =
+            (TextSearch.replace("foo", 0..2, "foo", replacement, regex) as ReplaceResult.Invalid).message
+
+        assertEquals("No group 1", message("$1"))
+        assertEquals("Illegal group reference: group index is missing", message("$"))
+        assertEquals("character to be escaped is missing", message("x\\"))
+        val all = TextSearch.replaceAll("a(b)", "\\((\\w)\\)", "$3", regex) as ReplaceResult.Invalid
+        assertEquals("No group 3", all.message)
+    }
+
+    @Test
+    fun `a regex replacement keeps a plain n and t as letters`() {
+        assertEquals("aantb", TextSearch.replace("a,b", 1..1, ",", "ant", regex).applied("a,b"))
     }
 
     @Test
@@ -198,6 +228,24 @@ class TextSearchTest {
 
         val expired = DeadlineText(text, Duration.ZERO)
         assertFailsWith<SearchTimeoutException> { (0 until text.length).forEach { expired[it] } }
+    }
+
+    @Test
+    fun `the clock is read only on every 4096th character`() {
+        val expired = DeadlineText("a".repeat(5000), Duration.ZERO)
+
+        repeat(4095) { expired[it] }
+        assertFailsWith<SearchTimeoutException> { expired[4095] }
+    }
+
+    @Test
+    fun `the deadline text is the text for a char sequence reader`() {
+        val text: CharSequence = DeadlineText("abcde", 1.minutes)
+
+        assertEquals(5, text.length)
+        assertEquals('c', text[2])
+        assertEquals("bcd", text.subSequence(1, 4).toString())
+        assertEquals("abcde", text.toString())
     }
 
     @Test
