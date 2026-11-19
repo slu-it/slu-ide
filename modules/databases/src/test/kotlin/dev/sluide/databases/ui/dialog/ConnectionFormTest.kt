@@ -128,7 +128,7 @@ class ConnectionFormTest {
 
     @ParameterizedTest
     @CsvSource("1", "65535", " 8080 ")
-    fun `ports at the ends of the range are valid`(port: String) {
+    fun `ports at the ends of the range and with spaces around are valid`(port: String) {
         assertNull(form().copy(portText = port).validation())
     }
 
@@ -153,5 +153,10 @@ class ConnectionFormTest {
         assertNull(fresh.ownName)
         assertEquals("A connection named 'Local' exists.", fresh.validation())
         assertEquals("Local", form(config, isNew = false, names = setOf("Local")).ownName)
+    }
+
+    @Test
+    fun `switching to the same kind keeps the port text as typed`() {
+        assertEquals(" 5432 ", form().copy(portText = " 5432 ").withKind(DatabaseKind.POSTGRESQL).portText)
     }
 }

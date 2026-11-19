@@ -139,7 +139,8 @@ class GridSubmitTest {
         submit.submit()
         assertEquals(emptyList(), fake.changes)
 
-        // deletes are asked about before anything else could stop a second submit
+        // With a delete pending, a submit that got past the first guard would ask the question again; the guard
+        // at the question's end (running, busy) would stop it only after that, so the question tells them apart.
         current!!.deleteRows(listOf(1))
         submit.submit()
         assertEquals(emptyList(), questions)
@@ -279,10 +280,13 @@ class GridSubmitTest {
 
     @Test
     fun `deletes inside a Manual transaction are not asked about and are not committed yet`() {
-        fake.commitMode = CommitMode.MANUAL
+        val manual = EditingSession(config, autoCommit = false).apply { commitMode = CommitMode.MANUAL }
+        entry.connected(manual)
         current!!.deleteRows(listOf(0))
         submit.submit()
         assertEquals(emptyList(), questions)
+        assertEquals(listOf("setSavepoint", "release savepoint"), manual.jdbc.log.filter { "avepoint" in it })
+        assertFalse("commit" in manual.jdbc.log)
         assertEquals(listOf("Submitted 1 change (not committed yet)"), reloads)
         assertEquals(listOf("Submitted 1 change (not committed yet)" to false), logged)
     }
@@ -293,6 +297,11 @@ class GridSubmitTest {
         current!!.deleteRows(listOf(0))
         submit.submit()
         assertEquals(emptyList(), questions)
+        assertEquals(
+            listOf("sql SAVEPOINT db_edit", "sql RELEASE SAVEPOINT db_edit"),
+            fake.jdbc.log.filter { "SAVEPOINT" in it },
+        )
+        assertFalse("commit" in fake.jdbc.log)
         assertEquals(listOf("Submitted 1 change (not committed yet)"), reloads)
         assertEquals(emptyList(), said)
     }

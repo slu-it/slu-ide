@@ -274,7 +274,7 @@ class ObjectTreeModelTest {
     }
 
     @Test
-    fun `rows of other types are the same only when equal`() {
+    fun `rows of other types, and objects that gained children, are the same only when equal`() {
         val loaded = ObjectRow(table("id"))
         assertFalse(ObjectTreeModel.sameRow(LoadingRow, loaded))
         assertFalse(ObjectTreeModel.sameRow(loaded, LoadingRow))
@@ -358,7 +358,7 @@ class ObjectTreeModelTest {
     }
 
     @Test
-    fun `every kind has an icon of its own`() {
+    fun `kinds the tree shows side by side have different icons`() {
         val literals = ObjectKind.entries.map(ObjectIcons::literal)
         assertEquals(ObjectKind.entries.size, literals.toSet().size)
     }

@@ -13,6 +13,7 @@ import dev.sluide.databases.ui.result.FakeCursor
 import org.junit.jupiter.api.AfterEach
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** The run sequence of a console with a fake session, editor and result target; no toolkit. */
@@ -225,7 +226,7 @@ class ConsoleRunnerTest {
         assertEquals(1, fake.executed.size)
         assertTrue(shown.isEmpty(), "the answer of a stopped run is ignored")
         assertTrue(cursor.closed, "and its cursor is closed")
-        assertTrue(!runner.running)
+        assertFalse(runner.running)
     }
 
     @Test
@@ -248,8 +249,8 @@ class ConsoleRunnerTest {
         val broken = ConsoleRunner(entry, editor, throwing, history, { 50 }, { it.run() }, { _, _ -> }, gate)
         editor.text = "select 1"
         broken.run()
-        assertTrue(!gate.busy.get())
-        assertTrue(!broken.running)
+        assertFalse(gate.busy.get())
+        assertFalse(broken.running)
         assertEquals(listOf("boom" to true), logged)
     }
 
@@ -296,7 +297,7 @@ class ConsoleRunnerTest {
         runner.run()
         fake.deferred[0].completeExceptionally(java.sql.SQLException("closed"))
         assertEquals(listOf("closed" to true, "Stopped: 2 statements not run" to false), logged)
-        assertTrue(!runner.running)
+        assertFalse(runner.running)
         fake.defer = false
         runner.run()
         assertEquals(4, fake.executed.size)
@@ -324,6 +325,15 @@ class ConsoleRunnerTest {
         runner.run()
         assertEquals(emptyList(), marks, "the editor's error mark is left alone")
         assertEquals(emptyList(), offered, "no chooser is offered")
+    }
+
+    @Test
+    fun `running an empty console does nothing`() {
+        editor.text = "  "
+        runner.run()
+        assertEquals(emptyList(), fake.executed)
+        assertEquals(emptyList(), logged)
+        assertFalse(runner.running)
     }
 
     @Test
@@ -397,8 +407,8 @@ class ConsoleRunnerTest {
         mine.run()
         assertTrue(gate.busy.get())
         mine.stop()
-        assertTrue(!gate.busy.get())
-        assertTrue(!mine.running)
+        assertFalse(gate.busy.get())
+        assertFalse(mine.running)
     }
 
     @Test
@@ -413,11 +423,13 @@ class ConsoleRunnerTest {
         assertTrue(runner.running)
         fake.deferred[1].complete(StatementOutcome.Updated("a", 1, 0))
         assertEquals(1, shown.size)
-        assertTrue(!runner.running)
+        assertFalse(runner.running)
     }
 
     @Test
-    fun `stop between a statement's answer and the next sends no cancel`() {
+    fun `a stop from inside show sends no cancel`() {
+        // The app cannot reach this (stop() is only called when the tab closes, and show has no nested event loop);
+        // it is the test that kills the inFlight guard of stop().
         editor.text = "a; b"
         selectAll()
         onShow = { runner.stop() }
@@ -433,7 +445,7 @@ class ConsoleRunnerTest {
         entry.ended(null)
         runner.stop()
         assertEquals(emptyList(), fake.calls)
-        assertTrue(!runner.running)
+        assertFalse(runner.running)
     }
 
     @Test
@@ -456,7 +468,7 @@ class ConsoleRunnerTest {
         fake.answer = { StatementOutcome.Rows(it, 1, columns, cursor, cursor.firstPage()) }
         runner.run()
         assertEquals(3, shown.size)
-        assertTrue(!cursor.closed)
+        assertFalse(cursor.closed)
     }
 
     @Test
@@ -467,7 +479,7 @@ class ConsoleRunnerTest {
         runner.run()
         fake.deferred[0].complete(null)
         assertEquals(listOf("Statement not run" to true, "Stopped: 1 statement not run" to false), logged)
-        assertTrue(!runner.running)
+        assertFalse(runner.running)
     }
 
     @Test
@@ -476,7 +488,7 @@ class ConsoleRunnerTest {
         selectAll()
         runner.run()
         assertEquals(listOf("a", "b", "c"), fake.executed.map { it.first })
-        assertTrue(!runner.running)
+        assertFalse(runner.running)
         assertEquals(emptyList(), logged)
     }
 
@@ -495,11 +507,11 @@ class ConsoleRunnerTest {
                     error: Boolean,
                 ): Unit = error("log broken")
             }
-        val mine = ConsoleRunner(entry, editor, broken, history, { 50 }, { it.run() }, { _, _ -> }, gate)
+        val mine = ConsoleRunner(entry, editor, broken, history, { 50 }, fx, { _, _ -> }, gate)
         editor.text = "select 1"
         mine.run()
-        assertTrue(!gate.busy.get())
-        assertTrue(!mine.running)
+        assertFalse(gate.busy.get())
+        assertFalse(mine.running)
     }
 
     @Test
@@ -509,8 +521,8 @@ class ConsoleRunnerTest {
         fake.answer = { error("session broken") }
         runner.run()
         assertEquals(listOf("session broken" to true, "Stopped: 2 statements not run" to false), logged)
-        assertTrue(!runner.running)
-        assertEquals(emptyList(), history.entries("key").drop(1), "only the throwing statement started")
+        assertFalse(runner.running)
+        assertEquals(emptyList(), history.entries("key"), "execute threw before the first statement was recorded")
     }
 
     @Test
@@ -519,7 +531,7 @@ class ConsoleRunnerTest {
         pick = { _, then -> then(emptyList()) }
         runner.run()
         assertEquals(emptyList(), fake.executed)
-        assertTrue(!runner.running)
+        assertFalse(runner.running)
         assertEquals(emptyList(), logged)
     }
 
@@ -571,7 +583,7 @@ class ConsoleRunnerTest {
         entry.ended(null)
         late(listOf(SqlStatement("y", 0, 1)))
         assertEquals(listOf("Not connected" to true), logged)
-        assertTrue(!runner.running)
+        assertFalse(runner.running)
     }
 
     private fun nullTarget() =
