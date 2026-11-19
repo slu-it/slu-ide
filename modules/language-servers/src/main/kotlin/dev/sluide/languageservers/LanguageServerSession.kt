@@ -293,6 +293,8 @@ class LanguageServerSession internal constructor(
                 @Suppress("UNCHECKED_CAST")
                 it.endpoint.request(method, json) as CompletableFuture<Any?>
             },
+            // A method lsp4j knows answers typed (executeCommand a map, definition an Either): made JSON here; the
+            // others arrive as the JSON read.
             { result -> onResult(result as? JsonElement ?: result?.let(protocolGson::toJsonTree)) },
             onError,
         )
