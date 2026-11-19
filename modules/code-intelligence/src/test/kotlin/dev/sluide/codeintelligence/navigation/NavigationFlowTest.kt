@@ -425,12 +425,9 @@ class NavigationFlowTest {
     private fun answerLibrary(answer: (params: String) -> CompletableFuture<*>) {
         server.customAnswer = { method, params ->
             // Only the document request: the barrier's test/idle is answered null at once.
-            if (method ==
-                "java/classFileContents"
-            ) {
-                answer(params.toString())
-            } else {
-                CompletableFuture.completedFuture(null)
+            when (method) {
+                "java/classFileContents" -> answer(params.toString())
+                else -> CompletableFuture.completedFuture(null)
             }
         }
     }
