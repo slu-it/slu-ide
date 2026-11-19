@@ -228,6 +228,11 @@ CI once.
   that the reader is reading. It is a fixed wait because no signal can show that the JVM's reader is blocked in `read`.
   A child that writes after git ended waits for a signal instead (`while kill -0 $$ 2>/dev/null; do sleep 0.01; done`:
   its parent shell is gone), so the write comes after the end, never before.
+- **Closing a pipe a reader is blocked on:** on macOS closing the stream wakes the reader at once (it reads nothing);
+  on Linux it stays blocked until the process holding the pipe ends. A test of code that abandons such a reader
+  expects its late result at any time, before or after the assertion: `SecretToolBackendTest` asserts the non-empty
+  zeroed arrays and lets the held pipe's reader add an empty one. Reproduce the macOS order by ending the holder and
+  waiting for the reader threads before asserting.
 - **Acting before a stand-in script ran:** a process starts slower on the macOS runner, so a test that kills a stand-in
   script, or fails its reader, right after starting it may kill the shell before its first command ran: a pid file it
   was to write never appears. Let the script print a line after the step the test relies on, and act only once the

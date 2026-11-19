@@ -79,6 +79,15 @@ class SecretToolBackendTest {
         assertTrue(zeroed.all { array -> array.all { it == 0.toByte() } })
     }
 
+    /**
+     * [assertZeroed] for a call that abandoned the reader of a pipe the fake's orphan holds: that reader zeroes the
+     * nothing it read once the pipe closes, on macOS already when the call closes it, on Linux when the orphan ends.
+     */
+    private fun assertZeroedBesidesHeldPipe(vararg sizes: Int) {
+        assertEquals(sizes.toList(), zeroed.filter { it.isNotEmpty() }.map { it.size })
+        assertTrue(zeroed.all { array -> array.all { it == 0.toByte() } })
+    }
+
     /** A backend whose tool is looked up on [path] only; the fake [installTool]ed where the test wants it. */
     private fun backendOn(path: String?) = SecretToolBackend(attributes = mapOf("application" to "test"), path = path)
 
@@ -456,10 +465,11 @@ class SecretToolBackendTest {
     @Test
     fun `the output of a tool that left its error output open is zeroed`() {
         val backend = watched(readerJoin = Duration.ofMillis(300))
+        stored(encoded)
         mode("holderr")
         try {
             backend.read()
-            assertZeroed(0)
+            assertZeroedBesidesHeldPipe(44)
         } finally {
             ProcessHandle.of(pid()).ifPresent { it.destroyForcibly() }
         }
@@ -471,7 +481,7 @@ class SecretToolBackendTest {
         mode("holdout")
         try {
             backend.read()
-            assertZeroed(15)
+            assertZeroedBesidesHeldPipe(15)
         } finally {
             ProcessHandle.of(pid()).ifPresent { it.destroyForcibly() }
         }
@@ -579,7 +589,7 @@ class SecretToolBackendTest {
               hang) echo ${'$'}${'$'} > "${'$'}d/pid"; exec sleep 30 ;;
               orphan) hold 20; exit 0 ;;
               holdout) echo "boom: it broke" >&2; hold 20 2>/dev/null; exit 0 ;;
-              holderr) hold 20 >/dev/null; exit 0 ;;
+              holderr) cat "${'$'}d/store" 2>/dev/null; hold 20 >/dev/null; exit 0 ;;
               keyhang) cat "${'$'}d/store"; echo "boom: it broke" >&2; exec sleep 30 ;;
               holdkey) cat "${'$'}d/store"; echo "boom: it broke" >&2; hold 5 2>/dev/null; exit 0 ;;
               lateout) cat "${'$'}d/store"; hold 1 2>/dev/null; exit 0 ;;
