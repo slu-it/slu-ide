@@ -289,18 +289,20 @@ class GitCliProcessTest {
         val execution = within(30) { git.execute(listOf("x"), folder, 20.seconds, null, write = true, maxErrors = 10) }
 
         assertEquals(0, execution?.exitValue)
+        assertEquals(10, execution?.errors?.size)
         assertFalse(folder.resolve("cut").exists(), "git could not write all it said")
     }
 
     // The scripts below wait 0.3 s before they end: the JDK drains and closes the output pipe of a process that ends
-    // while its reader has not started reading, and the output would then look complete now and then.
+    // while its reader has not started reading, and the output would then look complete now and then. What a child
+    // writes comes after git ended, not before.
     @Test
     fun `output that arrives after git ended is waited for as long as the grace, to the nanosecond`() {
-        val late = fakeGit("(sleep 0.1; echo late) & sleep 0.3; exit 0", pipeGrace = 900.milliseconds)
+        val late = fakeGit("(sleep 0.7; echo late) & sleep 0.3; exit 0", pipeGrace = 900.milliseconds)
         assertEquals("late\n", read(late, "x")?.output?.decodeToString())
         assertEquals(true, read(late, "x")?.complete)
 
-        val later = fakeGit("(sleep 1.5; echo late) & sleep 0.3; exit 0", pipeGrace = 10.seconds)
+        val later = fakeGit("(sleep 1.8; echo late) & sleep 0.3; exit 0", pipeGrace = 10.seconds)
         assertEquals("late\n", read(later, "x")?.output?.decodeToString())
         assertEquals(true, read(later, "x")?.complete)
     }
@@ -308,7 +310,7 @@ class GitCliProcessTest {
     @Test
     fun `an error line that a left-behind process writes just after git ended is still kept`() {
         // Only standard error is held: the output reader ends with git, the error reader gets its short grace.
-        val git = fakeGit("( sleep 0.01; echo late >&2 ) >/dev/null & sleep 0.3; exit 0")
+        val git = fakeGit("( sleep 0.32; echo late >&2 ) >/dev/null & sleep 0.3; exit 0")
 
         assertEquals("late\n", read(git, "x")?.errors?.decodeToString())
     }

@@ -219,6 +219,10 @@ CI once.
   time (`ManagementFactory.getThreadMXBean().currentThreadCpuTime`), not `System.nanoTime()`: the larger input
   triggers young GCs the smaller one misses, and their pauses grow with fewer GC threads (a linear scanner measured
   9x for 4x the text on the 3-core macOS runner). Reproduce with `-XX:ActiveProcessorCount=3` and `-Xlog:gc`.
+- **Output held open by a left-behind process:** a stand-in script that ends at once while a background child holds its
+  output pipe (`(sleep 20 &)`) is "complete" about once in a hundred runs: the JDK drains and closes the pipe of a
+  process that ends before its reader is blocked in `read`. Let the script wait 0.3 s (`sleep 0.3`) before it ends, so
+  that the reader is reading; the same wait makes output a child writes a moment later arrive reliably.
 - **Git encodings:** git converts commit messages to `i18n.commitEncoding` differently per OS (iconv). Tests read
   messages with `--encoding=UTF-8`, as the app does.
 - **File watching:** the macOS JDK polls (every 2 s, by path, mtime per entry): late events, no events for a folder
