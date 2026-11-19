@@ -24,7 +24,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
-import kotlin.test.assertTrue
 
 /**
  * Taking a completion item through the model (what is replaced where, on a later line, with the changes made since

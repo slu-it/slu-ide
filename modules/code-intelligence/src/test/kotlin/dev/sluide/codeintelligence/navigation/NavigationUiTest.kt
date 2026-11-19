@@ -149,9 +149,12 @@ internal class NavigationUiTest : EditorUiFixture() {
         val editor = setUp(robot)
         mouse(robot, editor, MouseEvent.MOUSE_MOVED, 23, shortcut = false)
         assertEquals(0, linked())
-        mouse(robot, editor, MouseEvent.MOUSE_MOVED, 23, shortcut = true)
-        assertTrue(linked() > 0, "the name is styled as a link")
-        assertEquals(Cursor.HAND, fx { area().cursor })
+        // The event is sent again until the binding runs with the definition capability and the layout has made the
+        // link nodes: an event before that is ignored, and a single one raced the server's start.
+        awaitTrue("the name is styled as a link, with the hand cursor") {
+            mouse(robot, editor, MouseEvent.MOUSE_MOVED, 23, shortcut = true)
+            linked() > 0 && fx { area().cursor } == Cursor.HAND
+        }
 
         val mac = "mac" in System.getProperty("os.name").lowercase()
         val key = if (mac) KeyCode.META else KeyCode.CONTROL
