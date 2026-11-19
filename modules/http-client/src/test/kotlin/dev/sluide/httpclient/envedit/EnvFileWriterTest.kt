@@ -223,6 +223,21 @@ class EnvFileWriterTest {
         val outcome = writer.apply(EnvEdit("x", "y"), document(private = null), publicText, true, Host())
 
         assertNull(outcome.ownText)
-        assertTrue(outcome.failure.orEmpty().startsWith("http-client.private.env.json cannot be created: "), "$outcome")
+        // The JDK's NoSuchFileException says the path of the file it could not create.
+        val reason = missingFolder.resolve(EnvironmentFiles.PRIVATE)
+        assertEquals("http-client.private.env.json cannot be created: $reason", outcome.failure)
+    }
+
+    @Test
+    fun `a missing other file is the one just created when its tab is blank or an empty object`() {
+        for (tab in listOf("", " \n ", "{}", " {} \n")) {
+            val host = Host().apply { tabs[privateFile] = tab }
+            privateFile.toFile().delete()
+
+            val outcome = apply(EnvEdit("x", "y"), host, document = document(private = null))
+
+            assertEquals(EnvFileWriter.Outcome("x", null), outcome, "'$tab'")
+            assertEquals("y", host.tabs[privateFile])
+        }
     }
 }
