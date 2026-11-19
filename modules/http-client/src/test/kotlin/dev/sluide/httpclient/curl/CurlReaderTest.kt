@@ -176,10 +176,47 @@ internal class CurlReaderTest {
             RequestBody.Multipart(listOf(FormPart("a", FormContent.Value("b"), "text/x"))),
             request("curl -F 'a=b;type=text/x' x").body,
         )
+        // curl 8.14.1 against a local server: -F 'k=a;b' sends the value a, ;b is an attribute it does not know.
         assertEquals(
-            RequestBody.Multipart(listOf(FormPart("a", FormContent.Value("b;c=d"), null))),
+            RequestBody.Multipart(listOf(FormPart("a", FormContent.Value("b"), null))),
             request("curl -F 'a=b;c=d' x").body,
         )
+        assertEquals(listOf("Field a: attribute ;c=d ignored"), notes("curl -F 'a=b;c=d' x"))
+    }
+
+    @Test
+    fun `an attribute of -F that has no place in the model is noted`() {
+        // curl: `-F 'k=v;type=text/plain;charset=utf-8'` sends that whole type; `;filename=n` on a value names the part.
+        assertEquals(
+            RequestBody.Multipart(listOf(FormPart("k", FormContent.Value("v"), "text/plain;charset=utf-8"))),
+            request("curl -F 'k=v;type=text/plain;charset=utf-8' x").body,
+        )
+        assertEquals(emptyList(), notes("curl -F 'k=v;type=text/plain;charset=utf-8' x"))
+        assertEquals(
+            listOf("Field k: attribute ;filename=n ignored", "Field c: attribute ;headers=X: y ignored"),
+            notes("curl -F 'k=v;filename=n' -F 'c=@f;type=t/x;headers=\"X: y\"' x"),
+        )
+        assertEquals(listOf("Field d: attribute ;b ignored"), notes("curl -F 'd=<f;b' x"))
+        // A type takes what follows up to the next attribute curl knows, a value or not.
+        assertEquals(
+            RequestBody.Multipart(listOf(FormPart("k", FormContent.Value("v"), "t/x;b;c=d"))),
+            request("curl -F 'k=v;type=t/x;b;c=d' x").body,
+        )
+        assertEquals(
+            RequestBody.Multipart(listOf(FormPart("c", FormContent.File("f", "n"), "t/x;u"))),
+            request("curl -F 'c=@f;filename=n;type=t/x;u;filename=n' x").body,
+        )
+        assertEquals(listOf("Field c: attribute ;b ignored"), notes("curl -F 'c=@f;filename=n;b' x"))
+        // A type without = has no value to continue.
+        assertEquals(
+            listOf("Field k: attribute ;type ignored", "Field k: attribute ;x ignored"),
+            notes("curl -F 'k=v;type;x' x"),
+        )
+        assertEquals(
+            listOf("Field k: attribute ;headers=h ignored"),
+            notes("curl -F 'k=v;type=a;headers=h' x"),
+        )
+        assertEquals(emptyList(), notes("curl -F 'c=@f;type=t/x;filename=n' x"))
     }
 
     @ParameterizedTest(name = "{0}")
@@ -226,6 +263,7 @@ internal class CurlReaderTest {
                 Arguments.of("-F 'k=\"x'", FormPart("k", FormContent.Value("\"x"))),
                 Arguments.of("-F 'k=a\"b'", FormPart("k", FormContent.Value("a\"b"))),
                 Arguments.of("-F 'k= x'", FormPart("k", FormContent.Value("x"))),
+                Arguments.of("-F 'k=;type=x'", FormPart("k", FormContent.Value(""), "x")),
                 Arguments.of("-F 'k=\"a\\q\"'", FormPart("k", FormContent.Value("a\\q"))),
                 Arguments.of("-F 'k=\"a\\'", FormPart("k", FormContent.Value("\"a\\"))),
                 Arguments.of("-F 'k=\"a;type=b\"'", FormPart("k", FormContent.Value("a;type=b"))),

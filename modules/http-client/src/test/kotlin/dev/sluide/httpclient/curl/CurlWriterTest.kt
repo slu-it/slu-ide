@@ -175,6 +175,7 @@ internal class CurlWriterTest {
         // `-F 'k= x'` sends x; `;filename=x,y` fails and `;filename="x;y"` sends x;y.
         val fields =
             HOSTILE + listOf("@x", "<x", "\"x\"", " x", "a;b", "a\"b", "a;b.txt", "a,b", "\"q\"", "a\\\"b")
+        // curl splits -F and --form-string at the first =, so a name with one cannot be written.
         val names = fields.filter { it.isNotEmpty() && '=' !in it }
         val files = fields.filter { it.isNotEmpty() && it == it.trim() }
         val parts =

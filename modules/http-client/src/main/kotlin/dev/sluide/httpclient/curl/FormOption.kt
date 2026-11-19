@@ -1,26 +1,45 @@
 package dev.sluide.httpclient.curl
 
 /**
- * What curl makes of the content of `-F name=content`: text, a `"quoted string"` (quotes stripped, `\"` and `\\` inside),
- * `@file` or `<file` (the name may be quoted), each with `;type=` and (files) `;filename=` attributes, which may be
- * quoted as well. Leading blanks of the content go.
+ * What curl makes of the content of `-F name=content`: text up to the first `;`, a `"quoted string"` (quotes stripped,
+ * `\"` and `\\` inside), `@file` or `<file` (the name may be quoted), each followed by `;key=value` attributes, whose
+ * values may be quoted as well. Leading blanks of the content go. The model has `type=` and (for `@file`) `filename=`;
+ * every other attribute is left out and named in [Field.ignored].
  */
 internal object FormOption {
+    /** The [part] and the attributes ([ignored], as written) that it could not take. */
+    data class Field(
+        val part: FormPart,
+        val ignored: List<String>,
+    )
+
+    private class Attribute(
+        val key: String,
+        var value: String?,
+        val raw: String,
+    ) {
+        val written get() = ";" + if (value == null) raw else "$key=$value"
+    }
+
     fun part(
         name: String,
         raw: String,
-    ): FormPart {
+    ): Field {
         val content = raw.trimStart()
         return when (content.firstOrNull()) {
             '@' -> {
                 val (path, end) = word(content, 1)
                 val attributes = attributes(content, end)
-                FormPart(name, FormContent.File(path, attributes["filename"]), attributes["type"])
+                field(attributes, setOf(FILENAME, TYPE)) {
+                    FormPart(name, FormContent.File(path, it[FILENAME]), it[TYPE])
+                }
             }
 
             '<' -> {
                 val (path, end) = word(content, 1)
-                FormPart(name, FormContent.FileText(path), attributes(content, end)["type"])
+                field(attributes(content, end), setOf(TYPE)) {
+                    FormPart(name, FormContent.FileText(path), it[TYPE])
+                }
             }
 
             '"' -> {
@@ -30,7 +49,7 @@ internal object FormOption {
                 ) {
                     value(name, content)
                 } else {
-                    FormPart(name, FormContent.Value(quoted.first), type(content.substring(quoted.second)))
+                    value(name, quoted.first, attributes(content, quoted.second))
                 }
             }
 
@@ -40,13 +59,28 @@ internal object FormOption {
         }
     }
 
-    // An unquoted value keeps its semicolons unless they start type=.
     private fun value(
         name: String,
         content: String,
-    ) = FormPart(name, FormContent.Value(content.substringBefore(";type=")), type(content))
+    ): Field {
+        val end = content.indexOf(';').let { if (it < 0) content.length else it }
+        return value(name, content.substring(0, end), attributes(content, end))
+    }
 
-    private fun type(content: String) = content.substringAfter(";type=", "").ifEmpty { null }
+    private fun value(
+        name: String,
+        text: String,
+        attributes: List<Attribute>,
+    ) = field(attributes, setOf(TYPE)) { FormPart(name, FormContent.Value(text), it[TYPE]) }
+
+    private fun field(
+        attributes: List<Attribute>,
+        known: Set<String>,
+        part: (Map<String, String>) -> FormPart,
+    ): Field {
+        val (taken, left) = attributes.partition { it.key in known && it.value != null }
+        return Field(part(taken.associate { it.key to it.value.orEmpty() }), left.map { it.written })
+    }
 
     /** The quoted string at [from] and the index after its closing quote; null if it is never closed. */
     private fun quoted(
@@ -78,26 +112,58 @@ internal object FormOption {
         return text.substring(from, end) to end
     }
 
-    /** The `;key=value` attributes of [text] from [from] on, keys in lower case. */
+    /**
+     * The `;key=value` attributes of [text] from [from] on, keys in lower case. curl sends a `type` whole, with the
+     * `;` and what follows up to the next attribute it knows (`text/plain;charset=utf-8`).
+     */
     private fun attributes(
         text: String,
         from: Int,
-    ): Map<String, String> {
-        val result = mutableMapOf<String, String>()
+    ): List<Attribute> {
+        val result = mutableListOf<Attribute>()
+        for (attribute in segments(text, from)) {
+            val type = result.lastOrNull()?.takeIf { it.key == TYPE }
+            val typeValue = type?.value
+            if (type != null && typeValue != null && attribute.key !in FOLLOWING) {
+                type.value = typeValue + ";" + attribute.raw
+            } else {
+                result += attribute
+            }
+        }
+        return result
+    }
+
+    /** The `;`-separated attributes of [text] from [from] on, a value may be quoted and hold a `;`. */
+    private fun segments(
+        text: String,
+        from: Int,
+    ): List<Attribute> {
+        val result = mutableListOf<Attribute>()
         var semicolon = text.indexOf(';', from)
         while (semicolon >= 0) {
             val start = semicolon + 1
             val next = text.indexOf(';', start)
+            val stop = if (next < 0) text.length else next
             val equals = text.indexOf('=', start)
-            if (equals in start until (if (next < 0) text.length else next)) {
+            if (equals in start until stop) {
                 val (value, end) = word(text, equals + 1)
-                result[text.substring(start, equals).trim().lowercase()] = value.trim()
+                result +=
+                    Attribute(
+                        text.substring(start, equals).trim().lowercase(),
+                        value.trim(),
+                        text.substring(start, end),
+                    )
                 semicolon = text.indexOf(';', end)
             } else {
-                // An attribute without a value says nothing.
+                val raw = text.substring(start, stop)
+                result += Attribute(raw.trim(), null, raw)
                 semicolon = next
             }
         }
         return result
     }
+
+    private const val TYPE = "type"
+    private const val FILENAME = "filename"
+    private val FOLLOWING = setOf(TYPE, FILENAME, "headers", "encoder")
 }

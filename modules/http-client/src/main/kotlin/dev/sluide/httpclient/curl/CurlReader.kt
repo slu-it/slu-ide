@@ -364,7 +364,9 @@ internal object CurlReader {
                 form += FormPart(name, FormContent.Value(content))
                 return
             }
-            form += FormOption.part(name, content)
+            val field = FormOption.part(name, content)
+            form += field.part
+            field.ignored.forEach { notes += "Field $name: attribute $it ignored" }
         }
 
         private fun seconds(
