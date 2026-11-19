@@ -125,9 +125,9 @@ class RemoteSourceCache internal constructor(
         val url = repository.url.takeIf { network }
         val blob = blob(directory, wanted, path, url, cancellation)
         failure(blob.execution, cancellation)?.let { return RemoteRead.Failed(it) }
-        val id =
-            blob.answer
-                ?: return if (blob.execution?.exitValue == 0) RemoteRead.Missing else RemoteRead.Failed(READ_FAILED)
+        // Missing only from a listing that ended well and was read to its end: a cut-off one may have lost the entry.
+        val listed = blob.execution?.let { it.exitValue == 0 && it.complete } == true
+        val id = blob.answer ?: return if (listed) RemoteRead.Missing else RemoteRead.Failed(READ_FAILED)
         return content(directory, id, url, cancellation)
     }
 

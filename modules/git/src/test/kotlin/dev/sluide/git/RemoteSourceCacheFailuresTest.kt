@@ -592,6 +592,21 @@ class RemoteSourceCacheFailuresTest {
     }
 
     @Test
+    fun `a listing whose output was not read to its end says nothing about the file, it is not Missing`() {
+        fetchedMain(content = true)
+        val listed = "100644 blob $head\taction.yml"
+        // The entry is there, but a process left behind holds the output open: the listing may be cut off.
+        val body =
+            "case \" \$* \" in *' ls-tree '*) printf '%s\\0' '$listed'; (sleep 20 &); sleep 0.3; exit 0;; esac"
+        val cache = cacheOf(scriptGit(body, pipeGrace = 100.milliseconds))
+
+        assertEquals(
+            RemoteRead.Failed("could not read the file"),
+            cache.read(repository, head, "action.yml", network = false),
+        )
+    }
+
+    @Test
     fun `a file is the entry of the tree with its name that is a blob, and not one git failed to list`() {
         fetchedMain(content = true)
         // The shape of `ls-tree -z`: <mode> SP <type> SP <object> TAB <path> NUL (checked with git 2.56).
