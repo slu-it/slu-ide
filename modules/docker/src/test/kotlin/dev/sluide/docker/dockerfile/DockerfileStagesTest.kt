@@ -1,6 +1,6 @@
 package dev.sluide.docker.dockerfile
 
-import dev.sluide.docker.model.collidingWith
+import dev.sluide.testsupport.collidingWith
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -41,7 +41,7 @@ class DockerfileStagesTest {
     @ParameterizedTest
     @ValueSource(strings = ["FROM", "ARG", "RUN", "COPY", "ADD"])
     fun `a word that only shares the hash code of an instruction is no instruction`(keyword: String) {
-        val other = collidingWith(keyword, Char::uppercaseChar)
+        val other = collidingWith(keyword) { it.substringBefore(' ').substringBefore('\t').uppercase() }
         assertEquals(keyword.hashCode(), other.hashCode(), other)
         assertEquals(other, other.uppercase(), "the instruction is compared in upper case")
 

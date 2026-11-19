@@ -1,7 +1,7 @@
 package dev.sluide.docker.events
 
 import dev.sluide.docker.model.DockerEvent
-import dev.sluide.docker.model.collidingWith
+import dev.sluide.testsupport.collidingWith
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
@@ -62,7 +62,7 @@ class EventRoutingTest {
     @ParameterizedTest
     @ValueSource(strings = ["container", "image", "volume", "network"])
     fun `a type that only shares the hash code of a known type reloads nothing`(type: String) {
-        val other = collidingWith(type)
+        val other = collidingWith(type) { it.lowercase() }
 
         assertEquals(type.hashCode(), other.hashCode(), other)
         assertEquals(other, other.lowercase(), "the type is compared in lower case")

@@ -41,6 +41,8 @@ dependencies {
     // Reads the JSON the docker and podman CLIs print.
     implementation(libs.jackson.databind)
 
+    // Generic test helpers: collidingWith (ADR 0186).
+    testImplementation(project(":modules:test-support"))
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }

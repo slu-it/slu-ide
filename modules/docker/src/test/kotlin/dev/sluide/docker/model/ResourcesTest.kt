@@ -1,5 +1,6 @@
 package dev.sluide.docker.model
 
+import dev.sluide.testsupport.collidingWith
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
@@ -49,7 +50,7 @@ class ResourcesTest {
         ],
     )
     fun `a word that only has the hash code of a known one is an unknown state`(word: String) {
-        val other = collidingWith(word)
+        val other = collidingWith(word) { it.trim().lowercase() }
 
         assertNotEquals(word, other)
         assertEquals(word.hashCode(), other.hashCode())
