@@ -195,4 +195,38 @@ class BodyDecodingTest {
             decode("deflate", byteArrayOf(1)).note,
         )
     }
+
+    private fun gzipAt(
+        level: Int,
+        bytes: ByteArray,
+    ) = ByteArrayOutputStream()
+        .also { out ->
+            object : GZIPOutputStream(out) {
+                init {
+                    def.setLevel(level)
+                }
+            }.use { it.write(bytes) }
+        }.toByteArray()
+
+    @Test
+    fun `keeps the truncation of an outer layer when the inner one then breaks on the cut data`() {
+        val inner = gzipAt(Deflater.NO_COMPRESSION, ByteArray(3 * 1024 * 1024))
+        val body = gzipAt(Deflater.BEST_COMPRESSION, inner)
+
+        val decoded = decode("gzip, gzip", body, 1024 * 1024)
+
+        assertTrue(decoded.truncated)
+        assertTrue(decoded.partial)
+        assertTrue(decoded.bytes.isNotEmpty())
+        assertTrue(decoded.note.orEmpty().startsWith("The gzip body could only be decoded in part: "), decoded.note)
+    }
+
+    @Test
+    fun `keeps the truncation of a layer when an encoding it does not decode follows`() {
+        val decoded = decode("br, gzip", gzip(ByteArray(3 * 1024 * 1024)), 1024 * 1024)
+
+        assertEquals(1024 * 1024, decoded.bytes.size)
+        assertTrue(decoded.truncated)
+        assertEquals("Content-Encoding br is not decoded", decoded.note)
+    }
 }

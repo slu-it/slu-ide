@@ -40,7 +40,7 @@ internal object BodyDecoding {
             if (encoding !in setOf("gzip", "x-gzip", "deflate")) {
                 return Decoded(
                     current,
-                    truncated = false,
+                    truncated = truncated,
                     partial = false,
                     note = "Content-Encoding $encoding is not decoded",
                 )
@@ -54,7 +54,7 @@ internal object BodyDecoding {
             } catch (e: IOException) {
                 val decoded = out.size() > 0
                 val note = "The $encoding body could ${if (decoded) "only be decoded in part" else "not be decoded"}"
-                return Decoded(if (decoded) out.toByteArray() else current, false, decoded, "$note: ${e.message}")
+                return Decoded(if (decoded) out.toByteArray() else current, truncated, decoded, "$note: ${e.message}")
             } finally {
                 inflater?.end()
             }
