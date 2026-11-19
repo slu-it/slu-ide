@@ -1,5 +1,7 @@
 package dev.sluide.httpclient.ui
 
+import dev.sluide.fileviewers.HighlightSpan
+import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.TokenStyle.ANNOTATION
 import dev.sluide.fileviewers.TokenStyle.COMMENT
 import dev.sluide.fileviewers.TokenStyle.KEYWORD
@@ -202,5 +204,229 @@ class HttpSyntaxHighlighterTest {
     @Test
     fun `spans are well-formed while typing`() {
         for (length in 0..sample.length) Highlighted(sample.substring(0, length), highlighter).assertWellFormed()
+    }
+
+    /** The styled snippets of [text] in order, to compare where each span starts and ends. */
+    private fun snippets(
+        text: String,
+        with: HttpSyntaxHighlighter = highlighter,
+    ) = with.highlight(text).map { text.substring(it.start, it.end) to it.style }
+
+    /** A highlighter for every language that styles the whole text it is given as a keyword and records the text. */
+    private class Recording : (String) -> SyntaxHighlighter? {
+        val calls = mutableListOf<Pair<String, String>>()
+
+        override fun invoke(language: String) =
+            SyntaxHighlighter { text ->
+                calls += language to text
+                listOf(HighlightSpan(0, text.length, KEYWORD))
+            }
+    }
+
+    @Test
+    fun `variables in comments and separators stay comments, trailing blanks are not styled`() {
+        assertEquals(
+            listOf("# {{x}} note" to COMMENT, "### {{y}}" to COMMENT, "GET" to KEYWORD, "http://x" to STRING),
+            snippets("# {{x}} note   \n### {{y}}  \nGET http://x\n"),
+        )
+    }
+
+    @Test
+    fun `tags split into the comment marker and the annotation, the value stays plain`() {
+        assertEquals(
+            listOf("# " to COMMENT, "@name" to ANNOTATION, "// " to COMMENT, "@timeout" to ANNOTATION),
+            snippets("# @name  getUser\n// @timeout=5\n"),
+        )
+    }
+
+    @Test
+    fun `variable definitions style the name, the value only for its variables`() {
+        assertEquals(
+            listOf("@host" to ANNOTATION, "{{a}}" to ANNOTATION, "@b" to ANNOTATION, "@c.d-e" to ANNOTATION),
+            snippets("@host = https://x/{{a}}\n@b=2  \n@c.d-e = 1\n"),
+        )
+    }
+
+    @Test
+    fun `request lines style the method, the URL and the version separately`() {
+        assertEquals(
+            listOf("GET" to KEYWORD, "http://x/a" to STRING, "HTTP/1.1" to KEYWORD),
+            snippets("GET http://x/a  HTTP/1.1  \n"),
+        )
+        assertEquals(listOf("GET" to KEYWORD, "http://x" to STRING), snippets("GET\thttp://x\n"))
+        assertEquals(listOf("GET" to KEYWORD), snippets("GET\n"))
+        assertEquals(listOf("WEBSOCKET" to KEYWORD, "ws://x" to STRING), snippets("WEBSOCKET ws://x\n"))
+        assertEquals(
+            listOf("GET" to KEYWORD, "http://x" to STRING, "HTTP/1.1 (Prior Knowledge)" to KEYWORD),
+            snippets("GET http://x HTTP/1.1 (Prior Knowledge)\n"),
+        )
+        assertEquals(listOf("GET" to KEYWORD, "{{u}}" to ANNOTATION), snippets("GET {{u}}\n"))
+    }
+
+    @Test
+    fun `URL continuation lines are strings without their indentation`() {
+        assertEquals(
+            listOf("POST" to KEYWORD, "http://x" to STRING, "?a=1" to STRING, "&b=2" to STRING),
+            snippets("POST http://x\n    ?a=1\n\t&b=2  \n"),
+        )
+    }
+
+    @Test
+    fun `header names end before the colon, continuation lines only have variables`() {
+        assertEquals(
+            listOf(
+                "GET" to KEYWORD,
+                "http://x" to STRING,
+                "X-A" to PROPERTY,
+                "Name" to PROPERTY,
+                "{{v}}" to ANNOTATION,
+            ),
+            snippets("GET http://x\nX-A : v:w\nName:value\n  {{v}}\n"),
+        )
+    }
+
+    @Test
+    fun `file references style the marker with its encoding and the path`() {
+        assertEquals(
+            listOf(
+                "POST" to KEYWORD,
+                "http://x" to STRING,
+                "Content-Type" to PROPERTY,
+                "<" to OPERATOR,
+                "./a.txt" to STRING,
+                "<@utf-8" to OPERATOR,
+                "./b.txt" to STRING,
+            ),
+            snippets("POST http://x\nContent-Type: text/plain\n\n< ./a.txt\n<@utf-8   ./b.txt  \n"),
+        )
+    }
+
+    @Test
+    fun `response references style the two character marker and the path`() {
+        assertEquals(
+            listOf("GET" to KEYWORD, "http://x" to STRING, ">>" to OPERATOR, "out.json" to STRING),
+            snippets("GET http://x\n\n>>   out.json  \n"),
+        )
+        assertEquals(
+            listOf("GET" to KEYWORD, "http://x" to STRING, "<>" to OPERATOR, "prev.json" to STRING),
+            snippets("GET http://x\n\n<> prev.json\n"),
+        )
+    }
+
+    @Test
+    fun `each run of body lines is highlighted on its own, by the last Content-Type`() {
+        val languages = Recording()
+        val text =
+            "POST http://x\ncontent-type: text/plain\nContent-Type: application/json\n\n" +
+                "{\n  \"a\": 1\n}\n< ./f.json\n[2]\n\n###\n" +
+                "POST http://y\nContent-Type: text/plain\n\n{\"no\": 1}\n\n###\n" +
+                "POST http://z\nContent-Type: application/xml\n\n<a/>"
+
+        snippets(text, HttpSyntaxHighlighter(languages))
+
+        assertEquals(
+            listOf("json" to "{\n  \"a\": 1\n}", "json" to "[2]", "xml" to "<a/>"),
+            languages.calls,
+        )
+    }
+
+    @Test
+    fun `script code is handed to the JavaScript highlighter exactly between the delimiters`() {
+        val languages = Recording()
+
+        assertEquals(
+            listOf(
+                "GET" to KEYWORD,
+                "http://x" to STRING,
+                ">" to OPERATOR,
+                "{%" to OPERATOR,
+                " code " to KEYWORD,
+                "%}" to OPERATOR,
+            ),
+            snippets("GET http://x\n\n> {% code %} \n", HttpSyntaxHighlighter(languages)),
+        )
+        assertEquals(listOf("javascript" to " code "), languages.calls)
+    }
+
+    @Test
+    fun `multi-line and unclosed scripts`() {
+        val languages = Recording()
+        val highlighter = HttpSyntaxHighlighter(languages)
+
+        snippets("GET http://x\n\n>   {%\n a\n b\n%}\n", highlighter)
+        val unclosed = snippets("GET http://x\n\n> {% x\n y", highlighter)
+
+        assertEquals(listOf("javascript" to "\n a\n b\n", "javascript" to " x\n y"), languages.calls)
+        assertEquals(
+            listOf(">" to OPERATOR, "{%" to OPERATOR, " x\n y" to KEYWORD),
+            unclosed.drop(2),
+        )
+    }
+
+    @Test
+    fun `an empty script has no code span and a script without highlighter only its delimiters`() {
+        assertEquals(
+            listOf(">" to OPERATOR, "{%" to OPERATOR, "%}" to OPERATOR),
+            snippets("GET http://x\n\n> {%%}\n", HttpSyntaxHighlighter(Recording())).drop(2),
+        )
+        assertEquals(
+            listOf(">" to OPERATOR, "{%" to OPERATOR, "%}" to OPERATOR),
+            snippets("GET http://x\n\n> {% a %}\n", HttpSyntaxHighlighter { null }).drop(2),
+        )
+    }
+
+    private val words =
+        SyntaxHighlighter { text ->
+            Regex("""\S+""").findAll(text).map { HighlightSpan(it.range.first, it.range.last + 1, KEYWORD) }.toList()
+        }
+
+    @Test
+    fun `variables cut the spans of the languages they lie in`() {
+        val text = "POST http://x\nContent-Type: application/json\n\naa{{x}} bb{{y}}cc{{z}} dd {{w}}\n"
+
+        assertEquals(
+            listOf(
+                "aa" to KEYWORD,
+                "{{x}}" to ANNOTATION,
+                "bb" to KEYWORD,
+                "{{y}}" to ANNOTATION,
+                "cc" to KEYWORD,
+                "{{z}}" to ANNOTATION,
+                "dd" to KEYWORD,
+                "{{w}}" to ANNOTATION,
+            ),
+            snippets(text, HttpSyntaxHighlighter { words }).drop(3),
+        )
+    }
+
+    @Test
+    fun `a span that ends or starts inside a variable keeps only its part outside`() {
+        val ends = SyntaxHighlighter { listOf(HighlightSpan(0, 4, KEYWORD), HighlightSpan(4, 9, KEYWORD)) }
+        val text = "POST http://x\nContent-Type: application/json\n\naa{{x}}bb\n"
+
+        assertEquals(
+            listOf("aa" to KEYWORD, "{{x}}" to ANNOTATION, "bb" to KEYWORD),
+            snippets(text, HttpSyntaxHighlighter { ends }).drop(3),
+        )
+    }
+
+    @Test
+    fun `old Mac line breaks and unclosed or nested braces are handled`() {
+        assertEquals(
+            listOf("GET" to KEYWORD, "http://x/{{a" to STRING, "Accept" to PROPERTY),
+            snippets("GET http://x/{{a\rAccept: b\r"),
+        )
+        assertEquals(
+            listOf("GET" to KEYWORD, "http://x/{{{{a}}}}" to STRING),
+            snippets("GET http://x/{{{{a}}}}\n"),
+        )
+    }
+
+    @Test
+    fun `a very long line is highlighted at once`() {
+        val url = "http://x/" + "a".repeat(2_000_000)
+        val text = "GET $url HTTP/1.1\n"
+
+        assertEquals(listOf("GET" to KEYWORD, url to STRING, "HTTP/1.1" to KEYWORD), snippets(text))
     }
 }
