@@ -153,16 +153,33 @@ internal class OAuth2Client(
         if (node.isNull) return null
         val number =
             when {
+                // 1e400 is an infinite double, which has no decimal value.
+                node.isFloatingPointNumber && !node.doubleValue().isFinite() -> null
+
                 node.isNumber -> node.decimalValue()
+
                 node.isString -> node.stringValue().trim().toBigDecimalOrNull()
+
                 else -> null
             }
-        val seconds = number?.setScale(0, RoundingMode.DOWN)?.takeIf { it.signum() >= 0 && it <= MAX_EXPIRES_IN }
+        val seconds = number?.let(::wholeSeconds)
         if (seconds == null) {
             notes += "The token response for '${config.id}' has an unusable expires_in ($node); it is ignored"
             return null
         }
         return Duration.ofSeconds(seconds.toLong())
+    }
+
+    /**
+     * [number] cut to whole seconds, or null if it is negative or above [MAX_EXPIRES_IN]. Decides by the number of
+     * digits before the point first: a huge exponent (`1e100000000`) must not be expanded by `setScale`.
+     */
+    private fun wholeSeconds(number: BigDecimal): BigDecimal? {
+        if (number.signum() < 0) return null
+        val integerDigits = number.precision().toLong() - number.scale()
+        if (integerDigits > MAX_EXPIRES_IN.precision()) return null
+        if (integerDigits <= 0) return BigDecimal.ZERO
+        return number.setScale(0, RoundingMode.DOWN).takeIf { it <= MAX_EXPIRES_IN }
     }
 
     internal fun describe(

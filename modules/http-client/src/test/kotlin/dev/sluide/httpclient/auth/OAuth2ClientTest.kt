@@ -1,6 +1,8 @@
 package dev.sluide.httpclient.auth
 
 import dev.sluide.httpclient.send.HttpClients
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
+import org.junit.jupiter.api.function.ThrowingSupplier
 import java.io.IOException
 import java.net.ConnectException
 import java.net.InetAddress
@@ -248,6 +250,39 @@ class OAuth2ClientTest {
         assertNull(token.tokenType)
         assertNull(token.refreshToken)
         assertEquals("7", token.idToken)
+    }
+
+    @Test
+    fun `ignores an expires_in that is out of range without big number work`() {
+        val config = config(clientCredentials)
+        // 1e400 overflows a double (an infinite DoubleNode); the strings have huge exponents of a BigDecimal.
+        for (value in listOf("1e400", "\"1e100000000\"", "\"1e999999999\"")) {
+            endpoint.respond = { 200 to """{"access_token": "at", "expires_in": $value}""" }
+
+            val response =
+                assertTimeoutPreemptively(Duration.ofSeconds(2), ThrowingSupplier { client.grant(config) }, value)
+
+            assertEquals("at", response.accessToken, value)
+            assertNull(response.expiresIn, value)
+            assertTrue(
+                response.notes.single().startsWith("The token response for 'a' has an unusable expires_in"),
+                value,
+            )
+        }
+    }
+
+    @Test
+    fun `cuts a tiny expires_in to zero without big number work`() {
+        endpoint.respond = { 200 to """{"access_token": "at", "expires_in": "1e-100000000"}""" }
+
+        val response =
+            assertTimeoutPreemptively(
+                Duration.ofSeconds(2),
+                ThrowingSupplier { client.grant(config(clientCredentials)) },
+            )
+
+        assertEquals(Duration.ZERO, response.expiresIn)
+        assertEquals(emptyList(), response.notes)
     }
 
     @Test
