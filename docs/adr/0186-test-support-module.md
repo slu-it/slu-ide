@@ -6,11 +6,11 @@
 ## Context
 Test sources of several modules held copies of the same helpers: `LogCapture` (the records of a JDK platform logger) in
 five modules, six inline logging handlers (http-client, command-runs, docker, file-explorer, file-viewers), and three
-helpers that build a string with the hash code of another one (databases, docker, http-client). The copies had drifted: one was `internal`, one lacked `messages()`, one
-formatted parameters and the others did not, and the collision helpers differed in which characters they changed. No
-foundation module fits: they are production code, and a test helper there would reach the fat jar's dependencies.
-`testFixtures` source sets belong to one module and carry its domain fakes
-([ADR 0047](0047-module-dependencies-and-shared-modules.md)).
+helpers that build a string with the hash code of another one (databases, docker, http-client). The copies had drifted:
+one was `internal`, one lacked `messages()`, one formatted parameters and the others did not, and the collision helpers
+differed in which characters they changed. No foundation module fits: they are production code, and a test helper there
+would reach the fat jar's dependencies. `testFixtures` source sets belong to one module and carry its domain fakes ([ADR
+0047](0047-module-dependencies-and-shared-modules.md)).
 
 ## Decision
 - A module `modules/test-support`: a plain Kotlin library in package `dev.sluide.testsupport`, without Spring, JavaFX,
