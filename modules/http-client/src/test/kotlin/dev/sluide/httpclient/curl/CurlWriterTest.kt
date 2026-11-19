@@ -174,10 +174,29 @@ internal class CurlWriterTest {
         // "x"; `-F 'c=@a;b.txt'` and `-F 'c=@a,b.txt'` fail (exit 26) while `-F 'c=@"a;b.txt"'` uploads a;b.txt;
         // `-F 'k= x'` sends x; `;filename=x,y` fails and `;filename="x;y"` sends x;y.
         val fields =
-            HOSTILE + listOf("@x", "<x", "\"x\"", " x", "a;b", "a\"b", "a;b.txt", "a,b", "\"q\"", "a\\\"b")
+            HOSTILE +
+                listOf(
+                    "@x",
+                    "<x",
+                    "\"x\"",
+                    " x",
+                    "a;b",
+                    "a\"b",
+                    "a;b.txt",
+                    "a,b",
+                    "\"q\"",
+                    "a\\\"b",
+                    "a ",
+                    "a\n",
+                    "a\t",
+                    "(abc",
+                    " a",
+                    "\ta",
+                    " a ",
+                )
         // curl splits -F and --form-string at the first =, so a name with one cannot be written.
         val names = fields.filter { it.isNotEmpty() && '=' !in it }
-        val files = fields.filter { it.isNotEmpty() && it == it.trim() }
+        val files = fields.filter { it.isNotEmpty() }
         val parts =
             names.map { FormPart(it, FormContent.Value(it)) } +
                 fields.map { FormPart("v", FormContent.Value(it)) } +
@@ -402,6 +421,12 @@ internal class CurlWriterTest {
                                     FormPart("o", FormContent.File("a;b.txt")),
                                     FormPart("p", FormContent.File("a,b\"c\\d.txt", "x;y"), "t/x"),
                                     FormPart("q", FormContent.FileText("a;b.txt")),
+                                    FormPart("r", FormContent.Value("a ")),
+                                    FormPart("s", FormContent.Value("a\n")),
+                                    FormPart("t", FormContent.Value("(abc")),
+                                    FormPart("u", FormContent.File(" a", " a")),
+                                    FormPart("v", FormContent.FileText("a ")),
+                                    FormPart("w", FormContent.File("")),
                                 ),
                             ),
                     ),
@@ -424,6 +449,12 @@ internal class CurlWriterTest {
                         "-F 'o=@\"a;b.txt\"'",
                         "-F 'p=@\"a,b\\\"c\\\\d.txt\";type=t/x;filename=\"x;y\"'",
                         "-F 'q=<\"a;b.txt\"'",
+                        "--form-string 'r=a '",
+                        "--form-string 's=a\n'",
+                        "--form-string 't=(abc'",
+                        "-F 'u=@\" a\";filename=\" a\"'",
+                        "-F 'v=<\"a \"'",
+                        "-F w=@",
                     ),
                 ),
             )

@@ -103,11 +103,12 @@ internal object CurlWriter {
         val type = part.type?.let { ";type=$it" }.orEmpty()
         return when (val content = part.content) {
             is FormContent.Value -> {
-                // -F would read these as a file, a quoted string, as attributes, or drop their leading blanks.
+                // -F would read these as a file, a quoted string, a nested multipart or attributes, and drops blanks
+                // around them.
                 val text = content.text
                 val plain =
-                    text.startsWith("@") || text.startsWith("<") || text.startsWith("\"") ||
-                        text.firstOrNull()?.isWhitespace() == true || ';' in text
+                    text.firstOrNull()?.let { it in FORM_SPECIAL_START } == true || ';' in text ||
+                        text.firstOrNull()?.isWhitespace() == true || text.lastOrNull()?.isWhitespace() == true
                 if (plain) {
                     if (part.type != null) {
                         notes += "The type of field ${part.name} is left out: --form-string cannot carry one"
@@ -132,9 +133,18 @@ internal object CurlWriter {
         }
     }
 
-    /** A file name or attribute of -F; curl ends it at `;` and `,`, and reads one that starts with `"` as quoted. */
+    /**
+     * A file name or attribute of -F; curl ends it at `;` and `,`, reads one that starts with `"` as quoted and drops
+     * the blanks around an unquoted one.
+     */
     private fun formWord(word: String) =
-        if (word.any { it in ";,\"" }) "\"" + word.replace("\\", "\\\\").replace("\"", "\\\"") + "\"" else word
+        if (word.any { it in ";,\"" } || word.firstOrNull()?.isWhitespace() == true ||
+            word.lastOrNull()?.isWhitespace() == true
+        ) {
+            "\"" + word.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        } else {
+            word
+        }
 
     private fun seconds(duration: Duration): String =
         BigDecimal.valueOf(duration.toMillis(), 3).stripTrailingZeros().toPlainString()
@@ -233,5 +243,6 @@ internal object CurlWriter {
     private val POSIX_SAFE = (ALPHANUMERIC + "_@%+=:,./-".toList()).toSet()
     private val POWERSHELL_SAFE = (ALPHANUMERIC + "_+=:./-".toList()).toSet()
     private val CMD_SAFE = (ALPHANUMERIC + "_@+:./-".toList()).toSet()
+    private const val FORM_SPECIAL_START = "@<\"("
     private const val CMD_SPECIAL = "^&|<>()%!"
 }

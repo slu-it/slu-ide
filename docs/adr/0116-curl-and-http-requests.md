@@ -52,10 +52,13 @@ leaking the secrets of the private environment file (ADR 0028).
 - **Writing cURL** quotes minimally (also words starting with `=`, `~` or `#` in POSIX shells, and PowerShell's
   typographic single quotes ‘ ’ ‚ ‛, which end a quote there too), one option per line, `-L` unless `@no-redirect`,
   explicit headers instead of `--json`, `--data-binary @file` for files, `-F` for multipart fields and `--form-string`
-  for values `-F` would read otherwise (`@`, `<`, `"` or `;` at the start or inside, leading blanks; a field type is
-  then lost, noted); file names and `filename=` with `;`, `,` or `"` are written as curl's quoted strings
-  (`@"a;b.txt"`, `\"` and `\\` escaped), and read back the same way, as is `-F 'k="x"'`, which curl sends as `x`. An unquoted `;` ends a `-F` value (`k=a;b` is the value `a` with an attribute `b`); attributes other than `type=` and
-  `filename=` (of a file) are left out and noted. Windows
+  for values `-F` would read otherwise (`@`, `<`, `"` or `(` at the start, `;` anywhere, blanks at either end; a field
+  type is then lost, noted); file names and `filename=` with `;`, `,`, `"` or blanks at either end are written as
+  curl's quoted strings (`@"a;b.txt"`, `\"` and `\\` escaped), and read back the same way, as is `-F 'k="x"'`, which
+  curl sends as `x`. Reading `-F` follows curl: `@` or `<` only at the very start (a blank before makes the content
+  text), blanks skipped before and dropped after an unquoted word, an unquoted `;` ends a value (`k=a;b` is the value
+  `a` with an attribute `b`), a `type=` takes what follows up to the next attribute curl knows (also another `type=`);
+  attributes other than `type=` and `filename=` (of a file) are left out and noted. Windows
   PowerShell 5.1 drops double quotes in arguments of native programs; that is noted. The shell of a command is told
   by its line continuations, else by `^"` outside single quotes (cmd) or `curl.exe` (PowerShell), else POSIX.
 - **Variables**: the tool keeps `{{variables}}` as written in both directions. **Copy as cURL** in the `.http`
