@@ -4,14 +4,12 @@ import dev.sluide.codeintelligence.CodeIntelligence
 import dev.sluide.codeintelligence.FakeCodeEditor
 import dev.sluide.codeintelligence.FxServers
 import dev.sluide.codeintelligence.PySpec
+import dev.sluide.codeintelligence.awaitServerHandled
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.codeintelligence.binding.SourcePosition
 import dev.sluide.fileviewers.FileViewHost
-import dev.sluide.languageservers.LspUris
 import javafx.collections.FXCollections
-import org.eclipse.lsp4j.HoverParams
 import org.eclipse.lsp4j.Position
-import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode
@@ -19,8 +17,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
 import java.net.URI
 import java.nio.file.Path
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -91,19 +87,7 @@ class UsagesFlowTest {
     }
 
     /** Waits until every answer the server sent before reached the FX thread. */
-    private fun serverIdle() {
-        val answered = CountDownLatch(1)
-        val params = HoverParams(TextDocumentIdentifier(LspUris.of(file)), Position(0, 0))
-        fx.onFx {
-            fx.servers.session(spec).request(
-                { it.textDocumentService.hover(params) },
-                { answered.countDown() },
-                { answered.countDown() },
-            )
-        }
-        assertTrue(answered.await(5, TimeUnit.SECONDS), "the server answered")
-        fx.idle()
-    }
+    private fun serverIdle() = awaitServerHandled(fx.servers.session(spec)) { fx.onFx(it) }
 
     @Test
     fun `a caret at the end of a name asks at the name's start, one between names at the caret`() {

@@ -2,6 +2,7 @@ package dev.sluide.codeintelligence.completion
 
 import dev.sluide.codeintelligence.BoundEditor
 import dev.sluide.codeintelligence.FeatureServer
+import dev.sluide.codeintelligence.awaitClientHandled
 import dev.sluide.codeintelligence.awaitTrue
 import org.eclipse.lsp4j.CompletionItem
 import org.eclipse.lsp4j.CompletionList
@@ -9,7 +10,6 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
 
 /** An editor bound over a fake server and a [CompletionModel] on a recording popup, for the model's tests. */
@@ -56,10 +56,5 @@ internal abstract class CompletionModelFixture {
      * Waits until what the server sent before has reached the model: the server's own request is answered after
      * the responses sent before it were handed to the FX thread (the same stream, in order), which then runs them.
      */
-    protected fun settle() {
-        bound.server.client
-            .refreshDiagnostics()
-            .get(5, TimeUnit.SECONDS)
-        bound.fx.idle()
-    }
+    protected fun settle() = awaitClientHandled(bound.server.client) { bound.fx.onFx(it) }
 }

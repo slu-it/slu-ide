@@ -10,7 +10,6 @@ import dev.sluide.languageservers.FakeServer
 import dev.sluide.languageservers.ServerState
 import javafx.collections.FXCollections
 import java.nio.file.Path
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
@@ -119,13 +118,7 @@ internal class BoundEditorHarness<S : FakeServer>(
      * Waits until the server handled everything the client sent before: one more request, answered in order, and the
      * FX thread after it. For checks that nothing was sent.
      */
-    fun serverIdle() {
-        val answered = CountDownLatch(1)
-        // A method lsp4j does not know: the fake answers null for it and logs nothing.
-        onFx { binding.session.requestJson("test/idle", null, { answered.countDown() }, { answered.countDown() }) }
-        check(answered.await(5, TimeUnit.SECONDS)) { "the server did not answer" }
-        onFx {}
-    }
+    fun serverIdle() = awaitServerHandled(binding.session) { onFx(it) }
 
     /** Runs the delays scheduled so far on the FX thread. */
     fun run(delays: ManualDelays) = onFx { delays.takeAll().forEach { it() } }

@@ -2,6 +2,7 @@ package dev.sluide.codeintelligence.diagnostics
 
 import dev.sluide.codeintelligence.BoundEditorHarness
 import dev.sluide.codeintelligence.ManualDelays
+import dev.sluide.codeintelligence.awaitClientHandled
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.codeintelligence.quickfix.QUICK_FIX_KEYS
 import dev.sluide.languageservers.LspUris
@@ -92,10 +93,7 @@ class DiagnosticsFeatureTest {
         detach()
         push(error(0, 0, 1), error(1, 0, 1))
         // A request after the push is answered once the client handled what came before.
-        harness.server.client
-            .refreshDiagnostics()
-            .get()
-        harness.onFx {}
+        awaitClientHandled(harness.server.client) { harness.onFx(it) }
 
         assertEquals(0, harness.onFx { editor.layers[DIAGNOSTICS_LAYER] }?.size)
     }

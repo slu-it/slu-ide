@@ -4,6 +4,7 @@ import dev.sluide.codeintelligence.CodeIntelligence
 import dev.sluide.codeintelligence.FakeCodeEditor
 import dev.sluide.codeintelligence.FxServers
 import dev.sluide.codeintelligence.PySpec
+import dev.sluide.codeintelligence.awaitServerHandled
 import dev.sluide.codeintelligence.edits.WorkspaceEdits
 import dev.sluide.codeintelligence.symbols.SymbolServer
 import dev.sluide.fileviewers.EditorMenuTarget
@@ -11,10 +12,8 @@ import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.OffsetEdit
 import dev.sluide.languageservers.LspUris
 import javafx.collections.FXCollections
-import org.eclipse.lsp4j.HoverParams
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
-import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.WorkspaceEdit
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException
@@ -25,10 +24,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.net.URI
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import kotlin.io.path.writeText
-import kotlin.test.assertTrue
 
 /**
  * The setup the rename flow tests share: a bound editor of `a.py` over a fake server that prepares and renames, with a
@@ -142,19 +138,7 @@ internal abstract class RenameFlowFixture {
     internal fun closeBinding() = intelligence.attached.single().close()
 
     /** Waits until every answer the server sent before reached the FX thread: one more request, answered in order. */
-    internal fun serverIdle() {
-        val answered = CountDownLatch(1)
-        val params = HoverParams(TextDocumentIdentifier(LspUris.of(file)), Position(0, 0))
-        fx.onFx {
-            fx.servers.session(spec).request(
-                { it.textDocumentService.hover(params) },
-                { answered.countDown() },
-                { answered.countDown() },
-            )
-        }
-        assertTrue(answered.await(5, TimeUnit.SECONDS), "the server answered")
-        fx.idle()
-    }
+    internal fun serverIdle() = awaitServerHandled(fx.servers.session(spec)) { fx.onFx(it) }
 }
 
 /** A [RenameView] that records what it is told; the test answers the name and the preview. */

@@ -15,8 +15,6 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 
 /** A request the [FeatureServer] got, answered by the test with [answer]. */
@@ -135,13 +133,7 @@ internal class BoundEditor(
      * Waits until the server handled everything the client sent before: one more request, answered in order, and the
      * FX thread after it. For checks that nothing was sent.
      */
-    fun serverIdle() {
-        val answered = CountDownLatch(1)
-        // A method lsp4j does not know: the fake answers null for it and logs nothing.
-        fx.onFx { binding.session.requestJson("test/idle", null, { answered.countDown() }, { answered.countDown() }) }
-        check(answered.await(5, TimeUnit.SECONDS)) { "the server did not answer" }
-        fx.onFx {}
-    }
+    fun serverIdle() = awaitServerHandled(binding.session) { fx.onFx(it) }
 
     override fun close() {
         fx.onFx { binding.close() }

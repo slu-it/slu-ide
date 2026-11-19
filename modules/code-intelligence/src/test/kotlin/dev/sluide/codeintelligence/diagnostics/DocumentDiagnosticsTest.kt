@@ -5,6 +5,8 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
 import dev.sluide.codeintelligence.BoundEditorHarness
 import dev.sluide.codeintelligence.ManualDelays
+import dev.sluide.codeintelligence.awaitClientHandled
+import dev.sluide.codeintelligence.awaitReply
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.fileviewers.StyledRange
 import dev.sluide.languageservers.LspUris
@@ -95,7 +97,10 @@ class DocumentDiagnosticsTest {
     private val pullOptions = JsonObject().apply { addProperty("identifier", "ty") }
 
     private fun registerPull(server: LspTestServer) =
-        server.client.registerCapability(RegistrationParams(listOf(Registration("d", PULL_METHOD, pullOptions)))).get()
+        server.client
+            .registerCapability(
+                RegistrationParams(listOf(Registration("d", PULL_METHOD, pullOptions))),
+            ).awaitReply()
 
     @Test
     fun `pulls after open, once after a burst of changes with the last result id, and on refresh`() {
@@ -154,7 +159,7 @@ class DocumentDiagnosticsTest {
 
         server.pulls[2].second.completeExceptionally(failure(ResponseErrorCode.InternalError))
         // A request after the answer: handled once the client handled the answer; its pull is not delayed.
-        server.client.refreshDiagnostics().get()
+        server.client.refreshDiagnostics().awaitReply()
         harness.serverIdle()
         awaitTrue("pull on refresh") { server.pulls.size == 4 }
         assertEquals(2, delays.scheduled, "a failure is not asked again")
@@ -176,9 +181,8 @@ class DocumentDiagnosticsTest {
         val before = shownCount.get()
         server.client.publishDiagnostics(PublishDiagnosticsParams(uri, listOf(error("old", 0, 0, 1)), version))
         // A request after the notification: answered once the client handled what came before.
-        server.client.refreshDiagnostics().get()
+        server.client.refreshDiagnostics().awaitReply()
         harness.serverIdle()
-        harness.onFx {}
         assertEquals(emptyList(), underlines, "the older version's set is dropped")
         assertEquals(before, shownCount.get(), "and the gutter is not told")
     }
@@ -213,7 +217,7 @@ class DocumentDiagnosticsTest {
         server.pulls[0].second.complete(full("r1", error("y undefined", 0, 4, 5)))
         awaitTrue("both shown") { underlines?.size == 2 }
 
-        server.client.unregisterCapability(UnregistrationParams(listOf(Unregistration("d", PULL_METHOD)))).get()
+        server.client.unregisterCapability(UnregistrationParams(listOf(Unregistration("d", PULL_METHOD)))).awaitReply()
         awaitTrue("the pulled one gone") { underlines == listOf(StyledRange(0, 1, "diagnostic-error")) }
     }
 
@@ -237,9 +241,8 @@ class DocumentDiagnosticsTest {
         assertEquals(emptyList(), underlines)
 
         server.client.publishDiagnostics(PublishDiagnosticsParams(oldUri, listOf(error("old name", 0, 0, 1))))
-        server.client.refreshDiagnostics().get()
+        server.client.refreshDiagnostics().awaitReply()
         harness.serverIdle()
-        harness.onFx {}
         assertEquals(emptyList(), underlines, "a push for the old name")
     }
 
@@ -296,8 +299,7 @@ class DocumentDiagnosticsTest {
         harness.onFx {}
         val shown = shownCount.get()
         first.pulls[0].second.complete(full("r1", error("x undefined", 0, 0, 1)))
-        first.client.refreshDiagnostics().get()
-        harness.onFx {}
+        awaitClientHandled(first.client) { harness.onFx(it) }
         assertNull(underlines, "the stopped server's diagnostics are not shown")
         assertEquals(shown, shownCount.get())
     }
@@ -306,14 +308,13 @@ class DocumentDiagnosticsTest {
     fun `a server that does not answer pulls is not asked on refresh, after a change or a move`() {
         bind("x\n") { LspTestServer() }
         val server = harness.server
-        server.client.refreshDiagnostics().get()
+        server.client.refreshDiagnostics().awaitReply()
         harness.serverIdle()
         harness.onFx { harness.editor.edit(0, 0, "a") }
         harness.onFx { harness.editor.fileProperty.set(folder.resolve("b.py")) }
         // A request after the notifications: answered once the client handled what came before.
-        server.client.refreshDiagnostics().get()
+        server.client.refreshDiagnostics().awaitReply()
         harness.serverIdle()
-        harness.onFx {}
         assertEquals(emptyList(), server.pulls.toList())
         assertEquals(0, delays.scheduled, "no pull to wait for")
     }
@@ -328,7 +329,7 @@ class DocumentDiagnosticsTest {
         val before = shownCount.get()
 
         val other = Registration("w", "workspace/didChangeWatchedFiles", JsonObject())
-        server.client.registerCapability(RegistrationParams(listOf(other))).get()
+        server.client.registerCapability(RegistrationParams(listOf(other))).awaitReply()
         awaitTrue("the features changed") {
             harness.onFx {
                 harness.binding.session.features
@@ -346,7 +347,7 @@ class DocumentDiagnosticsTest {
         bind("x\n") { LspTestServer() }
         val server = harness.server
         val other = Registration("w", "workspace/didChangeWatchedFiles", JsonObject())
-        server.client.registerCapability(RegistrationParams(listOf(other))).get()
+        server.client.registerCapability(RegistrationParams(listOf(other))).awaitReply()
         awaitTrue("the features changed") {
             harness.onFx {
                 harness.binding.session.features
@@ -400,8 +401,8 @@ class DocumentDiagnosticsTest {
             awaitTrue("pull after open") { server.pulls.isNotEmpty() }
             assertEquals("declared", server.pulls[0].first.identifier, "declared by the capabilities")
             val registration = Registration("d", PULL_METHOD, options)
-            server.client.registerCapability(RegistrationParams(listOf(registration))).get()
-            server.client.refreshDiagnostics().get()
+            server.client.registerCapability(RegistrationParams(listOf(registration))).awaitReply()
+            server.client.refreshDiagnostics().awaitReply()
             harness.serverIdle()
             awaitTrue("pull on refresh") { server.pulls.size == 2 }
             assertEquals(expected, server.pulls[1].first.identifier, name)
@@ -412,7 +413,7 @@ class DocumentDiagnosticsTest {
         val registration = Registration("d", PULL_METHOD, JsonObject())
         harness.server.client
             .registerCapability(RegistrationParams(listOf(registration)))
-            .get()
+            .awaitReply()
         awaitTrue("pull after the registration") { harness.server.pulls.isNotEmpty() }
         assertNull(
             harness.server.pulls[0]
@@ -479,9 +480,9 @@ class DocumentDiagnosticsTest {
 
         harness.onFx { harness.editor.edit(0, 0, "bb") }
         harness.onFx { diagnostics.pull() }
-        server.client.refreshDiagnostics().get()
+        server.client.refreshDiagnostics().awaitReply()
         harness.serverIdle()
-        server.client.unregisterCapability(UnregistrationParams(listOf(Unregistration("d", PULL_METHOD)))).get()
+        server.client.unregisterCapability(UnregistrationParams(listOf(Unregistration("d", PULL_METHOD)))).awaitReply()
         awaitTrue("the features changed") {
             !harness.onFx {
                 harness.binding.session.features
@@ -504,9 +505,8 @@ class DocumentDiagnosticsTest {
         val calls = harness.onFx { harness.editor.overlayCalls[DIAGNOSTICS_LAYER] }
         server.pulls[0].second.complete(full("r1", error("x undefined", 0, 6, 7)))
         server.client.publishDiagnostics(PublishDiagnosticsParams(uri, listOf(error("pushed", 0, 0, 1))))
-        server.client.refreshDiagnostics().get()
+        server.client.refreshDiagnostics().awaitReply()
         harness.serverIdle()
-        harness.onFx {}
         assertEquals(calls, harness.onFx { harness.editor.overlayCalls[DIAGNOSTICS_LAYER] })
         assertEquals(emptyList(), harness.onFx { diagnostics.all })
     }
@@ -534,7 +534,7 @@ class DocumentDiagnosticsTest {
         awaitTrue("pull after open") { server.pulls.size == 1 }
         harness.onFx { harness.editor.edit(0, 0, "a") }
         assertEquals(1, delays.count)
-        server.client.refreshDiagnostics().get()
+        server.client.refreshDiagnostics().awaitReply()
         harness.serverIdle()
         awaitTrue("pull on refresh") { server.pulls.size == 2 }
         assertEquals(0, delays.count, "the debounce is not asked again after the pull it was for")

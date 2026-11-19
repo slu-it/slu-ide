@@ -2,6 +2,7 @@ package dev.sluide.codeintelligence.semantic
 
 import dev.sluide.codeintelligence.BoundEditorHarness
 import dev.sluide.codeintelligence.ManualDelays
+import dev.sluide.codeintelligence.awaitReply
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.codeintelligence.diagnostics.LspTestServer
 import dev.sluide.fileviewers.StyledRange
@@ -141,7 +142,7 @@ class SemanticTokensFeatureTest {
     private fun registerFull() {
         harness.server.client
             .registerCapability(RegistrationParams(listOf(Registration("t", full))))
-            .get()
+            .awaitReply()
         harness.serverIdle()
     }
 
@@ -152,7 +153,7 @@ class SemanticTokensFeatureTest {
         harness.serverIdle()
         harness.server.client
             .registerCapability(RegistrationParams(listOf(Registration("w", "workspace/didChangeConfiguration"))))
-            .get()
+            .awaitReply()
         harness.serverIdle()
         assertEquals(null, harness.editor.overlayCalls[SEMANTIC_LAYER], "nothing was shown, nothing is cleared")
         harness.onFx { harness.editor.edit(0, 0, "#") }
@@ -173,12 +174,12 @@ class SemanticTokensFeatureTest {
         val other = Registration("w", "workspace/didChangeConfiguration")
         harness.server.client
             .registerCapability(RegistrationParams(listOf(other)))
-            .get()
+            .awaitReply()
         harness.serverIdle()
         assertEquals(2, server.tokenRequests.size, "an unrelated registration asks nothing")
         assertEquals(listOf(StyledRange(7, 8, "sem-parameter")), layer, "and keeps the colours")
 
-        server.client.unregisterCapability(UnregistrationParams(listOf(Unregistration("t", full)))).get()
+        server.client.unregisterCapability(UnregistrationParams(listOf(Unregistration("t", full)))).awaitReply()
         awaitTrue("colours gone") { layer == emptyList<StyledRange>() }
     }
 
@@ -268,7 +269,7 @@ class SemanticTokensFeatureTest {
 
         harness.server.client
             .unregisterCapability(UnregistrationParams(listOf(Unregistration("t", full))))
-            .get()
+            .awaitReply()
         harness.serverIdle()
         assertEquals(calls, harness.editor.overlayCalls[SEMANTIC_LAYER])
     }

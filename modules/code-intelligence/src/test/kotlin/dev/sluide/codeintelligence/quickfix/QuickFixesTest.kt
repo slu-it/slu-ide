@@ -2,6 +2,7 @@ package dev.sluide.codeintelligence.quickfix
 
 import dev.sluide.codeintelligence.BoundEditorHarness
 import dev.sluide.codeintelligence.ManualDelays
+import dev.sluide.codeintelligence.awaitReply
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.codeintelligence.diagnostics.DIAGNOSTICS_LAYER
 import dev.sluide.codeintelligence.diagnostics.DocumentDiagnostics
@@ -290,7 +291,7 @@ class QuickFixesTest {
         val options = ExecuteCommandOptions(listOf("x.dynamic"))
         harness.server.client
             .registerCapability(RegistrationParams(listOf(Registration("e", "workspace/executeCommand", options))))
-            .get()
+            .awaitReply()
 
         assertEquals(listOf("registered"), ask(0).map { it.title })
     }

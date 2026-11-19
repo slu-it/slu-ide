@@ -7,6 +7,7 @@ import dev.sluide.codeintelligence.CodeIntelligence
 import dev.sluide.codeintelligence.FakeCodeEditor
 import dev.sluide.codeintelligence.FxServers
 import dev.sluide.codeintelligence.PySpec
+import dev.sluide.codeintelligence.awaitReply
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.codeintelligence.diagnostics.LspTestServer
 import dev.sluide.fileviewers.FileViewHost
@@ -134,7 +135,7 @@ class BindingEditTargetTest {
         val watcher = Registration("w", "workspace/didChangeWatchedFiles", watchOptions("**/*.py"))
         bound.server.client
             .registerCapability(RegistrationParams(listOf(watcher)))
-            .get()
+            .awaitReply()
         val changed = folder.resolve("b.py")
         awaitTrue("watcher known") {
             bound.onFx {

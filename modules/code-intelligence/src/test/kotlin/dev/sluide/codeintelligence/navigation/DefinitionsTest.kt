@@ -3,6 +3,7 @@ package dev.sluide.codeintelligence.navigation
 import dev.sluide.codeintelligence.BoundEditorHarness
 import dev.sluide.codeintelligence.NavigationHistory
 import dev.sluide.codeintelligence.PySpec
+import dev.sluide.codeintelligence.awaitClientHandled
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.codeintelligence.binding.SourcePosition
 import dev.sluide.fileviewers.FileViewHost
@@ -108,12 +109,7 @@ class DefinitionsTest {
     private fun goTo(offset: Int) = harness.onFx { definitions.go(offset) }
 
     /** Everything the server's answers did reaches the FX thread: a request the client answers, then the thread. */
-    private fun idle() {
-        harness.server.client
-            .refreshDiagnostics()
-            .get()
-        harness.onFx {}
-    }
+    private fun idle() = awaitClientHandled(harness.server.client) { harness.onFx(it) }
 
     @Test
     fun `without a word at the caret the question and the note are at the caret`() {
