@@ -95,9 +95,10 @@ internal class EnvironmentFileViewUiTest : EnvironmentFileViewUiFixture() {
                 }.get()
         }
 
-        assertTrue(styles("\"host\"").isNotEmpty(), "key")
-        assertTrue(styles("8080").isNotEmpty(), "number")
-        assertTrue(styles("8080") != styles("\"host\""), "number and key are styled differently")
+        assertEquals(
+            listOf(listOf("property"), listOf("number"), listOf("keyword"), listOf("string")),
+            listOf(styles("\"host\""), styles("8080"), styles("true"), styles("\"https://dev\"")),
+        )
     }
 
     @Test
