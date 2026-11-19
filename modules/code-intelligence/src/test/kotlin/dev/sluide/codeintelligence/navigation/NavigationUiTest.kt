@@ -111,7 +111,8 @@ internal class NavigationUiTest : EditorUiFixture() {
         shortcut: Boolean,
     ) {
         val area = area()
-        val character = bounds(editor, start, start + 1)
+        // No bounds before the first layout: the caller's poll sends the event again.
+        val character = fx { editor.screenBounds(start, start + 1) } ?: return
         val mac = "mac" in System.getProperty("os.name").lowercase()
         val button = if (type == MouseEvent.MOUSE_MOVED) MouseButton.NONE else MouseButton.PRIMARY
         robot.interact {
@@ -164,8 +165,8 @@ internal class NavigationUiTest : EditorUiFixture() {
                 KeyEvent(KeyEvent.KEY_RELEASED, "", "", key, false, false, false, false),
             )
         }
-        assertEquals(0, linked())
-        assertEquals(Cursor.TEXT, fx { area().cursor })
+        // The link nodes go with the next layout pulse, which a slower worker reaches after the event.
+        awaitTrue("the link and the hand cursor are gone") { linked() == 0 && fx { area().cursor } == Cursor.TEXT }
     }
 
     @Test
