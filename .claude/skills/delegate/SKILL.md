@@ -49,7 +49,8 @@ Numbered questions, what the answer feeds into (the plan, a brief, a bug hunt) a
 
 ## Spiker brief
 For how a foreign tool behaves (`spiker`):
-- Numbered questions, the plan section the answers feed, and a time box (a cold Gradle import alone took 9 minutes).
+- Numbered questions, the plan section the answers feed, and a time box (a build-tool server's cold import takes
+  minutes).
 - The tool with its version and where it is, or how to get it (the hosts the user allowed).
 - The scratch folder (`<scratchpad>/<spike>`), and what is already set up there (a client, scratch projects).
 - For a server: the `initialize` Thoreau will send (capabilities, `initializationOptions`, settings; the plan's frozen
@@ -61,13 +62,12 @@ For how a foreign tool behaves (`spiker`):
 Sonnet does well with a precise brief and guesses without one. Every implementer brief states:
 1. Goal and acceptance criteria (observable behavior). Designed content (levels, puzzles) gets measurable targets
    and a required look at a render, not "make it hard".
-2. Files and classes to touch; anything outside them needs a stop-and-report. A new module dependency the brief
-   names is checked against "Module rules" in `docs/architecture.md` first (same family or a foundation module, else
-   `ide` wires it): a brief once cited editor-family modules as precedent for a language module.
+2. Files and classes to touch; anything outside them needs a stop-and-report. A new module dependency the brief names is
+   checked against "Module rules" in `docs/architecture.md` first (same family or a foundation module, else `ide` wires
+   it).
 3. Signatures and behavior of new or changed API, including threading (FX thread or not). A design that rests on how an
    external tool behaves (a lock file it holds, the order of its messages, what it cancels) states that behavior as
-   measured against the real tool before the brief (a `spiker` run), not as read from its code or assumed: a lock that
-   jdtls never takes and a job order its own race decides each cost a failed implementer round.
+   measured against the real tool before the brief (a `spiker` run), not as read from its code or assumed.
 4. Tests, with the level per behavior (`docs/testing.md`, "Choosing the test level"): unit, naming the function or
    class to extract when the logic sits in a control, or `@Tag("ui")` with the reason it needs a scene, plus the one
    wiring test an extraction keeps. Name the existing test classes that cover neighbouring behavior, to extend
@@ -86,11 +86,11 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
    will change>` while planning; `verify.sh --changed` refuses above 12 UI test classes, so give the class list
    instead when there are more.
 6. Docs to update: feature page, ADR, `docs/index.md`; `docs/features/keyboard-shortcuts.md` when key bindings change.
-7. Docs to read (so the agent skips the index), with sections where useful; for UI work the matching sections of
-   `docs/ui-conventions.md`. For large files, the classes or line ranges that matter.
+7. Docs to read (so the agent skips the index), with sections where useful; the rule files beyond the three every
+   implementer reads (`safety.md`, `javafx.md`, `key-bindings.md`, `theming.md`, `ide.md`, `file-viewers.md`); for UI
+   work the matching sections of `docs/ui-conventions.md`. For large files, the classes or line ranges that matter.
 8. Base, displays and scratch folder: the master commit for `worktree-check.sh start`, the agent's four displays, and a
-   named scratchpad subfolder (`<scratchpad>/<package>`): parallel agents told "your own subfolder" picked the same one
-   and overwrote each other's scripts.
+   scratchpad subfolder that the brief names (`<scratchpad>/<package>`), so that parallel agents never share one.
 9. The interactions the plan decided (`feature` skill, "Plan file"), repeated in the brief of every package that
    provides or consumes a hook, with the parts that hold only in one mode.
 
@@ -115,10 +115,9 @@ The reviewer labels each finding Blocker, Should or Nit (definitions in `.claude
 - Nits: the main session fixes the ones worth a line itself, or drops them; the final report names what was dropped.
   Nits never start another implementer round.
 - Squash review fixes non-interactively: `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <base>`.
-- Once no Blocker or Should is left, ask the implementer for the full mutation run (`--displays` with its four
-  displays, `--ui-tests` with the UI test classes of its verify list; ADR 0189), one package at a time: two UI
-  stages at once share the cores and make UI tests time out. In `ide` it took 3 minutes for 21 mutants this way and
-  13 on one display with all tests. What it still leaves, the implementer kills with a test (the full command
+- Once no Blocker or Should is left, ask the implementer for the full mutation run (`--displays` with its four displays,
+  `--ui-tests` with the UI test classes of its verify list; ADR 0189), one package at a time: two UI stages at once
+  share the cores and make UI tests time out. What it still leaves, the implementer kills with a test (the full command
   again shows the kill) or accepts; read that fix diff yourself, and send the reviewer a short follow-up only when
   production code changed or a new mutant is accepted. Then the package is merged.
 - A requirement that changes while an implementer works goes into the next review message, unless the package
@@ -176,11 +175,9 @@ the gate again. Hand back to the implementer only when the failure turns out to 
   `.claude/scripts/test-times.sh` reads the times afterwards.
 
 When the main session fixes something itself:
-- Red before green holds for the main session's fixes too. Once a fix is committed, `mutation-check.sh <base> <file>`
-  on the touched files replaces the hand break check (it refuses uncommitted files), except for what pitest cannot
-  mutate (removing an inlined `filter { }`, a `close()` call, an inline function used only from another package).
-- A hand break check's test runs under `timeout 600`; a run the limit ends is a hang, not a red (a broken path that
-  shows a dialog blocks the FX thread: one hung for 34 minutes).
+- Red before green holds for the main session's fixes too. Once a fix is committed, `mutation-check.sh <base> <file>` on
+  the touched files replaces the hand break check (it refuses uncommitted files), except for what pitest cannot mutate
+  (`.claude/rules/testing.md` lists it, with the time limit for such a check's test).
 - Read a hand break check's result as a pass or fail of its own. Spotless reformats code after an edit, so a marker or a
   `sed` restore can stop matching: check the restored line with `grep` before committing.
 - Restore a hand break check (the remaining ones) from a copy of the file (`cp` before breaking), never with `git
@@ -201,9 +198,9 @@ and `git branch -D`.
 - Packages are pairwise disjoint on files, except that each package adds its own rows to `docs/index.md` (its ADR,
   its feature page) and its own module and dependency rows to `docs/architecture.md`: deferring them leaves master's
   docs check red between merges. README and cross-cutting rewrites go into a final package.
-- New declarations that two parallel packages both need (callback properties, interface members) are declared by
-  one owner only; the other uses them as frozen names. Declared in both, they merge without a textual conflict into a
-  redeclaration the compile catches (the remotes round, 2026-11-17).
+- New declarations that two parallel packages both need (callback properties, interface members) are declared by one
+  owner only; the other uses them as frozen names. Declared in both, they merge without a textual conflict into a
+  redeclaration the compile catches.
 - Freeze shared constructor signatures up front, and name one owner for shared test fixtures (fakes, harnesses):
   two packages that each extend the same fake can merge without a textual conflict into duplicate members.
 - When several packages add entries to the same registry or list (file types, menus, a doc table), the brief names

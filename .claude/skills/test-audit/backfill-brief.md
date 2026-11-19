@@ -4,8 +4,8 @@ You write the missing tests for existing production code that never went through
 (code from before ADR 0178). A whole-file pitest run listed the mutants no unit test kills; that list is your work
 list. Your prompt names the package, the files, the list, the master commit, your display and scratch folder.
 
-For existing behavior ADR 0178 says "break the code once" instead of red-first: the mutant is that break. A test is
-done when the mutation run shows it killing the mutant it targets.
+Existing behavior cannot be red first; the mutant is its red (ADR 0185). A test is done when the mutation run shows
+it killing the mutant it targets.
 
 ## Read first
 ADR 0178, ADR 0084, ADR 0185, `.claude/rules/testing.md`, and in `docs/testing.md` the sections "Choosing the test
@@ -33,33 +33,32 @@ and read a neighbouring test as a pattern, never the whole class.
    - **BUG**: the code is wrong. Do not fix it and do not write a test that pins the wrong behavior; note input,
      expected and actual, and go on with the other lines.
 3. Write the tests. Commits: one per production file or closely related group, imperative subject
-   ("Test GitBranches: ..."), no attribution lines. `./gradlew spotlessApply` before committing.
+   ("Test GitBranches: ..."). `./gradlew --no-daemon spotlessApply` before committing.
 4. While in a test class, note any test that cannot fail or duplicates another (WEAK / DUPLICATE, file:line and why).
    Fix it only when that takes a line or two.
-5. After the last commit: `.claude/scripts/mutation-check.sh --display <N> --detach --whole --unit-only --verbose
-   <master commit> <the package's files>`, then `--wait` until it ends (`--wait 100` per call). Save its output as
+5. After the last commit: `.claude/scripts/mutation-check.sh --detach --whole --unit-only --verbose <master commit> <the
+   package's files>`, then `--wait` until it ends (`--wait 100` per call). Save its output as
    `<scratch>/mutation-after.txt`. Every mutant left must be one of your EQUIVALENT, UNOBSERVABLE, ENDLESS, LOG or BUG
    items; a GAP still alive gets a sharper test and another run. "Not understood" is not a class: read the bytecode
-   (`javap -c -p` on the class in `build/classes`) until you can name one, or report it as an open GAP and why. The `killed ... [Test.method]` lines are the red
-   evidence for your GAP tests: each GAP must show its targeted line killed by the test you wrote.
+   (`javap -c -p` on the class in `build/classes`) until you can name one, or report it as an open GAP and why. The
+   `killed ... [Test.method]` lines are the red evidence for your GAP tests: each GAP must show its targeted line killed
+   by the test you wrote.
 6. Verification in your worktree: `.claude/scripts/verify.sh --display <N> :modules:<m>` for each module of the
    package (all its unit tests), plus the UI test classes your prompt names.
 
-## Pitfalls the first reviews found
-- Most "equivalent" claims that failed review had a killing input nobody tried: an input where the old test's value
-  hid the mutant (a readable entry where only an unreadable one tells), a second call of a selector
-  (`maxByOrNull` calls it twice), a store that "never throws" but has a throwing getter, a folder `chmod 000` that
-  makes a walk fail, `/dev/null` or `/dev/zero` for size and read limits. Name the input you tried; check JDK,
-  library and tool behavior in jshell or with the real tool.
-- A blocked read (a FIFO) is not ENDLESS; find an input that differs without blocking.
-- Tests go into the class of the neighbouring behavior or a class named by topic, never a `*GapsTest` class;
-  search for an existing test first and extend it instead of restating it.
-- Assert the behavior (the message equals git's message), not the absence of the mutant's text.
-- A test that could hang on a regression (a FIFO, a blocking read) runs under `assertTimeoutPreemptively`. Never open
-  a FIFO plainly for reading in a test or its cleanup: once a mutant consumed the writer the open waits forever; use
-  `FileChannel.open(pipe, READ, WRITE)`, which does not block on Linux.
-- A fix of a behavior the main session decided also checks the siblings: every other place that does the same thing
-  (each `toInt()` on engine numbers, each `Instant` conversion), so one review round finds them, not three.
+## Pitfalls
+- Before calling a mutant equivalent, try the inputs that usually tell it apart: the failing or unreadable case where
+  the test used a good one, a second call of a selector or getter (`maxByOrNull` calls its twice), a store or folder
+  made to fail (a throwing getter, `chmod 000`), an endless or empty source for size and read limits (`/dev/zero`,
+  `/dev/null`). Name the input you tried; check JDK, library and tool behavior in jshell or with the real tool.
+- A blocked read is not ENDLESS; find an input that differs without blocking. A test that could hang on a regression
+  runs under `assertTimeoutPreemptively` and never opens a FIFO plainly for reading, in the test or its cleanup
+  (`FileChannel.open(pipe, READ, WRITE)` does not block on Linux).
+- Tests go into the class of the neighbouring behavior or a class named by topic, never a `*GapsTest` class; search
+  for an existing test first and extend it instead of restating it.
+- Assert the behavior, not the absence of the mutant's text.
+- A fix of a behavior the main session decided also checks every other place that does the same thing, so one review
+  round finds them, not three.
 
 ## Limits
 - Production changes only: an `internal` extraction a test needs (ADR 0084), a constructor parameter with the real
@@ -67,8 +66,6 @@ and read a neighbouring test as a pattern, never the whole class.
 - Tests of code that runs external tools (git, docker, JDBC drivers, language servers) use the real tool where the
   module's tests already do; a fake follows `.claude/rules/testing.md` (checked once against the real tool, named in
   a `//` comment).
-- No fixed sleeps; tests touching files, processes or timing follow `docs/testing.md`, "Portability".
-- Test classes stay under about 800 lines; split by topic. Production files stay under 600 lines.
 - If the package turns out much bigger than its list suggests (more than about 150 GAPs), finish the files you have
   started, stop, and report which files are left.
 

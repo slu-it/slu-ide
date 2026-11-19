@@ -7,8 +7,8 @@ paths:
 
 Details: ADR 0009, `docs/ui-conventions.md` ("Theming"). Dark is the default theme, so most users see it first.
 
-This is about JavaFX stylesheets. The HTML pages in WebViews (`previews`: `preview.css`, `pem.css`, `fold-tree.css`,
-`image-page.css`) are web CSS: they follow the theme through a `body.dark` class (ADR 0016), not through media blocks
+This is about JavaFX stylesheets. The HTML pages in WebViews (the page stylesheets of `previews`) are
+web CSS: they follow the theme through a `body.dark` class (ADR 0016), not through media blocks
 or Modena colours. Vendored CSS (`previews/.../vendor/`) is left as shipped. `preview-view.css` is the previews'
 JavaFX stylesheet and follows this rule.
 

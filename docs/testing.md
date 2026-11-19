@@ -192,8 +192,10 @@ server really sent:
   scratch folder, whose path holds the user's name) turns a path and its file URI into `${PROJECT}`, the home folder
   always becomes `${HOME}`, and `processId` becomes null. The fake puts its own paths in, so the recording replays on
   any machine and OS. Grep the log for your user name before committing it.
-- Commit the recordings with a `README.md` line per file: the tool's version, the command, what was done.
-- The recording is the source of truth; a spike's fake contract is a reading aid that cites its lines. The fake replays
+- Commit the recordings with a `README.md` line per file: the tool's version, the command, what was done. Neither the
+  recordings nor the README lines hold an absolute path or a user name.
+- The recording is the source of truth; a spike's fake contract is a reading aid that cites its lines, and each of
+  its statements has to match the lines it cites. The fake replays
   a recording's `out` messages in their order and counts, keyed by the `in` messages the test sends; assertions about
   "what the server does" cite the recording. A behavior no recording shows gets a new recording.
 - When the server changes version, record again and let the tests show what moved.

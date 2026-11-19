@@ -50,9 +50,10 @@ new ones too (ADR 0032).
 
 ## Delegation
 - `explorer` (Sonnet) researches, `spiker` (Sonnet) measures how a foreign tool behaves and records it for test fakes,
-  `implementer` (Sonnet) works from detailed briefs and writes its tests, `reviewer` (Opus) checks every change before
-  it is merged or reported done. Subagents do not spawn further agents. The built-in `Explore` and `Plan` agents run on
-  the main model and are refused by a hook: search with `explorer`, plan in the main session.
+  `implementer` (Sonnet) works from detailed briefs and writes its tests, `reviewer` (Opus) checks every package before
+  it is merged and every production-code fix of the main session; what the main session reads itself is in the delegate
+  skill's "Review loop". Subagents do not spawn further agents. The built-in `Explore` and `Plan` agents run on the main
+  model and are refused by a hook: search with `explorer`, plan in the main session.
 - Load the `delegate` skill before handing work to subagents (package size, when Opus, briefs, triaged reviews,
   real-app check, worktrees).
 - Workflows: `/feature` plans a feature by asking about its details, `/ci-failure` handles the CI test reports the

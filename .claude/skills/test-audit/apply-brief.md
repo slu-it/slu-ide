@@ -1,7 +1,7 @@
 # Applying test audit findings (implementer brief)
 
 You apply the findings of a read-only test audit to one package of modules. Your prompt names the package, the
-findings file(s), which IDs to do or skip, the decisions the main session took, the master commit, your display and
+findings file(s), which IDs to do or skip, the decisions the main session took, the master commit, your displays and
 scratch folder.
 
 ## Goal
@@ -20,13 +20,9 @@ waits on a real signal, fix weak assertions, and add the listed missing tests.
 - Production changes only as small as the finding says (an `internal` pure function, a constructor parameter with
   the old value as default, a visibility change). Behavior must not change except for bugs your prompt explicitly
   decides to fix. Anything larger, or a finding that turns out wrong: skip it and report why.
-- Never weaken a test to get it green. Suggested gap tests also get a mutation run
-  (`mutation-check.sh --display <N> --whole <base> <file>` before and after; a unit test: both `--unit-only`; a UI
-  test: the after run with the UI stage, `--displays <yours>` and `--ui-tests <the test's class>`) or, for removing
-  an inlined `filter { }`, a `close()` or an inline function used only from another package, a break check by hand
-  with its test under `timeout 600` (a run the limit ends is a hang, not a red): an audit's suggestion can be
-  vacuous. A bug fix the prompt decides starts with its test failing on the unfixed code.
-- Production files stay under 600 lines.
+- Never weaken a test to get it green. A suggested gap test can be vacuous, so it gets the mutation runs of existing
+  behavior (`.claude/rules/testing.md`, the first two bullets; a UI test's after run with `--displays <yours>`). A
+  bug fix the prompt decides starts with its test failing on the unfixed code.
 
 ## Verification
 - While working: `.claude/scripts/verify.sh --display <n> :modules:<m> <Class>...`.

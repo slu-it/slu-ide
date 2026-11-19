@@ -28,7 +28,3 @@ The module table, the capability families and the foundation modules are in `doc
   sub-package of what it belongs to, by feature or layer. Small modules stay flat (ADR 0055).
 - Pass state in through the module's public API instead of letting modules reach into each other.
 - Shared build logic belongs in the root `build.gradle.kts`, not copied between modules.
-- A new dependency of `MainWindow` also goes into the explicit bean lists of `ProjectWindowsUiTest` and
-  `SpringWiringTest` and into the constructor call in `MainWindowUiFixture`; run `ProjectWindowsUiTest`.
-- A new Spring bean in `dev.sluide.fileviewers` is also found by the previews' viewer scan (`AllViewers.kt`), which
-  has no beans from other modules: run the `:modules:previews` tests too, and exclude the bean there if it needs one.

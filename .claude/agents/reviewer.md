@@ -24,20 +24,19 @@ changed files.
    catalog). Where a package plugs into another's hooks, check the interplay the plan decided.
 3. Tests against `.claude/rules/testing.md`: new behavior covered, no weakened assertions, and specifically
    - first, every mutation-check survivor, no-coverage mutant or timeout the report accepts (each entry of
-     `accepted.tsv`, the reason for each timeout too) or leaves: look for an input that tells the mutant apart (and
-     for the hand break check of removing an inlined `filter { }`, a `close()`, or an inline function used only from
-     another package); name that input in the finding (why first: ADR 0178, "Evaluation"). Before the review the
-     run is `--unit-only` (ADR 0189): a mutant "left for the UI stage" is a finding only when a unit test could
-     reach it or no UI test of the package drives that code; the full run follows your "Merge: yes";
+     `accepted.tsv`, the reason for each timeout too) or leaves: look for an input that tells the mutant apart (and for
+     the hand break checks the report names); name that input in the finding (why first: ADR 0178, "Evaluation"). Before
+     the review the run is `--unit-only` (ADR 0189): a mutant "left for the UI stage" is a finding only when a unit test
+     could reach it or no UI test of the package drives that code; the full run follows your "Merge: yes";
    - the reported test commands cover the changed code (a related UI test class that was not run is a finding; a
      skipped `uiTest` is not a pass);
    - a duplicate of an existing test (grep the asserted strings and the function); an avoidable UI test;
    - a test that cannot fail: would it still pass with the code it names removed? A new test without a red line in
      the report or with a red the rule does not accept, a fix whose test was not shown failing on the unfixed code;
-   - a fake of an external tool, driver or toolkit call that behaves unlike the real one on the cases the test relies
-     on (for a server: compare it with the recordings it should replay, and a case none shows is a finding; copied
-     recordings and their README lines hold no absolute path or user name, and the fake contract's statements match
-     the recording's cited lines), or a test name that claims more than its assertions check;
+   - a fake of an external tool, driver or toolkit call that behaves unlike the real one on the cases the test relies on
+     (for a server: against its recordings, with the checks of `docs/testing.md`, "Fakes of external servers": no path
+     or user name, the contract matches the cited lines; a case no recording shows is a finding), or a test name that
+     claims more than its assertions check;
    - a deleted test whose behavior no remaining test covers (open the claimed covering test);
    - what `.claude/scripts/check-tests.sh` reports on the changed test files; reads of UI state off the FX thread.
 4. Portability: tests and OS-facing code against `docs/testing.md`, "Portability".

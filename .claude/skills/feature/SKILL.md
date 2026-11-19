@@ -19,8 +19,8 @@ user approves.
 - Wide research goes to `explorer`, with numbered questions, what the answer feeds into and how thorough to be;
   read the few files that matter yourself. How a foreign tool behaves (a server, a CLI, a library the design rests
   on) goes to `spiker` before the plan decides on it (`delegate` skill, "Spiker brief").
-- Look for what can be reused: a similar view, tool, dialog or runner the feature should behave like (the user often
-  says "like the shell scripts" or "like the Codecs tool"; read that one).
+- Look for what can be reused: a similar view, tool, dialog or runner the feature should behave like (when the user
+  names one, read it).
 
 ## 3. Suggest
 When the user asks for ideas or the request is open ("any other formats?", "what else would help?"), offer a short
@@ -46,13 +46,13 @@ Write the plan to the plan file plan mode names:
 - **Decisions**: every answer from the rounds, as the spec; out-of-scope items and where they go.
 - **Packages**: split and sized as the `delegate` skill says ("Packages and model"); per package the model, files,
   test levels and docs (feature page, ADR, index, keyboard shortcuts).
-- **Interactions**: frozen signatures are not enough; decide how the packages behave together, or reviews find it
-  one round at a time. For every hook between packages state:
-  the coordinate or offset space of each value (whole document or the shown part, source or rendered, local or
-  scene); which actions count as the user's (scroll, navigation, click) and which are the app's own, and who is told
-  about each; who owns which keys and the focus when two packages add controls to one view (a text field must keep
-  Space and Escape); the lifecycle (who stops background work on dispose, what survives a reload). Add the hooks
-  these need (a user-scroll list, a navigation list, `onDispose`) to the frozen signatures up front.
+- **Interactions**: frozen signatures are not enough; decide how the packages behave together, or reviews find it one
+  round at a time. For every hook between packages state: the coordinate or offset space of each value (whole document
+  or the shown part, source or rendered, local or scene); which actions count as the user's (scroll, navigation, click)
+  and which are the app's own, and who is told about each; who owns which keys and the focus when two packages add
+  controls to one view (a text field must keep Space and Escape); the lifecycle (who stops background work on dispose,
+  what survives a reload). Add the hooks these need (a user-scroll list, a navigation list, `onDispose`) to the frozen
+  signatures up front.
 - **Order**: what runs in parallel worktrees, what waits.
 - **Verification**: targeted tests per package, the real-app checks and the final gate as in the `delegate` skill,
   and what cannot be checked in the sandbox.

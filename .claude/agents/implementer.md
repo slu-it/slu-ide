@@ -6,13 +6,14 @@ model: sonnet
 ---
 
 You implement changes in Thoreau from a brief: goal, files and classes, signatures and behavior, tests, docs to
-update, docs to read, the master commit and your display.
+update, docs to read, the master commit and your displays.
 
-1. Read the docs the brief names; only when it names none, grep `docs/index.md` for your task's words
-   (never Read it whole) and open what matches.
-2. Make the smallest change that fulfils the task, matching the surrounding code. The rules for code, modules, tests,
-   safety, key bindings and stylesheets are the six short files in `.claude/rules/`: read all of them before you
-   start (they do not always load on their own in a worktree) and follow them.
+1. Read the docs the brief names; only when it names none, find them as `CLAUDE.md` says (Grep on `docs/index.md`).
+2. Make the smallest change that fulfils the task, matching the surrounding code. The rules are the short files in
+   `.claude/rules/`; follow them. Read `testing.md`, `kotlin-style.md` and `modularization.md` before you start (they
+   do not always load on their own in a worktree), and the ones your change touches: `safety.md` (files, commands,
+   secrets, network, untrusted input), `javafx.md` (listeners and observable values), `key-bindings.md` (a key or
+   mouse binding), `theming.md` (a stylesheet), `ide.md` and `file-viewers.md` (code in that module).
 3. Build red before green (`.claude/rules/testing.md`; how: `docs/testing.md`, "Red before green"): stubs of the
    brief's new signatures first, then per behavior its test at the lowest level that can see it, run red with
    `verify.sh --display <N> <TestClass>`, then the code; guards, filters, wiring and race fixes last, one at a time.
@@ -31,34 +32,24 @@ update, docs to read, the master commit and your display.
      after the last review. `verify: INCOMPLETE` is not a pass.
    - Then run `.claude/scripts/check-unused-imports.sh <the files you changed>` and remove what it lists.
 5. Update `docs/` and `docs/index.md` when behavior, structure or decisions change.
-6. After the last commit, and after each round of review fixes: `.claude/scripts/mutation-check.sh --unit-only
-   --detach <master commit from the brief>`, then `.claude/scripts/mutation-check.sh --wait` (it returns within
-   100 s, inside the Bash call's default timeout) until its exit code is not 5 (5 means still running). No UI stage
-   here: it runs once per package, after the review (ADR 0189).
-   Every SURVIVED or no-coverage mutant is one of:
-   - killed with a sharper input or test, or removed as dead code. Fix in `fixup!` commits (after `verify.sh
-     --changed`), then rerun the same command;
-   - accepted: equivalent, with the input that cannot tell it apart, or a timeout whose mutation visibly makes a
-     loop endless or an allocation unbounded (a timeout is not a kill otherwise; ADR 0185). Record it with
-     `.claude/scripts/mutation-check.sh --accept <path>:<line>[:<Mutator>] <reason>` (the mutator when the line's
-     leftovers have several); later runs then list it as `accepted` and skip it. "A UI test covers it" is no reason
-     to accept;
-   - left for the UI stage: code only a UI test reaches (wiring, a control's handler). Name these in your report.
-   When the main session asks for the full run (after the review's "Merge: yes"): `.claude/scripts/mutation-check.sh
-   --displays <all displays from the brief> --ui-tests <the UI test classes of your verify list, comma-separated>
-   --detach <master commit>`. A mutant you expect a UI test outside the list to kill: add that class to
-   `--ui-tests` and rerun. What the full run leaves is killed with a test (a `fixup!` commit; its red is the mutant:
-   left before, killed in the rerun of this full command) or accepted with `--accept`; nothing is "left for the UI
-   stage" any more. Rerun the full command only after such a fix.
-   For existing behavior (moved code, whose diff counts only changed lines, and gap tests; a refactor's added lines
-   are mutated in change mode): run `mutation-check.sh --display <N> --whole <master commit> <production file>` before
-   and after the new test; the test must kill the mutants on the lines it targets. A unit test: both runs
-   `--unit-only`. A UI test: the before run `--unit-only`, the after run with the UI stage (`--displays`, and
-   `--ui-tests <the new test's class>`). A hand break check stays only for removing an inlined `filter { }` (its
-   predicate always true), a `close()` call, or an inline function of ours used only from another package or module
-   (no mutants). Run a hand break check's test under a limit, `timeout 600 .claude/scripts/verify.sh --display <N>
-   <Class>`: a broken path can end in a dialog that blocks the FX thread. A run the limit ends is a hang, not a red:
-   kill the test JVM it left (yours only), restore the file and report it.
+6. Mutation run. What a mutant left needs (a kill, an acceptance, the reason an equivalence or a timeout takes,
+   the hand break checks that remain) is the second bullet of `.claude/rules/testing.md`. The commands:
+   - After the last commit and after each round of review fixes: `.claude/scripts/mutation-check.sh --unit-only
+     --detach <master commit from the brief>`, then `.claude/scripts/mutation-check.sh --wait` (it returns within
+     100 s) until its exit code is not 5 (5 means still running). No UI stage here (ADR 0189).
+   - A mutant you kill: a `fixup!` commit (after `verify.sh --changed`), then the same command again. One you accept:
+     `.claude/scripts/mutation-check.sh --accept <path>:<line>[:<Mutator>] <reason>`. Code only a UI test reaches
+     (wiring, a control's handler) is neither: name it in your report as left for the UI stage.
+   - When the main session asks for the full run (after the review's "Merge: yes"): `.claude/scripts/mutation-check.sh
+     --displays <all displays from the brief> --ui-tests <the UI test classes of your verify list, comma-separated>
+     --detach <master commit>`. A mutant you expect a UI test outside the list to kill: add that class and rerun.
+     What the full run leaves is killed with a test (its red: left before, killed in the rerun of this command) or
+     accepted; rerun it only after such a fix.
+   - Existing behavior (gap tests, and moved code, whose diff counts only changed lines; a refactor's added lines
+     are mutated in change mode): the `--whole` runs before and after the new test, as the first bullet of the rule
+     says.
+   - A hand break check's test: `timeout 600 .claude/scripts/verify.sh --display <N> <Class>`. When the limit ends
+     it: kill the test JVM it left (yours only), restore the file and report the hang.
 
 In a worktree (`.claude/worktrees/...`):
 - Before the first edit: `.claude/scripts/worktree-check.sh start <master commit from the brief>`. On a conflict
