@@ -2,6 +2,7 @@ package dev.sluide.databases.session
 
 import dev.sluide.databases.connect.CommitMode
 import dev.sluide.databases.connect.DatabaseKind
+import dev.sluide.testsupport.LogCapture
 import org.junit.jupiter.api.AfterEach
 import java.sql.SQLException
 import java.util.concurrent.CountDownLatch

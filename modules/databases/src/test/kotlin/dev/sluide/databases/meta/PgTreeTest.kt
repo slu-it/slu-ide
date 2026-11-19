@@ -1,7 +1,7 @@
 package dev.sluide.databases.meta
 
-import dev.sluide.databases.HashCollisions
 import dev.sluide.databases.connect.DatabaseKind
+import dev.sluide.testsupport.collidingWith
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import kotlin.test.Test
@@ -501,7 +501,7 @@ class PgTreeTest {
     @ParameterizedTest
     @CsvSource("p", "u", "x", "f")
     fun `a constraint type that only shares a hash code with a known one is a check`(type: String) {
-        val row = mapOf("tbl" to "t", "name" to "k", "type" to HashCollisions.of(type), "def" to "d")
+        val row = mapOf("tbl" to "t", "name" to "k", "type" to collidingWith(type), "def" to "d")
 
         val tree = pgSchemaTree("s", PgSchemaRows(relations = listOf(rel("t", "r")), constraints = listOf(row)))
 
@@ -520,7 +520,7 @@ class PgTreeTest {
     @ParameterizedTest
     @CsvSource("v", "m", "S")
     fun `a relation kind that only shares a hash code with a known one is a table`(kind: String) {
-        val tree = pgSchemaTree("s", PgSchemaRows(relations = listOf(rel("x", HashCollisions.of(kind)))))
+        val tree = pgSchemaTree("s", PgSchemaRows(relations = listOf(rel("x", collidingWith(kind)))))
 
         assertEquals("tables", tree.single().name)
     }

@@ -1,9 +1,9 @@
 package dev.sluide.databases.sql
 
-import dev.sluide.databases.HashCollisions
 import dev.sluide.databases.connect.DatabaseKind
 import dev.sluide.databases.connect.DatabaseKind.MARIADB
 import dev.sluide.databases.connect.DatabaseKind.POSTGRESQL
+import dev.sluide.testsupport.collidingLettersWith
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertTimeoutPreemptively
 import org.junit.jupiter.params.ParameterizedTest
@@ -134,7 +134,7 @@ class SqlSplitterTest {
     @ParameterizedTest
     @ValueSource(strings = ["values", "table", "show", "describe", "desc", "select", "with", "explain"])
     fun `a word that only shares the hash code of a statement word is no statement word`(word: String) {
-        val twin = HashCollisions.ofLetters(word)
+        val twin = collidingLettersWith(word)
 
         assertEquals(false, SqlSplitter.isQuery("$twin 1", POSTGRESQL), twin)
         assertEquals(false, SqlSplitter.isQuery("$twin 1", MARIADB), twin)

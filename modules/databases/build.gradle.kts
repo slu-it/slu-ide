@@ -39,6 +39,8 @@ dependencies {
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)
 
+    // Generic test helpers: LogCapture, collidingWith (ADR 0186).
+    testImplementation(project(":modules:test-support"))
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }

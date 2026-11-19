@@ -1,6 +1,6 @@
 package dev.sluide.databases.meta
 
-import dev.sluide.databases.HashCollisions
+import dev.sluide.testsupport.collidingWith
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import kotlin.test.Test
@@ -351,7 +351,7 @@ class MariaTreeTest {
     @ParameterizedTest
     @CsvSource("BASE TABLE", "SYSTEM VERSIONED", "SEQUENCE")
     fun `a table type that only shares a hash code with a known one is a view`(type: String) {
-        val tables = listOf(mapOf("name" to "x", "kind" to HashCollisions.of(type)))
+        val tables = listOf(mapOf("name" to "x", "kind" to collidingWith(type)))
 
         val tree = mariaSchemaTree("shop", MariaSchemaRows(tables = tables))
 

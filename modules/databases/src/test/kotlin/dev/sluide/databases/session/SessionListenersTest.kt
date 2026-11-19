@@ -1,5 +1,6 @@
 package dev.sluide.databases.session
 
+import dev.sluide.testsupport.LogCapture
 import java.util.logging.Level
 import kotlin.test.Test
 import kotlin.test.assertEquals

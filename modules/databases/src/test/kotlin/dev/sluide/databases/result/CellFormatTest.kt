@@ -1,7 +1,7 @@
 package dev.sluide.databases.result
 
-import dev.sluide.databases.HashCollisions
 import dev.sluide.databases.session.ColumnInfo
+import dev.sluide.testsupport.collidingWith
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -255,7 +255,7 @@ class CellFormatTest {
     @ParameterizedTest
     @CsvSource("true", "false", "1", "0", "t", "f")
     fun `a text with the hash code of a boolean word is not a boolean`(word: String) {
-        val lookalike = HashCollisions.of(word)
+        val lookalike = collidingWith(word)
         assertEquals(word.hashCode(), lookalike.hashCode())
 
         val error = assertFailsWith<IllegalArgumentException> { CellFormat.parse(lookalike, col("b", Types.BOOLEAN)) }
