@@ -41,7 +41,7 @@ internal fun symbolRows(result: List<Either<SymbolInformation, DocumentSymbol>?>
     for (entry in result.orEmpty()) {
         if (entry == null) continue
         if (entry.isLeft) {
-            val info = entry.left ?: continue
+            val info = entry.left
             val range = info.location?.range ?: continue
             val name = info.name ?: continue
             rows += SymbolRow(name, info.containerName, info.kind, 0, range, range)
