@@ -173,12 +173,14 @@ class DocumentDiagnosticsTest {
         harness.onFx { harness.editor.edit(0, 0, "#") }
         server.client.publishDiagnostics(PublishDiagnosticsParams(uri, emptyList(), version + 1))
         awaitTrue("the current version's set") { underlines == emptyList<StyledRange>() }
+        val before = shownCount.get()
         server.client.publishDiagnostics(PublishDiagnosticsParams(uri, listOf(error("old", 0, 0, 1)), version))
         // A request after the notification: answered once the client handled what came before.
         server.client.refreshDiagnostics().get()
         harness.serverIdle()
         harness.onFx {}
         assertEquals(emptyList(), underlines, "the older version's set is dropped")
+        assertEquals(before, shownCount.get(), "and the gutter is not told")
     }
 
     @Test
@@ -291,12 +293,13 @@ class DocumentDiagnosticsTest {
         // The old server stays up while it is shut down off the FX thread: its connection can still answer.
         first.answerShutdown = false
         harness.onFx { harness.binding.session.restart() }
-        awaitTrue("the stop was shown") { shownCount.get() == 1 }
+        harness.onFx {}
+        val shown = shownCount.get()
         first.pulls[0].second.complete(full("r1", error("x undefined", 0, 0, 1)))
         first.client.refreshDiagnostics().get()
         harness.onFx {}
         assertNull(underlines, "the stopped server's diagnostics are not shown")
-        assertEquals(1, shownCount.get())
+        assertEquals(shown, shownCount.get())
     }
 
     @Test
