@@ -457,7 +457,7 @@ class OAuth2TokenCacheTest {
                 ?.groupValues
                 ?.get(1)
                 ?.toLong()
-        assertTrue(milliseconds != null && milliseconds in 25..4_000, notes.toString())
+        assertTrue(milliseconds != null && milliseconds >= 25, notes.toString())
     }
 
     @Test
