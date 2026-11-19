@@ -100,6 +100,7 @@ class CurlReaderTest {
     @Test
     fun `reads --data-urlencode in each of its forms`() {
         // curl sends `a+b` for a space (also with -G); %20 is kept: in a form body both decode to a space.
+        assertEquals(data(DataPiece.Text("a%20b")), request("curl --data-urlencode 'a b' x").body)
         assertEquals(data(DataPiece.Text("%40x")), request("curl --data-urlencode =@x x").body)
         assertEquals(data(DataPiece.File("a.txt")), request("curl --data-urlencode n@a.txt x").body)
         assertEquals(data(DataPiece.File("f=x")), request("curl --data-urlencode n@f=x x").body)

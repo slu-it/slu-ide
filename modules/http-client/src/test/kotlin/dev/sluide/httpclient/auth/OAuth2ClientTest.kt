@@ -190,7 +190,7 @@ class OAuth2ClientTest {
         assertEquals(Duration.ofSeconds(3600) to emptyList(), expiresIn("\" 3600.5\""))
         assertEquals(Duration.ofSeconds(Long.MAX_VALUE) to emptyList(), expiresIn("${Long.MAX_VALUE}"))
         assertEquals(null to emptyList(), expiresIn("null"))
-        for (value in listOf("-1", "1e30", "\"soon\"", "{\"s\": 1}", "[1]")) {
+        for (value in listOf("-1", "1e30", "9223372036854775808", "\"soon\"", "{\"s\": 1}", "[1]")) {
             val (duration, notes) = expiresIn(value)
             assertNull(duration, value)
             assertTrue(notes.single().startsWith("The token response for 'a' has an unusable expires_in"), value)

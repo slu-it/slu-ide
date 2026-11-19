@@ -130,6 +130,8 @@ class OAuth2ConfigTest {
             "OAuth2Config(a, Client Credentials, http://h/t)",
             config(""""Client Secret": "s3cret"""").toString(),
         )
+        assertEquals("http://h:0/t", OAuth2Config.display(URI("http://h:0/t")))
+        assertEquals("http://h", OAuth2Config.display(URI("http://h?x=1")))
         // A Token URL may carry credentials in its user info or query: toString goes to logs.
         assertEquals(
             "OAuth2Config(a, Client Credentials, https://h:8443/t)",
