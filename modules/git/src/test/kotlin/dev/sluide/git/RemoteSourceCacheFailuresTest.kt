@@ -163,12 +163,7 @@ class RemoteSourceCacheFailuresTest {
     fun `without a git that works nothing is read or fetched, a full commit already fetched is still known`() {
         val fetched = fetchedMain(content = true)
         val full = assertIs<RemoteFetch.Fetched>(fetched.fetch(repository, head.uppercase())).commit
-        val script = folder.resolve("versionless-git")
-        script.toFile().writeText("#!/bin/sh\n[ \"\$1\" = --version ] && exit 1\nexec git \"\$@\"\n")
-        script.toFile().setExecutable(true)
-        val versionless = GitCli(script.toString(), testGitEnvironment())
-        assertFalse(versionless.available)
-        val unavailable = cacheOf(versionless)
+        val unavailable = cacheOf(unavailableGit(folder))
 
         assertEquals(RemoteRead.Failed("git is not available"), unavailable.read(repository, head, "action.yml", false))
         assertEquals(RemoteRead.Failed("git is not available"), unavailable.read(repository, head, "action.yml", true))

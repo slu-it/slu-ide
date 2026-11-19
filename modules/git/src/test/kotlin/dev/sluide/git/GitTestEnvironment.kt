@@ -114,14 +114,15 @@ internal fun unavailableGit(folder: java.nio.file.Path): GitCli {
 
 /**
  * A git that is [available][GitCli.available] when the [GitCli] is made, and gone after it: its executable is deleted,
- * so that every call fails to start, as for a git that was uninstalled while the app runs.
+ * so that every call fails to start, as for a git that was uninstalled while the app runs. The test is skipped when
+ * git is not installed.
  */
 internal fun vanishedGit(folder: java.nio.file.Path): GitCli {
     val script = folder.resolve("vanished-git-${System.nanoTime()}")
     script.toFile().writeText("#!/bin/sh\nexec git \"\$@\"\n")
     script.toFile().setExecutable(true)
     return GitCli(script.toString(), testGitEnvironment()).also {
-        check(it.available)
+        assumeTrue(it.available, "git is not installed")
         java.nio.file.Files
             .delete(script)
     }

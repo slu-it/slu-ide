@@ -1,10 +1,9 @@
 package dev.sluide.git.cli
 
-import dev.sluide.git.FAKE_GIT_START
 import dev.sluide.git.GitResult
 import dev.sluide.git.fakeGit
+import dev.sluide.git.vanishedGit
 import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.function.ThrowingSupplier
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -12,7 +11,6 @@ import java.time.Duration.ofSeconds
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.readText
-import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -187,16 +185,7 @@ class GitCliWriteTest {
         val missing = GitCli(folder.resolve("none").toString(), System.getenv())
         assertEquals(GitResult(false, "git is not available."), missing.write(folder, listOf("x")))
 
-        val executable =
-            folder.resolve("vanishing-git").apply {
-                writeText(FAKE_GIT_START + "exit 0\n")
-                toFile().setExecutable(true)
-            }
-        val git = GitCli(executable.toString(), System.getenv())
-        assumeTrue(git.available, "no /bin/sh to stand in for git")
-        executable.toFile().delete()
-
-        assertEquals(GitResult(false, "git could not be run."), git.write(folder, listOf("x")))
+        assertEquals(GitResult(false, "git could not be run."), vanishedGit(folder).write(folder, listOf("x")))
     }
 
     @Test

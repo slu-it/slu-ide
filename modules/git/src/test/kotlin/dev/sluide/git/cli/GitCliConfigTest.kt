@@ -4,10 +4,11 @@ import dev.sluide.git.FAKE_GIT_START
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.failingGit
 import dev.sluide.git.testGitEnvironment
+import dev.sluide.git.unavailableGit
+import dev.sluide.git.vanishedGit
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
-import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
@@ -70,13 +71,6 @@ class GitCliConfigTest {
         script.toFile().writeText(FAKE_GIT_START + "case \" \$* \" in\n$body\nesac\nexec git \"\$@\"\n")
         script.toFile().setExecutable(true)
         return GitCli(script.toString(), testGitEnvironment(), 2.seconds, pipeGrace)
-    }
-
-    private fun unavailable(): GitCli {
-        val script = folder.resolve("versionless-git")
-        script.toFile().writeText("#!/bin/sh\n[ \"\$1\" = --version ] && exit 1\nexec git \"\$@\"\n")
-        script.toFile().setExecutable(true)
-        return GitCli(script.toString(), testGitEnvironment()).also { assertEquals(false, it.available) }
     }
 
     /**
@@ -288,19 +282,14 @@ class GitCliConfigTest {
 
         assertEquals(9, answers(git).size)
         assertEquals(emptyList(), answers(git).withIndex().filter { it.value == null }.map { it.index })
-        assertEquals(List(9) { null }, answers(unavailable()))
+        assertEquals(List(9) { null }, answers(unavailableGit(folder)))
     }
 
     @Test
     fun `every read has no answer when git cannot be started`() {
         run("config", "user.name", "Name")
-        val script = folder.resolve("doomed-git")
-        script.toFile().writeText(FAKE_GIT_START + "exec git \"\$@\"\n")
-        script.toFile().setExecutable(true)
-        val doomed = GitCli(script.toString(), testGitEnvironment())
-        Files.delete(script)
 
-        assertEquals(List(9) { null }, answers(doomed))
+        assertEquals(List(9) { null }, answers(vanishedGit(folder)))
     }
 
     @Test
