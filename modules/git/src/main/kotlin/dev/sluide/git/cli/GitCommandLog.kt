@@ -122,10 +122,11 @@ internal object GitCommandLog {
         val id: Long,
         val arguments: String,
         private val write: Boolean,
+        private val clock: () -> Long = System::nanoTime,
     ) {
-        private val startedAt = System.nanoTime()
+        private val startedAt = clock()
         val name get() = "git#$id"
-        private val millis get() = (System.nanoTime() - startedAt) / 1_000_000
+        private val millis get() = (clock() - startedAt) / 1_000_000
 
         private fun warn(
             what: String,

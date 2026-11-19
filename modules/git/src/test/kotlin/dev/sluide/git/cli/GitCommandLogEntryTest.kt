@@ -30,7 +30,10 @@ class GitCommandLogEntryTest {
         GitCommandLogSink.sink = previous
     }
 
-    private fun entry(write: Boolean = false) = GitCommandLog.Entry(7, "marker-args", write)
+    private fun entry(
+        write: Boolean = false,
+        clock: () -> Long = System::nanoTime,
+    ) = GitCommandLog.Entry(7, "marker-args", write, clock)
 
     private val bytes = ByteArray(0)
 
@@ -122,7 +125,12 @@ class GitCommandLogEntryTest {
     fun `keepStart gives the kept bytes as they came`() {
         val into = ByteArrayOutputStream()
 
-        GitCommandLog.keepStart(ByteArrayInputStream(ByteArray(10_000) { (it % 251).toByte() }), into)
+        assertTimeoutPreemptively(
+            ofSeconds(10),
+            ThrowingSupplier {
+                GitCommandLog.keepStart(ByteArrayInputStream(ByteArray(10_000) { (it % 251).toByte() }), into)
+            },
+        )
 
         assertEquals(ByteArray(STDERR_KEEP) { (it % 251).toByte() }.toList(), into.toByteArray().toList())
     }
@@ -164,29 +172,33 @@ class GitCommandLogEntryTest {
         assertEquals("y".repeat(500), GitCommandLog.message("y".repeat(500)))
     }
 
+    /** A clock at [now] nanoseconds that the test moves. */
+    private class FakeClock(
+        var now: Long = 5_000_000_000L,
+    ) : () -> Long {
+        override fun invoke() = now
+    }
+
     @Test
     fun `the end line says how long the command took, the milliseconds since its start`() {
-        val entry = entry()
-        val deadline = System.nanoTime() + 60_000_000
-        while (System.nanoTime() < deadline) Thread.onSpinWait()
+        val clock = FakeClock()
+        val entry = entry(clock = clock)
+        clock.now += 61_999_999
 
         entry.exited(0, bytes, bytes, complete = true, overflowed = false)
 
-        val millis = Regex("git#7 exit 0 in (\\d+) ms, 0 bytes").matchEntire(lines.single().second)?.groupValues?.get(1)
-        assertTrue(millis != null && millis.toLong() in 60..30_000, lines.single().second)
+        assertEquals("git#7 exit 0 in 61 ms, 0 bytes", lines.single().second)
     }
 
     @Test
     fun `every warning says how long the command ran`() {
-        val entry = entry()
-        val deadline = System.nanoTime() + 60_000_000
-        while (System.nanoTime() < deadline) Thread.onSpinWait()
+        val clock = FakeClock()
+        val entry = entry(clock = clock)
+        clock.now += 3_000_000_000L
 
         entry.timedOut(250.milliseconds)
 
-        val line = lines.single().second
-        val millis = Regex("git#7 took longer than 250ms: marker-args \\(after (\\d+) ms\\)").matchEntire(line)
-        assertTrue(millis != null && millis.groupValues[1].toLong() in 60..30_000, line)
+        assertEquals("git#7 took longer than 250ms: marker-args (after 3000 ms)", lines.single().second)
     }
 
     @Test
