@@ -161,7 +161,7 @@ private fun keepPermissions(
     }
 }
 
-private fun removeQuietly(
+internal fun removeQuietly(
     temp: Path,
     cause: Exception,
 ) {
@@ -172,7 +172,7 @@ private fun removeQuietly(
     }
 }
 
-private fun ioReason(e: IOException): String =
+internal fun ioReason(e: IOException): String =
     when (e) {
         is AccessDeniedException -> "access denied"
         is NoSuchFileException -> "does not exist"

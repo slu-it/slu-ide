@@ -215,6 +215,27 @@ class ClosedFilesTest {
     }
 
     @Test
+    fun `an IOException is told as its own words, access denied and missing as such, none by its class`() {
+        assertEquals("access denied", ioReason(java.nio.file.AccessDeniedException("/x")))
+        assertEquals("does not exist", ioReason(java.nio.file.NoSuchFileException("/x")))
+        assertEquals("disk full", ioReason(IOException("disk full")))
+        assertEquals("IOException", ioReason(IOException()))
+    }
+
+    @Test
+    fun `a temporary file that cannot be removed is told as suppressed by the error that led to it`() {
+        val stuck = project.resolve("stuck").createDirectories()
+        stuck.resolve("inside").writeText("x")
+        val cause = IOException("move failed")
+        removeQuietly(stuck, cause)
+        assertTrue(cause.suppressed.single() is java.nio.file.DirectoryNotEmptyException)
+        val gone = project.resolve("gone.tmp").also { it.writeText("x") }
+        removeQuietly(gone, cause)
+        assertFalse(Files.exists(gone))
+        assertEquals(1, cause.suppressed.size)
+    }
+
+    @Test
     fun `a move that fails removes the temporary file and keeps the error`() {
         // Moving a file over an empty folder fails (the rename of a file onto a directory).
         val target = project.resolve("dir").createDirectories()

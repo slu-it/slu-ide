@@ -180,6 +180,12 @@ class TextEditsTest {
         // At the start and at the end of the text, where the neighbour on one side does not exist.
         assertIs<CheckedEdits.Valid>(checkEdits("${emoji}a", listOf(edit(0, 0, 0, 0, "x"))))
         assertIs<CheckedEdits.Valid>(checkEdits("a$emoji", listOf(edit(0, 3, 0, 3, "x"))))
+        // Between the first pair of a text, and a text that ends in a lone high surrogate.
+        assertEquals(
+            CheckedEdits.Invalid("an edit that splits a character"),
+            checkEdits("${emoji}a", listOf(edit(0, 1, 0, 1, "x"))),
+        )
+        assertIs<CheckedEdits.Valid>(checkEdits("a\uD83D", listOf(edit(0, 2, 0, 2, "x"))))
         // A lone high surrogate before an ordinary character, a lone low one after an ordinary character.
         assertIs<CheckedEdits.Valid>(checkEdits("\uD83Dx", listOf(edit(0, 1, 0, 1, "y"))))
         assertIs<CheckedEdits.Valid>(checkEdits("x\uDE00", listOf(edit(0, 1, 0, 1, "y"))))
@@ -206,6 +212,13 @@ class TextEditsTest {
         val valid =
             assertIs<CheckedEdits.Valid>(checkEdits("abcdef", listOf(edit(0, 4, 0, 5, "E"), edit(0, 0, 0, 1, "A"))))
         assertEquals(listOf(0, 4), valid.replacements.map { it.start })
+    }
+
+    @Test
+    fun `an insert where a replacement ends comes after it, whatever the order given`() {
+        val valid =
+            assertIs<CheckedEdits.Valid>(checkEdits("abcdef", listOf(edit(0, 2, 0, 2, "I"), edit(0, 0, 0, 2, "R"))))
+        assertEquals(listOf(TextReplacement(0, 2, "R"), TextReplacement(2, 2, "I")), valid.replacements)
     }
 
     @Test

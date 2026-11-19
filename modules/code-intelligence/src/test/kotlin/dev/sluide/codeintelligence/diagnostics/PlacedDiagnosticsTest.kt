@@ -188,6 +188,8 @@ class PlacedDiagnosticsTest {
         assertEquals("**bold** text", messageOf(parsed(markdown)))
         assertEquals("", messageOf(parsed("{$range}")))
         assertEquals("", messageOf(parsed("{$range,\"message\":null}")))
+        val noValue = diagnostic("x").apply { message = Either.forRight(null) }
+        assertEquals("", messageOf(noValue), "a Markdown message without a value")
     }
 
     @Test
