@@ -343,6 +343,40 @@ class RemoteSourceCacheFailuresTest {
     }
 
     @Test
+    fun `a fetch whose later commands cannot be run or take too long fails with that, nothing is remembered`() {
+        // The script is gone after the command it names: the next one cannot start. Then a command that hangs.
+        fun gone(word: String) = scriptGit("case \" \$* \" in *'$word'*) rm -f \"\$0\";; esac")
+
+        fun hangs(word: String) = scriptGit("case \" \$* \" in *'$word'*) sleep 30;; esac")
+
+        val couldNot = RemoteFetch.Failed("git could not be run")
+        val timedOut = RemoteFetch.Failed("timed out")
+        // The commands of a fetch into a new cache: init, fetch, rev-parse FETCH_HEAD, update-ref.
+        assertEquals(couldNot, cacheOf(gone(" fetch ")).fetch(repository, "main"))
+        assertEquals(timedOut, cacheOf(hangs("FETCH_HEAD"), localTimeout = 300.milliseconds).fetch(repository, "main"))
+        assertEquals(couldNot, cacheOf(gone("FETCH_HEAD")).fetch(repository, "main"))
+        assertEquals(
+            timedOut,
+            cacheOf(hangs(" update-ref "), localTimeout = 300.milliseconds).fetch(repository, "main"),
+        )
+
+        assertNull(cacheOf().commit(repository, "main"))
+        assertFalse(bare.exists())
+    }
+
+    @Test
+    fun `what git says on standard error is kept up to 64 KiB, a reason past it is not seen`() {
+        // 70000 bytes, a line end, then the line that tells the ref is missing (exit 128 as git ends a failed fetch).
+        val noisy =
+            "case \" \$* \" in *' fetch '*) head -c 70000 /dev/zero | tr '\\0' x >&2; echo >&2; " +
+                "echo \"fatal: couldn't find remote ref main\" >&2; exit 128;; esac"
+
+        assertEquals(RemoteFetch.Failed("fetch failed"), cacheOf(scriptGit(noisy)).fetch(repository, "main"))
+        val short = "case \" \$* \" in *' fetch '*) echo \"fatal: couldn't find remote ref main\" >&2; exit 128;; esac"
+        assertEquals(RemoteFetch.Failed("ref not found"), cacheOf(scriptGit(short)).fetch(repository, "main"))
+    }
+
+    @Test
     fun `a file or a dangling link where the repository goes is replaced`() {
         bare.parent.createDirectories()
         bare.writeText("a file")
