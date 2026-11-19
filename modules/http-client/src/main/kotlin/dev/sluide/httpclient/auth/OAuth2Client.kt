@@ -32,7 +32,6 @@ internal class OAuth2Client(
     /** A token response; `expires_in` became [expiresIn]; [notes] tell what of the response was ignored. */
     class TokenResponse(
         val accessToken: String,
-        val tokenType: String?,
         val expiresIn: Duration?,
         val refreshToken: String?,
         val idToken: String?,
@@ -133,7 +132,6 @@ internal class OAuth2Client(
         val notes = mutableListOf<String>()
         return TokenResponse(
             accessToken = accessToken,
-            tokenType = json.text("token_type"),
             expiresIn = json.get("expires_in")?.let { expiresIn(config, it, notes) },
             refreshToken = json.text("refresh_token"),
             idToken = json.text("id_token"),

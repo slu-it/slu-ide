@@ -169,7 +169,6 @@ internal class OAuth2TokenCache(
         val merged =
             OAuth2Client.TokenResponse(
                 accessToken = response.accessToken,
-                tokenType = response.tokenType,
                 expiresIn = response.expiresIn,
                 refreshToken = response.refreshToken ?: refreshToken,
                 idToken = response.idToken ?: cached.response.idToken,

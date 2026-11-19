@@ -49,7 +49,6 @@ class OAuth2ClientTest {
             )
 
         assertEquals("at", token.accessToken)
-        assertEquals("Bearer", token.tokenType)
         assertEquals(Duration.ofSeconds(300), token.expiresIn)
         assertEquals("rt", token.refreshToken)
         assertEquals("it", token.idToken)
@@ -257,7 +256,6 @@ class OAuth2ClientTest {
         val token = client.grant(config(clientCredentials))
 
         assertEquals("12345", token.accessToken)
-        assertNull(token.tokenType)
         assertNull(token.refreshToken)
         assertEquals("7", token.idToken)
     }
