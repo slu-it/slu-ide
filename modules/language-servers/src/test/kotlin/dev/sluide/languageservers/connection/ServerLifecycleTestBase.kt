@@ -10,11 +10,13 @@ import dev.sluide.languageservers.ServerState
 import dev.sluide.languageservers.TestSpec
 import dev.sluide.languageservers.TrustGate
 import dev.sluide.languageservers.awaitTrue
+import dev.sluide.languageservers.process.ServerProcess
 import dev.sluide.languageservers.process.ServerStarter
 import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.PublishDiagnosticsParams
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
+import java.io.OutputStream
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -105,4 +107,26 @@ internal abstract class ServerLifecycleTestBase {
         lifecycle.onServer { done.countDown() }
         check(done.await(5, TimeUnit.SECONDS)) { "the outbound thread did not run its queue" }
     }
+}
+
+/** A process whose stdin offers [hook] each chunk written to it, as text, before the write; the hook may block or throw. */
+internal class HookedStdin(
+    private val process: FakeProcess,
+    private val hook: (written: String) -> Unit,
+) : ServerProcess by process {
+    override val output: OutputStream =
+        object : OutputStream() {
+            override fun write(b: Int) = process.output.write(b)
+
+            override fun write(
+                b: ByteArray,
+                off: Int,
+                len: Int,
+            ) {
+                hook(String(b, off, len, Charsets.UTF_8))
+                process.output.write(b, off, len)
+            }
+
+            override fun flush() = process.output.flush()
+        }
 }

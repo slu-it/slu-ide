@@ -9,7 +9,6 @@ import dev.sluide.languageservers.ServerState
 import dev.sluide.languageservers.TestSpec
 import dev.sluide.languageservers.TrustGate
 import dev.sluide.languageservers.awaitTrue
-import dev.sluide.languageservers.process.ServerProcess
 import dev.sluide.languageservers.process.ServerStarter
 import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.InitializeParams
@@ -23,7 +22,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.IOException
-import java.io.OutputStream
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
@@ -318,33 +316,13 @@ internal class ServerLifecycleTest : ServerLifecycleTestBase() {
         assertEquals(emptyList(), logs.messages(Level.SEVERE), "a crash during start is no failure of the start")
     }
 
-    /** A process whose stdin throws on a write of a message that [breaks] says so. */
-    private class BrokenStdin(
-        private val process: FakeProcess,
-        private val breaks: (String) -> Boolean,
-    ) : ServerProcess by process {
-        override val output: OutputStream =
-            object : OutputStream() {
-                override fun write(b: Int) = process.output.write(b)
-
-                override fun write(
-                    b: ByteArray,
-                    off: Int,
-                    len: Int,
-                ) {
-                    if (breaks(String(b, off, len, Charsets.UTF_8))) throw IOException("stdin is gone")
-                    process.output.write(b, off, len)
-                }
-
-                override fun flush() = process.output.flush()
-            }
-    }
-
     private fun brokenStdinStarter(breaks: (String) -> Boolean) {
         val fake = fakeStarter()
         starter =
             ServerStarter { name, command, root ->
-                BrokenStdin(fake.start(name, command, root) as FakeProcess, breaks)
+                HookedStdin(fake.start(name, command, root) as FakeProcess) { message ->
+                    if (breaks(message)) throw IOException("stdin is gone")
+                }
             }
     }
 
