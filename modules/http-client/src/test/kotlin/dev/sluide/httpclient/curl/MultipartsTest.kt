@@ -169,10 +169,10 @@ internal class MultipartsTest {
     @Test
     fun `a quoted name keeps a semicolon and the percent-encoded quotes and line breaks of RFC 7578 as written`() {
         // RFC 7578 4.2 percent-encodes them; read as written, a quoted value ends at the next quote.
-        val hostile = "Content-Disposition: form-data; name=\"a; filename=x\""
+        val hostile = "Content-Disposition: form-data; name=\"a; b\""
 
         assertEquals(
-            listOf(FormPart("a; filename=x", FormContent.Value("v"))),
+            listOf(FormPart("a; b", FormContent.Value("v"))),
             parts(text("--b", hostile, "", "v", "--b--")),
         )
         assertEquals(
@@ -208,6 +208,7 @@ internal class MultipartsTest {
     }
 
     companion object {
+        private const val NAME_START = "Content-Disposition: form-data; name="
         private const val NAME = "Content-Disposition: form-data; name=\"f\""
 
         @JvmStatic
@@ -274,6 +275,8 @@ internal class MultipartsTest {
                     "a file name on a field with text",
                     lines("--b", "$NAME; filename=\"a\"", "", "v", "--b--"),
                 ),
+                // curl has no escape for `=` in a -F name: `-F a=b=v` sends the field a with the value b=v.
+                Arguments.of("a name with an equals sign", lines("--b", "$NAME_START\"a=b\"", "", "v", "--b--")),
                 Arguments.of("a second part that is bad", lines(*one.toTypedArray(), "--b", "X: 1", "", "--b--")),
             )
         }

@@ -100,7 +100,8 @@ internal object Multiparts {
                     return null
                 }
             }
-        return FormPart(name ?: return null, value, type)
+        // curl reads a -F name up to the first `=` and has no escape for one.
+        return FormPart(name?.takeIf { '=' !in it } ?: return null, value, type)
     }
 
     private fun MatchResult.value(
