@@ -144,9 +144,10 @@
   - Cut, Copy and Paste follow, in a group of their own, showing their keys (Shortcut+X / C / V); see Copy, cut and
     paste below. Copy is enabled for at least one target (also a top-level folder), Cut when all targets can be changed
     (as Delete), Paste when the clipboard holds files, text or an image and there is one folder to paste into (the item
-    reads "Paste Text" for text and "Paste Image" for an image, each without files): the clicked folder, the folder of
-    the clicked file, or the project folder on the empty area; not for several entries, not into a folder being deleted (`ExplorerCopies.pasteItem`, the
-    same decision as the paste, from one read of the clipboard per menu show).
+    reads "Paste Text" for text without files and "Paste Image" for an image without files or text): the clicked folder,
+    the folder of the clicked file, or the project folder on the empty area; not for several entries, not into a folder
+    being deleted (`ExplorerCopies.pasteItem`, the same decision as the paste, from one read of the clipboard per menu
+    show).
   - New File… / New Folder… create an empty entry in the clicked folder or, on the empty area, in the project folder.
     They are enabled for exactly one folder (also a top-level one) or the empty area while a folder is open; disabled
     on a file and for several entries. A new file is opened. The name may be a path (`a/b/c.txt`, `/` also `\` on Windows):
@@ -289,7 +290,9 @@
     `actions/ExplorerTextPaste.kt`, `actions/PasteTextDialog.kt`, `actions/PasteTextName.kt`): same keys and target
     folder, the item reads "Paste Text". Precedence: files, then text (not blank), then an image, so a spreadsheet range
     (text and image) pastes as text and a screenshot as a PNG. The type of the text is detected in the background
-    (`text-types`, [ADR 0187](../adr/0187-text-type-detection.md); `FileExplorerView.textTypes`, which `ide` sets with Converting's data formats too: JSON, YAML, TOML, Properties, CSV, TSV, cURL and HTTP requests; prose, a bare URL and flat `key: value` YAML stay Plain Text `.txt`, other limits in ADR 0187).
+    (`text-types`, [ADR 0187](../adr/0187-text-type-detection.md); `FileExplorerView.textTypes`, which `ide` sets with
+    Converting's data formats too: JSON, YAML, TOML, Properties, CSV, TSV, cURL and HTTP requests; most prose, a bare
+    URL and flat `key: value` YAML stay Plain Text `.txt`, the known limits are in ADR 0187).
     A "Paste Text" dialog asks for a name, prefilled `pasted-yyyy-MM-dd-HHmmss` in local time and selected, and a type:
     a combo box of all types with their file icons, the detected one marked "· detected" and preselected, "No
     extension" last. The extension is always appended (`config.yaml` as JSON is `config.yaml.json`), "No extension"

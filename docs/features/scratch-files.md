@@ -49,7 +49,7 @@ Files for notes and experiments outside the project, shared by all project windo
   shown and opened like the others ([ADR 0188](../adr/0188-paste-clipboard-text-in-the-explorer.md)). The type is
   detected from the text as in the explorer's Paste Text (JSON, YAML, code, Markdown …), Plain Text (`.txt`) if
   nothing is sure. Without text, or with blank text, on the clipboard, an error says "The clipboard holds no text." and
-  nothing is created.
+  nothing is created. After the explorer's Copy, the clipboard's text is the copied paths, so the scratch holds them.
 
 ## Generated scratch files
 [ADR 0114](../adr/0114-generated-scratch-files.md)

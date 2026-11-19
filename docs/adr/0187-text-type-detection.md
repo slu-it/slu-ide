@@ -133,4 +133,5 @@ Rejected:
 - The heuristics are guesses: the corpus and the confusion tests are the specification, and a misdetection report
   becomes a sample there first.
 - Related: [0047](0047-module-dependencies-and-shared-modules.md) (foundation modules),
-  [0115](0115-converting-tool.md) (Converting's detection).
+  [0115](0115-converting-tool.md) (Converting's detection),
+  [0188](0188-paste-clipboard-text-in-the-explorer.md) (Paste Text and New Scratch from Clipboard, the consumers).
