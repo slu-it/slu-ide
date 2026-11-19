@@ -419,6 +419,14 @@ class HttpSyntaxHighlighterTest {
     }
 
     @Test
+    fun `an indented request line is styled from its first character`() {
+        assertEquals(
+            listOf("GET" to KEYWORD, "http://x" to STRING),
+            snippets("  GET   http://x\n"),
+        )
+    }
+
+    @Test
     fun `spans after the last variable are kept`() {
         assertEquals(
             listOf("GET" to KEYWORD, "{{h}}" to ANNOTATION, "/x" to STRING, "Accept" to PROPERTY),
