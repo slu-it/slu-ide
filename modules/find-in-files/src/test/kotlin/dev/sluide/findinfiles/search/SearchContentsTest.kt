@@ -378,6 +378,18 @@ class SearchContentsTest {
     }
 
     @Test
+    fun `anything but a regular file is ignored, not read and not counted`() {
+        val device = Path.of("/dev/zero")
+        assumeTrue(Files.exists(device), "no /dev/zero here")
+        val listing: (Path) -> List<Path> = { folder -> if (folder == root) listOf(device) else emptyList() }
+
+        val outcome = done(search("needle", entries = listing, limits = SearchLimits(maxBytes = 100)))
+
+        assertEquals(0, outcome.skipped, "an endless device is not read until it is too large")
+        assertEquals(0, outcome.files)
+    }
+
+    @Test
     fun `an entry without a file name is no git folder`() {
         // Only a root path has no file name; a listing never returns one, but the walk must not depend on that.
         val top = Path.of("/").toAbsolutePath().root

@@ -68,6 +68,14 @@ class SentenceRangesTest {
     }
 
     @Test
+    fun `the word before only counts when it ends with a period`() {
+        assertEquals(
+            listOf("Das gilt zz b.", "hier ende."),
+            texts("Das gilt zz b. hier ende.", Abbreviations.GERMAN),
+        )
+    }
+
+    @Test
     fun `German abbreviations are not known to the English default`() {
         assertEquals(listOf("Das gilt ca.", "zehn."), texts("Das gilt ca. zehn."))
     }
