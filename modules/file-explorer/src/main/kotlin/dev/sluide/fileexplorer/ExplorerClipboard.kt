@@ -17,11 +17,17 @@ internal class ClipboardImage(
     val argb: IntArray,
 )
 
-/** What a paste would take from the clipboard: its [files], or, without files, an image if [pastesImage]. */
+/**
+ * What a paste would take from the clipboard (ADR 0188): its [files]; else its [text], if not blank; else an image if
+ * [pastesImage].
+ */
 internal class PasteContent(
     val files: List<Path>,
+    val text: String?,
     val pastesImage: Boolean,
-)
+) {
+    val pastesText: Boolean get() = text != null
+}
 
 /** The image on the clipboard could not be read; the message is meant for the user. */
 internal class UnreadableClipboardImage : IOException("The clipboard image could not be read.")
@@ -30,6 +36,9 @@ internal class UnreadableClipboardImage : IOException("The clipboard image could
 internal interface ClipboardFiles {
     /** The files on the clipboard; none if it holds something else. */
     fun files(): List<Path>
+
+    /** The plain text on the clipboard; `null` if it holds none (rich text and HTML alone are none). */
+    fun text(): String?
 
     /** Whether the clipboard holds an image (which may still turn out unreadable), whatever else it holds. */
     fun hasImage(): Boolean
@@ -52,6 +61,8 @@ internal object SystemClipboardFiles : ClipboardFiles {
         val clipboard = Clipboard.getSystemClipboard()
         return if (clipboard.hasFiles()) clipboard.files.map { it.toPath() } else emptyList()
     }
+
+    override fun text(): String? = Clipboard.getSystemClipboard().string
 
     override fun hasImage(): Boolean = Clipboard.getSystemClipboard().hasImage()
 
@@ -108,11 +119,14 @@ class ExplorerClipboard internal constructor(
 
     /**
      * What a paste would take, from one read of the clipboard: its files, normalised, and, only when there are none,
-     * whether it holds an image (files win, ADR 0167).
+     * its text if not blank, and only without that whether it holds an image (files win over text, text over an
+     * image, ADR 0188): each read is a query of the clipboard's owner, so none is made that cannot matter.
      */
     internal fun pasteContent(): PasteContent {
         val files = files()
-        return PasteContent(files, files.isEmpty() && clipboard.hasImage())
+        if (files.isNotEmpty()) return PasteContent(files, null, false)
+        val text = clipboard.text()?.takeIf { it.isNotBlank() }
+        return PasteContent(files, text, text == null && clipboard.hasImage())
     }
 
     /** The image on the clipboard, `null` if none; fails with [UnreadableClipboardImage]. */

@@ -102,6 +102,7 @@ internal class FakeEditHost(
                 imageNameAsks += NameAsk("Paste Image", initial, validate, note)
                 answerImageName(initial)
             },
+            textTypes = { textTypes },
             askTextName = { initialName, detected, folder ->
                 val ask = TextNameAsk(initialName, detected, folder)
                 textNameAsks += ask
@@ -158,7 +159,8 @@ internal class FakeEditHost(
     /** The clipboard the copies use, on [clipboardFiles] instead of the system clipboard. */
     val clipboardFiles = FakeClipboardFiles()
     val clipboard = ExplorerClipboard(clipboardFiles)
-    val copies = ExplorerCopies(host, moves, { clipboard }, edits::canChange, edits::isBeingDeleted, clock)
+    val copies =
+        ExplorerCopies(host, moves, { clipboard }, edits::canChange, edits::isBeingDeleted, clock)
 
     init {
         reopen()
@@ -223,9 +225,18 @@ internal class FakeClipboardFiles : ClipboardFiles {
     var image: ClipboardImage? = null
     var unreadable = false
 
-    /** How often the files and the image were asked for, to see that a menu show reads the clipboard once. */
+    /** The text on the clipboard, `null` for none. */
+    var text: String? = null
+
+    /** How often the files, the text and the image were asked for, to see that a menu show reads the clipboard once. */
     var filesReads = 0
+    var textReads = 0
     var imageChecks = 0
+
+    override fun text(): String? {
+        textReads++
+        return text
+    }
 
     override fun hasImage(): Boolean {
         imageChecks++

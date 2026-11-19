@@ -244,6 +244,100 @@ class ExplorerImagePasteTest {
         assertFalse(fake.clipboard.isCut(project.resolve("a.txt")))
     }
 
+    @Test
+    fun `text beats an image, which is then not even asked for, as with a spreadsheet range`() {
+        open()
+        fake.clipboardFiles.text = "a\tb\n1\t2"
+        fake.clipboardFiles.image = image
+
+        assertTrue(fake.copies.paste(emptyList()))
+
+        assertEquals("pasted-2026-03-04-050607", fake.textNameAsks.single().initialName)
+        assertEquals(emptyList(), fake.imageNameAsks)
+        assertEquals(listOf("pasted-2026-03-04-050607.txt"), names())
+        assertEquals("a\tb\n1\t2", project.resolve("pasted-2026-03-04-050607.txt").toFile().readText())
+        assertEquals(0, fake.clipboardFiles.imageChecks)
+    }
+
+    @Test
+    fun `files beat text, which is then not even read, as with the explorer's own copy`() {
+        project.resolve("a.txt").writeText("a")
+        open()
+        fake.clipboardFiles.content = listOf(project.resolve("a.txt"))
+        fake.clipboardFiles.text = project.resolve("a.txt").toString()
+        fake.clipboardFiles.image = image
+
+        fake.copies.paste(emptyList())
+
+        assertEquals(emptyList(), fake.textNameAsks)
+        assertEquals(listOf("a-copy.txt", "a.txt"), names())
+        assertEquals(0, fake.clipboardFiles.textReads)
+    }
+
+    @Test
+    fun `blank text falls through to the image, and alone is nothing to paste`() {
+        open()
+        fake.clipboardFiles.text = " \n\t "
+        fake.clipboardFiles.image = image
+
+        assertEquals(PasteItem(true, "Paste Image"), fake.copies.pasteItem(emptyList()))
+        fake.copies.paste(emptyList())
+        assertEquals(emptyList(), fake.textNameAsks)
+        assertEquals(1, fake.imageNameAsks.size)
+
+        fake.clipboardFiles.image = null
+        assertEquals(PasteItem(false, "Paste"), fake.copies.pasteItem(emptyList()))
+        assertFalse(fake.copies.paste(emptyList()))
+    }
+
+    @Test
+    fun `the paste item says text for text without files, and needs a target`() {
+        project.resolve("src").createDirectories()
+        open()
+        fake.clipboardFiles.text = "hello"
+
+        assertEquals(PasteItem(true, "Paste Text"), fake.copies.pasteItem(emptyList()))
+        assertEquals(PasteItem(false, "Paste"), fake.copies.pasteItem(listOf(fake.item("src"), fake.projectItem)))
+
+        fake.clipboardFiles.content = listOf(project.resolve("src"))
+        assertEquals(PasteItem(true, "Paste"), fake.copies.pasteItem(emptyList()), "files win")
+    }
+
+    @Test
+    fun `the paste item reads the text once, the image only without text and never with files`() {
+        open()
+        fake.clipboardFiles.text = "hello"
+        fake.clipboardFiles.image = image
+
+        fake.copies.pasteItem(emptyList())
+        assertEquals(1, fake.clipboardFiles.filesReads)
+        assertEquals(1, fake.clipboardFiles.textReads)
+        assertEquals(0, fake.clipboardFiles.imageChecks, "text wins, so the image is not asked for")
+
+        fake.clipboardFiles.text = null
+        fake.clipboardFiles.filesReads = 0
+        fake.clipboardFiles.textReads = 0
+        fake.copies.pasteItem(emptyList())
+        assertEquals(1, fake.clipboardFiles.textReads)
+        assertEquals(1, fake.clipboardFiles.imageChecks)
+
+        fake.clipboardFiles.text = "hello"
+        fake.clipboardFiles.content = listOf(project)
+        fake.clipboardFiles.textReads = 0
+        fake.copies.paste(emptyList())
+        assertEquals(0, fake.clipboardFiles.textReads, "a paste with files does not read the text either")
+    }
+
+    @Test
+    fun `a paste reads the text once`() {
+        open()
+        fake.clipboardFiles.text = "hello"
+
+        fake.copies.paste(emptyList())
+
+        assertEquals(1, fake.clipboardFiles.textReads)
+    }
+
     private fun paster(
         create: ((Path) -> OutputStream)? = null,
         clipboard: ExplorerClipboard = fake.clipboard,
@@ -270,6 +364,8 @@ class ExplorerImagePasteTest {
         val failing =
             object : ClipboardFiles {
                 override fun files(): List<Path> = emptyList()
+
+                override fun text(): String? = null
 
                 override fun hasImage() = true
 

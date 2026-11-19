@@ -6,6 +6,11 @@ import dev.sluide.fileexplorer.actions.deleteQuestion
 import dev.sluide.fileexplorer.actions.systemFileManager
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.texttypes.TextType
+import dev.sluide.texttypes.TextTypeDetector
+import dev.sluide.texttypes.TextTypeSource
+import dev.sluide.texttypes.TextTypes
+import dev.sluide.texttypes.TypeScore
 import javafx.application.Platform
 import javafx.css.PseudoClass
 import javafx.event.Event
@@ -33,6 +38,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.createParentDirectories
 import kotlin.io.path.exists
+import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
@@ -699,13 +705,13 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
     }
 
     @Test
-    fun `the context menu has Cut, Copy and Paste showing their keys, Paste only with files on the clipboard`(
+    fun `the context menu has Cut, Copy and Paste showing their keys, Paste only with something to paste`(
         robot: FxRobot,
     ) {
         project.resolve("a.txt").writeText("a")
         robot.interact {
             view.open(project)
-            Clipboard.getSystemClipboard().setContent(mapOf(DataFormat.PLAIN_TEXT to "text"))
+            Clipboard.getSystemClipboard().clear()
         }
         val cell = cellNamed(robot, "a.txt")
         val mac = System.getProperty("os.name").lowercase().contains("mac")
@@ -740,5 +746,37 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
             Clipboard.getSystemClipboard().setContent(mapOf(DataFormat.IMAGE to WritableImage(2, 2)))
         }
         assertFalse(menuItemFor(robot, view, "Paste Image").isDisable)
+    }
+
+    @Test
+    fun `text on the system clipboard shows Paste Text, and pasting it asks for a name, writes the file and opens it`(
+        robot: FxRobot,
+    ) {
+        val opened = mutableListOf<Path>()
+        view.onOpenFile = { opened.add(it) }
+        val json = checkNotNull(TextTypes.byExtension("json"))
+        view.textTypes = TextTypeDetector(listOf(TextTypeSource { listOf(TypeScore(json, 90)) }))
+        val asked = mutableListOf<TextType>()
+        val onFxThread = mutableListOf<Boolean>()
+        view.askTextName = { initial, detected, folder ->
+            asked += detected
+            onFxThread += Platform.isFxApplicationThread()
+            assertEquals(project, folder)
+            "$initial.json"
+        }
+        robot.interact { view.open(project) }
+        robot.interact { Clipboard.getSystemClipboard().setContent(mapOf(DataFormat.PLAIN_TEXT to "{\"a\": 1}\r\n")) }
+
+        robot.interact { menuItemFor(robot, view, "Paste Text").fire() }
+
+        eventually(robot) {
+            val file = project.listDirectoryEntries().single { it.name.endsWith(".json") }
+            assertTrue(file.name.startsWith("pasted-"))
+            assertEquals("{\"a\": 1}\r\n", file.readText())
+            assertEquals(listOf(file), opened)
+            assertEquals(listOf(file), view.selectionModel.selectedItems.map { it.value })
+        }
+        assertEquals(listOf(json), asked)
+        assertEquals(listOf(true), onFxThread, "the dialog is asked on the FX thread, not where the type is detected")
     }
 }

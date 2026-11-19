@@ -15,6 +15,7 @@ import java.time.Clock
 private val log = System.getLogger(ExplorerCopies::class.java.name)
 
 private const val PASTE = "Paste"
+private const val PASTE_TEXT = "Paste Text"
 private const val PASTE_IMAGE = "Paste Image"
 
 /** The context menu's paste item: whether it is [enabled], and its [label]. */
@@ -36,10 +37,11 @@ internal class ExplorerCopies(
     private val canChange: (TreeItem<Path>?) -> Boolean,
     /** Whether a folder is being deleted or lies in an entry being deleted; nothing is pasted into it. */
     private val isBeingDeleted: (Path) -> Boolean,
-    /** The time that names a pasted image. */
+    /** The time that names pasted images and text. */
     clock: Clock = Clock.systemDefaultZone(),
 ) {
     private val images = ExplorerImagePaste(host, clipboard, clock)
+    private val texts = ExplorerTextPaste(host, clock)
 
     /** Puts [items] (outermost only, a compacted row's first folder) on the clipboard to be copied; also top-level folders. Ends a cut. */
     fun copy(items: List<FileTreeItem>): Boolean {
@@ -75,8 +77,8 @@ internal class ExplorerCopies(
 
     /**
      * The menu's paste item for [targets], from one read of the clipboard: enabled when a paste would paste something
-     * (files or an image on it and a folder for them, [pasteTarget]), and "Paste Image" when that is an image. Checks
-     * the cut against the clipboard first.
+     * (files, text or an image on it and a folder for them, [pasteTarget]): "Paste Text" for text, "Paste Image" for
+     * an image, else "Paste". Checks the cut against the clipboard first.
      */
     fun pasteItem(targets: List<FileTreeItem>): PasteItem {
         if (pasteTarget(targets) == null) return PasteItem(false, PASTE)
@@ -84,8 +86,12 @@ internal class ExplorerCopies(
         val content = board.pasteContent()
         board.checkCut(content.files)
         return PasteItem(
-            content.files.isNotEmpty() || content.pastesImage,
-            if (content.pastesImage) PASTE_IMAGE else PASTE,
+            content.files.isNotEmpty() || content.pastesText || content.pastesImage,
+            when {
+                content.pastesText -> PASTE_TEXT
+                content.pastesImage -> PASTE_IMAGE
+                else -> PASTE
+            },
         )
     }
 
@@ -93,8 +99,9 @@ internal class ExplorerCopies(
      * Pastes the files on the clipboard into the folder for [targets] ([pasteTarget]); returns whether there was
      * something to paste and a folder for it. Entries cut in the explorer, while the clipboard still holds them, are
      * moved there ([ExplorerMoves.move], asking only about names taken there), after which the cut ends. Anything
-     * else is copied ([copyInto]) without asking, unless files with unsaved changes are among them. Without files, an
-     * image on the clipboard is pasted as a PNG ([ExplorerImagePaste], ADR 0167).
+     * else is copied ([copyInto]) without asking, unless files with unsaved changes are among them. Without files, text
+     * on the clipboard is pasted as a new file ([ExplorerTextPaste], ADR 0188), and without text an image as a PNG
+     * ([ExplorerImagePaste], ADR 0167).
      */
     fun paste(targets: List<FileTreeItem>): Boolean {
         val folder = pasteTarget(targets) ?: return false
@@ -103,8 +110,12 @@ internal class ExplorerCopies(
         val files = content.files
         val cut = board.checkCut(files)
         if (files.isEmpty()) {
-            if (!content.pastesImage) return false
-            images.paste(folder)
+            val text = content.text
+            when {
+                text != null -> texts.paste(folder, text)
+                content.pastesImage -> images.paste(folder)
+                else -> return false
+            }
             return true
         }
         if (cut.isNotEmpty()) {

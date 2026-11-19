@@ -1,7 +1,6 @@
 package dev.sluide.fileexplorer.actions
 
 import dev.sluide.fileexplorer.tree.FileTreeItem
-import dev.sluide.texttypes.TextTypeDetector
 import java.io.OutputStream
 import java.nio.file.Path
 import java.time.Clock
@@ -13,8 +12,6 @@ import java.time.Clock
  */
 internal class ExplorerTextPaste(
     private val host: ExplorerEditHost,
-    /** The detector, read when a paste runs: `FileExplorerView.textTypes` is set later than the paster is built. */
-    private val detector: () -> TextTypeDetector,
     private val clock: Clock,
     /** Creates the new file for writing, failing if it exists; tests replace it by a stream that fails. */
     private val create: (Path) -> OutputStream = ::createNewFile,
@@ -26,7 +23,8 @@ internal class ExplorerTextPaste(
     ) {
         // Read here, not in the background: the tree item and the detector belong to the JavaFX thread.
         val target = folder.value
-        val types = detector()
+        // The detector is read per paste: `FileExplorerView.textTypes` is set later than the paster is built.
+        val types = host.textTypes()
         host.runInBackground {
             val detected = types.detect(text)
             host.dispatch {

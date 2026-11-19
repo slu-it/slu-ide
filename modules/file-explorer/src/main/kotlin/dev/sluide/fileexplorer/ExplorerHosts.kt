@@ -26,6 +26,7 @@ internal fun FileExplorerView.buildEditHost(
     askName = { title, initial, validate -> askName(title, initial, validate) },
     askImageName = { initial, validate, note -> askImageName(initial, validate, note) },
     askTextName = { initial, detected, folder -> askTextName(initial, detected, folder) },
+    textTypes = { textTypes },
     showError = { showError(it) },
     showInfo = { showInfo(it) },
     confirmDelete = { confirmDelete(it) },

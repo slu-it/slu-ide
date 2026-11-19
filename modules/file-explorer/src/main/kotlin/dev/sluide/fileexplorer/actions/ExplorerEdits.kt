@@ -4,6 +4,7 @@ import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.sourceRows
 import dev.sluide.texttypes.TextType
+import dev.sluide.texttypes.TextTypeDetector
 import javafx.scene.control.TreeItem
 import java.io.IOException
 import java.io.UncheckedIOException
@@ -27,6 +28,8 @@ internal class ExplorerEditHost(
      * cancelled. Gets the offered base name, the type detected for the text and the folder the file goes into.
      */
     val askTextName: (initialName: String, detected: TextType, folder: Path) -> String?,
+    /** The detector of pasted text, read when a paste runs (ADR 0188). */
+    val textTypes: () -> TextTypeDetector,
     val showError: (String) -> Unit,
     val showInfo: (String) -> Unit,
     val confirmDelete: (DeleteQuestion) -> Boolean,

@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer.actions
 
+import dev.sluide.testsupport.LogCapture
 import dev.sluide.texttypes.TextTypeDetector
 import dev.sluide.texttypes.TextTypeSource
 import dev.sluide.texttypes.TextTypes
@@ -32,9 +33,9 @@ class ExplorerTextPasteTest {
 
     private fun paster(create: ((Path) -> OutputStream)? = null) =
         if (create == null) {
-            ExplorerTextPaste(fake.host, { fake.textTypes }, fake.clock)
+            ExplorerTextPaste(fake.host, fake.clock)
         } else {
-            ExplorerTextPaste(fake.host, { fake.textTypes }, fake.clock, create)
+            ExplorerTextPaste(fake.host, fake.clock, create)
         }
 
     private fun paste(text: String) = paster().paste(fake.projectItem, text)
@@ -137,7 +138,16 @@ class ExplorerTextPasteTest {
     fun `a file that cannot be written is removed again and the failure is shown with its reason`() {
         open()
 
-        paster(failingStream { IOException("disk full") }).paste(fake.projectItem, "text")
+        val failure = IOException("disk full")
+        LogCapture("dev.sluide.fileexplorer.actions.PastedFiles").use { log ->
+            paster(failingStream { failure }).paste(fake.projectItem, "text")
+
+            assertEquals(
+                listOf(Level.WARNING to "Cannot save the clipboard text as pasted-2026-03-04-050607.txt in $project"),
+                log.lines,
+            )
+            assertEquals(listOf<Throwable>(failure), log.thrown)
+        }
 
         assertEquals(listOf("Could not save “pasted-2026-03-04-050607.txt”: disk full"), fake.errors)
         assertEquals(emptyList(), names(), "no partial file stays")
