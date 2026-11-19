@@ -192,7 +192,7 @@ class GitCommandLogEntryTest {
 
     @Test
     fun `without a clock given an entry measures with the system clock`() {
-        val entry = entry()
+        val entry = GitCommandLog.Entry(7, "marker-args", write = false)
         val deadline = System.nanoTime() + 40_000_000
         // Polls the same clock until 40 ms have passed: a wait on a signal, not a sleep.
         while (System.nanoTime() < deadline) Thread.onSpinWait()
