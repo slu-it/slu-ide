@@ -1,6 +1,8 @@
 package dev.sluide.codeintelligence.symbols
 
 import dev.sluide.codeintelligence.TestTimers
+import dev.sluide.codeintelligence.completion.KindGroup
+import dev.sluide.codeintelligence.parsedResult
 import dev.sluide.languageservers.LspUris
 import org.eclipse.lsp4j.Location
 import org.eclipse.lsp4j.Position
@@ -9,10 +11,13 @@ import org.eclipse.lsp4j.SymbolInformation
 import org.eclipse.lsp4j.SymbolKind
 import org.eclipse.lsp4j.WorkspaceSymbol
 import org.eclipse.lsp4j.WorkspaceSymbolLocation
+import org.eclipse.lsp4j.jsonrpc.json.MessageJsonHandler
 import org.eclipse.lsp4j.jsonrpc.messages.Either
+import org.kordamp.ikonli.javafx.FontIcon
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
 /** Go to symbol without a server: the rows of an answer, their order, the cell, and when the server is asked. */
@@ -156,5 +161,140 @@ class WorkspaceSymbolsTest {
         val shownBefore = s.shown.size
         s.asked.single().second(listOf(row("Console")), null)
         assertEquals(shownBefore, s.shown.size, "an answer after stopping shows nothing")
+    }
+
+    private val place = """{"line":4,"character":6}"""
+    private val jsonRange = """{"start":$place,"end":$place}"""
+    private val uri = LspUris.of(file)
+
+    /** The answer as lsp4j parses it from the server's JSON: absent fields and empty ranges as they come. */
+    @Suppress("UNCHECKED_CAST")
+    private fun parsed(json: String) =
+        parsedResult("workspace/symbol", json) as Either<out List<SymbolInformation?>?, out List<WorkspaceSymbol?>?>?
+
+    @Test
+    fun `no answer gives no rows`() {
+        assertEquals(emptyList(), workspaceSymbolRows(null))
+        assertEquals(emptyList(), workspaceSymbolRows(parsed("null")))
+        assertEquals(emptyList(), workspaceSymbolRows(parsed("[]")))
+    }
+
+    @Test
+    fun `workspace symbols without a location, a file or a name are left out, an empty range gives no position`() {
+        val rows =
+            workspaceSymbolRows(
+                parsed(
+                    """[
+                    {"name":"no location","kind":5},
+                    {"kind":5,"location":{"uri":"$uri","range":$jsonRange}},
+                    {"name":"no uri","kind":5,"location":{"range":$jsonRange}},
+                    {"name":"remote","kind":5,"location":{"uri":"https://a/b.py","range":$jsonRange}},
+                    {"name":"no start","kind":5,"location":{"uri":"$uri","range":{}}},
+                    {"name":"null range","kind":5,"location":{"uri":"$uri","range":null}},
+                    {"name":"placed","kind":6,"containerName":"C","location":{"uri":"$uri","range":$jsonRange}}
+                    ]""",
+                ),
+            )
+        assertEquals(
+            listOf("no start" to null, "null range" to null, "placed" to Position(4, 6)),
+            rows.map { it.name to it.position },
+        )
+        assertEquals("C", rows.last().container)
+        assertEquals(SymbolKind.Method, rows.last().kind)
+    }
+
+    @Test
+    fun `symbol information without a location, a file, a name or a range is left out or has no position`() {
+        // lsp4j's setters refuse null; its parser, which sets the fields, does not.
+        fun info(json: String): SymbolInformation =
+            MessageJsonHandler(emptyMap()).gson.fromJson(json, SymbolInformation::class.java)
+        val range = """{"start":$place,"end":$place}"""
+        val rows =
+            workspaceSymbolRows(
+                Either.forLeft(
+                    listOf(
+                        null,
+                        info("""{"name":"no location","kind":5}"""),
+                        info("""{"name":"no uri","kind":5,"location":{"range":$range}}"""),
+                        info("""{"name":"remote","kind":5,"location":{"uri":"https://a/b.py","range":$range}}"""),
+                        info("""{"kind":5,"location":{"uri":"$uri","range":$range}}"""),
+                        info("""{"name":"no range","kind":5,"location":{"uri":"$uri"}}"""),
+                        info("""{"name":"placed","kind":5,"location":{"uri":"$uri","range":$range}}"""),
+                    ),
+                ),
+            )
+        assertEquals(listOf("no range" to null, "placed" to Position(4, 6)), rows.map { it.name to it.position })
+    }
+
+    @Test
+    fun `names rank by exactness then prefix, the same case first, and declarations before variables in each`() {
+        // Reversed: the server sends the worst first, a variable before its declaration in each group.
+        val names = listOf("xcon", "ConA", "conA", "Con", "con")
+        val rows =
+            names.flatMap { name ->
+                listOf(row(name, SymbolKind.Variable), row(name, SymbolKind.Class), row(name, SymbolKind.Constant))
+            }
+        assertEquals(
+            listOf("con", "Con", "conA", "ConA", "xcon").flatMap { name ->
+                listOf(SymbolKind.Class, SymbolKind.Variable, SymbolKind.Constant).map { name to it }
+            },
+            rankWorkspaceSymbols(rows, "con").map { it.name to it.kind },
+        )
+    }
+
+    @Test
+    fun `hundreds of unranked rows keep their server order within a rank, also past 32 rows`() {
+        // Four blocks of 8 declarations: prefix matches, exact names, prefix matches, exact names.
+        val names = (0 until 8).map { "xa$it" } + List(8) { "x" } + (0 until 8).map { "xb$it" } + List(8) { "x" }
+        val rows =
+            names.mapIndexed { i, name -> WorkspaceSymbolRow(name, "c$i", SymbolKind.Function, file, Position(i, 0)) }
+        assertEquals(
+            rows.filter { it.name == "x" } + rows.filter { it.name != "x" },
+            rankWorkspaceSymbols(rows, "x"),
+        )
+    }
+
+    @Test
+    fun `each kind of declaration ranks before a variable`() {
+        val declarations =
+            listOf(
+                SymbolKind.Class,
+                SymbolKind.Interface,
+                SymbolKind.Struct,
+                SymbolKind.Enum,
+                SymbolKind.Function,
+                SymbolKind.Method,
+                SymbolKind.Constructor,
+                SymbolKind.Module,
+                SymbolKind.Namespace,
+                SymbolKind.Package,
+            )
+        for (kind in declarations) {
+            val ranked = rankWorkspaceSymbols(listOf(row("x", SymbolKind.Variable), row("x", kind)), "x")
+            assertEquals(listOf(kind, SymbolKind.Variable), ranked.map { it.kind })
+        }
+    }
+
+    @Test
+    fun `a row with a kind has its icon, one without a container shows the path alone`() {
+        val cell = workspaceSymbolCell(WorkspaceSymbolRow("Console", null, SymbolKind.Class, file, null), folder)
+        assertEquals("pkg/console.py", cell.secondary)
+        assertTrue(KindGroup.TYPE.styleClass in (cell.icon as FontIcon).styleClass)
+    }
+
+    @Test
+    fun `closing the search drops what waits and what is on its way`() {
+        val s = Search()
+        s.search.query("Con")
+        s.search.close()
+        assertEquals(emptyList(), s.timers.due)
+
+        s.search.query("Con")
+        s.timers.runDue()
+        s.search.close()
+        assertEquals(listOf("Con"), s.dropped)
+        val shownBefore = s.shown.size
+        s.asked.single().second(listOf(row("Console")), null)
+        assertEquals(shownBefore, s.shown.size, "an answer after closing shows nothing")
     }
 }
