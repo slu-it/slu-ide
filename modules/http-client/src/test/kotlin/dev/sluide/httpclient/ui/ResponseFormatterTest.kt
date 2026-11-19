@@ -1,5 +1,7 @@
 package dev.sluide.httpclient.ui
 
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -211,6 +213,108 @@ class ResponseFormatterTest {
 
         assertEquals(body, formatted.text)
         assertEquals(listOf(TOO_COMPLEX), formatted.notes)
+    }
+
+    @Test
+    fun `bodies are left as received when pretty-printing is off or the type has no formatter`() {
+        assertEquals(
+            "{\"a\":1}",
+            ResponseFormatter.format("{\"a\":1}".toByteArray(), "application/json", pretty = false).text,
+        )
+        assertEquals("<a><b/></a>", format("<a><b/></a>", "text/html").text)
+        assertEquals("  \n ", format("  \n ", "application/json").text)
+    }
+
+    @Test
+    fun `a body of exactly the pretty-print limit is still pretty-printed`() {
+        val json = """{"a":1}"""
+        val body = json + " ".repeat(ResponseFormatter.PRETTY_PRINT_LIMIT - json.length)
+
+        val formatted = format(body, "application/json")
+
+        assertEquals("{\n  \"a\": 1\n}", formatted.text)
+        assertEquals(emptyList(), formatted.notes)
+    }
+
+    @Test
+    fun `the declared charset is read from the parameters only, trimmed and unquoted`() {
+        assertEquals(Charsets.UTF_8, ResponseFormatter.declaredCharset("text/plain; charset= UTF-8 "))
+        assertEquals(Charsets.ISO_8859_1, ResponseFormatter.declaredCharset("text/plain; charset=\"ISO-8859-1\""))
+        assertEquals(Charsets.UTF_16BE, ResponseFormatter.declaredCharset("text/plain; boundary=x;  CHARSET=UTF-16BE"))
+        assertNull(ResponseFormatter.declaredCharset("charset=utf-8"))
+        assertNull(ResponseFormatter.declaredCharset("text/plain; boundary=x"))
+        assertNull(ResponseFormatter.declaredCharset(null))
+    }
+
+    @Test
+    fun `a declared charset decodes text that windows-1252 would read differently`() {
+        val cyrillic = byteArrayOf(0xD0.toByte(), 0xD1.toByte())
+
+        val formatted = ResponseFormatter.format(cyrillic, "text/plain; charset=ISO-8859-5")
+
+        assertEquals("аб", formatted.text)
+        assertEquals(emptyList(), formatted.notes)
+    }
+
+    @Test
+    fun `a byte order mark wins over the declared charset and a body of only the mark is empty`() {
+        val utf8Mark = byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte())
+
+        assertEquals("é", ResponseFormatter.format(utf8Mark + "é".toByteArray(), "text/plain; charset=ISO-8859-5").text)
+        assertEquals("", ResponseFormatter.format(utf8Mark, "text/plain").text)
+        assertEquals(false, ResponseFormatter.format(utf8Mark, "text/plain").binary)
+        assertEquals("", ResponseFormatter.format(byteArrayOf(0xFE.toByte(), 0xFF.toByte()), "text/plain").text)
+        assertEquals("", ResponseFormatter.format(byteArrayOf(0xFF.toByte(), 0xFE.toByte()), "text/plain").text)
+    }
+
+    @Test
+    fun `text that does not decode after a byte order mark is binary, not windows-1252`() {
+        val body = byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte(), 0xE9.toByte())
+
+        assertTrue(ResponseFormatter.format(body, "text/plain").binary)
+    }
+
+    @Test
+    fun `XML with blank text between many elements is indented without blank lines`() {
+        assertEquals(
+            "<a>\n  <b/>\n  <c/>\n  <d>\n    <e/>\n    <f/>\n  </d>\n</a>\n",
+            format("<a>\n <b/>\n <c/>\n <d>\n <e/>\n <f/>\n </d>\n</a>", "application/xml").text,
+        )
+    }
+
+    @Test
+    fun `XML with an unbound namespace prefix is not valid`() {
+        val formatted = format("<a:b/>", "application/xml")
+
+        assertEquals("<a:b/>", formatted.text)
+        assertEquals(listOf("Not valid XML: shown as received"), formatted.notes)
+        assertEquals("<n:b xmlns:n=\"u\"/>\n", format("<n:b xmlns:n=\"u\"/>", "application/xml").text)
+    }
+
+    @Test
+    fun `malformed XML prints nothing to the console`() {
+        val original = System.err
+        val captured = ByteArrayOutputStream()
+        System.setErr(PrintStream(captured, true))
+        try {
+            format("<a><b></a>", "application/xml")
+        } finally {
+            System.setErr(original)
+        }
+
+        assertEquals("", captured.toString())
+    }
+
+    @Test
+    fun `sizes stop at terabytes`() {
+        assertEquals("8388608.0 TB", ResponseFormatter.size(Long.MAX_VALUE))
+    }
+
+    @Test
+    fun `durations switch units at their rounding edges`() {
+        assertEquals("999 ms", ResponseFormatter.duration(Duration.ofMillis(999)))
+        assertEquals("1.00 s", ResponseFormatter.duration(Duration.ofMillis(1000)))
+        assertEquals("1 min 0 s", ResponseFormatter.duration(Duration.ofMillis(59_995)))
     }
 
     @Test

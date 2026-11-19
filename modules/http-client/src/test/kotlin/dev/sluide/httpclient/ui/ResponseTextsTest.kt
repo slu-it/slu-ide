@@ -56,6 +56,24 @@ class ResponseTextsTest {
     }
 
     @Test
+    fun `status codes are sorted into kinds at the edges of their ranges`() {
+        val kinds =
+            mapOf(
+                99 to StatusKind.SERVER_ERROR,
+                100 to StatusKind.INFORMATIONAL,
+                199 to StatusKind.INFORMATIONAL,
+                200 to StatusKind.SUCCESS,
+                299 to StatusKind.SUCCESS,
+                300 to StatusKind.REDIRECT,
+                399 to StatusKind.REDIRECT,
+                400 to StatusKind.CLIENT_ERROR,
+                499 to StatusKind.CLIENT_ERROR,
+                500 to StatusKind.SERVER_ERROR,
+            )
+        for ((status, kind) in kinds) assertEquals(kind, StatusKind.of(status), "$status")
+    }
+
+    @Test
     fun `failures and cancelled runs have no status code`() {
         val failed = HttpFailure("Connection refused", false, Duration.ofMillis(5), emptyList())
         val cancelled = HttpFailure("Cancelled", true, Duration.ofMillis(5), emptyList())
@@ -100,6 +118,60 @@ class ResponseTextsTest {
             "PUT http://x/ HTTP/1.1\nContent-Type: image/png\n\nBinary body, 3 B, image/png",
             ResponseTexts.request(upload).text,
         )
+    }
+
+    private fun upload(
+        body: ByteArray,
+        headers: List<Pair<String, String>> = emptyList(),
+        secrets: List<String> = emptyList(),
+    ) = PreparedRequest(URI("http://x/"), "PUT", HttpVersion.HTTP_1_1, headers, body, emptyList(), secrets = secrets)
+
+    @Test
+    fun `a request without a body ends after its headers`() {
+        assertEquals(
+            "PUT http://x/ HTTP/1.1\nAccept: */*",
+            ResponseTexts
+                .request(
+                    upload(
+                        ByteArray(0),
+                        listOf("Accept" to "*/*"),
+                    ),
+                ).text,
+        )
+    }
+
+    @Test
+    fun `a binary body without a content type has no type in its summary`() {
+        assertEquals(
+            "PUT http://x/ HTTP/1.1\n\nBinary body, 3 B",
+            ResponseTexts.request(upload(byteArrayOf(0, 1, 2))).text,
+        )
+    }
+
+    @Test
+    fun `an empty secret masks nothing`() {
+        assertEquals(
+            "PUT http://x/ HTTP/1.1\nAccept: abc",
+            ResponseTexts.request(upload(ByteArray(0), listOf("Accept" to "abc"), listOf("", "zzz"))).text,
+        )
+    }
+
+    @Test
+    fun `a body of exactly the display limit is shown whole`() {
+        val shown = ResponseTexts.request(upload("a".repeat(ResponseTexts.DISPLAY_LIMIT).toByteArray()))
+
+        assertEquals(false, shown.partial)
+        assertTrue(shown.text.endsWith("\n\n" + "a".repeat(ResponseTexts.DISPLAY_LIMIT)))
+    }
+
+    @Test
+    fun `a long body of continuation bytes is cut down to nothing, not before its start`() {
+        val body = ByteArray(ResponseTexts.DISPLAY_LIMIT + 1) { 0x80.toByte() }
+
+        val shown = ResponseTexts.request(upload(body, listOf("Content-Type" to "text/plain")))
+
+        assertTrue(shown.partial)
+        assertTrue(shown.text.startsWith("PUT http://x/ HTTP/1.1\nContent-Type: text/plain"))
     }
 
     @Test

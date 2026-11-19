@@ -197,20 +197,21 @@ class VariableResolverTest {
     }
 
     @Test
-    fun `treats names that only hash like the auth calls as dynamic variables`() {
+    fun `asks for auth tokens only with exactly one argument`() {
         val resolver = resolver(auth = { id, _ -> "token-$id" })
 
-        assertEquals("token-id", resolver.resolve("{{\$auth.token(id)}}"))
-        // Same String.hashCode as the real names: a compiled `when` over strings must still compare the text.
-        for (name in listOf("\$auth.token", "\$auth.idToken")) {
-            val twin = hashTwin(name)
-            assertEquals(name.hashCode(), twin.hashCode())
-            val error = assertFailsWith<UnresolvedVariablesException> { resolver.resolve("{{$twin(id)}}") }
-            assertEquals(listOf("$twin(id)"), error.names)
-        }
-    }
+        val error =
+            assertFailsWith<UnresolvedVariablesException> {
+                resolver.resolve(
+                    "{{\$auth.token()}} {{\$auth.idToken()}} {{\$auth.token(a, b)}} {{\$auth.idToken(a, b)}}",
+                )
+            }
 
-    private fun hashTwin(name: String) = name.take(1) + (name[1] + 1) + (name[2] - 31) + name.drop(3)
+        assertEquals(
+            listOf("\$auth.token()", "\$auth.idToken()", "\$auth.token(a, b)", "\$auth.idToken(a, b)"),
+            error.names,
+        )
+    }
 
     @Test
     fun `says why a dynamic variable has no value`() {
