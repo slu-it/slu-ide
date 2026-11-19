@@ -287,23 +287,7 @@ internal class CompletionModel(
     ) {
         if (!isOpen || binding.isClosed || changes !== pendingChanges) return
         pendingChanges = null
-        answered =
-            when {
-                result == null -> {
-                    emptyList()
-                }
-
-                result.isLeft -> {
-                    result.left.filterNotNull()
-                }
-
-                else -> {
-                    result.right
-                        ?.items
-                        .orEmpty()
-                        .filterNotNull()
-                }
-            }
+        answered = itemsOf(result)
         incomplete = result?.isRight == true && result.right?.isIncomplete == true
         answeredChanges = changes
         resolved.clear()
@@ -375,3 +359,25 @@ internal class ChangeTracker(
         firstChange = minOf(firstChange ?: start, start)
     }
 }
+
+/**
+ * The items of a completion answer (`CompletionItem[] | CompletionList | null`): none for `null`, a list without
+ * items (a server's `"items": null` reaches lsp4j's objects as `null`) or null entries.
+ */
+internal fun itemsOf(result: Either<List<CompletionItem>, CompletionList>?): List<CompletionItem> =
+    when {
+        result == null -> {
+            emptyList()
+        }
+
+        result.isLeft -> {
+            result.left.filterNotNull()
+        }
+
+        else -> {
+            result.right
+                ?.items
+                .orEmpty()
+                .filterNotNull()
+        }
+    }

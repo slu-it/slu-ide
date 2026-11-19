@@ -1,6 +1,5 @@
 package dev.sluide.codeintelligence.completion
 
-import com.google.gson.Gson
 import dev.sluide.codeintelligence.awaitTrue
 import org.eclipse.lsp4j.CompletionItem
 import org.eclipse.lsp4j.CompletionList
@@ -10,15 +9,20 @@ import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException
+import org.eclipse.lsp4j.jsonrpc.json.MessageJsonHandler
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseMessage
+import org.eclipse.lsp4j.jsonrpc.services.ServiceEndpoints
+import org.eclipse.lsp4j.services.LanguageServer
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -365,14 +369,10 @@ internal class CompletionAcceptTest : CompletionModelFixture() {
         assertEquals("import sys\nimport os\nargv", text)
     }
 
-    private fun jsonList(json: String): Either<List<CompletionItem>, CompletionList> =
-        Either.forRight(Gson().fromJson(json, CompletionList::class.java))
-
     companion object {
-        // What the server sends: LSP 3.17 allows `null`, an array or a CompletionList; the others are lenient or
-        // hostile answers (null entries and fields JSON can carry past lsp4j's constructors).
+        // What the server sends through the fake: LSP 3.17 allows `null`, an array or a CompletionList.
         @JvmStatic
-        fun answers(): List<org.junit.jupiter.params.provider.Arguments> =
+        fun answers(): List<Arguments> =
             listOf(
                 answer("null", null, null),
                 answer(
@@ -381,16 +381,24 @@ internal class CompletionAcceptTest : CompletionModelFixture() {
                     listOf("path"),
                 ),
                 answer("an empty array", Either.forLeft(emptyList()), null),
-                answer("a null array", Either.forLeft(null), null),
-                answer("a null list", Either.forRight(null), null),
             )
 
         private fun answer(
             name: String,
             result: Either<List<CompletionItem?>?, CompletionList?>?,
             shown: List<String>?,
-        ) = org.junit.jupiter.params.provider.Arguments
-            .of(name, result, shown)
+        ) = Arguments.of(name, result, shown)
+
+        @JvmStatic
+        fun rawAnswers(): List<Arguments> =
+            listOf(
+                Arguments.of("null", emptyList<String>()),
+                Arguments.of("""{"isIncomplete":false,"items":null}""", emptyList<String>()),
+                Arguments.of("""{"isIncomplete":false}""", emptyList<String>()),
+                Arguments.of("""{"isIncomplete":false,"items":[null,{"label":"path"}]}""", listOf("path")),
+                Arguments.of("""[{"label":"a"},null,{"label":"b"}]""", listOf("a", "b")),
+                Arguments.of("[]", emptyList<String>()),
+            )
     }
 
     @ParameterizedTest(name = "{0}")
@@ -412,19 +420,29 @@ internal class CompletionAcceptTest : CompletionModelFixture() {
         }
     }
 
-    @Test
-    fun `a list without items or with null items among them`() {
-        setUp("import os\nos.pa")
-        bound.fx.onFx { model.invoke() }
-        asked(1).single().future.complete(jsonList("""{"isIncomplete":false,"items":null}"""))
-        awaitTrue("ended") { !isOpen }
+    /** What lsp4j's message parser (the one the connection uses, without validation) makes of a response. */
+    private fun parsed(result: String): Either<List<CompletionItem>, CompletionList>? {
+        val handler =
+            MessageJsonHandler(LinkedHashMap(ServiceEndpoints.getSupportedMethods(LanguageServer::class.java)))
+        handler.setMethodProvider { "textDocument/completion" }
+        val message = handler.parseMessage("""{"jsonrpc":"2.0","id":1,"result":$result}""") as ResponseMessage
 
-        bound.fx.onFx { model.invoke() }
-        asked(2)[1].future.complete(
-            jsonList("""{"isIncomplete":false,"items":[null,{"label":"path"}]}"""),
-        )
-        awaitTrue("shown") { lastShown() == listOf("path") }
-        assertNotNull(bound.fx.onFx { model.shown.single() })
-        assertTrue(isOpen)
+        @Suppress("UNCHECKED_CAST")
+        return message.result as Either<List<CompletionItem>, CompletionList>?
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("rawAnswers")
+    fun `the items of an answer as lsp4j parses it from the server's JSON`(
+        json: String,
+        labels: List<String>,
+    ) {
+        assertEquals(labels, itemsOf(parsed(json)).map { it.label })
+    }
+
+    @Test
+    fun `lsp4j parses a server's null items as null`() {
+        // lsp4j 1.0.0 leaves items null for "items": null; the connection enables no validation, so it reaches us.
+        assertNull(parsed("""{"isIncomplete":false,"items":null}""")?.right?.items)
     }
 }
