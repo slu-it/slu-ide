@@ -225,17 +225,27 @@ class OAuth2ClientTest {
     }
 
     @Test
-    fun `accepts every 2xx status and refuses 3xx`() {
+    fun `accepts every 2xx status and refuses 3xx without following redirects`() {
         val config = config(clientCredentials)
+        // The client's own rule: any 2xx with a token is a success (RFC 6749 5.1 only names 200).
         endpoint.respond = { 299 to """{"access_token": "at"}""" }
         assertEquals("at", client.grant(config).accessToken)
 
-        // RFC 6749 5.1: a successful response is 200; redirects are not followed for the token endpoint.
         endpoint.respond = { 300 to """{"access_token": "at"}""" }
         assertEquals(
             "Token request for 'a' failed: 300 Multiple Choices",
             assertFailsWith<OAuth2Exception> { client.grant(config) }.message,
         )
+
+        // A redirect to the endpoint itself would be a second request if it were followed (the secrets go along).
+        endpoint.headers = listOf("Location" to endpoint.url)
+        endpoint.respond = { 302 to """{"access_token": "at"}""" }
+        val calls = endpoint.calls
+        assertEquals(
+            "Token request for 'a' failed: 302 Found",
+            assertFailsWith<OAuth2Exception> { client.grant(config) }.message,
+        )
+        assertEquals(calls + 1, endpoint.calls)
     }
 
     @Test

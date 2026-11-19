@@ -37,6 +37,10 @@ internal class TokenEndpoint : AutoCloseable {
             """{"access_token": "t$calls", "token_type": "Bearer"}"""
     }
 
+    /** Further response headers, e.g. a `Location`. */
+    @Volatile
+    var headers: List<Pair<String, String>> = emptyList()
+
     init {
         server.handle("/token") { exchange ->
             val body = exchange.requestBody.readAllBytes().toString(Charsets.UTF_8)
@@ -53,7 +57,7 @@ internal class TokenEndpoint : AutoCloseable {
                 )
             requests += request
             val (status, json) = respond(request)
-            server.respond(exchange, status, json, "Content-Type" to "application/json")
+            server.respond(exchange, status, json, "Content-Type" to "application/json", *headers.toTypedArray())
         }
     }
 
