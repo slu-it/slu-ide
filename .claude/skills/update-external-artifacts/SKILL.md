@@ -5,8 +5,9 @@ description: Use when asked to update or bump bundled versions, or to check for 
 
 # Updating external artifacts and libraries
 
-The inventory with pins, sources and tests is `docs/external-artifacts.md`: read it first, and update its rows with
-every bump. One commit per artifact (a library family counts as one). Never push.
+The inventory with pins, sources and tests is `docs/external-artifacts.md`: read its "Overview" table first and the
+section of each artifact you bump (not the whole page), and update its rows with every bump. One commit per artifact
+(a library family counts as one). Never push.
 
 Sandbox network: a host may be blocked (HTTP 403 with an explanation). Read the body and follow the sandbox's
 "Network access" instructions; hosts used here: `api.github.com`, `github.com`, `objects.githubusercontent.com`,
@@ -18,84 +19,10 @@ copy a hash from a page without comparing it to the file you downloaded.
 
 ## Part 1: runtime and vendored artifacts
 
-Per bump: find latest, download and verify, change the pin, run tests, update the doc row, commit.
-
-- **Kokoro** (`KokoroVariant.kt`): `curl -sL https://api.github.com/repos/thewh1teagle/kokoro-onnx/releases` lists
-  releases (the model files live in a `model-files-*` release, not `releases/latest`). Download the four files,
-  `sha256sum` and `stat -c %s` them, change `RELEASE`, bytes and sha256. Vocab: fetch `src/kokoro_onnx/config.json` at
-  the latest commit
-  (`https://api.github.com/repos/thewh1teagle/kokoro-onnx/commits?path=src/kokoro_onnx/config.json&per_page=1`), compare
-  its `vocab` map with `kokoro-vocab.json`, update the file and `NOTICE-kokoro-onnx.txt`. Tests:
-  `.claude/scripts/verify.sh :modules:speech SpeechSettingsPageUiTest` (a `:module` target runs unit tests only; name UI
-  test classes). Real-app check: Read Aloud after clicking the download (`run-app.sh`,
-  `docs/testing.md`, "link `~/.sluide/models/kokoro-v1.0`").
-- **Opus-MT**: run `modules/translation/scripts/generate-opus-mt-catalog.sh` (Hugging Face API, needs curl, jq,
-  sha256sum), read the diff (new, removed or re-pinned pairs; a changed commit means changed files), spot-check one
-  ONNX file against its catalog sha256. Tests: `verify.sh :modules:translation TranslationSettingsPageUiTest`. Real-app check:
-  Translate with a downloaded pair.
-- **KaTeX and Mermaid** (vendored): `curl -s https://registry.npmjs.org/<pkg>/latest` gives `version` and
-  `dist.integrity`; download `dist.tarball`, compare its sha512 (`openssl dgst -sha512 -binary f.tgz | base64`) with
-  `dist.integrity`, copy exactly the files listed in `vendor/README.md`, copy the tarball's `LICENSE` into
-  `vendor/katex` or `vendor/mermaid`, confirm it is still permissive (MIT, ISC, Apache-2.0, BSD), update the README table
-  including the licence column. Tests: `verify.sh :modules:previews MermaidPreviewUiTest PreviewFileViewUiTest
-  ExportRendererUiTest` (the last two typeset with KaTeX). Real-app check: a Markdown
-  file with a formula and a Mermaid diagram in the preview.
-- **Workflow parser bundle**: follow `modules/previews/src/main/js/workflow-parser/README.md`, "Updating versions"
-  (`npm view`, exact versions, `./build.sh`, `node check.mjs --compare`, licence check, vendor README versions and
-  bundle sha256). `npm ci` verifies the lockfile hashes. Tests: `verify.sh WebViewWorkflowParserUiTest
-  WorkflowPreviewUiTest WorkflowPreviewTest`. Real-app check: a workflow file in the preview.
-- **Simple Icons**: latest tag via `https://api.github.com/repos/simple-icons/simple-icons/releases/latest`; download
-  `icons/postgresql.svg` and `icons/mariadb.svg` from the raw URL in `DbIcons.kt` with the new tag, hash both, update
-  `postgresql.path`, `mariadb.path` and the comment. Tests: `verify.sh :modules:databases ConnectionCardListUiTest`. Real-app check: the Databases tab logos.
-- **Word lists**: skip unless asked; they are hand-curated (see the NOTICE file for the steps and sources).
-- **Gradle wrapper**: latest via `https://services.gradle.org/versions/current` (`version`); sha256 from
-  `https://services.gradle.org/distributions/gradle-<v>-bin.zip.sha256`, confirmed against a downloaded zip. Then
-  `./gradlew wrapper --gradle-version <v> --gradle-distribution-sha256-sum <sha>`, run the same task a second time
-  (the first run still uses the old wrapper jar and scripts; the second refreshes them), check that
-  `gradle-wrapper.properties` keeps `distributionSha256Sum`, and verify `gradle/wrapper/gradle-wrapper.jar` against
-  `https://services.gradle.org/distributions/gradle-<v>-wrapper.jar.sha256`. The main session runs the full build.
-- **ty**: latest via `https://api.github.com/repos/astral-sh/ty/releases/latest` (`tag_name`; skip a
-  `prerelease`). The pin is `modules/python/src/main/resources/dev/sluide/python/ty-release.properties`: `version`
-  and per Thoreau platform (`linux-x64`, `linux-aarch64`, `mac-aarch64`) `<platform>.asset`, `.bytes`, `.sha256`.
-  For each of the three assets: download it into a fresh folder (`curl -L`), compare its `sha256sum` with the
-  asset's `.sha256` file and the API asset's `digest`, take `.bytes` from the API `size` (and `stat`), and check
-  that the archive still holds `ty-<target>/ty` (`tar -tzf`). Update the properties and the ty section of
-  `docs/external-artifacts.md` (version, sizes). Tests: `verify.sh :modules:python` (`TyToolTest`; run
-  `TySmokeTestTest` with `SLUIDE_TEST_TY=<unpacked ty>` for the real smoke test).
-  Real-app check: Settings → Languages → Python → Install, then open a Python file.
-- **TypeScript** (language server): latest via `https://registry.npmjs.org/-/package/typescript/dist-tags` (`latest`; a few hundred
-  bytes, where the package document is megabytes). The pin is
-  `modules/typescript/src/main/resources/dev/sluide/typescript/typescript-release.properties`: `version` and per
-  Thoreau platform `<platform>.asset` (`typescript-<os>-<arch>-<version>.tgz`), `.bytes`, `.integrity`. Per platform
-  package (`@typescript/typescript-linux-x64`, `-linux-arm64`, `-darwin-arm64`): fetch
-  `https://registry.npmjs.org/@typescript/typescript-<os>-<arch>/<version>` for `dist.tarball` and `dist.integrity`,
-  download the tarball into a fresh folder (`curl -L`), recompute `openssl dgst -sha512 -binary f.tgz | base64` and
-  compare it with `dist.integrity`, take `.bytes` from `stat`, and check that the archive still holds
-  `package/lib/tsc` (`tar -tzf`). Update the properties and the TypeScript section of `docs/external-artifacts.md`
-  (version, sizes, date). Tests: `verify.sh :modules:typescript` with `SLUIDE_TEST_TSC=<unpacked package/lib/tsc>` for
-  the real smoke test. Real-app check: Settings → Languages → TypeScript → Install, then open a TypeScript file.
-- **jdtls** (Java language server): the index `https://download.eclipse.org/jdtls/milestones/` is an HTML table with one row
-  per version folder (`<a href='/jdtls/milestones/1.63.0'>`); versions are not in numeric order (compare as numbers), skip
-  `repository`. `<version>/latest.txt` names the tarball (`jdt-language-server-<version>-<timestamp>.tar.gz`), the
-  `<tarball>.sha256` file is the bare 64-hex hash; the size is the `content-length` of `curl -sIL` on the tarball. The pin is
-  `modules/java/src/main/resources/dev/sluide/java/jdtls-release.properties`: `version` and for each of the three platforms
-  the same `<platform>.asset`, `.bytes`, `.sha256`. Download the tarball into a fresh folder (`curl -L`), compare
-  `sha256sum` with the `.sha256` file, take `.bytes` from `stat`, and check that the archive still holds `bin/jdtls`,
-  `plugins/org.eclipse.equinox.launcher_*.jar` (exactly one) and `config_linux`, `config_linux_arm`, `config_mac`,
-  `config_mac_arm` (`tar -tzf`). Do not use the `www.eclipse.org/downloads/download.php` mirror links of the version page.
-  Update the properties and the jdtls section of `docs/external-artifacts.md` (version, sizes, date). Tests:
-  `verify.sh :modules:java` with `SLUIDE_TEST_JDTLS=<the unpacked folder>` for the real smoke test. Real-app check:
-  Settings → Languages → Java → Install, then open a Java file.
-- **Lombok** (agent jar installed with jdtls): latest via
-  `https://repo1.maven.org/maven2/org/projectlombok/lombok/maven-metadata.xml` (`<release>`). The pin is `LombokTool.PIN` in
-  `modules/java/src/main/kotlin/dev/sluide/java/LombokTool.kt` (version, URL, bytes, sha256). Maven Central publishes no
-  sha256: download `lombok-<version>.jar` into a fresh folder (`curl -L`), compute `sha256sum`, and compare the `.jar.sha1`
-  file Maven Central publishes with `sha1sum` of the download; take the bytes from `stat`. Update the constants and the
-  Lombok section of `docs/external-artifacts.md` (and the Lombok version in ADR 0179's text only if it names one). Tests:
-  `verify.sh LombokToolTest JdtlsInstallerTest`.
-- **CI actions**: check the latest major of each action in `.github/workflows/*.yml` (GitHub `releases/latest` of the
-  action's repo); edit all workflow files together. Cannot be tested here; say so in the report.
-- **espeak-ng** is user-installed; nothing to bump.
+Per bump: find latest, download and verify, change the pin, run tests, update the doc row, commit. The steps of each
+artifact (where the latest version is, the pin, what to verify, the tests and the real-app check) are the "Update"
+paragraph of its section in `docs/external-artifacts.md`: read only the sections of what you bump. A `:module` target
+of `verify.sh` runs unit tests only; name the UI test classes.
 
 ## Part 2: Gradle libraries
 
