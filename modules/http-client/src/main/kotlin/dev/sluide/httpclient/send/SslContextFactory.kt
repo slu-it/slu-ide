@@ -119,7 +119,8 @@ internal object SslContextFactory {
         } catch (e: GeneralSecurityException) {
             throw SslConfigException("The key of ${certificate.path.fileName} cannot be used: ${e.message}", e)
         } finally {
-            // The key managers keep the keys, not the passphrase.
+            // The key managers keep the keys, not the passphrase (the PKIX ones keep a copy of it in a
+            // KeyStore.PasswordProtection, which zeroing this array does not affect).
             password.fill('\u0000')
         }
     }
@@ -136,9 +137,8 @@ internal object SslContextFactory {
             } else {
                 CharArray(0)
             }
-        val store = KeyStore.getInstance("PKCS12")
         try {
-            return loaded(path, store, bytes, hasPassphrase, password)
+            return loaded(path, KeyStore.getInstance("PKCS12"), bytes, hasPassphrase, password)
         } catch (e: Throwable) {
             password.fill('\u0000')
             throw e
