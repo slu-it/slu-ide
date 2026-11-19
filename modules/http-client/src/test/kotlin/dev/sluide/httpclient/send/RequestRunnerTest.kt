@@ -97,6 +97,13 @@ class RequestRunnerTest {
     }
 
     @Test
+    fun `names the task of a request by its name in the file`() {
+        assertIs<HttpResult>(run("# @name Fetch it\nGET {{base}}/echo"))
+
+        assertTrue(taskLines.any { "GET Fetch it" in it }, taskLines.toString())
+    }
+
+    @Test
     fun `finds tokens behind variables`() {
         endpoint.respond = { 200 to """{"access_token": "at", "id_token": "it"}""" }
 

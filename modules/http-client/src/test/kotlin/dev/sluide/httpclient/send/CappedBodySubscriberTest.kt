@@ -3,6 +3,7 @@ package dev.sluide.httpclient.send
 import java.nio.ByteBuffer
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Flow
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -13,14 +14,15 @@ import kotlin.test.assertTrue
 class CappedBodySubscriberTest {
     private class Recorder : Flow.Subscription {
         var requested = 0L
-        var cancelled = false
+        var cancels = 0
+        val cancelled get() = cancels > 0
 
         override fun request(n: Long) {
             requested += n
         }
 
         override fun cancel() {
-            cancelled = true
+            cancels++
         }
     }
 
@@ -90,12 +92,13 @@ class CappedBodySubscriberTest {
 
     @Test
     fun `keeps the first result when more data or the end arrives after the cut`() {
-        val (subscriber, _) = subscriber(2)
+        val (subscriber, recorder) = subscriber(2)
 
         subscriber.onNext(buffers("abc"))
         subscriber.onNext(buffers("zzz"))
         subscriber.onComplete()
 
+        assertEquals(1, recorder.cancels)
         val body = subscriber.body.toCompletableFuture().getNow(null)
         assertEquals("ab", String(body.bytes))
         assertTrue(body.truncated)
@@ -108,7 +111,8 @@ class CappedBodySubscriberTest {
 
         subscriber.onError(failure)
 
-        val thrown = assertFailsWith<ExecutionException> { subscriber.body.toCompletableFuture().get() }
+        val thrown =
+            assertFailsWith<ExecutionException> { subscriber.body.toCompletableFuture().get(10, TimeUnit.SECONDS) }
         assertSame(failure, thrown.cause)
     }
 
@@ -121,5 +125,22 @@ class CappedBodySubscriberTest {
         val body = subscriber.body.toCompletableFuture().getNow(null)
         assertEquals(0, body.bytes.size)
         assertFalse(body.truncated)
+    }
+
+    @Test
+    fun `cuts a body without a subscription, which has nothing to cancel`() {
+        val subscriber = CappedBodySubscriber(1)
+
+        subscriber.onNext(buffers("ab"))
+
+        assertEquals(
+            "a",
+            String(
+                subscriber.body
+                    .toCompletableFuture()
+                    .getNow(null)
+                    .bytes,
+            ),
+        )
     }
 }

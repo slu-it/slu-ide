@@ -6,6 +6,7 @@ import java.net.URI
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class RequestUrlsTest {
     private fun uri(
@@ -92,6 +93,10 @@ class RequestUrlsTest {
         assertEquals("http://x?q=a%20b", uri("x?q=a b").toString())
         assertEquals("http://example.com", uri("example.com").toString())
         assertEquals("http://h:1/a", uri("/a", "h:1").toString())
+        assertEquals("http://example.com/a", uri("example.com/a", "other.host").toString())
+        // No path: the whole URL is the authority, which is never percent-encoded.
+        val invalid = assertFailsWith<RequestBuildException> { uri("http://exa mple") }.message.orEmpty()
+        assertTrue(invalid.startsWith("Invalid URL http://exa mple: "), invalid)
     }
 
     @ParameterizedTest(name = "{0} -> {1}")
@@ -99,8 +104,10 @@ class RequestUrlsTest {
         delimiter = '|',
         value = [
             "%41|%41", "%4|%254", "a%4|a%254", "%|%25", "a%|a%25", "%zz|%25zz", "%4z|%254z", "%z4|%25z4",
-            "%aF|%aF", "%fA|%fA", "%09|%09", "%90|%90", "%G0|%25G0", "%0G|%250G", "%/0|%25/0", "%:0|%25:0",
+            "%aF|%aF", "%fA|%fA", "%09|%09", "%90|%90", "%G0|%25G0",
+            "%g0|%25g0", "%0g|%250g", "%0G|%250G", "%/0|%25/0", "%:0|%25:0",
             "%0/|%250/", "%0:|%250:", "%`0|%25%600", "%0`|%250%60", "%@0|%25@0", "%0@|%250@", "!~|!~", "a b|a%20b",
+            "x 41|x%2041", "{41|%7B41", "%0a|%0a", "%0f|%0f", "%A0|%A0", "%F0|%F0", "%0A|%0A", "%a0|%a0",
         ],
     )
     fun `keeps real percent escapes and encodes the rest`(

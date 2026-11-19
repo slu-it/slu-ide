@@ -162,4 +162,37 @@ class BodyDecodingTest {
         assertEquals(0, none.bytes.size)
         assertTrue(none.truncated)
     }
+
+    @Test
+    fun `reads raw deflate whose first bytes only look like a zlib header in part`() {
+        // A stored block, by hand: the header byte 0x08 has the low nibble of a zlib header but 0x0805 is no multiple of 31.
+        val notFinal = byteArrayOf(0x08, 5, 0, -6, -1) + "hello".toByteArray() + byteArrayOf(1, 0, 0, -1, -1)
+        // 0x0117 is a multiple of 31 as a zlib header would be, but the low nibble of 0x01 is not 8.
+        val multiple = byteArrayOf(0x01, 23, 0, -24, -1) + "x".repeat(23).toByteArray()
+
+        assertEquals("hello", String(decode("deflate", notFinal).bytes))
+        assertNull(decode("deflate", notFinal).note)
+        assertEquals("x".repeat(23), String(decode("deflate", multiple).bytes))
+        assertNull(decode("deflate", multiple).note)
+    }
+
+    @Test
+    fun `says that a truncated deflate body could only be decoded in part`() {
+        val raw = rawDeflate("y".repeat(10_000).toByteArray())
+        val zlibbed = zlib("y".repeat(10_000).toByteArray())
+
+        for (body in listOf(raw, zlibbed)) {
+            val decoded = decode("deflate", body.copyOf(body.size - 3), 100_000)
+
+            assertTrue(decoded.partial)
+            assertTrue(
+                decoded.note.orEmpty().startsWith("The deflate body could only be decoded in part: "),
+                decoded.note,
+            )
+        }
+        assertEquals(
+            "The deflate body could not be decoded: Unexpected end of ZLIB input stream",
+            decode("deflate", byteArrayOf(1)).note,
+        )
+    }
 }
