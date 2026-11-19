@@ -123,6 +123,9 @@ class TextSearchTest {
         assertNull(TextSearch.replace("foo", 0..1, "foo", "x", plain))
         assertNull(TextSearch.replace("foo", 1..5, "o", "x", plain))
         assertNull(TextSearch.replace("foo", -1..1, "f", "x", plain))
+        // A match kept from before the text got shorter: no error, just no match.
+        assertNull(TextSearch.replace("foo", 4..4, "o", "x", plain))
+        assertNull(TextSearch.replace("foo", 4..3, "o", "x", plain))
     }
 
     @Test
@@ -138,30 +141,22 @@ class TextSearchTest {
     }
 
     @Test
-    fun `an invalid replacement is reported with the message of the regex engine`() {
-        fun message(replacement: String) =
-            (TextSearch.replace("foo", 0..2, "foo", replacement, regex) as ReplaceResult.Invalid).message
-
-        assertEquals("No group 1", message("$1"))
-        assertEquals("Illegal group reference: group index is missing", message("$"))
-        assertEquals("character to be escaped is missing", message("x\\"))
-        val all = TextSearch.replaceAll("a(b)", "\\((\\w)\\)", "$3", regex) as ReplaceResult.Invalid
-        assertEquals("No group 3", all.message)
-    }
-
-    @Test
     fun `a regex replacement keeps a plain n and t as letters`() {
         assertEquals("aantb", TextSearch.replace("a,b", 1..1, ",", "ant", regex).applied("a,b"))
     }
 
     @Test
-    fun `reports an invalid query or replacement`() {
+    fun `reports an invalid query or replacement with the regex engine's message`() {
+        fun message(replacement: String) =
+            (TextSearch.replace("foo", 0..2, "foo", replacement, regex) as ReplaceResult.Invalid).message
+
         assertIs<ReplaceResult.Invalid>(TextSearch.replace("foo", 0..2, "(f", "x", regex))
-        assertIs<ReplaceResult.Invalid>(TextSearch.replace("foo", 0..2, "foo", "$1", regex))
-        assertIs<ReplaceResult.Invalid>(TextSearch.replace("foo", 0..2, "foo", "$", regex))
-        assertIs<ReplaceResult.Invalid>(TextSearch.replace("foo", 0..2, "foo", "x\\", regex))
+        assertEquals("No group 1", message("$1"))
+        assertEquals("Illegal group reference: group index is missing", message("$"))
+        assertEquals("character to be escaped is missing", message("x\\"))
         assertIs<ReplaceResult.Invalid>(TextSearch.replaceAll("abc", "(", "y", regex))
-        assertIs<ReplaceResult.Invalid>(TextSearch.replaceAll("a(b)", "\\((\\w)\\)", "$3", regex))
+        val all = TextSearch.replaceAll("a(b)", "\\((\\w)\\)", "$3", regex) as ReplaceResult.Invalid
+        assertEquals("No group 3", all.message)
     }
 
     @Test
@@ -228,6 +223,13 @@ class TextSearchTest {
 
         val expired = DeadlineText(text, Duration.ZERO)
         assertFailsWith<SearchTimeoutException> { (0 until text.length).forEach { expired[it] } }
+    }
+
+    @Test
+    fun `an empty query finds nothing without reading the text`() {
+        val result = TextSearch.find("a b ".repeat(5000), "", SearchOptions(wholeWord = true), budget = Duration.ZERO)
+
+        assertEquals(SearchResult(emptyList()), result)
     }
 
     @Test

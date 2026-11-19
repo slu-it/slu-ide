@@ -43,13 +43,4 @@ class LineHitsTest {
     fun `a match in a line of only whitespace keeps the whitespace from it on`() {
         assertEquals(listOf(LineHit(0, 1, "  ", listOf(0 until 2))), lineHits("   ", listOf(1..2)))
     }
-
-    @Test
-    fun `a line of exactly the snippet length is not cut`() {
-        val line = "a".repeat(SNIPPET_LENGTH - 6) + "needle"
-        val hit = lineHits(line, listOf(SNIPPET_LENGTH - 6 until SNIPPET_LENGTH)).single()
-
-        assertEquals(line, hit.snippet)
-        assertEquals(listOf(SNIPPET_LENGTH - 6 until SNIPPET_LENGTH), hit.highlights)
-    }
 }

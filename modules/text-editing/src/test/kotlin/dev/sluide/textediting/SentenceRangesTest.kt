@@ -173,8 +173,9 @@ class SentenceRangesTest {
     }
 
     @Test
-    fun `an entry that starts with a period matches no word without a word before it`() {
+    fun `an entry that starts with a period needs a word before that ends with a period`() {
         assertEquals(listOf("Hello b.", "world"), texts("Hello b. world", setOf(". b")))
+        assertEquals(listOf(". b. world"), texts(". b. world", setOf(". b")))
     }
 
     @Test

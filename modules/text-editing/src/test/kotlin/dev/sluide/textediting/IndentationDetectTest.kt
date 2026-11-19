@@ -32,8 +32,9 @@ class IndentationDetectTest {
     }
 
     @Test
-    fun `on a tie of steps the smaller one wins when it came last`() {
+    fun `on a tie of steps the smaller one wins whichever came first`() {
         assertEquals(2, Indentation.detect("a\n  b\n      c\n")?.size)
+        assertEquals(2, Indentation.detect("a\n    b\n      c\n")?.size)
     }
 
     @Test
@@ -65,11 +66,6 @@ class IndentationDetectTest {
         assertEquals(2, Indentation.detect("a\n  b\n")?.size)
         assertEquals(8, Indentation.detect("a\n        b\n")?.size)
         assertNull(Indentation.detect("a\n         b\n"))
-    }
-
-    @Test
-    fun `on a tie of steps the smaller one wins whichever came first`() {
-        assertEquals(2, Indentation.detect("a\n    b\n      c\n")?.size)
     }
 
     @Test

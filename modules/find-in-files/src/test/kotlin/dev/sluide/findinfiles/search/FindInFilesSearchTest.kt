@@ -260,7 +260,6 @@ class FindInFilesSearchTest {
 
     @Test
     fun `the real clock separates the batches by the interval`() {
-        var spun = 0L
         val timed =
             FindInFilesSearch(
                 scheduler = { _, _ -> AutoCloseable { } },
@@ -271,7 +270,7 @@ class FindInFilesSearchTest {
                     onFile(hits("a"))
                     // Waits for the clock to move on, never longer than a tick of it.
                     val before = System.nanoTime()
-                    while (System.nanoTime() == before) spun++
+                    while (System.nanoTime() == before) Thread.onSpinWait()
                     onFile(hits("b"))
                     SearchOutcome.Done(2, 2, 0, totalCapped = false, visitCapped = false)
                 },

@@ -190,7 +190,12 @@ internal class ResultRowsTest {
         assertEquals(listOf(SnippetSegment("abc", false)), snippetSegments("abc", listOf(20 until 22)))
         // Ranges in any order give the pieces in text order.
         assertEquals(
-            snippetSegments("a foo b o", listOf(2 until 5, 8 until 9)),
+            listOf(
+                SnippetSegment("a ", false),
+                SnippetSegment("foo", true),
+                SnippetSegment(" b ", false),
+                SnippetSegment("o", true),
+            ),
             snippetSegments("a foo b o", listOf(8 until 9, 2 until 5)),
         )
     }

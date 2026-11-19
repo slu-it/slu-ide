@@ -72,6 +72,16 @@ class TextReplacementTest {
     }
 
     @Test
+    fun `an insertion keeps a position at its start before the inserted text`() {
+        // What between() gives for typed text: the caret that was at the insertion point stays before it.
+        val typed = TextReplacement.between("ab", "axyb")
+        assertEquals(TextReplacement(1, 1, "xy"), typed)
+        assertEquals(1, typed.map(1))
+        assertEquals(2, TextReplacement(2, 2, "xy").map(2))
+        assertEquals(5, TextReplacement(2, 2, "xy").map(3))
+    }
+
+    @Test
     fun `maps positions of the old text to the new one`() {
         val replacement = TextReplacement(4, 6, "xyz")
         assertEquals(2, replacement.map(2))

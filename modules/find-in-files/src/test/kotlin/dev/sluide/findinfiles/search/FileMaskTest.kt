@@ -65,6 +65,7 @@ class FileMaskTest {
             "src/**/Main.kt   | src/a/Main.kt        | true",
             "src/**/Main.kt   | src/Main.kt          | true",
             "src/**Main.kt    | src/aMain.kt         | true",
+            "x**/             | x                    | true",
             "src/**.kt        | src/a/b/Main.kt      | true",
             "src/**x          | other/x              | false",
             "src/**x          | src/a/b/x            | true",
