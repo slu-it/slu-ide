@@ -1,8 +1,8 @@
 package dev.sluide.git.cli
 
-import dev.sluide.git.FAKE_GIT_START
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitResult
+import dev.sluide.git.fakeGit
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -12,7 +12,6 @@ import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.exists
 import kotlin.io.path.readText
-import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -27,20 +26,6 @@ import kotlin.time.Duration.Companion.seconds
 class GitCliCancelTest {
     @TempDir
     lateinit var folder: Path
-
-    private fun fakeGit(
-        script: String,
-        stopGrace: kotlin.time.Duration = 2.seconds,
-    ): GitCli {
-        val executable =
-            folder.resolve("fake-git").apply {
-                writeText(FAKE_GIT_START + "$script\n")
-                toFile().setExecutable(true)
-            }
-        return GitCli(executable.toString(), System.getenv(), stopGrace = stopGrace).also {
-            assumeTrue(it.available, "no /bin/sh to stand in for git")
-        }
-    }
 
     /** Starts [git] writing with [cancellation] and waits until it wrote its process id to [pid]. */
     private fun startWriting(
@@ -72,6 +57,7 @@ class GitCliCancelTest {
             // its trap, so that a SIGTERM cannot reach the child first.
             val git =
                 fakeGit(
+                    folder,
                     "(trap 'sleep 0.3; echo cleaning up >&2; echo done > \"$marker\"; exit 0' TERM; : > '$ready'; " +
                         "while true; do sleep 0.1; done) & " +
                         "until [ -e '$ready' ]; do sleep 0.01; done; echo $$ > '$pid'; while true; do sleep 0.1; done",
@@ -97,6 +83,7 @@ class GitCliCancelTest {
         // Git tells it started only once the child set its trap, so that a SIGTERM cannot reach the child first.
         val git =
             fakeGit(
+                folder,
                 "(trap '' TERM; : > '$ready'; while true; do sleep 0.1; done) & echo $! > '$childPid'; " +
                     "until [ -e '$ready' ]; do sleep 0.01; done; echo $$ > '$pid'; while true; do sleep 0.1; done",
                 stopGrace = grace,

@@ -157,18 +157,24 @@ internal fun recordedCalls(log: java.nio.file.Path): List<String> =
     }
 
 /**
- * A script in [folder] that stands in for git: [FAKE_GIT_START] and then [body]. The test is skipped when the stand-in
- * cannot run (no `/bin/sh`). [pipeGrace] is how long `GitCli` waits for a pipe that a grandchild process holds open.
+ * A script in [folder] that stands in for git: [start] and then [body]. The test is skipped when the stand-in cannot
+ * run (no `/bin/sh`). The graces are those of [GitCli]: [stopGrace] for a stopped write to end by itself, [pipeGrace]
+ * for the output of an ended git to be read (a grandchild that holds the pipe open), [errorGrace] for its standard
+ * error. [start] is replaced only by a test of what [FAKE_GIT_START] answers on its own.
  */
 internal fun fakeGit(
     folder: java.nio.file.Path,
     body: String,
     pipeGrace: Duration = 300.milliseconds,
+    stopGrace: Duration = 2.seconds,
+    errorGrace: Duration = 100.milliseconds,
+    environment: Map<String, String> = testGitEnvironment(),
+    start: String = FAKE_GIT_START,
 ): GitCli {
     val script = folder.resolve("fake-git-${System.nanoTime()}")
-    script.toFile().writeText(FAKE_GIT_START + body + "\n")
+    script.toFile().writeText(start + body + "\n")
     script.toFile().setExecutable(true)
-    return GitCli(script.toString(), testGitEnvironment(), 2.seconds, pipeGrace).also {
+    return GitCli(script.toString(), environment, stopGrace, pipeGrace, errorGrace).also {
         assumeTrue(it.available, "no /bin/sh to stand in for git")
     }
 }

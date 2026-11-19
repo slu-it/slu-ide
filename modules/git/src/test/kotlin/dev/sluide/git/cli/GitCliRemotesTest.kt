@@ -1,18 +1,16 @@
 package dev.sluide.git.cli
 
-import dev.sluide.git.FAKE_GIT_START
-import org.junit.jupiter.api.Assumptions.assumeTrue
+import dev.sluide.git.fakeGit
+import dev.sluide.git.vanishedGit
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Path
-import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
 
 /** The pure rules that stand in for `git remote remove` and `rename`; real git is compared in GitRemoteConfigTest. */
 class GitCliRemotesTest {
@@ -90,23 +88,9 @@ class GitCliRemotesTest {
         assertTrue(maps("refs/remotes/o/v2", *specs))
     }
 
-    private var fakes = 0
-
-    private fun fakeGit(script: String): GitCli {
-        val executable =
-            folder.resolve("fake-git-${++fakes}").apply {
-                writeText(FAKE_GIT_START + "$script\n")
-                toFile().setExecutable(true)
-            }
-        return GitCli(executable.toString(), System.getenv(), pipeGrace = 300.milliseconds).also {
-            assumeTrue(it.available, "no /bin/sh to stand in for git")
-        }
-    }
-
     @Test
     fun `a config read of a git that cannot be started is no answer`() {
-        val git = fakeGit("exit 0")
-        folder.resolve("fake-git-$fakes").toFile().delete()
+        val git = vanishedGit(folder)
 
         assertNull(git.configMatching(folder, "^remote\\."))
     }
@@ -114,12 +98,12 @@ class GitCliRemotesTest {
     @Test
     fun `a config read whose output is still held open after git ended is no answer`() {
         // Same fake as GitCliWriteTest: a child keeps the pipe open past git's exit.
-        val git = fakeGit("(sleep 20 &); printf 'remote.a.url\\nu\\0'; sleep 0.3; exit 0")
+        val git = fakeGit(folder, "(sleep 20 &); printf 'remote.a.url\\nu\\0'; sleep 0.3; exit 0")
 
         assertNull(git.configMatching(folder, "^remote\\."))
         assertEquals(
             listOf("remote.a.url" to "u"),
-            fakeGit("printf 'remote.a.url\\nu\\0'").configMatching(folder, "^r"),
+            fakeGit(folder, "printf 'remote.a.url\\nu\\0'").configMatching(folder, "^r"),
         )
     }
 }

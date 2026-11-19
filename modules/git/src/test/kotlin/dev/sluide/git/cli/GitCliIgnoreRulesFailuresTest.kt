@@ -5,6 +5,7 @@ import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitIgnoreLineUse
 import dev.sluide.git.GitIgnoreRules
 import dev.sluide.git.failingGit
+import dev.sluide.git.fakeGit
 import dev.sluide.git.recordedCalls
 import dev.sluide.git.recordingGit
 import dev.sluide.git.testGitEnvironment
@@ -228,7 +229,7 @@ class GitCliIgnoreRulesFailuresTest {
      * `check-ignore` says that `.gitignore` line 1 ignores it; the call with [hold] leaves a process behind that holds
      * its output open, so that git ended but its output is not complete; the call with [hang] does not end.
      */
-    private fun fakeGit(
+    private fun ignoreRulesGit(
         hold: String? = null,
         hang: String? = null,
         pipeGrace: Duration = 300.milliseconds,
@@ -242,40 +243,32 @@ class GitCliIgnoreRulesFailuresTest {
                 hang -> "sleep 30"
                 else -> ""
             }
-        val script =
-            folder.resolve("fake-git-${System.nanoTime()}").apply {
-                writeText(
-                    FAKE_GIT_START +
-                        "case \" \$* \" in\n" +
-                        "*' status '*) printf '? a.log\\000'; ${hold("status")};;\n" +
-                        "*' ls-files '*) ${hold("ls-files")};;\n" +
-                        "*' check-ignore '*) cat > /dev/null; printf '.gitignore\\0001\\000*.log\\000a.log\\000'; " +
-                        "${hold("check-ignore")};;\n" +
-                        "esac\n",
-                )
-                toFile().setExecutable(true)
-            }
-        return GitCli(script.toString(), testGitEnvironment(), 2.seconds, pipeGrace).also {
-            assumeTrue(it.available, "no /bin/sh to stand in for git")
-        }
+        val body =
+            "case \" \$* \" in\n" +
+                "*' status '*) printf '? a.log\\000'; ${hold("status")};;\n" +
+                "*' ls-files '*) ${hold("ls-files")};;\n" +
+                "*' check-ignore '*) cat > /dev/null; printf '.gitignore\\0001\\000*.log\\000a.log\\000'; " +
+                "${hold("check-ignore")};;\n" +
+                "esac"
+        return fakeGit(folder, body, pipeGrace)
     }
 
     @Test
     fun `the fake git answers as it is meant to`() {
-        assertEquals(mapOf(1 to ignoring("a.log")), assertNotNull(rules(fakeGit())).lines)
+        assertEquals(mapOf(1 to ignoring("a.log")), assertNotNull(rules(ignoreRulesGit())).lines)
     }
 
     @ParameterizedTest
     @ValueSource(strings = ["status", "ls-files", "check-ignore"])
     fun `a call whose output is held open past git's end gives no answer`(word: String) {
-        within { assertNull(rules(fakeGit(hold = word))) }
+        within { assertNull(rules(ignoreRulesGit(hold = word))) }
     }
 
     @ParameterizedTest
     @ValueSource(strings = ["status", "ls-files", "check-ignore"])
     fun `a call that hangs for its own time gives no answer, not an incomplete one`(word: String) {
         // 15 s in all, 0.5 s for each call: it is the call that is too slow, not the whole.
-        within { assertNull(rules(fakeGit(hang = word), callTimeout = 500.milliseconds)) }
+        within { assertNull(rules(ignoreRulesGit(hang = word), callTimeout = 500.milliseconds)) }
     }
 
     /**
@@ -369,7 +362,7 @@ class GitCliIgnoreRulesFailuresTest {
     fun `a listing stopped for writing too much is cut off, not failed, though git was killed`() {
         // The stand-in writes its first record and then waits: it is killed when the output passes the limit, so that
         // its exit value is not 0.
-        val stopped = assertNotNull(rules(fakeGit(hang = "status"), maxListing = 5))
+        val stopped = assertNotNull(rules(ignoreRulesGit(hang = "status"), maxListing = 5))
 
         assertFalse(stopped.complete)
         assertEquals(emptyMap(), stopped.lines)

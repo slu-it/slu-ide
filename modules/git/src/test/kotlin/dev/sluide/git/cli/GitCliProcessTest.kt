@@ -1,8 +1,8 @@
 package dev.sluide.git.cli
 
 import dev.sluide.git.GitCancellation
+import dev.sluide.git.fakeGit
 import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.function.ThrowingSupplier
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
@@ -37,28 +37,18 @@ class GitCliProcessTest {
     @TempDir
     lateinit var folder: Path
 
-    private var scripts = 0
-
     private val shell =
         "#!/bin/sh\n[ \"\$1\" = --version ] && exit 0\n" +
             "case \" \$* \" in *' --local-env-vars '*) exit 1;; esac\n"
 
-    private fun script(body: String): Path =
-        folder.resolve("fake-git-${++scripts}").apply {
-            writeText("$shell$body\n")
-            toFile().setExecutable(true)
-        }
-
-    private fun fakeGit(
+    /** [fakeGit] whose start does not answer `core.fsmonitor` (the guard's tests do), and that has [GitCli]'s graces. */
+    private fun fakeGitWithoutFsmonitorAnswer(
         body: String,
         stopGrace: Duration = 2.seconds,
         pipeGrace: Duration = 2.seconds,
         errorGrace: Duration = 100.milliseconds,
         environment: Map<String, String> = System.getenv(),
-    ): GitCli =
-        GitCli(script(body).toString(), environment, stopGrace, pipeGrace, errorGrace).also {
-            assumeTrue(it.available, "no /bin/sh to stand in for git")
-        }
+    ): GitCli = fakeGit(folder, body, pipeGrace, stopGrace, errorGrace, environment, start = shell)
 
     /** Runs [block], failing the test if it takes longer than [seconds]: a regression must not hang the build. */
     private fun <T> within(
@@ -109,7 +99,7 @@ class GitCliProcessTest {
 
     @Test
     fun `the standard error of a write is kept without hints`() {
-        val git = fakeGit("echo 'hint: use this' >&2; echo 'fatal: real' >&2; exit 1")
+        val git = fakeGitWithoutFsmonitorAnswer("echo 'hint: use this' >&2; echo 'fatal: real' >&2; exit 1")
 
         val output = git.writeWithOutput(folder, listOf("x"))
 
@@ -123,7 +113,7 @@ class GitCliProcessTest {
         val previous = GitCommandLogSink.sink
         GitCommandLogSink.sink = { _, message, _ -> lines += message }
         try {
-            val git = fakeGit("touch '${folder.resolve("started")}'; exit 0")
+            val git = fakeGitWithoutFsmonitorAnswer("touch '${folder.resolve("started")}'; exit 0")
             lines.clear()
 
             val execution = read(git, "x", cancellation = GitCancellation().apply { cancel() })
@@ -139,7 +129,7 @@ class GitCliProcessTest {
 
     @Test
     fun `a git that writes more than allowed is stopped at once, not waited for`() {
-        val git = fakeGit("head -c 100000 /dev/zero; exec sleep 30")
+        val git = fakeGitWithoutFsmonitorAnswer("head -c 100000 /dev/zero; exec sleep 30")
 
         val execution =
             within(15) { read(git, "x", timeout = 60.seconds, maxOutput = 1000) }
@@ -152,7 +142,7 @@ class GitCliProcessTest {
     @Test
     fun `what a process left behind writes within the grace is part of the output, and of the error log`() {
         val git =
-            fakeGit(
+            fakeGitWithoutFsmonitorAnswer(
                 "( \$untilGitEnded; sleep 0.2; echo late ) & ( \$untilGitEnded; echo late >&2 ) >/dev/null & " +
                     "sleep 0.3; exit 0",
                 pipeGrace = 10.seconds,
@@ -169,7 +159,7 @@ class GitCliProcessTest {
     @Test
     fun `a caller interrupted while a write runs gets nothing, keeps the interrupt and git is stopped`() {
         val pid = folder.resolve("pid")
-        val git = fakeGit("echo \$\$ > '$pid'; exec sleep 30", stopGrace = 1.seconds)
+        val git = fakeGitWithoutFsmonitorAnswer("echo \$\$ > '$pid'; exec sleep 30", stopGrace = 1.seconds)
         val result = CompletableFuture<Pair<GitCli.Execution?, Boolean>>()
         val thread =
             Thread {
@@ -188,7 +178,7 @@ class GitCliProcessTest {
 
     @Test
     fun `a caller already interrupted as git starts keeps the interrupt through the stop of a write`() {
-        val git = fakeGit("exec sleep 30", stopGrace = 1.seconds)
+        val git = fakeGitWithoutFsmonitorAnswer("exec sleep 30", stopGrace = 1.seconds)
         val cancellation = GitCancellation()
         val previous = GitCommandLogSink.sink
         // The sink runs on the calling thread at the start of the command: git has not been waited for yet.
@@ -214,7 +204,11 @@ class GitCliProcessTest {
     @Test
     fun `a read that is cancelled is killed at once, without the grace of a write`() {
         val pid = folder.resolve("pid")
-        val git = fakeGit("trap '' TERM; echo \$\$ > '$pid'; while true; do sleep 0.1; done", stopGrace = 30.seconds)
+        val git =
+            fakeGitWithoutFsmonitorAnswer(
+                "trap '' TERM; echo \$\$ > '$pid'; while true; do sleep 0.1; done",
+                stopGrace = 30.seconds,
+            )
         val cancellation = GitCancellation()
         val reading =
             CompletableFuture.supplyAsync { read(git, "x", timeout = 60.seconds, cancellation = cancellation) }
@@ -233,8 +227,7 @@ class GitCliProcessTest {
         val ready = folder.resolve("ready")
         val marker = folder.resolve("cleaned")
         val body = "trap 'sleep 0.3; echo done > \"$marker\"; exit 0' TERM; echo ready > '$ready'; sleep 30 & wait"
-        val git = GitCli(script(body).toString(), System.getenv())
-        assumeTrue(git.available, "no /bin/sh to stand in for git")
+        val git = fakeGitWithoutFsmonitorAnswer(body)
         val cancellation = GitCancellation()
         val writing =
             CompletableFuture.supplyAsync {
@@ -250,7 +243,7 @@ class GitCliProcessTest {
 
     @Test
     fun `a read keeps the start of what git says on standard error, a write all of it`() {
-        val git = fakeGit("head -c 10000 /dev/zero | tr '\\0' x >&2; exit 0")
+        val git = fakeGitWithoutFsmonitorAnswer("head -c 10000 /dev/zero | tr '\\0' x >&2; exit 0")
 
         val read = read(git, "x")
         val write = git.execute(listOf("x"), folder, 10.seconds, null, write = true)
@@ -263,7 +256,7 @@ class GitCliProcessTest {
     fun `an error output over the limit is drained to its end, git is never blocked or cut off`() {
         val writing = "(head -c 300000 /dev/zero | tr '\\0' x >&2)"
         val body = "trap '' PIPE; if ! $writing; then touch '$folder/cut'; fi; exit 0"
-        val git = fakeGit(body)
+        val git = fakeGitWithoutFsmonitorAnswer(body)
 
         val execution = within(30) { git.execute(listOf("x"), folder, 20.seconds, null, write = true, maxErrors = 10) }
 
@@ -284,7 +277,7 @@ class GitCliProcessTest {
         graceMillis: Long,
     ) {
         val git =
-            fakeGit(
+            fakeGitWithoutFsmonitorAnswer(
                 "( $untilGitEnded; sleep ${lateMillis / 1000.0}; echo late ) & sleep 0.3; exit 0",
                 pipeGrace = graceMillis.milliseconds,
             )
@@ -301,7 +294,7 @@ class GitCliProcessTest {
     fun `an error line that a left-behind process writes after git ended is still kept`(graceMillis: Long) {
         // Only standard error is held: the output reader ends with git, the error reader gets its grace.
         val git =
-            fakeGit(
+            fakeGitWithoutFsmonitorAnswer(
                 "( $untilGitEnded; echo late >&2 ) >/dev/null & sleep 0.3; exit 0",
                 errorGrace = graceMillis.milliseconds,
             )
@@ -314,7 +307,7 @@ class GitCliProcessTest {
         val terming = folder.resolve("terming")
         val pid = folder.resolve("pid")
         val body = "trap 'echo x > \"$terming\"; sleep 3; exit 0' TERM; echo \$\$ > '$pid'; sleep 30 & wait"
-        val git = fakeGit(body, stopGrace = 10.seconds)
+        val git = fakeGitWithoutFsmonitorAnswer(body, stopGrace = 10.seconds)
         val cancellation = GitCancellation()
         val result = CompletableFuture<Pair<GitCli.Execution?, Boolean>>()
         val thread =
@@ -355,7 +348,7 @@ class GitCliProcessTest {
         val body =
             "case \" \$* \" in *' core.fsmonitor '*) echo x >> '$configReads'; ${case.answer};;\n" +
                 "*' probe '*) echo \"\$*\" >> '$calls'; exit 0;; esac"
-        val git = fakeGit(body, pipeGrace = 100.milliseconds)
+        val git = fakeGitWithoutFsmonitorAnswer(body, pipeGrace = 100.milliseconds)
 
         repeat(2) { read(git, "probe", directory = repository) }
 
@@ -371,7 +364,7 @@ class GitCliProcessTest {
         val body =
             "case \" \$* \" in *' core.fsmonitor '*) echo x >> '$configReads'; exit 1;;\n" +
                 "*' probe '*) exit 0;; esac"
-        val git = fakeGit(body)
+        val git = fakeGitWithoutFsmonitorAnswer(body)
         val linked = folder.resolve("linked").createDirectories()
         linked.resolve(".git").writeText("gitdir: /somewhere/else\n")
         val bare = folder.resolve("bare").also { it.resolve(".git").createDirectories() }

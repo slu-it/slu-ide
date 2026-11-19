@@ -1,14 +1,12 @@
 package dev.sluide.git.cli
 
-import dev.sluide.git.FAKE_GIT_START
 import dev.sluide.git.GitCancellation
+import dev.sluide.git.fakeGit
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
-import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -21,7 +19,6 @@ class GitCommandLogTest {
     lateinit var folder: Path
 
     private val lines = CopyOnWriteArrayList<Pair<System.Logger.Level, String>>()
-    private var fakes = 0
     private val previous = GitCommandLogSink.sink
 
     @BeforeEach
@@ -34,17 +31,8 @@ class GitCommandLogTest {
         GitCommandLogSink.sink = previous
     }
 
-    private fun fakeGit(script: String): GitCli {
-        val executable =
-            folder.resolve("fake-git-${++fakes}").apply {
-                writeText(FAKE_GIT_START + "$script\n")
-                toFile().setExecutable(true)
-            }
-        return GitCli(executable.toString(), System.getenv()).also {
-            assumeTrue(it.available, "no /bin/sh to stand in for git")
-            lines.clear()
-        }
-    }
+    /** A stand-in for git whose own start-up calls are not in [lines]. */
+    private fun fakeGitWithEmptyLog(script: String): GitCli = fakeGit(folder, script).also { lines.clear() }
 
     private fun lines(marker: String) = lines.filter { marker in it.second }
 
@@ -56,7 +44,7 @@ class GitCommandLogTest {
 
     @Test
     fun `a successful command logs its start and end`() {
-        val git = fakeGit("echo hello")
+        val git = fakeGitWithEmptyLog("echo hello")
         assertEquals("hello\n", git.run(listOf("marker-ok", "a"), folder, 5.seconds))
 
         val (start, end) = commandLines("marker-ok")
@@ -67,7 +55,7 @@ class GitCommandLogTest {
 
     @Test
     fun `a failing read logs its standard error in the end line`() {
-        val git = fakeGit("printf 'fatal: one\\nsecond\\n' >&2; exit 128")
+        val git = fakeGitWithEmptyLog("printf 'fatal: one\\nsecond\\n' >&2; exit 128")
         assertNull(git.run(listOf("marker-fail"), folder, 5.seconds))
 
         val end = commandLines("marker-fail").single { " exit " in it.second }
@@ -84,7 +72,7 @@ class GitCommandLogTest {
 
     @Test
     fun `a timeout is logged once as a warning`() {
-        val git = fakeGit("sleep 5")
+        val git = fakeGitWithEmptyLog("sleep 5")
         assertNull(git.run(listOf("marker-slow"), folder, 300.milliseconds))
 
         val warnings = lines("marker-slow").filter { it.first == System.Logger.Level.WARNING }
@@ -94,7 +82,7 @@ class GitCommandLogTest {
 
     @Test
     fun `a failed write is logged as a warning with git's message`() {
-        val git = fakeGit("echo 'fatal: refused' >&2; exit 1")
+        val git = fakeGitWithEmptyLog("echo 'fatal: refused' >&2; exit 1")
         git.write(folder, listOf("marker-write"))
 
         val warnings = commandLines("marker-write").filter { it.first == System.Logger.Level.WARNING }
@@ -105,7 +93,7 @@ class GitCommandLogTest {
 
     @Test
     fun `long arguments are cut and the input is never logged`() {
-        val git = fakeGit("cat >/dev/null")
+        val git = fakeGitWithEmptyLog("cat >/dev/null")
         git.write(folder, listOf("x".repeat(500)), input = "secret".toByteArray())
 
         val start = lines.first { " start " in it.second }.second
@@ -120,7 +108,7 @@ class GitCommandLogTest {
 
     @Test
     fun `a megabyte on standard error neither blocks a read nor makes it incomplete`() {
-        val git = fakeGit("head -c 1048576 /dev/zero | tr '\\0' 'e' >&2; echo ok")
+        val git = fakeGitWithEmptyLog("head -c 1048576 /dev/zero | tr '\\0' 'e' >&2; echo ok")
         val execution = git.execute(listOf("marker-noisy"), folder, 10.seconds, null, write = false)!!
 
         assertEquals(0, execution.exitValue)
@@ -131,7 +119,7 @@ class GitCommandLogTest {
 
     @Test
     fun `standard error is cut to 500 characters in the log`() {
-        val git = fakeGit("head -c 5000 /dev/zero | tr '\\0' 'x' >&2; exit 1")
+        val git = fakeGitWithEmptyLog("head -c 5000 /dev/zero | tr '\\0' 'x' >&2; exit 1")
         assertNull(git.run(listOf("marker-long-stderr"), folder, 5.seconds))
 
         val end = commandLines("marker-long-stderr").single { " exit " in it.second }.second
@@ -140,7 +128,7 @@ class GitCommandLogTest {
 
     @Test
     fun `a command on the JavaFX thread starts with a warning`() {
-        val git = fakeGit("echo ok")
+        val git = fakeGitWithEmptyLog("echo ok")
         val thread =
             Thread.ofPlatform().name("JavaFX Application Thread").start {
                 git.run(listOf("marker-fx"), folder, 5.seconds)
@@ -154,7 +142,7 @@ class GitCommandLogTest {
 
     @Test
     fun `an unnamed thread is shown by its description`() {
-        val git = fakeGit("echo ok")
+        val git = fakeGitWithEmptyLog("echo ok")
         Thread.ofVirtual().start { git.run(listOf("marker-virtual"), folder, 5.seconds) }.join()
 
         assertTrue(
@@ -166,14 +154,14 @@ class GitCommandLogTest {
 
     @Test
     fun `a sink that throws does not break the git call`() {
-        val git = fakeGit("echo ok")
+        val git = fakeGitWithEmptyLog("echo ok")
         GitCommandLogSink.sink = { _, _, _ -> throw IllegalStateException("broken log") }
         assertEquals("ok\n", git.run(listOf("marker-broken"), folder, 5.seconds))
     }
 
     @Test
     fun `more output than allowed is a warning`() {
-        val git = fakeGit("yes")
+        val git = fakeGitWithEmptyLog("yes")
         val execution =
             git.execute(
                 listOf("marker-overflow"),
@@ -190,7 +178,7 @@ class GitCommandLogTest {
 
     @Test
     fun `a cancelled write is a warning, a cancelled read is routine`() {
-        val git = fakeGit("sleep 10")
+        val git = fakeGitWithEmptyLog("sleep 10")
         for ((marker, write) in listOf("marker-cancel-read" to false, "marker-cancel-write" to true)) {
             val cancellation = GitCancellation()
             Thread.ofPlatform().start {
@@ -206,7 +194,7 @@ class GitCommandLogTest {
 
     @Test
     fun `an interrupted write is a warning, an interrupted read is routine`() {
-        val git = fakeGit("sleep 10")
+        val git = fakeGitWithEmptyLog("sleep 10")
         for ((marker, write) in listOf("marker-interrupt-read" to false, "marker-interrupt-write" to true)) {
             val caller =
                 Thread.ofPlatform().start {
@@ -229,7 +217,7 @@ class GitCommandLogTest {
 
     @Test
     fun `the credentials of a URL argument are not logged, in no line of the command`() {
-        val git = fakeGit("echo 'fatal: nope' >&2; exit 128")
+        val git = fakeGitWithEmptyLog("echo 'fatal: nope' >&2; exit 128")
         git.write(
             folder,
             listOf(
@@ -250,7 +238,7 @@ class GitCommandLogTest {
     @Test
     fun `the credentials in a failure message and in a transport address are not logged either`() {
         val git =
-            fakeGit(
+            fakeGitWithEmptyLog(
                 "echo \"fatal: could not set 'remote.o.url' to 'https://user:s3cret@h.example/x'\" >&2; exit 128",
             )
         git.write(folder, listOf("marker-msg", "hg::https://tok3n:pw0rd@h/r"))

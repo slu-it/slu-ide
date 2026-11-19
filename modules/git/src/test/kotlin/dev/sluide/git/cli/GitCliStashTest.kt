@@ -1,6 +1,7 @@
 package dev.sluide.git.cli
 
 import dev.sluide.git.failingGit
+import dev.sluide.git.fakeGit
 import dev.sluide.git.recordedCalls
 import dev.sluide.git.recordingGit
 import dev.sluide.git.testGitEnvironment
@@ -170,38 +171,27 @@ class GitCliStashTest {
         )
     }
 
-    /** A stand-in for git that runs [body] for anything but `--version`. */
-    private fun fakeGit(body: String): GitCli {
-        val script =
-            folder.resolve("fake-git-${System.nanoTime()}").apply {
-                writeText(dev.sluide.git.FAKE_GIT_START + body + "\n")
-                toFile().setExecutable(true)
-            }
-        return GitCli(script.toString(), testGitEnvironment()).also {
-            assumeTrue(it.available, "no /bin/sh to stand in for git")
-        }
-    }
-
     @Test
     fun `trackedStates skips records git would not write, and an empty output has no states`() {
         val whole = "1 .M N... 100644 100644 100644 h1 h2 ok.txt"
 
-        assertEquals(emptyMap(), fakeGit("true").trackedStatesBounded(root))
+        assertEquals(emptyMap(), fakeGit(folder, "true").trackedStatesBounded(root))
         assertEquals(
             mapOf("ok.txt" to "1 .M N... 100644 100644 100644 h1 h2"),
-            fakeGit("printf '$whole\\000'").trackedStatesBounded(root),
+            fakeGit(folder, "printf '$whole\\000'").trackedStatesBounded(root),
         )
         assertEquals(
             mapOf("ok.txt" to "1 .M N... 100644 100644 100644 h1 h2"),
             fakeGit(
+                folder,
                 "printf '1 too few fields\\000$whole\\000? a b c d e f g h i path\\000'",
             ).trackedStatesBounded(root),
         )
         assertEquals(
             emptyMap(),
-            fakeGit("printf '2 R. N... 100644 100644 100644 h1 h2 R100\\000'").trackedStatesBounded(root),
+            fakeGit(folder, "printf '2 R. N... 100644 100644 100644 h1 h2 R100\\000'").trackedStatesBounded(root),
             "a rename without its path",
         )
-        assertNull(fakeGit("exit 128").trackedStatesBounded(root))
+        assertNull(fakeGit(folder, "exit 128").trackedStatesBounded(root))
     }
 }

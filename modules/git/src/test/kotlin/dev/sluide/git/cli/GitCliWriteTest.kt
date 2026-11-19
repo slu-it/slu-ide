@@ -2,6 +2,7 @@ package dev.sluide.git.cli
 
 import dev.sluide.git.FAKE_GIT_START
 import dev.sluide.git.GitResult
+import dev.sluide.git.fakeGit
 import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.function.ThrowingSupplier
@@ -17,7 +18,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -25,44 +25,25 @@ class GitCliWriteTest {
     @TempDir
     lateinit var folder: Path
 
-    private var fakes = 0
-
-    /** A stand-in for git that answers `--version` and runs [script] for anything else. */
-    private fun fakeGit(
-        script: String,
-        stopGrace: Duration = 2.seconds,
-        pipeGrace: Duration = 2.seconds,
-        environment: Map<String, String> = System.getenv(),
-    ): GitCli {
-        val executable =
-            folder.resolve("fake-git-${++fakes}").apply {
-                writeText(FAKE_GIT_START + "$script\n")
-                toFile().setExecutable(true)
-            }
-        return GitCli(executable.toString(), environment, stopGrace, pipeGrace).also {
-            assumeTrue(it.available, "no /bin/sh to stand in for git")
-        }
-    }
-
     @Test
     fun `a write keeps git's standard error, else its output, and has no optional locks variable`() {
         // Only the environment it is given: HOME, which the test's has, is not there; KEEP is.
         val given = mapOf("PATH" to System.getenv("PATH"), "KEEP" to "yes")
         val shown = "\$GIT_OPTIONAL_LOCKS|\$GIT_TERMINAL_PROMPT|[\$HOME]|\$KEEP"
-        val git = fakeGit("echo out; echo \"  err $shown  \" >&2; exit 1", environment = given)
+        val git = fakeGit(folder, "echo out; echo \"  err $shown  \" >&2; exit 1", environment = given)
 
         assertEquals(GitResult(false, "err |0|[]|yes"), git.write(folder, listOf("x")))
 
-        val quiet = fakeGit("echo '  only output  '; exit 0")
+        val quiet = fakeGit(folder, "echo '  only output  '; exit 0")
         assertEquals(GitResult(true, "only output"), quiet.write(folder, listOf("x")))
 
-        val silent = fakeGit("exit 3")
+        val silent = fakeGit(folder, "exit 3")
         assertEquals(GitResult(false, "git failed with exit code 3."), silent.write(folder, listOf("x")))
     }
 
     @Test
     fun `a write gets its input and reads keep dropping the standard error`() {
-        val withInput = fakeGit("cat >&2; exit 0")
+        val withInput = fakeGit(folder, "cat >&2; exit 0")
         assertEquals(
             "K\u00f6ln",
             withInput.write(folder, listOf("x"), "K\u00f6ln\n".toByteArray(Charsets.UTF_8)).message,
@@ -71,6 +52,7 @@ class GitCliWriteTest {
         val onlyPath = mapOf("PATH" to System.getenv("PATH"))
         val reader =
             fakeGit(
+                folder,
                 "echo \"\$GIT_OPTIONAL_LOCKS[\$GIT_EDITOR]\" > '$file'; echo err >&2; exit 0",
                 environment = onlyPath,
             )
@@ -80,7 +62,7 @@ class GitCliWriteTest {
 
     @Test
     fun `a write never opens an editor and drops git's hints`() {
-        val git = fakeGit("echo \"error: x \$GIT_EDITOR\" >&2; echo 'hint: run git x' >&2; exit 1")
+        val git = fakeGit(folder, "echo \"error: x \$GIT_EDITOR\" >&2; echo 'hint: run git x' >&2; exit 1")
         assertEquals(GitResult(false, "error: x false"), git.write(folder, listOf("x")))
 
         assertEquals("error: a\nerror: b", withoutHints("error: a\nhint: one\nhint: two\nerror: b"))
@@ -92,7 +74,7 @@ class GitCliWriteTest {
 
     @Test
     fun `a write takes the caller's editor over the default one`() {
-        val git = fakeGit("echo \"error: \$GIT_EDITOR\" >&2; exit 1")
+        val git = fakeGit(folder, "echo \"error: \$GIT_EDITOR\" >&2; exit 1")
 
         val (result, exit) = git.writeWithExit(folder, listOf("x"), environment = mapOf("GIT_EDITOR" to ":"))
 
@@ -105,7 +87,11 @@ class GitCliWriteTest {
     fun `a write that ignores SIGTERM is killed after a grace period`() {
         val pid = folder.resolve("pid")
         val git =
-            fakeGit("echo $$ > '$pid'; trap '' TERM; while true; do sleep 0.1; done", stopGrace = 300.milliseconds)
+            fakeGit(
+                folder,
+                "echo $$ > '$pid'; trap '' TERM; while true; do sleep 0.1; done",
+                stopGrace = 300.milliseconds,
+            )
         val started = System.nanoTime()
 
         // A regression waits for ever for a git that ignores SIGTERM.
@@ -125,7 +111,11 @@ class GitCliWriteTest {
 
     @Test
     fun `a write with large output on both streams does not block`() {
-        val git = fakeGit("head -c 1000000 /dev/zero | tr '\\0' a; head -c 1000000 /dev/zero | tr '\\0' b >&2; exit 1")
+        val git =
+            fakeGit(
+                folder,
+                "head -c 1000000 /dev/zero | tr '\\0' a; head -c 1000000 /dev/zero | tr '\\0' b >&2; exit 1",
+            )
 
         val result = git.write(folder, listOf("x"), timeout = 30.seconds)
 
@@ -139,7 +129,7 @@ class GitCliWriteTest {
         val lines = CopyOnWriteArrayList<Pair<System.Logger.Level, String>>()
         GitCommandLogSink.sink = { level, message, _ -> lines += level to message }
         try {
-            val git = fakeGit("(sleep 20 &); echo name; sleep 0.3; exit 0", pipeGrace = 300.milliseconds)
+            val git = fakeGit(folder, "(sleep 20 &); echo name; sleep 0.3; exit 0", pipeGrace = 300.milliseconds)
             val started = System.nanoTime()
 
             assertNull(git.userName(folder))
@@ -152,13 +142,13 @@ class GitCliWriteTest {
             GitCommandLogSink.sink = sink
         }
 
-        val quick = fakeGit("echo name; exit 0")
+        val quick = fakeGit(folder, "echo name; exit 0")
         assertEquals("name", quick.userName(folder))
     }
 
     @Test
     fun `a process left behind holding git's output does not keep the write waiting`() {
-        val git = fakeGit("(sleep 20 &); echo done >&2; exit 0", pipeGrace = 300.milliseconds)
+        val git = fakeGit(folder, "(sleep 20 &); echo done >&2; exit 0", pipeGrace = 300.milliseconds)
         val started = System.nanoTime()
 
         val result = git.write(folder, listOf("x"), timeout = 30.seconds)
@@ -169,7 +159,7 @@ class GitCliWriteTest {
 
     @Test
     fun `a write that takes too long is stopped and says so`() {
-        val git = fakeGit("sleep 10")
+        val git = fakeGit(folder, "sleep 10")
 
         val timeout = 300.milliseconds
 
@@ -189,7 +179,7 @@ class GitCliWriteTest {
             ).endsWith("Files and the index may be partly changed; check git status in a terminal."),
         )
         assertEquals("git did not finish within 10 min.", timedOut(GitCli.CHECKOUT_TIMEOUT, writesFiles = false))
-        assertFalse(fakeGit("exit 3").writeWithOutput(folder, listOf("x")).timedOut, "a failure is no timeout")
+        assertFalse(fakeGit(folder, "exit 3").writeWithOutput(folder, listOf("x")).timedOut, "a failure is no timeout")
     }
 
     @Test
@@ -212,7 +202,7 @@ class GitCliWriteTest {
     @Test
     fun `a write keeps at most the standard error asked for and reads the rest to its end`() {
         // 200 KB, far more than a pipe holds: git would block if the rest were not read.
-        val git = fakeGit("head -c 204800 /dev/zero | tr '\\0' e >&2; echo done; exit 0")
+        val git = fakeGit(folder, "head -c 204800 /dev/zero | tr '\\0' e >&2; echo done; exit 0")
 
         val execution =
             git.execute(listOf("x"), folder, 10.seconds, null, write = true, maxErrors = 1000)
