@@ -47,6 +47,73 @@ class SignatureLabelsTest {
     }
 
     @Test
+    fun `a parameter label found only inside longer words is the first place after the parenthesis`() {
+        // LSP 3.17: a parameter label string is a substring of the signature label.
+        assertEquals(1 until 2, parameterRange("(xa, xb)", ParameterInformation("x")))
+        assertEquals(4 until 5, parameterRange("max(xx)", ParameterInformation("x")), "not the x of max")
+        assertEquals(0 until 4, parameterRange("path, sep", ParameterInformation("path")), "no parenthesis")
+        assertEquals(0 until 1, parameterRange("a", ParameterInformation("a")), "the whole label")
+    }
+
+    @Test
+    fun `a parameter label that starts or ends with a symbol is whole at a word next to it`() {
+        assertEquals(2 until 4, parameterRange("(x*a, *a)", ParameterInformation("*a")))
+        assertEquals(1 until 3, parameterRange("(a*b, a*)", ParameterInformation("a*")))
+    }
+
+    @Test
+    fun `a parameter label the JSON leaves without text, offsets or a start or end is none`() {
+        assertNull(parameterRange("(a)", ParameterInformation()), "no label")
+        assertNull(parameterRange("(a)", ParameterInformation().apply { label = Either.forLeft(null) }))
+        assertNull(parameterRange("(a)", ParameterInformation(""))) // empty
+        assertNull(parameterRange("(a, b)", offsetsOf(null, 3)))
+        assertNull(parameterRange("(a, b)", offsetsOf(1, null)))
+    }
+
+    private fun offsetsOf(
+        start: Int?,
+        end: Int?,
+    ) = ParameterInformation().apply { label = Either.forRight(Tuple.two(start, end)) }
+
+    @Test
+    fun `an answer the JSON leaves incomplete shows what it has`() {
+        val noParameters = SignatureInformation().apply { activeParameter = 0 }
+        assertEquals(
+            SignatureShown("", null, null, emptyList()),
+            signatureShown(SignatureHelp(listOf(noParameters), null, null)),
+        )
+        val two = SignatureInformation("(a, b)", "", listOf(ParameterInformation("a"), ParameterInformation("b")))
+        val other = SignatureInformation("(c)", "", listOf(ParameterInformation("c")))
+        assertEquals(
+            "(a, b)",
+            signatureShown(SignatureHelp(listOf(two, other), null, null))?.label,
+            "first without index",
+        )
+        assertEquals("(c)", signatureShown(SignatureHelp(listOf(two, other), 9, null))?.label, "clamped to the last")
+        assertEquals(
+            "(a, b)",
+            signatureShown(SignatureHelp(listOf(two, other), -3, null))?.label,
+            "clamped to the first",
+        )
+        assertNull(signatureShown(SignatureHelp(listOf(two), 0, -1))?.active, "a negative parameter index is none")
+        assertEquals(4 until 5, signatureShown(SignatureHelp(listOf(two), null, 1))?.active)
+    }
+
+    @Test
+    fun `parameter docs and signature docs are separated by a rule only when both exist`() {
+        val paragraph = { text: String -> DocBlock.Paragraph(listOf(DocSpan(text))) }
+        val both = SignatureInformation("(a)", "Sig.", listOf(ParameterInformation("a", "Par.")))
+        val parameterOnly = SignatureInformation("(a)", "", listOf(ParameterInformation("a", "Par.")))
+        val signatureOnly = SignatureInformation("(a)", "Sig.", listOf(ParameterInformation("a")))
+        assertEquals(
+            listOf(paragraph("Par."), DocBlock.Rule, paragraph("Sig.")),
+            signatureShown(SignatureHelp(listOf(both), 0, 0))?.docs,
+        )
+        assertEquals(listOf(paragraph("Par.")), signatureShown(SignatureHelp(listOf(parameterOnly), 0, 0))?.docs)
+        assertEquals(listOf(paragraph("Sig.")), signatureShown(SignatureHelp(listOf(signatureOnly), 0, 0))?.docs)
+    }
+
+    @Test
     fun `the active signature and parameter, the count, and the parameter's docs before the signature's`() {
         val first = SignatureInformation("(a)", "", listOf(ParameterInformation("a")))
         val second =
