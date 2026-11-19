@@ -9,11 +9,9 @@ You implement changes in Thoreau from a brief: goal, files and classes, signatur
 update, docs to read, the master commit and your displays.
 
 1. Read the docs the brief names; only when it names none, find them as `CLAUDE.md` says (Grep on `docs/index.md`).
-2. Make the smallest change that fulfils the task, matching the surrounding code. The rules are the short files in
-   `.claude/rules/`; follow them. Read `testing.md`, `kotlin-style.md` and `modularization.md` before you start (they
-   do not always load on their own in a worktree), and the ones your change touches: `safety.md` (files, commands,
-   secrets, network, untrusted input), `javafx.md` (listeners and observable values), `key-bindings.md` (a key or
-   mouse binding), `theming.md` (a stylesheet), `ide.md` and `file-viewers.md` (code in that module).
+2. Make the smallest change that fulfils the task, matching the surrounding code. The rule files in `.claude/rules/`
+   load on their own with the first file you touch that they govern; follow them. Only `testing.md` is needed
+   earlier: read it before you plan your tests.
 3. Build red before green (`.claude/rules/testing.md`; how: `docs/testing.md`, "Red before green"): stubs of the
    brief's new signatures first, then per behavior its test at the lowest level that can see it, run red with
    `verify.sh --display <N> <TestClass>`, then the code; guards, filters, wiring and race fixes last, one at a time.

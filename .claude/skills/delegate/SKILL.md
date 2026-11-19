@@ -86,9 +86,9 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
    will change>` while planning; `verify.sh --changed` refuses above 12 UI test classes, so give the class list
    instead when there are more.
 6. Docs to update: feature page, ADR, `docs/index.md`; `docs/features/keyboard-shortcuts.md` when key bindings change.
-7. Docs to read (so the agent skips the index), with sections where useful; the rule files beyond the three every
-   implementer reads (`safety.md`, `javafx.md`, `key-bindings.md`, `theming.md`, `ide.md`, `file-viewers.md`); for UI
-   work the matching sections of `docs/ui-conventions.md`. For large files, the classes or line ranges that matter.
+7. Docs to read (so the agent skips the index), with sections where useful; for UI work the matching sections of
+   `docs/ui-conventions.md`. For large files, the classes or line ranges that matter. Not the rule files: they load
+   with the files they govern.
 8. Base, displays and scratch folder: the master commit for `worktree-check.sh start`, the agent's four displays, and a
    scratchpad subfolder that the brief names (`<scratchpad>/<package>`), so that parallel agents never share one.
 9. The interactions the plan decided (`feature` skill, "Plan file"), repeated in the brief of every package that
