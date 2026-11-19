@@ -2,8 +2,10 @@ package dev.sluide.codeintelligence.semantic
 
 import dev.sluide.fileviewers.StyledRange
 import org.eclipse.lsp4j.SemanticTokensLegend
+import org.eclipse.lsp4j.jsonrpc.json.MessageJsonHandler
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 
 /** Semantic tokens: relative positions decoded with the legend, the few types and modifiers that get a class. */
 class SemanticTokensTest {
@@ -74,5 +76,57 @@ class SemanticTokensTest {
             ),
             semanticRanges(tokens, text),
         )
+    }
+
+    /** A legend as lsp4j parses a server's JSON: a list the JSON lacks stays null. */
+    private fun parsedLegend(json: String): SemanticTokensLegend =
+        MessageJsonHandler(emptyMap()).gson.fromJson(json, SemanticTokensLegend::class.java)
+
+    @Test
+    fun `a legend the JSON leaves without types or modifiers names none`() {
+        val data = listOf(0, 1, 2, 0, 1)
+        assertEquals(
+            listOf(SemanticToken(0, 1, 2, null, emptySet())),
+            decodeTokens(data, parsedLegend("{}")),
+            "no types, no modifiers",
+        )
+        assertEquals(
+            listOf(SemanticToken(0, 1, 2, "parameter", emptySet())),
+            decodeTokens(data, parsedLegend("""{"tokenTypes":["parameter"]}""")),
+            "types without modifiers",
+        )
+    }
+
+    @Test
+    fun `a last group of four numbers is left out, not read past the data`() {
+        assertEquals(
+            listOf(SemanticToken(0, 4, 1, "parameter", emptySet())),
+            decodeTokens(listOf(0, 4, 1, 2, 0, 0, 1, 1, 2), legend),
+        )
+    }
+
+    @Test
+    fun `only the modifier bits below the sign bit are read`() {
+        val names = (0..31).map { "m$it" }
+        val tokens = decodeTokens(listOf(0, 0, 1, 0, -1), SemanticTokensLegend(listOf("t"), names))
+        assertEquals((0..30).map { "m$it" }.toSet(), tokens.single().modifiers)
+    }
+
+    @Test
+    fun `a type that only has the hash code of a coloured one is not coloured`() {
+        for (type in listOf("parameter", "selfParameter", "clsParameter", "builtinConstant")) {
+            // Changing the last two characters x, y to x + 1, y - 31 keeps the hash code (31 * x + y).
+            val impostor = type.dropLast(2) + (type[type.length - 2] + 1) + (type[type.length - 1] - 31)
+            assertEquals(type.hashCode(), impostor.hashCode(), type)
+            assertNotEquals(type, impostor)
+            assertEquals(emptyList(), semanticClasses(impostor, emptySet()), impostor)
+        }
+    }
+
+    @Test
+    fun `a token whose start and length overflow into a range is dropped`() {
+        // Int.MIN_VALUE + -1 wraps to Int.MAX_VALUE: the end would clamp to the line's end, past the start.
+        val tokens = listOf(SemanticToken(0, Int.MIN_VALUE, -1, "parameter", emptySet()))
+        assertEquals(emptyList(), semanticRanges(tokens, "def f(a):\n"))
     }
 }
