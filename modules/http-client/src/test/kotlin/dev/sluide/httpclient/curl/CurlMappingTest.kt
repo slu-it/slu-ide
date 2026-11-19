@@ -76,6 +76,14 @@ class CurlMappingTest {
     }
 
     @Test
+    fun `without drops every header of that name in any case and keeps the others`() {
+        val headers = listOf("Content-Type" to "a", "X" to "b", "content-type" to "c")
+
+        assertEquals(listOf("X" to "b"), headers.without("CONTENT-TYPE"))
+        assertEquals(headers, headers.without("Accept"))
+    }
+
+    @Test
     fun `a decimal timeout in exponent notation is read as seconds`() {
         assertEquals(Duration.ofSeconds(1000), request("curl -m 1e3 x").timeout)
     }

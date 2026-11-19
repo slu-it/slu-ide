@@ -127,6 +127,46 @@ class CurlCopyTest {
     }
 
     @Test
+    fun `notes the dropped scripts in the order of their kind`() {
+        assertEquals("Copied as cURL; Pre-request script dropped", copy("< {% x %}", "GET https://x").message)
+        assertEquals(
+            "Copied as cURL; Pre-request script dropped; Response handler dropped",
+            copy("< {% x %}", "GET https://x", "> {% y %}").message,
+        )
+        assertEquals("Copied as cURL; Response handler dropped", copy("GET https://x", "> {% y %}").message)
+    }
+
+    @Test
+    fun `keeping and including private values give the same command when there are none`() {
+        environments()
+
+        val command = copy("GET {{host}}/x", "X-Id: {{\$uuid}}")
+
+        assertEquals(emptyList(), command.privateNames)
+        assertEquals(command.keepingPrivate, command.withPrivate)
+        assertTrue(Regex("-H 'X-Id: [0-9a-f-]{36}'").containsMatchIn(command.withPrivate), command.withPrivate)
+    }
+
+    @Test
+    fun `an environment that verifies host certificates gets no -k`() {
+        folder.resolve("http-client.private.env.json").writeText(
+            """{"dev": {"SSLConfiguration": {"verifyHostCertificate": true}}}""",
+        )
+
+        assertEquals("curl https://x \\\n  -L", copy("GET https://x").keepingPrivate)
+    }
+
+    @Test
+    fun `finds private values by their flat dotted key and does not take unknown names for private ones`() {
+        folder.resolve("http-client.private.env.json").writeText("""{"dev": {"my.token": "s", "db": {"pw": "p"}}}""")
+
+        val command = copy("GET https://x/{{my.token}}/{{nope.deeper.still}}/{{db.missing}}/{{plain}}")
+
+        assertEquals(listOf("my.token"), command.privateNames)
+        assertEquals(listOf("nope.deeper.still", "db.missing", "plain"), command.unresolved)
+    }
+
+    @Test
     fun `auth tokens and missing variables stay as written, only the missing ones are listed`() {
         environments()
 

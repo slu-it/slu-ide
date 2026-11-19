@@ -83,6 +83,24 @@ internal class EnvironmentFileViewUiTest : EnvironmentFileViewUiFixture() {
     }
 
     @Test
+    fun `the source is highlighted as JSON`(robot: FxRobot) {
+        // Only a scene shows the styles the code area paints; a viewer without the highlighter leaves them empty.
+        open(robot, publicText, privateText)
+        val area = robot.area()
+
+        val styles = { snippet: String ->
+            WaitForAsyncUtils
+                .asyncFx<List<String>> {
+                    area.getStyleOfChar(area.text.indexOf(snippet) + 1).toList()
+                }.get()
+        }
+
+        assertTrue(styles("\"host\"").isNotEmpty(), "key")
+        assertTrue(styles("8080").isNotEmpty(), "number")
+        assertTrue(styles("8080") != styles("\"host\""), "number and key are styled differently")
+    }
+
+    @Test
     fun `an edited value changes the source as one undoable change`(robot: FxRobot) {
         val view = open(robot, publicText, privateText)
 

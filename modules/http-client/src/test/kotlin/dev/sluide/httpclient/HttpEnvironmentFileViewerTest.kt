@@ -13,6 +13,7 @@ import kotlin.io.path.extension
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -33,6 +34,15 @@ class HttpEnvironmentFileViewerTest {
         override fun canOpen(file: Path) = file.extension.lowercase() in fileExtensions
 
         override fun open(file: Path): FileView = error("not needed")
+    }
+
+    @Test
+    fun `claims exact names only, shows the source as JSON and cannot open a path without a name`() {
+        assertEquals(setOf(EnvironmentFiles.PUBLIC, EnvironmentFiles.PRIVATE), viewer.fileNames)
+        assertEquals(emptyList(), viewer.fileNamePatterns)
+        assertEquals(emptyList(), viewer.weakFileNamePatterns)
+        assertSame(Highlighters.json, viewer.sourceHighlighter)
+        assertFalse(viewer.canOpen(Path.of("/")))
     }
 
     @Test
