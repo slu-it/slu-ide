@@ -228,6 +228,10 @@ CI once.
   that the reader is reading. It is a fixed wait because no signal can show that the JVM's reader is blocked in `read`.
   A child that writes after git ended waits for a signal instead (`while kill -0 $$ 2>/dev/null; do sleep 0.01; done`:
   its parent shell is gone), so the write comes after the end, never before.
+- **Acting before a stand-in script ran:** a process starts slower on the macOS runner, so a test that kills a stand-in
+  script, or fails its reader, right after starting it may kill the shell before its first command ran: a pid file it
+  was to write never appears. Let the script print a line after the step the test relies on, and act only once the
+  line was read (`DockerProcessesTest`). Reproduce with a `sleep 0.3` before that step.
 - **Git encodings:** git converts commit messages to `i18n.commitEncoding` differently per OS (iconv). Tests read
   messages with `--encoding=UTF-8`, as the app does.
 - **File watching:** the macOS JDK polls (every 2 s, by path, mtime per entry): late events, no events for a folder

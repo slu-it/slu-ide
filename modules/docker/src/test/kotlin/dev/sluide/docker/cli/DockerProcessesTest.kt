@@ -249,13 +249,17 @@ class DockerProcessesTest {
 
     @Test
     fun `a stream whose reader fails ends with that failure, and the CLI is killed`() {
-        val cli = processes("""echo ${'$'}${'$'} > "${dir.resolve("pid")}"; exec sleep 30""")
+        val cli = processes("""echo ${'$'}${'$'} > "${dir.resolve("pid")}"; echo started; exec sleep 30""")
         val ended = CompletableFuture<Throwable?>()
 
         cli.stream(
             listOf("x"),
             mergeErrors = false,
-            consume = { _, _ -> throw IllegalStateException("reader broke") },
+            // fails only once the CLI wrote its pid: a kill before that left no pid to check (slow macOS runner)
+            consume = { reader, _ ->
+                reader.read()
+                throw IllegalStateException("reader broke")
+            },
             onEnd = { ended.complete(it) },
         )
 
