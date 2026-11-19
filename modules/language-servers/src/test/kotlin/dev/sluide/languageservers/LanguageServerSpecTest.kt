@@ -1,5 +1,6 @@
 package dev.sluide.languageservers
 
+import org.eclipse.lsp4j.ConfigurationItem
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -31,6 +32,9 @@ class LanguageServerSpecTest {
         "'foo bar', false",
         "'', false",
         "'a\tb', false",
+        "'a\u0007b', false",
+        "'\u007f', false",
+        "'a\u0000', false",
     )
     fun `by default a name is an identifier when it is not empty and has no whitespace or control characters`(
         name: String,
@@ -99,5 +103,15 @@ class LanguageServerSpecTest {
 
         assertEquals(listOf("python"), checked.trustCheckIds)
         assertEquals(emptyList(), plain.trustCheckIds)
+    }
+
+    @Test
+    fun `by default a spec runs no project code, has no trust check, no installer and no library documents`() {
+        assertFalse(plain.runsProjectCode)
+        assertNull(plain.trustCheckId)
+        assertNull(plain.installer)
+        assertNull(plain.libraryDocument("jdt://contents/Foo.class"))
+        assertNull(plain.configuration(ConfigurationItem()))
+        assertNull(plain.initializationOptions(Path.of("/work")))
     }
 }

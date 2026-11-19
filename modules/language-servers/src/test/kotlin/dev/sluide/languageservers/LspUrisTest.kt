@@ -55,10 +55,56 @@ class LspUrisTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["untitled:Untitled-1", "file://server/share/x.py", "file:///broken%2"])
+    @ValueSource(
+        strings = [
+            "untitled:Untitled-1", "file://server/share/x.py", "file:///broken%2", "file:///bad%zzname.py",
+            "file://", "file://localhost",
+        ],
+    )
     fun `URIs that are no local path have none and stay as they are`(uri: String) {
         assertNull(LspUris.toPath(uri))
         assertEquals(uri, LspUris.normalize(uri))
+    }
+
+    @Test
+    fun `the root folder keeps its slash, a folder below it loses it`() {
+        val root = Path.of("/")
+        assumeTrue(root.toUri().toString() == "file:///", "this platform's root is not /")
+
+        assertEquals("file:///", LspUris.of(root))
+        assertEquals("file:///tmp", LspUris.of(Path.of("/tmp/")))
+    }
+
+    @Test
+    fun `characters outside the basic plane in a plain URI are kept whole, decoded as one`() {
+        // A surrogate pair must not be encoded char by char (each half alone becomes `?`).
+        assumeUnicodePaths("\uD83D\uDE00")
+        val path = folder.resolve("emoji-\uD83D\uDE00.py")
+
+        assertEquals(path, LspUris.toPath("file://" + path.toString().replace(" ", "%20")))
+        assertEquals(path, LspUris.toPath("file://" + path))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "file:///tmp/a%23b.py, /tmp/a#b.py",
+        "file:///tmp/a%25b.py, /tmp/a%b.py",
+        "file:///tmp/a%3Fb.py, /tmp/a?b.py",
+        "file:///tmp/a.py#L10, /tmp/a.py",
+        "file:///tmp/a.py?query=1, /tmp/a.py",
+        "FILE:///tmp/a.py, /tmp/a.py",
+        "file://LOCALHOST/tmp/a.py, /tmp/a.py",
+        "file:/tmp/a%20b.py, '/tmp/a b.py'",
+        // An encoded slash becomes a separator, as in VS Code's `fsPath`: intended, not a bug.
+        "file:///tmp/a%2Fb.py, /tmp/a/b.py",
+    )
+    fun `a file URI decodes to the path it names, fragment and query are not part of it`(
+        uri: String,
+        expected: String,
+    ) {
+        assumeTrue(Path.of("/tmp").toString() == "/tmp", "POSIX paths")
+
+        assertEquals(Path.of(expected), LspUris.toPath(uri))
     }
 
     /**
