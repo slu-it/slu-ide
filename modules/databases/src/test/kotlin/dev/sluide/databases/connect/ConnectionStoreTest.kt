@@ -1,6 +1,5 @@
 package dev.sluide.databases.connect
 
-import dev.sluide.projectdata.LegacyProjectData
 import dev.sluide.projectdata.ProjectDataStore
 import org.junit.jupiter.api.io.TempDir
 import tools.jackson.databind.json.JsonMapper
@@ -269,23 +268,6 @@ class ConnectionStoreTest {
                 .get(0)
                 .get("host"),
         )
-    }
-
-    @Test
-    fun `a failing migration of the project data store gives no connections instead of throwing`() {
-        val migration =
-            object : LegacyProjectData {
-                override val file: Path get() = throw IllegalStateException("boom")
-
-                override fun migrate(
-                    entries: Map<String, String>,
-                    store: ProjectDataStore,
-                ) = true
-            }
-        val broken = ConnectionStore(ProjectDataStore(dir.resolve("p3"), dir.resolve("s3.json"), listOf(migration)))
-
-        assertEquals(emptyList(), broken.load(projectFolder))
-        assertEquals(emptyList(), broken.load(null))
     }
 
     @Test

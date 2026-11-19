@@ -47,23 +47,19 @@ private val KNOWN_KEYS =
 class ConnectionStore(
     private val store: ProjectDataStore,
 ) {
-    /** The connections of the project in their order; shared data when [folder] is null. Never throws (logs). */
-    fun load(folder: Path?): List<ConnectionConfig> =
-        try {
-            val root = if (folder != null) store.read(folder) else store.readShared()
-            val entries = (root?.get(DATABASES_FIELD) as? ObjectNode)?.get(CONNECTIONS)
-            if (entries != null && entries.isArray) {
-                entries
-                    .values()
-                    .mapNotNull { entry -> (entry as? ObjectNode)?.let(::read) ?: skipped() }
-                    .distinctBy { it.id }
-            } else {
-                emptyList()
-            }
-        } catch (e: RuntimeException) {
-            log.log(System.Logger.Level.WARNING, "Cannot read the database connections", e)
-            emptyList()
-        }
+    /**
+     * The connections of the project in their order; shared data when [folder] is null. Never throws: the store logs
+     * its own failures and gives no data, and an unreadable entry is skipped.
+     */
+    fun load(folder: Path?): List<ConnectionConfig> {
+        val root = if (folder != null) store.read(folder) else store.readShared()
+        val entries = (root?.get(DATABASES_FIELD) as? ObjectNode)?.get(CONNECTIONS)
+        if (entries == null || !entries.isArray) return emptyList()
+        return entries
+            .values()
+            .mapNotNull { entry -> (entry as? ObjectNode)?.let(::read) ?: skipped() }
+            .distinctBy { it.id }
+    }
 
     /**
      * Replaces the whole list (order = list order), so the caller must hold the current one (the tab model owns it per
