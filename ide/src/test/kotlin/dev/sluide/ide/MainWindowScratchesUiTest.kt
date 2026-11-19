@@ -7,12 +7,15 @@ import dev.sluide.scratches.SCRATCH_GENERATORS
 import dev.sluide.scratches.SCRATCH_TYPES
 import dev.sluide.scratches.ScratchGenerator
 import dev.sluide.scratches.ScratchType
+import javafx.application.Platform
 import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.control.ListCell
 import javafx.scene.control.ListView
 import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeItem
+import javafx.scene.input.Clipboard
+import javafx.scene.input.ClipboardContent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
@@ -52,7 +55,10 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
     private val preselected = mutableListOf<ScratchType?>()
 
     @Start
-    fun start(stage: Stage) = startView(stage)
+    fun start(stage: Stage) {
+        convertingFamilies = listOf(ShoutDetectingFamily)
+        startView(stage)
+    }
 
     /** Answers every ask for the type of a new scratch file with [type], recording the preselected one. */
     private fun answering(type: ScratchType) {
@@ -189,6 +195,46 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
         } finally {
             robot.interact { list.scene.window.hide() }
         }
+    }
+
+    private fun setClipboard(text: String?) {
+        Platform.runLater {
+            val clipboard = Clipboard.getSystemClipboard()
+            if (text == null) clipboard.clear() else clipboard.setContent(ClipboardContent().apply { putString(text) })
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+    }
+
+    @Test
+    fun `New Scratch from Clipboard creates a scratch from the clipboard text with Converting's detection`(
+        robot: FxRobot,
+    ) {
+        openProject(robot)
+        // Recorded, not shown: the default error dialog would block the FX thread if the clipboard were not read.
+        val errors = mutableListOf<String>()
+        mainWindow.showError = { _, message -> errors += message }
+        val item = fileMenuItem(robot, "New Scratch from Clipboard")
+
+        setClipboard(null)
+        robot.interact { item.fire() }
+        assertEquals(listOf("The clipboard holds no text."), errors)
+        assertEquals(emptyList(), tabTitles(robot))
+
+        // Only the families' detection knows this text: the window's detector is Converting's, not the built-in rules.
+        setClipboard("shout\nme")
+        robot.interact { item.fire() }
+        val first = scratchFiles.folder.resolve("pasted.toml")
+        eventually(robot) { assertEquals(first, editorArea.selectedPath) }
+        assertEquals("shout\nme", Files.readString(first))
+
+        setClipboard("Note: buy milk")
+        robot.interact { item.fire() }
+        eventually(robot) { assertEquals(scratchFiles.folder.resolve("pasted.txt"), editorArea.selectedPath) }
+
+        setClipboard("shout\nagain")
+        robot.interact { item.fire() }
+        eventually(robot) { assertEquals(scratchFiles.folder.resolve("pasted_1.toml"), editorArea.selectedPath) }
+        assertEquals(listOf("The clipboard holds no text."), errors)
     }
 
     // Real key input on purpose (unlike docs/testing.md advises): only real input sends the KEY_TYPED of the picking

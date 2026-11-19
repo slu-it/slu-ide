@@ -15,7 +15,9 @@ import dev.sluide.scratches.ScratchGenerator
 import dev.sluide.scratches.ScratchType
 import dev.sluide.scratches.ScratchTypePicker
 import dev.sluide.scratches.safeBaseName
+import dev.sluide.texttypes.TextTypeDetector
 import javafx.scene.control.MenuItem
+import javafx.scene.input.Clipboard
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
@@ -45,9 +47,12 @@ internal class WindowScratches(
     private val fileExplorer: FileExplorerView,
     private val editorArea: EditorArea,
     private val encryptedFiles: EncryptedFiles,
+    textTypes: TextTypeDetector,
     private val isOpenElsewhere: (Path) -> Boolean,
     private val showError: (Stage, String) -> Unit,
 ) {
+    private val detectType = textTypes::detect
+
     /** The window's type picker, made when it is first shown. */
     private val picker by lazy { ScratchTypePicker() }
 
@@ -117,8 +122,24 @@ internal class WindowScratches(
         }
     }
 
-    /** The two New Scratch File items, for the File menu. */
-    fun menuItems(stage: Stage): List<MenuItem> = listOf(menuItem(stage), generatedMenuItem(stage))
+    /** The New Scratch File items, for the File menu. */
+    fun menuItems(stage: Stage): List<MenuItem> =
+        listOf(menuItem(stage), generatedMenuItem(stage), clipboardMenuItem(stage))
+
+    /**
+     * File → New Scratch from Clipboard (ADR 0188), without a key binding: Shortcut+Shift+V is the terminal's Paste. It
+     * works from a terminal tab like the other items.
+     */
+    fun clipboardMenuItem(stage: Stage): MenuItem =
+        MenuItem("New Scratch from Clipboard").apply {
+            setOnAction {
+                ClipboardScratch(
+                    detect = detectType,
+                    showError = { showError(stage, it) },
+                    openText = { extension, text -> openText(stage, "pasted", extension, text) },
+                ).create(Clipboard.getSystemClipboard().string)
+            }
+        }
 
     /**
      * Asks for a password, creates an empty encrypted scratch file, owner-only, with it on the dialog's background

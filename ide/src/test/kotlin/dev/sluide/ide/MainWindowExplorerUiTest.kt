@@ -10,6 +10,7 @@ import dev.sluide.converting.WriteResult
 import dev.sluide.fileexplorer.ExplorerBar
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.ide.explorer.ExplorerPanel
+import dev.sluide.texttypes.TextTypes
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.control.TextField
@@ -43,7 +44,7 @@ import kotlin.test.assertTrue
 class MainWindowExplorerUiTest : MainWindowUiFixture() {
     @Start
     fun start(stage: Stage) {
-        convertingFamilies = listOf(ShoutingFamily)
+        convertingFamilies = listOf(ShoutingFamily, ShoutDetectingFamily)
         // A folder is open before the window shows, as in the app: the search field is enabled and could take the focus.
         projectService.open(project)
         startView(stage)
@@ -322,6 +323,12 @@ class MainWindowExplorerUiTest : MainWindowUiFixture() {
         eventually(robot) { assertEquals(converted, editorArea.selectedPath) }
         assertEquals("HELLO", converted.readText())
         assertEquals(converted, onFx(robot) { fileExplorer.selectionModel.selectedItem?.value })
+    }
+
+    @Test
+    fun `the explorer's Paste Text detects with Converting's families through the window's detector`(robot: FxRobot) {
+        assertEquals(TextTypes.byExtension("toml"), fileExplorer.textTypes.detect("shout\nme"))
+        assertEquals(TextTypes.PLAIN_TEXT, fileExplorer.textTypes.detect("quiet\nme"))
     }
 
     @Test

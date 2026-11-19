@@ -71,6 +71,7 @@ import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.send.SavedPassphrases
+import dev.sluide.ide.clipboard.ClipboardTextTypes
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
 import dev.sluide.ide.codeintelligence.JdtlsLogExtension
 import dev.sluide.ide.find.FindInFilesWiring
@@ -192,6 +193,7 @@ class ProjectWindowsUiTest {
                 )
                 registerBean(FileWatcher::class.java, Supplier { FileWatcher(Platform::runLater, 50.milliseconds) })
                 register(ExplorerClipboard::class.java)
+                registerBean(ClipboardTextTypes::class.java, Supplier { ClipboardTextTypes(emptyList()) })
                 register(ExplorerSettings::class.java)
                 register(LibraryCodeSettings::class.java)
                 registerBean(GitCli::class.java, Supplier { GitCli(dir.resolve("no-git").toString(), System.getenv()) })

@@ -88,6 +88,7 @@ import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.httpclient.send.SavedPassphrases
+import dev.sluide.ide.clipboard.ClipboardTextTypes
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
 import dev.sluide.ide.codeintelligence.JdtlsLogExtension
 import dev.sluide.ide.find.FindInFilesWiring
@@ -139,6 +140,7 @@ import dev.sluide.speech.settings.SpeechSettingsPage
 import dev.sluide.terminal.Terminals
 import dev.sluide.terminal.settings.TerminalScrollPage
 import dev.sluide.terminal.settings.TerminalScrollSettings
+import dev.sluide.texttypes.TextTypes
 import dev.sluide.todos.TodoPanel
 import dev.sluide.todos.Todos
 import dev.sluide.translation.DownloadSizes
@@ -410,6 +412,55 @@ class SpringWiringTest {
                     "Data",
                     (families as List<*>).map { (it as FormatFamily<*>).name }.first(),
                     "the built-in family first",
+                )
+                // The window's text type detector has Converting's data formats from the real families (ADR 0187).
+                val textTypes = context.getBean(ClipboardTextTypes::class.java).detector
+                assertEquals(TextTypes.byExtension("json"), textTypes.detect("{\"a\": 1}"), "JSON")
+                assertEquals(TextTypes.byExtension("yaml"), textTypes.detect("server:\n  port: 8080\n"), "YAML")
+                assertEquals(TextTypes.PLAIN_TEXT, textTypes.detect("Note: buy milk\nTodo: call mom"), "a note")
+                assertEquals(
+                    TextTypes.byExtension("sh"),
+                    textTypes.detect("curl -X POST https://example.com -d 'a=1'"),
+                    "a one-line curl command",
+                )
+                assertEquals(TextTypes.byExtension("http"), textTypes.detect("GET https://example.com"), "a request")
+                assertEquals(
+                    TextTypes.byExtension("sh"),
+                    textTypes.detect("# fetch the users\ncurl https://example.com/users"),
+                    "a curl command after a comment",
+                )
+                assertEquals(
+                    TextTypes.byExtension("http"),
+                    textTypes.detect("GET /api/users HTTP/1.1\nHost: example.com"),
+                    "a raw request",
+                )
+                val prose =
+                    mapOf(
+                        "a bare URL" to "https://example.com/docs/getting-started",
+                        "two URLs" to "https://example.com/a\nhttps://example.com/b",
+                        "Curl prose" to "Curl up with a good book tonight.",
+                        "GET prose" to "GET milk and eggs on the way home",
+                        "curl and a dash" to "curl - the tool everybody uses",
+                        "GET and words" to "GET https://example.com is what I tried, it failed",
+                        "a path alone" to "GET /home",
+                        "two comma lines" to "Hello, world\nHow are you, friend",
+                        "a letter" to "Hi Anna,\nthanks for the update, I will look at it tomorrow\nBest, Tom",
+                        "an address" to "John Smith, 12 Main St\nSpringfield, IL 62701",
+                        "an indented note" to "Todo:\n  call mom\n  buy milk",
+                        "a list" to "- milk\n- eggs\n- bread",
+                    )
+                for ((label, text) in prose) {
+                    assertEquals(TextTypes.PLAIN_TEXT, textTypes.detect(text), label)
+                }
+                assertEquals(
+                    TextTypes.byExtension("tsv"),
+                    textTypes.detect("Item\tStatus\tComment\nA\tdone\tLooks good.\nB\topen\tNeeds work!"),
+                    "a spreadsheet range with sentences",
+                )
+                assertEquals(
+                    TextTypes.byExtension("yaml"),
+                    textTypes.detect("script: |\n  echo hi\n  echo there"),
+                    "a block scalar",
                 )
                 // Needs no JavaFX toolkit, so the viewer chain can be created for real.
                 val viewers = context.getBean(FileViewers::class.java).viewers

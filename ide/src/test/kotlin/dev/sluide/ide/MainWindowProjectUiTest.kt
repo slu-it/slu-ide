@@ -203,6 +203,7 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
             listOf(
                 "New Scratch File… shortcut+shift+N",
                 "New Generated Scratch File… shortcut+shift+G",
+                "New Scratch from Clipboard",
                 "-",
                 "Lock Encrypted File shortcut+shift+L",
                 "Lock All Encrypted Files shortcut+shift+alt+L",

@@ -75,6 +75,7 @@ import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.send.SavedPassphrases
+import dev.sluide.ide.clipboard.ClipboardTextTypes
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
 import dev.sluide.ide.codeintelligence.JdtlsLogExtension
 import dev.sluide.ide.find.FindInFilesWiring
@@ -479,6 +480,7 @@ abstract class MainWindowUiFixture {
             Coloring(SavedColors(projectData)).also(colorings::add),
             Codecs(),
             Converting(convertingFamilies, fontSettings).also(convertings::add),
+            ClipboardTextTypes(convertingFamilies),
             // An engine that is never ready: no test synthesizes or opens a sound line.
             ReadAloud(
                 SpeechEngines(listOf(NoSpeechEngine)),

@@ -42,6 +42,7 @@ import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpClientSetup
+import dev.sluide.ide.clipboard.ClipboardTextTypes
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
 import dev.sluide.ide.codeintelligence.JdtlsLogExtension
 import dev.sluide.ide.codeintelligence.navigateMenu
@@ -135,6 +136,7 @@ class MainWindow(
     private val coloring: Coloring,
     private val codecs: Codecs,
     private val converting: Converting,
+    private val clipboardTextTypes: ClipboardTextTypes,
     private val readAloud: ReadAloud,
     private val translate: Translate,
     private val barcodes: Barcodes,
@@ -238,6 +240,7 @@ class MainWindow(
             fileExplorer,
             editorArea,
             encryptedFiles,
+            clipboardTextTypes.detector,
             isOpenElsewhere = { projectWindows.isOpenElsewhere(it, this) },
             showError = { stage, message -> showError(stage, message) },
         )
@@ -422,6 +425,8 @@ class MainWindow(
                     HttpClientSetup.create(folder).let { FolderActionResult(it.example, it.note) }
                 },
             )
+        // Paste Text names the type of the text with Converting's data formats too (ADR 0187, ADR 0188).
+        fileExplorer.textTypes = clipboardTextTypes.detector
         // A file's context menu runs it where its view can (ADR 0089) and reads text and Markdown files aloud (ADR 0124).
         fileExplorer.fileActions = listOf(scriptRuns.action) + textFileActions.actions
         // A context menu's Open in Terminal opens a terminal tab in the folder (ADR 0093).
