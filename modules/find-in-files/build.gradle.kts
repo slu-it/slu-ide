@@ -27,6 +27,8 @@ dependencies {
     // constructor takes (ADR 0177).
     api(project(":modules:settings"))
 
+    // Generic test helpers: LogCapture (ADR 0186).
+    testImplementation(project(":modules:test-support"))
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }

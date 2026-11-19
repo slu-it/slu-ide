@@ -1,5 +1,6 @@
 package dev.sluide.settings
 
+import dev.sluide.testsupport.LogCapture
 import javafx.application.ColorScheme
 import javafx.beans.property.SimpleObjectProperty
 import org.junit.jupiter.api.Assumptions.assumeTrue

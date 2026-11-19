@@ -1,5 +1,6 @@
 package dev.sluide.projectdata
 
+import dev.sluide.testsupport.LogCapture
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.createDirectories

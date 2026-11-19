@@ -16,6 +16,8 @@ dependencies {
     // theme.css colours Ikonli's icons; the test checks that on a real FontIcon.
     testImplementation(libs.ikonli.javafx)
     testImplementation(libs.ikonli.materialdesign2)
+    // Generic test helpers: LogCapture (ADR 0186).
+    testImplementation(project(":modules:test-support"))
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }

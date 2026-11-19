@@ -1,6 +1,6 @@
 package dev.sluide.findinfiles.search
 
-import dev.sluide.findinfiles.LogCapture
+import dev.sluide.testsupport.LogCapture
 import dev.sluide.textediting.SearchOptions
 import java.nio.file.Path
 import java.time.Duration

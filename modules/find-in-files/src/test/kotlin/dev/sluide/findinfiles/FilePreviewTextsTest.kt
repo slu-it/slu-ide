@@ -1,5 +1,6 @@
 package dev.sluide.findinfiles
 
+import dev.sluide.testsupport.LogCapture
 import org.junit.jupiter.api.io.TempDir
 import java.net.URI
 import java.nio.file.FileSystems

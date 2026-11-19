@@ -9,4 +9,7 @@ dependencies {
     api(libs.jackson.databind)
     // ProjectDataStore is a Spring bean that collects the modules' LegacyProjectData migrations.
     implementation(libs.spring.context)
+
+    // Generic test helpers: LogCapture (ADR 0186).
+    testImplementation(project(":modules:test-support"))
 }
