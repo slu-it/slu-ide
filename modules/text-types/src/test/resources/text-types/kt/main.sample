@@ -1,0 +1,4 @@
+fun main() {
+    val names = listOf("Anna", "Bert")
+    names.forEach { println("Hello, $it") }
+}

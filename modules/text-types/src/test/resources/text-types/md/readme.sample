@@ -1,0 +1,16 @@
+# Shop service
+
+A small service that takes orders and sends invoices. See the [design notes](docs/design.md) first.
+
+## Running
+
+```bash
+./gradlew bootRun
+```
+
+## Configuration
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `shop.currency` | EUR | Currency of all prices |
+| `shop.tax` | 0.19 | Tax rate |

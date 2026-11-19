@@ -1,0 +1,13 @@
+package com.example.shop
+
+import java.time.Instant
+
+/** Finds and closes orders. */
+class OrderService(private val repository: OrderRepository) {
+    fun find(id: String): Order? = repository.byId(id)
+
+    fun close(id: String) {
+        val order = find(id) ?: return
+        repository.save(order.copy(open = false, closedAt = Instant.now()))
+    }
+}

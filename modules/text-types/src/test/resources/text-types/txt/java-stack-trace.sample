@@ -1,0 +1,8 @@
+Exception in thread "main" java.lang.IllegalStateException: Order 42 has no items
+    at com.example.shop.OrderService.checkout(OrderService.java:87)
+    at com.example.shop.OrderController.post(OrderController.java:31)
+    at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+    at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+Caused by: java.lang.NullPointerException: Cannot invoke "java.util.List.size()" because "items" is null
+    at com.example.shop.Order.total(Order.java:19)
+    ... 3 more

@@ -1,0 +1,5 @@
+## Release checklist
+
+- [ ] Bump the version in `gradle.properties`
+- [ ] Update the [changelog](CHANGELOG.md)
+- [x] Run the **full build** on macOS

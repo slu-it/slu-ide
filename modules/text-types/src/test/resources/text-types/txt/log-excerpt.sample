@@ -1,0 +1,4 @@
+2026-11-19 09:14:02.118  INFO 4711 --- [           main] d.s.ide.SluideApplication : Starting SluideApplication using Java 25
+2026-11-19 09:14:02.940  WARN 4711 --- [           main] o.s.c.s.PostProcessorRegistrationDelegate : Bean 'settings' is not eligible
+2026-11-19 09:14:03.512 ERROR 4711 --- [       worker-1] d.s.git.GitStatus : git status failed: exit code 128
+2026-11-19 09:14:03.513  INFO 4711 --- [       worker-1] d.s.git.GitStatus : retrying in 2 s

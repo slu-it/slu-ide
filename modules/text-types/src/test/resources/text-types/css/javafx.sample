@@ -1,0 +1,8 @@
+.tree-cell:selected .ikonli-font-icon {
+    -fx-icon-color: -fx-text-background-color;
+}
+
+#toolbar > .button {
+    -fx-padding: 2 6 2 6;
+    -fx-background-radius: 3;
+}

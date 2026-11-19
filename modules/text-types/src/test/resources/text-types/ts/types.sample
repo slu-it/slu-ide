@@ -1,0 +1,9 @@
+export type Theme = 'light' | 'dark';
+
+export const themes = ['light', 'dark'] as const;
+
+export enum Level {
+  Info,
+  Warning,
+  Error,
+}

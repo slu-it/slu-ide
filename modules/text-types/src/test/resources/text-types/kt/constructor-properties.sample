@@ -1,0 +1,2 @@
+class Point(val x: Int, val y: Int)
+val origin = Point(0, 0)

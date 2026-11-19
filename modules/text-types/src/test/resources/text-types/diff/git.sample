@@ -1,0 +1,10 @@
+diff --git a/src/Order.kt b/src/Order.kt
+index 3b18e51..a9c2f4d 100644
+--- a/src/Order.kt
++++ b/src/Order.kt
+@@ -1,4 +1,4 @@
+ data class Order(
+-    val total: Int,
++    val total: Long,
+     val open: Boolean,
+ )

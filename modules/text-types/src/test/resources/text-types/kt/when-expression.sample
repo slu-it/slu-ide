@@ -1,0 +1,7 @@
+// The label of a level.
+private fun label(level: Int): String =
+    when {
+        level > 2 -> "high"
+        level > 0 -> "low"
+        else -> "none"
+    }

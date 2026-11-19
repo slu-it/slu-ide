@@ -1,0 +1,8 @@
+import { render } from './render.js';
+
+// Fetches the orders and shows them.
+export async function showOrders(list) {
+  const response = await fetch('/api/orders');
+  const orders = await response.json();
+  orders.filter(order => order.open).forEach(order => render(list, order));
+}

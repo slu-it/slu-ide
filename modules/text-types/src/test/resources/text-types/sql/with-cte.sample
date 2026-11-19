@@ -1,0 +1,4 @@
+WITH open_orders AS (
+  SELECT * FROM orders WHERE open
+)
+SELECT count(*) FROM open_orders;

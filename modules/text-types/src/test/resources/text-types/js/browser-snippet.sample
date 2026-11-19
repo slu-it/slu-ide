@@ -1,0 +1,5 @@
+document.querySelectorAll('.price').forEach((el) => {
+  const value = Number(el.textContent);
+  if (value === 0) el.classList.add('free');
+});
+console.log('prices marked');

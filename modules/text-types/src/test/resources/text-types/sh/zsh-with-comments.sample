@@ -1,0 +1,6 @@
+#!/bin/zsh
+# Setup
+# =====
+# - installs the tools
+# - see [the docs](https://example.com)
+brew install jq

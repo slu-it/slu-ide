@@ -1,0 +1,4 @@
+@description('The app name, also the prefix of its resources.')
+param appName string
+param instances int = 2
+param tags object = {}

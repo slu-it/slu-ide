@@ -1,0 +1,3 @@
+Thoreau is a lightweight IDE for people who like their tools quiet. It opens a folder, shows its files and lets you
+edit them; everything else, from git to the terminal, stays out of the way until you ask for it. The project is
+young, so expect rough edges, and please report what you find.

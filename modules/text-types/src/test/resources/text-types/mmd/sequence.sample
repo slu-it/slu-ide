@@ -1,0 +1,6 @@
+%% Checkout as the shop sees it
+sequenceDiagram
+    participant U as User
+    participant S as Shop
+    U->>S: POST /orders
+    S-->>U: 201 Created

@@ -1,0 +1,13 @@
+--- README.md.orig	2026-11-18 10:00:00.000000000 +0100
++++ README.md	2026-11-19 09:00:00.000000000 +0100
+@@ -3,7 +3,8 @@
+ ## Running
+
+-Run `./gradlew run`.
++Run `./gradlew bootRun`, then open
++[the app](http://localhost:8080).
+
+ ## Configuration
+
+- See the table below.
++ See the [table](#keys) below.

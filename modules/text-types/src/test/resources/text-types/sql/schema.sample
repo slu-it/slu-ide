@@ -1,0 +1,9 @@
+-- The shop's schema.
+create table customers (
+  id   bigint primary key,
+  name varchar(200) not null
+);
+
+create index customers_name on customers (name);
+
+alter table orders add column customer_id bigint references customers (id);

@@ -1,0 +1,10 @@
+To print a greeting in Kotlin:
+
+```kotlin
+fun main() {
+    val name: String = readln()
+    println("Hello, $name!")
+}
+```
+
+Then run it with `kotlinc` and `java -jar`. More in the [Kotlin docs](https://kotlinlang.org/docs/).

@@ -1,0 +1,7 @@
+<div class="card">
+  <h2>Invoice 42</h2>
+  <ul>
+    <li>Coffee <span class="price">3.20</span></li>
+    <li>Cake <span class="price">2.80</span></li>
+  </ul>
+</div>

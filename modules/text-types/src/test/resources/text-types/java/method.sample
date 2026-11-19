@@ -1,0 +1,6 @@
+@Override
+public boolean equals(Object other) {
+    if (!(other instanceof Order order)) return false;
+    String key = order.id();
+    return id.equals(key);
+}

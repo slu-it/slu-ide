@@ -1,0 +1,17 @@
+package com.example.shop;
+
+import java.time.Instant;
+import java.util.Optional;
+
+/** Finds and closes orders. */
+public class OrderService {
+    private final OrderRepository repository;
+
+    public OrderService(OrderRepository repository) {
+        this.repository = repository;
+    }
+
+    public Optional<Order> find(String id) {
+        return repository.byId(id);
+    }
+}

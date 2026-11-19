@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Orders</title>
+</head>
+<body>
+  <h1>Orders</h1>
+  <p>No orders yet.</p>
+</body>
+</html>

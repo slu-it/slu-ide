@@ -1,0 +1,5 @@
+// Formats a price for the invoice.
+function formatPrice(cents: number, currency: string): string {
+  const value = (cents / 100).toFixed(2);
+  return `${value} ${currency}`;
+}

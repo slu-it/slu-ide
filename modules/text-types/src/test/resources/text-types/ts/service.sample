@@ -1,0 +1,16 @@
+import { HttpClient } from './http';
+
+export interface Order {
+  id: string;
+  total: number;
+  open: boolean;
+}
+
+export class OrderService {
+  constructor(private readonly http: HttpClient) {}
+
+  async open(): Promise<Order[]> {
+    const orders = await this.http.get<Order[]>('/api/orders');
+    return orders.filter((order) => order.open);
+  }
+}

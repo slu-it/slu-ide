@@ -1,0 +1,3 @@
+#!/usr/bin/env node
+// Prints the arguments, one per line.
+process.argv.slice(2).forEach(a => process.stdout.write(a + '\n'))

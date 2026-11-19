@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Builds the app and copies the jar.
+set -euo pipefail
+
+./gradlew :ide:bootJar -q
+cp ide/build/libs/*.jar "$HOME/bin/"

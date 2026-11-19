@@ -1,0 +1,13 @@
+import sys
+from pathlib import Path
+
+
+def count_lines(path):
+    """Counts the lines of a file."""
+    with open(path) as f:
+        return sum(1 for _ in f)
+
+
+if __name__ == "__main__":
+    for name in sys.argv[1:]:
+        print(name, count_lines(Path(name)))

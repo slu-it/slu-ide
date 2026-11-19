@@ -1,0 +1,7 @@
+class Order:
+    def __init__(self, id, total):
+        self.id = id
+        self.total = total
+
+    def is_free(self):
+        return self.total == 0
