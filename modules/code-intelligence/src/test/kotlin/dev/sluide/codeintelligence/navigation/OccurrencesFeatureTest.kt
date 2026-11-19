@@ -14,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -143,9 +144,11 @@ class OccurrencesFeatureTest {
         bind()
         val asked = CountDownLatch(1)
         val answer = CountDownLatch(1)
+        // Checked on the test thread: in the server's thread a timeout would only become an error response.
+        val released = AtomicBoolean(false)
         harness.server.highlightAnswer = {
             asked.countDown()
-            assertTrue(answer.await(5, TimeUnit.SECONDS))
+            released.set(answer.await(5, TimeUnit.SECONDS))
             listOf(highlight(DocumentHighlightKind.Read, 0, 0, 3))
         }
         caretTo(1)
@@ -153,10 +156,8 @@ class OccurrencesFeatureTest {
         assertTrue(asked.await(5, TimeUnit.SECONDS))
         caretTo(14)
         answer.countDown()
-        harness.server.client
-            .refreshDiagnostics()
-            .get()
-        harness.onFx {}
+        harness.serverIdle()
+        assertTrue(released.get(), "the server's answer was released")
         assertNull(layer, "the answer for the word left is not shown")
     }
 

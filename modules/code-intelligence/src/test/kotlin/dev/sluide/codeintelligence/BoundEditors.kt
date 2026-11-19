@@ -9,8 +9,6 @@ import dev.sluide.languageservers.FakeLanguageServers
 import dev.sluide.languageservers.FakeServer
 import dev.sluide.languageservers.ServerState
 import javafx.collections.FXCollections
-import org.eclipse.lsp4j.HoverParams
-import org.eclipse.lsp4j.Position
 import java.nio.file.Path
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -123,14 +121,8 @@ internal class BoundEditorHarness<S : FakeServer>(
      */
     fun serverIdle() {
         val answered = CountDownLatch(1)
-        onFx {
-            val params = HoverParams(binding.documentId, Position(0, 0))
-            binding.session.request(
-                { it.textDocumentService.hover(params) },
-                { answered.countDown() },
-                { answered.countDown() },
-            )
-        }
+        // A method lsp4j does not know: the fake answers null for it and logs nothing.
+        onFx { binding.session.requestJson("test/idle", null, { answered.countDown() }, { answered.countDown() }) }
         check(answered.await(5, TimeUnit.SECONDS)) { "the server did not answer" }
         onFx {}
     }

@@ -1,7 +1,7 @@
 package dev.sluide.codeintelligence.diagnostics
 
+import com.google.gson.JsonNull
 import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import com.google.gson.JsonPrimitive
 import dev.sluide.codeintelligence.BoundEditorHarness
 import dev.sluide.codeintelligence.ManualDelays
@@ -274,25 +274,29 @@ class DocumentDiagnosticsTest {
         bind("x\n") { pullServer() }
         val server = harness.server
         awaitTrue("pull after open") { server.pulls.size == 1 }
+        harness.onFx { harness.editor.edit(0, 0, "a") }
+        assertEquals(1, delays.scheduled, "the debounce of the change")
         server.pulls[0].second.complete(null)
-        server.client.refreshDiagnostics().get()
         harness.serverIdle()
-        harness.onFx {}
         assertEquals(0, shownCount.get())
-        assertEquals(0, delays.scheduled, "nothing to ask again")
+        assertEquals(1, delays.scheduled, "an answer of null is not a text that changed: nothing is asked again")
         assertEquals(emptyList(), harness.onFx { diagnostics.all })
     }
 
     @Test
-    fun `a pull the server cannot answer because it is not running is not asked again`() {
+    fun `a stopped server that still answers its pull shows nothing`() {
         bind("x\n") { pullServer() }
-        val server = harness.server
-        awaitTrue("pull after open") { server.pulls.size == 1 }
+        val first = harness.server
+        awaitTrue("pull after open") { first.pulls.size == 1 }
+        // The old server stays up while it is shut down off the FX thread: its connection can still answer.
+        first.answerShutdown = false
         harness.onFx { harness.binding.session.restart() }
-        awaitTrue("stopped") { harness.onFx { harness.binding.session.state.value } != ServerState.Running }
-        harness.onFx { diagnostics.pull() }
+        awaitTrue("the stop was shown") { shownCount.get() == 1 }
+        first.pulls[0].second.complete(full("r1", error("x undefined", 0, 0, 1)))
+        first.client.refreshDiagnostics().get()
         harness.onFx {}
-        assertEquals(0, delays.scheduled)
+        assertNull(underlines, "the stopped server's diagnostics are not shown")
+        assertEquals(1, shownCount.get())
     }
 
     @Test
@@ -505,13 +509,17 @@ class DocumentDiagnosticsTest {
     }
 
     @Test
-    fun `a push without diagnostics in its JSON clears the pushed ones`() {
-        bind("x = y\n") { LspTestServer() }
+    fun `a push whose diagnostics are null clears the pushed ones`() {
+        bind("x = y\n") { LspTestServer().also { it.serializeNulls = true } }
         val server = harness.server
         server.client.publishDiagnostics(PublishDiagnosticsParams(uri, listOf(error("pushed", 0, 0, 1))))
         awaitTrue("shown") { underlines?.size == 1 }
-        // lsp4j leaves an explicit null in the list's place; the fake's client proxy would write no field at all.
-        val raw = JsonParser.parseString("{\"uri\":\"$uri\",\"diagnostics\":null}")
+        // With serializeNulls the null reaches the client, which parses it to a null list (not the default empty one).
+        val raw =
+            JsonObject().apply {
+                addProperty("uri", uri)
+                add("diagnostics", JsonNull.INSTANCE)
+            }
         server.clientEndpoint.notify("textDocument/publishDiagnostics", raw)
         awaitTrue("cleared") { underlines == emptyList<StyledRange>() }
     }

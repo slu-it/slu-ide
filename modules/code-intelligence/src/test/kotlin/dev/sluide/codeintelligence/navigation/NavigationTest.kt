@@ -34,6 +34,9 @@ class NavigationTest {
     @AfterEach
     fun close() = harnesses.forEach { it.close() }
 
+    /** The FX thread of the first editor stands for the window's. */
+    private fun <T> fx(action: () -> T): T = harnesses.first().onFx(action)
+
     private class OpenHost(
         private val accepts: Boolean = true,
     ) : FileViewHost {
@@ -81,23 +84,27 @@ class NavigationTest {
         val navigation = navigation(listOf(one.binding))
         val first = noActions()
         val second = noActions()
-        val firstHandle = navigation.register(one.binding, first)
-        assertSame(first, navigation.actionsOf(one.binding))
-        val secondHandle = navigation.register(one.binding, second)
+        val firstHandle = fx { navigation.register(one.binding, first) }
+        assertSame(first, fx { navigation.actionsOf(one.binding) })
+        val secondHandle = fx { navigation.register(one.binding, second) }
         firstHandle.close()
-        assertSame(second, navigation.actionsOf(one.binding), "the replaced registration's handle leaves the new one")
+        assertSame(
+            second,
+            fx { navigation.actionsOf(one.binding) },
+            "the replaced registration's handle leaves the new one",
+        )
         secondHandle.close()
-        assertNull(navigation.actionsOf(one.binding))
+        assertNull(fx { navigation.actionsOf(one.binding) })
 
         val structure = {}
         val replacement = {}
-        val structureHandle = navigation.registerStructure(one.binding, structure)
-        assertSame(structure, navigation.structureOf(one.binding))
-        val replacementHandle = navigation.registerStructure(one.binding, replacement)
+        val structureHandle = fx { navigation.registerStructure(one.binding, structure) }
+        assertSame(structure, fx { navigation.structureOf(one.binding) })
+        val replacementHandle = fx { navigation.registerStructure(one.binding, replacement) }
         structureHandle.close()
-        assertSame(replacement, navigation.structureOf(one.binding))
+        assertSame(replacement, fx { navigation.structureOf(one.binding) })
         replacementHandle.close()
-        assertNull(navigation.structureOf(one.binding))
+        assertNull(fx { navigation.structureOf(one.binding) })
     }
 
     @Test
@@ -108,9 +115,9 @@ class NavigationTest {
         val navigation = navigation(listOf(closed.binding, unfocused.binding, focused.binding))
         navigation.isFocused = { it === closed.binding || it === focused.binding }
         closed.onFx { closed.binding.close() }
-        assertSame(focused.binding, navigation.focused())
+        assertSame(focused.binding, fx { navigation.focused() })
         navigation.isFocused = { false }
-        assertNull(navigation.focused())
+        assertNull(fx { navigation.focused() })
     }
 
     @Test
@@ -119,8 +126,8 @@ class NavigationTest {
         val refusing = bound("refusing", OpenHost(accepts = false))
         val navigation = navigation(listOf(accepting.binding, refusing.binding))
         val elsewhere = folder.resolve("elsewhere.py")
-        assertTrue(navigation.jump(accepting.binding, SourcePosition(elsewhere, 1, 2)))
-        assertFalse(navigation.jump(refusing.binding, SourcePosition(elsewhere, 1, 2)))
+        assertTrue(fx { navigation.jump(accepting.binding, SourcePosition(elsewhere, 1, 2)) })
+        assertFalse(fx { navigation.jump(refusing.binding, SourcePosition(elsewhere, 1, 2)) })
         val origin = SourcePosition(accepting.binding.file, 0, 0)
         assertEquals(listOf(origin, SourcePosition(refusing.binding.file, 0, 0)), navigation.history.places.first)
     }
@@ -131,7 +138,7 @@ class NavigationTest {
         val one = bound("one", host)
         val navigation = navigation(listOf(one.binding))
         val target = SourcePosition(one.binding.file, 2, 1)
-        assertTrue(navigation.jump(one.binding, target))
+        assertTrue(fx { navigation.jump(one.binding, target) })
         assertEquals(9, one.editor.caret)
         assertEquals(emptyList(), host.opened)
     }
@@ -144,11 +151,14 @@ class NavigationTest {
         val own = SourcePosition(one.binding.file, 2, 1)
 
         navigation.isFocused = { false }
-        assertTrue(navigation.jump(one.binding, own), "an editor without the focus")
+        assertTrue(fx { navigation.jump(one.binding, own) }, "an editor without the focus")
         navigation.isFocused = { true }
-        assertTrue(navigation.jump(one.binding, SourcePosition(folder.resolve("other.py"), 0, 0)), "another file")
+        assertTrue(
+            fx { navigation.jump(one.binding, SourcePosition(folder.resolve("other.py"), 0, 0)) },
+            "another file",
+        )
         one.onFx { one.binding.close() }
-        assertTrue(navigation.jump(one.binding, own), "a closed editor")
+        assertTrue(fx { navigation.jump(one.binding, own) }, "a closed editor")
         assertEquals(0, one.editor.caret, "the editor's caret was not moved")
         assertEquals(listOf(own, SourcePosition(folder.resolve("other.py"), 0, 0), own), host.opened)
     }
@@ -163,16 +173,16 @@ class NavigationTest {
         val target = SourcePosition(folder.resolve("t.py"), 3, 4)
 
         val navigation = navigation(listOf(first.binding, second.binding), fallbackHost)
-        assertTrue(navigation.open(second.binding, target))
+        assertTrue(fx { navigation.open(second.binding, target) })
         assertEquals(listOf(target), secondHost.opened, "from an editor: its own host")
-        assertTrue(navigation.open(null, target))
+        assertTrue(fx { navigation.open(null, target) })
         assertEquals(listOf(target), firstHost.opened, "without one: the first editor's host")
         assertEquals(emptyList(), fallbackHost.opened)
 
         val withoutEditors = navigation(emptyList(), fallbackHost)
-        assertTrue(withoutEditors.open(null, target))
+        assertTrue(fx { withoutEditors.open(null, target) })
         assertEquals(listOf(target), fallbackHost.opened)
-        assertFalse(navigation(emptyList()).open(null, target), "nowhere to show it")
+        assertFalse(fx { navigation(emptyList()).open(null, target) }, "nowhere to show it")
     }
 
     @Test
@@ -182,7 +192,7 @@ class NavigationTest {
         val navigation = navigation(listOf(one.binding))
         one.onFx { one.binding.close() }
         val target = SourcePosition(folder.resolve("t.py"), 0, 0)
-        assertTrue(navigation.open(one.binding, target))
+        assertTrue(fx { navigation.open(one.binding, target) })
         assertEquals(listOf(target), host.opened)
         assertEquals(emptyList(), navigation.history.places.first)
     }
@@ -191,19 +201,19 @@ class NavigationTest {
     fun `back and forward say whether there was a place, and a step records the caret as it is now`() {
         val one = bound("one", OpenHost())
         val navigation = navigation(listOf(one.binding))
-        assertFalse(navigation.back())
-        assertFalse(navigation.forward())
+        assertFalse(fx { navigation.back() })
+        assertFalse(fx { navigation.forward() })
 
         val file = one.binding.file
-        assertTrue(navigation.jump(one.binding, SourcePosition(file, 2, 1)))
+        assertTrue(fx { navigation.jump(one.binding, SourcePosition(file, 2, 1)) })
         // The user moved on from where the jump arrived before going back.
-        one.editor.moveCaret(5)
-        assertTrue(navigation.back())
+        fx { one.editor.moveCaret(5) }
+        assertTrue(fx { navigation.back() })
         assertEquals(0, one.editor.caret)
         assertEquals(listOf(SourcePosition(file, 1, 1)), navigation.history.places.second)
-        assertTrue(navigation.forward())
+        assertTrue(fx { navigation.forward() })
         assertEquals(5, one.editor.caret)
-        assertFalse(navigation.forward())
+        assertFalse(fx { navigation.forward() })
     }
 
     @ParameterizedTest(name = "{0} -> {2}")

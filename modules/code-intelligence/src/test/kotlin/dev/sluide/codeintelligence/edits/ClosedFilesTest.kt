@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.IOException
 import java.io.RandomAccessFile
+import java.net.URI
+import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
@@ -241,6 +243,20 @@ class ClosedFilesTest {
         val target = project.resolve("dir").createDirectories()
         assertFailsWith<IOException> { writeAtomically(target, "x".toByteArray()) }
         assertEquals(listOf("dir"), project.listDirectoryEntries().map { it.name })
+    }
+
+    @Test
+    fun `a file system without POSIX permissions is not asked for them, and its failure is an IOException`() {
+        val zip = root.resolve("fs.zip")
+        val options = mapOf("create" to "true", "enablePosixFileAttributes" to "false")
+        FileSystems.newFileSystem(URI.create("jar:" + zip.toUri()), options).use { fs ->
+            val existing = fs.getPath("/a.py").also { it.writeText("old") }
+            // The zip provider refuses to move over an existing file: an IOException the caller turns into a refusal.
+            // Asking this file store for POSIX permissions would instead throw an UnsupportedOperationException.
+            assertFailsWith<IOException> { writeAtomically(existing, "new".toByteArray()) }
+            assertEquals(listOf("a.py"), fs.getPath("/").listDirectoryEntries().map { it.name })
+            assertEquals("old", Files.readString(existing))
+        }
     }
 
     @Test
