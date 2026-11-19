@@ -287,4 +287,96 @@ class EnvironmentsTest {
         assertNull(dev.ssl)
         assertEquals(1, dev.problems.size)
     }
+
+    @Test
+    fun `reports a broken file with its name and the parser's message, whichever file it is`() {
+        val broken = load(public = """{"dev": {}}""", private = """{"dev": {"host": """)
+
+        assertEquals(listOf("dev"), broken.names)
+        assertEquals(1, broken.problems.size)
+        assertTrue(
+            broken.problems.single().startsWith("${EnvironmentFiles.PRIVATE}: Unexpected end-of-input"),
+            broken.problems.toString(),
+        )
+    }
+
+    @Test
+    fun `reports a file that cannot be read with its name and the reason`() {
+        val folder = root.resolve("folder").also { it.toFile().mkdir() }
+        val environments = Environments.load(EnvironmentFiles(null, folder))
+
+        assertEquals(emptyList(), environments.names)
+        assertEquals(1, environments.problems.size)
+        assertTrue(environments.problems.single().startsWith("folder: "), environments.problems.toString())
+        assertTrue(environments.problems.single().length > "folder: ".length, environments.problems.toString())
+    }
+
+    @Test
+    fun `the private values of an environment are those of the private file alone`() {
+        root.resolve(EnvironmentFiles.PUBLIC).writeText("""{"dev": {"host": "a"}}""")
+        root.resolve(EnvironmentFiles.PRIVATE).writeText("""{"dev": {"token": "t"}, "other": 5, "[]": []}""")
+        val files = EnvironmentFiles(root.resolve(EnvironmentFiles.PUBLIC), root.resolve(EnvironmentFiles.PRIVATE))
+
+        assertEquals("""{"token":"t"}""", Environments.privateValues(files, "dev").toString())
+        assertNull(Environments.privateValues(files, "missing"))
+        assertNull(Environments.privateValues(files, "other"))
+        assertNull(Environments.privateValues(files, "[]"))
+        assertNull(Environments.privateValues(EnvironmentFiles(files.public, null), "dev"))
+        root.resolve(EnvironmentFiles.PRIVATE).writeText("[1]")
+        assertNull(Environments.privateValues(files, "dev"))
+    }
+
+    @Test
+    fun `a Security without Auth gives no auth configurations and no problem`() {
+        val dev = load(public = """{"dev": {"Security": {"Other": 1}, "host": "a"}}""")["dev"]
+
+        assertNotNull(dev)
+        assertTrue(dev.auth.isEmpty())
+        assertTrue(dev.problems.isEmpty())
+        assertEquals("""{"host":"a"}""", dev.values.toString())
+    }
+
+    @Test
+    fun `a value of the private file replaces a value of the other type and the other way round`() {
+        val dev =
+            load(
+                public = """{"dev": {"a": 1, "b": {"x": 1}, "c": {"x": 1}}}""",
+                private = """{"dev": {"a": {"y": 2}, "b": 5, "c": {"y": 2}, "d": {"z": 3}}}""",
+            )["dev"]
+
+        assertNotNull(dev)
+        assertEquals("""{"a":{"y":2},"b":5,"c":{"x":1,"y":2},"d":{"z":3}}""", dev.values.toString())
+    }
+
+    @Test
+    fun `an SSL configuration of a wrong type does not hide the other settings and keeps the secure defaults`() {
+        val ssl =
+            load(
+                private =
+                    """{"dev": {"SSLConfiguration": {"hasCertificatePassphrase": "yes", "verifyHostCertificate": "no"}}}""",
+            )["dev"]?.ssl
+
+        assertEquals(SslConfig(null, null, hasCertificatePassphrase = false, verifyHostCertificate = true), ssl)
+    }
+
+    @Test
+    fun `a certificate that is null or given with a known format needs no path and gives no problem`() {
+        val dev =
+            load(
+                private =
+                    """
+                    {"dev": {"SSLConfiguration": {
+                        "clientCertificate": null,
+                        "clientCertificateKey": {"path": "k.der", "format": "DER"}
+                    }}}
+                    """.trimIndent(),
+            )["dev"]
+
+        assertNotNull(dev)
+        assertEquals(emptyList(), dev.problems)
+        assertEquals(
+            SslConfig(null, CertificateFile(root.resolve("k.der"), CertificateFormat.DER), false, true),
+            dev.ssl,
+        )
+    }
 }

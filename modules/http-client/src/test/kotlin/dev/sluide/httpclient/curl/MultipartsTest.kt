@@ -87,6 +87,14 @@ internal class MultipartsTest {
     }
 
     @Test
+    fun `without a boundary no body is read, not even one with delimiters named after the missing value`() {
+        val body = text(*field("a", "1").toTypedArray().also { it[0] = "--null" }, "--null--")
+
+        assertNull(parts(body, headers = listOf(CONTENT_TYPE to "multipart/form-data")))
+        assertNull(parts(body, headers = emptyList()))
+    }
+
+    @Test
     fun `takes CRLF line ends and keeps the line breaks inside a value as line feeds`() {
         val body =
             BodyPart.Text(
@@ -231,6 +239,18 @@ internal class MultipartsTest {
                 Arguments.of("no closing delimiter", lines(*one.toTypedArray())),
                 Arguments.of("no closing delimiter after a part", lines(*one.toTypedArray(), "--b")),
                 Arguments.of("a delimiter that is longer", lines(*one.toTypedArray(), "--bb--")),
+                Arguments.of(
+                    "a part that starts with its header instead of a delimiter",
+                    lines(NAME, "", "v", "--b--"),
+                ),
+                Arguments.of(
+                    "a file where the headers end",
+                    listOf(BodyPart.Text("--b"), BodyPart.FileRef("f", 1), BodyPart.Text("\nv\n--b--")),
+                ),
+                Arguments.of(
+                    "a file between the headers",
+                    listOf(BodyPart.Text("--b\n$NAME"), BodyPart.FileRef("f", 1), BodyPart.Text("\nv\n--b--")),
+                ),
                 Arguments.of("a part without the blank line", lines("--b", NAME, "--b--")),
                 Arguments.of("a part with no line at all", lines("--b", "--b--")),
                 Arguments.of("a header that is none", lines("--b", NAME, "no colon", "", "v", "--b--")),
