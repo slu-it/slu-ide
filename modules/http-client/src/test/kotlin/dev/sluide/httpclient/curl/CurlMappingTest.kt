@@ -388,6 +388,22 @@ class CurlMappingTest {
                 Arguments.of("wget x", "Expected a curl command, not wget", 0),
                 Arguments.of("curl x -d 'a", "Unclosed ' quote", 10),
                 Arguments.of("curl x -d a -F b=1", "-F cannot be combined with -d or --json", 12),
+                Arguments.of("curl x\n\nwget y", "Expected a curl command, not wget", 8),
+                Arguments.of("curl x\n\ncurl -s", "The command has no URL", 8),
+                Arguments.of("curl x -msoon", "--max-time needs a number of seconds", 7),
+                Arguments.of("curl x -m -1", "--max-time needs a number of seconds", 10),
+                Arguments.of("curl x -u ''", "-u needs user:password", 10),
+                Arguments.of("curl x -F noequals", "-F needs name=content", 7),
+                Arguments.of("curl x -F =x", "-F needs name=content", 7),
+                Arguments.of("curl x -F a=b -d c", "-F cannot be combined with -d or --json", 14),
+                Arguments.of("curl x -F a=b --json c", "-F cannot be combined with -d or --json", 14),
+                // curl 8.14.1: "error encountered when reading a file", exit 26, nothing is sent.
+                Arguments.of("curl x -d @", "--data needs a file name after @", 7),
+                Arguments.of("curl x --data-binary @", "--data-binary needs a file name after @", 7),
+                Arguments.of("curl x --data-ascii @", "--data-ascii needs a file name after @", 7),
+                Arguments.of("curl x --json @", "--json needs a file name after @", 7),
+                Arguments.of("curl x --data-urlencode @", "--data-urlencode needs a file name after @", 7),
+                Arguments.of("curl x --data-urlencode n@", "--data-urlencode needs a file name after @", 7),
             )
 
         @JvmStatic
