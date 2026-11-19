@@ -13,6 +13,10 @@ internal class FakeTargetView : TargetView {
     var placeholder: String? = null
     var note = false
 
+    /** How often a showing list or note was hidden. */
+    var hides = 0
+        private set
+
     /** What [preview] was asked for, in order. */
     val previewed = mutableListOf<SourcePosition?>()
 
@@ -42,6 +46,7 @@ internal class FakeTargetView : TargetView {
 
     override fun hide() {
         if (!isShowing) return
+        hides++
         isShowing = false
         onHidden()
     }

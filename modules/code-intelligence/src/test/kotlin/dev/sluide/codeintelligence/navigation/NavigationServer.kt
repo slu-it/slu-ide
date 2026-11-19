@@ -30,7 +30,7 @@ internal class NavigationServer(
     var definitionAnswer: (DefinitionParams) -> List<Location> = { emptyList() }
 
     @Volatile
-    var referencesAnswer: (ReferenceParams) -> List<Location> = { emptyList() }
+    var referencesAnswer: (ReferenceParams) -> List<Location?>? = { emptyList() }
 
     @Volatile
     var highlightAnswer: (DocumentHighlightParams) -> List<DocumentHighlight>? = { emptyList() }
@@ -79,7 +79,9 @@ internal class NavigationServer(
     override fun references(params: ReferenceParams): CompletableFuture<List<Location>> {
         referenceRequests += params
         if (holdReferences) return CompletableFuture<List<Location>>().also { pendingReferences += it }
-        return CompletableFuture.completedFuture(referencesAnswer(params))
+        // A server may answer null, or null entries (LSP 3.17: `Location[] | null`).
+        @Suppress("UNCHECKED_CAST")
+        return CompletableFuture.completedFuture(referencesAnswer(params)) as CompletableFuture<List<Location>>
     }
 
     override fun documentHighlight(params: DocumentHighlightParams): CompletableFuture<List<DocumentHighlight>> {
