@@ -100,7 +100,10 @@ Content-Type: image/png
   memory for the window, refreshed shortly before they expire. The Auth menu acquires or clears the token of each
   configuration of the chosen environment, or clears all; the result shows next to the toolbar buttons.
 - Client certificates (`SSLConfiguration`, private file only): PEM, PKCS#12 or DER; a passphrase is asked for once per
-  window. `"verifyHostCertificate": false` trusts any server certificate for that environment.
+  window. Keys: RSA, EC, Ed25519, Ed448 and DSA as PKCS#8 (PEM `BEGIN PRIVATE KEY` or DER), also in the encrypted
+  PKCS#8 form (`BEGIN ENCRYPTED PRIVATE KEY`), RSA as PKCS#1 (`BEGIN RSA PRIVATE KEY`, not encrypted), and any of them
+  in a PKCS#12 file; an EC key in SEC1 form (`BEGIN EC PRIVATE KEY`) must be converted with `openssl pkcs8 -topk8`.
+  Passphrases are zeroed in memory once the keys are loaded. `"verifyHostCertificate": false` trusts any server certificate for that environment.
 - **Save passphrase** in the passphrase dialog (off by default) saves the passphrase encrypted, so it is not asked for
   again after the window closes or the app restarts ([secrets.md](secrets.md)). It is stored in
   `~/.sluide/shared.json` for the pair of certificate and key files, and only once a request worked with it; if saving
