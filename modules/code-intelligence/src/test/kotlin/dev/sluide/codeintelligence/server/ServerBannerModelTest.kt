@@ -134,6 +134,47 @@ class ServerBannerModelTest {
     }
 
     @Test
+    fun `the banner texts without a tool name say the language server, a failure's period is not doubled`() {
+        assertEquals("Installing the language server… 5 %", noticeText(ServerNotice.Installing(null, 0.05)))
+        assertEquals(
+            "The Rust language server could not be installed: offline",
+            noticeText(ServerNotice.InstallFailed("Rust", null, "offline")),
+        )
+        assertEquals(
+            "Disabled in the settings. Change it in Settings → Languages → Rust.",
+            noticeText(ServerNotice.InstallFailed("Rust", "rust-analyzer", "Disabled in the settings.", false)),
+        )
+    }
+
+    @Test
+    fun `the notice follows the installer as it goes from missing to installing to ready, until the model is closed`() {
+        val installer = FakeInstaller()
+        val spec = PySpec(installer)
+        val servers = FxServers(folder, spec).also { fx = it }
+        val model = model(servers, spec, FXCollections.observableSet(), prompts())
+        assertEquals(ServerNotice.Missing("Python", "ty", 14_200_000), servers.onFx { model.notice.value })
+
+        servers.onFx { installer.availability.set(ServerAvailability.Installing(0.3)) }
+        assertEquals(ServerNotice.Installing("ty", 0.3), servers.onFx { model.notice.value })
+        servers.onFx { installer.availability.set(ServerAvailability.Ready) }
+        assertNull(servers.onFx { model.notice.value })
+
+        servers.onFx { model.close() }
+        servers.onFx { installer.availability.set(ServerAvailability.Failed("offline")) }
+        assertNull(servers.onFx { model.notice.value }, "a closed model does not follow")
+    }
+
+    @Test
+    fun `a server without an installer has nothing to install or cancel`() {
+        val spec = PySpec()
+        val servers = FxServers(folder, spec).also { fx = it }
+        val model = model(servers, spec, FXCollections.observableSet(), prompts())
+        servers.onFx { model.install() }
+        servers.onFx { model.cancel() }
+        assertNull(servers.onFx { model.notice.value })
+    }
+
+    @Test
     fun `no notice while the document is not served, also not while its gate is unanswered, and back once served`() {
         val spec = PySpec(FakeInstaller())
         val servers = FxServers(folder, spec).also { fx = it }
