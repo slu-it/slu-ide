@@ -314,6 +314,7 @@ class SpringWiringTest {
                         EncryptedFileViewer::class.java,
                         EncryptedFilesSettings::class.java,
                         EncryptedFilesSettingsPage::class.java,
+                        ClipboardTextTypes::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")

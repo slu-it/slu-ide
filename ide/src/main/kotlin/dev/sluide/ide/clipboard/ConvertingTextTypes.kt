@@ -9,7 +9,7 @@ import dev.sluide.texttypes.TypeScore
 /**
  * Converting's data-format detection as a [TextTypeSource] (ADR 0187): the scores of the [families] mapped to the text
  * types of their formats' first extensions (unknown ones dropped), held to the [DataTextGuards] by the format's id, the
- * score taken as it is. A family that throws counts as no match.
+ * score taken as it is. A family that throws, also an [Error], counts as no match.
  */
 class ConvertingTextTypes(
     private val families: List<FormatFamily<*>>,
@@ -23,7 +23,9 @@ class ConvertingTextTypes(
     ): List<FormatMatch> =
         try {
             family.detect(text)
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
+            // Like Converting itself (ConvertingModel): a family's bug, even a StackOverflowError on deeply nested text,
+            // must not end the paste silently on its background thread.
             emptyList()
         }
 

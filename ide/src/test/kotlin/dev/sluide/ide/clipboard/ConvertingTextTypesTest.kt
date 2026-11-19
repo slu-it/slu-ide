@@ -29,7 +29,7 @@ class ConvertingTextTypesTest {
     /** A family that answers [detect] with [scores] (format, score); the rest is never asked. */
     private class FakeFamily(
         private val scores: List<Pair<Format, Int>>,
-        private val failure: RuntimeException? = null,
+        private val failure: Throwable? = null,
     ) : FormatFamily<String> {
         override val name = "Fake"
         override val formats: List<TextFormat> = scores.map { it.first }
@@ -107,6 +107,14 @@ class ConvertingTextTypesTest {
     @Test
     fun `a family that throws counts as nothing and the others still score`() {
         val failing = FakeFamily(listOf(yaml to 80), RuntimeException("boom"))
+        val working = FakeFamily(listOf(json to 90))
+
+        assertEquals(listOf(TypeScore(type("json"), 90)), ConvertingTextTypes(listOf(failing, working)).scores("{}"))
+    }
+
+    @Test
+    fun `a family that fails with an error such as a parser's stack overflow on deep nesting counts as nothing too`() {
+        val failing = FakeFamily(listOf(toml to 80), StackOverflowError())
         val working = FakeFamily(listOf(json to 90))
 
         assertEquals(listOf(TypeScore(type("json"), 90)), ConvertingTextTypes(listOf(failing, working)).scores("{}"))
