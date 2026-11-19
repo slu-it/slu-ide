@@ -2,12 +2,16 @@ package dev.sluide.codeintelligence.navigation
 
 import dev.sluide.codeintelligence.BoundEditorHarness
 import dev.sluide.codeintelligence.NavigationHistory
+import dev.sluide.codeintelligence.PySpec
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.codeintelligence.binding.SourcePosition
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.languageservers.LanguageServerNotRunningException
+import dev.sluide.languageservers.LibraryDocument
 import dev.sluide.languageservers.RequestSlot
+import org.eclipse.lsp4j.Location
 import org.eclipse.lsp4j.Position
+import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError
@@ -19,6 +23,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.net.URI
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -82,8 +87,8 @@ class DefinitionsTest {
         if (::harness.isInitialized) harness.close()
     }
 
-    private fun start() {
-        harness = BoundEditorHarness(folder, text, { NavigationServer() }, host = host)
+    private fun start(spec: PySpec = PySpec()) {
+        harness = BoundEditorHarness(folder, text, { NavigationServer() }, host = host, spec = spec)
         harness.onFx {
             val navigation =
                 Navigation(NavigationHistory(exists = { true }), { listOf(harness.binding) }, { null })
@@ -174,20 +179,71 @@ class DefinitionsTest {
     }
 
     @Test
-    fun `an answer or a failure that arrives after the editor closed shows nothing and goes nowhere`() {
+    fun `a failure that arrives after the editor closed shows no note`() {
         start()
         harness.server.holdDefinitions = true
         goTo(16)
-        goTo(16)
-        awaitTrue("asked twice") { harness.server.pendingDefinitions.size == 2 }
+        awaitTrue("asked") { harness.server.pendingDefinitions.size == 1 }
         harness.onFx { harness.binding.close() }
         val error = ResponseError(ResponseErrorCode.InternalError, "boom", null)
-        harness.server.pendingDefinitions[0].completeExceptionally(ResponseErrorException(error))
-        harness.server.pendingDefinitions[1].complete(Either.forLeft(listOf(location(file, 0, 0))))
+        harness.server.pendingDefinitions
+            .single()
+            .completeExceptionally(ResponseErrorException(error))
+        idle()
+        assertFalse(harness.onFx { view.isShowing })
+    }
+
+    @Test
+    fun `an answer that arrives after the editor closed shows nothing and goes nowhere`() {
+        start()
+        harness.server.holdDefinitions = true
+        goTo(16)
+        awaitTrue("asked") { harness.server.pendingDefinitions.size == 1 }
+        harness.onFx { harness.binding.close() }
+        harness.server.pendingDefinitions
+            .single()
+            .complete(Either.forLeft(listOf(location(file, 2, 4))))
         idle()
         assertFalse(harness.onFx { view.isShowing })
         assertEquals(emptyList(), opened)
         assertEquals(0, harness.editor.caret)
+    }
+
+    @Test
+    fun `a library document that arrives after the editor closed opens nothing`() {
+        val cache = folder.resolve("cache/String.java")
+        val spec =
+            PySpec(library = { uri ->
+                if (uri.startsWith(
+                        "jdt:",
+                    )
+                ) {
+                    LibraryDocument("java/classFileContents", mapOf("uri" to uri), cache)
+                } else {
+                    null
+                }
+            })
+        start(spec)
+        harness.server.holdDefinitions = true
+        val fetch = CompletableFuture<Any>()
+        harness.server.customAnswer = { _, _ -> fetch }
+        goTo(16)
+        awaitTrue("asked") { harness.server.pendingDefinitions.size == 1 }
+        val library = Location("jdt://contents/java.base/String.class", Range(Position(3, 1), Position(3, 7)))
+        harness.server.pendingDefinitions
+            .single()
+            .complete(Either.forLeft(listOf(library)))
+        awaitTrue("the document is asked for") {
+            harness.server.customMessages.any {
+                it.first ==
+                    "java/classFileContents"
+            }
+        }
+        harness.onFx { harness.binding.close() }
+        fetch.complete("class String {}")
+        idle()
+        assertEquals(emptyList(), opened)
+        assertFalse(harness.onFx { view.isShowing })
     }
 
     @Test

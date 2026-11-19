@@ -33,7 +33,7 @@ internal class NavigationServer(
     var referencesAnswer: (ReferenceParams) -> List<Location> = { emptyList() }
 
     @Volatile
-    var highlightAnswer: (DocumentHighlightParams) -> List<DocumentHighlight> = { emptyList() }
+    var highlightAnswer: (DocumentHighlightParams) -> List<DocumentHighlight>? = { emptyList() }
 
     val definitionRequests = CopyOnWriteArrayList<DefinitionParams>()
     val referenceRequests = CopyOnWriteArrayList<ReferenceParams>()
@@ -84,7 +84,9 @@ internal class NavigationServer(
 
     override fun documentHighlight(params: DocumentHighlightParams): CompletableFuture<List<DocumentHighlight>> {
         highlightRequests += params
-        return CompletableFuture.completedFuture(highlightAnswer(params))
+        // A server may answer null (LSP 3.17: `DocumentHighlight[] | null`).
+        @Suppress("UNCHECKED_CAST")
+        return CompletableFuture.completedFuture(highlightAnswer(params)) as CompletableFuture<List<DocumentHighlight>>
     }
 }
 

@@ -9,7 +9,10 @@ import dev.sluide.languageservers.FakeLanguageServers
 import dev.sluide.languageservers.FakeServer
 import dev.sluide.languageservers.ServerState
 import javafx.collections.FXCollections
+import org.eclipse.lsp4j.HoverParams
+import org.eclipse.lsp4j.Position
 import java.nio.file.Path
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
@@ -86,9 +89,9 @@ internal class BoundEditorHarness<S : FakeServer>(
     features: (DocumentBinding) -> List<AutoCloseable> = { emptyList() },
     extra: List<BindingFeature> = emptyList(),
     host: FileViewHost = NoServicesHost,
+    val spec: PySpec = PySpec(),
 ) : AutoCloseable {
     private val fx = Executors.newSingleThreadExecutor { Thread(it, "test-fx").apply { isDaemon = true } }
-    val spec = PySpec()
     val fake = FakeLanguageServers(listOf(spec), folder, dispatch = fx::execute) { newServer() }
 
     /** The latest server started. */
@@ -113,6 +116,24 @@ internal class BoundEditorHarness<S : FakeServer>(
     }
 
     fun <T> onFx(action: () -> T): T = fx.submit(action).get(5, TimeUnit.SECONDS)
+
+    /**
+     * Waits until the server handled everything the client sent before: one more request, answered in order, and the
+     * FX thread after it. For checks that nothing was sent.
+     */
+    fun serverIdle() {
+        val answered = CountDownLatch(1)
+        onFx {
+            val params = HoverParams(binding.documentId, Position(0, 0))
+            binding.session.request(
+                { it.textDocumentService.hover(params) },
+                { answered.countDown() },
+                { answered.countDown() },
+            )
+        }
+        check(answered.await(5, TimeUnit.SECONDS)) { "the server did not answer" }
+        onFx {}
+    }
 
     /** Runs the delays scheduled so far on the FX thread. */
     fun run(delays: ManualDelays) = onFx { delays.takeAll().forEach { it() } }

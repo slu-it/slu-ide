@@ -111,7 +111,7 @@ class OccurrencesFeatureTest {
         bind(supported = emptySet())
         caretTo(1)
         harness.run(delays)
-        harness.onFx {}
+        harness.serverIdle()
         assertEquals(emptyList(), harness.server.highlightRequests)
         assertNull(layer)
     }
@@ -125,6 +125,15 @@ class OccurrencesFeatureTest {
         awaitTrue("shown") { layer?.size == 1 }
         harness.server.highlightAnswer = { error("the server failed") }
         harness.onFx { harness.editor.edit(0, 0, "x") }
+        harness.run(delays)
+        awaitTrue("cleared") { layer == emptyList<StyledRange>() }
+    }
+
+    @Test
+    fun `an answer of null is no occurrences`() {
+        bind()
+        harness.server.highlightAnswer = { null }
+        caretTo(1)
         harness.run(delays)
         awaitTrue("cleared") { layer == emptyList<StyledRange>() }
     }
