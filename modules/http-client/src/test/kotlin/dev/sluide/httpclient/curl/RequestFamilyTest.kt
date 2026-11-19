@@ -8,6 +8,7 @@ import dev.sluide.converting.ReadResult
 import dev.sluide.converting.TextFormat
 import dev.sluide.converting.WriteResult
 import dev.sluide.converting.convert
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.httpclient.ui.HttpSyntaxHighlighter
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -15,9 +16,12 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.context.annotation.AnnotationConfigApplicationContext
+import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 
 class RequestFamilyTest {
     private val family = RequestFamily()
@@ -48,6 +52,58 @@ class RequestFamilyTest {
     @Test
     fun `http requests are highlighted as in the editor of http files`() {
         assertIs<HttpSyntaxHighlighter>(HttpRequestFormat.highlighter)
+    }
+
+    @Test
+    fun `curl commands are highlighted as bash and the family converts no files`() {
+        assertEquals(Highlighters.forLanguage("bash"), CurlFormat.highlighter)
+        assertNotNull(CurlFormat.highlighter)
+        assertFalse(family.convertsFiles)
+    }
+
+    @Test
+    fun `blank text is no request for either reader, so the guards for it only save the work`() {
+        // The family answers blank text before it asks a reader; the readers agree with it.
+        assertEquals(ReadResult.Read(emptyList(), emptyList()), CurlReader.read(" \n"))
+        assertEquals(ReadResult.Read(emptyList(), emptyList()), HttpRequestReader.read(" \n"))
+        assertFalse(CurlTokenizer.looksLikeCurl(" \n"))
+        assertFalse(HttpRequestReader.detects(" \n"))
+    }
+
+    @Test
+    fun `a format of another family is refused by every operation, naming it`() {
+        val other =
+            object : TextFormat {
+                override val id = "json"
+                override val name = "JSON"
+                override val language = "json"
+                override val extensions = listOf("json")
+            }
+        val message = "json is not a format of the Requests family"
+
+        listOf<() -> Any>(
+            { family.read("{}", other, OptionValues()) },
+            { family.write(emptyList(), other, OptionValues()) },
+            { family.readOptions(other) },
+            { family.writeOptions(other) },
+        ).forEach { call -> assertEquals(message, assertFailsWith<IllegalArgumentException> { call() }.message) }
+    }
+
+    @Test
+    fun `an exception inside a reader or writer becomes a failure with its message, else its class`() {
+        assertEquals("boom", family.guarded({ it }) { throw IllegalStateException("boom") })
+        assertEquals("IllegalStateException", family.guarded({ it }) { throw IllegalStateException() })
+        assertEquals("ok", family.guarded({ "failed: $it" }) { "ok" })
+    }
+
+    @Test
+    fun `a duration that curl cannot write fails the conversion instead of throwing`() {
+        // The reader takes `@timeout 9223372036854775807 s`; Duration.toMillis overflows when writing it back.
+        val request = CurlRequest("https://x", timeout = Duration.ofSeconds(Long.MAX_VALUE))
+
+        family.formats.forEach { format ->
+            assertIs<WriteResult.Failed>(family.write(listOf(request), format, OptionValues()), format.id)
+        }
     }
 
     @ParameterizedTest

@@ -91,7 +91,7 @@ internal class RequestFamily : FormatFamily<List<CurlRequest>> {
         ) { "${format.id} is not a format of the $name family" }
 
     /** Families never throw: an unforeseen exception becomes [failed] with its message. */
-    private inline fun <R> guarded(
+    internal fun <R> guarded(
         failed: (String) -> R,
         call: () -> R,
     ): R =
