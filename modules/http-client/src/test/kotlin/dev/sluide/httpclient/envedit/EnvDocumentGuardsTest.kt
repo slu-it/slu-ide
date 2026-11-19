@@ -56,6 +56,14 @@ internal class EnvDocumentGuardsTest {
     }
 
     @Test
+    fun `renaming or removing an environment of files that cannot be read is refused as such`() {
+        val broken = EnvDocument("""{"dev": {}}""", "{")
+
+        assertFailsWith<IllegalStateException> { broken.renameEnvironment("dev", "x") }
+        assertFailsWith<IllegalStateException> { broken.removeEnvironment("dev") }
+    }
+
+    @Test
     fun `environments that are no objects are left out of edits of all environments`() {
         val document = EnvDocument("""{"dev": {"a": 1, "l": [1]}, "prod": [1]}""", """{"local": {"a": 2, "l": [2]}}""")
 
@@ -150,6 +158,9 @@ internal class EnvDocumentGuardsTest {
                 refusal("the type mixed", "Mixed is not a type of a value") {
                     it.setType(ValuePath.of("url"), ValueType.MIXED)
                 },
+                refusal("the type mixed of a row no environment has", "Mixed is not a type of a value") {
+                    it.setType(ValuePath.of("nope"), ValueType.MIXED)
+                },
                 refusal("the type of a certificate setting", "Certificate settings have fixed types") {
                     it.setType(certificate, ValueType.NUMBER)
                 },
@@ -158,6 +169,9 @@ internal class EnvDocumentGuardsTest {
                 },
                 refusal("a variable without a name", "A variable needs a name") {
                     it.addVariable(ValuePath.ROOT, "", ValueType.TEXT)
+                },
+                refusal("a variable of the type mixed where no object is", "Mixed is not a type of a value") {
+                    it.addVariable(ValuePath.of("nope"), "a", ValueType.MIXED)
                 },
                 refusal("a variable of the type mixed", "Mixed is not a type of a value") {
                     it.addVariable(ValuePath.ROOT, "a", ValueType.MIXED)
@@ -173,6 +187,9 @@ internal class EnvDocumentGuardsTest {
                 },
                 refusal("a field of every auth configuration", "\"Type\" is a field of every auth configuration") {
                     it.addVariable(ValuePath.of("Security", "Auth", "api"), "Type", ValueType.TEXT)
+                },
+                refusal("a field no auth configuration has yet", "\"Scope\" is a field of every auth configuration") {
+                    it.addVariable(ValuePath.of("Security", "Auth", "api"), "Scope", ValueType.TEXT)
                 },
                 refusal("a variable that exists", "\"db.user\" already exists") {
                     it.addVariable(ValuePath.of("db"), "user", ValueType.TEXT)
