@@ -8,6 +8,7 @@ import dev.sluide.git.parse.GitRevisionParser
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -236,6 +237,7 @@ internal fun GitCli.filteredBlob(
     name: String,
     path: String,
     maxSize: Long,
+    timeout: Duration = 10.seconds,
 ): FilteredBlob? {
     if (!available || '\n' in path) return null
     // The path is what follows the object name; the size git prints is the one before the filters.
@@ -244,7 +246,7 @@ internal fun GitCli.filteredBlob(
     // The header line, the content and a line break.
     val limit = maxSize + name.length + BLOB_HEADER_SLACK
     val execution =
-        execute(arguments, root, 10.seconds, input, write = false, maxOutput = limit) ?: return null
+        execute(arguments, root, timeout, input, write = false, maxOutput = limit) ?: return null
     if (execution.overflowed) return FilteredBlob.TooLarge
     if (execution.exitValue != 0 || !execution.complete) return null
     val output = execution.output
@@ -308,6 +310,7 @@ internal fun GitCli.diffFiles(
     algorithm: String?,
     ignoreWhitespace: Boolean = false,
     cancellation: GitCancellation? = null,
+    timeout: Duration = 10.seconds,
 ): String? {
     if (!available) return null
     val noAttributes = folder.resolve("attributes")
@@ -336,7 +339,7 @@ internal fun GitCli.diffFiles(
         ).toMap()
     // Without an index there is no fsmonitor to guard against, and the folder is a new one every time.
     val execution =
-        execute(arguments, folder, 10.seconds, null, false, outside, cancellation, guardFsmonitor = false)
+        execute(arguments, folder, timeout, null, false, outside, cancellation, guardFsmonitor = false)
             ?: return null
     if (!execution.complete || execution.cancelled) return null
     val output = execution.output.toString(Charsets.UTF_8)

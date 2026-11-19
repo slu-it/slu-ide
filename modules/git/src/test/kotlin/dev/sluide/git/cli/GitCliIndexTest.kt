@@ -5,6 +5,7 @@ import dev.sluide.git.GitCancellation
 import dev.sluide.git.failingGit
 import dev.sluide.git.testGitEnvironment
 import dev.sluide.git.unavailableGit
+import dev.sluide.git.vanishedGit
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -308,5 +309,69 @@ class GitCliIndexTest {
         assertNull(TestRepository(folder.resolve("empty")).let { git.indexMatchesHead(it.root) }, "no HEAD commit")
         assertNull(unavailable.indexMatchesHead(root))
         assertNull(failing("diff-index").indexMatchesHead(root))
+    }
+
+    @Test
+    fun `gitPaths are where git keeps its files, resolved against the root`() {
+        assertEquals(
+            listOf(root.resolve(".git/MERGE_HEAD"), root.resolve(".git/index")),
+            git.gitPaths(root, listOf("MERGE_HEAD", "index")),
+        )
+        assertNull(unavailable.gitPaths(root, listOf("index")))
+        assertNull(failing("rev-parse").gitPaths(root, listOf("index")))
+        assertNull(vanishedGit(folder).gitPaths(root, listOf("index")))
+    }
+
+    @Test
+    fun `gitPaths need one path per name, blank lines left out`() {
+        val names = listOf("one", "two")
+
+        fun paths(output: String) =
+            fakeGit("case \" \$* \" in *' rev-parse '*) printf '$output';; esac").gitPaths(root, names)
+
+        assertEquals(listOf(root.resolve("a"), root.resolve("b")), paths("a\\n\\nb\\n"))
+        assertNull(paths("a\\n"))
+        assertNull(paths("a\\nb\\nc\\n"))
+        assertNull(paths(""))
+    }
+
+    @Test
+    fun `gitPaths of a name the JVM cannot make a path of are unknown`() {
+        // A POSIX locale cannot name this path (InvalidPathException); a UTF-8 one can. The answer follows the JVM.
+        val named =
+            try {
+                listOf(root.resolve("k\u00f6ln"))
+            } catch (_: java.nio.file.InvalidPathException) {
+                null
+            }
+
+        val paths =
+            fakeGit(
+                "case \" \$* \" in *' rev-parse '*) printf 'k\\303\\266ln\\n';; esac",
+            ).gitPaths(root, listOf("x"))
+
+        assertEquals(named, paths)
+    }
+
+    @Test
+    fun `a git that vanishes or hangs gives no tree and no answer for the index`() {
+        val vanished = vanishedGit(folder)
+        assertNull(vanished.mergeTree(root, first, first, first))
+        assertNull(vanished.indexMatchesHead(root))
+
+        val slow = 300.milliseconds
+        val hangs = fakeGit("case \" \$* \" in *' merge-tree '*|*' diff-index '*) sleep 30;; esac")
+        assertNull(hangs.mergeTree(root, first, first, first, slow))
+        assertNull(hangs.indexMatchesHead(root, slow))
+    }
+
+    @Test
+    fun `indexMatchesHead takes exit values 0 and 1 for an answer`() {
+        fun matches(exit: Int) = fakeGit("case \" \$* \" in *' diff-index '*) exit $exit;; esac").indexMatchesHead(root)
+
+        assertEquals(true, matches(0))
+        assertEquals(false, matches(1))
+        assertNull(matches(2))
+        assertNull(matches(128))
     }
 }

@@ -4,6 +4,7 @@ import dev.sluide.git.GitBranchTip
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.parse.GitRefsParser
 import java.nio.file.Path
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -225,10 +226,13 @@ internal fun GitCli.commitMessage(
  * -q --verify` exits with 1). `false` if there is a commit; `null` if git is not available or fails in any other
  * way, or `HEAD` is detached without a commit.
  */
-internal fun GitCli.isHeadUnborn(root: Path): Boolean? {
+internal fun GitCli.isHeadUnborn(
+    root: Path,
+    timeout: Duration = 3.seconds,
+): Boolean? {
     if (!available) return null
     val arguments = listOf("--no-optional-locks", "rev-parse", "-q", "--verify", "HEAD^{commit}")
-    return when (execute(arguments, root, 3.seconds, null, write = false)?.exitValue) {
+    return when (execute(arguments, root, timeout, null, write = false)?.exitValue) {
         0 -> false
         1 -> if (currentBranch(root) != null) true else null
         else -> null
@@ -240,10 +244,13 @@ internal fun GitCli.isHeadUnborn(root: Path): Boolean? {
  * `null` if git is not available, fails or takes longer than 3 s (unlike [currentBranch], which gives `null` for
  * both).
  */
-internal fun GitCli.headBranch(root: Path): String? {
+internal fun GitCli.headBranch(
+    root: Path,
+    timeout: Duration = 3.seconds,
+): String? {
     if (!available) return null
     val execution =
-        execute(listOf("--no-optional-locks", "symbolic-ref", "-q", "HEAD"), root, 3.seconds, null, write = false)
+        execute(listOf("--no-optional-locks", "symbolic-ref", "-q", "HEAD"), root, timeout, null, write = false)
             ?: return null
     if (!execution.complete) return null
     return when (execution.exitValue) {
@@ -346,11 +353,12 @@ internal fun GitCli.isAncestor(
     root: Path,
     ancestor: String,
     descendant: String,
+    timeout: Duration = 10.seconds,
 ): Boolean? {
     if (!available) return null
     val arguments =
         listOf("--no-optional-locks", "merge-base", "--is-ancestor", "--end-of-options", ancestor, descendant)
-    return when (execute(arguments, root, 10.seconds, null, write = false)?.exitValue) {
+    return when (execute(arguments, root, timeout, null, write = false)?.exitValue) {
         0 -> true
         1 -> false
         else -> null

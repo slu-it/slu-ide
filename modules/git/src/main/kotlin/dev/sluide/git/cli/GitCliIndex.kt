@@ -11,6 +11,7 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -96,6 +97,7 @@ internal fun GitCli.mergeTree(
     base: String,
     ours: String,
     theirs: String,
+    timeout: Duration = 60.seconds,
 ): String? {
     if (!available || listOf(base, ours, theirs).any { it.startsWith('-') }) return null
     val arguments =
@@ -108,7 +110,7 @@ internal fun GitCli.mergeTree(
             ours,
             theirs,
         )
-    val execution = execute(arguments, root, 60.seconds, null, write = false) ?: return null
+    val execution = execute(arguments, root, timeout, null, write = false) ?: return null
     // 1: conflicts, with the tree all the same.
     if (execution.exitValue !in 0..1 || !execution.complete) return null
     return execution.output
@@ -276,10 +278,13 @@ internal fun GitCli.attributes(
  * Whether the index of the repository at [root] has the tree of `HEAD`: `git diff-index --cached --quiet HEAD`;
  * `null` if git is not available, fails (also without a `HEAD` commit) or takes longer than 10 s.
  */
-internal fun GitCli.indexMatchesHead(root: Path): Boolean? {
+internal fun GitCli.indexMatchesHead(
+    root: Path,
+    timeout: Duration = 10.seconds,
+): Boolean? {
     if (!available) return null
     val arguments = listOf("--no-optional-locks", "diff-index", "--cached", "--quiet", "HEAD", "--")
-    return when (execute(arguments, root, 10.seconds, null, write = false)?.exitValue) {
+    return when (execute(arguments, root, timeout, null, write = false)?.exitValue) {
         0 -> true
         1 -> false
         else -> null

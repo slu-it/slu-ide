@@ -281,4 +281,11 @@ class GitCliLogTest {
         assertNull(unavailable.comparisonCounts(root, "main", "side"))
         assertNull(failing("log").comparisonCounts(root, "main", "side"))
     }
+
+    @Test
+    fun `log takes revisions on the standard input up to the limit, with no separator counted`() {
+        // The revision and its line break: exactly GitCli.MAX_INPUT bytes; paths would add "--" and their own.
+        assertEquals("", log(GitLogFilter(revisions = listOf("r".repeat(GitCli.MAX_INPUT - 1)))))
+        assertNull(log(GitLogFilter(revisions = listOf("r".repeat(GitCli.MAX_INPUT)))))
+    }
 }

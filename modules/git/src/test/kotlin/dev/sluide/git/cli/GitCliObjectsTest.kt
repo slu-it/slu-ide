@@ -8,10 +8,13 @@ import dev.sluide.git.recordingGit
 import dev.sluide.git.testGitEnvironment
 import dev.sluide.git.unavailableGit
 import dev.sluide.git.vanishedGit
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.function.ThrowingSupplier
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.time.Duration.ofSeconds
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
@@ -449,5 +452,49 @@ class GitCliObjectsTest {
         assertNull(reply(0, hold = true))
         assertNull(reply(1, output = "@@ at the start\\n"), "a hunk is after a line break")
         assertEquals("", reply(0, output = ""))
+    }
+
+    @Test
+    fun `a git that hangs gives no blob and no diff, and a filter that never ends is stopped at the limit`() {
+        val slow = 300.milliseconds
+        val name = "b".repeat(40)
+        val cmp = folder.resolve("cmp").createDirectories()
+        cmp.resolve("o.txt").writeText("a\n")
+        cmp.resolve("c.txt").writeText("b\n")
+
+        assertNull(fakeGit("case \" \$* \" in *' cat-file '*) sleep 30;; esac").filteredBlob(root, name, "p", 10, slow))
+        assertNull(
+            fakeGit(
+                "case \" \$* \" in *' diff '*) sleep 30;; esac",
+            ).diffFiles(cmp, "o.txt", "c.txt", null, timeout = slow),
+        )
+
+        // A header and then output without end: the limit stops it, at once; without a limit it would run until the
+        // timeout, which gives no blob.
+        val endless = fakeGit("case \" \$* \" in *' cat-file '*) printf '$name blob 5\\n'; yes x;; esac")
+        val result =
+            assertTimeoutPreemptively(ofSeconds(20), ThrowingSupplier { endless.filteredBlob(root, name, "p", 10) })
+        assertEquals(FilteredBlob.TooLarge, result)
+    }
+
+    @Test
+    fun `diffFiles has the attributes of the user's configuration out, whatever file they are in`() {
+        val cmp = folder.resolve("cmp").createDirectories()
+        cmp.resolve("o.txt").writeText("\$Id: abc\$\n")
+        cmp.resolve("c.txt").writeText("\$Id: def\$\n")
+        val attributes = folder.resolve("global-attributes").apply { writeText("* ident\n") }
+        val configured =
+            GitCli(
+                "git",
+                testGitEnvironment() +
+                    mapOf(
+                        "GIT_CONFIG_COUNT" to "1",
+                        "GIT_CONFIG_KEY_0" to "core.attributesFile",
+                        "GIT_CONFIG_VALUE_0" to attributes.toString(),
+                    ),
+            )
+
+        // With `ident` read from the user's file, both texts would be "$Id$": no difference.
+        assertTrue("@@ -1 +1 @@" in assertNotNull(configured.diffFiles(cmp, "o.txt", "c.txt", null)))
     }
 }

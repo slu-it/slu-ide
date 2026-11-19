@@ -5,6 +5,7 @@ import dev.sluide.git.GitBranchTip
 import dev.sluide.git.failingGit
 import dev.sluide.git.testGitEnvironment
 import dev.sluide.git.unavailableGit
+import dev.sluide.git.vanishedGit
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -359,5 +360,41 @@ class GitCliRefsTest {
         assertNull(git.isAncestor(root, "no-such-revision", second))
         assertNull(unavailable.isAncestor(root, first, second))
         assertNull(failing("merge-base").isAncestor(root, first, second))
+    }
+
+    @Test
+    fun `a git that vanishes or hangs gives no answer where an exit value is read`() {
+        val vanished = vanishedGit(folder)
+        assertNull(vanished.isHeadUnborn(root))
+        assertNull(vanished.headBranch(root))
+        assertNull(vanished.isAncestor(root, first, second))
+
+        val slow = 300.milliseconds
+        assertNull(fakeGit("case \" \$* \" in *' rev-parse '*) sleep 30;; esac").isHeadUnborn(root, slow))
+        assertNull(fakeGit("case \" \$* \" in *' symbolic-ref '*) sleep 30;; esac").headBranch(root, slow))
+        assertNull(fakeGit("case \" \$* \" in *' merge-base '*) sleep 30;; esac").isAncestor(root, first, second, slow))
+    }
+
+    @Test
+    fun `exit values 0 and 1 of the fakes are what git gives, others are unknown`() {
+        // `git merge-base --is-ancestor` exits with 0, 1, and 128 for an unknown revision (checked with git 2.56).
+        fun ancestor(exit: Int) =
+            fakeGit("case \" \$* \" in *' merge-base '*) exit $exit;; esac").isAncestor(root, "a", "b")
+        assertEquals(true, ancestor(0))
+        assertEquals(false, ancestor(1))
+        assertNull(ancestor(2))
+        assertNull(ancestor(128))
+    }
+
+    @Test
+    fun `without a current branch the branch called null is still one of the others`() {
+        repo.git("branch", "null", second)
+        repo.git("checkout", "-q", "--detach", second)
+        repo.git("update-ref", "refs/heads/main", first)
+
+        // Only the branch called null has second. With no current branch it is one of the others; as the current
+        // branch it is left out, as git would be told with --exclude=null.
+        assertEquals(0, git.unreachableCount(root, first, branch = null))
+        assertEquals(1, git.unreachableCount(root, first, branch = "null"))
     }
 }
