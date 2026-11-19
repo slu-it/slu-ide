@@ -385,6 +385,26 @@ class SslContextFactoryTest {
     }
 
     @Test
+    fun `a PKCS 12 passphrase is zeroed once the key managers exist, and when the file cannot be loaded`() {
+        val right = "secret".toCharArray()
+        create(config(fixture("client.p12"), passphrase = true), right)
+        assertContentEquals(CharArray(6), right)
+
+        val wrong = "wrong1".toCharArray()
+        failure(config(fixture("client.p12"), passphrase = true), wrong)
+        assertContentEquals(CharArray(6), wrong)
+
+        val truncated =
+            folder
+                .resolve(
+                    "truncated.p12",
+                ).also { it.writeBytes(fixture("client.p12").readBytes().copyOf(200)) }
+        val other = "secret".toCharArray()
+        failure(config(truncated, passphrase = true), other)
+        assertContentEquals(CharArray(6), other)
+    }
+
+    @Test
     fun `the unsupported encryption is named by file and algorithm`() {
         val message = failure(config(fixture("client.pem"), fixture("client-des3.key"))).message.orEmpty()
 

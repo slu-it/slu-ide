@@ -118,6 +118,9 @@ internal object SslContextFactory {
                 .keyManagers
         } catch (e: GeneralSecurityException) {
             throw SslConfigException("The key of ${certificate.path.fileName} cannot be used: ${e.message}", e)
+        } finally {
+            // The key managers keep the keys, not the passphrase.
+            password.fill('\u0000')
         }
     }
 
@@ -134,6 +137,21 @@ internal object SslContextFactory {
                 CharArray(0)
             }
         val store = KeyStore.getInstance("PKCS12")
+        try {
+            return loaded(path, store, bytes, hasPassphrase, password)
+        } catch (e: Throwable) {
+            password.fill('\u0000')
+            throw e
+        }
+    }
+
+    private fun loaded(
+        path: Path,
+        store: KeyStore,
+        bytes: ByteArray,
+        hasPassphrase: Boolean,
+        password: CharArray,
+    ): Pair<KeyStore, CharArray> {
         try {
             store.load(bytes.inputStream(), password)
         } catch (e: IOException) {
