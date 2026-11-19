@@ -337,6 +337,58 @@ class SearchContentsTest {
     }
 
     @Test
+    fun `cancelling is asked for every 256th visited entry, not for each`() {
+        repeat(600) { file("skipped-$it.txt") }
+        var asked = 0
+
+        val outcome = done(search("needle", mask = "*.none", cancelled = { asked++.let { false } }))
+
+        assertEquals(0, outcome.files)
+        assertEquals(2, asked, "at the 256th and the 512th entry")
+    }
+
+    @Test
+    fun `fewer than 256 entries are visited without asking`() {
+        repeat(255) { file("skipped-$it.txt") }
+        var asked = 0
+
+        done(search("needle", mask = "*.none", cancelled = { asked++.let { false } }))
+
+        assertEquals(0, asked)
+    }
+
+    @Test
+    fun `cancelling is noticed at a folder, and before a file is read`() {
+        root.resolve("empty").createDirectories()
+        assertNull(search("needle", cancelled = { true }))
+
+        root.resolve("empty").toFile().delete()
+        file("needle.txt")
+        assertNull(search("needle", cancelled = { true }))
+    }
+
+    @Test
+    fun `a root that cannot be listed has no files`() {
+        file("needle.txt")
+
+        val outcome = done(search("needle", entries = { throw IOException("denied") }))
+
+        assertEquals(0, outcome.files)
+        assertTrue(found.isEmpty())
+    }
+
+    @Test
+    fun `an entry without a file name is no git folder`() {
+        // Only a root path has no file name; a listing never returns one, but the walk must not depend on that.
+        val top = Path.of("/").toAbsolutePath().root
+        val listing: (Path) -> List<Path> = { folder -> if (folder == root) listOf(top) else emptyList() }
+
+        val outcome = done(search("needle", entries = listing))
+
+        assertEquals(0, outcome.files)
+    }
+
+    @Test
     fun `cancelling ends the walk with null`() {
         file("a/needle.txt")
         file("b/needle.txt")

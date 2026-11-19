@@ -4,6 +4,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.net.URI
 import java.nio.file.FileSystems
 import java.nio.file.Path
+import java.util.logging.Level
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -64,9 +65,12 @@ class FilePreviewTextsTest {
         val binary = dir.resolve("b.bin").apply { writeBytes(ByteArray(100)) }
         val large = dir.resolve("big.txt").apply { writeBytes(ByteArray(2 * 1024 * 1024 + 1) { 'a'.code.toByte() }) }
 
-        assertEquals(null, load(binary))
-        assertEquals(null, load(large))
-        assertEquals(null, load(dir.resolve("missing.txt")))
+        LogCapture(FilePreviewTexts::class.java.name).use { log ->
+            assertEquals(null, load(binary))
+            assertEquals(null, load(large))
+            assertEquals(null, load(dir.resolve("missing.txt")))
+            assertEquals(emptyList(), log.lines, "nothing went wrong: these files are just no text")
+        }
     }
 
     @Test
@@ -78,12 +82,17 @@ class FilePreviewTextsTest {
             }
         var called = false
         var result: String? = "not null"
-        texts.load(inside) {
-            called = true
-            result = it
+        LogCapture(FilePreviewTexts::class.java.name).use { log ->
+            texts.load(inside) {
+                called = true
+                result = it
+            }
+            background.toList().also { background.clear() }.forEach { it.run() }
+            fx.toList().also { fx.clear() }.forEach { it.run() }
+
+            assertEquals(listOf(Level.WARNING to "Find in Files preview failed"), log.lines)
+            assertTrue(log.thrown.single() is Exception)
         }
-        background.toList().also { background.clear() }.forEach { it.run() }
-        fx.toList().also { fx.clear() }.forEach { it.run() }
 
         assertTrue(called)
         assertEquals(null, result)

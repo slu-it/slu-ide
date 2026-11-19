@@ -1,9 +1,11 @@
 package dev.sluide.findinfiles.search
 
+import dev.sluide.findinfiles.LogCapture
 import dev.sluide.textediting.SearchOptions
 import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.Executor
+import java.util.logging.Level
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -280,6 +282,41 @@ class FindInFilesSearchTest {
         runBackground()
 
         assertEquals(3, fxTasks.size, "a batch for each file, then the end")
+    }
+
+    @Test
+    fun `a finished walk logs its counts and its time`() {
+        walkScript = { _, _, _ ->
+            now = 12_000_000
+            SearchOutcome.Done(3, 2, 1, totalCapped = false, visitCapped = false)
+        }
+        now = 5_000_000
+
+        LogCapture(FindInFilesSearch::class.java.name).use { log ->
+            search.runNow(request("ab"))
+            runBackground()
+
+            assertEquals(
+                listOf(Level.INFO to "Find in Files: 3 matches in 2 files, 1 skipped, in 7 ms"),
+                log.lines,
+            )
+        }
+    }
+
+    @Test
+    fun `an invalid regex logs nothing, a failed walk logs the error`() {
+        walkScript = { request, _, _ -> if (request.query == "(ab") SearchOutcome.Invalid("x") else error("boom") }
+
+        LogCapture(FindInFilesSearch::class.java.name).use { log ->
+            search.runNow(request("(ab"))
+            runBackground()
+            assertEquals(emptyList(), log.lines)
+
+            search.runNow(request("abc"))
+            runBackground()
+            assertEquals(listOf(Level.SEVERE to "Find in Files failed"), log.lines.map { it.first to it.second })
+            assertEquals("boom", log.thrown.single().message)
+        }
     }
 
     @Test

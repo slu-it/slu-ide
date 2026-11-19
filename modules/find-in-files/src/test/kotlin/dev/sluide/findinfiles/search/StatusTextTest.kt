@@ -25,6 +25,18 @@ internal class StatusTextTest {
             visitCapped: Boolean = false,
         ) = SearchState.Finished(SearchOutcome.Done(matches, files, skipped, totalCapped, visitCapped))
 
+        /** A state with one skipped file, to see how the byte limit is written. */
+        private fun sizeCase(
+            maxBytes: Int,
+            written: String,
+        ) = Arguments.of(
+            SearchState.Finished(
+                SearchOutcome.Done(1, 1, 1, totalCapped = false, visitCapped = false),
+                SearchLimits(maxBytes = maxBytes),
+            ),
+            "1 match in 1 file · 1 file skipped (over $written or too slow)",
+        )
+
         @JvmStatic
         fun states(): Stream<Arguments> =
             Stream.of(
@@ -79,6 +91,13 @@ internal class StatusTextTest {
                     "1 match in 1 file · 1 file skipped (over 100 bytes or too slow)",
                 ),
                 Arguments.of(SearchState.Finished(SearchOutcome.Invalid("Unclosed group")), "Unclosed group"),
+                sizeCase(0, "0 bytes"),
+                sizeCase(1024 * 1024, "1 MiB"),
+                sizeCase(1024 * 1024 - 1, "1 048 575 bytes"),
+                sizeCase(1024 * 1024 + 4096, "1 052 672 bytes"),
+                sizeCase(3 * 1024 * 1024, "3 MiB"),
+                sizeCase(9999, "9999 bytes"),
+                sizeCase(10_000, "10 000 bytes"),
             )
     }
 }

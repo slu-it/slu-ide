@@ -27,6 +27,15 @@ internal class FindPlacementTest {
     }
 
     @Test
+    fun `a screen that does not start at the origin clamps to its own edges`() {
+        val second = Rectangle2D(1920.0, 100.0, 1280.0, 800.0)
+        val position = findPopupPosition(BoundingBox(1800.0, 20.0, 700.0, 600.0), 640.0, second)
+
+        assertEquals(1920.0, position.x)
+        assertEquals(100.0, position.y)
+    }
+
+    @Test
     fun `clamped at the left, right and top of the screen`() {
         val narrow = 640.0
         assertEquals(0.0, findPopupPosition(BoundingBox(-300.0, 50.0, 700.0, 600.0), narrow, screen).x)

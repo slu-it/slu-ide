@@ -51,6 +51,13 @@ internal class ResultRowsTest {
         assertEquals("project/src", headerParts(hits("src/A.kt"), true).folder)
     }
 
+    @Test
+    fun `a root without a name adds nothing to the folder`() {
+        val top = Path.of("/")
+        assertEquals("src", headerParts(hits("src/A.kt", root = top), true).folder)
+        assertEquals("", headerParts(hits("A.kt", root = top), true).folder)
+    }
+
     @ParameterizedTest
     @CsvSource("modules/file-explorer,file-explorer", "src,src", "a/b/,b", "a\\b,b")
     fun `the scope chip names the last folder`(
@@ -139,6 +146,16 @@ internal class ResultRowsTest {
     }
 
     @Test
+    fun `a line deep in a file reveals the lines around it`() {
+        val text = (0 until 12).joinToString("\n") { "a$it" }
+        val target = checkNotNull(previewTarget(text, 6, "a6", SearchOptions()))
+
+        assertEquals(listOf(18..19), target.matches)
+        assertEquals(3, target.revealStart, "line 1, five above line 6")
+        assertEquals(text.length, target.revealEnd, "the end of line 11, five below")
+    }
+
+    @Test
     fun `a line missing in a shorter file has no target`() {
         assertNull(previewTarget("one\ntwo", 5, "o", SearchOptions()))
         assertNull(previewTarget("one", -1, "o", SearchOptions()))
@@ -171,5 +188,10 @@ internal class ResultRowsTest {
             snippetSegments("abcdefghij", listOf(0 until 5, 3 until 7)),
         )
         assertEquals(listOf(SnippetSegment("abc", false)), snippetSegments("abc", listOf(20 until 22)))
+        // Ranges in any order give the pieces in text order.
+        assertEquals(
+            snippetSegments("a foo b o", listOf(2 until 5, 8 until 9)),
+            snippetSegments("a foo b o", listOf(8 until 9, 2 until 5)),
+        )
     }
 }
