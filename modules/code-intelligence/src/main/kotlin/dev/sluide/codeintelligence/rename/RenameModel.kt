@@ -38,11 +38,11 @@ internal fun prepareAnswer(result: Either3<Range, PrepareRenameResult, PrepareRe
         }
 
         result.isFirst -> {
-            result.first?.let { PrepareAnswer.At(it, null) } ?: PrepareAnswer.Refused
+            PrepareAnswer.At(result.first, null)
         }
 
         result.isSecond -> {
-            result.second?.range?.let { PrepareAnswer.At(it, result.second.placeholder) }
+            result.second.range?.let { PrepareAnswer.At(it, result.second.placeholder) }
                 ?: PrepareAnswer.Refused
         }
 
