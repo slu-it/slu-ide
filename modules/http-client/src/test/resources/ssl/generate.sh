@@ -40,5 +40,20 @@ openssl pkcs8 -topk8 -nocrypt -in client.key -outform DER -out client-key.der
 openssl ecparam -name prime256v1 -genkey -noout -out client-ec.key
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out other.key
 
+# Self-signed certificates with keys of other algorithms (PKCS#8, as `openssl genpkey` writes them)
+openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out client-ecdsa.key
+openssl req -x509 -new -key client-ecdsa.key -out client-ecdsa.pem -days "$days" -subj "/CN=SluIde Test EC"
+openssl pkcs8 -topk8 -in client-ecdsa.key -out client-ecdsa-encrypted.key -passout "pass:$passphrase"
+openssl genpkey -algorithm ED25519 -out client-ed25519.key
+openssl req -x509 -new -key client-ed25519.key -out client-ed25519.pem -days "$days" -subj "/CN=SluIde Test Ed25519"
+openssl genpkey -genparam -algorithm DSA -pkeyopt pbits:2048 -pkeyopt qbits:256 -out dsa-params.pem
+openssl genpkey -paramfile dsa-params.pem -out client-dsa.key
+openssl req -x509 -new -key client-dsa.key -out client-dsa.pem -days "$days" -subj "/CN=SluIde Test DSA" -sha256
+# Keys of the same algorithms that do not belong to those certificates
+openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out other-ecdsa.key
+openssl genpkey -algorithm ED25519 -out other-ed25519.key
+openssl genpkey -paramfile dsa-params.pem -out other-dsa.key
+rm -f dsa-params.pem
+
 # The CA key is not needed by the tests; a new CA is made on each run.
 rm -f server.csr client.csr server.key ca.key

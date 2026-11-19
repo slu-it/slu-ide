@@ -20,6 +20,11 @@ Certificates and keys for the TLS tests (`SslContextsTest`, `RequestRunnerTest`)
 | `client-cert.der`, `client-key.der` | Client certificate and PKCS#8 key without PEM armour |
 | `client-ec.key` | An EC key in SEC1 form (`BEGIN EC PRIVATE KEY`), which is not supported |
 | `other.key` | An RSA key that does not belong to `client.pem` |
+| `client-ecdsa.pem`, `client-ecdsa.key` | Self-signed certificate and its EC P-256 key, PEM PKCS#8 |
+| `client-ecdsa-encrypted.key` | The same EC key, encrypted PEM PKCS#8 (PBES2, AES-256), passphrase `secret` |
+| `client-ed25519.pem`, `client-ed25519.key` | Self-signed certificate and its Ed25519 key, PEM PKCS#8 |
+| `client-dsa.pem`, `client-dsa.key` | Self-signed certificate and its DSA (2048/256) key, PEM PKCS#8 |
+| `other-ecdsa.key`, `other-ed25519.key`, `other-dsa.key` | Keys of those algorithms that belong to none of the certificates |
 
 To regenerate all of them (the tests do not depend on particular keys), run `./generate.sh` in this folder; it needs
 OpenSSL 3 (not LibreSSL, the default on macOS).

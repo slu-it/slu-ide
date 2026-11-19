@@ -58,6 +58,16 @@ internal object SslContextFactory {
     private const val ENCRYPTION_HINT =
         "convert it with: openssl pkcs8 -topk8 -v2 aes-256-cbc -in key.pem -out key-aes.pem"
 
+    /** The `KeyFactory` names of the PKCS#8 algorithm OIDs: rsaEncryption, id-ecPublicKey, Ed25519, Ed448, DSA. */
+    private val KEY_ALGORITHMS =
+        mapOf(
+            "1.2.840.113549.1.1.1" to "RSA",
+            "1.2.840.10045.2.1" to "EC",
+            "1.3.101.112" to "EdDSA",
+            "1.3.101.113" to "EdDSA",
+            "1.2.840.10040.4.1" to "DSA",
+        )
+
     /**
      * A context with the client certificate of [config] (if any) that trusts [trustStore] (null: the JDK's
      * `cacerts`), or every server if `verifyHostCertificate` is false; that also skips host name verification.
@@ -253,12 +263,67 @@ internal object SslContextFactory {
         file: CertificateFile,
         der: ByteArray,
     ): PrivateKey {
-        val spec = PKCS8EncodedKeySpec(der)
+        val oid = pkcs8AlgorithmOid(der)
+        // Without a readable algorithm the bytes are tried as RSA, so that they get that error.
+        val algorithm =
+            if (oid == null) {
+                "RSA"
+            } else {
+                KEY_ALGORITHMS[oid] ?: throw SslConfigException(
+                    "${file.path.fileName} is a key of the unsupported algorithm $oid; $PKCS8_HINT",
+                )
+            }
         try {
-            return KeyFactory.getInstance(spec.algorithm ?: "RSA").generatePrivate(spec)
+            return KeyFactory.getInstance(algorithm).generatePrivate(PKCS8EncodedKeySpec(der))
         } catch (e: GeneralSecurityException) {
             throw SslConfigException("${file.path.fileName} is no valid private key: ${e.message}", e)
         }
+    }
+
+    /**
+     * The OID, as dotted digits, of the algorithm of a PKCS#8 `PrivateKeyInfo` (`SEQUENCE { INTEGER, SEQUENCE { OID,
+     * … }, … }`), or `null` if [der] has not this shape. The JDK does not tell it from the bytes.
+     */
+    private fun pkcs8AlgorithmOid(der: ByteArray): String? {
+        var position = 0
+
+        /** Reads a tag and length at [position], moves to the content; its end, or null if it is not [tag]. */
+        fun enter(tag: Int): Int? {
+            if (position + 2 > der.size || der[position].toInt() and 0xff != tag) return null
+            var length = der[position + 1].toInt() and 0xff
+            position += 2
+            if (length >= 0x80) {
+                val count = length and 0x7f
+                if (count !in 1..3 || position + count > der.size) return null
+                length = 0
+                repeat(count) { length = length shl 8 or (der[position++].toInt() and 0xff) }
+            }
+            return if (position + length <= der.size) position + length else null
+        }
+        enter(0x30) ?: return null
+        position = enter(0x02) ?: return null
+        enter(0x30) ?: return null
+        val end = enter(0x06) ?: return null
+        val arcs = mutableListOf<Long>()
+        var value = 0L
+        for (byte in der.copyOfRange(position, end)) {
+            value = value shl 7 or (byte.toLong() and 0x7f)
+            if (value > Int.MAX_VALUE) return null
+            if (byte >= 0) {
+                arcs += value
+                value = 0
+            }
+        }
+        // The first sub-identifier holds the first two arcs; a last one that goes on is cut off.
+        if (arcs.isEmpty() || der[end - 1] < 0) return null
+        val first = arcs.first()
+        val leading =
+            when {
+                first < 40 -> listOf(0L, first)
+                first < 80 -> listOf(1L, first - 40)
+                else -> listOf(2L, first - 80)
+            }
+        return (leading + arcs.drop(1)).joinToString(".")
     }
 
     /** Also fails for encryptions the JDK cannot even describe, such as PBES2 with 3DES or scrypt. */

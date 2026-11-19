@@ -5,12 +5,13 @@ import dev.sluide.httpclient.env.SslConfig.CertificateFile
 import dev.sluide.httpclient.env.SslConfig.CertificateFormat
 import dev.sluide.httpclient.send.TlsServer.Companion.fixture
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.IOException
 import java.nio.file.Path
 import java.security.KeyStore
 import java.security.cert.X509Certificate
 import java.util.Base64
-import java.util.concurrent.TimeUnit
 import kotlin.io.path.copyTo
 import kotlin.io.path.createDirectory
 import kotlin.io.path.inputStream
@@ -399,60 +400,174 @@ class SslContextFactoryTest {
             .getInstance("X.509")
             .generateCertificate(derOf(pem).inputStream()) as X509Certificate
 
-    /** A self-signed certificate and key of [algorithm] made by the JDK's keytool, as PEM files. */
-    private fun generated(
-        algorithm: String,
-        vararg more: String,
-    ): Pair<Path, Path> {
-        val store = folder.resolve("$algorithm.p12")
-        val keytool = Path.of(System.getProperty("java.home"), "bin", "keytool").toString()
-        val process =
-            ProcessBuilder(
-                keytool,
-                "-genkeypair",
-                "-alias",
-                "a",
-                "-keyalg",
-                algorithm,
-                *more,
-                "-dname",
-                "CN=test",
-                "-validity",
-                "30",
-                "-storetype",
-                "PKCS12",
-                "-keystore",
-                store.toString(),
-                "-storepass",
-                "changeit",
-            ).redirectErrorStream(true).start()
-        process.outputStream.close()
-        process.inputStream.readBytes()
-        assertTrue(process.waitFor(60, TimeUnit.SECONDS) && process.exitValue() == 0, "keytool failed for $algorithm")
-        val loaded =
-            KeyStore
-                .getInstance(
-                    "PKCS12",
-                ).apply { store.inputStream().use { load(it, "changeit".toCharArray()) } }
-        val certificate =
-            folder.resolve("$algorithm.pem").also {
-                it.writeText(pem("CERTIFICATE", loaded.getCertificate("a").encoded))
-            }
-        val key =
-            folder.resolve("$algorithm.key").also {
-                it.writeText(pem("PRIVATE KEY", loaded.getKey("a", "changeit".toCharArray()).encoded))
-            }
-        return certificate to key
+    @ParameterizedTest
+    @ValueSource(strings = ["ecdsa", "ed25519", "dsa"])
+    fun `a PKCS 8 key of any algorithm works with its certificate and with no other key`(name: String) {
+        create(config(fixture("client-$name.pem"), fixture("client-$name.key")))
+        // DER as well as PEM.
+        val der = folder.resolve("$name.der").also { it.writeBytes(derOf(fixture("client-$name.key"))) }
+        create(config(fixture("client-$name.pem"), der, keyFormat = CertificateFormat.DER))
+
+        assertEquals(
+            "The key other-$name.key does not belong to the certificate client-$name.pem",
+            failure(config(fixture("client-$name.pem"), fixture("other-$name.key"))).message,
+        )
+        // A key of another algorithm never belongs.
+        assertEquals(
+            "The key client.key does not belong to the certificate client-$name.pem",
+            failure(config(fixture("client-$name.pem"), fixture("client.key"))).message,
+        )
     }
 
     @Test
-    fun `an RSA key never belongs to a certificate of another algorithm`() {
-        val (certificate, _) = generated("EC")
+    fun `an encrypted EC PKCS 8 key works with its passphrase`() {
+        val config = config(fixture("client-ecdsa.pem"), fixture("client-ecdsa-encrypted.key"))
+
+        create(config, "secret".toCharArray())
+        val der =
+            folder
+                .resolve(
+                    "ecdsa-encrypted.der",
+                ).also { it.writeBytes(derOf(fixture("client-ecdsa-encrypted.key"))) }
+        create(
+            config(fixture("client-ecdsa.pem"), der, keyFormat = CertificateFormat.DER),
+            "secret".toCharArray(),
+        )
+    }
+
+    @Test
+    fun `a key with an algorithm it does not know is named by its OID`() {
+        // SEQUENCE { INTEGER 0, SEQUENCE { OID 1.2.3.4, NULL }, OCTET STRING { 00 } }
+        val unknown =
+            byteArrayOf(
+                0x30,
+                0x0e,
+                0x02,
+                0x01,
+                0x00,
+                0x30,
+                0x07,
+                0x06,
+                0x03,
+                0x2a,
+                0x03,
+                0x04,
+                0x05,
+                0x00,
+                0x04,
+                0x01,
+                0x00,
+            )
+        val key = write("unknown-algorithm.key", pem("PRIVATE KEY", unknown))
 
         assertEquals(
-            "The key client.key does not belong to the certificate EC.pem",
-            failure(config(certificate, fixture("client.key"))).message,
+            "unknown-algorithm.key is a key of the unsupported algorithm 1.2.3.4; $pkcs8Hint",
+            failure(config(fixture("client.pem"), key)).message,
         )
+    }
+
+    private fun tlv(
+        tag: Int,
+        content: ByteArray,
+        lengthBytes: Int = 0,
+    ): ByteArray {
+        val length =
+            when {
+                lengthBytes == 0 && content.size < 0x80 -> {
+                    byteArrayOf(content.size.toByte())
+                }
+
+                else -> {
+                    val count = maxOf(lengthBytes, 1)
+                    byteArrayOf((0x80 or count).toByte()) +
+                        ByteArray(count) { (content.size shr (8 * (count - 1 - it))).toByte() }
+                }
+            }
+        return byteArrayOf(tag.toByte()) + length + content
+    }
+
+    /** A PKCS#8 structure whose algorithm is the given OID content bytes, with the given length form. */
+    private fun keyWithOid(
+        oid: ByteArray,
+        lengthBytes: Int = 0,
+    ): ByteArray {
+        val algorithm = tlv(0x30, tlv(0x06, oid) + byteArrayOf(0x05, 0x00), lengthBytes)
+        return tlv(0x30, byteArrayOf(0x02, 0x01, 0x00) + algorithm + tlv(0x04, ByteArray(1)), lengthBytes)
+    }
+
+    private fun oidMessage(
+        name: String,
+        der: ByteArray,
+    ): String = failure(config(fixture("client.pem"), write(name, pem("PRIVATE KEY", der)))).message.orEmpty()
+
+    @Test
+    fun `the algorithm OID of a key is read in full`() {
+        fun unsupported(oid: String) = "key.key is a key of the unsupported algorithm $oid; $pkcs8Hint"
+
+        // sha256WithRSAEncryption, arcs of up to three bytes
+        val sha = byteArrayOf(0x2a, 0x86.toByte(), 0x48, 0x86.toByte(), 0xf7.toByte(), 0x0d, 0x01, 0x01, 0x0b)
+        assertEquals(unsupported("1.2.840.113549.1.1.11"), oidMessage("key.key", keyWithOid(sha)))
+        // The first two arcs share a sub-identifier of two bytes: 2.999
+        assertEquals(unsupported("2.999"), oidMessage("key.key", keyWithOid(byteArrayOf(0x88.toByte(), 0x37))))
+        assertEquals(unsupported("0.5.1"), oidMessage("key.key", keyWithOid(byteArrayOf(0x05, 0x01))))
+        // Every form of length: one byte after 0x81, two after 0x82, three after 0x83.
+        for (lengthBytes in 1..3) {
+            assertEquals(
+                unsupported("1.2.3.4"),
+                oidMessage("key.key", keyWithOid(byteArrayOf(0x2a, 0x03, 0x04), lengthBytes)),
+            )
+        }
+    }
+
+    @Test
+    fun `a key whose structure or OID cannot be read is tried as RSA and refused as invalid`() {
+        val invalid = "key.key is no valid private key: "
+        val cases =
+            mapOf(
+                "an OID that does not end" to keyWithOid(byteArrayOf(0x2a, 0x83.toByte())),
+                "an empty OID" to keyWithOid(ByteArray(0)),
+                "an arc beyond an int" to
+                    keyWithOid(byteArrayOf(0x2a, 0x90.toByte(), 0x80.toByte(), 0x80.toByte(), 0x80.toByte(), 0x00)),
+                "a length of four bytes" to keyWithOid(byteArrayOf(0x2a, 0x03), 4),
+                "an indefinite length" to byteArrayOf(0x30, 0x80.toByte(), 0x00, 0x00),
+                // 0x80 is no length of 128 bytes, though the rest could be read as one.
+                "an indefinite length over a readable key" to
+                    byteArrayOf(
+                        0x30,
+                        0x80.toByte(),
+                        0x02,
+                        0x01,
+                        0x00,
+                        0x30,
+                        0x07,
+                        0x06,
+                        0x03,
+                        0x2a,
+                        0x03,
+                        0x04,
+                        0x05,
+                        0x00,
+                        0x04,
+                        0x72,
+                    ) + ByteArray(114),
+                "no sequence" to byteArrayOf(0x04, 0x01, 0x00),
+                "no version" to byteArrayOf(0x30, 0x03, 0x04, 0x01, 0x00),
+                "no algorithm" to byteArrayOf(0x30, 0x03, 0x02, 0x01, 0x00),
+                "no OID" to byteArrayOf(0x30, 0x07, 0x02, 0x01, 0x00, 0x30, 0x02, 0x05, 0x00),
+                "a length past the end" to byteArrayOf(0x30, 0x20, 0x02, 0x01, 0x00),
+            )
+        for ((name, der) in cases) {
+            assertTrue(oidMessage("key.key", der).startsWith(invalid), name)
+        }
+    }
+
+    @Test
+    fun `every truncation of a key is refused as a configuration problem, none crashes`() {
+        val der = derOf(fixture("client-ecdsa.key"))
+        for (length in der.indices) {
+            val message = oidMessage("key.key", der.copyOf(length))
+            assertTrue(message.startsWith("key.key is no valid private key: "), "$length: $message")
+        }
     }
 
     @Test
