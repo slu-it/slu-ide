@@ -132,9 +132,16 @@ private class SnippetReader(
                     readPlaceholder(out)
                 }
 
-                c == '$' && at + 1 < text.length && (text[at + 1].isLetterOrDigit() || text[at + 1] == '_') -> {
+                // `$` int is a tab stop (its digits go), `$` var a variable (`[_a-zA-Z][_a-zA-Z0-9]*`); `$` and
+                // anything else is the text `$`.
+                c == '$' && at + 1 < text.length && text[at + 1] in '0'..'9' -> {
                     at++
-                    while (at < text.length && (text[at].isLetterOrDigit() || text[at] == '_')) at++
+                    while (at < text.length && text[at] in '0'..'9') at++
+                }
+
+                c == '$' && at + 1 < text.length && text[at + 1].isVariableStart() -> {
+                    at++
+                    while (at < text.length && text[at].isVariablePart()) at++
                 }
 
                 else -> {
@@ -176,6 +183,10 @@ private class SnippetReader(
         }
     }
 }
+
+private fun Char.isVariableStart() = this == '_' || this in 'a'..'z' || this in 'A'..'Z'
+
+private fun Char.isVariablePart() = isVariableStart() || this in '0'..'9'
 
 private fun offsetEdit(
     edit: TextEdit,
