@@ -1,6 +1,9 @@
 package dev.sluide.git.cli
 
 import dev.sluide.git.GitIgnoreLineUse
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
+import org.junit.jupiter.api.function.ThrowingSupplier
+import java.time.Duration.ofSeconds
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -21,6 +24,14 @@ class GitIgnoreRulesParsingTest {
     }
 
     @Test
+    fun `a check-ignore record without a line number is skipped`() {
+        // What `-n` prints for a path no line matches: empty source, line and pattern (git 2.56, `check-ignore -v -n -z`).
+        val output = "\u0000\u0000\u0000a.txt\u0000.gitignore\u00003\u0000*.log\u0000b.log\u0000"
+
+        assertEquals(listOf(IgnoreMatch(".gitignore", 3, "*.log", "b.log")), checkIgnoreMatches(output))
+    }
+
+    @Test
     fun `status candidates are the untracked and ignored entries`() {
         val output =
             "1 .M N... 100644 100644 100644 abc abc changed.txt\u0000" +
@@ -28,7 +39,11 @@ class GitIgnoreRulesParsingTest {
                 "u UU N... 100644 100644 100644 100644 abc abc abc conflicted.log\u0000" +
                 "? new.txt\u0000! build/\u0000! a.log\u0000"
 
-        assertEquals(listOf("new.txt", "build/", "a.log"), statusCandidates(output, overflowed = false))
+        // A skip that moved back would read the rename again for ever.
+        val candidates =
+            assertTimeoutPreemptively(ofSeconds(10), ThrowingSupplier { statusCandidates(output, overflowed = false) })
+
+        assertEquals(listOf("new.txt", "build/", "a.log"), candidates)
     }
 
     @Test
@@ -46,6 +61,8 @@ class GitIgnoreRulesParsingTest {
         assertEquals(listOf("aaa\u0000bb\u0000", "c\u0000ee\u0000"), chunks.map { it.toString(Charsets.UTF_8) })
         assertEquals(listOf(3), inputChunks(listOf("ü"), maxBytes = 3).map { it.size }, "counted in UTF-8 bytes")
         assertEquals(emptyList(), inputChunks(emptyList(), maxBytes = 7))
+        assertEquals(listOf("abc\u0000"), inputChunks(listOf("abc"), maxBytes = 4).map { it.toString(Charsets.UTF_8) })
+        assertEquals(emptyList(), inputChunks(listOf("abcd"), maxBytes = 4), "no room for its NUL")
     }
 
     @Test

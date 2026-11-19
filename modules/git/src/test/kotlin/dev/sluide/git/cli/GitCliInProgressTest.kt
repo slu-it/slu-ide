@@ -4,6 +4,7 @@ import dev.sluide.git.GitPendingMerge
 import dev.sluide.git.GitPendingRebase
 import dev.sluide.git.failingGit
 import dev.sluide.git.testGitEnvironment
+import dev.sluide.git.unavailableGit
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -219,10 +220,15 @@ class GitCliInProgressTest {
     }
 
     @Test
-    fun `a missing git has no rebase count and no names alone`() {
-        val missing = GitCli(folder.resolve("no-such-git").toString(), testGitEnvironment())
+    fun `a git that is not available has no rebase count and no names alone`() {
+        commit("first")
+        git("branch", "topic")
+        // Not available, but it would answer: only the guard of each function says no.
+        val unavailable = unavailableGit(folder)
 
-        assertNull(missing.mergeCount(repo, "refs/heads/main"))
-        assertFalse(missing.namesOnly(repo, "main", "main"))
+        assertNull(unavailable.mergeCount(repo, "refs/heads/topic"))
+        assertFalse(unavailable.namesOnly(repo, "topic", "refs/heads/topic"))
+        assertEquals(0, git.mergeCount(repo, "refs/heads/topic"))
+        assertNull(GitCli(folder.resolve("no-such-git").toString(), testGitEnvironment()).mergeCount(repo, "x"))
     }
 }

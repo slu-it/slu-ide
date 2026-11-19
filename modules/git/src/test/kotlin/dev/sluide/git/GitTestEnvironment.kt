@@ -97,6 +97,18 @@ internal fun failingNthGit(
 }
 
 /**
+ * A git that is not [available][GitCli.available]: its `--version` fails, as for a missing or broken installation, but
+ * it runs the real git for every other call. What a missing executable would stop anyway (every call fails to start)
+ * then only the `available` guard of a wrapper stops, which tells a guard from its absence.
+ */
+internal fun unavailableGit(folder: java.nio.file.Path): GitCli {
+    val script = folder.resolve("unavailable-git-${System.nanoTime()}")
+    script.toFile().writeText("#!/bin/sh\n[ \"\$1\" = --version ] && exit 1\nexec git \"\$@\"\n")
+    script.toFile().setExecutable(true)
+    return GitCli(script.toString(), testGitEnvironment()).also { check(!it.available) }
+}
+
+/**
  * The real git behind a wrapper that appends each call's arguments as a line to [log], to see which commands ran. The
  * calls `GitCli` makes on its own (the version, the environment variables, the fsmonitor setting) are left out.
  */

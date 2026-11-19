@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import java.io.IOException
+import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -180,6 +181,22 @@ class GitCliIgnoreRulesTest {
             "${repo.resolve("my.ignore")}\u00001\u0000*.x\u0000a.x\u0000",
             git("check-ignore", "-v", "-z", "--stdin", input = "a.x\u0000"),
         )
+    }
+
+    @Test
+    fun `an excludes file configured through a symbolic link is the ignore file it links to`() {
+        files("a.x", "b.y")
+        repo.resolve("my.ignore").writeText("*.x\n")
+        val link = Files.createSymbolicLink(folder.resolve("link.ignore"), repo.resolve("my.ignore"))
+        git("config", "core.excludesFile", link.toString())
+        repo.resolve(".gitignore").writeText("*.y\n")
+
+        // Git names the source as configured, the link; another path to the same file.
+        assertEquals(
+            "$link\u00001\u0000*.x\u0000a.x\u0000",
+            git("check-ignore", "-v", "-z", "--stdin", input = "a.x\u0000"),
+        )
+        assertEquals(mapOf(1 to ignoring("a.x")), rules("my.ignore").lines)
     }
 
     @Test

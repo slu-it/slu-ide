@@ -43,9 +43,9 @@ internal val IGNORE_DEADLINE = 15.seconds
  * listing writes more than [maxListing] bytes (its complete records are kept, git is stopped), the result is not
  * [complete][GitIgnoreRules.complete].
  *
- * Each call has 10 s, and all of them together [deadline] (15 s): a call gets at most what is left of it. Once it has
- * passed while `check-ignore` runs (between its chunks, or a chunk stopped for it), the lines matched so far are the
- * answer, not [complete][GitIgnoreRules.complete]; while the listings run, there is none.
+ * Each call has [callTimeout] (10 s), and all of them together [deadline] (15 s): a call gets at most what is left of
+ * it. Once it has passed while `check-ignore` runs (between its chunks, or a chunk stopped for it), the lines matched
+ * so far are the answer, not [complete][GitIgnoreRules.complete]; while the listings run, there is none.
  *
  * `null` if git is not available, [ignoreFile] is not below [root], a call fails (exit 1 of `check-ignore`, "nothing
  * matched", is an answer), takes longer than its 10 s, the listings take longer than [deadline], or [cancellation]
@@ -58,9 +58,10 @@ internal fun GitCli.ignoreRules(
     limit: Int = MAX_IGNORE_CANDIDATES,
     maxListing: Long = MAX_IGNORE_LISTING,
     deadline: Duration = IGNORE_DEADLINE,
+    callTimeout: Duration = IGNORE_TIMEOUT,
 ): GitIgnoreRules? {
     if (!available) return null
-    val time = Deadline(System.nanoTime() + deadline.inWholeNanoseconds)
+    val time = Deadline(System.nanoTime() + deadline.inWholeNanoseconds, callTimeout)
     val repository = root.toAbsolutePath().normalize()
     val file = ignoreFile.toAbsolutePath().normalize()
     val relative = repository.relativize(file)
@@ -124,9 +125,10 @@ internal fun GitCli.ignoreRules(
 /** The end of the time all calls of one [ignoreRules] have, by [System.nanoTime]. */
 private class Deadline(
     val end: Long,
+    val callTimeout: Duration,
 ) {
     /** What is left of it, at most the 10 s of one call; zero or less once it has passed. */
-    fun timeout(): Duration = minOf(IGNORE_TIMEOUT, (end - System.nanoTime()).nanoseconds)
+    fun timeout(): Duration = minOf(callTimeout, (end - System.nanoTime()).nanoseconds)
 }
 
 /** What a listing of [ignoreRules] wrote, cut off if it [overflowed]. */
@@ -197,7 +199,7 @@ private fun GitCli.decidingLines(
             execute(arguments, root, timeout, chunk, write = false, cancellation = cancellation) ?: return null
         // Stopped as the deadline passed, not after its own 10 s.
         val timedOut = execution.exitValue == null && !execution.cancelled
-        if (timedOut && timeout < IGNORE_TIMEOUT) return DecidingLines(matches, cutOff = true)
+        if (timedOut && timeout < deadline.callTimeout) return DecidingLines(matches, cutOff = true)
         // 1: none of the paths is ignored.
         if (execution.cancelled || !execution.complete || execution.exitValue !in 0..1) return null
         // Git writes each path as it was asked; no listed path starts with ./ by itself.
