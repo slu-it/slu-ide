@@ -6,13 +6,15 @@ import dev.sluide.httpclient.env.AuthConfig.ParameterUse
 import dev.sluide.httpclient.env.SslConfig.CertificateFile
 import dev.sluide.httpclient.env.SslConfig.CertificateFormat
 import org.junit.jupiter.api.io.TempDir
+import java.io.IOException
 import java.nio.charset.Charset
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -308,9 +310,9 @@ class EnvironmentsTest {
 
         assertEquals(emptyList(), environments.names)
         assertEquals(1, environments.problems.size)
-        assertTrue(environments.problems.single().startsWith("folder: "), environments.problems.toString())
-        assertTrue(environments.problems.single().length > "folder: ".length, environments.problems.toString())
-        assertFalse(environments.problems.single().endsWith("null"), environments.problems.toString())
+        // The reason is the JDK's own exception for reading a folder ("Is a directory" on Linux and macOS).
+        val reason = assertFailsWith<IOException> { Files.readAllBytes(folder) }.message
+        assertEquals(listOf("folder: $reason"), environments.problems)
     }
 
     @Test

@@ -167,7 +167,7 @@ internal class MultipartsTest {
     }
 
     @Test
-    fun `quotes and line breaks in a name cannot start another parameter or part`() {
+    fun `a quoted name keeps a semicolon and the percent-encoded quotes and line breaks of RFC 7578 as written`() {
         // RFC 7578 4.2 percent-encodes them; read as written, a quoted value ends at the next quote.
         val hostile = "Content-Disposition: form-data; name=\"a; filename=x\""
 
