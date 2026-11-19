@@ -48,8 +48,8 @@ class LineIndexTest {
     }
 
     @Test
-    fun `characters are UTF-16 code units, and a carriage return belongs to its line`() {
-        // An emoji is a surrogate pair: 2 units, as LSP counts them. The CRLF line ends before the \n only.
+    fun `characters are UTF-16 code units, and a carriage return is an ordinary character`() {
+        // An emoji is a surrogate pair: 2 units, as LSP counts them. The editor keeps LF only; a \r stays in its line.
         val text = LineIndex("a\uD83D\uDE00b\r\nxy")
 
         assertEquals(3, text.offsetOf(0, 3), "after the pair")

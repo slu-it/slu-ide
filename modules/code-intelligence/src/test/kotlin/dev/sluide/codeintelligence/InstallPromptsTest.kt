@@ -158,7 +158,7 @@ class InstallPromptsTest {
     }
 
     @Test
-    fun `the application constructor saves on its own thread`() {
+    fun `the application constructor saves the declined id`() {
         val prompts = InstallPrompts(store())
 
         prompts.decline("python")

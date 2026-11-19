@@ -31,14 +31,7 @@ internal abstract class CompletionModelFixture {
         resolves: Boolean = false,
         newServer: (() -> FeatureServer)? = null,
     ) {
-        bound =
-            if (newServer ==
-                null
-            ) {
-                BoundEditor(folder, text, resolves)
-            } else {
-                BoundEditor(folder, text, resolves, newServer)
-            }
+        bound = BoundEditor(folder, text, resolves, newServer ?: { FeatureServer(resolves) })
         model = bound.fx.onFx { CompletionModel(bound.binding, view, 100.milliseconds, bound.timers::schedule) }
         view.model = model
         bound.fx.onFx { bound.editor.onTextChange(model::textChanged) }

@@ -167,14 +167,12 @@ internal class CompletionAcceptTest : CompletionModelFixture() {
         val documented =
             CompletionItem("path").apply { documentation = Either.forRight(MarkupContent(MarkupKind.MARKDOWN, "d")) }
         val plain = CompletionItem("sep")
-        asked(1).single().answer(Either.forLeft(listOf(documented, plain)))
+        asked(1).single().answer(Either.forRight(CompletionList(true, listOf(documented, plain))))
         awaitTrue("shown") { bound.fx.onFx { model.shown.size == 2 } }
 
         assertSame(documented, bound.fx.onFx { model.detailOf(documented) })
-        // A negative check without a signal: a request for it would reach the server within moments, and the
-        // detailOf below would cancel it before it was sent.
-        Thread.sleep(200)
-        assertEquals(emptyList(), bound.server.resolved)
+        sentinelRequest()
+        assertEquals(emptyList(), bound.server.resolved, "the request sent after it arrived, its resolve did not")
         bound.fx.onFx { model.detailOf(plain) }
 
         awaitTrue("asked") { bound.server.resolved.size == 1 }
@@ -195,8 +193,7 @@ internal class CompletionAcceptTest : CompletionModelFixture() {
 
         bound.fx.onFx { model.detailOf(path) }
 
-        // A negative check without a signal: a second request would cancel the first one and reach the server.
-        Thread.sleep(200)
+        sentinelRequest()
         assertEquals(1, bound.server.resolved.size)
         assertFalse(
             bound.server.resolved
@@ -217,6 +214,17 @@ internal class CompletionAcceptTest : CompletionModelFixture() {
         settle()
 
         assertEquals(emptyList(), bound.server.resolved)
+    }
+
+    /**
+     * A completion request that does not touch the resolve: the connection sends in order, so once it has reached the
+     * server, a resolve asked before it has too.
+     */
+    private fun sentinelRequest() {
+        val before = bound.server.completions.size
+        type("p")
+        bound.fx.onFx { bound.timers.runDue() }
+        asked(before + 1)
     }
 
     private fun openWithPlainItem(): CompletionItem {

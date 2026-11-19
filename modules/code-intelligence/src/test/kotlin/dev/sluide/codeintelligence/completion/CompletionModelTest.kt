@@ -59,7 +59,7 @@ internal class CompletionModelTest : CompletionModelFixture() {
         second.answer(list("paxos"))
         third.answer(list("path", "pa_new"))
         awaitTrue("latest shown") { lastShown() == listOf("pa_new", "path") }
-        bound.fx.idle()
+        settle()
         assertFalse(bound.fx.onFx { view.shown.flatten() }.contains("paxos"), "the cancelled answer never shows")
     }
 
@@ -70,7 +70,7 @@ internal class CompletionModelTest : CompletionModelFixture() {
         val pending = asked(1).single()
         bound.fx.onFx { model.escape() }
         pending.answer(list("path"))
-        bound.fx.idle()
+        settle()
         assertEquals(emptyList(), bound.fx.onFx { view.shown.toList() }, "the answer after Escape shows nothing")
 
         type("p")

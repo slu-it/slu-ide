@@ -4,6 +4,9 @@ import dev.sluide.codeintelligence.FakeCodeEditor
 import dev.sluide.codeintelligence.FxServers
 import dev.sluide.codeintelligence.PySpec
 import dev.sluide.codeintelligence.awaitTrue
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.value.ChangeListener
+import javafx.beans.value.ObservableValue
 import org.eclipse.lsp4j.DidCloseTextDocumentParams
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
@@ -62,5 +65,38 @@ class EditorAttachmentTest {
         fx.onFx { attachment.close() }
 
         assertEquals(1, closed)
+    }
+
+    /** A file property that counts its listeners, to see that closing the attachment let go of it. */
+    private class CountingFile(
+        initial: Path,
+    ) : SimpleObjectProperty<Path>(initial) {
+        var listeners = 0
+
+        override fun addListener(listener: ChangeListener<in Path>) {
+            listeners++
+            super.addListener(listener)
+        }
+
+        override fun removeListener(listener: ChangeListener<in Path>) {
+            listeners--
+            super.removeListener(listener)
+        }
+    }
+
+    @Test
+    fun `closing lets go of the editor's file property`() {
+        fx = FxServers(folder, spec)
+        val file = CountingFile(folder.resolve("a.py"))
+        val editor =
+            object : FakeCodeEditor(folder.resolve("a.py"), "x") {
+                override val file: ObservableValue<Path> = file
+            }
+        val attachment = fx.onFx { EditorAttachment(editor, fx.servers, emptyList(), { null }, { emptyList() }) {} }
+        assertEquals(1, file.listeners, "the attachment follows the file")
+
+        fx.onFx { attachment.close() }
+
+        assertEquals(0, file.listeners)
     }
 }
