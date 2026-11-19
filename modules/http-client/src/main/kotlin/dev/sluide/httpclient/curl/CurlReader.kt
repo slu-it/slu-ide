@@ -364,30 +364,8 @@ internal object CurlReader {
                 form += FormPart(name, FormContent.Value(content))
                 return
             }
-            val first = content.substringBefore(';')
-            val attributes =
-                content
-                    .split(';')
-                    .drop(1)
-                    .associate { it.substringBefore('=').trim().lowercase() to it.substringAfter('=', "").trim('"') }
-            form +=
-                when {
-                    first.startsWith("@") -> {
-                        FormPart(name, FormContent.File(first.substring(1), attributes["filename"]), attributes["type"])
-                    }
-
-                    first.startsWith("<") -> {
-                        FormPart(name, FormContent.FileText(first.substring(1)), attributes["type"])
-                    }
-
-                    // A value keeps its semicolons unless they start type=.
-                    else -> {
-                        FormPart(name, FormContent.Value(content.substringBefore(";type=")), type(content))
-                    }
-                }
+            form += FormOption.part(name, content)
         }
-
-        private fun type(content: String) = content.substringAfter(";type=", "").ifEmpty { null }
 
         private fun seconds(
             option: String,

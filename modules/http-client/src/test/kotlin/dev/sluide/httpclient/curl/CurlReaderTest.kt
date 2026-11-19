@@ -3,6 +3,9 @@ package dev.sluide.httpclient.curl
 import dev.sluide.converting.ReadResult
 import dev.sluide.httpclient.parse.HttpVersion
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -12,9 +15,12 @@ import kotlin.test.assertNull
  * against the real tool with a local server for: several `-d` joined with `&`, `--json` appended without separator
  * also after `-d`, `-G` appending to an existing query with `&`, `-H 'X;'` sending an empty header, `-H 'X:'` removing
  * one, `-m` refusing a negative number and an empty file name after `@` failing. `-b` given twice is joined with `; `
- * (RFC 6265 5.4), where curl sends `;`: no server-visible difference.
+ * (RFC 6265 5.4), where curl sends `;`: no server-visible difference. The `-F` values were checked with a local
+ * server too: `-F 'k="x"'` sends x (quotes stripped, `\"` and `\\` inside), `-F 'k="x"y'` sends x, `-F 'k="x'` sends
+ * `"x`, `--form-string 'k="x"'` sends `"x"`, `-F 'k= x'` sends x, `-F 'c=@"a;b.txt"'` uploads the file a;b.txt, while
+ * `-F 'c=@a;b.txt'` and `-F 'c=@a,b.txt'` fail with exit 26, and `;filename="x;y"` sends the name x;y.
  */
-class CurlReaderTest {
+internal class CurlReaderTest {
     private fun read(curl: String) = CurlReader.read(curl) as ReadResult.Read
 
     private fun request(curl: String) = read(curl).content.single()
@@ -176,6 +182,15 @@ class CurlReaderTest {
         )
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("forms")
+    fun `reads quoted strings, quoted file names and attributes of -F as curl does`(
+        option: String,
+        part: FormPart,
+    ) {
+        assertEquals(RequestBody.Multipart(listOf(part)), request("curl $option x").body)
+    }
+
     @Test
     fun `reads user names with and without a password`() {
         assertEquals(Credentials("ada", "", false), request("curl -u ada x").credentials)
@@ -198,5 +213,37 @@ class CurlReaderTest {
     fun `names the request after a comment unless it is blank`() {
         assertEquals("Users", request("# Users\ncurl x").name)
         assertNull(request("#   \ncurl x").name)
+    }
+
+    companion object {
+        @JvmStatic
+        fun forms() =
+            listOf(
+                Arguments.of("-F 'k=\"x\"'", FormPart("k", FormContent.Value("x"))),
+                Arguments.of("-F 'k=\"a\\\"b\\\\c\"'", FormPart("k", FormContent.Value("a\"b\\c"))),
+                Arguments.of("-F 'k=\"x\"y'", FormPart("k", FormContent.Value("x"))),
+                Arguments.of("-F 'k=\"x\";type=text/plain'", FormPart("k", FormContent.Value("x"), "text/plain")),
+                Arguments.of("-F 'k=\"x'", FormPart("k", FormContent.Value("\"x"))),
+                Arguments.of("-F 'k=a\"b'", FormPart("k", FormContent.Value("a\"b"))),
+                Arguments.of("-F 'k= x'", FormPart("k", FormContent.Value("x"))),
+                Arguments.of("-F 'k=\"a\\q\"'", FormPart("k", FormContent.Value("a\\q"))),
+                Arguments.of("-F 'k=\"a\\'", FormPart("k", FormContent.Value("\"a\\"))),
+                Arguments.of("-F 'k=\"a;type=b\"'", FormPart("k", FormContent.Value("a;type=b"))),
+                Arguments.of("-F 'c=@'", FormPart("c", FormContent.File(""))),
+                Arguments.of("-F 'c=@type=x'", FormPart("c", FormContent.File("type=x"))),
+                Arguments.of("-F 'c=@\"a;type=x.txt\"'", FormPart("c", FormContent.File("a;type=x.txt"))),
+                Arguments.of("-F 'c=<\"a;type=x\"'", FormPart("c", FormContent.FileText("a;type=x"))),
+                Arguments.of("-F 'c=@f;foo;type=x'", FormPart("c", FormContent.File("f"), "x")),
+                Arguments.of("--form-string 'k=\"x\"'", FormPart("k", FormContent.Value("\"x\""))),
+                Arguments.of("-F 'c=@\"a;b.txt\"'", FormPart("c", FormContent.File("a;b.txt"))),
+                Arguments.of("-F 'c=@\"a;b.txt\"x'", FormPart("c", FormContent.File("a;b.txt"))),
+                Arguments.of("-F 'c=@a\"b.txt'", FormPart("c", FormContent.File("a\"b.txt"))),
+                Arguments.of("-F 'c=@\"a'", FormPart("c", FormContent.File("\"a"))),
+                Arguments.of(
+                    "-F 'c=@\"a\\\"b\\\\c.txt\";filename=\"x;y\";type=t/x'",
+                    FormPart("c", FormContent.File("a\"b\\c.txt", "x;y"), "t/x"),
+                ),
+                Arguments.of("-F 'c=<\"a;b.txt\";type=t/x'", FormPart("c", FormContent.FileText("a;b.txt"), "t/x")),
+            )
     }
 }
