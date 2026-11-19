@@ -155,21 +155,6 @@ class CompletionEditsTest {
         assertEquals(listOf(OffsetEdit(13, 15, "join(a, b)")), acceptEdits(item, replace = false, place()).edits)
     }
 
-    @ParameterizedTest
-    @CsvSource(
-        "'print(\$1)\$0', 'print()'",
-        "'\${1:outer \${2:inner}} end', 'outer inner end'",
-        "'cost \\\$5 \\} \\\\', 'cost \$5 } \\'",
-        "'\${TM_FILENAME} \$var x', '  x'",
-        "'plain', 'plain'",
-    )
-    fun `snippet syntax becomes plain text`(
-        snippet: String,
-        plain: String,
-    ) {
-        assertEquals(plain, snippetText(snippet))
-    }
-
     @Test
     fun `an item without a label or a range takes the word's place with what text it has`() {
         // LSP 3.17 requires label, newText and range; the gaps of a lenient server give no text or the word's place.
@@ -337,6 +322,17 @@ class CompletionEditsTest {
         @JvmStatic
         fun snippets(): Stream<Arguments> =
             Stream.of(
+                Arguments.of("print(\$1)\$0", "print()"),
+                Arguments.of("\${1:outer \${2:inner}} end", "outer inner end"),
+                Arguments.of("cost \\\$5 \\} \\\\", "cost \$5 } \\"),
+                Arguments.of("\${TM_FILENAME} \$var x", "  x"),
+                Arguments.of("plain", "plain"),
+                Arguments.of("\$a1b2 x", " x"),
+                Arguments.of("\$TM_FILENAME x", " x"),
+                Arguments.of("a\\,b", "a\\,b"),
+                Arguments.of("a\\|b", "a\\|b"),
+                Arguments.of("\${1:a\\,b}", "a\\,b"),
+                Arguments.of("\${1:a\\|b}", "a\\|b"),
                 Arguments.of("a\\", "a\\"),
                 Arguments.of("a\\n", "a\\n"),
                 Arguments.of("a}b", "a}b"),

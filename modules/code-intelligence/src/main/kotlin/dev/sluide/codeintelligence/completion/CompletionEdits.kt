@@ -94,7 +94,8 @@ internal fun acceptEdits(
 
 /**
  * [snippet] (LSP snippet syntax) as plain text: tab stops (`$1`, `$0`) and variables go, placeholders (`${1:name}`)
- * become their text, choices (`${1|a,b|}`) their first option, and `\$`, `\}`, `\\` their character. Thoreau declares
+ * become their text, choices (`${1|a,b|}`) their first option, and `\$`, `\}`, `\\` their character (in a choice
+ * `\,` and `\|` too; elsewhere a backslash before them stays). Thoreau declares
  * no snippet support, so a server should not send any.
  */
 internal fun snippetText(snippet: String): String {
@@ -116,7 +117,7 @@ private class SnippetReader(
         while (at < text.length) {
             val c = text[at]
             when {
-                c == '\\' && at + 1 < text.length && text[at + 1] in "\$}\\,|" -> {
+                c == '\\' && at + 1 < text.length && text[at + 1] in "\$}\\" -> {
                     out.append(text[at + 1])
                     at += 2
                 }
