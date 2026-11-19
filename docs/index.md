@@ -212,6 +212,7 @@ updated when the summary or keywords no longer fit.
 | [0185](adr/0185-mutation-testing-with-pitest.md) | Mutation testing with pitest: `mutation-check.sh` in two stages, a Kotlin junk filter, replaces `break-check.sh` | pitest, mutation, mutation-check, break-check, survivors, junk filter, UI stage, `tools/pitest-kotlin`, `KOTLIN_JUNK`, `LINES` | amends 0178 |
 | [0186](adr/0186-test-support-module.md) | Test-only module `test-support` for generic test helpers (`LogCapture`, `collidingWith`); only tests depend on it | test-support, `LogCapture`, `collidingWith`, `collidingLettersWith`, hash collision, test helpers, testImplementation, testFixtures | see 0047, 0084 |
 | [0187](adr/0187-text-type-detection.md) | Foundation module `text-types` guesses a text's type: scored rules and sources, ties by list order, below 50 Plain Text | text-types, `TextTypeDetector`, detect type, clipboard text, paste text, extension, shebang, heuristics, Markdown, SQL, Converting scores | see 0047, 0115 |
+| [0188](adr/0188-paste-clipboard-text-in-the-explorer.md) | Paste in the explorer takes clipboard text too: files > text > image, name and type dialog, writes and opens a file | paste text, clipboard text, `ExplorerTextPaste`, `PasteTextDialog`, Paste Text, `askTextName`, `textTypes`, pasted- | amends 0167, 0092; see 0187 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -230,7 +231,7 @@ updated when the summary or keywords no longer fit.
 ### Explorer
 | Feature | Summary | Keywords |
 |---|---|---|
-| [file-explorer.md](features/file-explorer.md) | Project tree with file operations, multi-selection and moves, a Compact Middle Folders and a Hide Generated Files toggle | New File, Rename F2, drag move, paste image, compact folders, Hide Generated Files, `folder-cog`, Select Opened File, Open in Terminal, Alt+1, search files, Shortcut+F |
+| [file-explorer.md](features/file-explorer.md) | Project tree with file operations, multi-selection and moves, a Compact Middle Folders and a Hide Generated Files toggle | New File, Rename F2, drag move, paste image, paste text, compact folders, Hide Generated Files, `folder-cog`, Select Opened File, Open in Terminal, Alt+1, search files |
 | [find-in-files.md](features/find-in-files.md) | Find in Files: content search of the tree's files in a popup, scope chip, selection as query, file mask | Find in Files, Shortcut+Shift+F, Find in Folder, Find Selection in Files, file mask, scope chip, `FindInFiles`, `MatchOpener` |
 | [scratch-files.md](features/scratch-files.md) | Scratch files of any type under the explorer's Scratches root, also generated ones | New Scratch File, Shortcut+Shift+N, `~/.sluide/scratches`, type picker, generated scratch files, Shortcut+Shift+G, UUID, ULID, password, encrypted scratch files |
 | [file-watching.md](features/file-watching.md) | `FileWatcher` reports folder changes to explorer, editor and git | `FileWatcher`, watches, combined events, macOS polling |
@@ -332,6 +333,7 @@ Explored but not decided or built; options and trade-offs, no commitment.
 | [translation.md](ideas/translation.md) | Translate ideas left for later: swap, linked highlight, per-paragraph detection, an LLM engine, glossaries | swap, highlight, TranslateGemma, Ollama, LLM, batch, comments, glossary, `TranslationEngine` |
 | [spell-checking.md](ideas/spell-checking.md) | Spell checking options: Lucene Hunspell, dictionary licences, LanguageTool, harper-ls, editor fit and gaps | spell checking, Hunspell, Lucene, LibreOffice dictionaries, LanguageTool, harper-ls, grammar, user dictionary, typos, Lingua, wavy underline |
 | [barcodes.md](ideas/barcodes.md) | Barcode ideas left for later: screen scan, EAN digits, QR logo, WebP/HEIC, hex view, more formats, animated GIF | barcodes, screen capture, EAN digits, QR logo, WebP, HEIC, hex view, Read Barcode, Code 39, animated GIF |
+| [clipboard-text.md](ideas/clipboard-text.md) | Clipboard text ideas left for later: type in the menu label, path text, shared type list, rich text, more languages | paste text, clipboard text, Paste Text, text-types, New Scratch from Clipboard |
 | [clipboard-images.md](ideas/clipboard-images.md) | Clipboard image ideas left for later: Markdown editor paste, New Scratch from Clipboard Image, other formats, Copy Image | paste image, Markdown image, scratch, JPEG, WebP, Copy Image |
 | [review-later.md](ideas/review-later.md) | Review window ideas left for later: line comments, persisted Viewed, image diffs, `linguist-generated`, scopes | review comments, Viewed, image diff, text selection, generated files, staged |
 | [secrets-later.md](ideas/secrets-later.md) | Saved-secrets features left for later: Windows key store, more secrets, key rotation, attach hardening | Windows, DPAPI, Credential Manager, OAuth client secrets, key rotation, `DisableAttachMechanism`, Developer ID |

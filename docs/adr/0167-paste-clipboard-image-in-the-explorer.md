@@ -1,6 +1,6 @@
 # 0167. Paste a clipboard image in the explorer
 
-- Status: accepted
+- Status: accepted (amended by [0188](0188-paste-clipboard-text-in-the-explorer.md): text beats an image, files > text > image; the name is `pasted-…`)
 - Date: 2026-11-12
 
 ## Context

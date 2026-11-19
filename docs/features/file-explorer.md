@@ -143,9 +143,9 @@
     ([converting.md](converting.md), [ADR 0115](../adr/0115-converting-tool.md)).
   - Cut, Copy and Paste follow, in a group of their own, showing their keys (Shortcut+X / C / V); see Copy, cut and
     paste below. Copy is enabled for at least one target (also a top-level folder), Cut when all targets can be changed
-    (as Delete), Paste when the clipboard holds files or an image and there is one folder to paste into (the item reads
-    "Paste Image" for an image without files): the clicked folder, the folder of the clicked file, or the project
-    folder on the empty area; not for several entries, not into a folder being deleted (`ExplorerCopies.pasteItem`, the
+    (as Delete), Paste when the clipboard holds files, text or an image and there is one folder to paste into (the item
+    reads "Paste Text" for text and "Paste Image" for an image, each without files): the clicked folder, the folder of
+    the clicked file, or the project folder on the empty area; not for several entries, not into a folder being deleted (`ExplorerCopies.pasteItem`, the
     same decision as the paste, from one read of the clipboard per menu show).
   - New File… / New Folder… create an empty entry in the clicked folder or, on the empty area, in the project folder.
     They are enabled for exactly one folder (also a top-level one) or the empty area while a folder is open; disabled
@@ -285,11 +285,23 @@
     `my.dir-copy`. A copy of a copy counts on: `notes-copy.txt` → `notes-copy2.txt`. Names count as taken in any case,
     so no copy differs from an entry only in case. Pasting into the entry's own folder makes such a copy; entries of
     the same name from several folders get suffixes in order.
-  - An image on the clipboard (a screenshot, a copied image region) without files is pasted as a PNG file
+  - Text on the clipboard without files is pasted as a new file ([ADR 0188](../adr/0188-paste-clipboard-text-in-the-explorer.md),
+    `actions/ExplorerTextPaste.kt`, `actions/PasteTextDialog.kt`, `actions/PasteTextName.kt`): same keys and target
+    folder, the item reads "Paste Text". Precedence: files, then text (not blank), then an image, so a spreadsheet range
+    (text and image) pastes as text and a screenshot as a PNG. The type of the text is detected in the background
+    (`text-types`, [ADR 0187](../adr/0187-text-type-detection.md); `FileExplorerView.textTypes`, which `ide` sets).
+    A "Paste Text" dialog asks for a name, prefilled `pasted-yyyy-MM-dd-HHmmss` in local time and selected, and a type:
+    a combo box of all types with their file icons, the detected one marked "· detected" and preselected, "No
+    extension" last. The extension is always appended (`config.yaml` as JSON is `config.yaml.json`), "No extension"
+    keeps the name; the dialog says `Saved as “…”.`, checks the final name like New File (a `/` path creates missing
+    folders, a taken name or a name ending with `/` is refused, changing the type checks again). The text is written
+    as it is (UTF-8, line endings kept) in the background with `CREATE_NEW`, like the image; afterwards the file is
+    selected and opened. Cancel writes nothing.
+  - An image on the clipboard (a screenshot, a copied image region) without files or text is pasted as a PNG file
     ([ADR 0167](../adr/0167-paste-clipboard-image-in-the-explorer.md), `actions/ExplorerImagePaste.kt`,
-    `actions/ClipboardImages.kt`): same keys, menu item ("Paste Image") and target folder. Files win: with files on
+    `actions/ClipboardImages.kt`): same keys, menu item ("Paste Image") and target folder. Files and text win: with files on
     the clipboard (Finder puts an icon image beside copied files) the files are pasted. A "Paste Image" dialog asks for
-    the name, prefilled `image-yyyy-MM-dd-HHmmss.png` in local time, checked like New File (a `/` path creates missing
+    the name, prefilled `pasted-yyyy-MM-dd-HHmmss.png` in local time, checked like New File (a `/` path creates missing
     folders, a taken name is refused). `.png` is appended unless the name ends with it in any case, and the dialog says
     `Saved as “diagram.png”.` below the field. The pixels are read before the dialog, the PNG (lossless, transparency
     kept, the image's own pixel size) is encoded and written in the background with `CREATE_NEW`; a name taken
