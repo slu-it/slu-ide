@@ -49,11 +49,27 @@ openssl req -x509 -new -key client-ed25519.key -out client-ed25519.pem -days "$d
 openssl genpkey -genparam -algorithm DSA -pkeyopt pbits:2048 -pkeyopt qbits:256 -out dsa-params.pem
 openssl genpkey -paramfile dsa-params.pem -out client-dsa.key
 openssl req -x509 -new -key client-dsa.key -out client-dsa.pem -days "$days" -subj "/CN=SluIde Test DSA" -sha256
+openssl genpkey -algorithm ED448 -out client-ed448.key
+openssl req -x509 -new -key client-ed448.key -out client-ed448.pem -days "$days" -subj "/CN=SluIde Test Ed448"
 # Keys of the same algorithms that do not belong to those certificates
 openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out other-ecdsa.key
 openssl genpkey -algorithm ED25519 -out other-ed25519.key
+openssl genpkey -algorithm ED448 -out other-ed448.key
 openssl genpkey -paramfile dsa-params.pem -out other-dsa.key
 rm -f dsa-params.pem
+
+# A PKCS#12 file whose certificate cannot be parsed: without certificate encryption and MAC, the first byte inside
+# the certificate (the tbsCertificate SEQUENCE tag 0x30) is changed to 0x31, so loading it throws a
+# CertificateParsingException
+openssl pkcs12 -export -certpbe NONE -nomac -in client.pem -inkey client.key -name client \
+    -out client-bad-cert.p12 -passout "pass:$passphrase"
+python3 -I - <<'PY'
+data = bytearray(open("client-bad-cert.p12", "rb").read())
+at = data.find(open("client-cert.der", "rb").read())
+assert at >= 0 and data[at + 4] == 0x30
+data[at + 4] = 0x31
+open("client-bad-cert.p12", "wb").write(data)
+PY
 
 # The CA key is not needed by the tests; a new CA is made on each run.
 rm -f server.csr client.csr server.key ca.key
