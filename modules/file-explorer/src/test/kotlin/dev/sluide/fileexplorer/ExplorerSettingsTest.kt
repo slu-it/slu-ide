@@ -1,12 +1,9 @@
 package dev.sluide.fileexplorer
 
 import dev.sluide.settings.SettingsStore
+import dev.sluide.testsupport.LogCapture
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.logging.Handler
-import java.util.logging.LogRecord
-import java.util.logging.Logger
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -63,24 +60,12 @@ class ExplorerSettingsTest {
     fun `settings that cannot be read give the default, a change that cannot be stored is logged and still applies`() {
         // A folder where the settings file should be: it cannot be read, so it is not replaced.
         val explorer = ExplorerSettings(SettingsStore(dir.resolve("settings").createDirectories()))
-        val records = CopyOnWriteArrayList<String>()
-        val handler =
-            object : Handler() {
-                override fun publish(record: LogRecord) {
-                    records += "${record.level} ${record.message}"
-                }
-
-                override fun flush() {}
-
-                override fun close() {}
+        val records =
+            LogCapture(ExplorerSettings::class.java.name).use { log ->
+                assertTrue(explorer.compactFolders.get())
+                explorer.compactFolders.set(false)
+                log.lines.map { (level, message) -> "$level $message" }
             }
-        val logger = Logger.getLogger(ExplorerSettings::class.java.name).apply { addHandler(handler) }
-        try {
-            assertTrue(explorer.compactFolders.get())
-            explorer.compactFolders.set(false)
-        } finally {
-            logger.removeHandler(handler)
-        }
 
         assertFalse(explorer.compactFolders.get())
         assertEquals(listOf("WARNING Cannot store whether the explorer compacts middle folders"), records)

@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.EditorMenuTarget
 import dev.sluide.fileviewers.ExtensibleCodeEditor
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.WindowServices
+import dev.sluide.testsupport.LogCapture
 import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.value.ObservableValue
 import javafx.scene.Node
@@ -13,9 +14,6 @@ import javafx.scene.control.MenuItem
 import javafx.util.Subscription
 import java.net.URI
 import java.nio.file.Path
-import java.util.logging.Handler
-import java.util.logging.LogRecord
-import java.util.logging.Logger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -147,26 +145,11 @@ class CodeViewExtensionsTest {
     }
 
     /** The records logged by [CodeViewExtensions] while [action] runs, as level and message. */
-    private fun logged(action: () -> Unit): List<String> {
-        val records = mutableListOf<String>()
-        val handler =
-            object : Handler() {
-                override fun publish(record: LogRecord) {
-                    records += "${record.level} ${record.message}"
-                }
-
-                override fun flush() {}
-
-                override fun close() {}
-            }
-        val logger = Logger.getLogger(CodeViewExtensions::class.java.name).apply { addHandler(handler) }
-        try {
+    private fun logged(action: () -> Unit): List<String> =
+        LogCapture(CodeViewExtensions::class.java.name).use { log ->
             action()
-        } finally {
-            logger.removeHandler(handler)
+            log.lines.map { (level, message) -> "$level $message" }
         }
-        return records
-    }
 
     private class FakeEditor : ExtensibleCodeEditor {
         override val file: ObservableValue<Path> = SimpleObjectProperty(Path.of("a.py"))

@@ -2,15 +2,12 @@ package dev.sluide.commandruns
 
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.settings.SettingsStore
+import dev.sluide.testsupport.LogCapture
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.nio.file.Path
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.logging.Handler
-import java.util.logging.LogRecord
-import java.util.logging.Logger
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -111,23 +108,11 @@ class ArgumentHistoriesTest {
         // A folder where the settings file should be: it cannot be read, so it is not replaced.
         val unreadable = SettingsStore(dir.resolve("settings").createDirectories())
         val histories = ArgumentHistories(store, unreadable)
-        val records = CopyOnWriteArrayList<String>()
-        val handler =
-            object : Handler() {
-                override fun publish(record: LogRecord) {
-                    records += "${record.level} ${record.message}"
-                }
-
-                override fun flush() {}
-
-                override fun close() {}
+        val records =
+            LogCapture(ArgumentHistories::class.java.name).use { log ->
+                histories.expanded.set(false)
+                log.lines.map { (level, message) -> "$level $message" }
             }
-        val logger = Logger.getLogger(ArgumentHistories::class.java.name).apply { addHandler(handler) }
-        try {
-            histories.expanded.set(false)
-        } finally {
-            logger.removeHandler(handler)
-        }
 
         assertFalse(histories.expanded.get())
         assertEquals(listOf("WARNING Cannot store whether the run histories are expanded"), records)

@@ -26,6 +26,8 @@ dependencies {
     // Deliberate module dependency: library code opens read-only (ADR 0150).
     implementation(project(":modules:library-code"))
 
+    // Generic test helpers: LogCapture (ADR 0186).
+    testImplementation(project(":modules:test-support"))
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }

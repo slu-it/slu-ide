@@ -3,6 +3,7 @@ package dev.sluide.docker.cli
 import dev.sluide.docker.model.ContainerAction
 import dev.sluide.docker.model.DockerEvent
 import dev.sluide.docker.model.EngineFlavor
+import dev.sluide.testsupport.LogCapture
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -209,12 +210,12 @@ class ProcessDockerCliTest {
 
     @Test
     fun `run keeps the variable values out of the IDE log, also when it fails`() {
-        val lines = CopyOnWriteArrayList<String>()
-        capturingLog(lines) {
-            cli().run(listOf("run", "-d", "-e", "TOKEN=s3cret", "bash:5.2"))
-            assertFailsWith<DockerException> { cli().run(listOf("run", "-d", "-e", "TOKEN=s3cret", "fail")) }
-            cli().run(listOf("run", "-d", "-e", "FOO", "--label", "a=b", "-e", "K=v", "bash:5.2"))
-        }
+        val lines =
+            capturingLog {
+                cli().run(listOf("run", "-d", "-e", "TOKEN=s3cret", "bash:5.2"))
+                assertFailsWith<DockerException> { cli().run(listOf("run", "-d", "-e", "TOKEN=s3cret", "fail")) }
+                cli().run(listOf("run", "-d", "-e", "FOO", "--label", "a=b", "-e", "K=v", "bash:5.2"))
+            }
 
         assertTrue(lines.any { "-e TOKEN=••••" in it }, "the run is logged with a masked value: $lines")
         assertTrue(
@@ -313,9 +314,7 @@ class ProcessDockerCliTest {
         val events = CopyOnWriteArrayList<DockerEvent>()
         val ends = CopyOnWriteArrayList<Throwable?>()
         val first = CountDownLatch(1)
-        val logged = CopyOnWriteArrayList<String>()
-
-        capturingLog(logged) {
+        capturingLog { logged ->
             val stream =
                 cli().events({
                     events += it
@@ -374,9 +373,7 @@ class ProcessDockerCliTest {
         val ends = CopyOnWriteArrayList<Throwable?>()
         val handle = AtomicReference<AutoCloseable>()
         val opened = CountDownLatch(1)
-        val logged = CopyOnWriteArrayList<String>()
-
-        capturingLog(logged) {
+        capturingLog { logged ->
             // The CLI prints 5000 lines at once; the first one closes the stream, the rest sits in the pipe and buffer.
             handle.set(
                 cli().logs("many", null, { line ->
@@ -502,9 +499,7 @@ class ProcessDockerCliTest {
         val samples = CopyOnWriteArrayList<Double>()
         val handle = AtomicReference<AutoCloseable>()
         val ready = CountDownLatch(1)
-        val logged = CopyOnWriteArrayList<String>()
-
-        capturingLog(logged) {
+        capturingLog { logged ->
             handle.set(
                 cli().stats("web", { sample ->
                     ready.await(5, TimeUnit.SECONDS)
@@ -537,9 +532,7 @@ class ProcessDockerCliTest {
         val events = CopyOnWriteArrayList<String>()
         val handle = AtomicReference<AutoCloseable>()
         val ready = CountDownLatch(1)
-        val logged = CopyOnWriteArrayList<String>()
-
-        capturingLog(logged) {
+        capturingLog { logged ->
             handle.set(
                 cli("MANY_EVENTS" to "1").events({ event ->
                     ready.await(5, TimeUnit.SECONDS)
@@ -643,41 +636,19 @@ class ProcessDockerCliTest {
         assertEquals(listOf("start"), actions)
     }
 
-    /** Runs [block] with the messages of the processes' logger collected in [lines]. */
-    private fun capturingLog(
-        lines: MutableList<String>,
-        block: () -> Unit,
-    ) {
-        val logger =
-            java.util.logging.Logger
-                .getLogger("dev.sluide.docker.cli.DockerProcesses")
-        val handler =
-            object : java.util.logging.Handler() {
-                override fun publish(record: java.util.logging.LogRecord) {
-                    lines += record.message
-                }
-
-                override fun flush() {}
-
-                override fun close() {}
-            }
-        val level = logger.level
-        logger.level = java.util.logging.Level.ALL
-        logger.addHandler(handler)
-        try {
-            block()
-        } finally {
-            logger.removeHandler(handler)
-            logger.level = level
+    /** Runs [block] with the processes' logger captured; the messages it logged, with the capture for polling. */
+    private fun capturingLog(block: (LogCapture) -> Unit): List<String> =
+        LogCapture("dev.sluide.docker.cli.DockerProcesses").use { log ->
+            block(log)
+            log.messages()
         }
-    }
 
     /** The reader logs "stream closed" once it is done, after the last delivery it could have made. */
-    private fun waitForStreamClosed(lines: List<String>) {
+    private fun waitForStreamClosed(log: LogCapture) {
         // Only this test's stream started while the log was captured; a reader of an earlier test has another name.
-        waitFor { lines.any { " stream start " in it } }
-        val name = lines.first { " stream start " in it }.substringBefore(' ')
-        waitFor { lines.any { it.startsWith("$name stream closed after") } }
+        waitFor { log.messages().any { " stream start " in it } }
+        val name = log.messages().first { " stream start " in it }.substringBefore(' ')
+        waitFor { log.messages().any { it.startsWith("$name stream closed after") } }
     }
 
     /** A pull whose progress loop never ends (a mutant that loses the end marker) fails instead of hanging. */

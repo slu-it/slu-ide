@@ -27,6 +27,8 @@ dependencies {
     api(project(":modules:settings"))
     implementation(libs.spring.context)
 
+    // Generic test helpers: LogCapture (ADR 0186).
+    testImplementation(project(":modules:test-support"))
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }
