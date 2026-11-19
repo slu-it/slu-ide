@@ -1,6 +1,5 @@
 package dev.sluide.languageservers
 
-import dev.sluide.languageservers.connection.ServerTiming
 import org.eclipse.lsp4j.DidChangeConfigurationParams
 import org.eclipse.lsp4j.DidChangeTextDocumentParams
 import org.eclipse.lsp4j.DidCloseTextDocumentParams
@@ -16,130 +15,24 @@ import org.eclipse.lsp4j.TextDocumentSaveRegistrationOptions
 import org.eclipse.lsp4j.TextDocumentSyncKind
 import org.eclipse.lsp4j.TextDocumentSyncOptions
 import org.eclipse.lsp4j.jsonrpc.messages.Either
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Document sync over fake servers: ranges from the document's own copy, the sync kinds, the fallback for a change
  * that does not fit, counted opens, moves, saves and the reopen on every new server. A single-thread executor plays
  * the FX thread: every call into the session and every listener runs there.
  */
-class DocumentSyncTest {
-    @TempDir
-    lateinit var folder: Path
-
-    private val spec = TestSpec()
-
-    /** A spec that gates documents: files whose name starts with `old` are not served. */
-    private val gating =
-        TestSpec(gatesDocuments = true, gates = {
-            file,
-            _,
-            ->
-            DocumentGate(!file.fileName.toString().startsWith("old"))
-        })
-    private val fx = Executors.newSingleThreadExecutor { Thread(it, "test-fx").apply { isDaemon = true } }
-    private val connects = AtomicInteger()
-    private var servers: LanguageServers? = null
-    private lateinit var starter: FakeStarter
-
-    @AfterEach
-    fun closeServers() {
-        servers?.close()
-        fx.shutdownNow()
-    }
-
-    private fun session(
-        capabilities: () -> ServerCapabilities = { syncing(TextDocumentSyncKind.Incremental) },
-        beforeStart: (Int) -> Unit = {},
-        spec: TestSpec = this.spec,
-    ): LanguageServerSession {
-        starter = FakeStarter({ FakeServer().apply { this.capabilities = capabilities() } }, beforeStart)
-        val created =
-            LanguageServers(
-                listOf(spec),
-                { folder },
-                { _, _ -> true },
-                fx::execute,
-                starter,
-                FakeScheduler(),
-                ServerTiming(shutdown = 200.milliseconds, exit = 200.milliseconds),
-                System::nanoTime,
-            )
-        servers = created
-        return created.session(spec).also { session -> session.onConnected { connects.incrementAndGet() } }
-    }
-
-    private fun <T> onFx(action: () -> T): T = fx.submit(action).get(5, TimeUnit.SECONDS)
-
-    /** Starts the server and waits until the session announced it; the server. */
-    private fun LanguageServerSession.running(): FakeServer {
-        val before = connects.get()
-        onFx { ensureStarted() }
-        awaitTrue("connected") { connects.get() > before }
-        return starter.last.server
-    }
-
-    /** Waits until [server] got everything sent before. */
-    private fun LanguageServerSession.flush(server: FakeServer) {
-        val count = server.calls.count { it == "didChangeConfiguration" }
-        onFx {
-            notify {
-                it.workspaceService.didChangeConfiguration(
-                    DidChangeConfigurationParams(emptyMap<String, Any>()),
-                )
-            }
-        }
-        awaitTrue("flushed") { server.calls.count { it == "didChangeConfiguration" } > count }
-    }
-
-    private fun LanguageServerSession.open(
-        name: String,
-        text: String,
-    ): SyncedDocument = onFx { documents.open(folder.resolve(name), "python", text) }
-
-    private val FakeServer.opens get() = documentNotifications.filterIsInstance<DidOpenTextDocumentParams>()
-    private val FakeServer.changes get() = documentNotifications.filterIsInstance<DidChangeTextDocumentParams>()
-    private val FakeServer.closes
-        get() = documentNotifications.filterIsInstance<DidCloseTextDocumentParams>().map { it.textDocument.uri }
-
-    private fun uri(name: String) = LspUris.of(folder.resolve(name))
-
-    /** The document notifications [this] got, as `open a.py 1`, `change a.py`, `save a.py`, `close a.py`. */
-    private fun FakeServer.log() =
-        documentNotifications.map { notification ->
-            when (notification) {
-                is DidOpenTextDocumentParams -> "open ${name(
-                    notification.textDocument.uri,
-                )} ${notification.textDocument.version}"
-
-                is DidChangeTextDocumentParams -> "change ${name(notification.textDocument.uri)}"
-
-                is DidSaveTextDocumentParams -> "save ${name(notification.textDocument.uri)}"
-
-                is DidCloseTextDocumentParams -> "close ${name(notification.textDocument.uri)}"
-
-                else -> notification.toString()
-            }
-        }
-
-    private fun name(uri: String) = LspUris.toPath(uri)?.fileName.toString()
-
+internal class DocumentSyncTest : DocumentSyncTestBase() {
     @Test
     fun `each change of a batch reaches an incremental server as a range on the text the change before left`() {
         val session = session()
@@ -450,8 +343,6 @@ class DocumentSyncTest {
     }
 
     companion object {
-        private fun syncing(kind: TextDocumentSyncKind) = ServerCapabilities().apply { setTextDocumentSync(kind) }
-
         @JvmStatic
         fun syncKinds(): List<Arguments> =
             listOf(
