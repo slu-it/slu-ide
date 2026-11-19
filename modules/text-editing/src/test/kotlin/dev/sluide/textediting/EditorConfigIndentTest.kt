@@ -118,6 +118,14 @@ class EditorConfigIndentTest {
     }
 
     @Test
+    fun `an indent_size that is no number or tab still takes the tab width for indent_style tab`() {
+        editorConfig(".", "root = true\n[*]\nindent_style = tab\nindent_size = many\ntab_width = 3\n")
+        assertEquals(EditorConfigIndent(true, 3, 3), EditorConfigIndent.of(folder.resolve("a.go")))
+        editorConfig("space", "root = true\n[*]\nindent_style = space\nindent_size = many\ntab_width = 3\n")
+        assertEquals(EditorConfigIndent(false, null, 3), EditorConfigIndent.of(folder.resolve("space/a.go")))
+    }
+
+    @Test
     fun `ignores a size or tab width that is not positive`() {
         editorConfig("zero", "root = true\n[*]\nindent_size = 0\ntab_width = 0\n")
         editorConfig("negative", "root = true\n[*]\nindent_size = -2\ntab_width = -4\n")
@@ -156,6 +164,13 @@ class EditorConfigIndentTest {
         assertEquals(IndentStyle(false, 3), IndentStyle.forFile(folder.resolve("partial/a.c"), "a\n   b\n"))
         assertEquals(IndentStyle(true, 4), IndentStyle.forFile(folder.resolve("none/a.c"), tabbed))
         assertEquals(IndentStyle.DEFAULT, IndentStyle.forFile(folder.resolve("none/a.c"), "a\nb\n"))
+    }
+
+    @Test
+    fun `an explicit indent_style tab gives tabs whatever the text uses`() {
+        editorConfig("tabs", "root = true\n[*]\nindent_style = tab\n")
+
+        assertEquals(IndentStyle(true, 2), IndentStyle.forFile(folder.resolve("tabs/a.c"), "a\n  b\n"))
     }
 
     @Test

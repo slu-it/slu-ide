@@ -68,6 +68,7 @@ class TextReplacementTest {
         assertTurns("a\uD83D", "a😀", TextReplacement(2, 2, "\uDE00"))
         assertTurns("\uDE00", "😀", TextReplacement(0, 0, "\uD83D"))
         assertTurns("😀", "😁", TextReplacement(0, 2, "😁"))
+        assertTurns("a\uDE00", "a😀", TextReplacement(1, 1, "\uD83D"))
     }
 
     @Test

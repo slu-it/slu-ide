@@ -62,6 +62,32 @@ class LineCommentsTest {
     }
 
     @Test
+    fun `unwraps a block comment with the one space inside each end, or none, or only one side`() {
+        assertEquals("|", toggle("/* */|", CommentSyntax.CSS))
+        assertEquals("|", toggle("/*  */|", CommentSyntax.CSS))
+        assertEquals("a|", toggle("/* a */|", CommentSyntax.CSS))
+        assertEquals("a|", toggle("/*a */|", CommentSyntax.CSS))
+        assertEquals("a|", toggle("/* a*/|", CommentSyntax.CSS))
+        assertEquals(" a |", toggle("/*  a  */|", CommentSyntax.CSS))
+    }
+
+    @Test
+    fun `a block comment whose close overlaps its open is not one comment`() {
+        assertEquals("/* /*/| */", toggle("/*/|", CommentSyntax.CSS))
+    }
+
+    @Test
+    fun `a line that only ends in the close of a block comment is not one`() {
+        assertEquals("/* a */| */", toggle("a */|", CommentSyntax.CSS))
+    }
+
+    @Test
+    fun `uncommenting takes a trailing space after a bare prefix`() {
+        assertEquals("|", toggle("// |"))
+        assertEquals("x|", toggle("//x|"))
+    }
+
+    @Test
     fun `wraps lines with several block comments again`() {
         assertEquals("<!-- <!-- a --> <!-- b -->| -->", toggle("<!-- a --> <!-- b -->|", CommentSyntax.XML))
         assertEquals("/* /* a */ x /* b */| */", toggle("/* a */ x /* b */|", CommentSyntax.CSS))

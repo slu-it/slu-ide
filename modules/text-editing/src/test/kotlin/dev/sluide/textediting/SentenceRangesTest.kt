@@ -57,6 +57,17 @@ class SentenceRangesTest {
     }
 
     @Test
+    fun `a lower case second part of a German abbreviation needs the first one before it`() {
+        for (text in listOf("Wir fragen z. b. Anna", "Das ist d. h. gut", "Dazu u. a. Anna")) {
+            assertEquals(listOf("$text ende."), texts("$text ende.", Abbreviations.GERMAN), text)
+        }
+        assertEquals(
+            listOf("Wir fragen x.", "b.", "Anna ende."),
+            texts("Wir fragen x. b. Anna ende.", Abbreviations.GERMAN),
+        )
+    }
+
+    @Test
     fun `German abbreviations are not known to the English default`() {
         assertEquals(listOf("Das gilt ca.", "zehn."), texts("Das gilt ca. zehn."))
     }
@@ -99,6 +110,19 @@ class SentenceRangesTest {
 
         assertEquals(listOf("Title", "Text without end", "More.", "Text"), texts(text))
         assertTrue(SentenceRanges.split(text).none { '\n' in text.substring(it) })
+    }
+
+    @Test
+    fun `an ellipsis followed only by whitespace ends the sentence`() {
+        assertEquals(listOf("Wait…"), texts("Wait…  "))
+        assertEquals(listOf("Wait..."), texts("Wait...  "))
+    }
+
+    @Test
+    fun `whitespace alone is no sentence`() {
+        assertEquals(emptyList(), texts(" "))
+        assertEquals(emptyList(), texts("\t"))
+        assertEquals(listOf("a."), texts("a.\n \n"))
     }
 
     @Test
@@ -182,6 +206,27 @@ class SentenceRangesTest {
         assertEquals(
             listOf("A rather long beginning$dash", "then the rest of it."),
             clauses("A rather long beginning$dash then the rest of it.", maxChars = 30),
+        )
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["—", " –"])
+    fun `a dash splits before the last space of the limit`(dash: String) {
+        assertEquals(
+            listOf("A rather long beginning$dash", "then the rest of the sentence goes on."),
+            clauses("A rather long beginning$dash then the rest of the sentence goes on.", maxChars = 60),
+        )
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["–", "– ", " –", ",", ";", ":"])
+    fun `a mark without its spaces is no clause mark`(mark: String) {
+        // Without a clause mark the range splits at the last space before the limit of 40.
+        val text = "x".repeat(24) + mark + "yyyyy zzzzz wwwwwwwwwwwwwww"
+
+        assertEquals(
+            listOf("x".repeat(24) + mark + "yyyyy zzzzz", "wwwwwwwwwwwwwww"),
+            clauses(text, maxChars = 40),
         )
     }
 

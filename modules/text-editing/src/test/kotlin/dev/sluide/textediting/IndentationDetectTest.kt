@@ -32,6 +32,11 @@ class IndentationDetectTest {
     }
 
     @Test
+    fun `on a tie of steps the smaller one wins when it came last`() {
+        assertEquals(2, Indentation.detect("a\n  b\n      c\n")?.size)
+    }
+
+    @Test
     fun `ignores blank lines and single-space continuations`() {
         val text = "/**\n * doc\n */\nclass A {\n\n  val b = 1\n}\n"
         assertEquals(IndentStyle(useTabs = false, size = 2), Indentation.detect(text))

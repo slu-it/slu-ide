@@ -29,6 +29,12 @@ class TextPositionTest {
     }
 
     @Test
+    fun `a line far beyond the text is clamped to its last line`() {
+        assertEquals(4, TextPosition(4, 1).offsetIn("ab\ncd"))
+        assertEquals(5, TextPosition(7, 9).offsetIn("ab\ncd"))
+    }
+
+    @Test
     fun `rejects blank and other input`() {
         assertNull(parseGoTo("", 10))
         assertNull(parseGoTo("  ", 10))
