@@ -10,10 +10,11 @@ import kotlin.test.assertNotEquals
 /** A repository in [root] that tests change with the real git, to read it with the wrappers of [GitCli]. */
 internal class TestRepository(
     val root: Path,
+    objectFormat: String = "sha1",
 ) {
     init {
         root.createDirectories()
-        git("init", "-q", "-b", "main")
+        git("init", "-q", "-b", "main", "--object-format=$objectFormat")
         git("config", "user.name", "Test")
         git("config", "user.email", "test@example.com")
     }

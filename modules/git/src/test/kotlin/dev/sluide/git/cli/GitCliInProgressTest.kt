@@ -27,7 +27,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** What `pendingRebase`, `pendingMerge` and `namesOnly` read: state files that tests write, the real git for the rest. */
+/**
+ * What `pendingRebase`, `pendingMerge`, `namesOnly` and `inProgress` read: state files that tests write, the real git
+ * for the rest.
+ */
 class GitCliInProgressTest {
     @TempDir
     lateinit var folder: Path
