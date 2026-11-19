@@ -107,12 +107,6 @@ class RemoteSourceCacheFailuresTest {
         pipeGrace: Duration = 2.seconds,
     ) = GitCli(scriptPath(body).toString(), testGitEnvironment(), 2.seconds, pipeGrace)
 
-    /** A git that was there when the cache was made and is gone at the first command after. */
-    private fun doomedGit(): GitCli {
-        val script = scriptPath("")
-        return GitCli(script.toString(), testGitEnvironment()).also { Files.delete(script) }
-    }
-
     /**
      * Runs [block], and cancels [cancellation] as soon as git has ended its [nth] command (1-based), before the cache
      * looks at the answer. Counted, not named: the log keeps only the start of long arguments.
@@ -217,7 +211,7 @@ class RemoteSourceCacheFailuresTest {
         fetchedMain(content = true)
         val couldNot = RemoteRead.Failed("git could not be run")
 
-        assertEquals(couldNot, cacheOf(doomedGit()).read(repository, head, "action.yml", network = false))
+        assertEquals(couldNot, cacheOf(vanishedGit(folder)).read(repository, head, "action.yml", network = false))
         // The commands of a read: rev-parse for the commit, ls-tree for the file, cat-file for its content.
         val afterCommit = scriptGit("case \" \$* \" in *' rev-parse '*) rm -f \"\$0\";; esac")
         assertEquals(couldNot, cacheOf(afterCommit).read(repository, head, "action.yml", network = false))
@@ -589,7 +583,7 @@ class RemoteSourceCacheFailuresTest {
     fun `a git that vanishes after the repository was made fails the fetch, one that cannot make it says so`() {
         assertEquals(
             RemoteFetch.Failed("could not create the cache"),
-            cacheOf(doomedGit()).fetch(repository, "main"),
+            cacheOf(vanishedGit(folder)).fetch(repository, "main"),
         )
         val afterInit = scriptGit("case \" \$* \" in *' init '*) rm -f \"\$0\";; esac")
 
