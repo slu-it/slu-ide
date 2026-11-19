@@ -318,7 +318,7 @@ class SslContextsTest {
         // The server certificate does not belong to the client key.
         val config = config("server.pem", "client-encrypted.key")
 
-        repeat(2) {
+        repeat(3) {
             assertTrue(
                 "does not belong" in assertFailsWith<SslConfigException> { contexts.context(config) }.message.orEmpty(),
             )

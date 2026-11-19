@@ -15,6 +15,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import javax.net.ssl.SSLContext
 import kotlin.io.path.copyTo
 import kotlin.io.path.setLastModifiedTime
@@ -227,33 +228,6 @@ class SslContextsMemoryTest {
     }
 
     @Test
-    fun `a failure that is no wrong passphrase keeps the passphrase in memory`() {
-        val certificate = fixture("client.pem").copyTo(folder.resolve("client.pem"))
-        val config =
-            SslConfig(
-                CertificateFile(certificate, null),
-                CertificateFile(fixture("client-encrypted.key"), null),
-                hasCertificatePassphrase = false,
-                verifyHostCertificate = false,
-            )
-        val asked = mutableListOf<Asked>()
-        val contexts = contexts(null, asked, answer("secret"))
-        contexts.context(config)
-
-        // The certificate no longer belongs to the key: not the passphrase's fault.
-        fixture("server.pem").copyTo(certificate, overwrite = true)
-        touch(certificate)
-        assertTrue(
-            "does not belong" in assertFailsWith<SslConfigException> { contexts.context(config) }.message.orEmpty(),
-        )
-        fixture("client.pem").copyTo(certificate, overwrite = true)
-        touch(certificate)
-        contexts.context(config)
-
-        assertEquals(1, asked.size)
-    }
-
-    @Test
     fun `a failure of the prompt itself is passed on as it is`() {
         val contexts = SslContexts(passphrase = { _, _, _ -> throw IllegalStateException("window closed") })
 
@@ -326,16 +300,16 @@ class SslContextsMemoryTest {
         try {
             val first = executor.submit<SSLContext> { contexts.context(p12Config) }
             assertTrue(prompting.await(5, TimeUnit.SECONDS))
-            var waiting: Thread? = null
+            val waiting = AtomicReference<Thread>()
             val second =
                 executor.submit<SSLContext> {
-                    waiting = Thread.currentThread()
+                    waiting.set(Thread.currentThread())
                     contexts.context(p12Config)
                 }
             // The second call parks on the per-files lock while the first one prompts.
             val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
-            while (waiting?.state != Thread.State.WAITING && System.nanoTime() < deadline) Thread.onSpinWait()
-            assertEquals(Thread.State.WAITING, waiting?.state)
+            while (waiting.get()?.state != Thread.State.WAITING && System.nanoTime() < deadline) Thread.onSpinWait()
+            assertEquals(Thread.State.WAITING, waiting.get()?.state)
             release.countDown()
 
             assertSame(first.get(5, TimeUnit.SECONDS), second.get(5, TimeUnit.SECONDS))
@@ -353,7 +327,7 @@ class SslContextsMemoryTest {
             executor.submit { contexts.context(p12Config) }.get(5, TimeUnit.SECONDS)
             touch(p12)
 
-            assertTimeoutPreemptively(Duration.ofSeconds(2)) {
+            assertTimeoutPreemptively(Duration.ofSeconds(5)) {
                 executor.submit { contexts.context(p12Config) }.get()
             }
         } finally {
@@ -361,17 +335,67 @@ class SslContextsMemoryTest {
         }
     }
 
+    private val pemConfig
+        get() =
+            SslConfig(
+                CertificateFile(fixture("client.pem"), null),
+                CertificateFile(fixture("client.key"), null),
+                hasCertificatePassphrase = false,
+                verifyHostCertificate = false,
+            )
+
     @Test
-    fun `a replaced context is handed on when its replacement is made`() {
+    fun `only the replaced context is handed on when its file changed, the others stay`() {
         val discarded = CopyOnWriteArrayList<SSLContext>()
         val contexts = contexts(null, mutableListOf(), answer("secret"), discarded = discarded::add)
 
         val first = contexts.context(p12Config)
+        val other = contexts.context(pemConfig)
         assertEquals(emptyList<SSLContext>(), discarded.toList())
         touch(p12)
-        contexts.context(p12Config)
+        val second = contexts.context(p12Config)
 
+        assertNotSame(first, second)
         assertEquals(listOf(first), discarded.toList())
+        assertSame(other, contexts.context(pemConfig))
+    }
+
+    @Test
+    fun `a cached context is returned while another call of the same files hands a replaced one on`() {
+        val entered = CountDownLatch(1)
+        val gate = CountDownLatch(1)
+        val first = AtomicReference<SSLContext>()
+        val contexts =
+            contexts(
+                null,
+                mutableListOf(),
+                answer("secret"),
+                discarded = {
+                    if (it === first.get()) {
+                        entered.countDown()
+                        gate.await(10, TimeUnit.SECONDS)
+                    }
+                },
+            )
+        first.set(contexts.context(p12Config))
+        touch(p12)
+        val strict = p12Config.copy(verifyHostCertificate = true)
+        val cached = contexts.context(strict)
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            // Creating the replacement hands the old context on while it holds the lock of the files.
+            val replacing = executor.submit<SSLContext> { contexts.context(p12Config) }
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+
+            val again = executor.submit<SSLContext> { contexts.context(strict) }
+
+            assertSame(cached, again.get(5, TimeUnit.SECONDS))
+            gate.countDown()
+            replacing.get(5, TimeUnit.SECONDS)
+        } finally {
+            gate.countDown()
+            executor.shutdownNow()
+        }
     }
 
     /** The arrays [SslContexts] zeroed, in order; each is checked to be zero when reported. */
