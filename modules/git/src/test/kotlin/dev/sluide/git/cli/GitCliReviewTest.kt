@@ -309,4 +309,17 @@ class GitCliReviewTest {
         assertNull(vanished.reviewLog(root, null, second, 5))
         assertNull(vanished.porcelainStatus(root))
     }
+
+    @Test
+    fun `blobs stops git that writes a valid answer larger than the sizes announced`() {
+        // The size given is 0, so 1 + 64 bytes may be read; git (this script) answers with a blob of 100 bytes that
+        // is a complete, valid answer of 112 bytes.
+        val content = "x".repeat(100)
+
+        assertNull(fakeGit("cat > /dev/null; printf 'a blob 100\\n$content\\n'").blobs(root, mapOf("a" to 0L)))
+        assertEquals(
+            setOf("a"),
+            fakeGit("cat > /dev/null; printf 'a blob 100\\n$content\\n'").blobs(root, mapOf("a" to 100L))?.keys,
+        )
+    }
 }
