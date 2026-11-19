@@ -2,6 +2,9 @@ package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
 import org.junit.jupiter.api.Assumptions.assumeTrue
+import java.nio.file.Path
+import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -26,6 +29,55 @@ internal fun testGitEnvironment(): Map<String, String> =
             "GIT_CONFIG_NOSYSTEM" to "1",
             "XDG_CONFIG_HOME" to emptyConfigHome.toString(),
         )
+
+/** What a git run in a test ended with: its exit value and its output, standard error merged in, undecoded. */
+internal class GitRun(
+    val exit: Int,
+    val bytes: ByteArray,
+) {
+    val output: String get() = bytes.decodeToString()
+}
+
+/**
+ * Runs the real git with [arguments] in [directory], with [input] on its standard input (closed when there is none),
+ * and waits for it; asserts nothing. The one place where the tests start git: [runGit] and `TestRepository` go
+ * through it. [environment] is the whole environment of the process.
+ */
+internal fun runGitRaw(
+    directory: Path,
+    vararg arguments: String,
+    input: ByteArray? = null,
+    environment: Map<String, String> = testGitEnvironment(),
+): GitRun {
+    val process =
+        ProcessBuilder(listOf("git") + arguments)
+            .directory(directory.toFile())
+            .redirectErrorStream(true)
+            .apply {
+                environment().clear()
+                environment().putAll(environment)
+            }.start()
+    process.outputStream.use { stdin -> input?.let(stdin::write) }
+    val output = process.inputStream.readAllBytes()
+    return GitRun(process.waitFor(), output)
+}
+
+/**
+ * [runGitRaw] that asserts the exit: [expectedExit], or any value but 0 when it is `null` (a conflict, a refusal). Its
+ * output is trimmed.
+ */
+internal fun runGit(
+    directory: Path,
+    vararg arguments: String,
+    input: String? = null,
+    expectedExit: Int? = 0,
+    environment: Map<String, String> = testGitEnvironment(),
+): String {
+    val run = runGitRaw(directory, *arguments, input = input?.toByteArray(Charsets.UTF_8), environment = environment)
+    val message = "git ${arguments.joinToString(" ")}: ${run.output}"
+    if (expectedExit == null) assertNotEquals(0, run.exit, message) else assertEquals(expectedExit, run.exit, message)
+    return run.output.trim()
+}
 
 /**
  * An empty folder for `XDG_CONFIG_HOME`: git reads the global excludes (`core.excludesFile`, by default
