@@ -3,11 +3,13 @@ package dev.sluide.codeintelligence.edits
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.TextEdit
+import org.eclipse.lsp4j.jsonrpc.json.MessageJsonHandler
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 
 /**
  * The pure parts of applying workspace edits: LSP positions in texts with any line breaks, the check of a file's edits
@@ -116,5 +118,102 @@ class TextEditsTest {
         assertEquals("\n", lineEndingOf("a\nb\r\n"))
         assertEquals("a\r\nb\r\nc\r\n", withLineEnding("a\nb\r\nc\r", "\r\n"))
         assertEquals("a\nb\nc\n", withLineEnding("a\nb\r\nc\r", "\n"))
+    }
+
+    /** A TextEdit as lsp4j parses a server's JSON: what the JSON lacks stays null. */
+    private fun parsedEdit(json: String): TextEdit =
+        MessageJsonHandler(emptyMap()).gson.fromJson(json, TextEdit::class.java)
+
+    private val start0 = "\"start\":{\"line\":0,\"character\":0}"
+    private val end1 = "\"end\":{\"line\":0,\"character\":1}"
+
+    @Test
+    fun `an edit the JSON leaves incomplete is refused with its reason`() {
+        assertEquals(
+            CheckedEdits.Invalid("an edit without a range"),
+            checkEdits("abc", listOf(parsedEdit("{\"newText\":\"x\"}"))),
+        )
+        assertEquals(
+            CheckedEdits.Invalid("an edit outside the text"),
+            checkEdits("abc", listOf(parsedEdit("{\"range\":{$end1},\"newText\":\"x\"}"))),
+        )
+        assertEquals(
+            CheckedEdits.Invalid("an edit outside the text"),
+            checkEdits("abc", listOf(parsedEdit("{\"range\":{$start0},\"newText\":\"x\"}"))),
+        )
+        val withoutText =
+            assertIs<CheckedEdits.Valid>(checkEdits("abc", listOf(parsedEdit("{\"range\":{$start0,$end1}}"))))
+        assertEquals(listOf(TextReplacement(0, 1, "")), withoutText.replacements)
+    }
+
+    @Test
+    fun `a negative character is outside the text, in every line`() {
+        assertNull(offsetIn("abc\ndef", Position(0, -1)))
+        assertNull(offsetIn("abc\ndef", Position(1, -3)))
+        assertEquals(
+            CheckedEdits.Invalid("an edit outside the text"),
+            checkEdits("abc", listOf(edit(0, 0, 0, -1, "x"))),
+        )
+    }
+
+    @Test
+    fun `a text of many lines is indexed completely`() {
+        val lines = (0 until 70).map { "line$it" }
+        for (breaks in listOf("\n", "\r\n")) {
+            val text = lines.joinToString(breaks)
+            val starts = lines.runningFold(0) { at, line -> at + line.length + breaks.length }
+            for (line in listOf(0, 15, 16, 17, 31, 32, 33, 69)) {
+                assertEquals(
+                    starts[line] + 2,
+                    offsetIn(text, Position(line, 2)),
+                    "line $line with ${breaks.length} breaks",
+                )
+            }
+            assertEquals(text.length, offsetIn(text, Position(70, 0)))
+            assertNull(offsetIn(text, Position(71, 0)))
+        }
+    }
+
+    @Test
+    fun `only a high surrogate followed by a low one is a split, anywhere in the text`() {
+        val emoji = String(Character.toChars(0x1F600))
+        // At the start and at the end of the text, where the neighbour on one side does not exist.
+        assertIs<CheckedEdits.Valid>(checkEdits("${emoji}a", listOf(edit(0, 0, 0, 0, "x"))))
+        assertIs<CheckedEdits.Valid>(checkEdits("a$emoji", listOf(edit(0, 3, 0, 3, "x"))))
+        // A lone high surrogate before an ordinary character, a lone low one after an ordinary character.
+        assertIs<CheckedEdits.Valid>(checkEdits("\uD83Dx", listOf(edit(0, 1, 0, 1, "y"))))
+        assertIs<CheckedEdits.Valid>(checkEdits("x\uDE00", listOf(edit(0, 1, 0, 1, "y"))))
+        // A split on the start only, on the end only, and on a later line.
+        val text = "a${emoji}b\nc$emoji"
+        val splitting = CheckedEdits.Invalid("an edit that splits a character")
+        assertEquals(splitting, checkEdits(text, listOf(edit(0, 2, 0, 3, "x"))))
+        assertEquals(splitting, checkEdits(text, listOf(edit(1, 2, 1, 2, "x"))))
+        assertEquals(splitting, checkEdits(text, listOf(edit(1, 0, 1, 2, "x"))))
+    }
+
+    @Test
+    fun `edits with one start are ordered by their end, and new text keeps its breaks without a line ending`() {
+        val text = "0123456789"
+        // The replacement comes first in the list, the insert at its start must still be sorted before it.
+        val valid =
+            assertIs<CheckedEdits.Valid>(checkEdits(text, listOf(edit(0, 4, 0, 6, "R"), edit(0, 4, 0, 4, "I\r\n"))))
+        assertEquals(listOf(TextReplacement(4, 4, "I\r\n"), TextReplacement(4, 6, "R")), valid.replacements)
+        assertEquals("0123I\r\nR6789", applyReplacements(text, valid.replacements))
+    }
+
+    @Test
+    fun `edits given out of order are sorted by their start`() {
+        val valid =
+            assertIs<CheckedEdits.Valid>(checkEdits("abcdef", listOf(edit(0, 4, 0, 5, "E"), edit(0, 0, 0, 1, "A"))))
+        assertEquals(listOf(0, 4), valid.replacements.map { it.start })
+    }
+
+    @Test
+    fun `the line ending is found at the very start, at the very end and after a carriage return`() {
+        assertEquals("\r\n", lineEndingOf("\r\nabc"))
+        assertEquals("\n", lineEndingOf("\nabc"))
+        assertEquals("\r", lineEndingOf("\rabc"))
+        assertEquals("\r", lineEndingOf("abc\r"))
+        assertEquals("\r\n", lineEndingOf("abc\r\n"))
     }
 }

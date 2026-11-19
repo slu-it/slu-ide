@@ -2,6 +2,7 @@ package dev.sluide.codeintelligence
 
 import dev.sluide.codeintelligence.binding.BindingFeature
 import dev.sluide.codeintelligence.binding.DocumentBinding
+import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.OffsetEdit
 import dev.sluide.fileviewers.StyledRange
 import dev.sluide.languageservers.FakeLanguageServers
@@ -43,7 +44,13 @@ internal class ManualDelays {
 internal class OverlayEditor(
     file: Path,
     text: String,
-) : FakeCodeEditor(file, text) {
+    host: FileViewHost = NoServicesHost,
+) : FakeCodeEditor(file, text, host) {
+    /** `false`: the editor refuses edits as a read-only one does ([canApplyEdits], [applyEdits]). */
+    var editable = true
+
+    override val canApplyEdits: Boolean get() = editable
+
     val layers = mutableMapOf<String, List<StyledRange>>()
     val appliedBatches = mutableListOf<List<OffsetEdit>>()
 
@@ -61,6 +68,7 @@ internal class OverlayEditor(
     }
 
     override fun applyEdits(edits: List<OffsetEdit>): Boolean {
+        if (!editable) return false
         appliedBatches += edits
         batch(edits.sortedByDescending { it.start }.map { Triple(it.start, it.end, it.text) })
         return true
@@ -77,6 +85,7 @@ internal class BoundEditorHarness<S : FakeServer>(
     newServer: () -> S,
     features: (DocumentBinding) -> List<AutoCloseable> = { emptyList() },
     extra: List<BindingFeature> = emptyList(),
+    host: FileViewHost = NoServicesHost,
 ) : AutoCloseable {
     private val fx = Executors.newSingleThreadExecutor { Thread(it, "test-fx").apply { isDaemon = true } }
     val spec = PySpec()
@@ -85,7 +94,7 @@ internal class BoundEditorHarness<S : FakeServer>(
     /** The latest server started. */
     @Suppress("UNCHECKED_CAST")
     val server: S get() = fake.started.last() as S
-    val editor = OverlayEditor(folder.resolve("a.py"), text)
+    val editor = OverlayEditor(folder.resolve("a.py"), text, host)
     lateinit var binding: DocumentBinding
     val handles = mutableListOf<AutoCloseable>()
     private val intelligence: CodeIntelligence
