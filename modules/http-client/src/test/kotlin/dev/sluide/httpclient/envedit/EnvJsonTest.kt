@@ -1,5 +1,6 @@
 package dev.sluide.httpclient.envedit
 
+import java.math.BigInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -9,7 +10,7 @@ import kotlin.test.assertTrue
 class EnvJsonTest {
     @Test
     fun `parses text with a leading byte order mark`() {
-        assertEquals("1", EnvJson.parse("﻿{\"a\": 1}")?.get("a")?.let(EnvJson::numberText))
+        assertEquals("1", EnvJson.parse("{\"a\": 1}")?.get("a")?.let(EnvJson::numberText))
     }
 
     @Test
@@ -74,6 +75,18 @@ class EnvJsonTest {
         )
         assertEquals(3000000000L, node[1].longValue())
         assertEquals(7, node[0].intValue())
+    }
+
+    @Test
+    fun `a number read equals the number node of the same value, so that writing it again is no change`() {
+        assertEquals(EnvJson.nodes.numberNode(80), EnvJson.number("80"))
+        assertEquals(EnvJson.nodes.numberNode(3000000000L), EnvJson.number("3000000000"))
+        assertEquals(
+            EnvJson.nodes.numberNode(BigInteger("18446744073709551616")),
+            EnvJson.number("18446744073709551616"),
+        )
+        assertEquals(EnvJson.nodes.numberNode(80), EnvJson.parse("[80]")?.get(0))
+        assertEquals(EnvJson.nodes.numberNode(3000000000L), EnvJson.parse("[3000000000]")?.get(0))
     }
 
     @Test

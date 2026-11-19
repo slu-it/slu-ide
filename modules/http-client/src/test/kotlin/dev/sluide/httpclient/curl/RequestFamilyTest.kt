@@ -94,6 +94,8 @@ class RequestFamilyTest {
         assertEquals("boom", family.guarded({ it }) { throw IllegalStateException("boom") })
         assertEquals("IllegalStateException", family.guarded({ it }) { throw IllegalStateException() })
         assertEquals("ok", family.guarded({ "failed: $it" }) { "ok" })
+        // A local class has no simple name; the failure is then empty text, not the word "null".
+        assertEquals("", family.guarded({ it }) { throw object : RuntimeException() {} })
     }
 
     @Test

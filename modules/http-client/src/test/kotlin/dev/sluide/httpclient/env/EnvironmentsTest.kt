@@ -12,6 +12,7 @@ import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -309,6 +310,7 @@ class EnvironmentsTest {
         assertEquals(1, environments.problems.size)
         assertTrue(environments.problems.single().startsWith("folder: "), environments.problems.toString())
         assertTrue(environments.problems.single().length > "folder: ".length, environments.problems.toString())
+        assertFalse(environments.problems.single().endsWith("null"), environments.problems.toString())
     }
 
     @Test
