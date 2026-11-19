@@ -155,6 +155,64 @@ class VariableResolverTest {
     }
 
     @Test
+    fun `names only the cycle, not the variables that lead to it`() {
+        val error =
+            assertFailsWith<UnresolvedVariablesException> {
+                resolver(null, "x" to "{{a}}", "a" to "{{b}}", "b" to "{{a}}").resolve("{{x}}")
+            }
+
+        assertEquals(listOf("a -> b -> a"), error.names)
+    }
+
+    @Test
+    fun `leaves the variable of a cycle as written when resolving partially`() {
+        val partial = resolver(null, "a" to "x{{b}}", "b" to "y{{a}}").resolvePartially("{{a}}")
+
+        assertEquals(VariableResolver.Partial("xy{{a}}", listOf("a -> b -> a")), partial)
+    }
+
+    @Test
+    fun `leaves a dynamic variable with an invalid argument as written when resolving partially`() {
+        val partial = resolver().resolvePartially("{{\$random.alphabetic(20000)}}")
+
+        assertEquals(
+            VariableResolver.Partial(
+                "{{\$random.alphabetic(20000)}}",
+                listOf("\$random.alphabetic(20000) (at most 10000 characters)"),
+            ),
+            partial,
+        )
+    }
+
+    @Test
+    fun `reports paths that leave the environment objects`() {
+        val resolver = resolver("""{"api": {"key": "k"}}""")
+
+        assertEquals(
+            listOf("nope.key", "api.nope.deep", "api.key.deeper"),
+            assertFailsWith<UnresolvedVariablesException> {
+                resolver.resolve("{{nope.key}} {{api.nope.deep}} {{api.key.deeper}}")
+            }.names,
+        )
+    }
+
+    @Test
+    fun `treats names that only hash like the auth calls as dynamic variables`() {
+        val resolver = resolver(auth = { id, _ -> "token-$id" })
+
+        assertEquals("token-id", resolver.resolve("{{\$auth.token(id)}}"))
+        // Same String.hashCode as the real names: a compiled `when` over strings must still compare the text.
+        for (name in listOf("\$auth.token", "\$auth.idToken")) {
+            val twin = hashTwin(name)
+            assertEquals(name.hashCode(), twin.hashCode())
+            val error = assertFailsWith<UnresolvedVariablesException> { resolver.resolve("{{$twin(id)}}") }
+            assertEquals(listOf("$twin(id)"), error.names)
+        }
+    }
+
+    private fun hashTwin(name: String) = name.take(1) + (name[1] + 1) + (name[2] - 31) + name.drop(3)
+
+    @Test
     fun `says why a dynamic variable has no value`() {
         val error =
             assertFailsWith<UnresolvedVariablesException> { resolver().resolve("{{\$random.alphabetic(20000)}}") }

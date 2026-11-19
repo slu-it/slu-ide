@@ -47,6 +47,22 @@ class TemplateTest {
     }
 
     @Test
+    fun `finds the closing braces after the opening ones, not before`() {
+        assertEquals(listOf(Literal("}}"), Ref(listOf("a"))), parts("}}{{a}}"))
+    }
+
+    @Test
+    fun `drops whitespace between unquoted arguments and keeps it inside quotes`() {
+        assertEquals(listOf("ab", "cd"), (parts("{{f(a b, c\td)}}").single() as Call).args)
+        assertEquals(listOf("a b"), (parts("{{f(\"a b\")}}").single() as Call).args)
+    }
+
+    @Test
+    fun `ends a quote only with its own quote character`() {
+        assertEquals(listOf("a'b", "c\"d"), (parts("{{f(\"a'b\", 'c\"d')}}").single() as Call).args)
+    }
+
+    @Test
     fun `gives the raw text of variables`() {
         assertEquals("{{a.b}}", Ref(listOf("a", "b")).raw)
         assertEquals("{{f(1, 2)}}", Call("f", listOf("1", "2")).raw)

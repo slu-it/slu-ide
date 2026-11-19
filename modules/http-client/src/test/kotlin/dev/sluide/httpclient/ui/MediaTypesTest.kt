@@ -15,6 +15,7 @@ class MediaTypesTest {
     fun `bodies are highlighted as JSON, XML or HTML`() {
         assertEquals("json", MediaTypes.language("application/json; charset=utf-8"))
         assertEquals("json", MediaTypes.language("application/problem+json"))
+        assertEquals("json", MediaTypes.language("text/json"))
         assertEquals("xml", MediaTypes.language("text/xml"))
         assertEquals("xml", MediaTypes.language("application/atom+xml"))
         assertEquals("html", MediaTypes.language("text/html"))
