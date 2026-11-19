@@ -44,6 +44,37 @@ class TabOverflowTest {
     }
 
     @Test
+    fun `revealing a tab that is no tab scrolls to the clamped index`() {
+        assertEquals(3, fiveTabs.reveal(5, 0), "one past the last tab")
+        assertEquals(3, fiveTabs.reveal(7, 0))
+        assertEquals(0, fiveTabs.reveal(-1, -5), "left of the first tab")
+        assertEquals(0, fiveTabs.reveal(-1, 2))
+    }
+
+    @Test
+    fun `a tab that is the leftmost visible one stays where it is`() {
+        assertEquals(2, fiveTabs.reveal(2, 2))
+        assertEquals(4, fiveTabs.reveal(4, 4), "scrolled beyond the last useful position, the tab is still visible")
+    }
+
+    @Test
+    fun `the last visible tab is not scrolled to even when smaller tabs before the row would fit`() {
+        val overflow = TabOverflow(listOf(40.0, 100.0, 100.0, 100.0), 250.0)
+
+        assertEquals(1, overflow.reveal(2, 1))
+        assertEquals(2, overflow.reveal(3, 0), "100 + 100 fits, 100 more not")
+    }
+
+    @Test
+    fun `revealing measures the tabs to the left of the tab, also when they differ in width and fit exactly`() {
+        val uneven = TabOverflow(listOf(100.0, 40.0, 200.0, 100.0, 50.0), 250.0)
+        val exact = TabOverflow(List(5) { 100.0 }, 200.0)
+
+        assertEquals(3, uneven.reveal(3, 0), "100 + 200 does not fit")
+        assertEquals(1, exact.reveal(2, 0), "two tabs of 100 fill the 200 exactly")
+    }
+
+    @Test
     fun `a tab wider than the viewport is scrolled to the left edge`() {
         val overflow = TabOverflow(listOf(100.0, 400.0, 100.0), 250.0)
 
@@ -76,6 +107,15 @@ class TabOverflowTest {
     }
 
     @Test
+    fun `a dragged tab with its edge exactly at a centre has not passed that neighbour`() {
+        val equal = TabOverflow(List(3) { 100.0 }, 250.0)
+
+        assertEquals(0, equal.dropIndex(2, 50.0))
+        assertEquals(0, equal.dropIndex(0, 50.0))
+        assertEquals(1, equal.dropIndex(0, 150.0))
+    }
+
+    @Test
     fun `dragging beyond either end keeps the tab at that end`() {
         assertEquals(0, fiveTabs.dropIndex(3, -500.0))
         assertEquals(4, fiveTabs.dropIndex(1, 5000.0))
@@ -86,12 +126,14 @@ class TabOverflowTest {
     @CsvSource(
         "0,-10,0",
         "0,49,0",
+        "0,50,1",
         "0,51,1",
         "0,149,1",
         "0,151,2",
         "0,251,3",
         "0,900,3",
         "1,0,1",
+        "1,50,2",
         "1,60,2",
         "2,10,2",
         "2,60,3",
