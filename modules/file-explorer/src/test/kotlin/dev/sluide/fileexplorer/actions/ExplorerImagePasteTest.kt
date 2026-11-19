@@ -47,9 +47,9 @@ class ExplorerImagePasteTest {
         assertTrue(fake.copies.paste(emptyList()))
 
         val ask = fake.imageNameAsks.single()
-        assertEquals("image-2026-03-04-050607.png", ask.initial)
-        assertEquals(listOf("image-2026-03-04-050607.png"), names())
-        val file = project.resolve("image-2026-03-04-050607.png")
+        assertEquals("pasted-2026-03-04-050607.png", ask.initial)
+        assertEquals(listOf("pasted-2026-03-04-050607.png"), names())
+        val file = project.resolve("pasted-2026-03-04-050607.png")
         val decoded = checkNotNull(ImageIO.read(file.toFile()))
         assertEquals(2, decoded.width)
         assertEquals(0xFF112233.toInt(), decoded.getRGB(0, 0))
@@ -108,7 +108,7 @@ class ExplorerImagePasteTest {
         assertEquals(emptyList(), fake.opened)
         fake.pending.single().run()
 
-        val file = project.resolve("image-2026-03-04-050607.png")
+        val file = project.resolve("pasted-2026-03-04-050607.png")
         assertTrue(file.exists())
         assertEquals(listOf(file), fake.selectedPaths())
         assertEquals(listOf(file), fake.opened)
@@ -124,7 +124,7 @@ class ExplorerImagePasteTest {
         fake.copies.paste(emptyList())
         assertFailsWith<RuntimeException> { fake.pending.single().run() }
 
-        assertEquals(listOf("Could not save “image-2026-03-04-050607.png”."), fake.errors)
+        assertEquals(listOf("Could not save “pasted-2026-03-04-050607.png”."), fake.errors)
         assertEquals(emptyList(), names())
         assertEquals(emptyList(), fake.opened)
     }
@@ -327,7 +327,7 @@ class ExplorerImagePasteTest {
 
         paster(failingStream { IOException("disk full") }).paste(fake.projectItem)
 
-        assertEquals(listOf("Could not save “image-2026-03-04-050607.png”: disk full"), fake.errors)
+        assertEquals(listOf("Could not save “pasted-2026-03-04-050607.png”: disk full"), fake.errors)
         assertEquals(emptyList(), names(), "no partial PNG stays")
         assertEquals(emptyList(), fake.opened)
     }
@@ -350,8 +350,8 @@ class ExplorerImagePasteTest {
             // Not writable for a user with all rights (root) either: then the delete works and there is nothing to see.
             assumeTrue(!Files.isWritable(project))
 
-            assertEquals(listOf("Could not save “image-2026-03-04-050607.png”: disk full"), fake.errors)
-            assertEquals(listOf("image-2026-03-04-050607.png"), names())
+            assertEquals(listOf("Could not save “pasted-2026-03-04-050607.png”: disk full"), fake.errors)
+            assertEquals(listOf("pasted-2026-03-04-050607.png"), names())
         } finally {
             Files.setPosixFilePermissions(project, writable)
         }
@@ -361,7 +361,7 @@ class ExplorerImagePasteTest {
     fun `a name taken between the check and the write is an error, the file stays as it was and nothing opens`() {
         open()
         fake.clipboardFiles.image = image
-        val taken = project.resolve("image-2026-03-04-050607.png")
+        val taken = project.resolve("pasted-2026-03-04-050607.png")
 
         paster({ file ->
             // The race CREATE_NEW guards against: somebody else creates the file just before.
@@ -369,7 +369,7 @@ class ExplorerImagePasteTest {
             Files.newOutputStream(file, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
         }).paste(fake.projectItem)
 
-        assertEquals(listOf("“image-2026-03-04-050607.png” already exists in this folder."), fake.errors)
+        assertEquals(listOf("“pasted-2026-03-04-050607.png” already exists in this folder."), fake.errors)
         assertEquals("original", String(taken.readBytes()))
         assertEquals(emptyList(), fake.opened)
         assertEquals(emptyList(), fake.selectedPaths())
@@ -382,7 +382,7 @@ class ExplorerImagePasteTest {
 
         paster(failingStream { IOException() }).paste(fake.projectItem)
 
-        assertEquals(listOf("Could not save “image-2026-03-04-050607.png”: IOException"), fake.errors)
+        assertEquals(listOf("Could not save “pasted-2026-03-04-050607.png”: IOException"), fake.errors)
         assertEquals(emptyList(), names())
     }
 
@@ -395,7 +395,7 @@ class ExplorerImagePasteTest {
             paster(failingStream { IllegalStateException("boom") }).paste(fake.projectItem)
         }
 
-        assertEquals(listOf("Could not save “image-2026-03-04-050607.png”."), fake.errors)
+        assertEquals(listOf("Could not save “pasted-2026-03-04-050607.png”."), fake.errors)
         assertEquals(emptyList(), names())
     }
 
@@ -410,7 +410,7 @@ class ExplorerImagePasteTest {
         fake.reopen()
         fake.pending.single().run()
 
-        assertEquals(listOf("image-2026-03-04-050607.png"), names())
+        assertEquals(listOf("pasted-2026-03-04-050607.png"), names())
         assertEquals(emptyList(), fake.selectedPaths())
         assertEquals(emptyList(), fake.opened)
         assertEquals(emptyList(), fake.errors)

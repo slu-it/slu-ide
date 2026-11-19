@@ -29,7 +29,7 @@ class ClipboardImagesTest {
     fun `the default name has the local time of the clock`() {
         val clock = Clock.fixed(Instant.parse("2026-03-04T23:06:07Z"), ZoneId.of("Asia/Tokyo"))
 
-        assertEquals("image-2026-03-05-080607.png", defaultImageName(clock))
+        assertEquals("pasted-2026-03-05-080607.png", defaultImageName(clock))
     }
 
     @ParameterizedTest

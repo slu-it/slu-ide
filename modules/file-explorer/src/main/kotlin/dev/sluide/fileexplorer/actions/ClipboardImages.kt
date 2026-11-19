@@ -5,8 +5,6 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.time.Clock
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import javax.imageio.ImageIO
 
 /** [image] as PNG, lossless and with its transparency (ADR 0167); fails with an [IOException] if it cannot be encoded. */
@@ -18,10 +16,8 @@ internal fun pngBytes(image: ClipboardImage): ByteArray {
     return out.toByteArray()
 }
 
-private val STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss")
-
-/** The name offered for a pasted image: `image-` and the local time of [clock], then `.png`. */
-internal fun defaultImageName(clock: Clock): String = "image-${STAMP.format(LocalDateTime.now(clock))}.png"
+/** The name offered for a pasted image: [pastedBaseName] of [clock], then `.png`. */
+internal fun defaultImageName(clock: Clock): String = "${pastedBaseName(clock)}.png"
 
 /** [name] with `.png` appended unless it ends with it already, in any case (`shot.jpg` becomes `shot.jpg.png`). */
 internal fun withPngExtension(name: String): String =
