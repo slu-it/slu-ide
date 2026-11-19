@@ -127,7 +127,7 @@ private class Deadline(
     val end: Long,
     val callTimeout: Duration,
 ) {
-    /** What is left of it, at most the 10 s of one call; zero or less once it has passed. */
+    /** What is left of it, at most the [callTimeout] of one call; zero or less once it has passed. */
     fun timeout(): Duration = minOf(callTimeout, (end - System.nanoTime()).nanoseconds)
 }
 
@@ -197,7 +197,7 @@ private fun GitCli.decidingLines(
         if (!timeout.isPositive()) return DecidingLines(matches, cutOff = true)
         val execution =
             execute(arguments, root, timeout, chunk, write = false, cancellation = cancellation) ?: return null
-        // Stopped as the deadline passed, not after its own 10 s.
+        // Stopped as the deadline passed, not after its own callTimeout.
         val timedOut = execution.exitValue == null && !execution.cancelled
         if (timedOut && timeout < deadline.callTimeout) return DecidingLines(matches, cutOff = true)
         // 1: none of the paths is ignored.

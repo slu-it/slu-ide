@@ -35,41 +35,21 @@ class GitCliInProgressTest {
     @TempDir
     lateinit var folder: Path
 
-    private val repo get() = folder.resolve("repo")
+    private lateinit var repository: TestRepository
+    private val repo get() = repository.root
     private val state get() = folder.resolve("state")
     private val git = GitCli("git", testGitEnvironment())
 
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        repo.createDirectories()
+        repository = TestRepository(folder.resolve("repo"))
         state.createDirectories()
-        git("init", "-q", "-b", "main")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
     }
 
-    private fun git(vararg arguments: String): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
+    private fun git(vararg arguments: String) = repository.git(*arguments)
 
-    private fun commit(message: String): String {
-        repo.resolve("file.txt").writeText("$message\n")
-        git("add", "file.txt")
-        git("commit", "-q", "-m", message)
-        return git("rev-parse", "HEAD")
-    }
+    private fun commit(message: String) = repository.commit(message)
 
     private fun stateFile(
         name: String,
@@ -264,19 +244,7 @@ class GitCliInProgressTest {
         return other
     }
 
-    private fun stops(vararg arguments: String) {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.close()
-        process.inputStream.readAllBytes()
-        assertTrue(process.waitFor() != 0, "git ${arguments.joinToString(" ")} stops")
-    }
+    private fun stops(vararg arguments: String) = repository.gitStops(*arguments)
 
     @Test
     fun `nothing is in progress in a clean repository, and git that cannot be read is a failure`() {

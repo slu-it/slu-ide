@@ -16,6 +16,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.time.Duration.ofSeconds
 import kotlin.io.path.createDirectories
+import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -249,6 +250,12 @@ class GitCliObjectsTest {
         assertEquals(emptyList(), failing("hash-object").storeFiles(root, emptyList()), "nothing to store, no call")
         assertNull(git.storeFiles(root, listOf("one two.txt\n")), "git would read two paths")
         assertNull(git.storeFiles(root, listOf("missing.txt")))
+        repo.write("n1.txt", "n1")
+        repo.write("n2.txt", "n2")
+        val n1Blob = repo.git("hash-object", "n1.txt")
+        assertNull(git.storeFiles(root, listOf("n1.txt\nn2.txt")))
+        // Not given to git at all: it would have read two paths and stored both.
+        repo.gitStops("cat-file", "-e", n1Blob)
         assertNull(unavailable.storeFiles(root, listOf("a.txt")))
         assertNull(unavailable.storeFiles(root, emptyList()))
         assertNull(failing("hash-object").storeFiles(root, listOf("a.txt")))
@@ -389,7 +396,7 @@ class GitCliObjectsTest {
     }
 
     @Test
-    fun `diffFiles takes nothing from the configuration, a repository above or the attributes of the user`() {
+    fun `diffFiles takes nothing from the configuration or from a repository above`() {
         val outer = TestRepository(folder.resolve("outer"))
         outer.git("config", "diff.noprefix", "true")
         val cmp = outer.root.resolve("sub").createDirectories()
@@ -496,5 +503,28 @@ class GitCliObjectsTest {
 
         // With `ident` read from the user's file, both texts would be "$Id$": no difference.
         assertTrue("@@ -1 +1 @@" in assertNotNull(configured.diffFiles(cmp, "o.txt", "c.txt", null)))
+    }
+
+    @Test
+    fun `diffFiles runs git without the system attributes file, which could name a filter or driver to run`() {
+        val cmp = folder.resolve("cmp").createDirectories()
+        cmp.resolve("o.txt").writeText("a\n")
+        cmp.resolve("c.txt").writeText("b\n")
+        val seen = folder.resolve("system-attributes")
+        val script = folder.resolve("probing-git")
+        // For the diff itself it records what `git var GIT_ATTR_SYSTEM` says in the environment git gets: the path of
+        // the system file, or nothing (exit 1) with GIT_ATTR_NOSYSTEM set.
+        script.writeText(
+            FAKE_GIT_START +
+                "case \" \$* \" in *' --no-index '*) git var GIT_ATTR_SYSTEM >> '$seen' 2>/dev/null; " +
+                "echo done >> '$seen';; esac\nexec git \"\$@\"\n",
+        )
+        script.toFile().setExecutable(true)
+        val probing = GitCli(script.toString(), testGitEnvironment())
+
+        assertNotNull(probing.diffFiles(cmp, "o.txt", "c.txt", null))
+
+        assertEquals("done\n", seen.readText())
+        assertTrue(repo.git("var", "GIT_ATTR_SYSTEM").isNotEmpty(), "without the variable git names the file")
     }
 }

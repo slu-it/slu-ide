@@ -52,6 +52,7 @@ class GitIgnoreRulesParsingTest {
         assertEquals(listOf("a.log", "b.log"), statusCandidates("! a.log\u0000! b.log\u0000", overflowed = true))
         assertEquals(listOf("a", "b"), nulRecords("a\u0000b\u0000", overflowed = false))
         assertEquals(listOf("a"), nulRecords("a\u0000b", overflowed = true))
+        assertEquals(listOf("a", "b"), nulRecords("a\u0000b", overflowed = false), "a last record needs no NUL")
     }
 
     @Test

@@ -13,6 +13,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Path
 import kotlin.io.path.deleteExisting
+import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -109,14 +110,27 @@ class GitCliIndexTest {
     }
 
     @Test
-    fun `changedPaths leave out the unmerged paths`() {
+    fun `changedPaths of the staged changes leave out the unmerged paths`() {
         conflicting()
         repo.gitStops("merge", "-q", "other")
         repo.write("b.txt", "changed")
 
-        // a.txt is unmerged: its stages come from commits, not from a change to the index. (For the working tree,
-        // git 2.56 lists it whatever --diff-filter=u says, which `changedPaths` does not say: see the report.)
+        // a.txt is unmerged: its stages come from commits, not from a change to the index.
         assertEquals(emptySet(), git.changedPaths(root, staged = true))
+    }
+
+    @Test
+    fun `changedPaths of the working tree list an unmerged path only while its file differs from ours`() {
+        conflicting()
+        repo.gitStops("merge", "-q", "other")
+
+        // git prints a U record and an M record (stage 2 against the file) for it; --diff-filter=u drops the U one.
+        assertEquals(setOf("a.txt"), git.changedPaths(root, staged = false), "the file has the conflict markers")
+
+        repo.git("checkout", "--ours", "--", "a.txt")
+
+        assertEquals(emptySet(), git.changedPaths(root, staged = false), "the file is ours, still unmerged")
+        assertEquals(listOf("a.txt"), git.unmergedPaths(root))
     }
 
     @Test
@@ -147,9 +161,17 @@ class GitCliIndexTest {
         )
         assertNull(unavailable.indexChanges(root, first))
         assertNull(failing("diff-index").indexChanges(root, first))
-        // git diff-index needs a tree-ish after its options (usage error, exit 129): an option in its place fails
-        // by itself, which is what the guard against a leading dash also says.
         assertNull(git.indexChanges(root, "--name-only"))
+    }
+
+    @Test
+    fun `indexChanges does not give an option to git, which would write a file before it fails`() {
+        val victim = folder.resolve("victim.txt").apply { writeText("keep me\n") }
+
+        // git diff-index --output=<file> opens (and empties) the file while it reads its options, then exits with 129.
+        assertNull(git.indexChanges(root, "--output=$victim"))
+
+        assertEquals("keep me\n", victim.readText())
     }
 
     @Test

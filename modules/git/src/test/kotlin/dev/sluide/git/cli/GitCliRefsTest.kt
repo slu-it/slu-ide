@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -57,7 +58,7 @@ class GitCliRefsTest {
 
     private fun failing(word: String) = failingGit(folder, word)
 
-    /** A stand-in for git that runs [body] for anything but `--version`; its output stays held open past its end. */
+    /** A stand-in for git that runs [body] for anything but `--version`; a body that holds its output open says so. */
     private fun fakeGit(body: String): GitCli {
         val script =
             folder.resolve("fake-git-${System.nanoTime()}").apply {
@@ -405,5 +406,15 @@ class GitCliRefsTest {
             first,
             fakeGit("case \" \$* \" in *' merge-base '*) echo ' $first ';; esac").mergeBase(root, "a", "b"),
         )
+    }
+
+    @Test
+    fun `parents does not give an option to git, which would write a file before it fails`() {
+        val victim = folder.resolve("victim.txt").apply { writeText("keep me\n") }
+
+        // git rev-list --output=<file> empties the file while it reads its options, then exits with 129.
+        assertNull(git.parents(root, "--output=$victim"))
+
+        assertEquals("keep me\n", victim.readText())
     }
 }

@@ -20,6 +20,7 @@ import java.nio.file.Path
 import java.time.Duration.ofSeconds
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.writeText
@@ -43,33 +44,18 @@ class GitCliIgnoreRulesFailuresTest {
     @TempDir
     lateinit var folder: Path
 
-    private lateinit var repo: Path
+    private lateinit var repository: TestRepository
+    private val repo get() = repository.root
 
     private val git = GitCli("git", testGitEnvironment())
 
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        repo = folder.resolve("repo").createDirectories()
-        git("init", "-q")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
+        repository = TestRepository(folder.resolve("repo"))
     }
 
-    private fun git(vararg arguments: String): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
+    private fun git(vararg arguments: String) = repository.git(*arguments)
 
     private fun files(vararg paths: String) {
         for (path in paths) repo.resolve(path).apply { parent.createDirectories() }.writeText("x\n")
@@ -312,7 +298,9 @@ class GitCliIgnoreRulesFailuresTest {
                         "*' check-ignore '*) cat > /dev/null; echo x >> '$calls'\n" +
                         "  [ -e '$started' ] && exit 0\n" +
                         "  touch '$started'; printf '%s\\000' .gitignore 1 '*.log' first.log\n" +
-                        "  ( while [ ! -e '$release' ]; do sleep 0.05; done ) & ;;\n" +
+                        "  ( while [ ! -e '$release' ]; do sleep 0.05; done ) &\n" +
+                        // Waits so that the reader is reading when the script ends (docs/testing.md "Portability").
+                        "  sleep 0.3 ;;\n" +
                         "esac\n",
                 )
                 toFile().setExecutable(true)
@@ -335,17 +323,20 @@ class GitCliIgnoreRulesFailuresTest {
         val started = folder.resolve("started")
         val release = folder.resolve("release")
         val git = slowChunks(started, release, calls)
-        val begin = System.nanoTime()
+        val begin = AtomicLong()
         var result: GitIgnoreRules? = null
         val runner =
-            Thread.ofPlatform().start { result = rules(git, cancellation = cancellation, deadline = 2.seconds) }
-        val limit = begin + 20.seconds.inWholeNanoseconds
+            Thread.ofPlatform().start {
+                begin.set(System.nanoTime())
+                result = rules(git, cancellation = cancellation, deadline = 2.seconds)
+            }
+        val limit = System.nanoTime() + 20.seconds.inWholeNanoseconds
         // The signal is the first chunk's start; then the 2 s of the deadline have to pass: there is no signal for that.
         while (!started.exists()) {
             if (System.nanoTime() > limit) fail("check-ignore did not start")
             Thread.sleep(10)
         }
-        while (System.nanoTime() < begin + 2.5.seconds.inWholeNanoseconds) Thread.sleep(20)
+        while (System.nanoTime() < begin.get() + 2.5.seconds.inWholeNanoseconds) Thread.sleep(20)
         betweenChunks()
         release.writeText("go")
         runner.join(TimeUnit.SECONDS.toMillis(20))
