@@ -56,4 +56,17 @@ class GitDiffParserTest {
     fun `no differences give no hunks`() {
         assertEquals(emptyList(), GitDiffParser.parse(""))
     }
+
+    @Test
+    fun `a block that adds lines starts after the line git names, one that removes or changes starts at it`() {
+        val hunks =
+            GitDiffParser.parse(
+                "@@ -5,0 +6,2 @@\n+x\n+y\n@@ -9,3 +11,0 @@\n-x\n@@ -3 +3 @@\n-a\n+b\n",
+            )
+
+        assertEquals(listOf(5, 8, 2), hunks.map { it.original.first })
+        assertEquals(listOf(0, 3, 1), hunks.map { it.original.count() })
+        assertEquals(listOf(5, 11, 2), hunks.map { it.current.first })
+        assertEquals(listOf(2, 0, 1), hunks.map { it.current.count() })
+    }
 }

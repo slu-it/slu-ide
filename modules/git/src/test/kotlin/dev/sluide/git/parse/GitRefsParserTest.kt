@@ -89,4 +89,19 @@ class GitRefsParserTest {
 
         assertEquals(GitRefs(emptyList(), "refs/heads/main"), refs)
     }
+
+    @Test
+    fun `HEAD is a ref only for a commit that is a hash, an unset or a malformed one gives none`() {
+        val output = record(a, "refs/heads/main")
+
+        assertEquals(listOf("HEAD", "refs/heads/main"), GitRefsParser.parse(output, a, null).refs.map { it.name })
+        assertEquals(listOf("refs/heads/main"), GitRefsParser.parse(output, null, null).refs.map { it.name })
+        assertEquals(listOf("refs/heads/main"), GitRefsParser.parse(output, "nothex", null).refs.map { it.name })
+        assertEquals(listOf("refs/heads/main"), GitRefsParser.parse(output, "", null).refs.map { it.name })
+        assertEquals(listOf("refs/heads/main"), GitRefsParser.parse(output, a.take(39), null).refs.map { it.name })
+        assertEquals(
+            listOf("HEAD", "refs/heads/main"),
+            GitRefsParser.parse(output, "d".repeat(64), null).refs.map { it.name },
+        )
+    }
 }

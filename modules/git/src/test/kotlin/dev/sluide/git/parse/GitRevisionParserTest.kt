@@ -32,4 +32,24 @@ class GitRevisionParserTest {
         assertNull(GitRevisionParser.parse("$hash commit 230\n", 1), "cut off")
         assertNull(GitRevisionParser.parse("fatal: something\nelse\n", 1))
     }
+
+    @Test
+    fun `a line that is neither missing nor ambiguous is no answer, either one is`() {
+        val none = "x".repeat(40)
+
+        assertNull(GitRevisionParser.parse("$none garbled\n$none missing\n", 1))
+        assertNull(GitRevisionParser.parse("$none\n$none missing\n", 1))
+        assertEquals(
+            listOf(GitRevisionResolution.Missing),
+            GitRevisionParser.parse("$none missing\n$none missing\n", 1),
+        )
+        assertEquals(
+            listOf(GitRevisionResolution.Missing),
+            GitRevisionParser.parse("$none ambiguous\n$none missing\n", 1),
+        )
+        assertEquals(
+            listOf(GitRevisionResolution.Ambiguous),
+            GitRevisionParser.parse("$none missing\n$none ambiguous\n", 1),
+        )
+    }
 }

@@ -155,4 +155,39 @@ class GitStatusParserTest {
         assertEquals(emptyMap(), GitStatusParser.parse(""))
         assertEquals(emptyMap(), parse("# branch.oid 1234", "# branch.head master"))
     }
+
+    @Test
+    fun `a header without a commit gives a head without one, an initial commit gives none`() {
+        assertEquals(GitHead("main", null), head("# branch.head main"))
+        assertEquals(GitHead("main", null), head("# branch.oid (initial)", "# branch.head main"))
+        assertNull(head("# branch.oid abc"))
+        assertNull(head())
+    }
+
+    @Test
+    fun `a renamed file's original path is skipped, whatever it looks like, and none is needed at the end`() {
+        val lookalike = "1 .M N... 100644 100644 100644 e69de29 e69de29 bogus.txt"
+
+        assertEquals(
+            mapOf("new.kt" to GitStatus.ADDED, "after.kt" to GitStatus.UNVERSIONED),
+            parse(
+                "2 R. N... 100644 100644 100644 e69de29 e69de29 R100 new.kt",
+                lookalike,
+                "? after.kt",
+            ),
+        )
+        assertEquals(
+            mapOf("new.kt" to GitStatus.ADDED),
+            GitStatusParser.parse("2 R. N... 100644 100644 100644 e69de29 e69de29 R100 new.kt"),
+        )
+    }
+
+    @Test
+    fun `an untracked or ignored record needs a path after its two characters`() {
+        assertEquals(emptyMap(), parse("?", "? ", "!", "! "))
+        assertEquals(
+            mapOf("a" to GitStatus.UNVERSIONED, "b c/" to GitStatus.IGNORED),
+            parse("? a", "! b c/"),
+        )
+    }
 }

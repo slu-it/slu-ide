@@ -76,4 +76,36 @@ class GitCommitDetailsParserTest {
         assertNull(GitCommitDetailsParser.parse(output(a, "", "J", "j@x", "1", "J", "j@x", "now", message = "M")))
         assertNull(GitCommitDetailsParser.parse(output(a, "", "J", "j@x", "1", "J", "j@x", message = "1")))
     }
+
+    @Test
+    fun `a commit with a hash that is no hash, or a time that is no number, is no commit`() {
+        fun parse(
+            hash: String = a,
+            authorTime: String = "1",
+            committerTime: String = "2",
+        ) = GitCommitDetailsParser.parse(
+            output(hash, b, "J", "j@x", authorTime, "K", "k@x", committerTime, message = "m"),
+        )
+
+        assertEquals(a, parse()?.commit?.hash)
+        assertNull(parse(hash = "g".repeat(40)))
+        assertNull(parse(hash = a.take(39)))
+        assertNull(parse(authorTime = "x"))
+        assertNull(parse(committerTime = "x"))
+        assertNull(parse(committerTime = ""))
+    }
+
+    @Test
+    fun `the subject skips leading blank lines and ends at the first blank one`() {
+        fun subject(message: String) =
+            GitCommitDetailsParser
+                .parse(output(a, "", "J", "j@x", "1", "K", "k@x", "2", message = message))
+                ?.commit
+                ?.subject
+
+        assertEquals("first second", subject("\n  \nfirst\n second \n\nbody"))
+        assertEquals("only", subject("only"))
+        assertEquals("", subject(""))
+        assertEquals("a", subject("a\n \nb"))
+    }
 }

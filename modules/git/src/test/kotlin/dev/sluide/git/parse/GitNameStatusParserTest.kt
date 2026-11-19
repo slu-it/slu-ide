@@ -71,4 +71,26 @@ class GitNameStatusParserTest {
             GitNameStatusParser.parse(output("A", "a") + "R100\u0000old\u0000"),
         )
     }
+
+    @Test
+    fun `an output without its final NUL is read to its end, and an empty status ends the reading`() {
+        assertEquals(listOf(GitChangedFile(GitChange.MODIFIED, "a")), GitNameStatusParser.parse("M\u0000a"))
+        assertEquals(
+            listOf(GitChangedFile(GitChange.RENAMED, "new", "old")),
+            GitNameStatusParser.parse("R100\u0000old\u0000new"),
+        )
+        assertEquals(
+            listOf(GitChangedFile(GitChange.MODIFIED, "a")),
+            GitNameStatusParser.parse(output("M", "a", "", "A", "b")),
+            "nothing after an empty status",
+        )
+        assertEquals(emptyList(), GitNameStatusParser.parse(""))
+        assertEquals(emptyList(), GitNameStatusParser.parse("D"))
+        assertEquals(emptyList(), GitNameStatusParser.parse("M\u0000"))
+        assertEquals(
+            listOf(GitChangedFile(GitChange.MODIFIED, "a")),
+            GitNameStatusParser.parse(output("M", "a", "A", "")),
+            "an empty path is no record",
+        )
+    }
 }
