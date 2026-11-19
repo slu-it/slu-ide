@@ -32,7 +32,6 @@ internal fun ExtensibleCodeEditor.wordAt(
     orBefore: Boolean = false,
 ): IntRange? {
     val position = positionOf(offset)
-    if (position.line !in 0 until lineCount) return null
     val columns = wordIn(lineText(position.line), position.column, orBefore) ?: return null
     val lineStart = offsetOf(TextPosition(position.line, 0))
     return lineStart + columns.first until lineStart + columns.last + 1
