@@ -131,6 +131,7 @@ class RequestBuilderTest {
         val request = build("@id = 3", "POST http://x", "", "< ./body.json")
 
         assertEquals("{\"id\": 3}", String(request.body, Charsets.UTF_8))
+        assertEquals(emptyList(), request.notes)
     }
 
     @Test
@@ -152,7 +153,9 @@ class RequestBuilderTest {
 
         val error = assertFailsWith<RequestBuildException> { build("POST http://x", "", "< secret.json") }
 
-        assertTrue("secret.json" in (error.message ?: ""))
+        val message = error.message.orEmpty()
+        assertTrue(message.startsWith("Body file secret.json cannot be read (line 3): "), message)
+        assertTrue(message.endsWith("secret.json"), message)
     }
 
     @Test
@@ -178,7 +181,7 @@ class RequestBuilderTest {
     fun `reports missing body files`() {
         val error = assertFailsWith<RequestBuildException> { build("POST http://x", "", "< missing.json") }
 
-        assertTrue("missing.json" in (error.message ?: ""))
+        assertEquals("Body file not found: missing.json (line 3)", error.message)
     }
 
     @Test
@@ -188,6 +191,7 @@ class RequestBuilderTest {
         val request =
             build(
                 "@name = n",
+                "@x = 9",
                 "POST http://x",
                 "Content-Type: multipart/form-data; boundary=WebAppBoundary",
                 "",
@@ -238,12 +242,14 @@ class RequestBuilderTest {
     fun `notes scripts that are not run`() {
         val request = build("< {% request.variables.set('a', 1) %}", "GET http://x", "", "> {% client.log(1) %}")
 
-        assertEquals(1, request.notes.size)
+        assertEquals(listOf("Scripts are not supported; 2 script(s) not run"), request.notes)
     }
 
     @Test
     fun `refuses unsupported request types`() {
-        assertFailsWith<RequestBuildException> { build("GRAPHQL http://x") }
+        val error = assertFailsWith<RequestBuildException> { build("GRAPHQL http://x") }
+
+        assertEquals("GRAPHQL requests are not supported", error.message)
     }
 
     @Test
@@ -263,5 +269,91 @@ class RequestBuilderTest {
 
         assertEquals(answer, request.header("Authorization"))
         assertEquals(null, request.digest)
+    }
+
+    @Test
+    fun `resolves variables in header names and values`() {
+        val request = build("@n = X-Id", "@v = 7", "GET http://x", "{{n}}: {{v}}")
+
+        assertEquals("7", request.header("X-Id"))
+    }
+
+    @Test
+    fun `names the unresolved variables of the part that has them, wherever it is`() {
+        fun names(vararg lines: String) = assertFailsWith<UnresolvedVariablesException> { build(*lines) }.names
+
+        assertEquals(listOf("u"), names("GET {{u}}"))
+        assertEquals(listOf("v"), names("GET http://x", "X-A: {{v}}"))
+        assertEquals(listOf("n"), names("GET http://x", "{{n}}: a"))
+        assertEquals(listOf("b"), names("POST http://x", "", "{{b}}"))
+        assertEquals(
+            listOf("m"),
+            names("POST http://x", "Content-Type: multipart/form-data; boundary=B", "", "--B", "{{m}}", "--B--"),
+        )
+    }
+
+    @Test
+    fun `uses the last Host header, in any case, for a URL that starts with a slash`() {
+        assertEquals(URI("http://b.example/p"), build("GET /p", "X-Other: o", "hOsT: a.example", "HOST: b.example").uri)
+        assertEquals(URI("http://a.example/p"), build("GET /p", "X-Other: o", "host: a.example").uri)
+    }
+
+    @Test
+    fun `takes Digest credentials from any header named Authorization and from no other`() {
+        assertEquals(
+            DigestAuth.Credentials("user", "pw"),
+            build("GET http://x", "X-A: 1", "authorization: Digest user pw").digest,
+        )
+        val other = build("GET http://x", "X-Auth: Digest user pw")
+        assertEquals(null, other.digest)
+        assertEquals("Digest user pw", other.header("X-Auth"))
+    }
+
+    @Test
+    fun `encodes Basic credentials of an Authorization header in any case, and of no other header`() {
+        val request = build("GET http://x", "authorization: Basic user pass", "X-Auth: Basic user pass")
+
+        assertEquals("Basic dXNlcjpwYXNz", request.header("authorization"))
+        assertEquals("Basic user pass", request.header("X-Auth"))
+    }
+
+    @Test
+    fun `sends a body file that has no text as it is, with its variables`() {
+        folder.resolve("api").createDirectories()
+        val bytes = "a{{id}}".toByteArray() + byteArrayOf(0)
+        folder.resolve("api/nul.bin").writeBytes(bytes)
+
+        val request = build("@id = 3", "POST http://x", "", "< nul.bin")
+
+        assertContentEquals(bytes, request.body)
+        assertEquals(emptyList(), request.notes)
+    }
+
+    @Test
+    fun `reports a folder as a missing body file`() {
+        folder.resolve("api/dir").createDirectories()
+
+        val error = assertFailsWith<RequestBuildException> { build("POST http://x", "", "< dir") }
+
+        assertEquals("Body file not found: dir (line 3)", error.message)
+    }
+
+    @Test
+    fun `leaves the lines of a url-encoded form alone except where an ampersand joins them`() {
+        fun form(vararg lines: String) =
+            String(
+                build("POST http://x", "Content-Type: application/x-www-form-urlencoded", "", *lines).body,
+                Charsets.UTF_8,
+            )
+
+        assertEquals("a=1", form("  a=1  "))
+        assertEquals("a=1\nb=2", form("a=1", "b=2"))
+        assertEquals("a=1\nb=2  ", form("a=1", "b=2  "))
+        assertEquals("a=1&b=2", form("a=1", "  &b=2"))
+        assertEquals("a=1&b=2", form("a=1&", "  b=2  "))
+        assertEquals("a=1\n\nb=2", form("a=1", "", "b=2"))
+        assertEquals("a=1&&b=2", form("a=1&", "&b=2"))
+        assertEquals("a=1&b=2\nc=3", form("a=1", "&b=2", "c=3"))
+        assertEquals("a=1\nx&y", form("a=1", "x&y"))
     }
 }
