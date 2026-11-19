@@ -217,6 +217,17 @@ internal class CurlReaderTest {
             notes("curl -F 'k=v;type=a;headers=h' x"),
         )
         assertEquals(emptyList(), notes("curl -F 'c=@f;type=t/x;filename=n' x"))
+        assertEquals(emptyList(), notes("curl -F 'k=\"a;\"' x"))
+        // curl: Content-Type t/x;q="a" and a/b;type=c/d, and the attribute `= x` is `=x` (checked with an echo server).
+        assertEquals(
+            RequestBody.Multipart(listOf(FormPart("k", FormContent.Value("v"), "t/x;q=\"a\""))),
+            request("curl -F 'k=v;type=t/x;q=\"a\"' x").body,
+        )
+        assertEquals(
+            RequestBody.Multipart(listOf(FormPart("k", FormContent.Value("v"), "a/b;type=c/d"))),
+            request("curl -F 'k=v;type=a/b;type=c/d' x").body,
+        )
+        assertEquals(listOf("Field k: attribute ;=x ignored"), notes("curl -F 'k=v;= x' x"))
     }
 
     @ParameterizedTest(name = "{0}")
@@ -264,6 +275,21 @@ internal class CurlReaderTest {
                 Arguments.of("-F 'k=a\"b'", FormPart("k", FormContent.Value("a\"b"))),
                 Arguments.of("-F 'k= x'", FormPart("k", FormContent.Value("x"))),
                 Arguments.of("-F 'k=;type=x'", FormPart("k", FormContent.Value(""), "x")),
+                // curl looks for @ and < at the very start; a blank before makes the content text.
+                Arguments.of("-F 'k= @f'", FormPart("k", FormContent.Value("@f"))),
+                Arguments.of("-F 'k= <f'", FormPart("k", FormContent.Value("<f"))),
+                // It drops ASCII blanks around unquoted words and skips them before quoted ones, but not U+00A0.
+                Arguments.of("-F 'k=a  '", FormPart("k", FormContent.Value("a"))),
+                Arguments.of("-F 'k= \"x\"'", FormPart("k", FormContent.Value("x"))),
+                Arguments.of("-F 'k=\" a \"'", FormPart("k", FormContent.Value(" a "))),
+                Arguments.of("-F 'k=\u00a0v'", FormPart("k", FormContent.Value("\u00a0v"))),
+                Arguments.of("-F 'c=@f '", FormPart("c", FormContent.File("f"))),
+                Arguments.of("-F 'c=@ f'", FormPart("c", FormContent.File("f"))),
+                Arguments.of("-F 'c=@ \"f\"'", FormPart("c", FormContent.File("f"))),
+                Arguments.of("-F 'c=@f;filename= \"q\"'", FormPart("c", FormContent.File("f", "q"))),
+                Arguments.of("-F 'c=@f;filename= q '", FormPart("c", FormContent.File("f", "q"))),
+                Arguments.of("-F 'c=@f;filename=\" q \"'", FormPart("c", FormContent.File("f", " q "))),
+                Arguments.of("-F 'k=\"a;\"'", FormPart("k", FormContent.Value("a;"))),
                 Arguments.of("-F 'k=\"a\\q\"'", FormPart("k", FormContent.Value("a\\q"))),
                 Arguments.of("-F 'k=\"a\\'", FormPart("k", FormContent.Value("\"a\\"))),
                 Arguments.of("-F 'k=\"a;type=b\"'", FormPart("k", FormContent.Value("a;type=b"))),
