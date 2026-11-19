@@ -47,7 +47,16 @@ internal object GitCommandLog {
         val id = counter.incrementAndGet()
         val entry =
             try {
-                Entry(id, truncate(arguments.joinToString(" ") { withoutUserinfo(it, "***") }, MAX_ARGUMENTS), write)
+                Entry(
+                    id,
+                    truncate(
+                        arguments.joinToString(" ") {
+                            withoutUserinfoIn(withoutUserinfo(it, "***"), "***")
+                        },
+                        MAX_ARGUMENTS,
+                    ),
+                    write,
+                )
             } catch (_: RuntimeException) {
                 Entry(id, "?", write)
             }

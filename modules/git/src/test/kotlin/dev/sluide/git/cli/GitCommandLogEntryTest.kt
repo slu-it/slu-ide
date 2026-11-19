@@ -47,6 +47,22 @@ class GitCommandLogEntryTest {
     }
 
     @Test
+    fun `the credentials of a URL inside an argument are not logged, in a configuration value or after a prefix`() {
+        GitCommandLog.start(
+            listOf("-c", "remote.origin.url=https://user:s3cret@host.example/x.git", "fetch", "url=ssh://tok3n@h/y"),
+            null,
+            null,
+            write = false,
+        )
+
+        val line = lines.single().second
+        assertTrue(
+            line.endsWith(" -c remote.origin.url=https://***@host.example/x.git fetch url=ssh://***@h/y"),
+            line,
+        )
+    }
+
+    @Test
     fun `a command on another thread starts as information, on the JavaFX thread as a warning`() {
         GitCommandLog.start(listOf("a"), null, null, write = false)
         Thread
