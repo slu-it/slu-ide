@@ -2,6 +2,7 @@ package dev.sluide.codeintelligence.diagnostics
 
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import dev.sluide.codeintelligence.BoundEditorHarness
 import dev.sluide.codeintelligence.ManualDelays
 import dev.sluide.codeintelligence.awaitTrue
@@ -491,5 +492,51 @@ class DocumentDiagnosticsTest {
         harness.onFx {}
         assertEquals(calls, harness.onFx { harness.editor.overlayCalls[DIAGNOSTICS_LAYER] })
         assertEquals(emptyList(), harness.onFx { diagnostics.all })
+    }
+
+    @Test
+    fun `a push whose diagnostics are null as in the JSON clears the pushed ones`() {
+        bind("x = y\n") { LspTestServer() }
+        val server = harness.server
+        server.client.publishDiagnostics(PublishDiagnosticsParams(uri, listOf(error("pushed", 0, 0, 1))))
+        awaitTrue("shown") { underlines?.size == 1 }
+        // lsp4j leaves an explicit null in the list's place; the fake's client proxy would write no field at all.
+        val raw = JsonParser.parseString("{\"uri\":\"$uri\",\"diagnostics\":null}")
+        server.clientEndpoint.notify("textDocument/publishDiagnostics", raw)
+        awaitTrue("cleared") { underlines == emptyList<StyledRange>() }
+    }
+
+    @Test
+    fun `a pull that is asked for again while the debounce runs takes the debounce's place`() {
+        bind("x\n") { pullServer() }
+        val server = harness.server
+        awaitTrue("pull after open") { server.pulls.size == 1 }
+        harness.onFx { harness.editor.edit(0, 0, "a") }
+        assertEquals(1, delays.count)
+        server.client.refreshDiagnostics().get()
+        awaitTrue("pull on refresh") { server.pulls.size == 2 }
+        assertEquals(0, delays.count, "the debounce is not asked again after the pull it was for")
+    }
+
+    @Test
+    fun `a crashed server clears its diagnostics once, and its new process is asked afresh`() {
+        bind("x\n") { pullServer() }
+        val first = harness.server
+        awaitTrue("pull after open") { first.pulls.size == 1 }
+        first.pulls[0].second.complete(full("r1", error("x undefined", 0, 0, 1)))
+        awaitTrue("shown") { underlines?.size == 1 }
+        assertEquals(1, shownCount.get())
+
+        harness.fake.crashLatest()
+        awaitTrue("cleared") { underlines == emptyList<StyledRange>() }
+        harness.fake.runNextRetry()
+        awaitTrue("restarted") { harness.fake.started.size == 2 }
+        harness.awaitState(ServerState.Running)
+        awaitTrue("asked afresh") { harness.server.pulls.size == 1 }
+        assertNull(
+            harness.server.pulls[0]
+                .first.previousResultId,
+        )
+        assertEquals(2, shownCount.get(), "shown, cleared by the crash, nothing else")
     }
 }
