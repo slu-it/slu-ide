@@ -1,13 +1,13 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Path
-import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
@@ -38,15 +38,14 @@ class GitRewordsTest {
             "GIT_COMMITTER_NAME" to "Committer",
             "GIT_COMMITTER_EMAIL" to "committer@example.com",
         )
+    private val environment = testGitEnvironment() + makers
+    private lateinit var repository: TestRepository
 
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        repo.createDirectories()
         // No local main or master: commits on them are never reworded.
-        git("init", "-q", "-b", "feature")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
+        repository = TestRepository(repo, initialBranch = "feature", environment = environment)
     }
 
     private fun gitBytes(
@@ -55,19 +54,9 @@ class GitRewordsTest {
         input: ByteArray? = null,
         succeeds: Boolean = true,
     ): ByteArray {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment() + makers)
-                }.start()
-        process.outputStream.use { stdin -> input?.let(stdin::write) }
-        val output = process.inputStream.readAllBytes()
-        val exit = process.waitFor()
-        if (succeeds) assertEquals(0, exit, "git ${arguments.joinToString(" ")}: ${output.decodeToString()}")
-        return output
+        val run = runGitRaw(directory, *arguments, input = input, environment = environment)
+        if (succeeds) assertEquals(0, run.exit, "git ${arguments.joinToString(" ")}: ${run.output}")
+        return run.bytes
     }
 
     private fun git(
@@ -76,17 +65,6 @@ class GitRewordsTest {
         input: ByteArray? = null,
         succeeds: Boolean = true,
     ) = gitBytes(*arguments, directory = directory, input = input, succeeds = succeeds).decodeToString().trim()
-
-    /** Commits [file] with [message] as its content; returns the commit's hash. */
-    private fun commit(
-        message: String,
-        file: String = "file.txt",
-    ): String {
-        repo.resolve(file).writeText("$message\n")
-        git("add", file)
-        git("commit", "-q", "-m", message)
-        return head()
-    }
 
     private fun head() = git("rev-parse", "HEAD")
 
@@ -115,7 +93,7 @@ class GitRewordsTest {
     @ParameterizedTest
     @ValueSource(ints = [0, 2, 3])
     fun `rewords a commit and copies the later ones with their trees and authors`(index: Int) {
-        val commits = (0..3).map { commit("Commit $it\n\nBody $it.", "file$it.txt") }
+        val commits = (0..3).map { repository.commit("Commit $it\n\nBody $it.", "file$it.txt") }
 
         val done = assertIs<GitRewordResult.Done>(rewords.reword(repo, "feature", commits[index], "New\n\nNew body."))
 
@@ -140,14 +118,14 @@ class GitRewordsTest {
     @ParameterizedTest
     @ValueSource(booleans = [false, true])
     fun `keeps a merge a merge with its other side as it is`(rewordMerge: Boolean) {
-        commit("Base")
+        repository.commit("Base")
         git("switch", "-q", "-c", "side")
-        val side = commit("Side", "side.txt")
+        val side = repository.commit("Side", "side.txt")
         git("switch", "-q", "feature")
-        val a = commit("A", "a.txt")
+        val a = repository.commit("A", "a.txt")
         git("merge", "-q", "--no-ff", "-m", "Merge side", "side")
         val merge = head()
-        val last = commit("C", "c.txt")
+        val last = repository.commit("C", "c.txt")
 
         assertIs<GitRewordResult.Done>(rewords.reword(repo, "feature", if (rewordMerge) merge else a, "Reworded"))
 
@@ -168,12 +146,12 @@ class GitRewordsTest {
 
     @Test
     fun `rewrites both parents of a merge whose other side also descends from the commit`() {
-        commit("Base")
-        val a = commit("A", "a.txt")
+        repository.commit("Base")
+        val a = repository.commit("A", "a.txt")
         git("switch", "-q", "-c", "side")
-        val side = commit("Side", "side.txt")
+        val side = repository.commit("Side", "side.txt")
         git("switch", "-q", "feature")
-        val b = commit("B", "b.txt")
+        val b = repository.commit("B", "b.txt")
         git("merge", "-q", "--no-ff", "-m", "Merge side", "side")
         val merge = head()
 
@@ -192,10 +170,10 @@ class GitRewordsTest {
 
     @Test
     fun `keeps a mergetag header with its continuation lines byte for byte`() {
-        commit("Base")
-        val a = commit("A", "a.txt")
+        repository.commit("Base")
+        val a = repository.commit("A", "a.txt")
         git("switch", "-q", "-c", "side", "HEAD^")
-        val side = commit("Side", "side.txt")
+        val side = repository.commit("Side", "side.txt")
         git("switch", "-q", "feature")
         git("merge", "-q", "--no-ff", "-m", "Merge tag", "side")
         val tag =
@@ -215,9 +193,9 @@ class GitRewordsTest {
 
     @Test
     fun `leaves the working tree and the index as they are`() {
-        commit("Base")
-        val a = commit("A", "a.txt")
-        commit("B", "b.txt")
+        repository.commit("Base")
+        val a = repository.commit("A", "a.txt")
+        repository.commit("B", "b.txt")
         repo.resolve("a.txt").writeText("staged\n")
         git("add", "a.txt")
         repo.resolve("b.txt").writeText("unstaged\n")
@@ -243,9 +221,9 @@ class GitRewordsTest {
         ],
     )
     fun `refuses to reword`(case: String) {
-        commit("Base")
-        var target = commit("Target", "t.txt")
-        commit("Later", "l.txt")
+        repository.commit("Base")
+        var target = repository.commit("Target", "t.txt")
+        repository.commit("Later", "l.txt")
         var branch = "feature"
         val short = target.take(8)
         val reason =
@@ -299,7 +277,7 @@ class GitRewordsTest {
 
                 "not on the branch" -> {
                     git("switch", "-q", "-c", "side")
-                    target = commit("Side", "side.txt")
+                    target = repository.commit("Side", "side.txt")
                     git("switch", "-q", "feature")
                     "'${target.take(8)}' is not on the current branch 'feature'."
                 }
@@ -310,8 +288,8 @@ class GitRewordsTest {
                 }
 
                 else -> {
-                    commit("More", "m.txt")
-                    commit("Even more", "e.txt")
+                    repository.commit("More", "m.txt")
+                    repository.commit("Even more", "e.txt")
                     rewords.maxCommits = 2
                     "'$short' has more than 2 commits after it; change its message in a terminal."
                 }
@@ -326,14 +304,14 @@ class GitRewordsTest {
     @ParameterizedTest
     @ValueSource(booleans = [true, false])
     fun `rewords on a branch of another name that tracks the default branch`(originHead: Boolean) {
-        val base = commit("Base")
+        val base = repository.commit("Base")
         origin()
         git("push", "-q", "origin", "$base:refs/heads/main")
         // Without origin/HEAD, origin/main is the default branch all the same.
         if (originHead) git("remote", "set-head", "origin", "main")
         git("switch", "-q", "-c", "fix-123", "--track", "origin/main")
-        val first = commit("First", "f.txt")
-        commit("Second", "s.txt")
+        val first = repository.commit("First", "f.txt")
+        repository.commit("Second", "s.txt")
 
         assertEquals(GitRewordCheck.Allowed("First", emptyList(), null), rewords.check(repo, "fix-123", first))
         assertIs<GitRewordResult.Done>(rewords.reword(repo, "fix-123", first, "Reworded"))
@@ -342,7 +320,7 @@ class GitRewordsTest {
 
     @Test
     fun `takes only lowercase full hashes`() {
-        val hash = commit("Base")
+        val hash = repository.commit("Base")
 
         for (bad in listOf(hash.uppercase(), hash.take(12))) {
             val check = assertFailsWith<IllegalArgumentException> { rewords.check(repo, "feature", bad) }
@@ -354,10 +332,10 @@ class GitRewordsTest {
 
     @Test
     fun `rewords a commit with as many commits after it as allowed`() {
-        commit("Base")
-        val target = commit("Target", "t.txt")
-        commit("Later", "l.txt")
-        commit("More", "m.txt")
+        repository.commit("Base")
+        val target = repository.commit("Target", "t.txt")
+        repository.commit("Later", "l.txt")
+        repository.commit("More", "m.txt")
         rewords.maxCommits = 2
 
         assertIs<GitRewordCheck.Allowed>(rewords.check(repo, "feature", target))
@@ -367,7 +345,7 @@ class GitRewordsTest {
 
     @Test
     fun `reads the commits to copy in several parts`() {
-        val target = commit("Target")
+        val target = repository.commit("Target")
         // More hashes than fit into one part of cat-file's input (GitCli.MAX_INPUT), made by one git fast-import.
         val count = 400
         assertTrue(count + 1 > GitCli.MAX_INPUT / (target.length + 1), "the hashes fit into one part")
@@ -398,10 +376,10 @@ class GitRewordsTest {
 
     @Test
     fun `fails and leaves the branch where it is if it moved meanwhile`() {
-        commit("Base")
-        val a = commit("A", "a.txt")
+        repository.commit("Base")
+        val a = repository.commit("A", "a.txt")
         var moved = ""
-        rewords.beforeUpdate = { moved = commit("Moved", "m.txt") }
+        rewords.beforeUpdate = { moved = repository.commit("Moved", "m.txt") }
 
         val failed = assertIs<GitRewordResult.Failed>(rewords.reword(repo, "feature", a, "Reworded"))
 
@@ -412,8 +390,8 @@ class GitRewordsTest {
     @ParameterizedTest
     @ValueSource(strings = ["", " \n\n\t \n"])
     fun `refuses a blank message`(message: String) {
-        commit("Base")
-        val a = commit("A", "a.txt")
+        repository.commit("Base")
+        val a = repository.commit("A", "a.txt")
 
         assertEquals(GitRewordResult.Failed("The message is empty."), rewords.reword(repo, "feature", a, message))
         assertEquals(a, tip())
@@ -422,8 +400,8 @@ class GitRewordsTest {
     @ParameterizedTest
     @ValueSource(strings = ["Subject\n\nBody.", "\n\nSubject  \n\n\n\nBody.\t\n\n"])
     fun `writes nothing for the same message after the whitespace cleanup`(message: String) {
-        commit("Base")
-        val a = commit("Subject\n\nBody.", "a.txt")
+        repository.commit("Base")
+        val a = repository.commit("Subject\n\nBody.", "a.txt")
         val objects = git("count-objects")
 
         assertEquals(GitRewordResult.Unchanged, rewords.reword(repo, "feature", a, message))
@@ -433,7 +411,7 @@ class GitRewordsTest {
 
     @Test
     fun `writes a non-ASCII message as UTF-8 and keeps the bytes of a later Latin-1 message`() {
-        commit("Base")
+        repository.commit("Base")
         val target = latin1Commit("Ältere Nachricht", "t.txt")
         val later = latin1Commit("Spätere Nachricht", "l.txt")
         assertTrue("encoding ISO-8859-1" in raw(target))
@@ -463,9 +441,9 @@ class GitRewordsTest {
     @ParameterizedTest
     @ValueSource(strings = ["gpgsig", "gpgsig-sha256"])
     fun `drops the signatures of the commits it copies`(header: String) {
-        commit("Base")
-        val target = signed(commit("Target", "t.txt"), header)
-        val later = signed(commit("Later", "l.txt"), header)
+        repository.commit("Base")
+        val target = signed(repository.commit("Target", "t.txt"), header)
+        val later = signed(repository.commit("Later", "l.txt"), header)
         assertTrue("\n$header " in raw(later))
 
         assertIs<GitRewordResult.Done>(rewords.reword(repo, "feature", target, "Reworded"))
@@ -489,8 +467,8 @@ class GitRewordsTest {
 
     @Test
     fun `check tells the message, the other branches that keep the commit and the upstream that has it`() {
-        val base = commit("Base")
-        val target = commit("Target\n\nBody.", "t.txt")
+        val base = repository.commit("Base")
+        val target = repository.commit("Target\n\nBody.", "t.txt")
         git("branch", "other")
         git("branch", "side", base)
         origin()
@@ -498,7 +476,7 @@ class GitRewordsTest {
         git("push", "-q", "-u", "origin", "feature")
         // The remote's default branch is develop, so its main does not count as one.
         git("remote", "set-head", "origin", "develop")
-        val unpushed = commit("Unpushed", "u.txt")
+        val unpushed = repository.commit("Unpushed", "u.txt")
 
         assertEquals(
             GitRewordCheck.Allowed("Target\n\nBody.", listOf("other"), "origin/feature"),

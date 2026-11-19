@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import dev.sluide.git.cli.refs
 import dev.sluide.git.cli.sshConfigured
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -33,15 +34,13 @@ class GitRemotesTest {
 
     private val git = GitCli("git", testGitEnvironment())
     private val remotes = GitRemotes(git)
+    private lateinit var upstreamRepository: TestRepository
 
     @BeforeEach
     fun createRepositories() {
         assumeTrue(git.available, "git is not installed")
-        upstream.createDirectories()
-        git("init", "-q", "-b", "main", directory = upstream)
-        git("config", "user.name", "Test", directory = upstream)
-        git("config", "user.email", "test@example.com", directory = upstream)
-        commit("First")
+        upstreamRepository = TestRepository(upstream)
+        upstreamRepository.commit("First")
         git("clone", "-q", upstream.toString(), repo.toString(), directory = folder)
         git("config", "user.name", "Test")
         git("config", "user.email", "test@example.com")
@@ -50,28 +49,7 @@ class GitRemotesTest {
     private fun git(
         vararg arguments: String,
         directory: Path = repo,
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
-
-    /** Commits in [upstream]; returns the commit's hash. */
-    private fun commit(subject: String): String {
-        upstream.resolve("file.txt").writeText("$subject\n")
-        git("add", "file.txt", directory = upstream)
-        git("commit", "-q", "-m", subject, directory = upstream)
-        return git("rev-parse", "HEAD", directory = upstream)
-    }
+    ) = runGit(directory, *arguments)
 
     private fun refs(prefix: String) =
         git("for-each-ref", "--format=%(refname:short) %(objectname)", prefix).lines().filter(String::isNotEmpty)
@@ -86,14 +64,14 @@ class GitRemotesTest {
         git("branch", "moving", directory = upstream)
         git("fetch", "-q", "origin")
         git("tag", "mine")
-        val second = commit("Second")
+        val second = upstreamRepository.commit("Second")
         git("tag", "v2", directory = upstream)
         git("branch", "-f", "moving", second, directory = upstream)
         git("branch", "fresh", directory = upstream)
         git("branch", "-D", "old", directory = upstream)
         // A tag of a commit on no branch: not in the fetched history.
         git("switch", "-q", "--detach", directory = upstream)
-        commit("Loose")
+        upstreamRepository.commit("Loose")
         git("tag", "loose", directory = upstream)
         git("switch", "-q", "main", directory = upstream)
 
@@ -125,7 +103,7 @@ class GitRemotesTest {
         git("switch", "-q", "--detach")
         git("branch", "local-only")
         git("tag", "mine")
-        commit("Second")
+        upstreamRepository.commit("Second")
 
         val fetched = remotes.fetch(repo, "origin", GitCancellation())
 
@@ -146,7 +124,7 @@ class GitRemotesTest {
         git("config", "remote.origin.tagOpt", "--tags")
         git("fetch", "-q", "origin")
         val old = tip("refs/tags/v1")
-        val second = commit("Second")
+        val second = upstreamRepository.commit("Second")
         git("tag", "-f", "v1", directory = upstream)
 
         val fetched = remotes.fetch(repo, "origin", GitCancellation())
@@ -187,7 +165,7 @@ class GitRemotesTest {
     @Test
     fun `a remote that cannot be reached fails while another is fetched`() {
         git("remote", "add", "gone", folder.resolve("no-such-repo").toString())
-        val second = commit("Second")
+        val second = upstreamRepository.commit("Second")
 
         val gone = remotes.fetch(repo, "gone", GitCancellation())
         val origin = remotes.fetch(repo, "origin", GitCancellation())
@@ -205,7 +183,7 @@ class GitRemotesTest {
         git("config", "--add", "remote.origin.fetch", "+refs/heads/main:refs/pinned/main")
         git("config", "--add", "remote.origin.fetch", "^refs/heads/skipped")
         git("fetch", "-q", "origin")
-        commit("Second")
+        upstreamRepository.commit("Second")
         git("branch", "feature/a", directory = upstream)
         git("branch", "skipped", directory = upstream)
 
@@ -363,19 +341,19 @@ class GitRemotesTest {
 
     @Test
     fun `a fetch counts nothing when its refspecs or refs cannot be read, and prunes only with readable refspecs`() {
-        val second = commit("Second")
+        val second = upstreamRepository.commit("Second")
 
         val refspecs = GitRemotes(failingGit(folder, "--get-all")).fetch(repo, "origin", GitCancellation())
         assertTrue(refspecs.result.success, refspecs.result.message)
         assertEquals(GitFetchResult(refspecs.result, changes = null, pruned = false), refspecs)
         assertEquals(second, tip("refs/remotes/origin/main"))
 
-        val third = commit("Third")
+        val third = upstreamRepository.commit("Third")
         val beforeRefs = GitRemotes(failingNthGit(folder, "for-each-ref", 1)).fetch(repo, "origin", GitCancellation())
         assertEquals(GitFetchResult(beforeRefs.result, changes = null, pruned = true), beforeRefs)
         assertEquals(third, tip("refs/remotes/origin/main"))
 
-        val fourth = commit("Fourth")
+        val fourth = upstreamRepository.commit("Fourth")
         val afterRefs = GitRemotes(failingNthGit(folder, "for-each-ref", 2)).fetch(repo, "origin", GitCancellation())
         assertEquals(GitFetchResult(afterRefs.result, changes = null, pruned = true), afterRefs)
         assertEquals(fourth, tip("refs/remotes/origin/main"))
@@ -403,7 +381,7 @@ class GitRemotesTest {
     @Test
     fun `a remote without fetch refspecs counts no branches, as git writes none`() {
         git("config", "--unset-all", "remote.origin.fetch")
-        val second = commit("Second")
+        val second = upstreamRepository.commit("Second")
 
         val fetched = remotes.fetch(repo, "origin", GitCancellation())
 

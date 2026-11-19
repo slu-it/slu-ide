@@ -47,10 +47,6 @@ class GitCliInProgressTest {
         state.createDirectories()
     }
 
-    private fun git(vararg arguments: String) = repository.git(*arguments)
-
-    private fun commit(message: String) = repository.commit(message)
-
     private fun stateFile(
         name: String,
         content: String,
@@ -119,7 +115,7 @@ class GitCliInProgressTest {
 
     @Test
     fun `a stopped rebase has the commit REBASE_HEAD names`() {
-        val stopped = commit("stopped")
+        val stopped = repository.commit("stopped")
         assertNull(rebase()?.stopped)
 
         repo.resolve(".git/REBASE_HEAD").writeText("$stopped\n")
@@ -184,8 +180,8 @@ class GitCliInProgressTest {
 
     @Test
     fun `a short name stands alone for its full refname`() {
-        commit("first")
-        git("branch", "topic")
+        repository.commit("first")
+        repository.git("branch", "topic")
 
         assertTrue(git.namesOnly(repo, "topic", "refs/heads/topic"))
         assertFalse(git.namesOnly(repo, "topic", "refs/heads/other"))
@@ -194,9 +190,9 @@ class GitCliInProgressTest {
 
     @Test
     fun `a short name that a tag shares is not alone`() {
-        commit("first")
-        git("branch", "topic")
-        git("tag", "topic")
+        repository.commit("first")
+        repository.git("branch", "topic")
+        repository.git("tag", "topic")
 
         assertFalse(git.namesOnly(repo, "topic", "refs/heads/topic"))
     }
@@ -204,15 +200,15 @@ class GitCliInProgressTest {
     @Test
     fun `a name with a leading dash is never alone, though rev-parse would print it`() {
         // `git rev-parse --symbolic-full-name -x` prints "-x" (checked with git 2.56): only the guard says false.
-        assertEquals("-x", git("rev-parse", "--symbolic-full-name", "-x"))
+        assertEquals("-x", repository.git("rev-parse", "--symbolic-full-name", "-x"))
 
         assertFalse(git.namesOnly(repo, "-x", "-x"))
     }
 
     @Test
     fun `a git that is not available has no rebase count and no names alone`() {
-        commit("first")
-        git("branch", "topic")
+        repository.commit("first")
+        repository.git("branch", "topic")
         // Not available, but it would answer: only the guard of each function says no.
         val unavailable = unavailableGit(folder)
 
@@ -236,11 +232,11 @@ class GitCliInProgressTest {
 
     /** Conflicts in `file.txt`: main and `other` change it differently; returns the commit of `other`. */
     private fun conflicting(): String {
-        commit("base")
-        git("switch", "-q", "-c", "other")
-        val other = commit("other")
-        git("switch", "-q", "main")
-        commit("main")
+        repository.commit("base")
+        repository.git("switch", "-q", "-c", "other")
+        val other = repository.commit("other")
+        repository.git("switch", "-q", "main")
+        repository.commit("main")
         return other
     }
 
@@ -248,7 +244,7 @@ class GitCliInProgressTest {
 
     @Test
     fun `nothing is in progress in a clean repository, and git that cannot be read is a failure`() {
-        commit("base")
+        repository.commit("base")
 
         assertEquals(Result.success(null), inProgress())
         assertTrue(inProgress(unavailableGit(folder)).isFailure)
@@ -257,7 +253,7 @@ class GitCliInProgressTest {
 
     @Test
     fun `a rebase with the merge backend is read from rebase-merge`() {
-        commit("base")
+        repository.commit("base")
         val rebaseMerge = gitDirectory.resolve("rebase-merge").createDirectories()
         rebaseMerge.resolve("msgnum").writeText("2\n")
         rebaseMerge.resolve("end").writeText("4\n")
@@ -275,7 +271,7 @@ class GitCliInProgressTest {
 
     @Test
     fun `a rebase with the apply backend is read from rebase-apply, git am is not a rebase`() {
-        commit("base")
+        repository.commit("base")
         val rebaseApply = gitDirectory.resolve("rebase-apply").createDirectories()
         rebaseApply.resolve("next").writeText("3\n")
         rebaseApply.resolve("last").writeText("5\n")
@@ -290,7 +286,7 @@ class GitCliInProgressTest {
 
     @Test
     fun `a rebase whose unmerged paths cannot be read is a failure`() {
-        commit("base")
+        repository.commit("base")
         gitDirectory.resolve("rebase-merge").createDirectories()
 
         assertTrue(inProgress(failingGit(folder, "ls-files")).isFailure)
@@ -298,7 +294,7 @@ class GitCliInProgressTest {
 
     @Test
     fun `a merge is read from MERGE_HEAD, git am wins over it`() {
-        val head = commit("base")
+        val head = repository.commit("base")
         gitDirectory.resolve("MERGE_HEAD").writeText("$head\n")
         gitDirectory.resolve("MERGE_MSG").writeText("Merge branch 'x'\n")
 
@@ -328,7 +324,7 @@ class GitCliInProgressTest {
         todo: String,
         expected: GitOperation,
     ) {
-        commit("base")
+        repository.commit("base")
         gitDirectory
             .resolve(
                 "sequencer",
@@ -341,7 +337,7 @@ class GitCliInProgressTest {
 
     @Test
     fun `a sequence without a readable todo list, or only comments, is a sequence of unknown kind`() {
-        commit("base")
+        repository.commit("base")
         val sequencer = gitDirectory.resolve("sequencer").createDirectories()
 
         assertEquals(Result.success(GitPendingOperation(GitOperation.SEQUENCE)), inProgress())
@@ -358,15 +354,15 @@ class GitCliInProgressTest {
 
         assertEquals(Result.success(GitPendingPick(GitPick.CHERRY_PICK, other, listOf("file.txt"))), inProgress())
 
-        git("cherry-pick", "--abort")
-        val main = git("rev-parse", "HEAD")
+        repository.git("cherry-pick", "--abort")
+        val main = repository.git("rev-parse", "HEAD")
         stops("revert", "HEAD~1")
 
         assertEquals(
-            Result.success(GitPendingPick(GitPick.REVERT, git("rev-parse", "HEAD~1"), listOf("file.txt"))),
+            Result.success(GitPendingPick(GitPick.REVERT, repository.git("rev-parse", "HEAD~1"), listOf("file.txt"))),
             inProgress(),
         )
-        assertEquals(main, git("rev-parse", "HEAD"))
+        assertEquals(main, repository.git("rev-parse", "HEAD"))
         assertTrue(inProgress(failingGit(folder, "ls-files")).isFailure)
     }
 
@@ -381,7 +377,7 @@ class GitCliInProgressTest {
 
     @Test
     fun `a first word that only hashes like pick, p or revert is no cherry-pick or revert`() {
-        commit("base")
+        repository.commit("base")
         // A when over strings checks the hash code first: strings with the same hash code are not the same word.
         val words = listOf("pick" to "ph\u0082k", "p" to "\u0003\u0013", "revert" to "rd\u0095ert")
         val sequencer = gitDirectory.resolve("sequencer").createDirectories()

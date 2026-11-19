@@ -38,22 +38,14 @@ class GitMergesGuardsTest {
         repository = TestRepository(repo)
     }
 
-    private fun git(vararg arguments: String) = repository.git(*arguments)
-
-    private fun commit(
-        message: String,
-        file: String = "file.txt",
-        content: String = message,
-    ) = repository.commit(message, file, content)
-
     /** main: Base, Main (changes file.txt if [conflict], else adds main.txt); feature: Base, A. feature checked out. */
     private fun diverged(conflict: Boolean = false) {
-        commit("Base")
-        git("switch", "-q", "-c", "feature")
-        commit("A")
-        git("switch", "-q", "main")
-        if (conflict) commit("Main") else commit("Main", "main.txt")
-        git("switch", "-q", "feature")
+        repository.commit("Base")
+        repository.git("switch", "-q", "-c", "feature")
+        repository.commit("A")
+        repository.git("switch", "-q", "main")
+        if (conflict) repository.commit("Main") else repository.commit("Main", "main.txt")
+        repository.git("switch", "-q", "feature")
     }
 
     private fun merge(
@@ -64,7 +56,7 @@ class GitMergesGuardsTest {
         ref: String = "refs/heads/main",
     ) = merges.merge(repo, "feature", ref, mode, message, autostash)
 
-    private fun message() = git("log", "-1", "--format=%B")
+    private fun message() = repository.git("log", "-1", "--format=%B")
 
     private fun recording() = GitMerges(recordingGit(folder, callLog))
 
@@ -79,7 +71,7 @@ class GitMergesGuardsTest {
         assertEquals(refused, merge(GitMerges(failingGit(folder, "--git-path"))))
         assertEquals(refused, GitMerges(failingGit(folder, "--git-path")).continueMerge(repo))
         assertEquals(refused, GitMerges(failingGit(folder, "--git-path")).abortMerge(repo))
-        assertEquals("A", git("log", "-1", "--format=%s"))
+        assertEquals("A", repository.git("log", "-1", "--format=%s"))
     }
 
     @Test
@@ -94,7 +86,7 @@ class GitMergesGuardsTest {
             GitMergeResult.Failed("refs/heads/main could not be read."),
             merge(GitMerges(failingGit(folder, "--verify"))),
         )
-        assertEquals("A", git("log", "-1", "--format=%s"))
+        assertEquals("A", repository.git("log", "-1", "--format=%s"))
     }
 
     @Test
@@ -112,7 +104,7 @@ class GitMergesGuardsTest {
     fun `aborting or continuing a merge is told done when what is in progress cannot be read afterwards`() {
         diverged(conflict = true)
         assertIs<GitMergeResult.Stopped>(merge(GitMerges(git)))
-        val before = git("rev-parse", "HEAD")
+        val before = repository.git("rev-parse", "HEAD")
 
         assertEquals(
             GitMergeResult.Done(before),
@@ -186,7 +178,7 @@ class GitMergesGuardsTest {
 
         assertEquals("merge --no-ff --autostash --no-edit --end-of-options main", plain)
 
-        git("reset", "-q", "--hard", "HEAD^")
+        repository.git("reset", "-q", "--hard", "HEAD^")
         Files.deleteIfExists(callLog)
         assertIs<GitMergeResult.Done>(merge(merges, GitMergeMode.MERGE_COMMIT, message = "Written by hand"))
         val withMessage = mergeCall()
@@ -204,7 +196,7 @@ class GitMergesGuardsTest {
     @Test
     fun `a name that is no branch is merged by that name with the default message of a branch`() {
         diverged()
-        git("update-ref", "ORIG_HEAD", "main")
+        repository.git("update-ref", "ORIG_HEAD", "main")
         val merges = recording()
 
         assertIs<GitMergeResult.Done>(merge(merges, GitMergeMode.MERGE_COMMIT, ref = "ORIG_HEAD"))
@@ -217,10 +209,10 @@ class GitMergesGuardsTest {
     @Test
     fun `a squash with local changes in the way fails with git's message`() {
         diverged()
-        commit("More", "main.txt")
-        git("switch", "-q", "main")
-        commit("Main again", "main.txt")
-        git("switch", "-q", "feature")
+        repository.commit("More", "main.txt")
+        repository.git("switch", "-q", "main")
+        repository.commit("Main again", "main.txt")
+        repository.git("switch", "-q", "feature")
         repo.resolve("main.txt").writeText("local\n")
 
         // Git refuses ("Merge with strategy ort failed.", exit 2) and leaves no conflicts: no squash was done.
@@ -233,7 +225,7 @@ class GitMergesGuardsTest {
     @Test
     fun `a squash whose conflicts cannot be listed is no squash`() {
         diverged(conflict = true)
-        val head = git("rev-parse", "HEAD")
+        val head = repository.git("rev-parse", "HEAD")
 
         // Git exits with 1 and leaves conflicts; the reads of the unmerged paths after the merge command fail.
         val result = merge(GitMerges(failingAfterGit(folder, "merge", "--unmerged")), GitMergeMode.SQUASH)
@@ -241,7 +233,7 @@ class GitMergesGuardsTest {
         val failed = assertIs<GitMergeResult.Failed>(result)
         assertTrue(failed.message.startsWith("Auto-merging file.txt"), failed.message)
         assertTrue("CONFLICT (content): Merge conflict in file.txt" in failed.message, failed.message)
-        assertEquals(head, git("rev-parse", "HEAD"))
+        assertEquals(head, repository.git("rev-parse", "HEAD"))
     }
 
     @Test
@@ -255,14 +247,17 @@ class GitMergesGuardsTest {
 
         val result = merge(GitMerges(git), GitMergeMode.SQUASH)
 
-        assertEquals(GitMergeResult.Done(git("rev-parse", "HEAD"), squashed = true, stashKept = true), result)
-        assertEquals(1, git("stash", "list").lines().size)
+        assertEquals(
+            GitMergeResult.Done(repository.git("rev-parse", "HEAD"), squashed = true, stashKept = true),
+            result,
+        )
+        assertEquals(1, repository.git("stash", "list").lines().size)
     }
 
     @Test
     fun `continuing a merge without conflicts stages nothing and checks nothing`() {
         diverged()
-        git("merge", "--no-commit", "--no-ff", "main")
+        repository.git("merge", "--no-commit", "--no-ff", "main")
         val merges = recording()
 
         val result = merges.continueMerge(repo)
@@ -277,7 +272,7 @@ class GitMergesGuardsTest {
     @Test
     fun `a merge that git cannot continue or abort stays in progress, with git's message`() {
         diverged()
-        git("merge", "--no-commit", "--no-ff", "main")
+        repository.git("merge", "--no-commit", "--no-ff", "main")
         // Git cannot write the index while this file is there.
         val lock = repo.resolve(".git/index.lock")
         lock.writeText("")
@@ -308,7 +303,7 @@ class GitMergesGuardsTest {
     @Test
     fun `a message that cannot be written fails the merge with the reason, whether the file or its text is at fault`() {
         diverged()
-        val head = git("rev-parse", "HEAD")
+        val head = repository.git("rev-parse", "HEAD")
         val merges = GitMerges(git)
         merges.temporaryFolder = folder.resolve("no-such-folder")
 
@@ -322,7 +317,7 @@ class GitMergesGuardsTest {
         val noText = merge(merges, message = "Broken \uD800")
         assertEquals(GitMergeResult.Failed("The message could not be written: Input length = 1"), noText)
         assertEquals(emptyList(), inFolder.toFile().list()?.toList(), "the file is deleted")
-        assertEquals(head, git("rev-parse", "HEAD"))
+        assertEquals(head, repository.git("rev-parse", "HEAD"))
     }
 
     // The wrapper makes itself not executable when it is asked for the stash, the last read before the merge command:

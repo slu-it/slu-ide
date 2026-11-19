@@ -2,6 +2,7 @@ package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.GitCommandLogSink
+import dev.sluide.git.cli.TestRepository
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -10,7 +11,6 @@ import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.io.path.appendText
-import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -36,13 +36,7 @@ class GitRemoteConfigTest {
     @BeforeEach
     fun createRepositories() {
         assumeTrue(git.available, "git is not installed")
-        upstream.createDirectories()
-        git("init", "-q", "-b", "main", directory = upstream)
-        git("config", "user.name", "Test", directory = upstream)
-        git("config", "user.email", "test@example.com", directory = upstream)
-        upstream.resolve("file.txt").writeText("First\n")
-        git("add", "file.txt", directory = upstream)
-        git("commit", "-q", "-m", "First", directory = upstream)
+        TestRepository(upstream).commit("First")
         git("branch", "dev", directory = upstream)
         git("branch", "feature/a", directory = upstream)
         git("clone", "-q", upstream.toString(), repo.toString(), directory = folder)
@@ -51,22 +45,7 @@ class GitRemoteConfigTest {
     private fun git(
         vararg arguments: String,
         directory: Path = repo,
-        expect: Set<Int> = setOf(0),
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        val exit = process.waitFor()
-        assertTrue(exit in expect, "exit $exit: git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
+    ) = runGit(directory, *arguments)
 
     private fun lines(vararg arguments: String) = git(*arguments).lines().filter(String::isNotEmpty)
 
@@ -74,8 +53,15 @@ class GitRemoteConfigTest {
 
     private fun remoteNames() = lines("remote")
 
-    private fun config(key: String) =
-        git("config", "--get-all", key, expect = setOf(0, 1)).lines().filter(String::isNotEmpty)
+    private fun config(key: String): List<String> {
+        val run = runGitRaw(repo, "config", "--get-all", key)
+        // Exit 1 is a key that is not set.
+        assertTrue(run.exit in setOf(0, 1), "exit ${run.exit}: git config --get-all $key: ${run.output}")
+        return run.output
+            .trim()
+            .lines()
+            .filter(String::isNotEmpty)
+    }
 
     private fun setFetch(
         remote: String,

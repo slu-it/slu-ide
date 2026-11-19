@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import dev.sluide.git.cli.branchesContaining
 import dev.sluide.git.cli.commitOf
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -20,52 +21,28 @@ class GitRevisionsTest {
 
     private val git = GitCli("git", testGitEnvironment())
     private val log = GitLog(git)
+    private lateinit var repository: TestRepository
 
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        git("init", "-q", "-b", "main")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
-    }
-
-    private fun git(
-        vararg arguments: String,
-        input: String = "",
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.use { it.write(input.toByteArray(Charsets.UTF_8)) }
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
-
-    private fun commit(subject: String): String {
-        git("commit", "-q", "--allow-empty", "-m", subject)
-        return git("rev-parse", "HEAD")
+        repository = TestRepository(repo)
     }
 
     private fun commitOf(hash: String) = GitRevisionResolution.Commit(hash)
 
     @Test
     fun `lists the local and remote branches containing a commit, without symbolic refs`() {
-        val first = commit("First")
-        val second = commit("Second")
-        git("branch", "feature", first)
-        git("branch", "later", second)
-        git("update-ref", "refs/remotes/origin/main", second)
-        git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
-        git("tag", "v1", first)
-        git("switch", "-q", "--orphan", "other")
-        val unrelated = commit("Unrelated")
-        git("switch", "-q", "main")
+        val first = repository.commitEmpty("First")
+        val second = repository.commitEmpty("Second")
+        repository.git("branch", "feature", first)
+        repository.git("branch", "later", second)
+        repository.git("update-ref", "refs/remotes/origin/main", second)
+        repository.git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+        repository.git("tag", "v1", first)
+        repository.git("switch", "-q", "--orphan", "other")
+        val unrelated = repository.commitEmpty("Unrelated")
+        repository.git("switch", "-q", "main")
 
         assertEquals(
             listOf("refs/heads/feature", "refs/heads/later", "refs/heads/main", "refs/remotes/origin/main"),
@@ -76,21 +53,21 @@ class GitRevisionsTest {
             log.branchesContaining(repo, second),
         )
         assertEquals(listOf("refs/heads/other"), log.branchesContaining(repo, unrelated))
-        git("branch", "-q", "-D", "other")
+        repository.git("branch", "-q", "-D", "other")
         assertEquals(emptyList(), log.branchesContaining(repo, unrelated), "in no branch")
         assertFailsWith<IllegalArgumentException> { log.branchesContaining(repo, "main") }
     }
 
     @Test
     fun `resolves hashes, prefixes, branches, tags and revision expressions to commits`() {
-        val first = commit("First")
-        val second = commit("Second")
-        val third = commit("Third")
-        git("tag", "light", first)
-        git("tag", "-a", "-m", "Annotated", "v1.0", second)
-        git("branch", "feature", second)
-        git("update-ref", "refs/remotes/origin/main", first)
-        val tree = git("rev-parse", "HEAD^{tree}")
+        val first = repository.commitEmpty("First")
+        val second = repository.commitEmpty("Second")
+        val third = repository.commitEmpty("Third")
+        repository.git("tag", "light", first)
+        repository.git("tag", "-a", "-m", "Annotated", "v1.0", second)
+        repository.git("branch", "feature", second)
+        repository.git("update-ref", "refs/remotes/origin/main", first)
+        val tree = repository.git("rev-parse", "HEAD^{tree}")
 
         val revisions =
             listOf(
@@ -130,17 +107,17 @@ class GitRevisionsTest {
             log.resolveCommits(repo, revisions),
         )
         assertEquals(emptyList(), log.resolveCommits(repo, emptyList()))
-        git("config", "remote.origin.url", "/nowhere")
-        git("config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")
-        git("config", "branch.main.remote", "origin")
-        git("config", "branch.main.merge", "refs/heads/main")
+        repository.git("config", "remote.origin.url", "/nowhere")
+        repository.git("config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")
+        repository.git("config", "branch.main.remote", "origin")
+        repository.git("config", "branch.main.merge", "refs/heads/main")
         assertEquals(listOf(commitOf(first)), log.resolveCommits(repo, listOf("@{upstream}")))
     }
 
     @Test
     fun `a message search resolves to the youngest commit whose message matches`() {
-        val fix = commit("Fix the parser")
-        commit("Other")
+        val fix = repository.commitEmpty("Fix the parser")
+        repository.commitEmpty("Other")
 
         assertEquals(
             listOf(commitOf(fix), GitRevisionResolution.Missing),
@@ -150,9 +127,9 @@ class GitRevisionsTest {
 
     @Test
     fun `a non-ASCII branch name is resolved from the standard input`() {
-        val first = commit("First")
-        commit("Second")
-        git("update-ref", "--stdin", input = "create refs/heads/grün $first\n")
+        val first = repository.commitEmpty("First")
+        repository.commitEmpty("Second")
+        repository.git("update-ref", "--stdin", input = "create refs/heads/grün $first\n")
 
         assertEquals(listOf(commitOf(first)), log.resolveCommits(repo, listOf("grün")))
     }
@@ -167,9 +144,10 @@ class GitRevisionsTest {
                     append("data ${"Many $index".length}\nMany $index\n")
                 }
             }
-        git("fast-import", "--quiet", "--date-format=raw", input = input)
+        repository.git("fast-import", "--quiet", "--date-format=raw", input = input)
         val prefix =
-            git("rev-list", "refs/heads/many")
+            repository
+                .git("rev-list", "refs/heads/many")
                 .lines()
                 .groupBy { it.take(4) }
                 .entries
@@ -184,7 +162,7 @@ class GitRevisionsTest {
 
     @Test
     fun `a blank revision, a line break, too much input or a failing git give nothing`() {
-        commit("First")
+        repository.commitEmpty("First")
         assertNull(log.resolveCommits(repo, listOf("HEAD", " ")))
         assertNull(log.resolveCommits(repo, listOf("HEAD\nmain")))
         assertNull(log.resolveCommits(repo, List(400) { "a".repeat(40) }))

@@ -27,21 +27,14 @@ class GitRewordsFailuresTest {
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
         repository = TestRepository(repo)
-        git("symbolic-ref", "HEAD", "refs/heads/feature")
-        commit("Base")
-        target = commit("Target", "t.txt")
-        commit("Later", "l.txt")
+        repository.git("symbolic-ref", "HEAD", "refs/heads/feature")
+        repository.commit("Base")
+        target = repository.commit("Target", "t.txt")
+        repository.commit("Later", "l.txt")
         short = target.take(8)
     }
 
-    private fun git(vararg arguments: String) = repository.git(*arguments)
-
-    private fun commit(
-        message: String,
-        file: String = "file.txt",
-    ) = repository.commit(message, file)
-
-    private fun tip() = git("rev-parse", "refs/heads/feature")
+    private fun tip() = repository.git("rev-parse", "refs/heads/feature")
 
     /** Both the dialog's check and the reword refuse with [reason] when git fails as [failing] makes it, nothing moves. */
     private fun assertRefused(
@@ -144,14 +137,14 @@ class GitRewordsFailuresTest {
 
         rewords.reword(repo, "feature", target, "New subject\n\nBody.")
 
-        assertEquals("reword: New subject", git("reflog", "-1", "--format=%gs", "refs/heads/feature"))
+        assertEquals("reword: New subject", repository.git("reflog", "-1", "--format=%gs", "refs/heads/feature"))
 
         // The hook forces the fallback of a plain ASCII locale, where the JVM cannot pass non-ASCII text as an argument.
-        val later = git("rev-parse", "HEAD")
+        val later = repository.git("rev-parse", "HEAD")
         rewords.canPass = { false }
         rewords.reword(repo, "feature", later, "Another subject")
 
-        assertEquals("reword ${later.take(8)}", git("reflog", "-1", "--format=%gs", "refs/heads/feature"))
+        assertEquals("reword ${later.take(8)}", repository.git("reflog", "-1", "--format=%gs", "refs/heads/feature"))
     }
 
     @Test
@@ -163,8 +156,8 @@ class GitRewordsFailuresTest {
 
     @Test
     fun `a symbolic ref to a branch is not another branch that keeps the commit`() {
-        git("branch", "other")
-        git("symbolic-ref", "refs/heads/alias", "refs/heads/other")
+        repository.git("branch", "other")
+        repository.git("symbolic-ref", "refs/heads/alias", "refs/heads/other")
 
         val check = GitRewords(git).check(repo, "feature", target)
 

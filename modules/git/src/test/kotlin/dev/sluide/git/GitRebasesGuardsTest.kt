@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -30,61 +31,33 @@ class GitRebasesGuardsTest {
     private val callLog get() = folder.resolve("calls.log")
 
     private val git = GitCli("git", testGitEnvironment())
+    private lateinit var repository: TestRepository
 
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        repo.createDirectories()
-        git("init", "-q", "-b", "main")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
-    }
-
-    private fun git(vararg arguments: String): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
-
-    private fun commit(
-        message: String,
-        file: String = "file.txt",
-        content: String = message,
-    ): String {
-        repo.resolve(file).writeText("$content\n")
-        git("add", file)
-        git("commit", "-q", "-m", message)
-        return git("rev-parse", "HEAD")
+        repository = TestRepository(repo)
     }
 
     /** main: Base, Main (changes file.txt); feature from Base: A (changes file.txt, so it conflicts), B. feature is out. */
     private fun diverged() {
-        commit("Base")
-        git("switch", "-q", "-c", "feature")
-        commit("A", content = "A")
-        commit("B", "b.txt")
-        git("switch", "-q", "main")
-        commit("Main")
-        git("switch", "-q", "feature")
+        repository.commit("Base")
+        repository.git("switch", "-q", "-c", "feature")
+        repository.commit("A", content = "A")
+        repository.commit("B", "b.txt")
+        repository.git("switch", "-q", "main")
+        repository.commit("Main")
+        repository.git("switch", "-q", "feature")
     }
 
     private fun rebase(rebases: GitRebases) = rebases.rebase(repo, "feature", "refs/heads/main")
 
-    private fun subject() = git("log", "-1", "--format=%s")
+    private fun subject() = repository.git("log", "-1", "--format=%s")
 
     private fun remoteRef(
         remote: String,
         name: String,
-    ) = git("update-ref", "refs/remotes/$remote/$name", "HEAD")
+    ) = repository.git("update-ref", "refs/remotes/$remote/$name", "HEAD")
 
     @Test
     fun `a git that cannot tell what is in progress refuses to start, continue, skip or abort`() {
@@ -125,7 +98,7 @@ class GitRebasesGuardsTest {
     fun `aborting a rebase is told done when what is in progress cannot be read afterwards`() {
         diverged()
         assertIs<GitRebaseResult.Stopped>(rebase(GitRebases(git)))
-        val before = git("rev-parse", "feature")
+        val before = repository.git("rev-parse", "feature")
 
         val result = GitRebases(failingAfterGit(folder, "rebase", "--git-path")).abortRebase(repo)
 
@@ -175,9 +148,9 @@ class GitRebasesGuardsTest {
         outcome: String,
     ) {
         diverged()
-        val applied = runCatching { git("rebase", "--apply", "main") }
+        val applied = runCatching { repository.git("rebase", "--apply", "main") }
         assertTrue(applied.isFailure)
-        git("checkout", "--ours", "file.txt")
+        repository.git("checkout", "--ours", "file.txt")
 
         // With the apply backend git refuses to continue an empty resolution, so not skipping leaves it stopped. The
         // reads that decide the skip come after the staging (`update-index`). When `--unmerged` fails there, the read
@@ -200,9 +173,9 @@ class GitRebasesGuardsTest {
     @Test
     fun `an empty resolution is skipped when everything can be read`() {
         diverged()
-        val applied = runCatching { git("rebase", "--apply", "main") }
+        val applied = runCatching { repository.git("rebase", "--apply", "main") }
         assertTrue(applied.isFailure)
-        git("checkout", "--ours", "file.txt")
+        repository.git("checkout", "--ours", "file.txt")
 
         assertIs<GitRebaseResult.Done>(GitRebases(git).continueRebase(repo))
     }
@@ -224,13 +197,13 @@ class GitRebasesGuardsTest {
 
     @Test
     fun `the merge commits are counted for a name git can take only, and not when git fails`() {
-        commit("Base")
-        git("switch", "-q", "-c", "feature")
-        commit("A", "a.txt")
-        git("switch", "-q", "main")
-        commit("Main", "main.txt")
-        git("switch", "-q", "feature")
-        git("merge", "-q", "--no-ff", "-m", "Merge main", "main")
+        repository.commit("Base")
+        repository.git("switch", "-q", "-c", "feature")
+        repository.commit("A", "a.txt")
+        repository.git("switch", "-q", "main")
+        repository.commit("Main", "main.txt")
+        repository.git("switch", "-q", "feature")
+        repository.git("merge", "-q", "--no-ff", "-m", "Merge main", "main")
         val rebases = GitRebases(recordingGit(folder, callLog))
 
         assertNull(rebases.mergeCount(repo, "-x"))
@@ -242,7 +215,7 @@ class GitRebasesGuardsTest {
 
     @Test
     fun `the default branch of a remote is none when git cannot list the refs`() {
-        commit("Base")
+        repository.commit("Base")
         remoteRef("origin", "main")
 
         assertNull(GitRebases(failingGit(folder, "for-each-ref")).remoteDefaultBranch(repo, "origin"))
@@ -251,7 +224,7 @@ class GitRebasesGuardsTest {
 
     @Test
     fun `a default branch is a ref of the remote that exists and is no symbolic ref, main before master in any case`() {
-        commit("Base")
+        repository.commit("Base")
         remoteRef("origin", "master")
         remoteRef("origin", "Main")
         remoteRef("upstream", "main")
@@ -259,19 +232,19 @@ class GitRebasesGuardsTest {
         assertEquals("refs/remotes/origin/Main", GitRebases(git).remoteDefaultBranch(repo, "origin"))
 
         // A HEAD that points to another remote's branch is not this remote's default branch.
-        git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/upstream/main")
+        repository.git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/upstream/main")
         assertNull(GitRebases(git).remoteDefaultBranch(repo, "origin"))
-        git("symbolic-ref", "--delete", "refs/remotes/origin/HEAD")
+        repository.git("symbolic-ref", "--delete", "refs/remotes/origin/HEAD")
 
         // A main that stands for the master is no branch of its own.
-        git("update-ref", "-d", "refs/remotes/origin/Main")
-        git("symbolic-ref", "refs/remotes/origin/main", "refs/remotes/origin/master")
+        repository.git("update-ref", "-d", "refs/remotes/origin/Main")
+        repository.git("symbolic-ref", "refs/remotes/origin/main", "refs/remotes/origin/master")
         assertEquals("refs/remotes/origin/master", GitRebases(git).remoteDefaultBranch(repo, "origin"))
     }
 
     @Test
     fun `the names of the default branch are matched ignoring case, main before master`() {
-        commit("Base")
+        repository.commit("Base")
         remoteRef("origin", "main")
         remoteRef("origin", "MASTER")
 

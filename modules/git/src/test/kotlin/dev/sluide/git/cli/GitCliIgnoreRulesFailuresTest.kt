@@ -56,8 +56,6 @@ class GitCliIgnoreRulesFailuresTest {
         repository = TestRepository(folder.resolve("repo"))
     }
 
-    private fun git(vararg arguments: String) = repository.git(*arguments)
-
     private fun files(vararg paths: String) {
         for (path in paths) repo.resolve(path).apply { parent.createDirectories() }.writeText("x\n")
     }
@@ -79,8 +77,8 @@ class GitCliIgnoreRulesFailuresTest {
     /** A repository with a tracked ignored file and an untracked ignored one, so that every call has work. */
     private fun withTrackedAndUntracked() {
         files("t.log")
-        git("add", "-f", "t.log")
-        git("commit", "-q", "-m", "Initial")
+        repository.git("add", "-f", "t.log")
+        repository.git("commit", "-q", "-m", "Initial")
         files("u.log")
         repo.resolve(".gitignore").writeText("*.log\n")
     }
@@ -188,8 +186,8 @@ class GitCliIgnoreRulesFailuresTest {
     @Test
     fun `a limit that only the tracked candidates reach makes the result incomplete`() {
         files("a.log", "b.log")
-        git("add", "-f", "a.log", "b.log")
-        git("commit", "-q", "-m", "Initial")
+        repository.git("add", "-f", "a.log", "b.log")
+        repository.git("commit", "-q", "-m", "Initial")
         repo.resolve(".gitignore").writeText("*.log\n")
 
         // The ignore file is the one untracked candidate; two tracked ones are ignored.
@@ -215,8 +213,8 @@ class GitCliIgnoreRulesFailuresTest {
     fun `a listing of tracked files cut off after a complete-looking record leaves that record out`() {
         files("a.log", "b.log.log")
         repo.resolve(".gitignore").writeText("*.log\n")
-        git("add", "-f", "a.log", "b.log.log", ".gitignore")
-        git("commit", "-q", "-m", "Initial")
+        repository.git("add", "-f", "a.log", "b.log.log", ".gitignore")
+        repository.git("commit", "-q", "-m", "Initial")
         // "a.log\0b.log" is 11 bytes: the record that is cut off looks like the file b.log.
         val capped = assertNotNull(rules(maxListing = 11))
 

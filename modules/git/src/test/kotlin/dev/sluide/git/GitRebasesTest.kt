@@ -1,12 +1,12 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import dev.sluide.git.cli.inProgress
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.exists
 import kotlin.io.path.readBytes
@@ -28,45 +28,15 @@ class GitRebasesTest {
 
     private val git = GitCli("git", testGitEnvironment())
     private val rebases = GitRebases(git)
+    private lateinit var repository: TestRepository
 
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        repo.createDirectories()
-        git("init", "-q", "-b", "main")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
+        repository = TestRepository(repo)
     }
 
-    private fun git(
-        vararg arguments: String,
-        directory: Path = repo,
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
-
-    /** Commits [file] with [content] (a line) and [message]; returns the commit's hash. */
-    private fun commit(
-        message: String,
-        file: String = "file.txt",
-        content: String = message,
-    ): String {
-        repo.resolve(file).writeText("$content\n")
-        git("add", file)
-        git("commit", "-q", "-m", message)
-        return head()
-    }
+    private fun git(vararg arguments: String) = repository.git(*arguments)
 
     private fun head() = git("rev-parse", "HEAD")
 
@@ -77,12 +47,12 @@ class GitRebasesTest {
      * b.txt, or changes file.txt too if [twoConflicts]). Leaves feature checked out; returns A's hash.
      */
     private fun diverged(twoConflicts: Boolean = false): String {
-        commit("Base")
+        repository.commit("Base")
         git("switch", "-q", "-c", "feature")
-        val a = commit("A\n\nBody of A.", content = "A")
-        if (twoConflicts) commit("B", content = "B") else commit("B", "b.txt")
+        val a = repository.commit("A\n\nBody of A.", content = "A")
+        if (twoConflicts) repository.commit("B", content = "B") else repository.commit("B", "b.txt")
         git("switch", "-q", "main")
-        commit("Main")
+        repository.commit("Main")
         git("switch", "-q", "feature")
         return a
     }
@@ -91,11 +61,11 @@ class GitRebasesTest {
 
     @Test
     fun `rebases the current branch onto another`() {
-        commit("Base")
+        repository.commit("Base")
         git("switch", "-q", "-c", "feature")
-        commit("A", "a.txt")
+        repository.commit("A", "a.txt")
         git("switch", "-q", "main")
-        commit("Main", "main.txt")
+        repository.commit("Main", "main.txt")
         git("switch", "-q", "feature")
 
         val result = rebases.rebase(repo, "feature", "refs/heads/main")
@@ -108,10 +78,10 @@ class GitRebasesTest {
 
     @Test
     fun `a branch behind the other is fast-forwarded`() {
-        commit("Base")
+        repository.commit("Base")
         git("switch", "-q", "-c", "feature")
         git("switch", "-q", "main")
-        commit("Main", "main.txt")
+        repository.commit("Main", "main.txt")
         git("switch", "-q", "feature")
 
         assertEquals(GitRebaseResult.Done(main()), rebases.rebase(repo, "feature", "refs/heads/main"))
@@ -120,11 +90,11 @@ class GitRebasesTest {
 
     @Test
     fun `nothing runs when the other branch is already contained, also merged in`() {
-        commit("Base")
+        repository.commit("Base")
         git("switch", "-q", "-c", "feature")
-        commit("A", "a.txt")
+        repository.commit("A", "a.txt")
         git("switch", "-q", "main")
-        commit("Main", "main.txt")
+        repository.commit("Main", "main.txt")
         git("switch", "-q", "feature")
         git("merge", "-q", "--no-ff", "-m", "Merge main", "main")
         val before = head()
@@ -137,14 +107,14 @@ class GitRebasesTest {
     @Test
     fun `counts the merge commits the rebase would drop, also with rebase_rebaseMerges configured`() {
         git("config", "rebase.rebaseMerges", "true")
-        commit("Base")
+        repository.commit("Base")
         git("switch", "-q", "-c", "side")
-        commit("Side", "side.txt")
+        repository.commit("Side", "side.txt")
         git("switch", "-q", "-c", "feature", "main")
-        commit("A", "a.txt")
+        repository.commit("A", "a.txt")
         git("merge", "-q", "--no-ff", "-m", "Merge side", "side")
         git("switch", "-q", "main")
-        commit("Main", "main.txt")
+        repository.commit("Main", "main.txt")
         git("switch", "-q", "feature")
 
         assertEquals(1, rebases.mergeCount(repo, "refs/heads/main"))
@@ -175,13 +145,13 @@ class GitRebasesTest {
     fun `rebase_autoStash and rebase_updateRefs of the configuration are not applied`() {
         git("config", "rebase.autoStash", "true")
         git("config", "rebase.updateRefs", "true")
-        commit("Base")
+        repository.commit("Base")
         git("switch", "-q", "-c", "feature")
-        val part = commit("A", "a.txt")
+        val part = repository.commit("A", "a.txt")
         git("branch", "part")
-        commit("B", "b.txt")
+        repository.commit("B", "b.txt")
         git("switch", "-q", "main")
-        commit("Main", "main.txt")
+        repository.commit("Main", "main.txt")
         git("switch", "-q", "feature")
         repo.resolve("a.txt").writeText("local\n")
 
@@ -353,13 +323,13 @@ class GitRebasesTest {
 
     @Test
     fun `an empty resolution is not skipped while files have unstaged changes, which the skip would drop`() {
-        commit("Base")
-        commit("Other", "other.txt")
+        repository.commit("Base")
+        repository.commit("Other", "other.txt")
         git("switch", "-q", "-c", "feature")
-        commit("A")
-        commit("B", "b.txt")
+        repository.commit("A")
+        repository.commit("B", "b.txt")
         git("switch", "-q", "main")
-        commit("Main")
+        repository.commit("Main")
         git("switch", "-q", "feature")
         val failing = runCatching { git("rebase", "--apply", "main") }
         assertTrue(failing.isFailure)
@@ -375,13 +345,13 @@ class GitRebasesTest {
 
     @Test
     fun `a stop without conflicts is continued, not skipped, so git tells there is nothing to commit`() {
-        commit("Base")
+        repository.commit("Base")
         git("switch", "-q", "-c", "feature")
-        val a = commit("A", "new.txt")
+        val a = repository.commit("A", "new.txt")
         git("rm", "-q", "new.txt")
         git("commit", "-q", "-m", "B")
         git("switch", "-q", "main")
-        commit("Main", "main.txt")
+        repository.commit("Main", "main.txt")
         git("switch", "-q", "feature")
         repo.resolve("new.txt").writeText("untracked\n")
         val failing = runCatching { git("rebase", "--apply", "main") }
@@ -398,7 +368,7 @@ class GitRebasesTest {
 
     @Test
     fun `continuing commits files that cannot be checked only once confirmed`() {
-        commit("Base")
+        repository.commit("Base")
         repo.resolve("bin.dat").writeBytes(byteArrayOf(0, 1))
         git("add", "bin.dat")
         git("commit", "-q", "-m", "Binary")
@@ -470,7 +440,7 @@ class GitRebasesTest {
 
     @Test
     fun `the default branch of a remote is what its HEAD points at, even with a main`() {
-        commit("Base")
+        repository.commit("Base")
         remoteRef("origin", "main")
         remoteRef("origin", "develop")
         git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/develop")
@@ -480,7 +450,7 @@ class GitRebasesTest {
 
     @Test
     fun `without a remote HEAD the default branch is main, else master, else none`() {
-        commit("Base")
+        repository.commit("Base")
         remoteRef("origin", "master")
         assertEquals("refs/remotes/origin/master", rebases.remoteDefaultBranch(repo, "origin"))
 
@@ -490,7 +460,7 @@ class GitRebasesTest {
 
     @Test
     fun `a remote without a default branch gives none, another remote's main is not taken`() {
-        commit("Base")
+        repository.commit("Base")
         remoteRef("origin", "develop")
         remoteRef("upstream", "main")
 
@@ -500,7 +470,7 @@ class GitRebasesTest {
 
     @Test
     fun `a remote HEAD whose branch is gone is skipped for main`() {
-        commit("Base")
+        repository.commit("Base")
         remoteRef("origin", "main")
         remoteRef("origin", "master")
         git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/master")
@@ -511,10 +481,10 @@ class GitRebasesTest {
 
     @Test
     fun `local changes git cannot apply after a skip are kept in the stash`() {
-        commit("Base")
-        commit("Other", "other.txt", "1\n2\n3")
+        repository.commit("Base")
+        repository.commit("Other", "other.txt", "1\n2\n3")
         git("switch", "-q", "-c", "feature")
-        commit("A", content = "A")
+        repository.commit("A", content = "A")
         git("switch", "-q", "main")
         repo.resolve("file.txt").writeText("Main\n")
         repo.resolve("other.txt").writeText("main\n2\n3\n")

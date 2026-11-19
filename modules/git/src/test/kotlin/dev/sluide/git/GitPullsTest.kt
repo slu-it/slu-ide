@@ -58,24 +58,13 @@ class GitPullsTest {
         git("config", "user.email", "test@example.com", directory = directory)
     }
 
+    // A pull that concludes a merge or a rebase would wait for an editor.
+    private val environment = testGitEnvironment() + ("GIT_EDITOR" to ":")
+
     private fun git(
         vararg arguments: String,
         directory: Path = repo,
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                    environment()["GIT_EDITOR"] = ":"
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
+    ) = runGit(directory, *arguments, environment = environment)
 
     /** Commits [file] with [content] (a line) and the [subject] in [directory]. */
     private fun commit(
