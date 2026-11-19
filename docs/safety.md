@@ -44,8 +44,9 @@ The short form that loads with production code is `.claude/rules/safety.md`; kee
 ## Secrets
 - Never log secrets, stdin, HTTP bodies, headers or query strings; name tasks without paths that could hold tokens
   (ADR 0060, 0061). Remote URLs can carry credentials: never show or log them (ADR 0076).
-  The command log masks the userinfo of URL arguments and of URLs in git's messages
-  (`scheme://***@host`). The one place a remote URL is shown is the git log's Change URL dialog, with credentials masked
+  The command log masks the userinfo of URL arguments, also inside an argument (`-c remote.origin.url=https://…`,
+  `url=…`), and of URLs in git's messages (`scheme://***@host`). Known limit: only URL userinfo is masked, so a
+  header-style value (`-c http.extraHeader=Authorization: …`) would be logged as given; no code passes one. The one place a remote URL is shown is the git log's Change URL dialog, with credentials masked
   as `****` (ADR 0183).
 - Show secret values masked by default: `.env` values with a per-tab Show values toggle that is never stored
   (ADR 0030), HTTP auth headers always masked in the Request tab (ADR 0028), Docker environment tables with Show
