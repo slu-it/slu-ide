@@ -55,6 +55,50 @@ class TargetsTest {
     }
 
     @Test
+    fun `a place outside the project or in the project folder itself shows its absolute path`() {
+        val project = Path.of("/work/project")
+        val inside = SourcePosition(project.resolve("sub/../pkg/mod.py"), 0, 0)
+        assertEquals("pkg/mod.py", shownPath(inside.file, project), "normalized")
+        assertEquals("/work/project", shownPath(project, project), "the folder itself is no path inside it")
+        assertEquals("/work/project2/a.py", shownPath(Path.of("/work/project2/a.py"), project))
+        assertEquals("a.py", shownPath(project.resolve("a.py"), Path.of("/work/project/")), "a trailing slash")
+        assertEquals("a.py", shownPath(Path.of("/work/project/a.py"), Path.of("/work/./project")))
+    }
+
+    @Test
+    fun `an empty line text adds nothing to the path`() {
+        val project = Path.of("/work/project")
+        val place = SourcePosition(project.resolve("a.py"), 0, 0)
+        assertEquals(PopupCell("a.py:1", "a.py"), targetCell(NavigationTarget(place, ""), project))
+        assertEquals(PopupCell("a.py:1", "a.py  x"), targetCell(NavigationTarget(place, "x"), project))
+    }
+
+    @Test
+    fun `usages in one file are ordered by line before column, files by path`() {
+        val current = Path.of("/p/z.py")
+        val b = Path.of("/p/b.py")
+        val a = Path.of("/p/a.py")
+        val positions =
+            listOf(
+                SourcePosition(b, 0, 0),
+                SourcePosition(a, 3, 0),
+                SourcePosition(a, 1, 5),
+                SourcePosition(a, 1, 2),
+                SourcePosition(current, 4, 0),
+            )
+        assertEquals(
+            listOf(
+                SourcePosition(current, 4, 0),
+                SourcePosition(a, 1, 2),
+                SourcePosition(a, 1, 5),
+                SourcePosition(a, 3, 0),
+                SourcePosition(b, 0, 0),
+            ),
+            sortedUsages(positions, current),
+        )
+    }
+
+    @Test
     fun `line texts are read trimmed, skipping files too large, missing or unreadable as text`() {
         val small = dir.resolve("small.py").also { it.writeText("first\n    second()  \r\nthird") }
         val large = dir.resolve("large.py").also { it.writeText("x".repeat(64)) }

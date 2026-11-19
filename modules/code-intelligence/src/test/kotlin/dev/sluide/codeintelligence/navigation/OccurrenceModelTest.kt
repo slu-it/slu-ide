@@ -111,6 +111,61 @@ class OccurrenceModelTest {
     }
 
     @Test
+    fun `an edit replaces the question that waits for its delay and drops the one that is on its way`() {
+        model.caretMoved(1)
+        model.textChanged(1)
+        assertEquals(1, timers.size, "the first wait ended with the edit")
+        elapse()
+        assertEquals(listOf(1), asked)
+        model.textChanged(1)
+        assertEquals(1, dropped, "the question on its way is not wanted any more")
+    }
+
+    @Test
+    fun `an edit that leaves the caret outside a word clears what shows, and shows nothing when nothing did`() {
+        model.textChanged(150)
+        assertEquals(emptyList(), shown, "nothing showed, so nothing is cleared")
+
+        model.caretMoved(1)
+        elapse()
+        answers.single()(ranges)
+        model.textChanged(150)
+        assertEquals(listOf(ranges, emptyList()), shown)
+        model.textChanged(150)
+        assertEquals(2, shown.size, "cleared once")
+    }
+
+    @Test
+    fun `an answer without occurrences shows nothing and leaves nothing to clear`() {
+        model.caretMoved(1)
+        elapse()
+        answers.single()(emptyList())
+        assertEquals(listOf(emptyList()), shown)
+        model.caretMoved(6)
+        assertEquals(1, shown.size, "no occurrences were shown, so none are cleared")
+    }
+
+    @Test
+    fun `closing drops the wait and the question, clears what shows and forgets the word`() {
+        model.caretMoved(1)
+        model.close()
+        assertEquals(emptyList(), timers, "the wait is dropped")
+        assertEquals(emptyList(), shown, "nothing showed, nothing is cleared")
+
+        model.caretMoved(1)
+        elapse()
+        answers.single()(ranges)
+        model.close()
+        assertEquals(listOf(ranges, emptyList()), shown)
+        model.caretMoved(1)
+        elapse()
+        assertEquals(listOf(1, 1), asked, "the word is asked again after a close")
+
+        model.close()
+        assertEquals(1, dropped, "the question on its way is dropped")
+    }
+
+    @Test
     fun `a caret at a word's end asks at its start`() {
         model.caretMoved(7)
         elapse()
