@@ -127,5 +127,57 @@ class WatcherFilterTest {
         assertFalse(none.matches(FileChange(path, FileChangeKind.CREATED)))
     }
 
+    @Test
+    fun `a watcher that names no pattern, no base or no glob, or an unreadable glob or base hears nothing`() {
+        val nothing = Either.forLeft<String, RelativePattern>(null)
+        val noBase = RelativePattern().apply { pattern = "**" }
+        val noGlob = RelativePattern().apply { baseUri = Either.forRight(LspUris.of(project)) }
+        val unreadableBase = RelativePattern(Either.forRight("not a uri"), "**")
+        val emptyLeft = Either.forLeft<WorkspaceFolder, String>(null)
+        val noUri = RelativePattern(emptyLeft, "**")
+        val watchers =
+            listOf(
+                FileSystemWatcher(),
+                FileSystemWatcher(nothing),
+                FileSystemWatcher(Either.forRight(noBase)),
+                FileSystemWatcher(Either.forRight(noGlob)),
+                FileSystemWatcher(Either.forRight(unreadableBase)),
+                FileSystemWatcher(Either.forRight(noUri)),
+                FileSystemWatcher(Either.forLeft("{unclosed")),
+                FileSystemWatcher(Either.forRight(RelativePattern(Either.forRight(LspUris.of(project)), "{unclosed"))),
+            )
+
+        val filter = WatcherFilter(watchers)
+
+        assertTrue(filter.isEmpty)
+        assertFalse(filter.matches(changed("a.py")))
+    }
+
+    @Test
+    fun `a watcher that cannot be read does not silence the others`() {
+        val filter =
+            WatcherFilter(
+                listOf(
+                    FileSystemWatcher(Either.forLeft("{unclosed")),
+                    FileSystemWatcher(),
+                    FileSystemWatcher(Either.forLeft("**/*.py")),
+                ),
+            )
+
+        assertFalse(filter.isEmpty)
+        assertTrue(filter.matches(changed("a.py")))
+    }
+
+    @Test
+    fun `a path outside the base of a relative pattern never matches, also one that only shares its start`() {
+        val base = LspUris.of(project.resolve("src"))
+        val filter =
+            WatcherFilter(listOf(FileSystemWatcher(Either.forRight(RelativePattern(Either.forRight(base), "**")))))
+
+        assertTrue(filter.matches(changed("src/a.py")))
+        assertFalse(filter.matches(changed("srcx/a.py")))
+        assertFalse(filter.matches(changed("other/a.py")))
+    }
+
     private fun changed(relative: String) = FileChange(project.resolve(relative), FileChangeKind.CHANGED)
 }
