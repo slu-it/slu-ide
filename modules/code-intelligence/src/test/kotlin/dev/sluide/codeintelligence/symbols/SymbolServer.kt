@@ -44,7 +44,32 @@ internal class SymbolServer(
     var workspaceSymbols: (String) -> List<WorkspaceSymbol> = { emptyList() }
 
     @Volatile
-    var resolveAnswer: (WorkspaceSymbol) -> WorkspaceSymbol = { it }
+    var resolveAnswer: (WorkspaceSymbol) -> WorkspaceSymbol? = { it }
+
+    /** `true`: `textDocument/documentSymbol` waits in [heldDocumentSymbols] for the test to answer or see it cancelled. */
+    @Volatile
+    var holdDocumentSymbols = false
+
+    /** `true`: `workspace/symbol` waits in [heldWorkspaceSymbols], as above. */
+    @Volatile
+    var holdWorkspaceSymbols = false
+
+    /** `true`: `workspaceSymbol/resolve` waits in [heldResolves], as above. */
+    @Volatile
+    var holdResolves = false
+
+    /** What `textDocument/documentSymbol` and `workspace/symbol` fail with, `null`: they answer. */
+    @Volatile
+    var failure: Throwable? = null
+
+    /** What `workspaceSymbol/resolve` fails with, `null`: it answers. */
+    @Volatile
+    var resolveFailure: Throwable? = null
+
+    val heldDocumentSymbols = CopyOnWriteArrayList<CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>>>()
+    val heldWorkspaceSymbols =
+        CopyOnWriteArrayList<CompletableFuture<Either<List<SymbolInformation>, List<WorkspaceSymbol>>>>()
+    val heldResolves = CopyOnWriteArrayList<CompletableFuture<WorkspaceSymbol?>>()
 
     val prepareRequests = CopyOnWriteArrayList<PrepareRenameParams>()
     val renameRequests = CopyOnWriteArrayList<RenameParams>()
@@ -70,20 +95,34 @@ internal class SymbolServer(
         return CompletableFuture.completedFuture(renameAnswer(params))
     }
 
-    override fun documentSymbol(params: DocumentSymbolParams) =
-        CompletableFuture.completedFuture(
-            documentSymbols.map { Either.forRight<SymbolInformation, DocumentSymbol>(it) },
-        )
+    override fun documentSymbol(
+        params: DocumentSymbolParams,
+    ): CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> {
+        val answer = documentSymbols.map { Either.forRight<SymbolInformation, DocumentSymbol>(it) }
+        return answered(holdDocumentSymbols, heldDocumentSymbols, answer)
+    }
+
+    private fun <T> answered(
+        hold: Boolean,
+        held: CopyOnWriteArrayList<CompletableFuture<T>>,
+        answer: T,
+        resolving: Boolean = false,
+    ): CompletableFuture<T> {
+        if (hold) return CompletableFuture<T>().also { held += it }
+        val failed = if (resolving) resolveFailure else failure
+        if (failed != null) return CompletableFuture.failedFuture(failed)
+        return CompletableFuture.completedFuture(answer)
+    }
 
     override fun symbol(
         params: WorkspaceSymbolParams,
     ): CompletableFuture<Either<List<SymbolInformation>, List<WorkspaceSymbol>>> {
         symbolQueries += params.query
-        return CompletableFuture.completedFuture(Either.forRight(workspaceSymbols(params.query)))
+        return answered(holdWorkspaceSymbols, heldWorkspaceSymbols, Either.forRight(workspaceSymbols(params.query)))
     }
 
-    override fun resolveWorkspaceSymbol(workspaceSymbol: WorkspaceSymbol): CompletableFuture<WorkspaceSymbol> {
+    override fun resolveWorkspaceSymbol(workspaceSymbol: WorkspaceSymbol): CompletableFuture<WorkspaceSymbol?> {
         resolved += workspaceSymbol
-        return CompletableFuture.completedFuture(resolveAnswer(workspaceSymbol))
+        return answered(holdResolves, heldResolves, resolveAnswer(workspaceSymbol), resolving = true)
     }
 }

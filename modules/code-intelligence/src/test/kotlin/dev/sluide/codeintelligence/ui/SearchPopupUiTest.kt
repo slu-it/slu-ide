@@ -1,7 +1,10 @@
 package dev.sluide.codeintelligence.ui
 
+import dev.sluide.codeintelligence.FakeCodeEditor
+import dev.sluide.codeintelligence.symbols.editorAnchor
 import javafx.event.Event
 import javafx.event.EventType
+import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.input.KeyCode
@@ -15,11 +18,13 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Path
 import java.util.concurrent.Callable
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -31,7 +36,7 @@ import kotlin.test.assertTrue
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 internal class SearchPopupUiTest {
-    private val button = Button("elsewhere")
+    private lateinit var button: Button
     private lateinit var stage: Stage
     private lateinit var popup: SearchPopup<String>
     private val chosen = mutableListOf<String>()
@@ -43,6 +48,7 @@ internal class SearchPopupUiTest {
     @Start
     fun start(stage: Stage) {
         this.stage = stage
+        button = Button("elsewhere")
         button.addEventHandler(KeyEvent.KEY_PRESSED) { buttonKeys += it.code }
         stage.scene = Scene(StackPane(button), 600.0, 400.0)
         stage.show()
@@ -50,7 +56,7 @@ internal class SearchPopupUiTest {
 
     @AfterEach
     fun close() {
-        fx { popup.close() }
+        fx { if (::popup.isInitialized) popup.close() }
     }
 
     private fun <T> fx(block: () -> T): T = WaitForAsyncUtils.asyncFx(Callable { block() }).get(5, TimeUnit.SECONDS)
@@ -133,5 +139,21 @@ internal class SearchPopupUiTest {
         assertFalse(fx { popup.queryField.isVisible })
         key(robot, KeyCode.A)
         assertFalse(fx { popup.isShowing })
+    }
+
+    @Test
+    fun `the file structure popup is anchored at the editor's text area in its window, which gets the focus back`() {
+        val editor = FakeCodeEditor(Path.of("/a.py"), "").apply { popupOwner = button }
+        assertEquals(
+            SearchAnchor(stage, fx { checkNotNull(button.localToScreen(button.boundsInLocal)) }, button),
+            fx { editorAnchor(editor) },
+        )
+    }
+
+    @Test
+    fun `the file structure popup has no place for a text area outside a scene or a window`() {
+        fun anchorOf(area: Node) = fx { editorAnchor(FakeCodeEditor(Path.of("/a.py"), "").apply { popupOwner = area }) }
+        assertNull(anchorOf(fx { Button("no scene") }), "no scene")
+        assertNull(anchorOf(fx { Button("no window").also { Scene(StackPane(it)) } }), "no window")
     }
 }

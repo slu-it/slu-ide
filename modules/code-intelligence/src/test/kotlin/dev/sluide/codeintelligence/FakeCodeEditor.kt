@@ -34,6 +34,9 @@ internal open class FakeCodeEditor(
     val banners = mutableListOf<Node>()
     val statusItems = mutableListOf<Node>()
     val keyBindings = mutableListOf<KeyCombination>()
+
+    /** The actions of the key bindings added and not yet removed, by their keys. */
+    val keyActions = mutableMapOf<KeyCombination, () -> Boolean>()
     private val menuProviders = mutableListOf<(EditorMenuTarget) -> List<MenuItem>>()
     private val changeListeners = mutableListOf<(TextChange) -> Unit>()
     private val savedListeners = mutableListOf<() -> Unit>()
@@ -62,6 +65,10 @@ internal open class FakeCodeEditor(
     var caret: Int
         get() = caretWrapper.get()
         set(value) = caretWrapper.set(value)
+
+    /** The node popups hang on; `null` (no text area) by default. */
+    override var popupOwner: Node? = null
+
     override val caretOffset: Int get() = caret
     override val caretOffsetProperty: ReadOnlyIntegerProperty get() = caretWrapper.readOnlyProperty
 
@@ -153,7 +160,11 @@ internal open class FakeCodeEditor(
         action: () -> Boolean,
     ): AutoCloseable {
         keyBindings += keys
-        return AutoCloseable { keyBindings -= keys }
+        keyActions[keys] = action
+        return AutoCloseable {
+            keyBindings -= keys
+            keyActions -= keys
+        }
     }
 
     override fun <T : Event> addEventFilter(

@@ -3,6 +3,7 @@ package dev.sluide.codeintelligence
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.codeintelligence.navigation.NavigationServer
 import dev.sluide.codeintelligence.navigation.location
+import dev.sluide.codeintelligence.symbols.SymbolServer
 import dev.sluide.fileviewers.EditorMenuTarget
 import dev.sluide.fileviewers.OffsetEdit
 import dev.sluide.languageservers.DocumentGate
@@ -379,4 +380,33 @@ internal class CodeIntelligenceUiTest : EditorUiFixture() {
     private fun bannerText() = (lookup(".code-intelligence-banner")?.lookup(".label") as Label).text
 
     private fun button(name: String) = lookup("#code-intelligence-$name") as Button
+
+    @Test
+    fun `Shortcut+F12 in a bound editor whose server cannot list symbols shows the reason as a note at the caret`(
+        robot: FxRobot,
+    ) {
+        val spec = PySpec()
+        val fake =
+            FakeLanguageServers(listOf(spec), dir, dispatch = Platform::runLater) { SymbolServer(symbols = false) }
+        servers = fake
+        fake.awaitRunning(spec)
+        val prompts = InstallPrompts(ProjectDataStore(dir.resolve("p"), dir.resolve("shared.json"), emptyList()))
+        val intelligence = fx { CodeIntelligence(fake.servers, prompts) { false } }.also { this.intelligence = it }
+        open(robot, dir.resolve("main.py"), "def main():\n    pass\n", listOf(intelligence))
+        robot.interact { area().requestFocus() }
+
+        press(robot, KeyCode.F12, shortcut = true)
+
+        awaitTrue("the note") { popups("caret-popup").isNotEmpty() }
+        val note =
+            fx {
+                popups("caret-popup")
+                    .single()
+                    .content
+                    .single()
+                    .lookupAll(".label")
+                    .map { (it as Label).text }
+            }
+        assertEquals(listOf("File Structure is not available (not supported)"), note)
+    }
 }

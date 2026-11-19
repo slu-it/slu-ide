@@ -1,159 +1,25 @@
 package dev.sluide.codeintelligence.symbols
 
-import dev.sluide.codeintelligence.CodeIntelligence
-import dev.sluide.codeintelligence.FakeCodeEditor
-import dev.sluide.codeintelligence.FxServers
-import dev.sluide.codeintelligence.PySpec
-import dev.sluide.codeintelligence.TestTimers
 import dev.sluide.codeintelligence.awaitTrue
-import dev.sluide.codeintelligence.binding.BindingFeature
 import dev.sluide.codeintelligence.binding.SourcePosition
-import dev.sluide.codeintelligence.ui.SearchView
-import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.languageservers.LspUris
-import javafx.collections.FXCollections
-import org.eclipse.lsp4j.DocumentSymbol
 import org.eclipse.lsp4j.Location
-import org.eclipse.lsp4j.Position
-import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.SymbolKind
 import org.eclipse.lsp4j.WorkspaceSymbol
 import org.eclipse.lsp4j.WorkspaceSymbolLocation
 import org.eclipse.lsp4j.jsonrpc.messages.Either
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.io.TempDir
-import java.net.URI
-import java.nio.file.Path
-import java.util.concurrent.CopyOnWriteArrayList
-import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * File structure and go to symbol over a fake server, with the search popup as a fake view: the symbols listed with
  * the one at the caret selected, filtering, jumps recorded in Back and Forward, which server go to symbol asks, its
  * requests, and symbols sent with their file only.
  */
-class SymbolFlowTest {
-    @TempDir
-    lateinit var folder: Path
-
-    private val spec = PySpec()
-    private lateinit var fx: FxServers
-    private lateinit var server: SymbolServer
-    private lateinit var intelligence: CodeIntelligence
-    private lateinit var editor: FakeCodeEditor
-    private val structureView = FakeSearchView<ShownSymbol>()
-    private val symbolView = FakeSearchView<WorkspaceSymbolRow>()
-    private val notes = CopyOnWriteArrayList<Pair<Int, String>>()
-    private val opened = CopyOnWriteArrayList<SourcePosition>()
-    private val timers = TestTimers()
-    private var focused = true
-    private lateinit var symbols: GoToSymbol
-
-    private val text = "class Console:\n    def run(self):\n        pass\n\ndef main():\n    pass\n"
-    private val file get() = folder.resolve("a.py")
-    private val other get() = folder.resolve("pkg/b.py")
-
-    private val host =
-        object : FileViewHost {
-            override fun openFile(file: Path) = false
-
-            override fun openFile(
-                file: Path,
-                line: Int,
-                column: Int,
-            ): Boolean {
-                opened += SourcePosition(file, line, column)
-                return true
-            }
-
-            override fun openWebPage(uri: URI) {}
-
-            override val projectFolder: Path get() = folder
-        }
-
-    @AfterEach
-    fun close() {
-        fx.onFx {
-            symbols.close()
-            intelligence.close()
-        }
-        fx.close()
-    }
-
-    /** A bound editor of `a.py` with the caret at [caret] over a server with [newServer]'s symbols. */
-    private fun setUp(
-        caret: Int,
-        bind: Boolean = true,
-        newServer: () -> SymbolServer = { SymbolServer() },
-    ) {
-        fx = FxServers(folder, spec) { newServer() }
-        server = fx.fake.awaitRunning(spec) as SymbolServer
-        val structure =
-            BindingFeature { binding ->
-                val shown =
-                    FileStructure(binding, navigation(), structureView) { offset, note ->
-                        notes +=
-                            offset to note
-                    }
-                val registered = navigation().registerStructure(binding, shown::show)
-                AutoCloseable {
-                    registered.close()
-                    shown.close()
-                }
-            }
-        intelligence =
-            fx.onFx {
-                CodeIntelligence(fx.servers, FXCollections.observableSet()) { listOf(structure) }.apply {
-                    navigation.isFocused = { focused }
-                }
-            }
-        symbols =
-            fx.onFx {
-                GoToSymbol(
-                    intelligence.navigation,
-                    { intelligence.attached.mapNotNull { it.binding } },
-                    symbolView,
-                    200.milliseconds,
-                    timers::schedule,
-                )
-            }
-        file.writeText(text)
-        editor = FakeCodeEditor(file, text, host).apply { this.caret = caret }
-        if (bind) fx.onFx { intelligence.extend(editor) }
-    }
-
-    private fun navigation() = intelligence.navigation
-
-    private fun range(
-        line: Int,
-        start: Int,
-        end: Int = start,
-    ) = Range(Position(line, start), Position(line, end))
-
-    private fun symbol(
-        name: String,
-        from: Int,
-        to: Int,
-        nameColumn: Int,
-        vararg children: DocumentSymbol,
-    ) = DocumentSymbol(
-        name,
-        SymbolKind.Function,
-        Range(Position(from, 0), Position(to, 0)),
-        range(from, nameColumn, nameColumn + name.length),
-        null,
-        children.toList(),
-    )
-
-    private val tree =
-        listOf(symbol("Console", 0, 3, 6, symbol("run", 1, 3, 8)), symbol("main", 4, 6, 4))
-
+internal class SymbolFlowTest : SymbolFlowBase() {
     @Test
     fun `file structure lists the symbols nested, the one at the caret selected, and filters by typing`() {
         setUp(caret = 37)
@@ -318,66 +184,4 @@ class SymbolFlowTest {
         assertEquals(listOf(SourcePosition(other, 0, 0)), opened)
         assertEquals(emptyList(), server.resolved)
     }
-
-    private fun located(
-        name: String,
-        path: Path,
-        line: Int,
-    ) = WorkspaceSymbol(
-        name,
-        SymbolKind.Class,
-        Either.forLeft(Location(LspUris.of(path), range(line, 4, 4 + name.length))),
-    )
-}
-
-/** A [SearchView] that keeps what it shows; the test types and chooses. */
-internal class FakeSearchView<T> : SearchView<T> {
-    override var isShowing = false
-    override var query = ""
-    override var placeholder = ""
-    override var onQuery: (String) -> Unit = {}
-    override var onChoose: (T) -> Unit = {}
-    override var onHidden: () -> Unit = {}
-    var items: List<T> = emptyList()
-    var selected: T? = null
-    var note: String? = null
-
-    override fun open(): Boolean {
-        if (!isShowing) query = ""
-        isShowing = true
-        return true
-    }
-
-    override fun setItems(
-        items: List<T>,
-        selected: T?,
-    ) {
-        this.items = items
-        this.selected = selected?.takeIf { it in items } ?: this.selected?.takeIf { it in items } ?: items.firstOrNull()
-    }
-
-    override fun note(text: String): Boolean {
-        note = text
-        return true
-    }
-
-    /** The user typed so that the field holds [text]. */
-    fun type(text: String) {
-        query = text
-        onQuery(text)
-    }
-
-    /** The user took [item]: the popup hides first. */
-    fun choose(item: T) {
-        hide()
-        onChoose(item)
-    }
-
-    override fun hide() {
-        if (!isShowing) return
-        isShowing = false
-        onHidden()
-    }
-
-    override fun close() = hide()
 }
