@@ -5,6 +5,7 @@ import dev.sluide.secrets.Decrypted
 import dev.sluide.secrets.Encrypted
 import dev.sluide.secrets.SavedSecretEntry
 import dev.sluide.secrets.Secrets
+import dev.sluide.testsupport.LogCapture
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import tools.jackson.databind.json.JsonMapper
@@ -244,9 +245,11 @@ class SavedPassphrasesTest {
                     "Cannot decrypt a saved passphrase: java.lang.IllegalStateException",
                     "Cannot tell whether passphrases can be saved: java.lang.IllegalStateException",
                 ),
-                log.lines.toList(),
+                log.messages(),
             )
-            assertTrue(log.lines.none { "hunter2" in it })
+            assertTrue(log.messages().none { "hunter2" in it })
+            // a logged throwable would carry the secret in its message and stack trace
+            assertEquals(emptyList(), log.thrown.toList())
         }
     }
 
@@ -273,7 +276,8 @@ class SavedPassphrasesTest {
             assertEquals(false, saved.remove(setOf("a")))
             assertEquals(emptyList(), saved.entries())
             assertNull(saved.load(files))
-            assertEquals(emptyList(), log.lines.toList())
+            assertEquals(emptyList(), log.messages())
+            assertEquals(emptyList(), log.thrown.toList())
         }
         assertEquals("{ not json", dir.resolve("shared.json").readText())
     }

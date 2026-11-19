@@ -6,6 +6,7 @@ import dev.sluide.httpclient.auth.OAuth2Exception
 import dev.sluide.httpclient.parse.HttpVersion
 import dev.sluide.httpclient.parse.RequestTags
 import dev.sluide.httpclient.vars.UnresolvedVariablesException
+import dev.sluide.testsupport.LogCapture
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -24,9 +25,6 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.logging.Handler
-import java.util.logging.LogRecord
-import java.util.logging.Logger
 import java.util.zip.GZIPOutputStream
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -54,27 +52,11 @@ class RequestExecutorFailureTest {
     private fun HttpResult.text() = body.toString(Charsets.UTF_8)
 
     /** The `LEVEL message` lines the executor logs while [action] runs. */
-    private fun logged(action: () -> Unit): List<String> {
-        val lines = CopyOnWriteArrayList<String>()
-        val handler =
-            object : Handler() {
-                override fun publish(record: LogRecord) {
-                    lines += "${record.level} ${record.message}"
-                }
-
-                override fun flush() {}
-
-                override fun close() {}
-            }
-        val logger = Logger.getLogger(RequestExecutor::class.java.name)
-        logger.addHandler(handler)
-        try {
+    private fun logged(action: () -> Unit): List<String> =
+        LogCapture(RequestExecutor::class.java.name).use { log ->
             action()
-        } finally {
-            logger.removeHandler(handler)
+            log.lines.map { (level, message) -> "$level $message" }
         }
-        return lines
-    }
 
     private fun failing(error: () -> Throwable): HttpFailure {
         val result = CompletableFuture<ExchangeResult>()

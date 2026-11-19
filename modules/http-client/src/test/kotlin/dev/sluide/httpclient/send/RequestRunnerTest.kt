@@ -9,6 +9,7 @@ import dev.sluide.httpclient.env.Environment
 import dev.sluide.httpclient.env.EnvironmentFiles
 import dev.sluide.httpclient.env.Environments
 import dev.sluide.httpclient.parse.HttpFileParser
+import dev.sluide.testsupport.LogCapture
 import org.junit.jupiter.api.io.TempDir
 import java.net.http.HttpClient
 import java.nio.file.Path
@@ -17,9 +18,6 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.logging.Handler
-import java.util.logging.LogRecord
-import java.util.logging.Logger
 import kotlin.io.path.copyTo
 import kotlin.io.path.writeText
 import kotlin.test.AfterTest
@@ -154,28 +152,15 @@ class RequestRunnerTest {
         second: Class<*>,
         action: () -> Unit,
     ): Pair<List<String>, List<String>> {
-        val records = listOf(first, second).map { CopyOnWriteArrayList<String>() }
-        val handlers =
-            listOf(first, second).zip(records).map { (type, lines) ->
-                val handler =
-                    object : Handler() {
-                        override fun publish(record: LogRecord) {
-                            lines += "${record.level} ${record.message}"
-                        }
-
-                        override fun flush() {}
-
-                        override fun close() {}
-                    }
-                Logger.getLogger(type.name).also { it.addHandler(handler) } to handler
+        LogCapture(first.name).use { firstLog ->
+            LogCapture(second.name).use { secondLog ->
+                action()
+                return firstLog.levelled() to secondLog.levelled()
             }
-        try {
-            action()
-        } finally {
-            handlers.forEach { (logger, handler) -> logger.removeHandler(handler) }
         }
-        return records[0] to records[1]
     }
+
+    private fun LogCapture.levelled() = lines.map { (level, message) -> "$level $message" }
 
     @Test
     fun `reports unresolved variables and a missing environment`() {
