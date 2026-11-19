@@ -9,8 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
 internal object LiveServerProcesses {
     private val live = ConcurrentHashMap.newKeySet<ProcessHandle>()
 
-    @Volatile
-    private var hookInstalled = false
+    private var hook: Thread? = null
 
     /** Adds [process]; the first call installs the hook. */
     fun add(process: ProcessHandle) {
@@ -21,6 +20,10 @@ internal object LiveServerProcesses {
     fun remove(process: ProcessHandle) {
         live.remove(process)
     }
+
+    /** The shutdown hook once the first process was added: for tests. */
+    @Synchronized
+    internal fun hookThread(): Thread? = hook
 
     /** The processes listed now: for tests. */
     fun all(): Set<ProcessHandle> = live.toSet()
@@ -35,9 +38,10 @@ internal object LiveServerProcesses {
 
     @Synchronized
     private fun installHook() {
-        if (hookInstalled) return
-        Runtime.getRuntime().addShutdownHook(Thread(::destroyAll, "sluide-language-servers-shutdown"))
-        hookInstalled = true
+        if (hook != null) return
+        val thread = Thread(::destroyAll, "sluide-language-servers-shutdown")
+        Runtime.getRuntime().addShutdownHook(thread)
+        hook = thread
     }
 }
 
