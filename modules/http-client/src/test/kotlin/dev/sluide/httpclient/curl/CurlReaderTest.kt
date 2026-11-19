@@ -100,8 +100,6 @@ class CurlReaderTest {
         )
         assertEquals(RequestBody.None, request("curl -d @- x").body)
         assertEquals("GET", request("curl -d @- x").method)
-        // curl itself warns about the empty file name and sends an empty POST; the text stays literal, never a path.
-        assertEquals(data(DataPiece.Text("@")), request("curl -d @ x").body)
         assertEquals(
             data(DataPiece.File("f", binary = false), DataPiece.Text("a&b")),
             request("curl -d @f -d a -d b x").body,
@@ -224,6 +222,13 @@ class CurlReaderTest {
                 Arguments.of("curl x -F =x", "-F needs name=content", 7),
                 Arguments.of("curl x -F a=b -d c", "-F cannot be combined with -d or --json", 14),
                 Arguments.of("curl x -F a=b --json c", "-F cannot be combined with -d or --json", 14),
+                // curl 8.14.1: "error encountered when reading a file", exit 26, nothing is sent.
+                Arguments.of("curl x -d @", "--data needs a file name after @", 7),
+                Arguments.of("curl x --data-binary @", "--data-binary needs a file name after @", 7),
+                Arguments.of("curl x --data-ascii @", "--data-ascii needs a file name after @", 7),
+                Arguments.of("curl x --json @", "--json needs a file name after @", 7),
+                Arguments.of("curl x --data-urlencode @", "--data-urlencode needs a file name after @", 7),
+                Arguments.of("curl x --data-urlencode n@", "--data-urlencode needs a file name after @", 7),
             )
     }
 }

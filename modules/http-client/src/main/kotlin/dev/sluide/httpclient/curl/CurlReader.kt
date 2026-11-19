@@ -118,11 +118,11 @@ internal object CurlReader {
                 }
 
                 "--data", "--data-ascii" -> {
-                    data(dataPiece(text, binary = false), word)
+                    data(dataPiece(text, binary = false, name, word), word)
                 }
 
                 "--data-binary" -> {
-                    data(dataPiece(text, binary = true), word)
+                    data(dataPiece(text, binary = true, name, word), word)
                 }
 
                 "--data-raw" -> {
@@ -130,7 +130,7 @@ internal object CurlReader {
                 }
 
                 "--data-urlencode" -> {
-                    data(urlEncoded(text), word)
+                    data(urlEncoded(text, name, word), word)
                 }
 
                 "--json" -> {
@@ -266,14 +266,21 @@ internal object CurlReader {
         private fun dataPiece(
             text: String,
             binary: Boolean,
+            option: String,
+            word: Word,
         ): DataPiece =
-            if (text.startsWith("@") &&
-                text.length > 1
-            ) {
-                DataPiece.File(text.substring(1), binary)
+            if (text.startsWith("@")) {
+                DataPiece.File(fileName(text.substring(1), option, word), binary)
             } else {
                 DataPiece.Text(text)
             }
+
+        /** curl refuses an empty file name (`-d @`: "error encountered when reading a file") and sends nothing. */
+        private fun fileName(
+            name: String,
+            option: String,
+            word: Word,
+        ) = name.ifEmpty { throw CurlSyntaxException("$option needs a file name after @", word.offset) }
 
         private fun data(
             piece: DataPiece,
@@ -294,7 +301,11 @@ internal object CurlReader {
         }
 
         /** `--data-urlencode`: `content`, `=content`, `name=content`, `@file` or `name@file`. */
-        private fun urlEncoded(text: String): DataPiece {
+        private fun urlEncoded(
+            text: String,
+            option: String,
+            word: Word,
+        ): DataPiece {
             val equals = text.indexOf('=')
             val at = text.indexOf('@')
             return when {
@@ -306,7 +317,7 @@ internal object CurlReader {
                             ?.let { ", without $it=" }
                             .orEmpty()
                     notes += "--data-urlencode $text: the file is sent as it is$name, not URL-encoded"
-                    DataPiece.File(text.substring(at + 1))
+                    DataPiece.File(fileName(text.substring(at + 1), option, word))
                 }
 
                 equals == 0 -> {
@@ -328,7 +339,7 @@ internal object CurlReader {
             word: Word,
         ) {
             json = true
-            val piece = dataPiece(text, binary = true)
+            val piece = dataPiece(text, binary = true, "--json", word)
             val last = data.lastOrNull()
             // Several --json are joined without a separator.
             if (piece is DataPiece.Text && last is DataPiece.Text) {
