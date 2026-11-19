@@ -173,8 +173,8 @@ class GlobsTest {
         assertFalse(matcher.matches("a/" + "x.kt"))
     }
 
-    // The deepest nesting the length cap allows. 256 KiB is a stack on which 1000 levels of recursion overflowed on
-    // x64 runners (docs/testing.md, "Portability"), so compiling and matching must not recurse with the nesting.
+    // The deepest nesting the length cap allows, on a small stack on which the recursive compiler overflowed: x64
+    // runners overflowed a recursion of 1000 levels (docs/testing.md, "Portability"), so nothing may recurse with it.
     @Test
     fun `the deepest nesting of braces the cap allows is read and matched on a small stack`() {
         val glob = "{".repeat(500) + "}".repeat(500)

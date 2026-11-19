@@ -16,8 +16,8 @@ private val log = System.getLogger("dev.sluide.languageservers.files.Globs")
  */
 internal object Globs {
     /**
-     * The longest glob read. A match takes at most path length times the glob's length in steps, so this keeps one
-     * registration of a server from stalling the window.
+     * The longest glob read. A match takes at most path length times the program size (up to 3 instructions per
+     * glob character) in steps, so this keeps one registration of a server from stalling the window.
      */
     const val MAX_GLOB_LENGTH = 1000
 
