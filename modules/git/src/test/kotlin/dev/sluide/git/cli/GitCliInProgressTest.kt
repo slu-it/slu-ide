@@ -229,6 +229,7 @@ class GitCliInProgressTest {
         assertNull(unavailable.mergeCount(repo, "refs/heads/topic"))
         assertFalse(unavailable.namesOnly(repo, "topic", "refs/heads/topic"))
         assertEquals(0, git.mergeCount(repo, "refs/heads/topic"))
+        assertNull(failingGit(folder, "rev-list").mergeCount(repo, "refs/heads/topic"))
         assertNull(GitCli(folder.resolve("no-such-git").toString(), testGitEnvironment()).mergeCount(repo, "x"))
     }
 }

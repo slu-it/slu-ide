@@ -131,9 +131,9 @@ class GitCliIgnoreRulesFailuresTest {
     fun `a git that vanishes before a call gives no answer`(word: String) {
         withTrackedAndUntracked()
         val script = folder.resolve("vanishing-git")
-        // Removes itself as the call with [word] starts: git has run the calls before it, not the ones after.
+        // Removes itself as the call with [word] starts, which still runs: the calls after it find no executable.
         script.writeText(
-            FAKE_GIT_START + "case \" \$* \" in *' $word '*) rm -f \"\$0\"; exit 128;; esac\nexec git \"\$@\"\n",
+            FAKE_GIT_START + "case \" \$* \" in *' $word '*) rm -f \"\$0\";; esac\nexec git \"\$@\"\n",
         )
         script.toFile().setExecutable(true)
         val vanishing = GitCli(script.toString(), testGitEnvironment())
@@ -141,19 +141,6 @@ class GitCliIgnoreRulesFailuresTest {
 
         assertNull(rules(vanishing))
         assertFalse(script.exists(), "it was asked")
-    }
-
-    @Test
-    fun `a git that vanishes after its listings gives no answer for the lines`() {
-        withTrackedAndUntracked()
-        val script = folder.resolve("vanishing-git")
-        // The listings end as git would; the next call, the first check-ignore, finds no executable.
-        script.writeText(FAKE_GIT_START + "case \" \$* \" in *' ls-files '*) rm -f \"\$0\";; esac\nexec git \"\$@\"\n")
-        script.toFile().setExecutable(true)
-        val vanishing = GitCli(script.toString(), testGitEnvironment())
-
-        assertNull(rules(vanishing))
-        assertFalse(script.exists())
     }
 
     @Test
@@ -385,5 +372,59 @@ class GitCliIgnoreRulesFailuresTest {
             runPastTheDeadline(folder.resolve("check-ignore-calls"), { cancellation.cancel() }, cancellation)
 
         assertNull(rules)
+    }
+
+    @Test
+    fun `a listing stopped for writing too much is cut off, not failed, though git was killed`() {
+        // The stand-in writes its first record and then waits: it is killed when the output passes the limit, so that
+        // its exit value is not 0.
+        val stopped = assertNotNull(rules(fakeGit(hang = "status"), maxListing = 5))
+
+        assertFalse(stopped.complete)
+        assertEquals(emptyMap(), stopped.lines)
+    }
+
+    @Test
+    fun `untracked paths are asked with the index, tracked ones without it`() {
+        withTrackedAndUntracked()
+        val log = folder.resolve("calls")
+
+        assertNotNull(rules(recordingGit(folder, log)))
+
+        val asked = recordedCalls(log).filter { "check-ignore" in it }
+        assertEquals(2, asked.size)
+        assertFalse("--no-index" in asked[0], asked[0])
+        assertTrue("--no-index" in asked[1], asked[1])
+    }
+
+    @Test
+    fun `a run cancelled while a chunk runs has no answer, whatever time the deadline has left`() {
+        files("a.log")
+        repo.resolve(".gitignore").writeText("*.log\n")
+        val started = folder.resolve("started")
+        val script = folder.resolve("hanging-git")
+        script.writeText(
+            FAKE_GIT_START +
+                "case \" \$* \" in *' check-ignore '*) cat > /dev/null; touch '$started'; sleep 30;; esac\n" +
+                "exec git \"\$@\"\n",
+        )
+        script.toFile().setExecutable(true)
+        val hanging = GitCli(script.toString(), testGitEnvironment())
+        val cancellation = GitCancellation()
+        var result: GitIgnoreRules? = null
+        // The deadline of 5 s ends before the 10 s of a call: the chunk is stopped at what is left of it.
+        val runner =
+            Thread.ofPlatform().start { result = rules(hanging, cancellation = cancellation, deadline = 5.seconds) }
+        val limit = System.nanoTime() + 20.seconds.inWholeNanoseconds
+        while (!started.exists()) {
+            if (System.nanoTime() > limit) fail("check-ignore did not start")
+            Thread.sleep(10)
+        }
+
+        cancellation.cancel()
+        runner.join(TimeUnit.SECONDS.toMillis(20))
+
+        assertFalse(runner.isAlive, "ignoreRules ended")
+        assertNull(result)
     }
 }
