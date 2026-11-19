@@ -317,4 +317,26 @@ class SignatureModelTest {
         bound.serverIdle()
         assertEquals(2, view.shown.size)
     }
+
+    @Test
+    fun `an open popup that can no longer show closes and is hidden`() {
+        open()
+        view.accepts = false
+        type("1")
+        bound.fx.onFx { bound.timers.runDue() }
+        asked(2)[1].answer(help)
+        awaitTrue("closed") { bound.fx.onFx { !model.isOpen } }
+        assertEquals(1, view.hides)
+    }
+
+    @Test
+    fun `typing while the server restarts and has no capabilities yet asks nothing`() {
+        setUp("f")
+        bound.fx.onFx {
+            bound.binding.session.restart()
+            model.keys.keyTyped("(")
+            bound.editor.typeAtCaret("(")
+        }
+        assertEquals(emptyList(), bound.timers.due)
+    }
 }

@@ -109,6 +109,7 @@ class SemanticTokensFeatureTest {
         // Type 1 is `parameter` in the new legend (it was `variable`).
         second.tokenRequests[0].complete(SemanticTokens(listOf(0, 6, 1, 1, 0)))
         awaitTrue("shown") { layer == listOf(StyledRange(6, 7, "sem-parameter")) }
+        assertEquals(3, harness.editor.overlayCalls[SEMANTIC_LAYER], "shown, cleared once as it stopped, shown again")
     }
 
     private val full = "textDocument/semanticTokens/full"
@@ -171,6 +172,8 @@ class SemanticTokensFeatureTest {
             .get()
         harness.serverIdle()
         assertEquals(2, server.tokenRequests.size, "an unrelated registration asks nothing")
+        assertEquals(listOf(StyledRange(7, 8, "sem-parameter")), layer, "and keeps the colours")
+        assertEquals(listOf(StyledRange(7, 8, "sem-parameter")), layer, "and keeps the colours")
 
         server.client.unregisterCapability(UnregistrationParams(listOf(Unregistration("t", full)))).get()
         awaitTrue("colours gone") { layer == emptyList<StyledRange>() }
@@ -245,5 +248,41 @@ class SemanticTokensFeatureTest {
         assertEquals(emptyList<StyledRange>(), layer)
         assertEquals(0, delays.count, "the waiting request is dropped")
         assertEquals(0, harness.onFx { harness.editor.subscribed }, "no listener is left on the editor")
+    }
+
+    @Test
+    fun `after the binding closed, a change of what the server offers touches nothing`() {
+        open(serverWith(providerWithFull(false)))
+        registerFull()
+        awaitTrue("asked once registered") { harness.server.tokenRequests.size == 1 }
+        harness.server.tokenRequests[0].complete(parameterAt(7))
+        awaitTrue("shown") { layer == listOf(StyledRange(7, 8, "sem-parameter")) }
+        harness.onFx { harness.binding.close() }
+        val calls = harness.editor.overlayCalls[SEMANTIC_LAYER]
+
+        harness.server.client
+            .unregisterCapability(UnregistrationParams(listOf(Unregistration("t", full))))
+            .get()
+        harness.serverIdle()
+        assertEquals(calls, harness.editor.overlayCalls[SEMANTIC_LAYER])
+    }
+
+    @Test
+    fun `an answer the JSON gives a null data array is no colours`() {
+        open({ tokenServer().apply { serializeNulls = true } })
+        val server = harness.server
+        awaitTrue("asked after open") { server.tokenRequests.size == 1 }
+        server.tokenRequests[0].complete(parameterAt(6))
+        awaitTrue("shown") { layer == listOf(StyledRange(6, 7, "sem-parameter")) }
+
+        server.client.refreshSemanticTokens()
+        awaitTrue("asked on refresh") { server.tokenRequests.size == 2 }
+        val withoutData = SemanticTokens(emptyList())
+        SemanticTokens::class.java
+            .getDeclaredField("data")
+            .apply { isAccessible = true }
+            .set(withoutData, null)
+        server.tokenRequests[1].complete(withoutData)
+        awaitTrue("no data, no colours") { layer == emptyList<StyledRange>() }
     }
 }
