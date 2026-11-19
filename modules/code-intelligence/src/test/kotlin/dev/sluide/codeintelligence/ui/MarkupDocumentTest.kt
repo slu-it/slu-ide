@@ -1,5 +1,6 @@
 package dev.sluide.codeintelligence.ui
 
+import dev.sluide.codeintelligence.parsedResult
 import dev.sluide.codeintelligence.ui.DocBlock.Code
 import dev.sluide.codeintelligence.ui.DocBlock.Heading
 import dev.sluide.codeintelligence.ui.DocBlock.Items
@@ -14,9 +15,11 @@ import org.eclipse.lsp4j.MarkedString
 import org.eclipse.lsp4j.MarkupContent
 import org.eclipse.lsp4j.MarkupKind
 import org.eclipse.lsp4j.jsonrpc.messages.Either
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -153,5 +156,92 @@ class MarkupDocumentTest {
             hoverBlocks(hover),
         )
         assertEquals(emptyList(), hoverBlocks(null))
+    }
+
+    private fun parsedHover(json: String) = parsedResult("textDocument/hover", json) as Hover
+
+    @Test
+    fun `a documentation or content that is missing or has no value shows nothing`() {
+        assertEquals(emptyList(), markupBlocks(null))
+        assertEquals(emptyList(), markupBlocks(MarkupContent().apply { kind = MarkupKind.MARKDOWN }))
+        assertEquals(emptyList(), markupBlocks(MarkupContent().apply { kind = MarkupKind.PLAINTEXT }))
+        assertEquals(emptyList(), docBlocks(Either.forRight(MarkupContent().apply { kind = MarkupKind.MARKDOWN })))
+    }
+
+    @Test
+    fun `a documentation sent as MarkupContent goes by its kind`() {
+        assertEquals(
+            listOf(text(DocSpan("b", setOf(EMPHASIS)))),
+            docBlocks(Either.forRight(MarkupContent(MarkupKind.MARKDOWN, "*b*"))),
+        )
+        assertEquals(
+            listOf(text(DocSpan("*b*"))),
+            docBlocks(Either.forRight(MarkupContent(MarkupKind.PLAINTEXT, "*b*"))),
+        )
+    }
+
+    @Test
+    fun `a hover with MarkupContent is shown by its kind`() {
+        val markdown = parsedHover("""{"contents":{"kind":"markdown","value":"*b*"}}""")
+        assertEquals(listOf(text(DocSpan("b", setOf(EMPHASIS)))), hoverBlocks(markdown))
+        val plain = parsedHover("""{"contents":{"kind":"plaintext","value":"*b*"}}""")
+        assertEquals(listOf(text(DocSpan("*b*"))), hoverBlocks(plain))
+    }
+
+    @Test
+    fun `a hover as lsp4j delivers the old marked strings, null entries and a marked string without value skipped`() {
+        val hover =
+            parsedHover(
+                """{"contents":[null,"*doc*",{"language":"python","value":"x: int\n"},{"language":"python"}]}""",
+            )
+        assertEquals(
+            listOf(text(DocSpan("doc", setOf(EMPHASIS))), Code("x: int")),
+            hoverBlocks(hover),
+        )
+    }
+
+    @Test
+    fun `a hover without contents, or with a MarkupContent without value, shows nothing`() {
+        assertEquals(emptyList(), hoverBlocks(parsedHover("{}")))
+        assertEquals(emptyList(), hoverBlocks(parsedHover("""{"contents":{"kind":"markdown"}}""")))
+        assertEquals(emptyList(), hoverBlocks(parsedHover("""{"contents":[]}""")))
+    }
+
+    @Test
+    fun `a paragraph without visible text is left out, one with some stays`() {
+        assertEquals(emptyList(), markdownBlocks("<b></b>"))
+        assertEquals(emptyList(), markdownBlocks("&nbsp;"))
+        assertEquals(listOf(text(DocSpan("x"))), markdownBlocks("<b></b>x"))
+        assertEquals(listOf(text(DocSpan("\u00a0x"))), markdownBlocks("&nbsp;x"))
+    }
+
+    @Test
+    fun `text that commonmark leaves an empty node behind is no empty span`() {
+        // The trailing space after the emphasis is trimmed to an empty Text node (found by fuzzing commonmark).
+        assertEquals(listOf(text(DocSpan("|", setOf(EMPHASIS)))), markdownBlocks("*|* "))
+    }
+
+    @Test
+    fun `hostile Markdown shows only text, no links, HTML, scripts or images`() {
+        val markdown =
+            "[click](javascript:alert(1)) ![pic](http://evil.example/p.png?token=1) a<script>b</script>c " +
+                "<img src=x onerror=alert(1)>\n\n<script>alert(1)</script>\n\n<div onclick=\"x()\">y</div>\n\n" +
+                "[ref]: http://evil.example/\n\n[ref]"
+        assertEquals(
+            listOf(text(DocSpan("click pic abc ")), text(DocSpan("ref"))),
+            markdownBlocks(markdown),
+        )
+    }
+
+    @Test
+    fun `deeply nested emphasis and very long documentation render without recursing out or taking long`() {
+        val depth = 20_000
+        val nested = "*a ".repeat(depth) + "a*".repeat(depth)
+        assertTimeoutPreemptively(Duration.ofSeconds(20)) {
+            val blocks = markdownBlocks(nested)
+            assertTrue(blocks.isNotEmpty())
+            val long = markdownBlocks("word ".repeat(400_000))
+            assertEquals(1, long.size)
+        }
     }
 }
