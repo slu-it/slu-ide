@@ -7,7 +7,6 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
-import kotlin.test.assertEquals
 
 /** Real git with a bare "remote" and two clones in temporary folders; skipped if git is not installed. */
 internal abstract class GitPushFixture {
@@ -50,20 +49,7 @@ internal abstract class GitPushFixture {
     protected fun git(
         vararg arguments: String,
         directory: Path = repo,
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
+    ): String = runGit(directory, *arguments)
 
     protected fun commit(
         subject: String,

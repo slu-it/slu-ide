@@ -3,6 +3,7 @@ package dev.sluide.git.cli
 import dev.sluide.git.FAKE_GIT_START
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.failingGit
+import dev.sluide.git.runGit
 import dev.sluide.git.testGitEnvironment
 import dev.sluide.git.unavailableGit
 import dev.sluide.git.vanishedGit
@@ -45,20 +46,7 @@ class GitCliConfigTest {
     private fun run(
         vararg arguments: String,
         input: String? = null,
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.use { stream -> input?.let { stream.write(it.toByteArray()) } }
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
+    ): String = runGit(repo, *arguments, input = input)
 
     private var scripts = 0
 

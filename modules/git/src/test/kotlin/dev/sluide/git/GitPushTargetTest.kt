@@ -391,18 +391,8 @@ internal class GitPushTargetTest : GitPushFixture() {
     ) {
         repo.resolve("$subject.txt").writeText("$subject\n")
         git("add", "$subject.txt")
-        val process =
-            ProcessBuilder("git", "commit", "-q", "-m", subject)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                    environment()["GIT_COMMITTER_DATE"] = "$epoch +0000"
-                    environment()["GIT_AUTHOR_DATE"] = "$epoch +0000"
-                }.start()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), output)
+        val dates = mapOf("GIT_COMMITTER_DATE" to "$epoch +0000", "GIT_AUTHOR_DATE" to "$epoch +0000")
+        runGit(repo, "commit", "-q", "-m", subject, environment = testGitEnvironment() + dates)
     }
 
     @Test

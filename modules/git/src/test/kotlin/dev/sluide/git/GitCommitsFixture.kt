@@ -40,18 +40,9 @@ internal abstract class GitCommitsFixture {
         input: String? = null,
         directory: Path = repo,
     ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.use { stdin -> input?.let { stdin.write(it.toByteArray(Charsets.UTF_8)) } }
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output
+        val run = runGitRaw(directory, *arguments, input = input?.toByteArray(Charsets.UTF_8))
+        assertEquals(0, run.exit, "git ${arguments.joinToString(" ")}: ${run.output}")
+        return run.output
     }
 
     /** Commits [file] with [content] (a line); returns the commit's hash. */

@@ -101,14 +101,7 @@ internal class GitLogReadsTest : GitLogFixture() {
         commitFiles("Main", "file.txt" to "main\n")
         assertNull(log.inProgress(repo))
 
-        val merge = ProcessBuilder("git", "merge", "other")
-        merge.directory(repo.toFile()).redirectErrorStream(true)
-        merge.environment().clear()
-        merge.environment().putAll(testGitEnvironment())
-        val process = merge.start()
-        process.outputStream.close()
-        process.inputStream.readAllBytes()
-        process.waitFor()
+        runGit(repo, "merge", "other", expectedExit = null)
 
         assertIs<GitPendingMerge>(log.inProgress(repo))
         assertNull(failing("--git-path").inProgress(repo))

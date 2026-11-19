@@ -153,14 +153,7 @@ class GitFileComparisonTest {
     @Test
     fun `files in a repository are compared as raw bytes, without its attributes or configuration`() {
         val repo = folder.resolve("repo").createDirectories()
-        val init =
-            ProcessBuilder("git", "init", "-q")
-                .directory(repo.toFile())
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        assertEquals(0, init.waitFor())
+        runGit(repo, "init", "-q")
         repo.resolve(".gitattributes").writeText("* text eol=crlf\n")
         repo.resolve(".git/config").appendText("[core]\n\tautocrlf = true\n")
         val left = repo.resolve("a.txt").also { it.writeBytes("a\r\n".toByteArray()) }

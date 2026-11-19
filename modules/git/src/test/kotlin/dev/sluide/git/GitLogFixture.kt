@@ -7,7 +7,6 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
-import kotlin.test.assertEquals
 
 /** Runs the real git in a temporary repository; skipped if git is not installed. */
 internal abstract class GitLogFixture {
@@ -29,20 +28,7 @@ internal abstract class GitLogFixture {
         vararg arguments: String,
         environment: Map<String, String> = emptyMap(),
         input: String = "",
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment() + environment)
-                }.start()
-        process.outputStream.use { it.write(input.toByteArray(Charsets.UTF_8)) }
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
+    ): String = runGit(repo, *arguments, input = input, environment = testGitEnvironment() + environment)
 
     /** Commits with the given subject at [time] seconds after the epoch, as author and committer date. */
     protected fun commit(

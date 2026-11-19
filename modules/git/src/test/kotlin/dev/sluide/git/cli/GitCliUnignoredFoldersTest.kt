@@ -1,6 +1,7 @@
 package dev.sluide.git.cli
 
 import dev.sluide.git.GitCancellation
+import dev.sluide.git.runGit
 import dev.sluide.git.testGitEnvironment
 import org.junit.jupiter.api.Assumptions.assumeFalse
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -22,16 +23,7 @@ class GitCliUnignoredFoldersTest {
     private fun repository(): Path {
         assumeTrue(git.available, "git is not installed")
         val repo = folder.resolve("repo").createDirectories()
-        val process =
-            ProcessBuilder("git", "init", "-q")
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.inputStream.readAllBytes()
-        assertEquals(0, process.waitFor(), "git init")
+        runGit(repo, "init", "-q")
         return repo
     }
 

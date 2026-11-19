@@ -22,19 +22,7 @@ class GitTestEnvironmentTest {
     private fun untracked(environment: Map<String, String>): String? {
         fun git(vararg arguments: String): String? =
             try {
-                ProcessBuilder(listOf("git") + arguments)
-                    .directory(repo.toFile())
-                    .redirectErrorStream(true)
-                    .apply {
-                        environment().clear()
-                        environment().putAll(environment)
-                    }.start()
-                    .let { process ->
-                        process.inputStream
-                            .readAllBytes()
-                            .decodeToString()
-                            .also { process.waitFor() }
-                    }
+                runGitRaw(repo, *arguments, environment = environment).output
             } catch (_: java.io.IOException) {
                 null
             }
