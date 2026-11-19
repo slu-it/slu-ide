@@ -36,6 +36,21 @@ class CurlReaderTest {
     }
 
     @Test
+    fun `cuts timeouts to whole milliseconds and reads below one millisecond as none`() {
+        // curl 8.14.1 against a local server: -m 0 and --connect-timeout 0 mean no timeout, -m 0.0001 still gets
+        // the 0.3 s answer (0 ms, no timeout) and -m 0.001 times out (exit 28).
+        for (value in listOf("0", "0.0001", "0.0009")) {
+            assertNull(request("curl x -m $value").timeout, value)
+            assertNull(request("curl x --connect-timeout $value").connectTimeout, value)
+        }
+        assertEquals(Duration.ofMillis(1), request("curl x -m 0.001").timeout)
+        assertEquals(Duration.ofMillis(1500), request("curl x -m 1.5").timeout)
+        assertEquals(Duration.ofMillis(1999), request("curl x --connect-timeout 1.9999").connectTimeout)
+        // The last one wins, also a 0 after a number.
+        assertNull(request("curl x -m 5 -m 0").timeout)
+    }
+
+    @Test
     fun `accepts the longest timeout`() {
         assertEquals(Duration.ofSeconds(1_000_000_000), request("curl x -m 1000000000").timeout)
     }

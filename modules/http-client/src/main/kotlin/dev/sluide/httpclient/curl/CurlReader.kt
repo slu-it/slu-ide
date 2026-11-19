@@ -383,7 +383,7 @@ internal object CurlReader {
             value: Word?,
         ): Duration? {
             val number = value?.text?.toBigDecimalOrNull()
-            if (number == null || number.signum() <= 0) {
+            if (number == null || number.signum() < 0) {
                 throw CurlSyntaxException("$option needs a number of seconds", value?.offset ?: 0)
             }
             if (number > MAX_SECONDS) {
@@ -392,7 +392,9 @@ internal object CurlReader {
                     value?.offset ?: 0,
                 )
             }
-            return Duration.ofMillis(number.multiply(BigDecimal(1000)).toLong().coerceAtLeast(1))
+            // curl cuts to whole milliseconds, and 0 ms is no timeout (also for a plain 0).
+            val millis = number.multiply(BigDecimal(1000)).toLong()
+            return if (millis < 1) null else Duration.ofMillis(millis)
         }
 
         private fun build(): CurlRequest {
