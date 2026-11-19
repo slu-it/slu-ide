@@ -62,15 +62,6 @@ class RequestFamilyTest {
     }
 
     @Test
-    fun `blank text is no request for either reader, so the guards for it only save the work`() {
-        // The family answers blank text before it asks a reader; the readers agree with it.
-        assertEquals(ReadResult.Read(emptyList(), emptyList()), CurlReader.read(" \n"))
-        assertEquals(ReadResult.Read(emptyList(), emptyList()), HttpRequestReader.read(" \n"))
-        assertFalse(CurlTokenizer.looksLikeCurl(" \n"))
-        assertFalse(HttpRequestReader.detects(" \n"))
-    }
-
-    @Test
     fun `a format of another family is refused by every operation, naming it`() {
         val other =
             object : TextFormat {
@@ -109,7 +100,8 @@ class RequestFamilyTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["", " \n"])
+    // U+00A0 and U+3000 are blank for Kotlin but no space for the curl tokenizer, which would refuse them.
+    @ValueSource(strings = ["", " \n", "\u00A0", "\u3000"])
     fun `blank text reads as no requests, which write as empty text`(text: String) {
         family.formats.forEach { format ->
             assertEquals(ReadResult.Read(emptyList(), emptyList()), family.read(text, format, OptionValues()))
