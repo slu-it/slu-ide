@@ -97,6 +97,16 @@ internal class EnvDocumentGuardsTest {
     }
 
     @Test
+    fun `the names of auth fields are only refused inside an auth configuration`() {
+        val document = EnvDocument("""{"dev": {"db": {}}}""", null)
+
+        assertEquals(
+            """{"dev":{"db":{"Type":""}}}""",
+            compact(document.addVariable(ValuePath.of("db"), "Type", ValueType.TEXT).public),
+        )
+    }
+
+    @Test
     fun `an auth id and a grant type are matched as written or ignoring the case of the grant type`() {
         val document = EnvDocument("""{"dev": {}}""", null)
 

@@ -277,6 +277,13 @@ internal class EnvEditorTest {
     }
 
     @Test
+    fun `an auth id is taken only where an auth configuration of that id exists`() {
+        val document = EnvDocument("""{"dev": {"Security": {"Auth": {"other": {}}}}}""", null)
+
+        assertTrue("\"api\"" in document.addAuth("api", "password", listOf("dev")).public.orEmpty())
+    }
+
+    @Test
     fun `adds no certificate where there is one`() {
         val document =
             EnvDocument(
