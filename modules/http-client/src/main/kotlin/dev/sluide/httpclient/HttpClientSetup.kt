@@ -79,7 +79,7 @@ object HttpClientSetup {
         return true
     }
 
-    private fun reason(e: IOException): String =
+    internal fun reason(e: IOException): String =
         when (e) {
             is NoSuchFileException -> "the folder does not exist"
             is AccessDeniedException -> "permission denied"

@@ -5,6 +5,9 @@ import dev.sluide.httpclient.env.Environments
 import dev.sluide.httpclient.parse.HttpFileParser
 import org.junit.jupiter.api.io.TempDir
 import java.io.IOException
+import java.nio.file.AccessDeniedException
+import java.nio.file.FileSystemException
+import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import kotlin.io.path.createDirectory
 import kotlin.io.path.readBytes
@@ -162,6 +165,40 @@ class HttpClientSetupTest {
         val e = assertFailsWith<IOException> { HttpClientSetup.create(root) }
 
         assertTrue(".gitignore" in e.message.orEmpty(), e.message)
+    }
+
+    @Test
+    fun `names the reason a file cannot be created`() {
+        assertEquals(
+            "Cannot create http-client.env.json: the folder does not exist.",
+            assertFailsWith<IOException> { HttpClientSetup.create(root.resolve("missing")) }.message,
+        )
+        // A folder that is a file: the JDK's reason for the file system exception is its text, without the path.
+        val notAFolder = root.resolve("file").apply { writeText("x") }
+        val message = assertFailsWith<IOException> { HttpClientSetup.create(notAFolder) }.message.orEmpty()
+        assertTrue(message.startsWith("Cannot create http-client.env.json: ") && message.endsWith("."), message)
+        assertTrue(root.toString() !in message, message)
+    }
+
+    @Test
+    fun `names the reason the gitignore cannot be updated`() {
+        gitignore.createDirectory()
+
+        assertEquals(
+            "Cannot update .gitignore: Is a directory.",
+            assertFailsWith<IOException> { HttpClientSetup.create(root) }.message,
+        )
+    }
+
+    @Test
+    fun `puts the most telling reason of a disk error first`() {
+        assertEquals("the folder does not exist", HttpClientSetup.reason(NoSuchFileException("f")))
+        assertEquals("permission denied", HttpClientSetup.reason(AccessDeniedException("f")))
+        assertEquals("busy", HttpClientSetup.reason(FileSystemException("f", null, "busy")))
+        assertEquals("f", HttpClientSetup.reason(FileSystemException("f")))
+        assertEquals("FileSystemException", HttpClientSetup.reason(FileSystemException(null)))
+        assertEquals("closed", HttpClientSetup.reason(IOException("closed")))
+        assertEquals("IOException", HttpClientSetup.reason(IOException()))
     }
 
     @Test
