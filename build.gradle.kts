@@ -158,6 +158,10 @@ subprojects {
         tasks.withType<Jar>().configureEach {
             manifest.attributes("Implementation-Version" to appVersion)
         }
+        // Tests read module jars: a release build (-PreleaseVersion) reuses the cached test results of its commit.
+        normalization {
+            runtimeClasspath { metaInf { ignoreAttribute("Implementation-Version") } }
+        }
 
         // With `-q` Gradle would only say that tests failed; this names them with their exception, passed ones stay
         // silent.
