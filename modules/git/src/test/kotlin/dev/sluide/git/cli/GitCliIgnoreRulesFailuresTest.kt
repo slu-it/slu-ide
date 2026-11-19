@@ -280,28 +280,20 @@ class GitCliIgnoreRulesFailuresTest {
         release: Path,
         calls: Path,
     ): GitCli {
-        val script =
-            folder.resolve("chunks-git").apply {
-                writeText(
-                    FAKE_GIT_START +
-                        "case \" \$* \" in\n" +
-                        "*' status '*) i=0; while [ \$i -lt 600 ]; do\n" +
-                        "  printf '! a-rather-long-file-name-to-fill-the-input-of-check-ignore-%s.log\\000' \$i; " +
-                        "i=\$((i+1)); done ;;\n" +
-                        "*' check-ignore '*) cat > /dev/null; echo x >> '$calls'\n" +
-                        "  [ -e '$started' ] && exit 0\n" +
-                        "  touch '$started'; printf '%s\\000' .gitignore 1 '*.log' first.log\n" +
-                        "  ( while [ ! -e '$release' ]; do sleep 0.05; done ) &\n" +
-                        // Waits so that the reader is reading when the script ends (docs/testing.md "Portability").
-                        "  sleep 0.3 ;;\n" +
-                        "esac\n",
-                )
-                toFile().setExecutable(true)
-            }
+        val body =
+            "case \" \$* \" in\n" +
+                "*' status '*) i=0; while [ \$i -lt 600 ]; do\n" +
+                "  printf '! a-rather-long-file-name-to-fill-the-input-of-check-ignore-%s.log\\000' \$i; " +
+                "i=\$((i+1)); done ;;\n" +
+                "*' check-ignore '*) cat > /dev/null; echo x >> '$calls'\n" +
+                "  [ -e '$started' ] && exit 0\n" +
+                "  touch '$started'; printf '%s\\000' .gitignore 1 '*.log' first.log\n" +
+                "  ( while [ ! -e '$release' ]; do sleep 0.05; done ) &\n" +
+                // Waits so that the reader is reading when the script ends (docs/testing.md "Portability").
+                "  sleep 0.3 ;;\n" +
+                "esac"
         // The output is held open until the test says so, which may be after the default grace of 2 s.
-        return GitCli(script.toString(), testGitEnvironment(), 2.seconds, 20.seconds).also {
-            assumeTrue(it.available, "no /bin/sh to stand in for git")
-        }
+        return fakeGit(folder, body, pipeGrace = 20.seconds)
     }
 
     /**

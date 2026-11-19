@@ -302,12 +302,7 @@ class GitFileHistoryTest {
     fun `cancelling a read while git runs stops git and gives nothing`() {
         val pidFile = repo.resolve("git.pid")
         // Answers --version; for anything else it writes its process id and sleeps, standing in for a slow git log.
-        val executable =
-            repo.resolve("slow-git").apply {
-                writeText(FAKE_GIT_START + "echo $$ > '$pidFile'\nexec sleep 30\n")
-                toFile().setExecutable(true)
-            }
-        val slow = GitLog(GitCli(executable.toString(), System.getenv()))
+        val slow = GitLog(fakeGit(repo, "echo $$ > '$pidFile'\nexec sleep 30"))
         val cancellation = GitCancellation()
         var result: GitFileHistoryPage? = GitFileHistoryPage(emptyList(), complete = false)
         val caller =

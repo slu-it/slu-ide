@@ -1,9 +1,9 @@
 package dev.sluide.git.cli
 
-import dev.sluide.git.FAKE_GIT_START
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitIgnoreLineUse
 import dev.sluide.git.GitIgnoreRules
+import dev.sluide.git.fakeGit
 import dev.sluide.git.testGitEnvironment
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
@@ -309,13 +309,7 @@ class GitCliIgnoreRulesTest {
                   printf '%s\000' .gitignore 1 '*.log' first.log ;;
             esac
             """.trimIndent()
-        val fake =
-            folder.resolve("fake-git").apply {
-                writeText(FAKE_GIT_START + script + "\n")
-                toFile().setExecutable(true)
-            }
-        val slow = GitCli(fake.toString(), System.getenv())
-        assumeTrue(slow.available, "no /bin/sh to stand in for git")
+        val slow = fakeGit(folder, script, pipeGrace = 2.seconds, environment = System.getenv())
         val start = System.nanoTime()
 
         val rules = assertNotNull(slow.ignoreRules(repo, repo.resolve(".gitignore"), null, deadline = 1.seconds))

@@ -1,6 +1,6 @@
 package dev.sluide.git.cli
 
-import dev.sluide.git.FAKE_GIT_START
+import dev.sluide.git.fakeGit
 import dev.sluide.git.testGitEnvironment
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
@@ -43,16 +43,7 @@ class GitCliTest {
         val pidFile = folder.resolve("pid")
         val childFile = folder.resolve("child")
         // Answers --version; for anything else it starts a sleeping child, writes both process ids and waits.
-        val executable =
-            folder.resolve("slow-git").apply {
-                writeText(
-                    FAKE_GIT_START +
-                        "sleep 10 &\necho $! > '$childFile'\necho $$ > '$pidFile'\nwait\n",
-                )
-                toFile().setExecutable(true)
-            }
-        val git = GitCli(executable.toString(), System.getenv())
-        assumeTrue(git.available, "no /bin/sh to stand in for git")
+        val git = fakeGit(folder, "sleep 10 &\necho $! > '$childFile'\necho $$ > '$pidFile'\nwait")
 
         var result: String? = "not finished"
         var interrupted = false
