@@ -11,6 +11,7 @@ import org.eclipse.lsp4j.TextDocumentEdit
 import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier
 import org.eclipse.lsp4j.WorkspaceEdit
+import org.eclipse.lsp4j.jsonrpc.json.MessageJsonHandler
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.eclipse.lsp4j.jsonrpc.messages.Either3
 import org.junit.jupiter.params.ParameterizedTest
@@ -158,5 +159,23 @@ class RenameModelTest {
         assertEquals(24 + 1, caretAfterRename(edits, nameStart = 22, caretInName = 1, newLength = 5))
         assertEquals(4 + 3, caretAfterRename(edits, nameStart = 4, caretInName = 3, newLength = 5))
         assertEquals(24 + 2, caretAfterRename(edits, nameStart = 22, caretInName = 3, newLength = 2), "at most its end")
+    }
+
+    @Test
+    fun `only edits wholly before the name move it, also one ending at its start, not an insertion there`() {
+        // 3 characters become 5 at 10..13, which ends where the name starts: the name moves by 2.
+        assertEquals(13 + 2 + 1, caretAfterRename(listOf(OffsetEdit(10, 13, "start")), 13, 1, 5))
+        // An insertion at the name's start is not before it.
+        assertEquals(13 + 1, caretAfterRename(listOf(OffsetEdit(13, 13, "xx")), 13, 1, 5))
+        // An edit that reaches into the name is not before it.
+        assertEquals(13 + 1, caretAfterRename(listOf(OffsetEdit(11, 14, "xx")), 13, 1, 5))
+    }
+
+    @Test
+    fun `an answer the JSON leaves incomplete is refused`() {
+        val json = MessageJsonHandler(emptyMap()).gson
+        val withoutRange = json.fromJson("""{"placeholder":"run"}""", PrepareRenameResult::class.java)
+        assertEquals(PrepareAnswer.Refused, prepareAnswer(Either3.forSecond(withoutRange)), "a result without a range")
+        assertEquals(PrepareAnswer.Refused, prepareAnswer(Either3.forFirst(null)), "an answer of no kind")
     }
 }
