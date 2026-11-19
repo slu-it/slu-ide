@@ -70,4 +70,12 @@ class PushPorcelainTest {
         assertEquals(GitPushRejection.OTHER, rejection("[rejected]"))
         assertEquals(GitPushRejection.OTHER, rejection("[rejected] (non-fast-forward) extra"))
     }
+
+    @Test
+    fun `a reason that only has the hash code of a known one is no known reason`() {
+        // Same String.hashCode as non-fast-forward, fetch first and stale info.
+        for (collision in listOf("oPn-fast-forward", "gFtch first", "tUale info")) {
+            assertEquals(GitPushRejection.OTHER, rejection("[rejected] ($collision)"), collision)
+        }
+    }
 }

@@ -7,6 +7,7 @@ import dev.sluide.git.recordedCalls
 import dev.sluide.git.recordingGit
 import dev.sluide.git.testGitEnvironment
 import dev.sluide.git.unavailableGit
+import dev.sluide.git.vanishedGit
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -289,5 +290,23 @@ class GitCliReviewTest {
         assertEquals(true, refusedName("a\r"))
         assertEquals(false, refusedName("a b\t\"é"))
         assertEquals(false, refusedName(""))
+    }
+
+    @Test
+    fun `blobs does not take a byte that is no line break for the end of a blob`() {
+        // "a" has one byte, then "Z" where git would end the record, then a valid record of "b".
+        val shifted = fakeGit("cat > /dev/null; printf 'a blob 1\\nxZb blob 1\\ny\\n'")
+
+        assertNull(shifted.blobs(root, mapOf("a" to 1L, "b" to 1L)))
+    }
+
+    @Test
+    fun `the readers are null for a git that cannot be started`() {
+        val vanished = vanishedGit(folder)
+
+        assertNull(vanished.blobs(root, mapOf(blobName("a.txt") to 2L)))
+        assertNull(vanished.objectInfos(root, listOf("HEAD:a.txt")))
+        assertNull(vanished.reviewLog(root, null, second, 5))
+        assertNull(vanished.porcelainStatus(root))
     }
 }

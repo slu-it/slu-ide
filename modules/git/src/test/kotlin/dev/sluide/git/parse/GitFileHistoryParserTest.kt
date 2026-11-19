@@ -92,4 +92,17 @@ class GitFileHistoryParserTest {
         assertEquals(emptyList(), GitFileHistoryParser.parse(header(a, "One") + "\nM", "f"))
         assertEquals(1, GitFileHistoryParser.parse(header(a, "One") + "\nM\u0000f", "f").size)
     }
+
+    @Test
+    fun `a field that is a commit without the record marker is no commit`() {
+        val unmarked = header(a, "One").replaceFirst("\u001e", "x")
+
+        assertEquals(emptyList(), GitFileHistoryParser.parse(unmarked + "\nM\u0000f\u0000", "f"))
+        assertEquals(
+            listOf("One"),
+            GitFileHistoryParser
+                .parse(header(a, "One") + "\nM\u0000f\u0000" + unmarked + "\nM\u0000f\u0000", "f")
+                .map { it.commit.subject },
+        )
+    }
 }

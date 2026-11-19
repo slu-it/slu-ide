@@ -318,4 +318,33 @@ class GitCliRewordTest {
         )
         assertNotNull(rewordedCommit(bytes("\nx"), emptyMap(), bytes("c"), null))
     }
+
+    @Test
+    fun `rawCommits sizes its runs by the longest hash, wherever it is`() {
+        // A git that answers every name as an empty commit, and counts its runs. 300 names of 40 characters fit one
+        // run (12300 bytes); with one of 64 characters the runs are 236 names long.
+        val runs = folder.resolve("runs.log")
+        val counting =
+            fakeGit(
+                "echo run >> '$runs'; while IFS= read -r name; do printf '%s commit 0\\n\\n' \"\$name\"; done",
+            )
+        val short = List(300) { "a".repeat(40) + it.toString().padStart(4, '0') }.map { it.take(40) }
+        val distinct = List(300) { "%040d".format(it) }
+        val long = "b".repeat(64)
+
+        fun runs(hashes: List<String>): Int {
+            java.nio.file.Files
+                .deleteIfExists(runs)
+            assertEquals(hashes.size, counting.rawCommits(root, hashes)?.size)
+            return java.nio.file.Files
+                .readAllLines(runs)
+                .size
+        }
+
+        assertEquals(1, runs(distinct))
+        assertEquals(2, runs(distinct + long))
+        assertEquals(2, runs(listOf(long) + distinct))
+        assertEquals(2, runs(distinct.take(100) + long + distinct.drop(100)))
+        assertEquals(1, short.take(1).let { runs(it) })
+    }
 }
