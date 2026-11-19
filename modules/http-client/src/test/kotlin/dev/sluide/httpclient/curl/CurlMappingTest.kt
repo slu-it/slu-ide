@@ -3,7 +3,6 @@ package dev.sluide.httpclient.curl
 import dev.sluide.converting.ConversionResult
 import dev.sluide.converting.OptionValues
 import dev.sluide.converting.ReadResult
-import dev.sluide.converting.WriteResult
 import dev.sluide.converting.convert
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest

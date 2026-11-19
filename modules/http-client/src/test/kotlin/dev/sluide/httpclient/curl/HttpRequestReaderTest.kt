@@ -10,7 +10,6 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.time.Duration
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /** [HttpRequestReader]: what a `.http` text becomes as [CurlRequest]s and the notes for what curl has no place for. */
 internal class HttpRequestReaderTest {
