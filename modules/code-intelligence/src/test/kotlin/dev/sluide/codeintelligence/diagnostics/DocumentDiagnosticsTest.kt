@@ -1,5 +1,6 @@
 package dev.sluide.codeintelligence.diagnostics
 
+import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import dev.sluide.codeintelligence.BoundEditorHarness
 import dev.sluide.codeintelligence.ManualDelays
@@ -21,6 +22,7 @@ import org.eclipse.lsp4j.RelatedUnchangedDocumentDiagnosticReport
 import org.eclipse.lsp4j.Unregistration
 import org.eclipse.lsp4j.UnregistrationParams
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException
+import org.eclipse.lsp4j.jsonrpc.json.MessageJsonHandler
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode
 import org.junit.jupiter.api.AfterEach
@@ -43,6 +45,7 @@ class DocumentDiagnosticsTest {
     lateinit var folder: Path
 
     private lateinit var harness: BoundEditorHarness<LspTestServer>
+    private lateinit var diagnostics: DocumentDiagnostics
     private val delays = ManualDelays()
     private val shownCount = AtomicInteger()
 
@@ -55,13 +58,16 @@ class DocumentDiagnosticsTest {
     ) {
         harness =
             BoundEditorHarness(folder, text, newServer, { binding ->
-                listOf(
-                    DocumentDiagnostics(binding, 300.milliseconds, delays::schedule) { shownCount.incrementAndGet() },
-                )
+                diagnostics =
+                    DocumentDiagnostics(binding, 300.milliseconds, delays::schedule) { shownCount.incrementAndGet() }
+                listOf(diagnostics)
             })
     }
 
-    private fun pullServer() = LspTestServer { diagnosticProvider = DiagnosticRegistrationOptions(false, false) }
+    private fun pullServer(identifier: String? = null) =
+        LspTestServer {
+            diagnosticProvider = DiagnosticRegistrationOptions(false, false).also { it.identifier = identifier }
+        }
 
     private fun error(
         message: String,
@@ -229,5 +235,261 @@ class DocumentDiagnosticsTest {
         server.client.refreshDiagnostics().get()
         harness.onFx {}
         assertEquals(emptyList(), underlines, "a push for the old name")
+    }
+
+    /** A diagnostic as lsp4j parses a server's JSON: LSP requires the range, but what the JSON lacks stays null. */
+    private fun parsedDiagnostic(range: String?): Diagnostic {
+        val json = "{" + (range?.let { "\"range\":$it," } ?: "") + "\"message\":\"m\"}"
+        return MessageJsonHandler(emptyMap()).gson.fromJson(json, Diagnostic::class.java)
+    }
+
+    private fun pos(character: Int) = "{\"line\":0,\"character\":$character}"
+
+    @Test
+    fun `an edit moves the shown diagnostics, so an answer that places them there changes nothing`() {
+        bind("print(x)\n") { pullServer() }
+        val server = harness.server
+        awaitTrue("pull after open") { server.pulls.size == 1 }
+        server.pulls[0].second.complete(full("r1", error("x undefined", 0, 6, 7)))
+        awaitTrue("shown") { underlines == listOf(StyledRange(6, 7, "diagnostic-error")) }
+
+        harness.onFx { harness.editor.edit(0, 0, "  ") }
+        harness.run(delays)
+        awaitTrue("pull after the change") { server.pulls.size == 2 }
+        server.pulls[1].second.complete(full("r2", error("x undefined", 0, 8, 9)))
+        awaitTrue("answered") { shownCount.get() == 2 }
+        assertEquals(
+            1,
+            harness.onFx { harness.editor.overlayCalls[DIAGNOSTICS_LAYER] },
+            "the overlay followed the edit",
+        )
+    }
+
+    @Test
+    fun `an answer with nothing in it changes nothing and is not asked again`() {
+        bind("x\n") { pullServer() }
+        val server = harness.server
+        awaitTrue("pull after open") { server.pulls.size == 1 }
+        server.pulls[0].second.complete(null)
+        server.client.refreshDiagnostics().get()
+        harness.onFx {}
+        assertEquals(0, shownCount.get())
+        assertEquals(0, delays.scheduled, "nothing to ask again")
+        assertEquals(emptyList(), harness.onFx { diagnostics.all })
+    }
+
+    @Test
+    fun `a pull the server cannot answer because it is not running is not asked again`() {
+        bind("x\n") { pullServer() }
+        val server = harness.server
+        awaitTrue("pull after open") { server.pulls.size == 1 }
+        harness.onFx { harness.binding.session.restart() }
+        awaitTrue("stopped") { harness.onFx { harness.binding.session.state.value } != ServerState.Running }
+        harness.onFx { diagnostics.pull() }
+        harness.onFx {}
+        assertEquals(0, delays.scheduled)
+    }
+
+    @Test
+    fun `a server that does not answer pulls is not asked on refresh, after a change or a move`() {
+        bind("x\n") { LspTestServer() }
+        val server = harness.server
+        server.client.refreshDiagnostics().get()
+        harness.onFx { harness.editor.edit(0, 0, "a") }
+        harness.onFx { harness.editor.fileProperty.set(folder.resolve("b.py")) }
+        // A request after the notifications: answered once the client handled what came before.
+        server.client.refreshDiagnostics().get()
+        harness.onFx {}
+        assertEquals(emptyList(), server.pulls.toList())
+        assertEquals(0, delays.scheduled, "no pull to wait for")
+    }
+
+    @Test
+    fun `a change of the server's other features neither asks again nor drops what was pulled`() {
+        bind("x = y\n") { pullServer() }
+        val server = harness.server
+        awaitTrue("pull after open") { server.pulls.size == 1 }
+        server.pulls[0].second.complete(full("r1", error("y undefined", 0, 4, 5)))
+        awaitTrue("shown") { underlines?.size == 1 }
+        val before = shownCount.get()
+
+        val other = Registration("w", "workspace/didChangeWatchedFiles", JsonObject())
+        server.client.registerCapability(RegistrationParams(listOf(other))).get()
+        awaitTrue("the features changed") {
+            harness.onFx {
+                harness.binding.session.features
+                    .supports("workspace/didChangeWatchedFiles")
+            }
+        }
+        harness.onFx {}
+        assertEquals(1, server.pulls.size, "no new pull")
+        assertEquals(before, shownCount.get(), "nothing shown again")
+        assertEquals(listOf(StyledRange(4, 5, "diagnostic-error")), underlines)
+    }
+
+    @Test
+    fun `a server that never answered pulls is not asked when other features arrive`() {
+        bind("x\n") { LspTestServer() }
+        val server = harness.server
+        val other = Registration("w", "workspace/didChangeWatchedFiles", JsonObject())
+        server.client.registerCapability(RegistrationParams(listOf(other))).get()
+        awaitTrue("the features changed") {
+            harness.onFx {
+                harness.binding.session.features
+                    .supports("workspace/didChangeWatchedFiles")
+            }
+        }
+        harness.onFx {}
+        assertEquals(emptyList(), server.pulls.toList())
+        assertEquals(0, shownCount.get())
+    }
+
+    @Test
+    fun `a restarted server that answers pulls is asked afresh and what shows is shown once per change`() {
+        bind("x\n") { pullServer() }
+        val first = harness.server
+        awaitTrue("pull after open") { first.pulls.size == 1 }
+        first.pulls[0].second.complete(full("r1", error("x undefined", 0, 0, 1)))
+        awaitTrue("shown") { underlines?.size == 1 }
+        assertEquals(1, shownCount.get())
+
+        harness.onFx { harness.binding.session.restart() }
+        awaitTrue("cleared when the server stopped") { underlines == emptyList<StyledRange>() }
+        awaitTrue("restarted") { harness.fake.started.size == 2 }
+        harness.awaitState(ServerState.Running)
+        val second = harness.server
+        awaitTrue("pull of the new server") { second.pulls.size == 1 }
+        assertNull(second.pulls[0].first.previousResultId, "the new server knows no result id")
+        second.pulls[0].second.complete(full("r1", error("x undefined", 0, 0, 1)))
+        awaitTrue("shown again") { underlines?.size == 1 }
+        assertEquals(
+            3,
+            shownCount.get(),
+            "shown, cleared on the stop, shown again: the start of the new server shows nothing",
+        )
+    }
+
+    @Test
+    fun `the identifier of a pull is the registered one, else the declared one, else none`() {
+        val noIdentifier = JsonObject().apply { add("identifier", JsonObject()) }
+        val cases =
+            listOf(
+                Triple("registered beats declared", pullOptions, "ty"),
+                Triple("registered without identifier", JsonObject(), "declared"),
+                Triple("registered with an identifier that is no string", noIdentifier, "declared"),
+                Triple("registered without options", null, "declared"),
+            )
+        for ((name, options, expected) in cases) {
+            bind("x\n") { pullServer("declared") }
+            val server = harness.server
+            awaitTrue("pull after open") { server.pulls.isNotEmpty() }
+            assertEquals("declared", server.pulls[0].first.identifier, "declared by the capabilities")
+            val registration = Registration("d", PULL_METHOD, options)
+            server.client.registerCapability(RegistrationParams(listOf(registration))).get()
+            server.client.refreshDiagnostics().get()
+            awaitTrue("pull on refresh") { server.pulls.size == 2 }
+            assertEquals(expected, server.pulls[1].first.identifier, name)
+            harness.close()
+        }
+
+        bind("x\n") { LspTestServer() }
+        val registration = Registration("d", PULL_METHOD, JsonObject())
+        harness.server.client
+            .registerCapability(RegistrationParams(listOf(registration)))
+            .get()
+        awaitTrue("pull after the registration") { harness.server.pulls.isNotEmpty() }
+        assertNull(
+            harness.server.pulls[0]
+                .first.identifier,
+            "neither registered nor declared",
+        )
+    }
+
+    @Test
+    fun `a pushed set with parts left out places what it can and drops what has no place`() {
+        bind("héllo wörld\n") { LspTestServer() }
+        val server = harness.server
+        val sets =
+            listOf(
+                parsedDiagnostic(null),
+                parsedDiagnostic("{\"end\":${pos(3)}}"),
+                // No end: empty at the start, widened to the character after it.
+                parsedDiagnostic("{\"start\":${pos(1)}}"),
+                // An end before the start counts as empty at the start.
+                parsedDiagnostic("{\"start\":${pos(7)},\"end\":${pos(2)}}"),
+                null,
+            )
+        @Suppress("UNCHECKED_CAST")
+        server.client.publishDiagnostics(PublishDiagnosticsParams(uri, sets as List<Diagnostic>))
+        awaitTrue("shown") { underlines?.size == 2 }
+        assertEquals(
+            listOf(StyledRange(1, 2, "diagnostic-error"), StyledRange(7, 8, "diagnostic-error")),
+            underlines,
+        )
+        assertEquals(listOf(1 to 1, 7 to 7), harness.onFx { diagnostics.all.map { it.ownStart to it.ownEnd } })
+    }
+
+    @Test
+    fun `positions count UTF-16 units, past a surrogate pair and past the end of the line`() {
+        val emoji = String(Character.toChars(0x1F600))
+        bind("a${emoji}b\ncd\n") { LspTestServer() }
+        val server = harness.server
+        server.client.publishDiagnostics(
+            PublishDiagnosticsParams(uri, listOf(error("b", 0, 3, 4), error("past the line", 1, 1, 99))),
+        )
+        awaitTrue("shown") { underlines?.size == 2 }
+        assertEquals(
+            listOf(StyledRange(3, 4, "diagnostic-error"), StyledRange(6, 7, "diagnostic-error")),
+            underlines,
+        )
+    }
+
+    @Test
+    fun `closing clears the overlay, drops the pending pull and stops following the editor and the server`() {
+        bind("print(x)\n") { LspTestServer() }
+        val server = harness.server
+        registerPull(server)
+        awaitTrue("pull after the registration") { server.pulls.size == 1 }
+        server.pulls[0].second.complete(full("r1", error("x undefined", 0, 6, 7)))
+        awaitTrue("shown") { underlines?.size == 1 }
+        harness.onFx { harness.editor.edit(0, 0, "a") }
+        assertEquals(1, delays.count, "a pull waits for the debounce")
+
+        harness.onFx { diagnostics.close() }
+        assertEquals(emptyList(), underlines, "the underlines are gone")
+        assertEquals(0, delays.count, "the pending pull was dropped")
+        val ownStart = harness.onFx { diagnostics.all.single().ownStart }
+        val shown = shownCount.get()
+
+        harness.onFx { harness.editor.edit(0, 0, "bb") }
+        harness.onFx { diagnostics.pull() }
+        server.client.refreshDiagnostics().get()
+        server.client.unregisterCapability(UnregistrationParams(listOf(Unregistration("d", PULL_METHOD)))).get()
+        awaitTrue("the features changed") {
+            !harness.onFx {
+                harness.binding.session.features
+                    .supports(PULL_METHOD)
+            }
+        }
+        harness.onFx {}
+        assertEquals(ownStart, harness.onFx { diagnostics.all.single().ownStart }, "edits are not followed any more")
+        assertEquals(1, server.pulls.size, "no pull after the close")
+        assertEquals(0, delays.count, "nothing waits any more")
+        assertEquals(shown, shownCount.get(), "nothing shown")
+    }
+
+    @Test
+    fun `an answer that arrives after closing, and a push, show nothing`() {
+        bind("print(x)\n") { pullServer() }
+        val server = harness.server
+        awaitTrue("pull after open") { server.pulls.size == 1 }
+        harness.onFx { diagnostics.close() }
+        val calls = harness.onFx { harness.editor.overlayCalls[DIAGNOSTICS_LAYER] }
+        server.pulls[0].second.complete(full("r1", error("x undefined", 0, 6, 7)))
+        server.client.publishDiagnostics(PublishDiagnosticsParams(uri, listOf(error("pushed", 0, 0, 1))))
+        server.client.refreshDiagnostics().get()
+        harness.onFx {}
+        assertEquals(calls, harness.onFx { harness.editor.overlayCalls[DIAGNOSTICS_LAYER] })
+        assertEquals(emptyList(), harness.onFx { diagnostics.all })
     }
 }
