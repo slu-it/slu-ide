@@ -56,6 +56,21 @@ class TextReplacementTest {
     }
 
     @Test
+    fun `is empty only when it replaces nothing by nothing`() {
+        assertFalse(TextReplacement(2, 2, "x").isEmpty)
+        assertFalse(TextReplacement(2, 3, "").isEmpty)
+        assertTrue(TextReplacement(2, 2, "").isEmpty)
+    }
+
+    @Test
+    fun `does not move a lone surrogate that the other text completes`() {
+        // The old text has no pair there to split: the other half is only inserted.
+        assertTurns("a\uD83D", "a😀", TextReplacement(2, 2, "\uDE00"))
+        assertTurns("\uDE00", "😀", TextReplacement(0, 0, "\uD83D"))
+        assertTurns("😀", "😁", TextReplacement(0, 2, "😁"))
+    }
+
+    @Test
     fun `maps positions of the old text to the new one`() {
         val replacement = TextReplacement(4, 6, "xyz")
         assertEquals(2, replacement.map(2))

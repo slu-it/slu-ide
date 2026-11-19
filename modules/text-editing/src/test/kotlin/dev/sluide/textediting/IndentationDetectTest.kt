@@ -38,6 +38,36 @@ class IndentationDetectTest {
     }
 
     @Test
+    fun `blank lines count for neither the style nor the steps`() {
+        val text = "a\n    b\n      \n\t\t\n\t\t\n    c\n"
+        assertEquals(IndentStyle(useTabs = false, size = 4), Indentation.detect(text))
+    }
+
+    @Test
+    fun `single-space continuations do not outvote a tab line`() {
+        assertEquals(true, Indentation.detect("/*\n * a\n * b\n * c\n */\n\tx\n")?.useTabs)
+    }
+
+    @Test
+    fun `a line indented with tabs takes no part in the steps of the spaces`() {
+        assertEquals(4, Indentation.detect("a\n    b\n\t\tc\n    d\n    e\n")?.size)
+    }
+
+    @Test
+    fun `steps are measured from the previous line, from 2 to 8`() {
+        assertEquals(4, Indentation.detect("a\n    b\n        c\n        d\n")?.size)
+        assertEquals(2, Indentation.detect("  a\n   b\n    c\n")?.size)
+        assertEquals(2, Indentation.detect("a\n  b\n")?.size)
+        assertEquals(8, Indentation.detect("a\n        b\n")?.size)
+        assertNull(Indentation.detect("a\n         b\n"))
+    }
+
+    @Test
+    fun `on a tie of steps the smaller one wins whichever came first`() {
+        assertEquals(2, Indentation.detect("a\n    b\n      c\n")?.size)
+    }
+
+    @Test
     fun `returns null when the indentation cannot be told`() {
         assertNull(Indentation.detect(""))
         assertNull(Indentation.detect("a\nb\n"))

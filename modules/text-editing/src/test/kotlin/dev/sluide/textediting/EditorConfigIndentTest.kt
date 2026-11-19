@@ -6,6 +6,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class EditorConfigIndentTest {
     @TempDir
@@ -96,6 +97,46 @@ class EditorConfigIndentTest {
     }
 
     @Test
+    fun `reads keys and values in any case and with surrounding blanks`() {
+        // The EditorConfig specification: keys and values of the supported properties are case insensitive.
+        editorConfig(".", "root = true\n[*]\nINDENT_STYLE =  TAB \nIndent_Size = Tab\nTab_Width =  3 \n")
+        assertEquals(EditorConfigIndent(true, 3, 3), EditorConfigIndent.of(folder.resolve("a.go")))
+    }
+
+    @Test
+    fun `completes the size from the tab width only for indent_size tab or indent_style tab`() {
+        editorConfig("sizeTab", "root = true\n[*]\nindent_style = space\nindent_size = tab\ntab_width = 3\n")
+        editorConfig("sizeTabAlone", "root = true\n[*]\nindent_size = tab\n")
+        editorConfig("space", "root = true\n[*]\nindent_style = space\ntab_width = 3\n")
+        editorConfig("width", "root = true\n[*]\ntab_width = 3\n")
+        editorConfig("tabAlone", "root = true\n[*]\nindent_style = tab\n")
+        assertEquals(EditorConfigIndent(false, 3, 3), EditorConfigIndent.of(folder.resolve("sizeTab/a.c")))
+        assertEquals(EditorConfigIndent(null, null, null), EditorConfigIndent.of(folder.resolve("sizeTabAlone/a.c")))
+        assertEquals(EditorConfigIndent(false, null, 3), EditorConfigIndent.of(folder.resolve("space/a.c")))
+        assertEquals(EditorConfigIndent(null, null, 3), EditorConfigIndent.of(folder.resolve("width/a.c")))
+        assertEquals(EditorConfigIndent(true, null, null), EditorConfigIndent.of(folder.resolve("tabAlone/a.c")))
+    }
+
+    @Test
+    fun `ignores a size or tab width that is not positive`() {
+        editorConfig("zero", "root = true\n[*]\nindent_size = 0\ntab_width = 0\n")
+        editorConfig("negative", "root = true\n[*]\nindent_size = -2\ntab_width = -4\n")
+        editorConfig("fallback", "root = true\n[*]\nindent_size = 2\ntab_width = 0\n")
+        editorConfig("text", "root = true\n[*]\nindent_size = 2\ntab_width = wide\n")
+        assertEquals(EditorConfigIndent(), EditorConfigIndent.of(folder.resolve("zero/a.c")))
+        assertEquals(EditorConfigIndent(), EditorConfigIndent.of(folder.resolve("negative/a.c")))
+        assertEquals(EditorConfigIndent(null, 2, 2), EditorConfigIndent.of(folder.resolve("fallback/a.c")))
+        assertEquals(EditorConfigIndent(null, 2, 2), EditorConfigIndent.of(folder.resolve("text/a.c")))
+        assertEquals(
+            EditorConfigIndent(null, 1, 1),
+            run {
+                editorConfig("one", "root = true\n[*]\nindent_size = 1\n")
+                EditorConfigIndent.of(folder.resolve("one/a.c"))
+            },
+        )
+    }
+
+    @Test
     fun `sets nothing for an invalid or unreadable editorconfig`() {
         editorConfig("invalid", "[*\nindent_size = 2\n")
         folder.resolve("directory/.editorconfig").createDirectories()
@@ -115,6 +156,27 @@ class EditorConfigIndentTest {
         assertEquals(IndentStyle(false, 3), IndentStyle.forFile(folder.resolve("partial/a.c"), "a\n   b\n"))
         assertEquals(IndentStyle(true, 4), IndentStyle.forFile(folder.resolve("none/a.c"), tabbed))
         assertEquals(IndentStyle.DEFAULT, IndentStyle.forFile(folder.resolve("none/a.c"), "a\nb\n"))
+    }
+
+    @Test
+    fun `the tab width of a file comes from editorconfig, else from the size`() {
+        editorConfig("both", "root = true\n[*]\nindent_size = 2\ntab_width = 8\n")
+        editorConfig("width", "root = true\n[*]\nindent_style = space\ntab_width = 8\n")
+        editorConfig("none", "root = true\n")
+
+        assertEquals(IndentStyle(false, 2, 8), IndentStyle.forFile(folder.resolve("both/a.c"), "a\n   b\n"))
+        assertEquals(IndentStyle(false, 3, 8), IndentStyle.forFile(folder.resolve("width/a.c"), "a\n   b\n"))
+        assertEquals(IndentStyle(false, 3, 3), IndentStyle.forFile(folder.resolve("none/a.c"), "a\n   b\n"))
+    }
+
+    @Test
+    fun `a style needs a positive size and tab width`() {
+        assertEquals(1, IndentStyle(false, 1, 1).size)
+        val size = assertFailsWith<IllegalArgumentException> { IndentStyle(false, 0, 4) }
+        assertEquals("Indent size and tab width must be positive: 0, 4", size.message)
+        val width = assertFailsWith<IllegalArgumentException> { IndentStyle(true, 4, 0) }
+        assertEquals("Indent size and tab width must be positive: 4, 0", width.message)
+        assertFailsWith<IllegalArgumentException> { IndentStyle(true, -1, -1) }
     }
 
     @Test

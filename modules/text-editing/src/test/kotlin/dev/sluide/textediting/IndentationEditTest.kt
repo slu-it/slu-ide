@@ -1,5 +1,7 @@
 package dev.sluide.textediting
 
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -29,6 +31,24 @@ class IndentationEditTest {
         assertEquals("\tb\n\t|", newline("\tb|"))
         assertEquals("x\n|", newline("x|"))
         assertEquals("\n|", newline("|"))
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["f()|", "a[1]|", "{x}|", "  f()  |"])
+    fun `adds no level after a closing bracket on Enter`(marked: String) {
+        val indent = marked.takeWhile { it == ' ' }
+        assertEquals("${marked.dropLast(1)}\n$indent|", newline(marked))
+    }
+
+    @Test
+    fun `adds one level after an opening bracket on Enter`() {
+        assertEquals("(\n    |", newline("(|"))
+    }
+
+    @Test
+    fun `Tab replaces a selection that ends right before a line break within its line`() {
+        assertEquals("    |\ncd", indent("^ab|\ncd"))
+        assertEquals("    |\ncd", indent("|ab^\ncd"))
     }
 
     @Test
