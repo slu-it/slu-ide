@@ -81,6 +81,7 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
         assertNull(editor.viewOf(textFile("closed.txt")))
 
         robot.interact { assertTrue(assertNotNull(view.host).save(a)) }
+        robot.interact { assertFalse(assertNotNull(view.host).save(textFile("closed.txt")), "a file that is not open") }
         assertEquals("a1", a.readText())
         assertEquals(listOf("a.txt"), tabTitles(robot))
     }

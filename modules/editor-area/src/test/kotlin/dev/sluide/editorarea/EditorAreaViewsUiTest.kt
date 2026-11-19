@@ -225,6 +225,7 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         }
         assertTrue(source.isFocused, "the source, not the preview: ${stage.scene.focusOwner}")
         robot.interact { assertFalse(host.openFile(dir.resolve("missing.txt"), 3), "a file that cannot be opened") }
+        robot.interact { assertFalse(host.openFile(dir.resolve("missing.txt")), "without a line") }
     }
 
     @Test
