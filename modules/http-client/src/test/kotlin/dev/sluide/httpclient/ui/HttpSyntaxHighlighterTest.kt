@@ -411,6 +411,51 @@ class HttpSyntaxHighlighterTest {
     }
 
     @Test
+    fun `a body without a highlighter for its language stays plain`() {
+        assertEquals(
+            listOf("POST" to KEYWORD, "http://x" to STRING, "Content-Type" to PROPERTY),
+            snippets("POST http://x\nContent-Type: application/json\n\n{\"a\": 1}\n", HttpSyntaxHighlighter { null }),
+        )
+    }
+
+    @Test
+    fun `spans after the last variable are kept`() {
+        assertEquals(
+            listOf("GET" to KEYWORD, "{{h}}" to ANNOTATION, "/x" to STRING, "Accept" to PROPERTY),
+            snippets("GET {{h}}/x\nAccept: a\n"),
+        )
+    }
+
+    @Test
+    fun `a script starts at its own opening delimiter and ends at the first closing one after it`() {
+        val recording = Recording()
+        val highlighter = HttpSyntaxHighlighter(recording)
+
+        // `{%}` is no closed script: its `%}` overlaps the opening delimiter, so the code runs to the last line.
+        assertEquals(
+            listOf(">" to OPERATOR, "{%" to OPERATOR, "}\n" to KEYWORD),
+            snippets("GET http://x\n\n> {%}\n", highlighter).drop(2),
+        )
+        // The last line of the text, without a line break after it.
+        assertEquals(
+            listOf(">" to OPERATOR, "{%" to OPERATOR, " x" to KEYWORD),
+            snippets("GET http://x\n\n> {% x", highlighter).drop(2),
+        )
+        // A closing delimiter at the start of a line ends the script, the next script is its own.
+        assertEquals(
+            listOf(
+                ">" to OPERATOR,
+                "{%" to OPERATOR,
+                "\na\n" to KEYWORD,
+                "%}" to OPERATOR,
+                ">" to OPERATOR,
+                "{%" to OPERATOR,
+            ),
+            snippets("GET http://x\n\n> {%\na\n%}\n> {%\n", highlighter).drop(2).take(6),
+        )
+    }
+
+    @Test
     fun `old Mac line breaks and unclosed or nested braces are handled`() {
         assertEquals(
             listOf("GET" to KEYWORD, "http://x/{{a" to STRING, "Accept" to PROPERTY),

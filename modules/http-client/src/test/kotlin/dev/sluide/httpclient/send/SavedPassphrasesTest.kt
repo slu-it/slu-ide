@@ -7,6 +7,8 @@ import dev.sluide.secrets.SavedSecretEntry
 import org.junit.jupiter.api.io.TempDir
 import tools.jackson.databind.json.JsonMapper
 import java.nio.file.Path
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -24,18 +26,24 @@ class SavedPassphrasesTest {
     private var unavailable: String? = null
     private var noKey: String? = null
     private var beforeDecrypt: () -> Unit = {}
+    private var encryptFailure: Encrypted.Failed? = null
+    private var thrown: RuntimeException? = null
 
     /** A fake cipher: the value names the passphrase and its context, and decrypts only for that context. */
     private fun encrypt(
         plain: CharArray,
         context: String,
-    ): Encrypted = Encrypted.Value("v1:${String(plain)}|$context")
+    ): Encrypted {
+        thrown?.let { throw it }
+        return encryptFailure ?: Encrypted.Value("v1:${String(plain)}|$context")
+    }
 
     private fun decrypt(
         value: String,
         context: String,
     ): Decrypted {
         beforeDecrypt()
+        thrown?.let { throw it }
         noKey?.let { return Decrypted.NoKey(it) }
         val prefix = "v1:"
         val suffix = "|$context"
@@ -163,6 +171,116 @@ class SavedPassphrasesTest {
 
         assertTrue(saved.remove(setOf("$certificate\n$key")))
         assertEquals(listOf("client.p12"), saved.entries().map { it.label })
+    }
+
+    private val logName = SavedPassphrases::class.java.name
+
+    @Test
+    fun `a failing secret store counts as nothing saved and its log names no secret`() {
+        LogCapture(logName).use { log ->
+            thrown = IllegalStateException("hunter2 is the passphrase")
+
+            assertEquals(Encrypted.Failed("the secret store failed"), saved.save(files, "hunter2".toCharArray()))
+            assertNull(stored())
+
+            thrown = null
+            saved.save(files, "hunter2".toCharArray())
+            thrown = IllegalStateException("hunter2 is the passphrase")
+            assertNull(saved.load(files))
+            assertEquals("the secret store failed", failingUnavailable().unavailableReason())
+
+            assertEquals(
+                listOf(
+                    "Cannot encrypt a passphrase: java.lang.IllegalStateException",
+                    "Cannot decrypt a saved passphrase: java.lang.IllegalStateException",
+                    "Cannot tell whether passphrases can be saved: java.lang.IllegalStateException",
+                ),
+                log.lines.toList(),
+            )
+            assertTrue(log.lines.none { "hunter2" in it })
+        }
+    }
+
+    private fun failingUnavailable() =
+        SavedPassphrases(store, ::encrypt, ::decrypt) { throw IllegalStateException("hunter2 is the passphrase") }
+
+    @Test
+    fun `a refusal of the secret store is passed on and nothing is stored`() {
+        encryptFailure = Encrypted.Failed("needs secret-tool")
+
+        assertEquals(Encrypted.Failed("needs secret-tool"), saved.save(files, "x".toCharArray()))
+
+        assertNull(stored())
+    }
+
+    @Test
+    fun `an unreadable shared file cannot be written and lists nothing`() {
+        dir.resolve("shared.json").writeText("{ not json")
+        LogCapture(logName).use { log ->
+            assertEquals(
+                Encrypted.Failed("~/.sluide/shared.json cannot be written"),
+                saved.save(files, "x".toCharArray()),
+            )
+            assertEquals(false, saved.remove(setOf("a")))
+            assertEquals(emptyList(), saved.entries())
+            assertNull(saved.load(files))
+            assertEquals(emptyList(), log.lines.toList())
+        }
+        assertEquals("{ not json", dir.resolve("shared.json").readText())
+    }
+
+    @Test
+    fun `entries without readable files or value are skipped and a repeated one counts once`() {
+        seed(
+            """{"passphrases":[
+                {"files":[1],"value":"v1:a"},
+                {"files":"x","value":"v1:b"},
+                {"files":["a"],"value":5},
+                {"files":["a"]},
+                {"files":["$certificate","$key"],"value":"v1:first|$contextJson"},
+                {"files":["$certificate","$key"],"value":"v1:second|$contextJson"}
+            ]}""",
+        )
+
+        assertEquals(listOf("$certificate\n$key"), saved.entries().map { it.id })
+        assertEquals("first", plain(saved.load(files)))
+    }
+
+    @Test
+    fun `removing by id keeps the others, also entries it cannot read`() {
+        seed(
+            """{"passphrases":[{"files":["a"],"value":"v1:a"},{"files":["b"],"value":"v1:b"},"broken",{"files":[],"value":"v1:c"}]}""",
+        )
+
+        assertTrue(saved.remove(setOf("a")))
+        assertEquals(listOf("b"), saved.entries().map { it.id })
+        assertTrue(saved.remove(setOf("unknown")))
+
+        assertEquals(
+            mapper.readTree(
+                """{"passphrases":[{"files":["b"],"value":"v1:b"},"broken",{"files":[],"value":"v1:c"}]}""",
+            ),
+            stored(),
+        )
+    }
+
+    @Test
+    fun `the passphrase store of SslContexts goes through the same functions`() {
+        val asStore = saved.asPassphraseStore()
+
+        assertEquals(Encrypted.Value("v1:pw|$context"), asStore.save(files, "pw".toCharArray()))
+        assertEquals("pw", plain(asStore.load(files)))
+        asStore.remove(files)
+        assertNull(asStore.load(files))
+    }
+
+    @Test
+    fun `replaces a shared httpClient field that is not an object`() {
+        store.updateShared { it.put("httpClient", "oops") }
+
+        saved.save(files, "pw".toCharArray())
+
+        assertEquals("pw", plain(saved.load(files)))
     }
 
     @Test
