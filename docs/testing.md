@@ -155,6 +155,9 @@ A behavior is tested once, at the lowest level that can see it
   filled only on showing never opens in the app (the Databases object tree). Read its `items` as the app would.
 - `lookup(...).queryAllAs(...)` returns nodes in no particular order; sort (e.g. by `TreeCell.index`) before asserting.
 - Native dialogs (`DirectoryChooser`) cannot be driven by TestFX; test the logic behind them (`ProjectService`).
+- A UI test that drives a flow which can end in an error or question dialog replaces that seam (records the errors and
+  asserts none): a real `Alert` blocks the FX thread, so a broken path hangs instead of failing, and a mutation run's
+  UI stage times out on it (New Scratch from Clipboard hung 32 minutes with the clipboard read removed).
 - Large UI test subjects are split by topic: an abstract `<Subject>UiFixture` (fake sources, `@AfterEach`, helpers)
   and one `<Subject><Topic>UiTest` per topic (`GitLogView*`, `GitLogWrites*`, `EditorArea*`, `FileExplorerView*`,
   `MainWindow*`).
@@ -302,7 +305,9 @@ DISPLAY=:107 xdotool key ctrl+o                      # drive the UI
   paste it into an editor tab of the app. Never write with them (it lands on the user's clipboard). To put an image
   (or other content) on the X clipboard, run a small JavaFX program on the app's display that sets it and stays alive
   (`--module-path` with the `javafx-base`/`javafx-graphics` linux jars from `~/.gradle/caches`; the sandbox JDK is
-  headless, so AWT's clipboard is not available).
+  headless, so AWT's clipboard is not available). Start it with `DISPLAY` already set (else it fails with "Unable to
+  open DISPLAY" and the clipboard stays empty), and stop it by its pid (`$!`): a `pkill -f`/`pgrep -f` pattern that
+  appears in your own command line matches and kills your own shell (a `[S]etClip` bracket keeps it from matching).
 - The sandbox JDK is headless (no `libawt_xawt`), and the app runs with `.headless(false)`: anything that touches
   `BufferedImage`/`ImageIO` (pasted images, SVG → PNG) fails with an `UnsatisfiedLinkError` while `DISPLAY` is set.
   Start the app with `JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -Djava.awt.headless=true" run-app.sh …` for such checks

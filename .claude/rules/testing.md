@@ -32,6 +32,8 @@ Details, examples and the stories behind these rules: `docs/testing.md`, ADR 008
 - Wait on a signal (idle barrier, latch, log line, sentinel, or a poll loop with a deadline), never a fixed sleep; a
   negative check without a signal keeps a short sleep with a `//` reason. Delays and debounces are constructor
   parameters with the real default.
+- A UI test whose flow can show an error or question dialog replaces that seam: a real `Alert` blocks the FX thread,
+  so a broken path hangs instead of failing (`docs/testing.md`, "Writing UI tests").
 - No synthetic OS input (`clickOn`, `moveTo`, `type`, `scroll`) unless only real input can test it (`//` reason);
   `interact` already waits for FX events.
 - A test's name claims only what it asserts: "without saving", "zeroes the array", "dismissible" each need their
