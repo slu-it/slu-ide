@@ -57,6 +57,7 @@ assembled from Gradle modules.
 | `text-editing` | foundation (library, no Spring beans) | Logic of editing text without JavaFX: encodings (UTF-8, else Windows-1252), line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line, sentence ranges (`SentenceRanges`, English and German abbreviations). | [0020](adr/0020-editing-and-saving-files.md), [0023](adr/0023-indentation-from-editorconfig.md), [0098](adr/0098-windows-1252-fallback.md) |
 | `file-icons` | foundation (library, no Spring beans) | File-type icons and their colours, shared by the explorer, the git log and the scratches. | [0012](adr/0012-file-icons.md), [0047](adr/0047-module-dependencies-and-shared-modules.md) |
 | `image-limits` | foundation (library, no Spring beans) | Size caps of images from outside, checked before JavaFX decodes them, without JavaFX: the header reader (`ImageHeaders`: PNG, JPEG, GIF, BMP, WebP, ICO; frames, baseline JPEG), the caps and their check and wording (`ImageLimits`: 40 megapixels, 100 for baseline JPEG; fail closed), the bounded file read, and test fixtures (`TestImages`). | [0175](adr/0175-image-size-caps.md) |
+| `text-types` | foundation (library, no Spring beans) | Guesses the type (file extension) of a text without JavaFX or libraries: the type list in picker order (`TextTypes`), built-in rules (shebang, markup, Markdown, Mermaid, diff, SQL, Bicep, keyword heuristics for Kotlin, Java, Python, JavaScript, TypeScript, CSS) and the `TextTypeSource` seam for Converting's data scores (`TextTypeDetector`). | [0187](adr/0187-text-type-detection.md) |
 | `test-support` | foundation (library, test-only, no Spring beans) | Generic helpers for the tests of other modules, used only as `testImplementation`: `LogCapture` (records of a JDK platform logger with level, message and throwable) and `collidingWith` / `collidingLettersWith` (strings with the hash code of a given one). | [0186](adr/0186-test-support-module.md) |
 | `project-trust` | foundation | Whether the tools of an opened folder may run what it defines: the `ProjectTrustCheck` extension point, the combined decision and its storage. | [0053](adr/0053-project-trust.md) |
 | `background-tasks` | foundation | Per-window background tasks (registry and indicator) and logged named threads (`NamedThreads`). | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
@@ -79,8 +80,8 @@ modules are small and meant for sharing; they may be plain libraries without Spr
 - Modules (`modules/*`) never depend on `ide`. `ide` depends on all feature modules and wires them together.
 - Modules may depend on other modules ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md)), without cycles
   (Gradle refuses cycles anyway), but only on a module of the same capability family (`git-log` -> `git`) or on a small
-  foundation module meant for sharing (`settings`, `file-watcher`, `text-editing`, `file-icons`, `image-limits`,
-  `test-support` (tests only),
+  foundation module meant for sharing (`settings`, `file-watcher`, `text-editing`, `text-types`, `file-icons`,
+  `image-limits`, `test-support` (tests only),
   `project-trust`, `background-tasks`, `project-data`, `secrets`, `local-models`, `language-servers`, `server-tools`,
   `library-code`).
   Unrelated feature modules do not depend on each other: `ide` wires them through callbacks (`git-log` with `editor-area`

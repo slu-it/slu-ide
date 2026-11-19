@@ -211,6 +211,7 @@ updated when the summary or keywords no longer fit.
 | [0184](adr/0184-preview-of-places-in-caret-lists.md) | A shared file preview in file-viewers, under Find in Files and the Find Usages / Go to Definition lists | `FilePreview`, `PreviewTexts`, `PreviewPlace`, `TargetPreviewTexts`, `targetPlace`, `ci-preview-target`, `CaretPopup` footer, `onSelected`, Find Usages, Go to Definition | amends 0177, 0146, 0145; see 0084, 0179 |
 | [0185](adr/0185-mutation-testing-with-pitest.md) | Mutation testing with pitest: `mutation-check.sh` in two stages, a Kotlin junk filter, replaces `break-check.sh` | pitest, mutation, mutation-check, break-check, survivors, junk filter, UI stage, `tools/pitest-kotlin`, `KOTLIN_JUNK`, `LINES` | amends 0178 |
 | [0186](adr/0186-test-support-module.md) | Test-only module `test-support` for generic test helpers (`LogCapture`, `collidingWith`); only tests depend on it | test-support, `LogCapture`, `collidingWith`, `collidingLettersWith`, hash collision, test helpers, testImplementation, testFixtures | see 0047, 0084 |
+| [0187](adr/0187-text-type-detection.md) | Foundation module `text-types` guesses a text's type: scored rules and sources, ties by list order, below 50 Plain Text | text-types, `TextTypeDetector`, detect type, clipboard text, paste text, extension, shebang, heuristics, Markdown, SQL, Converting scores | see 0047, 0115 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
