@@ -33,7 +33,9 @@ from `Security.Auth` configurations. Thoreau has no secret store of its own and 
   `Proxy-Authorization` (the scheme stays), cookie values in `Cookie`, the values of headers named like keys, tokens
   and secrets (`*-Key`, `*-Token`, `*-Secret`, `ApiKey`), and every occurrence of the tokens that `$auth.token` and
   `$auth.idToken` put into the request (URL, headers, body). Response headers, including `Set-Cookie`, are shown as
-  received; secrets written literally into a body or URL are shown.
+  received; secrets written literally into a body or URL are shown. So are the URL errors of a request that cannot
+  be built ("Invalid URL …", "Only http and https URLs …", "The URL has no host …"): they show the URL as written,
+  in the response pane's error label only, and the log gets only the exception's class name (`docs/safety.md`).
 - **Client certificates** (`SslContexts`): PEM (PKCS#8, encrypted PKCS#8, PKCS#1 RSA), PKCS#12 and DER. With
   `hasCertificatePassphrase`, the passphrase is asked for once per certificate and key file pair and window, in a
   dialog shown with `Platform.runLater` while the worker thread waits (the FX thread never waits for it); Cancel
