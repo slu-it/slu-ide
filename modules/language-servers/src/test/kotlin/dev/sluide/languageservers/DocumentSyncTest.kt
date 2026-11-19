@@ -141,10 +141,17 @@ internal class DocumentSyncTest : DocumentSyncTestBase() {
         val second = session.open("a.py", "abc")
         onFx { first.close() }
 
-        onFx { first.changed(DocumentChange(0, "a", "A")) { "Abc" } }
+        onFx {
+            first.changed(DocumentChange(0, "a", "A")) { "Abc" }
+            first.saved()
+            first.moved(folder.resolve("moved.py"))
+        }
         session.flush(server)
 
         assertEquals(emptyList(), server.changes)
+        assertEquals(emptyList(), server.documentNotifications.filterIsInstance<DidSaveTextDocumentParams>())
+        assertEquals(folder.resolve("a.py"), onFx { second.file })
+        assertFalse(onFx { session.documents.isOpen(folder.resolve("moved.py")) })
         assertEquals("abc" to 1, onFx { second.text to second.version })
     }
 
