@@ -264,7 +264,18 @@ internal object HttpFileParser {
                 problems += ParseProblem(index, "@$tag needs a positive duration such as 30, 500 ms, 30 s or 2 m")
                 return null
             }
-            return when (match.groupValues[2]) {
+            val unit = match.groupValues[2]
+            val tooLong =
+                when (unit) {
+                    "ms" -> amount > MAX_TIMEOUT_SECONDS * 1000
+                    "m" -> amount > MAX_TIMEOUT_SECONDS / 60
+                    else -> amount > MAX_TIMEOUT_SECONDS
+                }
+            if (tooLong) {
+                problems += ParseProblem(index, "@$tag takes at most $MAX_TIMEOUT_SECONDS seconds")
+                return null
+            }
+            return when (unit) {
                 "ms" -> Duration.ofMillis(amount)
                 "m" -> Duration.ofMinutes(amount)
                 else -> Duration.ofSeconds(amount)
@@ -416,3 +427,6 @@ internal object HttpFileParser {
     internal val FILE_REF = Regex("""<(?:@\S*)?\s+(?!\{%)(\S.*)""")
     private val SCRIPT_START = Regex("""^[<>]\s*\{%""")
 }
+
+/** The longest timeout either reader of requests takes, `@timeout` and curl's `-m` alike: nothing below overflows. */
+internal const val MAX_TIMEOUT_SECONDS = 1_000_000_000L

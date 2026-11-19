@@ -2,6 +2,7 @@ package dev.sluide.httpclient.curl
 
 import dev.sluide.converting.ReadResult
 import dev.sluide.httpclient.parse.HttpVersion
+import dev.sluide.httpclient.parse.MAX_TIMEOUT_SECONDS
 import java.math.BigDecimal
 import java.net.URLEncoder
 import java.time.Duration
@@ -453,7 +454,7 @@ internal object CurlReader {
     }
 
     /** The longest timeout, about 31 years: more is surely a mistake, and would overflow as milliseconds. */
-    private val MAX_SECONDS = BigDecimal(1_000_000_000)
+    private val MAX_SECONDS = BigDecimal(MAX_TIMEOUT_SECONDS)
 
     /**
      * URL-encoded with `%20` for spaces and `-._~` and alphanumerics as they are. curl itself sends `+` for a space;

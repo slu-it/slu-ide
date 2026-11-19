@@ -310,6 +310,41 @@ class HttpFileParserTest {
     }
 
     @Test
+    fun `takes timeouts up to the curl cap of 1000000000 seconds in any unit`() {
+        assertEquals(Duration.ofSeconds(1_000_000_000), single("# @timeout 1000000000 s", "GET http://x").tags.timeout)
+        assertEquals(Duration.ofMinutes(16_666_666), single("# @timeout 16666666 m", "GET http://x").tags.timeout)
+        assertEquals(
+            Duration.ofMillis(1_000_000_000_000),
+            single("# @connection-timeout 1000000000000 ms", "GET http://x").tags.connectionTimeout,
+        )
+    }
+
+    @Test
+    fun `refuses timeouts above the curl cap instead of overflowing`() {
+        val tooLong =
+            listOf(
+                "# @timeout 1000000001 s",
+                "# @timeout 16666667 m",
+                "# @connection-timeout 1000000000001 ms",
+                // Duration.ofMinutes throws ArithmeticException for these.
+                "# @timeout 153722867280912931 m",
+                "# @timeout 9223372036854775807 s",
+                "# @timeout 9223372036854775807 ms",
+            )
+
+        val file = parse(*tooLong.toTypedArray(), "GET http://x")
+
+        assertEquals(RequestTags(), file.requests.single().tags)
+        assertEquals(tooLong.indices.toList(), file.problems.map { it.line })
+        assertEquals(
+            listOf("timeout", "timeout", "connection-timeout", "timeout", "timeout", "timeout").map {
+                "@$it takes at most 1000000000 seconds"
+            },
+            file.problems.map { it.message },
+        )
+    }
+
+    @Test
     fun `records scripts without running them`() {
         val request =
             single(

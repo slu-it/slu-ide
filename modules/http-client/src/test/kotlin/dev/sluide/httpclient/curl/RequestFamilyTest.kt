@@ -90,8 +90,18 @@ class RequestFamilyTest {
     }
 
     @Test
+    fun `a timeout beyond the cap is a problem of the file, not an exception of the parser`() {
+        val text = "# @timeout 153722867280912931 m\nGET https://x"
+
+        assertFalse(HttpRequestReader.detects(text))
+        assertEquals(emptyList(), family.detect(text))
+        assertIs<ReadResult.Failed>(HttpRequestReader.read(text))
+        assertIs<ReadResult.Failed>(family.read(text, HttpRequestFormat, OptionValues()))
+    }
+
+    @Test
     fun `a duration that curl cannot write fails the conversion instead of throwing`() {
-        // The reader takes `@timeout 9223372036854775807 s`; Duration.toMillis overflows when writing it back.
+        // No reader takes such a timeout any more (MAX_TIMEOUT_SECONDS); a Duration made in code still overflows toMillis.
         val request = CurlRequest("https://x", timeout = Duration.ofSeconds(Long.MAX_VALUE))
 
         family.formats.forEach { format ->
