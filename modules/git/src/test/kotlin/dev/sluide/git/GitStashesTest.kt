@@ -441,10 +441,7 @@ class GitStashesTest {
     @Test
     fun `no list while git is not available, whatever a command would answer`() {
         // The version fails and the rest runs the real git, as a git that was removed after the check never could.
-        val script = folder.resolve("versionless-git")
-        script.toFile().writeText("#!/bin/sh\n[ \"\$1\" = --version ] && exit 1\nexec git \"\$@\"\n")
-        script.toFile().setExecutable(true)
-        val gone = GitCli(script.toString(), testGitEnvironment())
+        val gone = unavailableGit(folder)
         write("a.txt", "changed")
         git("stash", "push", "-q")
 

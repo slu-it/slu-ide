@@ -1,5 +1,6 @@
 package dev.sluide.httpclient.vars
 
+import dev.sluide.testsupport.collidingWith
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -151,8 +152,7 @@ class DynamicVariablesTest {
         for ((name, args) in names) {
             assertNotNull(variables.value(name, args), name)
             // Same String.hashCode as the real name, which a compiled `when` over strings checks first.
-            val twin = name.take(1) + (name[1] + 1) + (name[2] - 31) + name.drop(3)
-            assertEquals(name.hashCode(), twin.hashCode())
+            val twin = collidingWith(name)
             assertNull(variables.value(twin, args), twin)
         }
     }
