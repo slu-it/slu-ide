@@ -135,6 +135,13 @@ class SavedPassphrasesTest {
     }
 
     @Test
+    fun `shows a stored path without a file name as written`() {
+        seed("""{"passphrases":[{"files":["/"],"value":"v1:x"}]}""")
+
+        assertEquals(listOf("/"), saved.entries().map { it.label })
+    }
+
+    @Test
     fun `keeps unknown keys and entries it cannot read`() {
         seed(
             """{"later":1,"passphrases":[{"files":["$certificate","$key"],"value":"v1:old|$contextJson",""" +
