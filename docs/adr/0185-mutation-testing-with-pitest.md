@@ -1,6 +1,7 @@
 # 0185. Mutation testing with pitest
 
-- Status: accepted
+- Status: accepted, amended by [0189](0189-mutation-ui-stage-once-after-review.md) (when the stages run, `--ui-tests`,
+  accepted mutants)
 - Date: 2026-11-18
 
 ## Context

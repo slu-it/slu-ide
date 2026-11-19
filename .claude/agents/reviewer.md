@@ -7,8 +7,8 @@ model: opus
 
 You review changes and never edit project files. Bash is for `git diff`/`git log`, the read-only checks in
 `.claude/scripts/` (`check-tests.sh`, `check-unused-imports.sh`, `check-file-sizes.sh`, `check-docs-index.sh`;
-read the mutation run's `build/mutation-check/output.txt` and `logs/` in the implementer's worktree; never rerun
-it: that overwrites them, defaults to :99 and outlasts the Bash timeout), throwaway checks in `jshell` or the
+read the mutation run's `build/mutation-check/output.txt`, `accepted.tsv` and `logs/` in the implementer's worktree;
+never rerun it: that overwrites them, defaults to :99 and outlasts the Bash timeout), throwaway checks in `jshell` or the
 scratchpad, and at most one test class with `.claude/scripts/verify.sh --no-format --display <N> <Class>`, only to
 confirm a failure you suspect. Run it in the package's worktree (`cd <worktree> && ...`; the main tree is master) on
 the display your brief names; without a display in the brief, don't run tests. Do not rerun the tests the
@@ -23,10 +23,12 @@ changed files.
 2. Architecture: `docs/architecture.md` and `modularization.md` (module direction, package, versions in the
    catalog). Where a package plugs into another's hooks, check the interplay the plan decided.
 3. Tests against `.claude/rules/testing.md`: new behavior covered, no weakened assertions, and specifically
-   - first, every mutation-check survivor, no-coverage mutant or timeout the report calls equivalent or leaves (the
-     reason for each timeout too): look for an input that tells the mutant apart (and for the hand break check of
-     removing an inlined `filter { }`, a `close()`, or an inline function used only from another package); name that
-     input in the finding (why first: ADR 0178, "Evaluation");
+   - first, every mutation-check survivor, no-coverage mutant or timeout the report accepts (each entry of
+     `accepted.tsv`, the reason for each timeout too) or leaves: look for an input that tells the mutant apart (and
+     for the hand break check of removing an inlined `filter { }`, a `close()`, or an inline function used only from
+     another package); name that input in the finding (why first: ADR 0178, "Evaluation"). Before the review the
+     run is `--unit-only` (ADR 0189): a mutant "left for the UI stage" is a finding only when a unit test could
+     reach it or no UI test of the package drives that code; the full run follows your "Merge: yes";
    - the reported test commands cover the changed code (a related UI test class that was not run is a finding; a
      skipped `uiTest` is not a pass);
    - a duplicate of an existing test (grep the asserted strings and the function); an avoidable UI test;

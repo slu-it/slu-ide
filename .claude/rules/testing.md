@@ -13,15 +13,20 @@ Details, examples and the stories behind these rules: `docs/testing.md`, ADR 008
   it missing; a fix's test fails on the unfixed code first. A test that passes at once gets a sharper input, never a
   weaker assertion. Existing behavior (moved code, gap tests) gets a mutation run before and after instead
   (`mutation-check.sh --display <N> --whole <base> <file>`: the new test kills the mutants on the lines it targets).
-  A unit test: both runs `--unit-only`. A UI test: the before run `--unit-only`, the after run with the UI stage and
-  the displays the brief hands out (`--displays`).
-- `.claude/scripts/mutation-check.sh --display <N> --detach <base>` after the last commit (ADR 0185): every SURVIVED
-  or no-coverage mutant is killed with a sharper input or test, removed as dead code, or reported as equivalent by
-  naming the input that cannot tell it apart (the caller already guarantees it; the platform does it anyway on every
-  OS, with the source that shows it); "no test reaches it" is a gap, not an equivalence. A timeout is not a kill
-  unless the mutation visibly makes a loop endless or an allocation unbounded; name that per timeout. A hand break
-  check stays only for what pitest cannot mutate: removing an inlined `filter { }` (its predicate always true), a
-  `close()` call, an inline function of ours used only from another package or module (it gets no mutants).
+  A unit test: both runs `--unit-only`. A UI test: the before run `--unit-only`, the after run with the UI stage
+  (`--displays`, `--ui-tests <the test's class>`).
+- `.claude/scripts/mutation-check.sh --unit-only --detach <base>` after the last commit and after review fixes; the full
+  run with the UI stage (`--displays`, `--ui-tests <the package's UI test classes>`) once per package, after the review
+  (ADR 0185, 0189). Every SURVIVED or no-coverage mutant is killed with a sharper input or test, removed as dead code,
+  or reported as equivalent by naming the input that cannot tell it apart (the caller already guarantees it; the
+  platform does it anyway on every OS, with the source that shows it); "no test reaches it" is a gap, not an
+  equivalence. A timeout is not a kill unless the mutation visibly makes a loop endless or an allocation unbounded; name
+  that per timeout. An equivalence or such a timeout is recorded with `mutation-check.sh --accept
+  <path>:<line>[:<Mutator>] <reason>`, so later runs skip it; before the full run, code only a UI test reaches is
+  reported as left for the UI stage, never accepted. A hand break check stays only for what pitest cannot mutate:
+  removing an inlined `filter { }` (its predicate always true), a `close()` call, an inline function of ours used only
+  from another package or module (it gets no mutants). Its test runs under `timeout 600`; a run the limit ends is a hang
+  (often a dialog on the FX thread), not a red.
 - Unit tests over UI tests. A `@Tag("ui")` test only for what needs a scene: rendering, focus, event routing,
   bindings, WebKit.
 - Logic in a control is extracted (an `internal` pure function, a plain class, an FX-free host with a fake),

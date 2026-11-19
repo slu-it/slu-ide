@@ -13,7 +13,8 @@ One file, a few lines: do it yourself, no subagent.
 
 ## Order of a round
 1. Plan the packages (below); for a feature, the `feature` skill writes the plan.
-2. Per package: brief → `implementer` in a worktree → `reviewer` → fixes by the same implementer → merge.
+2. Per package: brief → `implementer` in a worktree → `reviewer` → fixes by the same implementer → the full
+   mutation run → merge.
 3. After each merged package that changes what the user sees: real-app check, before the next wave builds on it.
 4. After the last wave: one cross-package review, the final gate, a last real-app check, then remove the worktrees.
 
@@ -41,7 +42,7 @@ One place for the numbers; briefs hand them out.
 |---|---|
 | `:99` to `:106` | the final gate's pool (`full-build.sh`); `:99` is also `verify.sh`'s default in the main session |
 | `:107` | `run-app.sh` (real-app check) |
-| `:111` upwards | one per running agent, implementer or reviewer, named in its brief (several for a whole-file UI stage) |
+| `:111` upwards | four per running implementer (`:111`-`:114`, `:115`-`:118`, `:119`-`:122`): the first for `verify.sh`, all four for the mutation run's UI stage (a package without a UI stage, as in the gap backfill, needs only one); at most three implementers run at a time, so reviewers get one each from `:123` |
 
 ## Explorer brief
 Numbered questions, what the answer feeds into (the plan, a brief, a bug hunt) and how thorough to be.
@@ -87,7 +88,7 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
 6. Docs to update: feature page, ADR, `docs/index.md`; `docs/features/keyboard-shortcuts.md` when key bindings change.
 7. Docs to read (so the agent skips the index), with sections where useful; for UI work the matching sections of
    `docs/ui-conventions.md`. For large files, the classes or line ranges that matter.
-8. Base, display and scratch folder: the master commit for `worktree-check.sh start`, the agent's display, and a
+8. Base, displays and scratch folder: the master commit for `worktree-check.sh start`, the agent's four displays, and a
    named scratchpad subfolder (`<scratchpad>/<package>`): parallel agents told "your own subfolder" picked the same one
    and overwrote each other's scripts.
 9. The interactions the plan decided (`feature` skill, "Plan file"), repeated in the brief of every package that
@@ -101,7 +102,7 @@ stayed unchanged may find it removed when it resumes; send a new agent with a ne
 - What to review: `git diff master...<branch>` in the package's worktree (path and branch from the implementer's
   report), or a commit range on master.
 - The implementer's brief or the plan section, and the implementer's report (test commands, red lines, mutation-check
-  summary and the mutants left).
+  summary, the mutants accepted and the ones left for the UI stage).
 - A display of its own, if it may confirm a suspected failure with a test.
 - Not the main session's conclusions: give it the code and docs to judge.
 
@@ -109,12 +110,19 @@ stayed unchanged may find it removed when it resumes; send a new agent with a ne
 The reviewer labels each finding Blocker, Should or Nit (definitions in `.claude/agents/reviewer.md`).
 - Blockers and Shoulds go back to the same implementer with SendMessage (it keeps its context). The message asks
   for the fix's test red first: failing on the unfixed code for a bug, failing with the guard removed for a vacuous
-  test; then the same `mutation-check.sh` run again.
+  test; then the `mutation-check.sh --unit-only` run again. Never ask for the UI stage in a fix round.
 - A re-review only when a Blocker was fixed; for fixed Shoulds the main session reads the fix diff itself.
 - Nits: the main session fixes the ones worth a line itself, or drops them; the final report names what was dropped.
   Nits never start another implementer round.
 - Squash review fixes non-interactively: `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <base>`.
-- The package is merged once no Blocker or Should is left.
+- Once no Blocker or Should is left, ask the implementer for the full mutation run (`--displays` with its four
+  displays, `--ui-tests` with the UI test classes of its verify list; ADR 0189), one package at a time: two UI
+  stages at once share the cores and make UI tests time out. In `ide` it took 3 minutes for 21 mutants this way and
+  13 on one display with all tests. What it still leaves, the implementer kills with a test (the full command
+  again shows the kill) or accepts; read that fix diff yourself, and send the reviewer a short follow-up only when
+  production code changed or a new mutant is accepted. Then the package is merged.
+- A requirement that changes while an implementer works goes into the next review message, unless the package
+  cannot be reviewed without it: every extra round costs a verify and a mutation run.
 
 Before the main session decides a behavior change (a "bug" an agent or audit found) or suggests a fix in a review
 message, it checks the declared `@Throws`, the interface contract, every caller and the call order: what looks like
@@ -171,6 +179,8 @@ When the main session fixes something itself:
 - Red before green holds for the main session's fixes too. Once a fix is committed, `mutation-check.sh <base> <file>`
   on the touched files replaces the hand break check (it refuses uncommitted files), except for what pitest cannot
   mutate (removing an inlined `filter { }`, a `close()` call, an inline function used only from another package).
+- A hand break check's test runs under `timeout 600`; a run the limit ends is a hang, not a red (a broken path that
+  shows a dialog blocks the FX thread: one hung for 34 minutes).
 - Read a hand break check's result as a pass or fail of its own. Spotless reformats code after an edit, so a marker or a
   `sed` restore can stop matching: check the restored line with `grep` before committing.
 - Restore a hand break check (the remaining ones) from a copy of the file (`cp` before breaking), never with `git
