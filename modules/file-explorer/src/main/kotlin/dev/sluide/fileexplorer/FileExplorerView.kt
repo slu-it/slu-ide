@@ -192,22 +192,10 @@ class FileExplorerView(
         { initial, validate, note -> askForName(scene?.window, "Paste Image", initial, validate, note) }
 
     /** Shows an error message and waits until it is closed; tests replace it, since it blocks. */
-    internal var showError: (String) -> Unit = { message ->
-        Alert(Alert.AlertType.ERROR, message)
-            .apply {
-                scene?.window?.let(::initOwner)
-                headerText = null
-            }.showAndWait()
-    }
+    internal var showError: (String) -> Unit = { showAlert(scene?.window, Alert.AlertType.ERROR, it) }
 
     /** Shows a note and waits until it is closed; tests replace it, since it blocks. */
-    internal var showInfo: (String) -> Unit = { message ->
-        Alert(Alert.AlertType.INFORMATION, message)
-            .apply {
-                scene?.window?.let(::initOwner)
-                headerText = null
-            }.showAndWait()
-    }
+    internal var showInfo: (String) -> Unit = { showAlert(scene?.window, Alert.AlertType.INFORMATION, it) }
 
     /** Open in File Manager, Reveal and Open in Terminal; its seams are replaced by tests. */
     internal val fileManagerActions = buildFileManagerActions()
