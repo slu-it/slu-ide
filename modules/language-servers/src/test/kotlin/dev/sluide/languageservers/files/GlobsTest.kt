@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertTimeoutPreemptively
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -134,5 +135,18 @@ class GlobsTest {
 
         assertTrue(assertNotNull(regex).matches(path))
         assertFalse(regex.matches("a/" + "x.kt"))
+    }
+
+    // Repeated wildcards made the regex translation backtrack for seconds (the first, on this path) to minutes (the
+    // second). A linear matcher needs milliseconds; the bound is far above that so that slow runners pass.
+    @ParameterizedTest(name = "{0} is decided in linear time")
+    @ValueSource(strings = ["**?**?**?**?**?**x", "**{,}**{,}**{,}**{,}**{,}**x"])
+    fun `repeated wildcards cannot make a match slow`(glob: String) {
+        val path = "a".repeat(94)
+
+        val result =
+            assertTimeoutPreemptively(Duration.ofSeconds(1)) { Globs.regex(glob)?.matches(path) }
+
+        assertEquals(false, result)
     }
 }
