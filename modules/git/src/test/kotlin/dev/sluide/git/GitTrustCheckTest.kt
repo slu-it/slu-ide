@@ -41,18 +41,7 @@ class GitTrustCheckTest {
     private fun git(
         vararg arguments: String,
         directory: Path = repo,
-    ) {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-    }
+    ) = runGit(directory, *arguments)
 
     private fun hook(
         name: String,

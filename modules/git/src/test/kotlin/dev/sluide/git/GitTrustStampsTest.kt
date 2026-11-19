@@ -12,7 +12,6 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -40,20 +39,7 @@ class GitTrustStampsTest {
     private fun git(
         vararg arguments: String,
         directory: Path = repo,
-    ): Pair<Int, String> {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        val exit = process.waitFor()
-        assertEquals(0, exit, "git ${arguments.joinToString(" ")}: $output")
-        return exit to output
-    }
+    ) = runGit(directory, *arguments)
 
     private fun commit(
         message: String,
@@ -149,16 +135,10 @@ class GitTrustStampsTest {
     @Test
     fun `a ref changed in a reftable repository changes the state's stamp`() {
         val reftable = folder.resolve("reftable").createDirectories()
-        val process =
-            ProcessBuilder("git", "init", "-q", "--ref-format=reftable")
-                .directory(reftable.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.inputStream.readAllBytes()
-        assumeTrue(process.waitFor() == 0, "git cannot make reftable repositories")
+        assumeTrue(
+            runGitRaw(reftable, "init", "-q", "--ref-format=reftable").exit == 0,
+            "git cannot make reftable repositories",
+        )
         commit("First", reftable)
         val before = GitFolderStamps.state(reftable)
 

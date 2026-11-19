@@ -29,6 +29,7 @@ class GitCliIgnoreRulesTest {
     lateinit var folder: Path
 
     private lateinit var repo: Path
+    private lateinit var repository: TestRepository
 
     private val git = GitCli("git", testGitEnvironment())
 
@@ -36,28 +37,7 @@ class GitCliIgnoreRulesTest {
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
         repo = folder.resolve("repo").createDirectories()
-        git("init", "-q")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
-    }
-
-    /** Runs the real git in [repo] with [input] on its standard input; its output. */
-    private fun git(
-        vararg arguments: String,
-        input: String? = null,
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.use { stdin -> input?.let { stdin.write(it.toByteArray(Charsets.UTF_8)) } }
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
+        repository = TestRepository(repo)
     }
 
     /** Creates the files [paths] in [repo], with their folders. */
@@ -118,8 +98,8 @@ class GitCliIgnoreRulesTest {
     @Test
     fun `tracked files a line matches are counted apart`() {
         files("tracked/t.log", "keep.txt")
-        git("add", ".")
-        git("commit", "-q", "-m", "Initial")
+        repository.git("add", ".")
+        repository.git("commit", "-q", "-m", "Initial")
         repo.resolve(".gitignore").writeText("*.log\nkeep.txt\n")
 
         assertEquals(
@@ -134,10 +114,19 @@ class GitCliIgnoreRulesTest {
     @Test
     fun `an unmerged tracked file counts once, not once per stage`() {
         files("c.log")
-        val blob = git("hash-object", "-w", "--stdin", input = "x\n")
-        git("update-index", "--add", "--index-info", input = (1..3).joinToString("") { "100644 $blob $it\tc.log\n" })
+        val blob = repository.git("hash-object", "-w", "--stdin", input = "x\n")
+        repository.git(
+            "update-index",
+            "--add",
+            "--index-info",
+            input = (1..3).joinToString("") { "100644 $blob $it\tc.log\n" },
+        )
         repo.resolve(".gitignore").writeText("*.log\n")
-        assertEquals(3, git("ls-files", "--cached", "--ignored", "--exclude-standard").lines().size, "once per stage")
+        assertEquals(
+            3,
+            repository.git("ls-files", "--cached", "--ignored", "--exclude-standard").lines().size,
+            "once per stage",
+        )
 
         assertEquals(mapOf(1 to GitIgnoreLineUse(0, 0, 1, emptyList(), listOf("c.log"))), rules().lines)
     }
@@ -145,8 +134,8 @@ class GitCliIgnoreRulesTest {
     @Test
     fun `a nested ignore file has only its own lines, paths relative to its folder`() {
         files("x.bak", "sub/a.tmp", "sub/b.bak", "sub/deep/c.bak", "sub/excluded.txt", "sub/tracked.bak")
-        git("add", "sub/tracked.bak")
-        git("commit", "-q", "-m", "Initial")
+        repository.git("add", "sub/tracked.bak")
+        repository.git("commit", "-q", "-m", "Initial")
         repo.resolve(".gitignore").writeText("*.bak\n")
         repo.resolve(".git/info/exclude").writeText("excluded.txt\n")
         repo.resolve("sub/.gitignore").writeText("*.tmp\n*.bak\n")
@@ -164,7 +153,7 @@ class GitCliIgnoreRulesTest {
         assertEquals(
             "sub/.gitignore\u00002\u0000*.bak\u0000sub/b.bak\u0000" +
                 ".git/info/exclude\u00001\u0000excluded.txt\u0000sub/excluded.txt\u0000",
-            git("check-ignore", "-v", "-z", "--stdin", input = "sub/b.bak\u0000sub/excluded.txt\u0000"),
+            repository.git("check-ignore", "-v", "-z", "--stdin", input = "sub/b.bak\u0000sub/excluded.txt\u0000"),
         )
     }
 
@@ -172,14 +161,14 @@ class GitCliIgnoreRulesTest {
     fun `an excludes file outside the ignore files is matched by its absolute path`() {
         files("a.x", "b.y")
         repo.resolve("my.ignore").writeText("*.x\n")
-        git("config", "core.excludesFile", repo.resolve("my.ignore").toString())
+        repository.git("config", "core.excludesFile", repo.resolve("my.ignore").toString())
         repo.resolve(".gitignore").writeText("*.y\n")
 
         assertEquals(mapOf(1 to ignoring("a.x")), rules("my.ignore").lines)
         // As it is configured: an absolute path.
         assertEquals(
             "${repo.resolve("my.ignore")}\u00001\u0000*.x\u0000a.x\u0000",
-            git("check-ignore", "-v", "-z", "--stdin", input = "a.x\u0000"),
+            repository.git("check-ignore", "-v", "-z", "--stdin", input = "a.x\u0000"),
         )
     }
 
@@ -188,13 +177,13 @@ class GitCliIgnoreRulesTest {
         files("a.x", "b.y")
         repo.resolve("my.ignore").writeText("*.x\n")
         val link = Files.createSymbolicLink(folder.resolve("link.ignore"), repo.resolve("my.ignore"))
-        git("config", "core.excludesFile", link.toString())
+        repository.git("config", "core.excludesFile", link.toString())
         repo.resolve(".gitignore").writeText("*.y\n")
 
         // Git names the source as configured, the link; another path to the same file.
         assertEquals(
             "$link\u00001\u0000*.x\u0000a.x\u0000",
-            git("check-ignore", "-v", "-z", "--stdin", input = "a.x\u0000"),
+            repository.git("check-ignore", "-v", "-z", "--stdin", input = "a.x\u0000"),
         )
         assertEquals(mapOf(1 to ignoring("a.x")), rules("my.ignore").lines)
     }
@@ -242,10 +231,10 @@ class GitCliIgnoreRulesTest {
                 }
             }
         // Written by git, as the JVM may not name the file in a POSIX locale; then made untracked.
-        val blob = git("hash-object", "-w", "--stdin", input = "x\n")
-        git("update-index", "--add", "--index-info", input = "100644 $blob\tgrün.log\n")
-        git("checkout", "-q", "--", ".")
-        git("update-index", "--force-remove", "--stdin", input = "grün.log\n")
+        val blob = repository.git("hash-object", "-w", "--stdin", input = "x\n")
+        repository.git("update-index", "--add", "--index-info", input = "100644 $blob\tgrün.log\n")
+        repository.git("checkout", "-q", "--", ".")
+        repository.git("update-index", "--force-remove", "--stdin", input = "grün.log\n")
         repo.resolve(".gitignore").writeText("*.log\n")
 
         assertEquals(
@@ -264,8 +253,8 @@ class GitCliIgnoreRulesTest {
     @Test
     fun `beyond the limit the first candidates are asked and the result is incomplete`() {
         files("a.log", "b.log", "c.log", "t.log")
-        git("add", "t.log")
-        git("commit", "-q", "-m", "Initial")
+        repository.git("add", "t.log")
+        repository.git("commit", "-q", "-m", "Initial")
         repo.resolve(".gitignore").writeText("*.log\n")
 
         val all = rules(limit = 5)

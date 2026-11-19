@@ -3,6 +3,7 @@ package dev.sluide.git
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import dev.sluide.git.cli.headContent
 import dev.sluide.projecttrust.ProjectTrustState
 import dev.sluide.textediting.TextEncoding
@@ -35,6 +36,7 @@ class GitStatusServiceTest {
     private val git = GitCli("git", testGitEnvironment())
 
     // Everything dispatched runs on this test's thread, in run(), like on the JavaFX thread.
+    private lateinit var repository: TestRepository
     private val dispatched = LinkedBlockingQueue<Runnable>()
     private val watcher = FileWatcher({ dispatched += it }, 50.milliseconds)
 
@@ -49,13 +51,12 @@ class GitStatusServiceTest {
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        git("init", "-q")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
+        // Not main: a test renames the branch.
+        repository = TestRepository(repo, initialBranch = "master")
         repo.resolve("tracked.kt").writeText("val a = 1\n")
         repo.resolve(".gitignore").writeText("build/\n*.log\n")
-        git("add", ".")
-        git("commit", "-q", "-m", "Initial commit")
+        repository.git("add", ".")
+        repository.git("commit", "-q", "-m", "Initial commit")
     }
 
     @AfterEach
@@ -63,20 +64,6 @@ class GitStatusServiceTest {
         service.close()
         service.awaitClosed(5.seconds)
         watcher.close()
-    }
-
-    private fun git(vararg arguments: String): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
     }
 
     /** Runs dispatched tasks until [condition] holds. */
@@ -122,7 +109,7 @@ class GitStatusServiceTest {
     fun `reports unversioned, added, modified and ignored files of the opened repository`() {
         repo.resolve("tracked.kt").writeText("val a = 2\n")
         repo.resolve("new.kt").writeText("")
-        git("add", "new.kt")
+        repository.git("add", "new.kt")
         repo.resolve("scratch.kt").writeText("")
         repo.resolve("debug.log").writeText("")
         repo.resolve("build/libs").createDirectories()
@@ -150,25 +137,25 @@ class GitStatusServiceTest {
         service.open(repo)
         awaitSnapshot { it.fileStatus(repo.resolve("new.kt")) == GitStatus.UNVERSIONED }
 
-        git("add", "new.kt")
+        repository.git("add", "new.kt")
         awaitSnapshot { it.fileStatus(repo.resolve("new.kt")) == GitStatus.ADDED }
 
-        git("commit", "-q", "-m", "Add new.kt")
+        repository.git("commit", "-q", "-m", "Add new.kt")
         awaitSnapshot { it.fileStatus(repo.resolve("new.kt")) == null }
     }
 
     @Test
     fun `switching branches and checking out commits updates the head by themselves`() {
-        git("branch", "-M", "main")
+        repository.git("branch", "-M", "main")
         service.open(repo)
         assertEquals("main", awaitSnapshot { it.head != null }.head?.branch)
 
-        git("checkout", "-q", "--detach")
-        val commit = git("rev-parse", "HEAD").lines().last()
+        repository.git("checkout", "-q", "--detach")
+        val commit = repository.git("rev-parse", "HEAD").lines().last()
         val detached = awaitSnapshot { it.head?.branch == null && it.head?.commit != null }
         assertEquals(GitHead(null, commit), detached.head)
 
-        git("switch", "-q", "-c", "other")
+        repository.git("switch", "-q", "-c", "other")
         assertEquals(GitHead("other", commit), awaitSnapshot { it.head?.branch == "other" }.head)
     }
 
@@ -176,14 +163,14 @@ class GitStatusServiceTest {
     fun `a stash dropped in a terminal counts as a change of git's state`() {
         repeat(2) { n ->
             repo.resolve("tracked.kt").writeText("val a = ${n + 2}\n")
-            git("stash", "-q")
+            repository.git("stash", "-q")
         }
         service.open(repo)
         awaitSnapshot { it.root != null }
         val before = service.gitFolderChanged.get()
 
         // Changes only `refs/stash` and its reflog, nothing directly in `.git`.
-        git("stash", "drop", "-q", "stash@{1}")
+        repository.git("stash", "drop", "-q", "stash@{1}")
 
         await("The dropped stash was not noticed") { service.gitFolderChanged.get() > before }
     }
@@ -205,8 +192,8 @@ class GitStatusServiceTest {
         repo.resolve("starX.txt").writeText("one\n")
         val windows1252 = TextEncoding.WINDOWS_1252.charset
         repo.resolve("latin1.txt").writeBytes("Grüße\n".toByteArray(windows1252))
-        git("add", ".")
-        git("commit", "-q", "-m", "More files")
+        repository.git("add", ".")
+        repository.git("commit", "-q", "-m", "More files")
         repo.resolve("latin1.txt").writeBytes("Grüße!\n".toByteArray(windows1252))
         repo.resolve("lines.txt").writeText("a\nB\nc\nd\ne\n")
         repo.resolve("star*.txt").writeText("two\n")
@@ -316,7 +303,7 @@ class GitStatusServiceTest {
 
     @Test
     fun `git stays off while the repository's configuration is not trusted`() {
-        git("config", "core.fsmonitor", "./watch.sh")
+        repository.git("config", "core.fsmonitor", "./watch.sh")
         val trust = testTrust(repo, listOf(GitTrustCheck(git)))
         assertIs<ProjectTrustState.Ask>(trust.state.get())
         val gated = GitStatusService(git, watcher, trust, BackgroundTasks.forTests()) { dispatched += it }
@@ -342,7 +329,7 @@ class GitStatusServiceTest {
         awaitSnapshot(gated) { it.root != null }
         val before = gated.gitFolderChanged.get()
 
-        git("config", "filter.crypt.clean", "./clean.sh")
+        repository.git("config", "filter.crypt.clean", "./clean.sh")
 
         awaitSnapshot(gated) { it == GitStatusSnapshot.EMPTY }
         assertTrue(assertIs<ProjectTrustState.Ask>(trust.state.get()).changed)
@@ -351,7 +338,7 @@ class GitStatusServiceTest {
         assertTrue(trust.decide(trust.state.get(), trusted = true, remember = false))
         gated.refresh()
         awaitSnapshot(gated) { it.root != null }
-        git("commit", "-q", "--allow-empty", "-m", "Empty")
+        repository.git("commit", "-q", "--allow-empty", "-m", "Empty")
         await("A change of the trusted git folder is counted") { gated.gitFolderChanged.get() != before }
         gated.close()
         trust.close()

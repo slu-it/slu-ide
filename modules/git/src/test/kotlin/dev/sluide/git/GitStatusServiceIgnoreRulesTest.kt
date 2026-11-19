@@ -46,18 +46,7 @@ class GitStatusServiceIgnoreRulesTest {
         repo.resolve("a.log").writeText("")
     }
 
-    private fun git(vararg arguments: String) {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-    }
+    private fun git(vararg arguments: String) = runGit(repo, *arguments)
 
     @AfterEach
     fun close() {

@@ -1,6 +1,7 @@
 package dev.sluide.git.cli
 
 import dev.sluide.git.fakeGit
+import dev.sluide.git.runGit
 import dev.sluide.git.testGitEnvironment
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
@@ -75,28 +76,10 @@ class GitCliTest {
         assertFalse(child.get().isAlive, "the child of git was stopped")
     }
 
-    /** Runs the real git with [arguments] in [directory], without the user's configuration. */
-    private fun git(
-        directory: Path,
-        vararg arguments: String,
-    ) {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-    }
-
     /** A new repository in [name] below the temporary folder. */
     private fun repository(name: String): Path {
         val repo = folder.resolve(name).createDirectories()
-        git(repo, "init", "-q")
+        runGit(repo, "init", "-q")
         return repo
     }
 
@@ -214,8 +197,8 @@ class GitCliTest {
     fun `reads run no core_fsmonitor hook of the repository, but keep git's own daemon and writes as they are`() {
         val repo = repository("repo")
         val ran = folder.resolve("hook-ran")
-        git(repo, "config", "core.fsmonitor", "touch '$ran'; false")
-        git(repo, "status")
+        runGit(repo, "config", "core.fsmonitor", "touch '$ran'; false")
+        runGit(repo, "status")
         assertTrue(ran.exists(), "git itself runs the hook")
         ran.deleteExisting()
 
@@ -236,7 +219,7 @@ class GitCliTest {
         logged.status(repo)
         logged.write(repo, listOf("config", "sluide.test", "1"))
         val hooked = repository("daemon")
-        git(hooked, "config", "core.fsmonitor", "true")
+        runGit(hooked, "config", "core.fsmonitor", "true")
         logged.status(hooked)
         logged.status(hooked)
 
@@ -279,8 +262,8 @@ class GitCliTest {
         git.status(repo)
         assertEquals(2, reads())
 
-        git(repo, "init", "-q")
-        git(repo, "config", "core.fsmonitor", "touch hook-ran; false")
+        runGit(repo, "init", "-q")
+        runGit(repo, "config", "core.fsmonitor", "touch hook-ran; false")
         git.status(repo)
         git.status(repo)
         assertEquals(3, reads(), "kept while the repository stays")
@@ -289,7 +272,7 @@ class GitCliTest {
                 .startsWith("-c core.fsmonitor=false "),
         )
 
-        git(repo, "config", "core.fsmonitor", "true")
+        runGit(repo, "config", "core.fsmonitor", "true")
         git.status(repo)
         assertEquals(4, reads(), "its configuration changed")
         assertTrue(
@@ -302,8 +285,8 @@ class GitCliTest {
         val config = repo.resolve(".git/config")
         val time = Files.getLastModifiedTime(config)
         repo.resolve(".git").toFile().deleteRecursively()
-        git(repo, "init", "-q")
-        git(repo, "config", "core.fsmonitor", "touch hook-ran; false")
+        runGit(repo, "init", "-q")
+        runGit(repo, "config", "core.fsmonitor", "touch hook-ran; false")
         Files.setLastModifiedTime(config, time)
         git.status(repo)
         assertEquals(5, reads())

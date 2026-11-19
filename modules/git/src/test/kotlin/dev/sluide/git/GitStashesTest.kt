@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import dev.sluide.git.cli.inProgress
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
@@ -30,34 +31,24 @@ class GitStashesTest {
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        repo.createDirectories()
-        git("init", "-q", "-b", "main")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
+        TestRepository(repo, environment = environment)
         write("a.txt", "a")
         write("b.txt", "b")
         git("add", ".")
         git("commit", "-q", "-m", "Base")
     }
 
+    // A stash apply or merge that concludes would wait for an editor.
+    private val environment = testGitEnvironment() + ("GIT_EDITOR" to ":")
+
+    /** Runs git in the repository; its output cut at the end only, because a status line starts with a space. */
     private fun git(
         vararg arguments: String,
         succeeds: Boolean = true,
     ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                    environment()["GIT_EDITOR"] = ":"
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        val exit = process.waitFor()
-        if (succeeds) assertEquals(0, exit, "git ${arguments.joinToString(" ")}: $output")
-        return output.trimEnd()
+        val run = runGitRaw(repo, *arguments, environment = environment)
+        if (succeeds) assertEquals(0, run.exit, "git ${arguments.joinToString(" ")}: ${run.output}")
+        return run.output.trimEnd()
     }
 
     /** Runs [script] in the repository: the shell names files the JVM cannot name in a POSIX locale. */

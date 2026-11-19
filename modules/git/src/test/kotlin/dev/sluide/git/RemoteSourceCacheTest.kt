@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import dev.sluide.git.remote.RemoteRefStore
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
@@ -35,6 +36,7 @@ class RemoteSourceCacheTest {
     private val cacheFolder get() = folder.resolve("cache")
 
     private val git = GitCli("git", testGitEnvironment())
+    private lateinit var upstreamRepository: TestRepository
 
     private val cache by lazy { RemoteSourceCache(git, cacheFolder, allowFileUrls = true) }
 
@@ -45,41 +47,20 @@ class RemoteSourceCacheTest {
     @BeforeEach
     fun createUpstream() {
         assumeTrue(git.available, "git is not installed")
-        upstream.createDirectories()
-        git("init", "-q", "-b", "main")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
+        upstreamRepository = TestRepository(upstream)
         // What GitHub allows too; a local server needs it for partial clones and fetching commits by their hash.
-        git("config", "uploadpack.allowFilter", "true")
-        git("config", "uploadpack.allowAnySHA1InWant", "true")
-    }
-
-    private fun git(
-        vararg arguments: String,
-        directory: Path = upstream,
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
+        upstreamRepository.git("config", "uploadpack.allowFilter", "true")
+        upstreamRepository.git("config", "uploadpack.allowAnySHA1InWant", "true")
     }
 
     /** Commits [files] (path to content) in [upstream]; returns the commit's hash. */
     private fun commit(vararg files: Pair<String, String>): String {
         for ((path, content) in files) {
             upstream.resolve(path).also { it.parent.createDirectories() }.writeText(content)
-            git("add", path)
+            upstreamRepository.git("add", path)
         }
-        git("commit", "-q", "-m", "Commit")
-        return git("rev-parse", "HEAD")
+        upstreamRepository.git("commit", "-q", "-m", "Commit")
+        return upstreamRepository.git("rev-parse", "HEAD")
     }
 
     private fun fetched(ref: String): CachedCommit = assertIs<RemoteFetch.Fetched>(cache.fetch(repository, ref)).commit
@@ -99,7 +80,7 @@ class RemoteSourceCacheTest {
     @Test
     fun `fetches an annotated tag as the commit it points to`() {
         val tagged = commit("action.yml" to "name: one\n")
-        git("tag", "-a", "v1", "-m", "Version 1")
+        upstreamRepository.git("tag", "-a", "v1", "-m", "Version 1")
         commit("action.yml" to "name: two\n")
 
         assertEquals(tagged, fetched("v1").commit)
@@ -173,7 +154,7 @@ class RemoteSourceCacheTest {
     @Test
     fun `a server without filters sends the file contents along`() {
         val head = commit("action.yml" to "name: one\n")
-        git("config", "uploadpack.allowFilter", "false")
+        upstreamRepository.git("config", "uploadpack.allowFilter", "false")
 
         assertEquals(head, fetched("main").commit)
         assertEquals(RemoteRead.Found("name: one\n"), cache.read(repository, head, "action.yml", network = false))
@@ -300,7 +281,7 @@ class RemoteSourceCacheTest {
     @Test
     fun `fetches of one repository take turns`() {
         commit("action.yml" to "name: one\n")
-        git("tag", "v1")
+        upstreamRepository.git("tag", "v1")
         commit("action.yml" to "name: two\n")
         val log = folder.resolve("log")
         // Two caches on one folder: also they take turns, with one lock.
@@ -400,20 +381,7 @@ class RemoteSourceCacheTest {
     fun `a URL the user configured for origin does not come before the repository's`() {
         val head = commit("action.yml" to "name: one\n")
         val other = folder.resolve("other/owner/repo")
-        other.createDirectories()
-        git("init", "-q", "-b", "main", directory = other)
-        git(
-            "-c",
-            "user.name=Test",
-            "-c",
-            "user.email=t@example.com",
-            "commit",
-            "-q",
-            "--allow-empty",
-            "-m",
-            "Other",
-            directory = other,
-        )
+        TestRepository(other).commitEmpty("Other")
         val configured = cacheWith("[remote \"origin\"]\n\turl = file://$other\n")
 
         assertEquals(head, assertIs<RemoteFetch.Fetched>(configured.fetch(repository, "main")).commit.commit)

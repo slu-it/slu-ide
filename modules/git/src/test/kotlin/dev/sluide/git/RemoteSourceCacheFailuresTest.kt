@@ -56,12 +56,10 @@ class RemoteSourceCacheFailuresTest {
     fun createUpstream() {
         assumeTrue(git.available, "git is not installed")
         upstreamRepository = TestRepository(upstream)
-        git("config", "uploadpack.allowFilter", "true")
-        git("config", "uploadpack.allowAnySHA1InWant", "true")
+        upstreamRepository.git("config", "uploadpack.allowFilter", "true")
+        upstreamRepository.git("config", "uploadpack.allowAnySHA1InWant", "true")
         head = upstreamRepository.commit("Commit", "action.yml", "name: one")
     }
-
-    private fun git(vararg arguments: String) = upstreamRepository.git(*arguments)
 
     private fun cacheOf(
         using: GitCli = git,
@@ -501,23 +499,15 @@ class RemoteSourceCacheFailuresTest {
 
     @Test
     fun `every fetched ref is kept under a name of its own, one component long`() {
-        git("branch", "dev/x")
+        upstreamRepository.git("branch", "dev/x")
         val cache = cacheOf()
         assertIs<RemoteFetch.Fetched>(cache.fetch(repository, "main"))
         assertIs<RemoteFetch.Fetched>(cache.fetch(repository, "dev/x"))
 
-        val process =
-            ProcessBuilder("git", "--git-dir=$bare", "for-each-ref", "--format=%(refname) %(objectname)", "refs/sluide")
-                .redirectErrorStream(true)
-                .apply { environment().putAll(testGitEnvironment()) }
-                .start()
         val refs =
-            process.inputStream
-                .readAllBytes()
-                .decodeToString()
+            runGit(folder, "--git-dir=$bare", "for-each-ref", "--format=%(refname) %(objectname)", "refs/sluide")
                 .lines()
                 .filter { it.isNotEmpty() }
-        process.waitFor()
 
         assertEquals(2, refs.size, refs.toString())
         assertTrue("refs/sluide/cache/0d6e4079e36703ebd37c00722f5891d28b0e2811dc114b129215123adcce3605 $head" in refs)
@@ -590,7 +580,7 @@ class RemoteSourceCacheFailuresTest {
 
     @Test
     fun `a ref is fetched and remembered by its name as it is, in upper case too`() {
-        git("branch", "Feature-X")
+        upstreamRepository.git("branch", "Feature-X")
         val cache = cacheOf()
 
         assertIs<RemoteFetch.Fetched>(cache.fetch(repository, "Feature-X"))
