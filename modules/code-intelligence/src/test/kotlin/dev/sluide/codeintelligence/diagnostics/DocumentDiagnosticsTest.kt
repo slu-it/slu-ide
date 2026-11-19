@@ -3,6 +3,7 @@ package dev.sluide.codeintelligence.diagnostics
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.google.gson.JsonPrimitive
 import dev.sluide.codeintelligence.BoundEditorHarness
 import dev.sluide.codeintelligence.ManualDelays
 import dev.sluide.codeintelligence.awaitTrue
@@ -379,6 +380,7 @@ class DocumentDiagnosticsTest {
                 Triple("registered without identifier", JsonObject(), "declared"),
                 Triple("registered with an identifier that is no string", noIdentifier, "declared"),
                 Triple("registered without options", null, "declared"),
+                Triple("registered with options that are no object", JsonPrimitive("ty"), "declared"),
             )
         for ((name, options, expected) in cases) {
             bind("x\n") { pullServer("declared") }
@@ -495,7 +497,7 @@ class DocumentDiagnosticsTest {
     }
 
     @Test
-    fun `a push whose diagnostics are null as in the JSON clears the pushed ones`() {
+    fun `a push without diagnostics in its JSON clears the pushed ones`() {
         bind("x = y\n") { LspTestServer() }
         val server = harness.server
         server.client.publishDiagnostics(PublishDiagnosticsParams(uri, listOf(error("pushed", 0, 0, 1))))
@@ -537,6 +539,24 @@ class DocumentDiagnosticsTest {
             harness.server.pulls[0]
                 .first.previousResultId,
         )
+        assertEquals(2, shownCount.get(), "shown, cleared by the crash, nothing else")
+    }
+
+    @Test
+    fun `a server that stopped is cleared once, whatever else its state goes through before it runs`() {
+        bind("x\n") { pullServer() }
+        val first = harness.server
+        awaitTrue("pull after open") { first.pulls.size == 1 }
+        first.pulls[0].second.complete(full("r1", error("x undefined", 0, 0, 1)))
+        awaitTrue("shown") { underlines?.size == 1 }
+
+        harness.fake.crashLatest()
+        awaitTrue("cleared") { underlines == emptyList<StyledRange>() }
+        // Restarting on request while the retry waits: Restarting -> Starting -> Running, no running server in between.
+        harness.onFx { harness.binding.session.restart() }
+        awaitTrue("restarted") { harness.fake.started.size == 2 }
+        harness.awaitState(ServerState.Running)
+        awaitTrue("asked afresh") { harness.server.pulls.size == 1 }
         assertEquals(2, shownCount.get(), "shown, cleared by the crash, nothing else")
     }
 }
