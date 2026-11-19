@@ -34,6 +34,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
+import java.util.logging.Level
+import java.util.logging.Logger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -554,7 +556,7 @@ class LanguageServerSessionTest {
     }
 
     @Test
-    fun `requestJson sends JSON params and hands the answer as JSON to the FX thread`() {
+    fun `requestJson sends JSON params and hands the answer, of any kind, as JSON to the FX thread`() {
         val session = session()
         val server = running(session)
         val answer = CompletableFuture<Any?>()
@@ -575,6 +577,22 @@ class LanguageServerSessionTest {
             "java/classFileContents {\"uri\":\"jdt://x\",\"n\":[1,\"a\"]}",
             server.customMessages.single().let { "${it.first} ${it.second}" },
         )
+
+        // Every other JSON kind, and no result.
+        val kinds = ArrayDeque<Any?>(listOf(mapOf("a" to 1), listOf(1, 2), 5, true, null))
+        server.customAnswer = { _, _ -> CompletableFuture.completedFuture(kinds.removeFirst()) }
+        val seen = CopyOnWriteArrayList<String?>()
+        repeat(5) {
+            session.requestJson("custom/method", null, { seen += it?.toString() })
+            awaitTrue("answer ${it + 1}") { seen.size == it + 1 }
+        }
+        assertEquals(listOf("{\"a\":1}", "[1,2]", "5", "true", null), seen)
+
+        // A method lsp4j knows answers with its own type (a map here), which is made JSON.
+        server.commandAnswer = { CompletableFuture.completedFuture(mapOf("a" to 1)) }
+        session.requestJson("workspace/executeCommand", mapOf("command" to "x"), { seen += it?.toString() })
+        awaitTrue("typed answer") { seen.size == 6 }
+        assertEquals("{\"a\":1.0}", seen.last())
     }
 
     @Test
@@ -600,15 +618,24 @@ class LanguageServerSessionTest {
     }
 
     @Test
-    fun `requestJson sends params that are no JSON as null`() {
+    fun `requestJson sends params that are no JSON as null, and logs it`() {
         val session = session()
         val server = running(session)
         server.customAnswer = { _, _ -> CompletableFuture<Any?>() }
+        val warnings = LogRecords(Logger.getLogger(LanguageServerSession::class.java.name))
 
         session.requestJson("java/classFileContents", mapOf("uri" to StringBuilder("no JSON")), {})
         awaitTrue("at the server") { server.customMessages.size == 1 }
+        warnings.close()
 
         assertEquals("java/classFileContents null", server.customMessages.single().let { "${it.first} ${it.second}" })
+        assertEquals(
+            listOf(
+                "lsp test: the params of java/classFileContents sent as null: Not a JSON value: " +
+                    "java.lang.StringBuilder (use Map, List, String, Number, Boolean, null or a Gson JsonElement)",
+            ),
+            warnings.messages(Level.WARNING),
+        )
     }
 
     @Test

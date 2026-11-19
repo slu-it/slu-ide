@@ -15,6 +15,7 @@ import org.eclipse.lsp4j.WorkDoneProgressEnd
 import org.eclipse.lsp4j.jsonrpc.RemoteEndpoint
 import org.eclipse.lsp4j.jsonrpc.messages.CancelParams
 import org.eclipse.lsp4j.jsonrpc.messages.Either
+import org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -129,6 +130,7 @@ class LanguageServerNotificationsTest {
     fun `a notification the extension names reaches it with its params, others pass by, and so does a method sent`() {
         val extension = RecordingExtension(setOf("language/status"))
         val server = extendedSession(extension)
+        val warnings = LogRecords(Logger.getLogger(GenericEndpoint::class.java.name)).also { logs += it }
 
         server.clientEndpoint.notify("language/status", mapOf("type" to "Started", "message" to "Ready"))
         server.clientEndpoint.notify("language/other", mapOf("type" to "Ignored"))
@@ -150,6 +152,9 @@ class LanguageServerNotificationsTest {
             listOf("language/status {\"type\":\"Sent\"}"),
             server.customMessages.map { "${it.first} ${it.second}" },
         )
+        // What the extension took does not reach lsp4j too (which would not know the method); what it did not take does.
+        // lsp4j 1.0.0 (GenericEndpoint) logs that text; the log is the only way to see where a notification went.
+        assertEquals(listOf("Unsupported notification method: language/other"), warnings.messages())
     }
 
     @Test

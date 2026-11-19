@@ -97,6 +97,13 @@ open class FakeServer :
     @Volatile
     var capabilities = ServerCapabilities()
 
+    /**
+     * Whether the messages this server writes carry their `null` fields (`"diagnostics": null`), as a server that is not
+     * lsp4j may write them; lsp4j drops them by default. Set before the process starts.
+     */
+    @Volatile
+    var serializeNulls = false
+
     /** `false`: `initialize` is never answered. */
     @Volatile
     var answerInitialize = true
@@ -260,6 +267,7 @@ internal class FakeProcess(
                 .Builder<LanguageClient>()
                 .setLocalService(server)
                 .setRemoteInterface(LanguageClient::class.java)
+                .configureGson { if (server.serializeNulls) it.serializeNulls() }
                 .setInput(toServer.input)
                 .setOutput(toClient.output)
                 .setExecutorService(serverReader)
