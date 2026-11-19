@@ -4,6 +4,8 @@ import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.secrets.Decrypted
 import dev.sluide.secrets.Encrypted
 import dev.sluide.secrets.SavedSecretEntry
+import dev.sluide.secrets.Secrets
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import tools.jackson.databind.json.JsonMapper
 import java.nio.file.Path
@@ -135,10 +137,50 @@ class SavedPassphrasesTest {
     }
 
     @Test
-    fun `shows a stored path without a file name as written`() {
-        seed("""{"passphrases":[{"files":["/"],"value":"v1:x"}]}""")
+    fun `saving keeps a broken entry and other keys of httpClient`() {
+        seed("""{"passphrases":["broken"]}""")
+        assertEquals(Encrypted.Value("v1:pw|$context"), saved.save(files, "pw".toCharArray()))
+        assertEquals(2, stored()?.get("passphrases")?.size())
+        assertEquals("broken", stored()?.get("passphrases")?.get(0)?.stringValue())
 
-        assertEquals(listOf("/"), saved.entries().map { it.label })
+        seed("""{"later":1}""")
+        assertEquals(Encrypted.Value("v1:pw|$context"), saved.save(files, "pw".toCharArray()))
+        assertEquals(1, stored()?.get("later")?.intValue())
+        assertEquals("pw", plain(saved.load(files)))
+    }
+
+    @Test
+    fun `passphrases that are no array are no passphrases, entries without files are skipped`() {
+        seed("""{"passphrases":{"k":{"files":["$certificate","$key"],"value":"v1:pw|$contextJson"}}}""")
+        assertNull(saved.load(files))
+        assertEquals(emptyList(), saved.entries())
+
+        seed(
+            """{"passphrases":[{"value":"v1:a"},{"files":["x"],"value":"v1:b"}]}""",
+        )
+        assertEquals(listOf("x"), saved.entries().map { it.id })
+    }
+
+    @Test
+    fun `the Spring constructor hands decrypting to Secrets`() {
+        // A value that is not well formed is refused before the secret store is asked, so no real store is touched.
+        seed("""{"passphrases":[{"files":["$certificate","$key"],"value":"no secret"}]}""")
+        val springSaved = SavedPassphrases(store, Secrets())
+
+        assertEquals(Decrypted.Unreadable, springSaved.load(files))
+
+        assertNull(stored())
+    }
+
+    @Test
+    fun `the Spring constructor hands encrypting and the reason to Secrets`() {
+        val secrets = Secrets()
+        // Only where the system has no secret store, so that no real one is asked (and no key created in it).
+        assumeTrue(secrets.saveUnavailableReason() != null)
+        val springSaved = SavedPassphrases(store, secrets)
+
+        assertEquals(secrets.saveUnavailableReason(), springSaved.unavailableReason())
+        assertIs<Encrypted.Failed>(springSaved.save(files, "pw".toCharArray()))
     }
 
     @Test
