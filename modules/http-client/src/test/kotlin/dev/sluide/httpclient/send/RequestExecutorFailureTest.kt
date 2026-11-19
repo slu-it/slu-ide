@@ -612,6 +612,28 @@ class RequestExecutorFailureTest {
     }
 
     @Test
+    fun `describes a connection that closes without an answer by the error of the exchange, not its wrapper`() {
+        ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { listener ->
+            val closer = Thread { repeat(2) { listener.accept().close() } }.apply { isDaemon = true }
+            closer.start()
+            val request =
+                PreparedRequest(
+                    URI("http://127.0.0.1:${listener.localPort}/"),
+                    "GET",
+                    HttpVersion.HTTP_1_1,
+                    emptyList(),
+                    ByteArray(0),
+                    emptyList(),
+                )
+
+            val failure = assertIs<HttpFailure>(executor.await(request))
+
+            assertTrue(failure.message.startsWith("IOException: "), failure.message)
+            assertFalse("ExecutionException" in failure.message, failure.message)
+        }
+    }
+
+    @Test
     fun `maps the versions of the JDK client to the two of the file format`() {
         assertEquals(HttpVersion.HTTP_2, RequestExecutor.versionOf(java.net.http.HttpClient.Version.HTTP_2))
         assertEquals(HttpVersion.HTTP_1_1, RequestExecutor.versionOf(java.net.http.HttpClient.Version.HTTP_1_1))
