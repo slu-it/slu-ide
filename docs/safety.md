@@ -48,6 +48,8 @@ The short form that loads with production code is `.claude/rules/safety.md`; kee
   `url=…`), and of URLs in git's messages (`scheme://***@host`). Known limit: only URL userinfo is masked, so a
   header-style value (`-c http.extraHeader=Authorization: …`) would be logged as given; no code passes one. The one place a remote URL is shown is the git log's Change URL dialog, with credentials masked
   as `****` (ADR 0183).
+  The http-client is a decided exception: its URL errors ("Invalid URL …", "Only http and https URLs …") and the response pane show
+  the URL as written, in the response pane's error label only, never in logs or task names (ADR 0028).
 - Show secret values masked by default: `.env` values with a per-tab Show values toggle that is never stored
   (ADR 0030), HTTP auth headers always masked in the Request tab (ADR 0028), Docker environment tables with Show
   values (`docs/features/docker.md`, `docker-compose.md`). PEM views never show key material.
