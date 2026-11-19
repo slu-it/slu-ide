@@ -410,4 +410,18 @@ class GitCliInProgressTest {
         assertEquals(Result.success(GitPendingConflicts(listOf("file.txt"))), inProgress())
         assertTrue(inProgress(failingGit(folder, "ls-files")).isFailure)
     }
+
+    @Test
+    fun `a first word that only hashes like pick, p or revert is no cherry-pick or revert`() {
+        commit("base")
+        // A when over strings checks the hash code first: strings with the same hash code are not the same word.
+        val words = listOf("pick" to "ph\u0082k", "p" to "\u0003\u0013", "revert" to "rd\u0095ert")
+        val sequencer = gitDirectory.resolve("sequencer").createDirectories()
+
+        for ((word, other) in words) {
+            assertEquals(word.hashCode(), other.hashCode())
+            sequencer.resolve("todo").writeText("$other abc subject\n")
+            assertEquals(Result.success(GitPendingOperation(GitOperation.SEQUENCE)), inProgress(), other)
+        }
+    }
 }

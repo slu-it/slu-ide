@@ -397,4 +397,13 @@ class GitCliRefsTest {
         assertEquals(0, git.unreachableCount(root, first, branch = null))
         assertEquals(1, git.unreachableCount(root, first, branch = "null"))
     }
+
+    @Test
+    fun `mergeBase has no answer for an output that is empty, and trims what git adds around a hash`() {
+        assertNull(fakeGit("case \" \$* \" in *' merge-base '*) exit 0;; esac").mergeBase(root, "a", "b"))
+        assertEquals(
+            first,
+            fakeGit("case \" \$* \" in *' merge-base '*) echo ' $first ';; esac").mergeBase(root, "a", "b"),
+        )
+    }
 }
