@@ -2,6 +2,9 @@ package dev.sluide.httpclient.parse
 
 import dev.sluide.httpclient.parse.BodyPart.FileRef
 import dev.sluide.httpclient.parse.BodyPart.Text
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -529,5 +532,177 @@ class HttpFileParserTest {
             ),
             file.lineKinds,
         )
+    }
+
+    @ParameterizedTest(name = "{0} is no {1}")
+    @CsvSource(
+        "oBme,name",
+        "oP-redirect,no-redirect",
+        "oP-cookie-jar,no-cookie-jar",
+        "uJmeout,timeout",
+        "dPnnection-timeout,connection-timeout",
+    )
+    fun `takes a comment whose tag only has the hash of a tag for a plain comment`(
+        lookalike: String,
+        tag: String,
+    ) {
+        // Same String.hashCode as the tag: a `when` on the tag's text that trusted the hash would take it for the tag.
+        assertEquals(tag.hashCode(), lookalike.hashCode())
+
+        val file = parse("# @$lookalike 5", "GET http://x")
+
+        assertEquals(RequestTags(), file.requests.single().tags)
+        assertNull(file.requests.single().name)
+        assertEquals(LineKind.COMMENT, file.lineKinds[0])
+        assertTrue(file.problems.isEmpty())
+    }
+
+    @Test
+    fun `keeps the timeout it has when a later one is invalid`() {
+        val file =
+            parse(
+                "# @timeout 5",
+                "# @timeout soon",
+                "# @connection-timeout 2 s",
+                "# @connection-timeout 0",
+                "GET http://x",
+            )
+
+        assertEquals(
+            RequestTags(timeout = Duration.ofSeconds(5), connectionTimeout = Duration.ofSeconds(2)),
+            file.requests.single().tags,
+        )
+        assertEquals(listOf(1, 3), file.problems.map { it.line })
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(
+        strings = ["soon", "", "-5", "0", "00", "5 h", "99999999999999999999", "99999999999999999999 ms", "5.5"],
+    )
+    fun `reports a timeout that is no positive duration`(value: String) {
+        val file = parse("# @timeout $value", "GET http://x")
+
+        assertEquals(RequestTags(), file.requests.single().tags)
+        assertEquals(
+            listOf(ParseProblem(0, "@timeout needs a positive duration such as 30, 500 ms, 30 s or 2 m")),
+            file.problems,
+        )
+    }
+
+    @Test
+    fun `keeps the URL of an unsupported request type without the type`() {
+        val request = single("WEBSOCKET ws://x/chat")
+
+        assertEquals("WEBSOCKET", request.method)
+        assertEquals("ws://x/chat", request.url)
+    }
+
+    @ParameterizedTest(name = "HTTP/{0}")
+    @CsvSource("2.0,HTTP_2", "2,HTTP_2", "1.1,HTTP_1_1")
+    fun `reads the versions it knows`(
+        number: String,
+        expected: String,
+    ) {
+        val request = single("GET http://x HTTP/$number")
+
+        assertEquals(expected, request.version?.name)
+        assertEquals("http://x", request.url)
+    }
+
+    @ParameterizedTest(name = "HTTP/{0} looks like HTTP/{1}")
+    @CsvSource("0M1,1.1", "1-P,1.1", "1M0,2.0", "2-O,2.0")
+    fun `does not take a version that only has the hash of a known one for it`(
+        lookalike: String,
+        known: String,
+    ) {
+        assertEquals(known.hashCode(), lookalike.hashCode())
+
+        val file = parse("GET http://x HTTP/$lookalike")
+
+        assertNull(file.requests.single().version)
+        assertEquals(listOf(ParseProblem(0, "HTTP/$lookalike is not supported; HTTP/1.1 is used")), file.problems)
+    }
+
+    @Test
+    fun `does not take a version with the hash of 2 for HTTP 2`() {
+        // Control characters are no whitespace for the version pattern; "\u0001\u0013" has the hash 50 of "2".
+        val lookalike = "\u0001\u0013"
+        assertEquals("2".hashCode(), lookalike.hashCode())
+
+        val file = parse("GET http://x HTTP/$lookalike")
+
+        assertNull(file.requests.single().version)
+        assertEquals(listOf(ParseProblem(0, "HTTP/$lookalike is not supported; HTTP/1.1 is used")), file.problems)
+    }
+
+    @Test
+    fun `a script that closes on its first line ends there, so that the next separator splits`() {
+        val file = parse("< {% a %}", "###", "GET http://x", "> {% b %}", "###", "GET http://y")
+
+        assertEquals(listOf(1..3, 4..5), file.requests.map { it.lines })
+        assertTrue(file.problems.isEmpty())
+    }
+
+    @Test
+    fun `ends a script at the line with its closing mark, so that separators after it split requests`() {
+        val file = parse("< {%", "###", "###", "%}", "GET http://x", "###", "GET http://y")
+
+        assertEquals(listOf(0..4, 5..6), file.requests.map { it.lines })
+        assertTrue(file.problems.isEmpty())
+    }
+
+    @Test
+    fun `a script start whose closing mark overlaps its opening one stays open`() {
+        val file = parse("< {%}", "###", "%}", "GET http://x")
+
+        assertEquals(listOf(0..3), file.requests.map { it.lines })
+        assertEquals(listOf(ScriptBlock(ScriptBlock.Kind.PRE, 0..2)), file.requests.single().scripts)
+    }
+
+    @Test
+    fun `sorts problems by line although a missing URL is found last`() {
+        val file = parse("GET", "not a header", "###", "POST", "also not")
+
+        assertEquals(listOf(0, 1, 3, 4), file.problems.map { it.line })
+        assertEquals("The request has no URL", file.problems[0].message)
+    }
+
+    @Test
+    fun `a line starting with an angle bracket is a script only with something after the bracket`() {
+        val lone = parse("<")
+        assertEquals("<", lone.requests.single().url)
+        assertTrue(
+            lone.requests
+                .single()
+                .scripts
+                .isEmpty(),
+        )
+
+        val response = parse("<> previous.json", "GET http://x")
+        assertEquals("<> previous.json", response.requests.single().url)
+        assertTrue(
+            response.requests
+                .single()
+                .scripts
+                .isEmpty(),
+        )
+
+        val script = single("< ./pre.js", "GET http://x")
+        assertEquals(listOf(ScriptBlock(ScriptBlock.Kind.PRE, 0..0)), script.scripts)
+        assertEquals("http://x", script.url)
+    }
+
+    @Test
+    fun `an indented line among the headers with no header before it is a problem, not a continuation`() {
+        val file = parse("GET http://x", "???", "   indented", "Accept: a", "  b")
+
+        assertEquals(
+            listOf(
+                ParseProblem(1, "Expected a header (Name: value) or a blank line before the body"),
+                ParseProblem(2, "Expected a header (Name: value) or a blank line before the body"),
+            ),
+            file.problems,
+        )
+        assertEquals(listOf(Header("Accept", "a b", 3)), file.requests.single().headers)
     }
 }
