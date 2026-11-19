@@ -47,7 +47,7 @@ class TextDiffsTest {
     }
 
     @Test
-    fun `without a folder given the system's is used`() {
+    fun `without a folder given the texts are still compared`() {
         assumeTrue(git.available, "git is not installed")
 
         assertEquals(1, git.diffTexts("a\n".toByteArray(), "b\n".toByteArray(), null, null)?.size)

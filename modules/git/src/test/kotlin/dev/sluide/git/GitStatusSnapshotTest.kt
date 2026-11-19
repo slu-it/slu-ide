@@ -148,19 +148,29 @@ class GitStatusSnapshotTest {
     }
 
     @Test
-    fun `the hash and the text of a snapshot tell root, head and entries`() {
+    fun `equal snapshots have one hash, snapshots of another root, entries or head have another`() {
         val entries = mapOf("a.kt" to GitStatus.ADDED)
         val head = GitHead("main", "abc")
         val snapshot = GitStatusSnapshot(root, entries, head)
 
-        // The same fields as equals compares, in this order: 31 * (31 * root + entries) + head.
-        assertEquals((31 * root.hashCode() + entries.hashCode()) * 31 + head.hashCode(), snapshot.hashCode())
-        assertEquals((31 * root.hashCode() + entries.hashCode()) * 31, GitStatusSnapshot(root, entries).hashCode())
-        assertEquals("GitStatusSnapshot($root, $head, $entries)", snapshot.toString())
+        assertEquals(snapshot.hashCode(), GitStatusSnapshot(root, entries.toMap(), GitHead("main", "abc")).hashCode())
+        assertNotEquals(snapshot.hashCode(), GitStatusSnapshot(Path.of("/other"), entries, head).hashCode())
+        assertNotEquals(snapshot.hashCode(), GitStatusSnapshot(root, mapOf("b.kt" to GitStatus.ADDED), head).hashCode())
+        assertNotEquals(snapshot.hashCode(), GitStatusSnapshot(root, entries, GitHead("other", "abc")).hashCode())
+        assertNotEquals(snapshot.hashCode(), GitStatusSnapshot(root, entries).hashCode())
     }
 
     @Test
-    fun `the empty snapshot has the hash of no root, no entries and no head`() {
-        assertEquals(31 * emptyMap<String, GitStatus>().hashCode() * 31, GitStatusSnapshot.EMPTY.hashCode())
+    fun `the text of a snapshot tells root, head and entries`() {
+        val entries = mapOf("a.kt" to GitStatus.ADDED)
+        val head = GitHead("main", "abc")
+
+        assertEquals("GitStatusSnapshot($root, $head, $entries)", GitStatusSnapshot(root, entries, head).toString())
+    }
+
+    @Test
+    fun `the empty snapshot hashes to 0`() {
+        // No root and no head hash as 0 (Kotlin's null-safe hashCode), an empty map as 0: (31 * 0 + 0) * 31 + 0.
+        assertEquals(0, GitStatusSnapshot.EMPTY.hashCode())
     }
 }

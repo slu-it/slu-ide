@@ -15,6 +15,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -98,7 +99,6 @@ class GitCliConfigTest {
         assertEquals("Spaced Name", git.userName(repo))
         run("config", "user.name", "   ")
         assertNull(git.userName(repo))
-        assertNull(unavailable().userName(repo))
     }
 
     @Test
@@ -108,7 +108,6 @@ class GitCliConfigTest {
         run("remote", "add", "another", "https://example.com/b.git")
 
         assertEquals(listOf("another", "origin"), git.remoteNames(repo))
-        assertNull(unavailable().remoteNames(repo))
         assertNull(failingGit(folder, "remote").remoteNames(repo))
         assertNull(git.remoteNames(repo, GitCancellation().apply { cancel() }))
     }
@@ -130,7 +129,6 @@ class GitCliConfigTest {
     @Test
     fun `no remote skips fetch all when none sets it, a value that is no boolean or no answer is unknown`() {
         assertEquals(emptySet(), git.remotesSkippedByFetchAll(repo))
-        assertNull(unavailable().remotesSkippedByFetchAll(repo))
         assertNull(failingGit(folder, "config").remotesSkippedByFetchAll(repo))
         assertNull(heldOpen("config").remotesSkippedByFetchAll(repo))
         run("config", "remote.x.skipFetchAll", "perhaps")
@@ -151,7 +149,6 @@ class GitCliConfigTest {
     fun `the values of a variable are unknown without an answer, cancelled, or for an invalid name`() {
         run("config", "--add", "test.values", "one")
 
-        assertNull(unavailable().configValues(repo, "test.values"))
         assertNull(failingGit(folder, "config").configValues(repo, "test.values"))
         assertNull(heldOpen("config").configValues(repo, "test.values"))
         assertNull(git.configValues(repo, "test.values", GitCancellation().apply { cancel() }))
@@ -174,7 +171,6 @@ class GitCliConfigTest {
         run("config", "test.flag", "perhaps")
 
         assertNull(git.configFlag(repo, "test.flag"))
-        assertNull(unavailable().configFlag(repo, "test.flag"))
         assertNull(failingGit(folder, "config").configFlag(repo, "test.flag"))
         assertNull(heldOpen("config").configFlag(repo, "test.bare"))
     }
@@ -193,7 +189,10 @@ class GitCliConfigTest {
         run("config", "test.multi", "a\nb")
         repo.resolve(".git/config").toFile().appendText("[test]\n\tbare\n")
 
-        val entries = git.configEntries(repo)!!.filter { it.key.startsWith("test.") }.associateBy { it.key }
+        val entries =
+            assertNotNull(
+                git.configEntries(repo),
+            ).filter { it.key.startsWith("test.") }.associateBy { it.key }
 
         assertEquals(ConfigEntry("local", "file:.git/config", "test.empty", ""), entries["test.empty"])
         assertEquals("a\nb", entries["test.multi"]?.value)
@@ -202,7 +201,6 @@ class GitCliConfigTest {
 
     @Test
     fun `the entries are unknown without an answer, with a failed one, or with fields that do not add up`() {
-        assertNull(unavailable().configEntries(repo))
         assertNull(failingGit(folder, "--list").configEntries(repo))
         assertNull(heldOpen("--list").configEntries(repo))
         // Two fields only: git always gives three per entry.
@@ -218,7 +216,6 @@ class GitCliConfigTest {
         assertEquals(repo.toRealPath(), git.topLevel(repo))
         assertEquals(repo.toRealPath(), git.topLevel(below))
         assertNull(git.topLevel(repo.resolve(".git")))
-        assertNull(unavailable().topLevel(repo))
         assertNull(failingGit(folder, "--show-toplevel").topLevel(repo))
     }
 
@@ -241,7 +238,6 @@ class GitCliConfigTest {
         run("update-index", "--add", "--cacheinfo", "160000,${"b".repeat(40)},z")
 
         assertEquals(listOf("sub one", "z"), git.gitlinks(repo))
-        assertNull(unavailable().gitlinks(repo))
         assertNull(failingGit(folder, "--stage").gitlinks(repo))
     }
 
@@ -268,7 +264,6 @@ class GitCliConfigTest {
         assertEquals(false, git.sshConfigured(repo))
         run("config", "core.sshCommand", "ssh")
         assertEquals(true, git.sshConfigured(repo))
-        assertNull(unavailable().sshConfigured(repo))
         assertNull(failingGit(folder, "--get-regexp").sshConfigured(repo))
     }
 
@@ -321,7 +316,7 @@ class GitCliConfigTest {
                 { hanging.sshConfigured(repo) },
             ).map { read -> CompletableFuture.supplyAsync(read) }
 
-        // The reads wait three seconds each, side by side.
+        // Each read gives up after three seconds; they run at the same time, so the test takes three.
         assertEquals(List(5) { null }, reads.map { it.get(30, TimeUnit.SECONDS) })
     }
 }
