@@ -57,7 +57,7 @@ internal fun parameterRange(
 ): IntRange? {
     val parameterLabel = parameter.label ?: return null
     if (parameterLabel.isRight) {
-        val offsets = parameterLabel.right ?: return null
+        val offsets = parameterLabel.right
         val start = (offsets.first ?: return null).coerceIn(0, label.length)
         val end = (offsets.second ?: return null).coerceIn(start, label.length)
         return if (end > start) start until end else null
