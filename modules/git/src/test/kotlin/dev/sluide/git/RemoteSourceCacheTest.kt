@@ -381,7 +381,7 @@ class RemoteSourceCacheTest {
     fun `a URL the user configured for origin does not come before the repository's`() {
         val head = commit("action.yml" to "name: one\n")
         val other = folder.resolve("other/owner/repo")
-        TestRepository(other).commitEmpty("Other")
+        TestRepository(other).commitStaged("Other")
         val configured = cacheWith("[remote \"origin\"]\n\turl = file://$other\n")
 
         assertEquals(head, assertIs<RemoteFetch.Fetched>(configured.fetch(repository, "main")).commit.commit)

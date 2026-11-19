@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -15,13 +16,12 @@ internal abstract class GitLogFixture {
 
     protected val git = GitCli("git", testGitEnvironment())
     protected val log = GitLog(git)
+    private lateinit var repository: TestRepository
 
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        git("init", "-q", "-b", "main")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
+        repository = TestRepository(repo)
     }
 
     protected fun git(
@@ -34,13 +34,7 @@ internal abstract class GitLogFixture {
     protected fun commit(
         subject: String,
         time: Long,
-    ): String {
-        val date = "@$time +0000"
-        // The committer date decides the date order.
-        val dates = mapOf("GIT_AUTHOR_DATE" to date, "GIT_COMMITTER_DATE" to date)
-        git("commit", "-q", "--allow-empty", "-m", subject, environment = dates)
-        return git("rev-parse", "HEAD")
-    }
+    ): String = repository.commitStaged(subject, time)
 
     protected fun subjects(page: GitLogPage?) = page?.commits?.map { it.subject }
 

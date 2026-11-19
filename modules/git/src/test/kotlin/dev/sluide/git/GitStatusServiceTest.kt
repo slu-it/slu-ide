@@ -35,8 +35,9 @@ class GitStatusServiceTest {
 
     private val git = GitCli("git", testGitEnvironment())
 
-    // Everything dispatched runs on this test's thread, in run(), like on the JavaFX thread.
     private lateinit var repository: TestRepository
+
+    // Everything dispatched runs on this test's thread, in run(), like on the JavaFX thread.
     private val dispatched = LinkedBlockingQueue<Runnable>()
     private val watcher = FileWatcher({ dispatched += it }, 50.milliseconds)
 

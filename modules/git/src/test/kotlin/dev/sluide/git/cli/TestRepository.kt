@@ -50,13 +50,16 @@ internal class TestRepository(
         return head()
     }
 
-    /** Commits nothing but [message] (`--allow-empty`), dated [seconds] after the epoch if given; the new commit's hash. */
-    fun commitEmpty(
+    /**
+     * Commits the index with [message] (`--allow-empty`: also when nothing is staged), dated [epochSeconds] after the
+     * epoch if given; the new commit's hash.
+     */
+    fun commitStaged(
         message: String,
-        seconds: Long? = null,
+        epochSeconds: Long? = null,
     ): String {
-        val date = "@$seconds +0000"
-        val dates = seconds?.let { mapOf("GIT_AUTHOR_DATE" to date, "GIT_COMMITTER_DATE" to date) }.orEmpty()
+        val date = "@$epochSeconds +0000"
+        val dates = epochSeconds?.let { mapOf("GIT_AUTHOR_DATE" to date, "GIT_COMMITTER_DATE" to date) }.orEmpty()
         runGit(root, "commit", "-q", "--allow-empty", "-m", message, environment = environment + dates)
         return head()
     }

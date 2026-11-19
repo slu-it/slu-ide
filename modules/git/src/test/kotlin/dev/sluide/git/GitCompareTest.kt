@@ -42,13 +42,13 @@ class GitCompareTest {
 
     /** main: Base, Main 1, Main 2 (HEAD); feature from Base: Feature 1, Feature 2. */
     private fun branches() {
-        repository.commitEmpty("Base", 1000)
+        repository.commitStaged("Base", 1000)
         repository.git("switch", "-q", "-c", "feature")
-        repository.commitEmpty("Feature 1", 2000)
-        repository.commitEmpty("Feature 2", 3000)
+        repository.commitStaged("Feature 1", 2000)
+        repository.commitStaged("Feature 2", 3000)
         repository.git("switch", "-q", "main")
-        repository.commitEmpty("Main 1", 4000)
-        repository.commitEmpty("Main 2", 5000)
+        repository.commitStaged("Main 1", 4000)
+        repository.commitStaged("Main 2", 5000)
     }
 
     @Test
@@ -84,12 +84,12 @@ class GitCompareTest {
 
     @Test
     fun `a ref with non-ASCII characters is compared through the standard input`() {
-        repository.commitEmpty("Base", 1000)
+        repository.commitStaged("Base", 1000)
         val green = "refs/heads/grün"
         // Through git's standard input, as UTF-8: arguments of the JVM take its locale, which may be plain ASCII.
-        repository.git("update-ref", "--stdin", input = "create $green ${repository.commitEmpty("Green", 2000)}\n")
+        repository.git("update-ref", "--stdin", input = "create $green ${repository.commitStaged("Green", 2000)}\n")
         repository.git("reset", "-q", "--hard", "HEAD~1")
-        repository.commitEmpty("Main", 3000)
+        repository.commitStaged("Main", 3000)
 
         assertEquals(listOf("Green"), subjects(GitLogFilter(revisions = listOf(green), excluded = listOf("HEAD"))))
         assertEquals(listOf("Main"), subjects(GitLogFilter(revisions = listOf("HEAD"), excluded = listOf(green))))
@@ -106,7 +106,7 @@ class GitCompareTest {
         repo.resolve("old.txt").writeText(lines)
         repo.resolve("same.txt").writeText("same\n")
         repository.git("add", "-A")
-        val base = repository.commitEmpty("Base", 1000)
+        val base = repository.commitStaged("Base", 1000)
         repository.git("tag", "v1")
         repo.resolve("keep.txt").writeText("one\nTWO\nthree\n")
         repo.resolve("gone.txt").deleteExisting()
@@ -155,7 +155,7 @@ class GitCompareTest {
         repo.resolve("data.bin").writeBytes(byteArrayOf(1, 2, 3))
         repo.resolve("big.txt").writeText("small\n")
         repository.git("add", "-A")
-        val base = repository.commitEmpty("Base", 1000)
+        val base = repository.commitStaged("Base", 1000)
         repo.resolve("data.bin").writeBytes(byteArrayOf(1, 0, 3))
         repo.resolve("big.txt").writeText("small\nbut growing\n")
 
@@ -172,7 +172,7 @@ class GitCompareTest {
         // Written through git's standard input, as UTF-8: file names of the JVM take its locale, which may be ASCII.
         val first = repository.git("hash-object", "-w", "--stdin", input = "one\ntwo\n")
         repository.git("update-index", "--add", "--index-info", input = "100644 $first\t$path\n")
-        val base = repository.commitEmpty("Base", 1000)
+        val base = repository.commitStaged("Base", 1000)
         val second = repository.git("hash-object", "-w", "--stdin", input = "one\nzwei\n")
         repository.git("update-index", "--index-info", input = "100644 $second\t$path\n")
         repository.git("checkout-index", "-f", "--stdin", input = "$path\n")
@@ -197,14 +197,14 @@ class GitCompareTest {
 
     @Test
     fun `the counts apply the filter's text, users, paths and options, not its revisions`() {
-        repository.commitEmpty("Base", 1000)
+        repository.commitStaged("Base", 1000)
         repository.git("switch", "-q", "-c", "feature")
         repo.resolve("a.txt").writeText("a\n")
         repository.git("add", "a.txt")
-        repository.commitEmpty("Fix a", 2000)
-        repository.commitEmpty("Other", 3000)
+        repository.commitStaged("Fix a", 2000)
+        repository.commitStaged("Other", 3000)
         repository.git("switch", "-q", "main")
-        repository.commitEmpty("Main fix", 4000)
+        repository.commitStaged("Main fix", 4000)
         repo.resolve(".mailmap").writeText("Ann Real <test@example.com>\n")
 
         val feature = "refs/heads/feature"
@@ -242,7 +242,7 @@ class GitCompareTest {
         repo.resolve(".gitattributes").writeText("*.cs text eol=crlf\n")
         repo.resolve("a.cs").writeText("a\nb\nc\n")
         repository.git("add", "-A")
-        val base = repository.commitEmpty("Base", 1000)
+        val base = repository.commitStaged("Base", 1000)
         // As a checkout writes it, with one line changed.
         repo.resolve("a.cs").writeText("a\r\nB\r\nc\r\n")
 
@@ -259,7 +259,7 @@ class GitCompareTest {
     fun `attributes and line-ending settings do not change how the two texts compare`() {
         repo.resolve("a.txt").writeText("a\nb\nc\n")
         repository.git("add", "-A")
-        val base = repository.commitEmpty("Base", 1000)
+        val base = repository.commitStaged("Base", 1000)
         repo.resolve(".gitattributes").writeText("* -diff\n* binary\n")
         repository.git("config", "core.autocrlf", "true")
         repo.resolve("a.txt").writeText("a\nB\nc\n")
@@ -273,7 +273,7 @@ class GitCompareTest {
     fun `where the JVM cannot name a file git reads it, unless its staged size is too large already`() {
         repo.resolve("a.txt").writeText("one\ntwo\n")
         repository.git("add", "-A")
-        val base = repository.commitEmpty("Base", 1000)
+        val base = repository.commitStaged("Base", 1000)
         repo.resolve("a.txt").writeText("one\nzwei\n")
         log.canNameFile = { false }
         val file = GitChangedFile(GitChange.MODIFIED, "a.txt")
@@ -299,7 +299,7 @@ class GitCompareTest {
         repo.resolve("a.txt").writeText("x\n")
         repo.resolve("old.txt").writeText("same\n")
         repository.git("add", "-A")
-        val base = repository.commitEmpty("Base", 1000)
+        val base = repository.commitStaged("Base", 1000)
         repo.resolve("a.txt").deleteExisting()
         repo.resolve("a.txt").createSymbolicLinkPointingTo(Path.of("target.txt"))
         repository.git("mv", "old.txt", "new.txt")
@@ -326,7 +326,7 @@ class GitCompareTest {
 
     @Test
     fun `a submodule is not compared`() {
-        val base = repository.commitEmpty("Base", 1000)
+        val base = repository.commitStaged("Base", 1000)
         repository.git("update-index", "--add", "--cacheinfo", "160000,${"1".repeat(40)},lib")
         // Not checked out: an empty folder.
         repo.resolve("lib").createDirectories()
@@ -343,7 +343,7 @@ class GitCompareTest {
     ) {
         repo.resolve("a.txt").writeText("a\n")
         repository.git("add", "-A")
-        val base = repository.commitEmpty("Base", 1000)
+        val base = repository.commitStaged("Base", 1000)
         repo.resolve("a.txt").writeText("b\n")
         log.temporaryFolder = temporary
 
@@ -374,7 +374,7 @@ class GitCompareTest {
         repo.resolve("a.big").writeText("small\n")
         repo.resolve("b.huge").writeText("small\n")
         repository.git("add", "-A")
-        val base = repository.commitEmpty("Base", 1000)
+        val base = repository.commitStaged("Base", 1000)
         // As git-lfs does: a small stored blob, a large file once smudged.
         repository.git(
             "config",

@@ -41,14 +41,12 @@ class GitMergesTest {
         repository = TestRepository(repo, environment = testGitEnvironment() + ("GIT_EDITOR" to ":"))
     }
 
-    private fun git(vararg arguments: String) = repository.git(*arguments)
+    private fun head() = repository.git("rev-parse", "HEAD")
 
-    private fun head() = git("rev-parse", "HEAD")
-
-    private fun rev(revision: String) = git("rev-parse", revision)
+    private fun rev(revision: String) = repository.git("rev-parse", revision)
 
     // As GitCliLog reads it: else git converts it to i18n.commitEncoding where iconv can (macOS: also "–" to "-").
-    private fun message() = git("log", "-1", "--encoding=UTF-8", "--format=%B")
+    private fun message() = repository.git("log", "-1", "--encoding=UTF-8", "--format=%B")
 
     private fun file(name: String = "file.txt") = repo.resolve(name).readText()
 
@@ -61,21 +59,21 @@ class GitMergesTest {
     private fun diverged(conflict: Boolean = false): String {
         repository.commit("Base")
         repository.commit("Other", "other.txt", OTHER)
-        git("switch", "-q", "-c", "feature")
+        repository.git("switch", "-q", "-c", "feature")
         val a = repository.commit("A")
-        git("switch", "-q", "main")
+        repository.git("switch", "-q", "main")
         if (conflict) repository.commit("Main") else repository.commit("Main", "other.txt", "main\n2\n3\n4\n5")
-        git("switch", "-q", "feature")
+        repository.git("switch", "-q", "feature")
         return a
     }
 
     /** main is ahead of feature by Main (adds main.txt). Leaves feature checked out. */
     private fun behind() {
         repository.commit("Base")
-        git("switch", "-q", "-c", "feature")
-        git("switch", "-q", "main")
+        repository.git("switch", "-q", "-c", "feature")
+        repository.git("switch", "-q", "main")
         repository.commit("Main", "main.txt")
-        git("switch", "-q", "feature")
+        repository.git("switch", "-q", "feature")
     }
 
     private fun merge(
@@ -95,7 +93,7 @@ class GitMergesTest {
 
     @Test
     fun `fast-forwards a branch that is behind, also with merge_ff=false configured`() {
-        git("config", "merge.ff", "false")
+        repository.git("config", "merge.ff", "false")
         behind()
 
         assertEquals(GitMergeResult.Done(rev("main"), fastForward = true), merge())
@@ -104,13 +102,13 @@ class GitMergesTest {
 
     @Test
     fun `creates a merge commit with git's message when the branches diverged, also with merge_ff=only configured`() {
-        git("config", "merge.ff", "only")
+        repository.git("config", "merge.ff", "only")
         val a = diverged()
 
         val result = merge()
 
         assertEquals(GitMergeResult.Done(head()), result)
-        assertEquals(listOf(a, rev("main")), git("log", "-1", "--format=%P").split(' '))
+        assertEquals(listOf(a, rev("main")), repository.git("log", "-1", "--format=%P").split(' '))
         assertEquals("Merge branch 'main' into feature", message())
         assertNull(pending())
     }
@@ -121,7 +119,7 @@ class GitMergesTest {
         val before = head()
 
         assertEquals(GitMergeResult.Done(null), merge(GitMergeMode.MERGE_COMMIT).withoutHead())
-        assertEquals(listOf(before, rev("main")), git("log", "-1", "--format=%P").split(' '))
+        assertEquals(listOf(before, rev("main")), repository.git("log", "-1", "--format=%P").split(' '))
     }
 
     private fun GitMergeResult.withoutHead() = assertIs<GitMergeResult.Done>(this).copy(head = null)
@@ -141,13 +139,13 @@ class GitMergesTest {
 
     @Test
     fun `squash stages the changes without a commit, also with merge_ff=false configured`() {
-        git("config", "merge.ff", "false")
+        repository.git("config", "merge.ff", "false")
         diverged()
         val before = head()
 
         assertEquals(GitMergeResult.Done(before, squashed = true), merge(GitMergeMode.SQUASH))
         assertEquals(before, head())
-        assertEquals("M  other.txt", git("status", "--porcelain"))
+        assertEquals("M  other.txt", repository.git("status", "--porcelain"))
         assertFalse(repo.resolve(".git/MERGE_HEAD").exists())
         assertNull(pending())
     }
@@ -160,21 +158,21 @@ class GitMergesTest {
         assertEquals(GitMergeResult.Done(head(), squashed = true), merge(GitMergeMode.SQUASH, autostash = true))
         assertEquals("local\n", file())
         assertFalse(repo.resolve(".git/MERGE_AUTOSTASH").exists(), "nothing kept stashed until the next commit")
-        assertEquals("", git("stash", "list"))
+        assertEquals("", repository.git("stash", "list"))
     }
 
     @Test
     fun `a squash is told apart also when git writes its message in a commit encoding other than UTF-8`() {
-        git("config", "i18n.commitEncoding", "ISO-8859-1")
+        repository.git("config", "i18n.commitEncoding", "ISO-8859-1")
         diverged()
-        git("switch", "-q", "main")
+        repository.git("switch", "-q", "main")
         repo.resolve("main.txt").writeText("main\n")
-        git("add", "main.txt")
+        repository.git("add", "main.txt")
         val message = repo.resolve("message.txt")
         message.writeBytes("Fix für ä".toByteArray(Charsets.ISO_8859_1))
-        git("commit", "-q", "-F", message.toString())
+        repository.git("commit", "-q", "-F", message.toString())
         message.toFile().delete()
-        git("switch", "-q", "feature")
+        repository.git("switch", "-q", "feature")
         val before = head()
 
         assertEquals(GitMergeResult.Done(before, squashed = true), merge(GitMergeMode.SQUASH))
@@ -195,7 +193,7 @@ class GitMergesTest {
         )
 
         // Git refusing the next squash (exit 2, staged changes in the way) is no squash.
-        git("add", "file.txt")
+        repository.git("add", "file.txt")
         val again = merge(GitMergeMode.SQUASH)
         assertIs<GitMergeResult.Failed>(again)
         assertTrue("overwritten" in again.message, again.message)
@@ -204,7 +202,7 @@ class GitMergesTest {
     @Test
     fun `nothing runs when the branch is already contained`() {
         diverged()
-        git("merge", "-q", "--no-ff", "-m", "Merged", "main")
+        repository.git("merge", "-q", "--no-ff", "-m", "Merged", "main")
         val before = head()
 
         assertEquals(GitMergeResult.UpToDate, merge(GitMergeMode.MERGE_COMMIT))
@@ -219,13 +217,13 @@ class GitMergesTest {
             GitMergeResult.Failed("'--exec' cannot be passed to git: it starts with '-'."),
             merge(ref = "--exec"),
         )
-        val failing = runCatching { git("rebase", "main") }
+        val failing = runCatching { repository.git("rebase", "main") }
         assertTrue(failing.isFailure)
         val rebasing = GitMergeResult.Failed("A rebase is in progress; finish or abort it first.")
         assertEquals(rebasing, merge())
         assertEquals(rebasing, merges.continueMerge(repo))
         assertEquals(rebasing, merges.abortMerge(repo))
-        git("rebase", "--abort")
+        repository.git("rebase", "--abort")
         assertEquals(GitMergeResult.Failed("No merge is in progress."), merges.continueMerge(repo))
         assertEquals(GitMergeResult.Failed("No merge is in progress."), merges.abortMerge(repo))
 
@@ -267,20 +265,20 @@ class GitMergesTest {
     @Test
     fun `a merge started in a terminal is read, an octopus one with all its heads`() {
         repository.commit("Base")
-        git("branch", "a")
-        git("branch", "b")
-        git("switch", "-q", "a")
+        repository.git("branch", "a")
+        repository.git("branch", "b")
+        repository.git("switch", "-q", "a")
         val a = repository.commit("A", "a.txt")
-        git("switch", "-q", "b")
+        repository.git("switch", "-q", "b")
         val b = repository.commit("B", "b.txt")
-        git("switch", "-q", "-c", "feature", "main")
+        repository.git("switch", "-q", "-c", "feature", "main")
         repository.commit("Feature", "feature.txt")
-        git("merge", "-q", "--no-commit", "a", "b")
+        repository.git("merge", "-q", "--no-commit", "a", "b")
 
         assertEquals(GitPendingMerge(listOf(a, b), "Merge branches 'a' and 'b' into feature", emptyList()), pending())
 
-        git("merge", "--abort")
-        git("merge", "-q", "--no-commit", "a")
+        repository.git("merge", "--abort")
+        repository.git("merge", "-q", "--no-commit", "a")
         repo.resolve(".git/MERGE_MSG").deleteExisting()
         assertEquals(GitPendingMerge(listOf(a), null, emptyList()), pending(), "the message cannot be read")
     }
@@ -289,15 +287,15 @@ class GitMergesTest {
     fun `continuing commits files that cannot be checked only once confirmed`() {
         repository.commit("Base")
         repo.resolve("bin.dat").writeBytes(byteArrayOf(0, 1))
-        git("add", "bin.dat")
-        git("commit", "-q", "-m", "Binary")
-        git("switch", "-q", "-c", "feature")
+        repository.git("add", "bin.dat")
+        repository.git("commit", "-q", "-m", "Binary")
+        repository.git("switch", "-q", "-c", "feature")
         repo.resolve("bin.dat").writeBytes(byteArrayOf(0, 2))
-        git("commit", "-q", "-am", "A")
-        git("switch", "-q", "main")
+        repository.git("commit", "-q", "-am", "A")
+        repository.git("switch", "-q", "main")
         repo.resolve("bin.dat").writeBytes(byteArrayOf(0, 3))
-        git("commit", "-q", "-am", "Main")
-        git("switch", "-q", "feature")
+        repository.git("commit", "-q", "-am", "Main")
+        repository.git("switch", "-q", "feature")
         assertIs<GitMergeResult.Stopped>(merge())
         repo.resolve("bin.dat").writeBytes(byteArrayOf(0, 4))
         val unchecked = GitUncheckedConflict("bin.dat", GitConflictReason.BINARY)
@@ -311,22 +309,22 @@ class GitMergesTest {
 
     @Test
     fun `a message the user wrote is committed as given, also non-ASCII`() {
-        git("config", "i18n.commitEncoding", "ISO-8859-1")
+        repository.git("config", "i18n.commitEncoding", "ISO-8859-1")
         diverged()
         val text = "Zusammenführung – äöü\n\nMit Text."
 
         assertEquals(GitMergeResult.Done(null), merge(message = text).withoutHead())
         assertEquals(text, message())
-        assertEquals("", git("log", "-1", "--format=%e"), "recorded as UTF-8")
+        assertEquals("", repository.git("log", "-1", "--format=%e"), "recorded as UTF-8")
     }
 
     @Test
     fun `a branch that shares its name with a tag is merged, not the tag, with git's default message`() {
         diverged()
-        git("tag", "main", "main~1")
+        repository.git("tag", "main", "main~1")
 
         assertEquals(GitMergeResult.Done(null), merge().withoutHead())
-        assertEquals(rev("refs/heads/main"), git("log", "-1", "--format=%P").split(' ')[1])
+        assertEquals(rev("refs/heads/main"), repository.git("log", "-1", "--format=%P").split(' ')[1])
         assertEquals("Merge branch 'main' into feature", message())
     }
 
@@ -344,17 +342,17 @@ class GitMergesTest {
         expected: String,
     ) {
         repository.commit("Base")
-        git("branch", "feature")
-        git("switch", "-q", "feature")
+        repository.git("branch", "feature")
+        repository.git("switch", "-q", "feature")
         repository.commit("Feature", "feature.txt")
-        git("switch", "-q", "main")
+        repository.git("switch", "-q", "main")
         repository.commit("Main", "main.txt")
-        git("update-ref", "refs/remotes/origin/main", "main")
-        if (into != "main") git("switch", "-q", "-C", into, "main~1")
+        repository.git("update-ref", "refs/remotes/origin/main", "main")
+        if (into != "main") repository.git("switch", "-q", "-C", into, "main~1")
         val start = head()
-        git("merge", "-q", "--no-ff", "--no-edit", name)
+        repository.git("merge", "-q", "--no-ff", "--no-edit", name)
         val gits = message()
-        git("reset", "-q", "--hard", start)
+        repository.git("reset", "-q", "--hard", start)
 
         assertEquals(expected, gits)
         assertEquals(expected, defaultMergeMessage(ref, into))
@@ -364,7 +362,7 @@ class GitMergesTest {
 
     @Test
     fun `local changes are refused without the autostash, also with merge_autoStash=true configured`() {
-        git("config", "merge.autoStash", "true")
+        repository.git("config", "merge.autoStash", "true")
         diverged()
         val before = head()
         repo.resolve("other.txt").writeText(LOCAL)
@@ -375,7 +373,7 @@ class GitMergesTest {
         assertTrue("would be overwritten" in result.message, result.message)
         assertEquals(before, head())
         assertEquals(LOCAL, file("other.txt"))
-        assertEquals("", git("stash", "list"))
+        assertEquals("", repository.git("stash", "list"))
     }
 
     @Test
@@ -385,7 +383,7 @@ class GitMergesTest {
 
         assertEquals(GitMergeResult.Done(null), merge().withoutHead())
         assertEquals("main\n2\n3\n4\nlocal\n", file("other.txt"))
-        assertEquals("", git("stash", "list"))
+        assertEquals("", repository.git("stash", "list"))
     }
 
     @ParameterizedTest
@@ -407,13 +405,13 @@ class GitMergesTest {
             }
 
             else -> {
-                git("add", "file.txt")
-                git("commit", "-q", "--no-edit")
+                repository.git("add", "file.txt")
+                repository.git("commit", "-q", "--no-edit")
             }
         }
 
         assertEquals(LOCAL, file("other.txt"))
-        assertEquals("", git("stash", "list"))
+        assertEquals("", repository.git("stash", "list"))
         assertNull(pending())
     }
 
@@ -423,8 +421,8 @@ class GitMergesTest {
         repo.resolve("other.txt").writeText("local\n2\n3\n4\n5\n")
 
         assertEquals(GitMergeResult.Done(null, stashKept = true), merge().withoutHead())
-        assertEquals(1, git("stash", "list").lines().size)
-        assertEquals("UU other.txt", git("status", "--porcelain", "--untracked-files=no"))
+        assertEquals(1, repository.git("stash", "list").lines().size)
+        assertEquals("UU other.txt", repository.git("status", "--porcelain", "--untracked-files=no"))
         assertTrue(file("other.txt").startsWith("<<<<<<< "), file("other.txt"))
         assertEquals(
             GitPendingConflicts(listOf("other.txt")),
@@ -437,14 +435,14 @@ class GitMergesTest {
     private fun divergedWithOther() {
         repository.commit("Base")
         repository.commit("Other", "other.txt", OTHER)
-        git("switch", "-q", "-c", "feature")
+        repository.git("switch", "-q", "-c", "feature")
         repository.commit("A")
-        git("switch", "-q", "main")
+        repository.git("switch", "-q", "main")
         repo.resolve("file.txt").writeText("Main\n")
         repo.resolve("other.txt").writeText("main\n2\n3\n4\n5\n")
-        git("add", "-A")
-        git("commit", "-q", "-m", "Main")
-        git("switch", "-q", "feature")
+        repository.git("add", "-A")
+        repository.git("commit", "-q", "-m", "Main")
+        repository.git("switch", "-q", "feature")
     }
 
     @Test
@@ -460,7 +458,7 @@ class GitMergesTest {
             GitMergeResult.Done(null, stashKept = true),
             assertIs<GitMergeResult.Done>(result).copy(head = null),
         )
-        assertEquals(1, git("stash", "list").lines().size)
+        assertEquals(1, repository.git("stash", "list").lines().size)
     }
 
     @Test
@@ -475,7 +473,7 @@ class GitMergesTest {
 
         // git: "could not apply autostash; your changes are safe in the stash" and exit 0.
         assertEquals(GitMergeResult.Done(null, stashKept = true), result.withoutHead())
-        assertEquals(1, git("stash", "list").lines().size)
+        assertEquals(1, repository.git("stash", "list").lines().size)
         assertNull(pending())
     }
 

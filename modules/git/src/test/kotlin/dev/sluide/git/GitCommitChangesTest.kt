@@ -32,7 +32,7 @@ class GitCommitChangesTest {
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        TestRepository(repo)
+        TestRepository(repo) // Only its setup: git runs in the same folder below.
     }
 
     private fun git(
@@ -76,11 +76,7 @@ class GitCommitChangesTest {
         git("switch", "-q", "main")
         write("a.txt", "ours\n")
         git("commit", "-q", "-am", "Ours")
-        process("merge", "other")
-    }
-
-    private fun process(vararg arguments: String) {
-        runGitRaw(repo, *arguments)
+        runGitRaw(repo, "merge", "other")
     }
 
     /** Runs the shell [script] in the repository, which must succeed. */
@@ -165,7 +161,7 @@ class GitCommitChangesTest {
         git("stash", "push", "-q")
         write("a.txt", "committed\n")
         git("commit", "-q", "-am", "Other")
-        process("stash", "pop")
+        runGitRaw(repo, "stash", "pop")
         val changes = assertNotNull(commits.commitChanges(repo))
         assertEquals(GitPendingConflicts(listOf("a.txt")), changes.inProgress)
 
@@ -405,7 +401,7 @@ class GitCommitChangesTest {
     fun `refuses unmerged paths of a stopped cherry-pick with its message`() {
         conflictingMerge()
         git("merge", "--abort")
-        process("cherry-pick", "other")
+        runGitRaw(repo, "cherry-pick", "other")
 
         val outcome = changed("a.txt")
 

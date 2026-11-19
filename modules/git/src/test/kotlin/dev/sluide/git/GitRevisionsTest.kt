@@ -33,15 +33,15 @@ class GitRevisionsTest {
 
     @Test
     fun `lists the local and remote branches containing a commit, without symbolic refs`() {
-        val first = repository.commitEmpty("First")
-        val second = repository.commitEmpty("Second")
+        val first = repository.commitStaged("First")
+        val second = repository.commitStaged("Second")
         repository.git("branch", "feature", first)
         repository.git("branch", "later", second)
         repository.git("update-ref", "refs/remotes/origin/main", second)
         repository.git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
         repository.git("tag", "v1", first)
         repository.git("switch", "-q", "--orphan", "other")
-        val unrelated = repository.commitEmpty("Unrelated")
+        val unrelated = repository.commitStaged("Unrelated")
         repository.git("switch", "-q", "main")
 
         assertEquals(
@@ -60,9 +60,9 @@ class GitRevisionsTest {
 
     @Test
     fun `resolves hashes, prefixes, branches, tags and revision expressions to commits`() {
-        val first = repository.commitEmpty("First")
-        val second = repository.commitEmpty("Second")
-        val third = repository.commitEmpty("Third")
+        val first = repository.commitStaged("First")
+        val second = repository.commitStaged("Second")
+        val third = repository.commitStaged("Third")
         repository.git("tag", "light", first)
         repository.git("tag", "-a", "-m", "Annotated", "v1.0", second)
         repository.git("branch", "feature", second)
@@ -116,8 +116,8 @@ class GitRevisionsTest {
 
     @Test
     fun `a message search resolves to the youngest commit whose message matches`() {
-        val fix = repository.commitEmpty("Fix the parser")
-        repository.commitEmpty("Other")
+        val fix = repository.commitStaged("Fix the parser")
+        repository.commitStaged("Other")
 
         assertEquals(
             listOf(commitOf(fix), GitRevisionResolution.Missing),
@@ -127,8 +127,8 @@ class GitRevisionsTest {
 
     @Test
     fun `a non-ASCII branch name is resolved from the standard input`() {
-        val first = repository.commitEmpty("First")
-        repository.commitEmpty("Second")
+        val first = repository.commitStaged("First")
+        repository.commitStaged("Second")
         repository.git("update-ref", "--stdin", input = "create refs/heads/grün $first\n")
 
         assertEquals(listOf(commitOf(first)), log.resolveCommits(repo, listOf("grün")))
@@ -162,7 +162,7 @@ class GitRevisionsTest {
 
     @Test
     fun `a blank revision, a line break, too much input or a failing git give nothing`() {
-        repository.commitEmpty("First")
+        repository.commitStaged("First")
         assertNull(log.resolveCommits(repo, listOf("HEAD", " ")))
         assertNull(log.resolveCommits(repo, listOf("HEAD\nmain")))
         assertNull(log.resolveCommits(repo, List(400) { "a".repeat(40) }))

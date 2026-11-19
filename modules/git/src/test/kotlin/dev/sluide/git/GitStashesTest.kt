@@ -31,7 +31,7 @@ class GitStashesTest {
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        TestRepository(repo, environment = environment)
+        TestRepository(repo, environment = environment) // Only its setup: git runs in the same folder below.
         write("a.txt", "a")
         write("b.txt", "b")
         git("add", ".")
