@@ -430,7 +430,7 @@ class SslContextFactoryTest {
             .generateCertificate(derOf(pem).inputStream()) as X509Certificate
 
     @ParameterizedTest
-    @ValueSource(strings = ["ecdsa", "ed25519", "dsa"])
+    @ValueSource(strings = ["ecdsa", "ed25519", "ed448", "dsa"])
     fun `a PKCS 8 key of any algorithm works with its certificate and with no other key`(name: String) {
         create(config(fixture("client-$name.pem"), fixture("client-$name.key")))
         // DER as well as PEM.
@@ -539,6 +539,18 @@ class SslContextFactoryTest {
         // The first two arcs share a sub-identifier of two bytes: 2.999
         assertEquals(unsupported("2.999"), oidMessage("key.key", keyWithOid(byteArrayOf(0x88.toByte(), 0x37))))
         assertEquals(unsupported("0.5.1"), oidMessage("key.key", keyWithOid(byteArrayOf(0x05, 0x01))))
+        // The largest arc, a zero arc, and the first sub-identifiers at the edges of 0., 1. and 2.
+        val largest = byteArrayOf(0x2a, 0x87.toByte(), 0xff.toByte(), 0xff.toByte(), 0xff.toByte(), 0x7f)
+        assertEquals(unsupported("1.2.2147483647"), oidMessage("key.key", keyWithOid(largest)))
+        assertEquals(unsupported("1.2.0"), oidMessage("key.key", keyWithOid(byteArrayOf(0x2a, 0x00))))
+        assertEquals(unsupported("1.0.1"), oidMessage("key.key", keyWithOid(byteArrayOf(0x28, 0x01))))
+        assertEquals(unsupported("2.0.1"), oidMessage("key.key", keyWithOid(byteArrayOf(0x50, 0x01))))
+        // A length of two bytes (0x013c), complete and with its last byte cut off.
+        val head =
+            byteArrayOf(0x30, 0x82.toByte(), 0x01, 0x3c, 0x02, 0x01, 0x00, 0x30, 0x07, 0x06, 0x03, 0x2a, 0x03, 0x04) +
+                byteArrayOf(0x05, 0x00, 0x04, 0x82.toByte(), 0x01, 0x2c)
+        assertEquals(unsupported("1.2.3.4"), oidMessage("key.key", head + ByteArray(300)))
+        assertTrue(oidMessage("key.key", head + ByteArray(299)).startsWith("key.key is no valid private key: "))
         // Every form of length: one byte after 0x81, two after 0x82, three after 0x83.
         for (lengthBytes in 1..3) {
             assertEquals(
