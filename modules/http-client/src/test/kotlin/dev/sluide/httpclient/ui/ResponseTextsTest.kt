@@ -171,7 +171,7 @@ class ResponseTextsTest {
         val shown = ResponseTexts.request(upload(body, listOf("Content-Type" to "text/plain")))
 
         assertTrue(shown.partial)
-        assertTrue(shown.text.startsWith("PUT http://x/ HTTP/1.1\nContent-Type: text/plain"))
+        assertEquals("PUT http://x/ HTTP/1.1\nContent-Type: text/plain\n\n", shown.text)
     }
 
     @Test

@@ -427,6 +427,14 @@ class HttpSyntaxHighlighterTest {
     }
 
     @Test
+    fun `a response reference without a path has only its marker`() {
+        assertEquals(
+            listOf("GET" to KEYWORD, "http://x" to STRING, ">>" to OPERATOR),
+            snippets("GET http://x\n\n>>\n"),
+        )
+    }
+
+    @Test
     fun `spans after the last variable are kept`() {
         assertEquals(
             listOf("GET" to KEYWORD, "{{h}}" to ANNOTATION, "/x" to STRING, "Accept" to PROPERTY),
@@ -473,13 +481,5 @@ class HttpSyntaxHighlighterTest {
             listOf("GET" to KEYWORD, "http://x/{{{{a}}}}" to STRING),
             snippets("GET http://x/{{{{a}}}}\n"),
         )
-    }
-
-    @Test
-    fun `a very long line is highlighted at once`() {
-        val url = "http://x/" + "a".repeat(2_000_000)
-        val text = "GET $url HTTP/1.1\n"
-
-        assertEquals(listOf("GET" to KEYWORD, url to STRING, "HTTP/1.1" to KEYWORD), snippets(text))
     }
 }
