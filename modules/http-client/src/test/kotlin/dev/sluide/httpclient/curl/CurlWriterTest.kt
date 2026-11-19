@@ -206,11 +206,15 @@ internal class CurlWriterTest {
                 "for a in \"\$@\"; do printf '%s\\0' \"\$a\"; done"
         // The script goes in through stdin: the JVM would encode arguments in the platform's charset.
         val process = ProcessBuilder("/bin/sh").start()
-        process.outputStream.use { it.write(script.toByteArray(Charsets.UTF_8)) }
-        val output = process.inputStream.readBytes().toString(Charsets.UTF_8)
-        assertTrue(process.waitFor(30, TimeUnit.SECONDS))
+        try {
+            process.outputStream.use { it.write(script.toByteArray(Charsets.UTF_8)) }
+            val output = process.inputStream.readBytes().toString(Charsets.UTF_8)
+            assertTrue(process.waitFor(30, TimeUnit.SECONDS))
 
-        assertEquals(words, output.removeSuffix("\u0000").split('\u0000'))
+            assertEquals(words, output.removeSuffix("\u0000").split('\u0000'))
+        } finally {
+            process.destroyForcibly()
+        }
     }
 
     companion object {

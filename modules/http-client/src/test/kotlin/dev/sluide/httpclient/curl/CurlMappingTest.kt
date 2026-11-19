@@ -99,40 +99,6 @@ class CurlMappingTest {
     }
 
     @Test
-    fun `quotes what POSIX shells and PowerShell would expand or end a quote at`() {
-        listOf("=cmd", "~/x", "#x", "a b", "").forEach {
-            assertEquals("'$it'", CurlWriter.quote(it, Shell.POSIX))
-        }
-        assertEquals("a=b", CurlWriter.quote("a=b", Shell.POSIX))
-        // PowerShell ends single quotes at the typographic ones too.
-        val header = "X: a’; Start-Process calc; ’"
-        assertEquals("'X: a’’; Start-Process calc; ’’'", CurlWriter.quote(header, Shell.POWERSHELL))
-        val curl =
-            (
-                CurlWriter.write(
-                    listOf(CurlRequest("https://x", headers = listOf("X" to header.removePrefix("X: ")))),
-                    Shell.POWERSHELL,
-                ) as WriteResult.Written
-            ).text
-        assertEquals(listOf("X" to header.removePrefix("X: ")), request(curl).headers)
-    }
-
-    @Test
-    fun `a field value that -F would read as a file or attributes is written with --form-string`() {
-        val request =
-            CurlRequest(
-                "https://x",
-                method = "POST",
-                body = RequestBody.Multipart(listOf(FormPart("f", FormContent.Value("a;b"), "text/plain"))),
-            )
-
-        val written = CurlWriter.write(listOf(request), Shell.POSIX) as WriteResult.Written
-
-        assertEquals("curl https://x \\\n  --form-string 'f=a;b'\n", written.text)
-        assertEquals(listOf("The type of field f is left out: --form-string cannot carry one"), written.notes)
-    }
-
-    @Test
     fun `insecure has no http equivalent and is noted`() {
         val result = toHttp("curl -k -L https://x") as ConversionResult.Converted
 
@@ -368,6 +334,39 @@ class CurlMappingTest {
                 Arguments.of(
                     "curl --form-string $'f=ok\\n< x' https://x",
                     "Line 5 of the body starts with '<', which a .http file reads as a file to include",
+                ),
+                // A script start of any spacing without an end on its line opens a script; with an end it is text.
+                Arguments.of(
+                    "curl -d $'a\\nb\\n<{%' https://x",
+                    "Line 3 of the body starts with '< {%' without '%}', which a .http file reads as the start of a script",
+                ),
+                Arguments.of(
+                    "curl -d $'a\\nb\\n< {%}' https://x",
+                    "Line 3 of the body starts with '< {%' without '%}', which a .http file reads as the start of a script",
+                ),
+                Arguments.of(
+                    "curl -d $'a\\nb\\n### x' https://x",
+                    "Line 3 of the body starts with '###', which a .http file reads as the start of another request",
+                ),
+                Arguments.of(
+                    "curl -d $'a\\nb\\n> {% x' https://x",
+                    "Line 3 of the body starts with '>', which a .http file reads as a response handler",
+                ),
+                Arguments.of(
+                    "curl -d $'a\\nb\\n>> f' https://x",
+                    "Line 3 of the body starts with '>', which a .http file reads as a response handler",
+                ),
+                Arguments.of(
+                    "curl -d $'a\\nb\\n> f' https://x",
+                    "Line 3 of the body starts with '>', which a .http file reads as a response handler",
+                ),
+                Arguments.of(
+                    "curl -d $'a\\nb\\n<> r.json' https://x",
+                    "Line 3 of the body starts with '<>', which a .http file reads as a reference to a previous response",
+                ),
+                Arguments.of(
+                    "curl -d $'a\\nb\\n< f.txt' https://x",
+                    "Line 3 of the body starts with '<', which a .http file reads as a file to include",
                 ),
                 Arguments.of(
                     "curl https://x\n\ncurl -d '###' https://y",

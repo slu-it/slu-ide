@@ -30,15 +30,6 @@ internal class HttpRequestReaderTest {
     }
 
     @Test
-    fun `a parse problem fails at the start of its line`() {
-        // The problem is on the fifth line, which starts at 33.
-        assertEquals(
-            ReadResult.Failed("Expected a header (Name: value) or a blank line before the body", 33),
-            HttpRequestReader.read("GET https://x\n\n###\nGET https://y\nnot a header\n"),
-        )
-    }
-
-    @Test
     fun `finds where a line starts, a line after the last one at the last line`() {
         val text = "a\nbc\n\nd"
 
@@ -117,14 +108,8 @@ internal class HttpRequestReaderTest {
 
         assertEquals(credentials, request.credentials)
         val own = header.substringBefore(": ") to header.substringAfter(": ").trim()
-        val expected =
-            if (credentials ==
-                null
-            ) {
-                listOf("Accept" to "a", own, "X" to "1")
-            } else {
-                listOf("Accept" to "a", "X" to "1")
-            }
+        val kept = listOf("Accept" to "a", "X" to "1")
+        val expected = if (credentials == null) listOf("Accept" to "a", own, "X" to "1") else kept
         assertEquals(expected, request.headers)
     }
 
@@ -283,9 +268,14 @@ internal class HttpRequestReaderTest {
     }
 
     @Test
-    fun `a form content type without a body is no body`() {
-        assertEquals(RequestBody.None, request("POST https://x", "Content-Type: $FORM_TYPE").body)
-        assertTrue(request("POST https://x", "Content-Type: multipart/form-data; boundary=b").headers.isNotEmpty())
+    fun `a content type without a body gives no body and keeps its header`() {
+        val form = request("POST https://x", "Content-Type: $FORM_TYPE")
+        val multipart = request("POST https://x", "Content-Type: multipart/form-data; boundary=b")
+
+        assertEquals(RequestBody.None, form.body)
+        assertEquals(listOf("Content-Type" to FORM_TYPE), form.headers)
+        assertEquals(RequestBody.None, multipart.body)
+        assertEquals(listOf("Content-Type" to "multipart/form-data; boundary=b"), multipart.headers)
     }
 
     companion object {

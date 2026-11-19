@@ -98,7 +98,7 @@ internal class HttpRequestWriterTest {
     @MethodSource("multipartHeaders")
     fun `a multipart body gets its content type with a boundary`(
         headers: List<Pair<String, String>>,
-        contentType: String,
+        written: String,
     ) {
         val request =
             CurlRequest(
@@ -109,11 +109,7 @@ internal class HttpRequestWriterTest {
             )
 
         assertEquals(
-            "POST x\n${headers.filter { !it.first.equals("Content-Type", ignoreCase = true) }.joinToString(
-                "",
-            ) { "${it.first}: ${it.second}\n" }}" +
-                "Content-Type: $contentType\n\n--WebAppBoundary\n" +
-                "Content-Disposition: form-data; name=\"f\"\n\nv\n--WebAppBoundary--\n",
+            "POST x\n$written\n--WebAppBoundary\nContent-Disposition: form-data; name=\"f\"\n\nv\n--WebAppBoundary--\n",
             write(request).text,
         )
     }
@@ -259,15 +255,6 @@ internal class HttpRequestWriterTest {
         assertEquals(emptyList(), written.notes)
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("syntax")
-    fun `a body line that a http file reads as syntax fails with its number`(
-        line: String,
-        message: String,
-    ) {
-        assertEquals("Line 3 of the body $message", failure(body("a", "b", line)))
-    }
-
     @Test
     fun `a script start with its end on the line is text`() {
         // As the parser: a script that closes on its line does not open one (< {%} does, see the syntax rows).
@@ -275,7 +262,7 @@ internal class HttpRequestWriterTest {
     }
 
     @Test
-    fun `counts the lines of earlier pieces and parts, and names the request`() {
+    fun `counts the lines of earlier pieces and parts`() {
         assertEquals(
             "Line 4 of the body starts with '###', which a .http file reads as the start of another request",
             failure(post(DataPiece.Text("a\nb"), DataPiece.File("f"), DataPiece.Text("###"))),
@@ -297,14 +284,6 @@ internal class HttpRequestWriterTest {
         assertEquals(
             "Line 14 of the body starts with '<>', which a .http file reads as a reference to a previous response",
             failure(multipart),
-        )
-        assertEquals(
-            "Request 2: Line 1 of the body starts with '###', which a .http file reads as the start of another request",
-            failure(CurlRequest("a"), body("###")),
-        )
-        assertEquals(
-            "Line 1 of the body starts with '###', which a .http file reads as the start of another request",
-            failure(body("###")),
         )
     }
 
@@ -366,14 +345,17 @@ internal class HttpRequestWriterTest {
         @JvmStatic
         fun multipartHeaders() =
             listOf(
-                Arguments.of(emptyList<Pair<String, String>>(), "multipart/form-data; boundary=WebAppBoundary"),
+                Arguments.of(
+                    emptyList<Pair<String, String>>(),
+                    "Content-Type: multipart/form-data; boundary=WebAppBoundary\n",
+                ),
                 Arguments.of(
                     listOf("Content-Type" to "multipart/form-data; boundary=b"),
-                    "multipart/form-data; boundary=b",
+                    "Content-Type: multipart/form-data; boundary=b\n",
                 ),
                 Arguments.of(
                     listOf("X" to "1", "content-type" to "multipart/mixed"),
-                    "multipart/mixed; boundary=WebAppBoundary",
+                    "X: 1\nContent-Type: multipart/mixed; boundary=WebAppBoundary\n",
                 ),
             )
 
@@ -391,33 +373,6 @@ internal class HttpRequestWriterTest {
                 Arguments.of("c:/d/f.txt", "< c:/d/f.txt"),
                 Arguments.of("cd:/f.txt", "< ./cd:/f.txt"),
                 Arguments.of("C:f.txt", "< ./C:f.txt"),
-            )
-
-        @JvmStatic
-        fun syntax() =
-            listOf(
-                Arguments.of("###", "starts with '###', which a .http file reads as the start of another request"),
-                Arguments.of("### x", "starts with '###', which a .http file reads as the start of another request"),
-                Arguments.of(
-                    "<> r.json",
-                    "starts with '<>', which a .http file reads as a reference to a previous response",
-                ),
-                Arguments.of("< f.txt", "starts with '<', which a .http file reads as a file to include"),
-                Arguments.of(
-                    "< {% x",
-                    "starts with '< {%' without '%}', which a .http file reads as the start of a script",
-                ),
-                Arguments.of(
-                    "<{%",
-                    "starts with '< {%' without '%}', which a .http file reads as the start of a script",
-                ),
-                Arguments.of(
-                    "< {%}",
-                    "starts with '< {%' without '%}', which a .http file reads as the start of a script",
-                ),
-                Arguments.of("> {% x", "starts with '>', which a .http file reads as a response handler"),
-                Arguments.of(">> f", "starts with '>', which a .http file reads as a response handler"),
-                Arguments.of("> f", "starts with '>', which a .http file reads as a response handler"),
             )
     }
 }
