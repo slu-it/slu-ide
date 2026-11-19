@@ -23,6 +23,9 @@ dependencies {
     // Deliberate module API dependency: the file-type icons and their colours are shared with the git log (ADR 0012,
     // 0047), and ExplorerRoot.folderIcons takes FileIcon.
     api(project(":modules:file-icons"))
+    // Deliberate module API dependency: Paste Text detects the type of the pasted text, and the public property
+    // FileExplorerView.textTypes has a TextTypeDetector in its type (ADR 0187, 0188).
+    api(project(":modules:text-types"))
     // Deliberate module dependency: library code opens read-only (ADR 0150).
     implementation(project(":modules:library-code"))
 
