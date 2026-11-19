@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -151,6 +150,11 @@ class SemanticTokensFeatureTest {
         open(serverWith(providerWithFull(false)))
         val server = harness.server
         harness.serverIdle()
+        harness.server.client
+            .registerCapability(RegistrationParams(listOf(Registration("w", "workspace/didChangeConfiguration"))))
+            .get()
+        harness.serverIdle()
+        assertEquals(null, harness.editor.overlayCalls[SEMANTIC_LAYER], "nothing was shown, nothing is cleared")
         harness.onFx { harness.editor.edit(0, 0, "#") }
         assertEquals(0, delays.scheduled, "no request is waited for")
         server.client.refreshSemanticTokens()

@@ -147,6 +147,14 @@ class ServerBannerModelTest {
     }
 
     @Test
+    fun `a tool name starting with the is capitalized, not replaced by the language's name`() {
+        assertEquals(
+            "The TypeScript language server could not be installed: offline",
+            noticeText(ServerNotice.InstallFailed("TS", "the TypeScript language server", "offline")),
+        )
+    }
+
+    @Test
     fun `the notice follows the installer as it goes from missing to installing to ready, until the model is closed`() {
         val installer = FakeInstaller()
         val spec = PySpec(installer)
