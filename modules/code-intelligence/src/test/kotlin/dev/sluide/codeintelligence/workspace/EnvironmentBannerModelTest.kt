@@ -54,19 +54,21 @@ class EnvironmentBannerModelTest {
 
     private var gate: DocumentGate? = DocumentGate.SERVED
 
-    private fun model(prompts: InstallPrompts = prompts()) =
-        EnvironmentBannerModel(
-            state,
-            folder,
-            changes,
-            window,
-            "python.environment",
-            notNow,
-            prompts,
-            { problem },
-            { gate },
-            { opened.add(it) },
-        ) { f, n, c -> runs += Triple(f, n, c) }
+    private fun model(
+        prompts: InstallPrompts = prompts(),
+        projectFolder: Path? = window,
+    ) = EnvironmentBannerModel(
+        state,
+        folder,
+        changes,
+        projectFolder,
+        "python.environment",
+        notNow,
+        prompts,
+        { problem },
+        { gate },
+        { opened.add(it) },
+    ) { f, n, c -> runs += Triple(f, n, c) }
 
     @Test
     fun `the notice shows the problem while the server runs`() {
@@ -301,5 +303,47 @@ class EnvironmentBannerModelTest {
         prompts.decline("python.environment")
 
         assertEquals(problemOf(backend), model.problem.value)
+    }
+
+    @Test
+    fun `without a problem the buttons and Not Now do nothing`() {
+        val model = model()
+        model.run(ProblemAction.Terminal("Run uv sync", "uv sync", "uv sync"))
+        model.run(ProblemAction.OpenFile("Show Log", backend.resolve("log")))
+        var calls = 0
+        model.run(ProblemAction.Callback("Retry") { calls++ })
+        model.notNow()
+
+        assertEquals(emptyList(), runs)
+        assertEquals(emptyList(), opened)
+        assertEquals(0, calls)
+        assertEquals(emptySet(), notNow.toSet())
+    }
+
+    @Test
+    fun `without a project folder there is no notice, not even a gate's reason`() {
+        problem = problemOf(backend)
+        assertNull(model(projectFolder = null).problem.value)
+        gate = DocumentGate(false, reason = problemOf(other, withAction = false))
+        assertNull(model(projectFolder = null).problem.value)
+    }
+
+    @Test
+    fun `a document counts as served unless the model is told otherwise`() {
+        problem = problemOf(backend)
+        val model =
+            EnvironmentBannerModel(
+                state = state,
+                folder = folder,
+                changes = changes,
+                projectFolder = window,
+                declineId = "python.environment",
+                notNow = notNow,
+                prompts = prompts(),
+                problemOf = { problem },
+                openFile = { opened.add(it) },
+                runInTerminal = { f, n, c -> runs += Triple(f, n, c) },
+            )
+        assertEquals(problem, model.problem.value)
     }
 }

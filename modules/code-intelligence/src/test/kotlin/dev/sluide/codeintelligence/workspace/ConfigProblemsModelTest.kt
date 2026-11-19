@@ -5,6 +5,7 @@ import javafx.collections.FXCollections
 import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
+import org.eclipse.lsp4j.jsonrpc.json.MessageJsonHandler
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
@@ -29,10 +30,10 @@ class ConfigProblemsModelTest {
         message: String,
     ) = Diagnostic(Range(Position(line, column), Position(line, column + 1)), message)
 
-    private fun model() =
+    private fun model(project: Path? = window) =
         ConfigProblemsModel(
             "TypeScript",
-            window,
+            project,
             { configs },
             { kept[it].orEmpty() },
             { served },
@@ -153,5 +154,107 @@ class ConfigProblemsModelTest {
 
         model.notNow(model.shown.value.first())
         assertEquals(listOf(nested), model.shown.value.map { it.file })
+    }
+
+    @Test
+    fun `problems are listed by line, then column, whatever order the server pushed them in`() {
+        kept[tsconfig] =
+            listOf(diagnostic(5, 0, "e"), diagnostic(2, 9, "c"), diagnostic(2, 3, "b"), diagnostic(0, 20, "a"))
+        val shown = model().shown.value.single()
+        assertEquals(listOf("a", "b", "c", "e"), shown.all.map { it.message })
+        assertEquals(listOf("1:21  a", "3:4  b", "3:10  c", "6:1  e"), shown.listed.map { it.text })
+    }
+
+    @Test
+    fun `a message sent as MarkupContent is shown by its first line, one without text is skipped`() {
+        // As lsp4j's parser makes them: its setters refuse a MarkupContent without value.
+        fun diagnostic(message: String): Diagnostic =
+            MessageJsonHandler(emptyMap()).gson.fromJson(
+                """{"range":{"start":{"line":1,"character":1},"end":{"line":1,"character":2}},"message":$message}""",
+                Diagnostic::class.java,
+            )
+
+        fun markup(value: String?) =
+            diagnostic("""{"kind":"markdown"${value?.let { ""","value":"$it"""" }.orEmpty()}}""")
+        kept[tsconfig] = listOf(markup("first\\nsecond"), markup(null), diagnostic(0, 0, ""))
+        assertEquals(
+            listOf("1:1  ", "2:2  first"),
+            model()
+                .shown.value
+                .single()
+                .listed
+                .map { it.text },
+        )
+    }
+
+    @Test
+    fun `a diagnostic whose range has no start is skipped`() {
+        kept[tsconfig] =
+            listOf(
+                Diagnostic().apply {
+                    range = Range()
+                    message = Either.forLeft("no start")
+                },
+                diagnostic(0, 0, "good"),
+            )
+        assertEquals(
+            listOf("good"),
+            model()
+                .shown.value
+                .single()
+                .all
+                .map { it.message },
+        )
+    }
+
+    @Test
+    fun `a file outside the project folder, or any file without one, is named by its file name`() {
+        val outside = Path.of("/elsewhere/deep/tsconfig.json")
+        configs.clear()
+        configs.add(outside)
+        kept[outside] = listOf(diagnostic(0, 0, "x"))
+        assertEquals(
+            "tsconfig.json has 1 problem for TypeScript:",
+            model()
+                .shown.value
+                .single()
+                .title,
+        )
+        assertEquals(
+            "tsconfig.json has 1 problem for TypeScript:",
+            model(project = null)
+                .shown.value
+                .single()
+                .title,
+        )
+        configs.clear()
+        configs.add(nested)
+        kept[nested] = listOf(diagnostic(0, 0, "x"))
+        assertEquals(
+            "tsconfig.json has 1 problem for TypeScript:",
+            model(project = null)
+                .shown.value
+                .single()
+                .title,
+        )
+    }
+
+    @Test
+    fun `a closed model no longer follows the diagnostics, the workspace or Not Now`() {
+        kept[tsconfig] = listOf(diagnostic(0, 0, "a"))
+        val model = model()
+        model.close()
+
+        kept[tsconfig] = emptyList()
+        keptChanges.value++
+        workspace.value++
+        assertEquals(1, model.shown.value.size)
+
+        kept[tsconfig] = listOf(diagnostic(0, 0, "a"))
+        notNow[tsconfig] =
+            model.shown.value
+                .single()
+                .all
+        assertEquals(1, model.shown.value.size, "Not Now of the old problems changes nothing")
     }
 }

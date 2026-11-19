@@ -96,11 +96,30 @@ class WorkspaceStatusModelTest {
     }
 
     @Test
-    fun `a closed model no longer follows`() {
+    fun `a closed model no longer follows the state, the folder or the workspace changes`() {
         val model = model()
         model.close()
+
         state.value = ServerState.Stopped
         assertEquals("project backend v1", model.status.value?.text)
+        state.value = ServerState.Running
+        folder.value = window.resolve("other")
+        assertEquals("project backend v1", model.status.value?.text)
+        version = 2
+        changes.fire()
+        assertEquals("project backend v1", model.status.value?.text)
+    }
+
+    @Test
+    fun `a document counts as served unless the model is told otherwise`() {
+        val model =
+            WorkspaceStatusModel(
+                state,
+                folder,
+                changes,
+                window,
+            ) { f, _ -> WorkspaceStatus("project ${f?.fileName}", f, null) }
+        assertEquals("project backend", model.status.value?.text)
     }
 }
 
