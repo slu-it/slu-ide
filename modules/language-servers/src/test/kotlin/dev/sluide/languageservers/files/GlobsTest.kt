@@ -1,11 +1,14 @@
 package dev.sluide.languageservers.files
 
+import dev.sluide.languageservers.LogRecords
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertTimeoutPreemptively
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import java.time.Duration
+import java.util.logging.Level
+import java.util.logging.Logger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -105,7 +108,7 @@ class GlobsTest {
         path: String,
         expected: Boolean,
     ) {
-        assertEquals(expected, assertNotNull(Globs.regex(glob)).matches(path))
+        assertEquals(expected, assertNotNull(Globs.matcher(glob)).matches(path))
     }
 
     @ParameterizedTest(name = "{0} matches the backslash and not {1}")
@@ -114,38 +117,94 @@ class GlobsTest {
         glob: String,
         other: String,
     ) {
-        val regex = assertNotNull(Globs.regex(glob))
+        val matcher = assertNotNull(Globs.matcher(glob))
 
-        assertTrue(regex.matches("\\"))
-        assertFalse(regex.matches(other))
+        assertTrue(matcher.matches("\\"))
+        assertFalse(matcher.matches(other))
     }
 
     @ParameterizedTest(name = "{0} cannot be read")
     @CsvSource("'{a'", "'{a,b'", "'a{'", "'{{a}'")
     fun `an unbalanced brace is not a glob`(glob: String) {
-        assertNull(Globs.regex(glob))
+        assertNull(Globs.matcher(glob))
+    }
+
+    @ParameterizedTest(name = "a glob of {0} characters is read: {1}")
+    @CsvSource("1000, true", "1001, false")
+    fun `a glob over the length cap is refused`(
+        length: Int,
+        read: Boolean,
+    ) {
+        assertEquals(read, Globs.matcher("a".repeat(length)) != null)
+    }
+
+    @Test
+    fun `a refused glob is logged at INFO, a too long one with its length and not its text`() {
+        LogRecords(Logger.getLogger(Globs::class.java.name)).use { logs ->
+            val tooLong = "secret".repeat(200)
+            assertNull(Globs.matcher(tooLong))
+            assertNull(Globs.matcher("{a"))
+
+            val messages = logs.messages(Level.INFO)
+            assertEquals(2, messages.size)
+            assertTrue("1200" in messages[0], messages[0])
+            assertFalse("secret" in messages[0], messages[0])
+            assertTrue("{a" in messages[1] && "Unclosed group" in messages[1], messages[1])
+        }
+    }
+
+    @Test
+    fun `a literal character outside the basic plane matches itself`() {
+        // The regex translation this replaced quoted each half of the surrogate pair alone and never matched it.
+        val matcher = assertNotNull(Globs.matcher("a\uD83D\uDE00"))
+
+        assertTrue(matcher.matches("a\uD83D\uDE00"))
+        assertFalse(matcher.matches("a\uD83D\uDE01"))
     }
 
     @Test
     fun `a very long pattern compiles and matches without trouble`() {
-        val glob = "a/".repeat(20_000) + "**/*.kt"
-        val path = "a/".repeat(20_000) + "x/y.kt"
+        val glob = "a/".repeat(400) + "**/*.kt"
+        val path = "a/".repeat(400) + "x/y.kt"
 
-        val regex = assertTimeoutPreemptively(Duration.ofSeconds(20)) { Globs.regex(glob) }
+        val matcher = Globs.matcher(glob)
 
-        assertTrue(assertNotNull(regex).matches(path))
-        assertFalse(regex.matches("a/" + "x.kt"))
+        assertTrue(assertNotNull(matcher).matches(path))
+        assertFalse(matcher.matches("a/" + "x.kt"))
+    }
+
+    // The deepest nesting the length cap allows. 256 KiB is a stack on which 1000 levels of recursion overflowed on
+    // x64 runners (docs/testing.md, "Portability"), so compiling and matching must not recurse with the nesting.
+    @Test
+    fun `the deepest nesting of braces the cap allows is read and matched on a small stack`() {
+        val glob = "{".repeat(500) + "}".repeat(500)
+        var matched: Boolean? = null
+        var failure: Throwable? = null
+        val thread =
+            Thread(null, {
+                try {
+                    matched = Globs.matcher(glob)?.matches("")
+                } catch (e: Throwable) {
+                    failure = e
+                }
+            }, "deep", 256 * 1024)
+
+        thread.start()
+        thread.join()
+
+        assertNull(failure)
+        assertEquals(true, matched)
     }
 
     // Repeated wildcards made the regex translation backtrack for seconds (the first, on this path) to minutes (the
     // second). A linear matcher needs milliseconds; the bound is far above that so that slow runners pass.
-    @ParameterizedTest(name = "{0} is decided in linear time")
+    @ParameterizedTest(name = "{0} is decided within a second")
     @ValueSource(strings = ["**?**?**?**?**?**x", "**{,}**{,}**{,}**{,}**{,}**x"])
     fun `repeated wildcards cannot make a match slow`(glob: String) {
         val path = "a".repeat(94)
 
         val result =
-            assertTimeoutPreemptively(Duration.ofSeconds(1)) { Globs.regex(glob)?.matches(path) }
+            assertTimeoutPreemptively(Duration.ofSeconds(1)) { Globs.matcher(glob)?.matches(path) }
 
         assertEquals(false, result)
     }

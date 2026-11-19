@@ -18,7 +18,7 @@ internal class WatcherFilter(
 ) {
     private class Rule(
         val base: Path?,
-        val glob: Regex,
+        val glob: GlobMatcher,
         val kinds: Int,
     )
 
@@ -27,12 +27,12 @@ internal class WatcherFilter(
             val pattern = watcher.globPattern ?: return@mapNotNull null
             val kinds = watcher.kind ?: ALL_KINDS
             if (pattern.isLeft) {
-                Globs.regex(pattern.left ?: return@mapNotNull null)?.let { Rule(null, it, kinds) }
+                Globs.matcher(pattern.left)?.let { Rule(null, it, kinds) }
             } else {
                 val relative = pattern.right ?: return@mapNotNull null
                 val baseUri = relative.baseUri?.let { if (it.isLeft) it.left?.uri else it.right }
                 val base = baseUri?.let(LspUris::toPath) ?: return@mapNotNull null
-                Globs.regex(relative.pattern ?: return@mapNotNull null)?.let { Rule(base, it, kinds) }
+                Globs.matcher(relative.pattern ?: return@mapNotNull null)?.let { Rule(base, it, kinds) }
             }
         }
 

@@ -148,8 +148,14 @@ belong to the Python ADR (0144). What the spikes showed about servers in general
   `workspace/didChangeWatchedFiles` to every session whose server registered file watchers that want a change: a plain
   glob matches the absolute path, a relative pattern the path below its base URI (a URI or a workspace folder); `*`,
   `?`, `**`, `{a,b}`, `[a-z]` and `[!a-z]`; the watcher's kind bits (create, change, delete; all if left out) must
-  include the change's kind. A server that does not run has no watchers, so this starts none. Callers feed what they
-  know first (the explorer's moves and deletes, saves).
+  include the change's kind. A glob is parsed into a small tree and matched by a Thompson NFA run in lockstep over the
+  path (no backtracking, so a match takes at most path length times program size steps, up to 3 instructions per glob
+  character, whatever a server registers: repeated wildcards made the regex translation used first take seconds to
+  minutes on the FX thread; the compiler keeps its own work stack, so deep brace nesting cannot overflow the call
+  stack); a glob over 1,000 characters, an unclosed `{` or a reversed range is refused and logged. Globs and paths are
+  matched by code point, and a literal character outside the basic plane now matches itself, where the regex quoted
+  each half of its surrogate pair alone and matched nothing. A server that does not run has no watchers, so this
+  starts none. Callers feed what they know first (the explorer's moves and deletes, saves).
 - **Project watch:** while any server of the window starts, runs or restarts, `LanguageServers` watches the project
   folder with the window's `FileWatcher`, one `watch` per folder ([ADR 0006](0006-file-watching.md) watches no
   trees), and feeds what it finds to `filesChanged`. It skips hidden folders (`.git`, `.venv`, `.gradle`, `.idea`),
