@@ -112,6 +112,91 @@ class OAuth2ConfigTest {
         )
     }
 
+    private fun config(
+        vararg members: String,
+        tokenUrl: String = "http://h/t",
+    ) = OAuth2Config.of(
+        environment(
+            """{"Security": {"Auth": {"a": {"Type": "OAuth2", "Grant Type": "Client Credentials", "Client ID": "c",
+                |"Token URL": "$tokenUrl"${members.joinToString("") { ", $it" }}}}}}
+            """.trimMargin(),
+        ),
+        "a",
+    )
+
+    @Test
+    fun `names the config without secrets`() {
+        assertEquals(
+            "OAuth2Config(a, Client Credentials, http://h/t)",
+            config(""""Client Secret": "s3cret"""").toString(),
+        )
+    }
+
+    @Test
+    fun `trims the token URL and refuses an empty or blank one`() {
+        assertEquals(URI("http://h/t"), config(tokenUrl = "  http://h/t ").tokenUrl)
+        assertEquals("Auth 'a' needs a Token URL", assertFailsWith<OAuth2Exception> { config(tokenUrl = "") }.message)
+        assertEquals("Auth 'a' needs a Token URL", assertFailsWith<OAuth2Exception> { config(tokenUrl = "  ") }.message)
+    }
+
+    @Test
+    fun `refuses an empty client id and drops a blank scope`() {
+        assertEquals(
+            "Auth 'a' needs a Client ID",
+            failure(
+                """"Type": "OAuth2", "Grant Type": "Client Credentials", "Token URL": "http://h/t", "Client ID": """"",
+            ),
+        )
+        assertEquals(null, config(""""Scope": """"").scope)
+        assertEquals(null, config(""""Scope": "  """").scope)
+        assertEquals("a b", config(""""Scope": "a b"""").scope)
+    }
+
+    @Test
+    fun `the password grant needs both the username and the password`() {
+        val base = """"Type": "OAuth2", "Grant Type": "Password", "Token URL": "http://h/t", "Client ID": "c""""
+        val message = "Auth 'a' needs a Username and a Password for the Password grant"
+
+        assertEquals(message, failure("""$base, "Username": "u""""))
+        assertEquals(message, failure("""$base, "Password": "p""""))
+    }
+
+    @Test
+    fun `names the supported grants when there is none and tells unknown from unsupported ones`() {
+        assertEquals(
+            "Auth 'a' has no Grant Type; supported are Client Credentials and Password",
+            failure(""""Type": "OAuth2""""),
+        )
+        assertEquals(
+            "Grant Type 'foo' of auth 'a' is unknown; supported are Client Credentials and Password",
+            failure(""""Type": "OAuth2", "Grant Type": "foo""""),
+        )
+        assertEquals(
+            "Grant Type 'implicit' of auth 'a' is not supported; supported are Client Credentials and Password",
+            failure(""""Type": "OAuth2", "Grant Type": "implicit""""),
+        )
+    }
+
+    @Test
+    fun `accepts http and https token URLs in any case and refuses others`() {
+        assertEquals("HTTPS://h/t", config(tokenUrl = "HTTPS://h/t").tokenUrl.toString())
+        for (url in listOf("h/t", "http:/nohost/t", "file:///t")) {
+            val message = assertFailsWith<OAuth2Exception> { config(tokenUrl = url) }.message.orEmpty()
+            assertEquals("The Token URL of auth 'a' must be an http or https URL: $url", message)
+        }
+    }
+
+    @Test
+    fun `reports the syntax error of a token URL`() {
+        val text = "http://h t"
+        val syntax = assertFailsWith<java.net.URISyntaxException> { URI(text) }.message
+
+        assertEquals(
+            "The Token URL of auth 'a' is invalid: $syntax",
+            assertFailsWith<OAuth2Exception> { config(tokenUrl = text) }.message,
+        )
+    }
+
     @Test
     fun `needs an environment with the auth id`() {
         assertEquals("There is no auth 'b' in Security.Auth of environment 'dev'", failure(""""Type": "OAuth2"""", "b"))
