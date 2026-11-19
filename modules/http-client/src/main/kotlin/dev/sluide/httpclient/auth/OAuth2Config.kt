@@ -45,9 +45,13 @@ internal data class OAuth2Config(
     }
 
     /** Without the secrets, so that the configuration can show up in logs and messages. */
-    override fun toString() = "OAuth2Config($id, ${grant.label}, $tokenUrl)"
+    override fun toString() = "OAuth2Config($id, ${grant.label}, ${display(tokenUrl)})"
 
     companion object {
+        /** [uri] as `scheme://host[:port]/path`: no user info, query or fragment, which can hold secrets. */
+        internal fun display(uri: URI) =
+            "${uri.scheme}://${uri.host}${if (uri.port >= 0) ":${uri.port}" else ""}${uri.rawPath.orEmpty()}"
+
         private val UNSUPPORTED_GRANTS = setOf("authorization code", "implicit", "device authorization")
         private val SUPPORTED = Grant.entries.joinToString(" and ") { it.label }
 
@@ -147,10 +151,11 @@ internal data class OAuth2Config(
                 try {
                     URI(text)
                 } catch (e: URISyntaxException) {
-                    throw OAuth2Exception("The Token URL of auth '$id' is invalid: ${e.message}")
+                    // Not the message of e: it quotes the text, which may hold a password or a secret in the query.
+                    throw OAuth2Exception("The Token URL of auth '$id' is invalid: ${e.reason}")
                 }
             if (uri.scheme?.lowercase() !in setOf("http", "https") || uri.host == null) {
-                throw OAuth2Exception("The Token URL of auth '$id' must be an http or https URL: $text")
+                throw OAuth2Exception("The Token URL of auth '$id' must be an http or https URL with a host")
             }
             return uri
         }

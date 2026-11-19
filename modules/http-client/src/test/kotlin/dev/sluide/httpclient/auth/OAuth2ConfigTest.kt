@@ -130,6 +130,11 @@ class OAuth2ConfigTest {
             "OAuth2Config(a, Client Credentials, http://h/t)",
             config(""""Client Secret": "s3cret"""").toString(),
         )
+        // A Token URL may carry credentials in its user info or query: toString goes to logs.
+        assertEquals(
+            "OAuth2Config(a, Client Credentials, https://h:8443/t)",
+            config(tokenUrl = "https://user:pw@h:8443/t?client_secret=s3cret#frag").toString(),
+        )
     }
 
     @Test
@@ -182,19 +187,24 @@ class OAuth2ConfigTest {
         assertEquals("HTTPS://h/t", config(tokenUrl = "HTTPS://h/t").tokenUrl.toString())
         for (url in listOf("h/t", "http:/nohost/t", "file:///t")) {
             val message = assertFailsWith<OAuth2Exception> { config(tokenUrl = url) }.message.orEmpty()
-            assertEquals("The Token URL of auth 'a' must be an http or https URL: $url", message)
+            assertEquals("The Token URL of auth 'a' must be an http or https URL with a host", message)
         }
     }
 
     @Test
     fun `reports the syntax error of a token URL`() {
-        val text = "http://h t"
-        val syntax = assertFailsWith<java.net.URISyntaxException> { URI(text) }.message
+        // The text is not echoed: it may hold a password (`user:pw@`) or a secret in the query.
+        val message =
+            assertFailsWith<OAuth2Exception> { config(tokenUrl = "http://user:pw@h t?client_secret=s3cret") }.message
 
-        assertEquals(
-            "The Token URL of auth 'a' is invalid: $syntax",
-            assertFailsWith<OAuth2Exception> { config(tokenUrl = text) }.message,
-        )
+        assertEquals("The Token URL of auth 'a' is invalid: Illegal character in authority", message)
+    }
+
+    @Test
+    fun `does not echo a token URL that is no http URL`() {
+        val message = assertFailsWith<OAuth2Exception> { config(tokenUrl = "ftp://user:pw@h/t?secret=1") }.message
+
+        assertEquals("The Token URL of auth 'a' must be an http or https URL with a host", message)
     }
 
     @Test
