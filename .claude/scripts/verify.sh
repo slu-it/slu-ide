@@ -24,13 +24,8 @@
 # if that fails they are reported as NOT RUN and the run ends INCOMPLETE (exit 1).
 # Usage: .claude/scripts/verify.sh [--no-format] [--changed] [--list] [--display N] [target...] [-- gradle-args]
 # Gradle arguments that skip tasks (`-- -x uiTest`) let old passing results of the skipped classes count: don't.
-# The check for another Gradle build (gradle-running.sh) reads /proc, so it works on Linux only: a client in this tree
-# (not one in a linked worktree below it) ends the run with exit 2 before anything starts.
-# A uiTest that dies on the DisplayService cast error is rerun after `./gradlew --stop`, which stops the daemons of
-# every tree: that happens only when no Gradle client runs anywhere (`gradle-running.sh --any`); otherwise the run
-# ends `verify: FAILED` with the pid and directory of that client, and the daemons are left alone; the digest and the
-# check-tests findings of that run still print. Without /proc (macOS) the helper finds nothing, so the daemons are
-# always stopped there.
+# Another Gradle build in this tree ends the run with exit 2 before anything starts (step 1 below); a uiTest that
+# dies on the DisplayService cast error is handled as step 5 below says.
 # Exit: Gradle's status; 2 for usage errors and refusals (another Gradle build running, unknown target).
 set -euo pipefail
 
@@ -182,6 +177,8 @@ if [ "$list" -eq 1 ]; then
 fi
 
 # 1. Another Gradle client in this tree would share build/ with us (see full-build.sh).
+# gradle-running.sh reads /proc, so the check works on Linux only; a client in a linked worktree below this tree does
+# not count.
 if running="$("$root/.claude/scripts/gradle-running.sh" "$root")"; then
   echo "Another Gradle build runs in $root (pid ${running%% *}); wait for it to finish first." >&2
   exit 2
@@ -266,6 +263,8 @@ touch "$marker"
 # 5. A uiTest that dies on the display service is cured by stopping the daemons. They are shared by every tree, so
 # they are stopped only when no Gradle client runs anywhere (our own run has ended); else nothing is stopped or rerun,
 # the digest prints as usual and the run ends FAILED with a message (`refusal`, printed with the verdict).
+# The check-tests findings of that run still print too. The rerun follows `./gradlew --stop`. Without /proc (macOS) gradle-running.sh finds nothing, so the daemons are
+# always stopped there.
 rerun=0
 refusal=""
 if grep -qF 'Build_gradle$DisplayService' "$log"; then
