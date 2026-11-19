@@ -120,6 +120,8 @@ A behavior is tested once, at the lowest level that can see it
   mutation visibly makes a loop endless or an allocation unbounded; name that per timeout. Not mutated (accepted gaps):
   removing an inlined `filter { }` (its predicate always true), `close()`, an inline function of ours used only from
   another package or module (0 mutants on its lines).
+  The sandbox's default locale is not UTF-8, so `LspUrisTest`'s Unicode cases are skipped there and a mutation run reports
+  `LspUris` survivors; run it with `LC_ALL=C.UTF-8` (CI has a UTF-8 locale).
 - `.claude/scripts/check-tests.sh [files]` reports fixed sleeps without a reason (poll intervals inside a `while`
   loop do not count), synthetic OS input without a `//` reason, `waitForFxEvents()` right after `interact` and test
   classes over 800 lines; a hook runs it on newly written test code. `.claude/scripts/test-times.sh` lists task
