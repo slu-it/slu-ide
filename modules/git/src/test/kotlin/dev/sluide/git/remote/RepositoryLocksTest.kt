@@ -28,6 +28,18 @@ class RepositoryLocksTest {
 
     private val never = GitCancellation()
 
+    /** `withLock` with no cancellation; a mutant that makes the wait endless fails the test after 30 s. */
+    private fun <T> locked(
+        directory: Path,
+        action: () -> T,
+    ): T? =
+        assertTimeoutPreemptively(
+            ofSeconds(30),
+            ThrowingSupplier {
+                RepositoryLocks.withLock(directory, never, action)
+            },
+        )
+
     private class Waiter(
         val thread: Thread,
         val result: CompletableFuture<String?>,
@@ -87,12 +99,12 @@ class RepositoryLocksTest {
     fun `the action runs and its result is given, with the folder and the lock file made`() {
         val directory = folder.resolve("a/b/repo")
 
-        val result = RepositoryLocks.withLock(directory, never) { 42 }
+        val result = locked(directory) { 42 }
 
         assertEquals(42, result)
         assertTrue(folder.resolve("a/b/repo.lock").exists())
         assertFalse(directory.exists(), "only the lock file is made, not the repository")
-        assertEquals("again", RepositoryLocks.withLock(directory, never) { "again" })
+        assertEquals("again", locked(directory) { "again" })
     }
 
     @Test
@@ -115,7 +127,7 @@ class RepositoryLocksTest {
         val release = CountDownLatch(1)
         val first = holder(folder.resolve("one"), release)
         try {
-            val second = RepositoryLocks.withLock(folder.resolve("two"), never) { "second" }
+            val second = locked(folder.resolve("two")) { "second" }
 
             assertEquals("second", second)
         } finally {
@@ -167,13 +179,13 @@ class RepositoryLocksTest {
     fun `the lock is free again after an action that threw, and the exception is the caller's`() {
         val directory = folder.resolve("repo")
 
-        assertFailsWith<IllegalStateException> { RepositoryLocks.withLock(directory, never) { error("boom") } }
+        assertFailsWith<IllegalStateException> { locked(directory) { error("boom") } }
 
         val count = AtomicInteger()
         val after =
             assertTimeoutPreemptively(
                 ofSeconds(30),
-                ThrowingSupplier { RepositoryLocks.withLock(directory, never) { count.incrementAndGet() } },
+                ThrowingSupplier { locked(directory) { count.incrementAndGet() } },
             )
         assertEquals(1, after)
     }
@@ -221,7 +233,7 @@ class RepositoryLocksTest {
 
             app.outputStream.close()
 
-            assertEquals("ran", waiting.result.get(60, TimeUnit.SECONDS))
+            assertEquals("ran", waiting.result.get(20, TimeUnit.SECONDS))
         } finally {
             app.destroyForcibly()
         }
@@ -239,11 +251,11 @@ class RepositoryLocksTest {
 
             cancellation.cancel()
 
-            assertNull(waiting.result.get(60, TimeUnit.SECONDS))
+            assertNull(waiting.result.get(20, TimeUnit.SECONDS))
             assertFalse(ran.get())
             app.outputStream.close()
             app.waitFor(60, TimeUnit.SECONDS)
-            assertEquals("ran", RepositoryLocks.withLock(directory, never) { "ran" }, "the folder's lock was released")
+            assertEquals("ran", locked(directory) { "ran" }, "the folder's lock was released")
         } finally {
             app.destroyForcibly()
         }
@@ -259,7 +271,7 @@ class RepositoryLocksTest {
 
             waiting.thread.interrupt()
 
-            assertNull(waiting.result.get(60, TimeUnit.SECONDS))
+            assertNull(waiting.result.get(20, TimeUnit.SECONDS))
             waiting.thread.join(30_000)
             assertTrue(waiting.interruptedAfter.get())
         } finally {

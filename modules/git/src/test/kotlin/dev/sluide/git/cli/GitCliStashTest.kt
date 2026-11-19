@@ -5,10 +5,13 @@ import dev.sluide.git.recordedCalls
 import dev.sluide.git.recordingGit
 import dev.sluide.git.testGitEnvironment
 import dev.sluide.git.unavailableGit
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.function.ThrowingSupplier
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.time.Duration.ofSeconds
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -41,6 +44,10 @@ class GitCliStashTest {
         repo.git("stash", "push", "-u", "-q")
         return repo.git("rev-parse", "refs/stash")
     }
+
+    /** [trackedStates], which a regression could make loop for ever: the test fails after 30 s instead. */
+    private fun GitCli.trackedStatesBounded(root: Path): Map<String, String>? =
+        assertTimeoutPreemptively(ofSeconds(30), ThrowingSupplier { trackedStates(root) })
 
     @Test
     fun `stashTip is where refs-stash points, no commit while there is no stash`() {
@@ -119,15 +126,15 @@ class GitCliStashTest {
         repo.git("add", "sp ace.txt")
         repo.write("untracked.txt", "u")
 
-        val states = git.trackedStates(root)
+        val states = git.trackedStatesBounded(root)
 
         assertEquals(setOf("tracked.txt", "sp ace.txt"), states?.keys)
         assertTrue(states!!.getValue("tracked.txt").startsWith("1 .M N... 100644 100644 100644 "), states.toString())
         assertTrue(states.getValue("sp ace.txt").startsWith("1 A. N... 000000 100644 100644 "), states.toString())
         assertTrue("sp ace.txt" !in states.getValue("sp ace.txt"), "the path is the key, not part of the state")
-        assertEquals(emptyMap(), TestRepository(folder.resolve("clean")).let { git.trackedStates(it.root) })
-        assertNull(unavailableGit(folder).trackedStates(root))
-        assertNull(failingGit(folder, "status").trackedStates(root))
+        assertEquals(emptyMap(), TestRepository(folder.resolve("clean")).let { git.trackedStatesBounded(it.root) })
+        assertNull(unavailableGit(folder).trackedStatesBounded(root))
+        assertNull(failingGit(folder, "status").trackedStatesBounded(root))
     }
 
     @Test
@@ -139,7 +146,7 @@ class GitCliStashTest {
         repo.git("commit", "-q", "-m", "odd name")
         repo.git("mv", old, "new.txt")
 
-        val states = git.trackedStates(root)
+        val states = git.trackedStatesBounded(root)
 
         assertEquals(setOf("new.txt"), states?.keys)
         assertTrue(states!!.getValue("new.txt").startsWith("2 R. N... 100644 100644 100644 "), states.toString())
@@ -154,7 +161,7 @@ class GitCliStashTest {
         repo.commit("main", "tracked.txt", "main")
         repo.gitStops("merge", "side")
 
-        val states = git.trackedStates(root)
+        val states = git.trackedStatesBounded(root)
 
         assertEquals(setOf("tracked.txt"), states?.keys)
         assertTrue(
@@ -179,20 +186,22 @@ class GitCliStashTest {
     fun `trackedStates skips records git would not write, and an empty output has no states`() {
         val whole = "1 .M N... 100644 100644 100644 h1 h2 ok.txt"
 
-        assertEquals(emptyMap(), fakeGit("true").trackedStates(root))
+        assertEquals(emptyMap(), fakeGit("true").trackedStatesBounded(root))
         assertEquals(
             mapOf("ok.txt" to "1 .M N... 100644 100644 100644 h1 h2"),
-            fakeGit("printf '$whole\\000'").trackedStates(root),
+            fakeGit("printf '$whole\\000'").trackedStatesBounded(root),
         )
         assertEquals(
             mapOf("ok.txt" to "1 .M N... 100644 100644 100644 h1 h2"),
-            fakeGit("printf '1 too few fields\\000$whole\\000? other kind\\000'").trackedStates(root),
+            fakeGit(
+                "printf '1 too few fields\\000$whole\\000? a b c d e f g h i path\\000'",
+            ).trackedStatesBounded(root),
         )
         assertEquals(
             emptyMap(),
-            fakeGit("printf '2 R. N... 100644 100644 100644 h1 h2 R100\\000'").trackedStates(root),
+            fakeGit("printf '2 R. N... 100644 100644 100644 h1 h2 R100\\000'").trackedStatesBounded(root),
             "a rename without its path",
         )
-        assertNull(fakeGit("exit 128").trackedStates(root))
+        assertNull(fakeGit("exit 128").trackedStatesBounded(root))
     }
 }

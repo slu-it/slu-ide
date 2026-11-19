@@ -57,6 +57,7 @@ class GitFileHistoryParserTest {
 
     @Test
     fun `reading stops at a field that is no commit, whether it starts or follows entries`() {
+        assertEquals(emptyList(), GitFileHistoryParser.parse("\u001ejunk\u0000", "f"), "a marker without a commit")
         assertEquals(emptyList(), GitFileHistoryParser.parse("junk\u0000" + header(a, "One") + "\nM\u0000f\u0000", "f"))
         assertEquals(
             listOf("One"),

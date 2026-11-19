@@ -167,11 +167,14 @@ class GitCliReviewTest {
 
     @Test
     fun `blobs kills git that writes more than the sizes announce, though it ended with exit 0 and a valid start`() {
-        // One blob announced with size 0: 1 + 64 = 65 bytes allowed. The script prints exactly one valid record of 65
-        // bytes ("a blob 54", 54 bytes, a line break), then more, and ends with 0 before it can be killed.
+        // One blob announced with size 0: 1 + 64 = 65 bytes allowed. A writer started in the background prints, once the
+        // shell has ended with 0, exactly one valid record of 65 bytes ("a blob 54", 54 bytes, a line break) and more.
+        // (The shell's pid is waited for with kill -0, docs/testing.md "Portability".)
         val content = "x".repeat(54)
+        val record = "printf 'a blob 54\\n$content\\nextra'"
+        val late = "(while kill -0 \$\$ 2>/dev/null; do sleep 0.01; done; $record) & exit 0"
 
-        assertNull(fakeGit("cat > /dev/null; printf 'a blob 54\\n$content\\nextra'").blobs(root, mapOf("a" to 0L)))
+        assertNull(fakeGit("cat > /dev/null; $late").blobs(root, mapOf("a" to 0L)))
         assertEquals(
             mapOf("a" to content),
             fakeGit("cat > /dev/null; printf 'a blob 54\\n$content\\n'")

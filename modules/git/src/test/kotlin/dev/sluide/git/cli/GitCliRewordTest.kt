@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.exists
+import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -67,9 +68,24 @@ class GitCliRewordTest {
     }
 
     @Test
-    fun `ancestryPath takes a dash-leading commit for no option`() {
-        // `--branches=none..HEAD` would be an option for rev-list: no branch matches, nothing is listed, exit 0.
-        assertNull(git.ancestryPath(root, "--branches=none", commits[3]))
+    fun `ancestryPath takes a dash-leading commit for an option that writes a file`() {
+        // "--output=" and "/victim.txt" make the argument "--output=../victim.txt", which git (2.56) takes as the
+        // option that truncates that file, then exits 129.
+        val victim = folder.resolve("victim.txt").apply { writeText("keep\n") }
+
+        assertNull(git.ancestryPath(root, "--output=", "/victim.txt"))
+        assertEquals("keep\n", victim.readText())
+    }
+
+    @Test
+    fun `ancestryPath takes a dash-leading head for no option, a branch of that name is no revision here`() {
+        repo.git("update-ref", "refs/heads/-x", commits[3])
+        // `git rev-list <commit>..-x` does list the commits for that branch: the guard keeps it from running.
+        assertEquals(
+            commits.drop(1),
+            repo.git("rev-list", "--reverse", "--ancestry-path", "${commits[0]}..-x", "--").lines(),
+        )
+
         assertNull(git.ancestryPath(root, commits[0], "-x"))
     }
 
