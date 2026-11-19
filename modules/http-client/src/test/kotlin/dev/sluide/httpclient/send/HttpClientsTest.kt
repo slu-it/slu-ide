@@ -2,7 +2,6 @@ package dev.sluide.httpclient.send
 
 import java.net.http.HttpClient
 import java.time.Duration
-import java.time.Instant
 import javax.net.ssl.SSLContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -25,12 +24,8 @@ class HttpClientsTest {
 
     private fun context() = SSLContext.getInstance("TLS").apply { init(null, null, null) }
 
-    /** Polls until [client] is terminated, which the JDK does asynchronously after a shutdown. */
-    private fun terminates(client: HttpClient): Boolean {
-        val deadline = Instant.now().plusSeconds(10)
-        while (!client.isTerminated && Instant.now().isBefore(deadline)) Thread.onSpinWait()
-        return client.isTerminated
-    }
+    /** Waits until [client] is terminated, which the JDK does asynchronously after a shutdown. */
+    private fun terminates(client: HttpClient) = client.awaitTermination(Duration.ofSeconds(10))
 
     @Test
     fun `hands out one client per key`() {

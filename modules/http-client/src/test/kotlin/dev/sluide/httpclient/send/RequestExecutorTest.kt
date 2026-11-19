@@ -22,7 +22,9 @@ import java.util.HexFormat
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.DeflaterOutputStream
@@ -167,6 +169,21 @@ class RequestExecutorTest {
     }
 
     @Test
+    fun `names the megabytes of the limit in the note of a truncated body`() {
+        server.handle("/big") { server.respond(it, 200, ByteArray(3 * 1024 * 1024)) }
+        val twoMb = 2 * 1024 * 1024
+
+        val result =
+            RequestExecutor(clients, tasks, bodyLimit = twoMb).use {
+                assertIs<HttpResult>(it.await(server.request("/big")))
+            }
+
+        assertTrue(result.truncated)
+        assertEquals(twoMb, result.body.size)
+        assertEquals(listOf("The body is longer than 2 MB and was truncated"), result.notes)
+    }
+
+    @Test
     fun `gives up after the timeout, also while the body is read`() {
         server.handle("/slow") { exchange ->
             exchange.sendResponseHeaders(200, 0)
@@ -257,6 +274,7 @@ class RequestExecutorTest {
         assertEquals("GET api.example.com", RequestExecutor.taskName("GET", null, uri))
         assertEquals("GET api.example.com", RequestExecutor.taskName("GET", "  ", uri))
         assertEquals("DELETE Get rid of it", RequestExecutor.taskName("DELETE", " Get rid of it ", uri))
+        assertEquals("GET", RequestExecutor.taskName("GET", null, URI("urn:example:thing")))
     }
 
     @Test
@@ -348,6 +366,19 @@ class RequestExecutorTest {
         )
         assertEquals("IllegalStateException: boom", message(RuntimeException(null, IllegalStateException("boom"))))
         assertEquals("IllegalStateException", message(IllegalStateException()))
+        assertEquals("Connection refused: localhost:80", message(ConnectException(), URI("http://localhost/x")))
+        assertEquals("Connection refused: localhost:0", message(ConnectException(), URI("http://localhost:0/x")))
+        assertEquals("Connection refused: localhost:443", message(ConnectException(), URI("HTTPS://localhost/x")))
+        assertEquals("Connection refused: localhost:80", message(ConnectException("  "), URI("http://localhost/x")))
+        assertEquals("Connection refused: example.com:443", message(ConnectException("Connection REFUSED by peer")))
+        assertEquals(
+            "Cannot connect to example.com:443: unreachable",
+            message(ConnectException("  ").apply { initCause(ConnectException("unreachable")) }),
+        )
+        assertEquals("IllegalStateException: boom", message(RuntimeException("  ", IllegalStateException("boom"))))
+        assertEquals("RuntimeException", message(RuntimeException("  ")))
+        assertEquals("RuntimeException: text", message(RuntimeException("text")))
+        assertEquals("", message(object : RuntimeException() {}))
     }
 
     @Test
@@ -439,23 +470,27 @@ class RequestExecutorTest {
     @Test
     fun `notes 401 responses without a Digest challenge`() {
         server.handle("/basic") { server.respond(it, 401, "", "WWW-Authenticate" to "Basic realm=\"r\"") }
-        val request =
-            server.request("/basic").let {
-                PreparedRequest(
-                    it.uri,
-                    it.method,
-                    it.version,
-                    it.headers,
-                    it.body,
-                    it.notes,
-                    DigestAuth.Credentials("u", "p"),
-                )
-            }
+        server.handle("/none") { server.respond(it, 401, "") }
 
-        val result = response(request)
+        for (path in listOf("/basic", "/none")) {
+            val request =
+                server.request(path).let {
+                    PreparedRequest(
+                        it.uri,
+                        it.method,
+                        it.version,
+                        it.headers,
+                        it.body,
+                        it.notes,
+                        DigestAuth.Credentials("u", "p"),
+                    )
+                }
 
-        assertEquals(401, result.status)
-        assertEquals(1, result.notes.size)
+            val result = response(request)
+
+            assertEquals(401, result.status)
+            assertEquals(listOf("The 401 response has no Digest challenge"), result.notes, path)
+        }
     }
 
     @Test
@@ -485,6 +520,8 @@ class RequestExecutorTest {
                 try {
                     CountDownLatch(1).await() // stands for slow preparation; the cancel interrupts it
                 } catch (e: InterruptedException) {
+                    // The JDK's channels leave the interrupt flag set when they throw ClosedByInterruptException.
+                    Thread.currentThread().interrupt()
                     throw java.nio.channels
                         .ClosedByInterruptException()
                         .initCause(e)
@@ -523,5 +560,37 @@ class RequestExecutorTest {
             assertFalse(interrupted)
         }
         pool.shutdownNow()
+    }
+
+    @Test
+    fun `leaves no interrupt behind when the cancel surfaces as ClosedByInterruptException`() {
+        // A bare worker thread, unlike a ThreadPoolExecutor, hands its interrupt flag on to the next task.
+        val queue = LinkedBlockingQueue<Runnable>()
+        val worker = Thread { while (true) queue.take().run() }.apply { isDaemon = true }
+        worker.start()
+        val pooled = RequestExecutor(clients, tasks, Executor { queue.add(it) })
+        val preparing = CountDownLatch(1)
+        val first = CompletableFuture<ExchangeResult>()
+        val running =
+            pooled.run(RequestTags(), first::complete) {
+                preparing.countDown()
+                try {
+                    CountDownLatch(1).await() // stands for reading a body file; the cancel interrupts it
+                } catch (e: InterruptedException) {
+                    // The JDK's channels leave the interrupt flag set when they throw ClosedByInterruptException.
+                    Thread.currentThread().interrupt()
+                    throw ClosedByInterruptException().initCause(e)
+                }
+                server.request("/echo")
+            }
+        assertTrue(preparing.await(5, TimeUnit.SECONDS))
+        running.cancel()
+        assertEquals("Cancelled", assertIs<HttpFailure>(first.get(5, TimeUnit.SECONDS)).message)
+
+        val next = CompletableFuture<Boolean>()
+        queue.add { next.complete(Thread.currentThread().isInterrupted) }
+
+        assertFalse(next.get(5, TimeUnit.SECONDS))
+        worker.interrupt()
     }
 }
