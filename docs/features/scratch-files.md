@@ -44,6 +44,13 @@ Files for notes and experiments outside the project, shared by all project windo
   in one window closes its clean tabs in other windows instead of following the rename; tabs with unsaved changes there
   show the file deleted.
 
+- **From the clipboard:** File → New Scratch from Clipboard (after New Generated Scratch File…; no key binding; also from
+  a terminal tab) creates a scratch file from the clipboard's text, named `pasted.<ext>`, then `pasted_1.<ext>` …,
+  shown and opened like the others ([ADR 0188](../adr/0188-paste-clipboard-text-in-the-explorer.md)). The type is
+  detected from the text as in the explorer's Paste Text (JSON, YAML, code, Markdown …), Plain Text (`.txt`) if
+  nothing is sure. Without text, or with blank text, on the clipboard, an error says "The clipboard holds no text." and
+  nothing is created.
+
 ## Generated scratch files
 [ADR 0114](../adr/0114-generated-scratch-files.md)
 

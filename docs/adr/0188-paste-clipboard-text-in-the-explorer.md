@@ -41,8 +41,15 @@ Amends 0167 and 0092: Paste (Shortcut+V and the context menu item) also works fo
   `FileExplorerView` it is a test seam like `askImageName`.
 - **Image name:** `pasted-yyyy-MM-dd-HHmmss.png` instead of `image-…` (one timestamp name, `pastedBaseName`, for both).
 - **Module:** `file-explorer` depends on `text-types` with `api`, since `FileExplorerView.textTypes: TextTypeDetector` is
-  public; without `ide` setting it, the built-in rules alone detect (no JSON or YAML).
+  public. `ide` sets it to the one detector that all windows share (the `ClipboardTextTypes` singleton): the built-in
+  rules plus Converting's data formats (JSON, YAML, TOML, Properties, CSV, TSV, cURL, HTTP requests, through
+  `ConvertingTextTypes`), held to the guards of ADR 0187. Without it the built-in rules alone detect (no JSON or YAML).
 - `FileExplorerView.kt` was at 593 lines: the default alert building moved to `ExplorerAlerts.kt` (ADR 0054).
+- **File → New Scratch from Clipboard** (`ide`, `WindowScratches`, logic in `ClipboardScratch`), right after New
+  Generated Scratch File…, no key binding (Shortcut+Shift+V is the terminal's Paste), also from a terminal tab. The
+  clipboard text is read on the JavaFX thread; none or blank shows "The clipboard holds no text." and creates nothing;
+  else the same detector as the explorer's runs on a virtual thread and `openText(stage, "pasted", extension, text)`
+  creates `pasted.json`, `pasted_1.json`, … (Plain Text gives `.txt`) and opens it. No dialog, no choice of type.
 
 Rejected: the type in the menu label (detection per menu show); a name field with the extension (the combo is the one
 place that says the type, so the name never fights it); changing line endings.

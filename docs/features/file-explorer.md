@@ -289,7 +289,7 @@
     `actions/ExplorerTextPaste.kt`, `actions/PasteTextDialog.kt`, `actions/PasteTextName.kt`): same keys and target
     folder, the item reads "Paste Text". Precedence: files, then text (not blank), then an image, so a spreadsheet range
     (text and image) pastes as text and a screenshot as a PNG. The type of the text is detected in the background
-    (`text-types`, [ADR 0187](../adr/0187-text-type-detection.md); `FileExplorerView.textTypes`, which `ide` sets).
+    (`text-types`, [ADR 0187](../adr/0187-text-type-detection.md); `FileExplorerView.textTypes`, which `ide` sets with Converting's data formats too: JSON, YAML, TOML, Properties, CSV, TSV, cURL and HTTP requests; prose, a bare URL and flat `key: value` YAML stay Plain Text `.txt`, other limits in ADR 0187).
     A "Paste Text" dialog asks for a name, prefilled `pasted-yyyy-MM-dd-HHmmss` in local time and selected, and a type:
     a combo box of all types with their file icons, the detected one marked "· detected" and preselected, "No
     extension" last. The extension is always appended (`config.yaml` as JSON is `config.yaml.json`), "No extension"
