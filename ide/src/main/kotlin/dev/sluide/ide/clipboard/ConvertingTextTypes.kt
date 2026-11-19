@@ -8,13 +8,14 @@ import dev.sluide.texttypes.TypeScore
 
 /**
  * Converting's data-format detection as a [TextTypeSource] (ADR 0187): the scores of the [families] mapped to the text
- * types of their formats' first extensions (unknown ones dropped), taken as they are. A family that throws counts as
- * no match.
+ * types of their formats' first extensions (unknown ones dropped), held to the [DataTextGuards] by the format's id, the
+ * score taken as it is. A family that throws counts as no match.
  */
 class ConvertingTextTypes(
     private val families: List<FormatFamily<*>>,
 ) : TextTypeSource {
-    override fun scores(text: String): List<TypeScore> = families.flatMap { matchesOf(it, text) }.mapNotNull(::scoreOf)
+    override fun scores(text: String): List<TypeScore> =
+        families.flatMap { matchesOf(it, text) }.mapNotNull { scoreOf(it, text) }
 
     private fun matchesOf(
         family: FormatFamily<*>,
@@ -26,9 +27,12 @@ class ConvertingTextTypes(
             emptyList()
         }
 
-    private fun scoreOf(match: FormatMatch): TypeScore? =
-        match.format.extensions
-            .firstOrNull()
-            ?.let(TextTypes::byExtension)
-            ?.let { TypeScore(it, match.score) }
+    private fun scoreOf(
+        match: FormatMatch,
+        text: String,
+    ): TypeScore? {
+        val extension = match.format.extensions.firstOrNull() ?: return null
+        val type = TextTypes.byExtension(extension) ?: return null
+        return if (DataTextGuards.accepts(match.format.id, text)) TypeScore(type, match.score) else null
+    }
 }
