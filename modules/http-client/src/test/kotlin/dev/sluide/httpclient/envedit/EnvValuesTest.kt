@@ -1,5 +1,7 @@
 package dev.sluide.httpclient.envedit
 
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import tools.jackson.databind.JsonNode
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -35,5 +37,24 @@ class EnvValuesTest {
         assertEquals("{}" to false, convert("null", ValueType.OBJECT))
         assertEquals("{}" to false, convert("[]", ValueType.OBJECT))
         assertEquals("\"\"" to false, convert("{}", ValueType.TEXT))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "true,true,false",
+        "false,false,false",
+        "' FALSE ',false,false",
+        "TRUE,true,false",
+        "maybe,false,true",
+        "tru,false,true",
+        "yes,false,true",
+        "'',false,false",
+    )
+    fun `reads a text as yes or no only when it says true or false`(
+        text: String,
+        expected: String,
+        lossy: Boolean,
+    ) {
+        assertEquals(expected to lossy, convert("\"$text\"", ValueType.YES_NO))
     }
 }
