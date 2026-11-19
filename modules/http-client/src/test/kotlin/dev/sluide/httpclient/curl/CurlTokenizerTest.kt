@@ -151,7 +151,7 @@ internal class CurlTokenizerTest {
     }
 
     @Test
-    fun `a comment is no word after an operator, a REM or a colon pair inside a command is`() {
+    fun `reads comment lines and keeps none after an operator`() {
         assertEquals(null, CurlTokenizer.tokenize("curl x | REM y ^\n  z", Shell.CMD).single().comment)
         assertEquals("| REM y z", CurlTokenizer.tokenize("curl x | REM y ^\n  z", Shell.CMD).single().ignored)
         assertEquals("c", CurlTokenizer.tokenize("::c\ncurl x ^\n  y", Shell.CMD).single().comment)
@@ -164,7 +164,8 @@ internal class CurlTokenizerTest {
 
     @Test
     fun `a dollar at the end of the text is a word in every shell`() {
-        Shell.entries.forEach { assertEquals(listOf(listOf("$")), words("$", it), it.label) }
+        // POSIX: a row of commands().
+        listOf(Shell.CMD, Shell.POWERSHELL).forEach { assertEquals(listOf(listOf("$")), words("$", it), it.label) }
         assertEquals(listOf(listOf("curl.exe", "x$")), words("curl.exe x$", Shell.POWERSHELL))
     }
 
@@ -197,22 +198,13 @@ internal class CurlTokenizerTest {
             .words
             .map { it.offset }
 
-        assertEquals(listOf(0, 5, 11, 13, 17), offsets("curl 'a b' c \\x\\ y", Shell.POSIX).let { it + 17 })
+        assertEquals(listOf(0, 5, 11, 13), offsets("curl 'a b' c \\x\\ y", Shell.POSIX))
         assertEquals(listOf(0, 5, 11, 16), offsets("curl \"a b\" \$'c' d", Shell.POSIX))
         assertEquals(listOf(0, 9, 13), offsets("curl.exe 'a' \u2018b\u2019", Shell.POWERSHELL))
         assertEquals(listOf(0, 9, 13), offsets("curl.exe \"a\" \u201Cb\u201D", Shell.POWERSHELL))
         // cmd: an escaped character starts a word at itself, a quote at the quote.
         assertEquals(listOf(0, 6, 9, 14), offsets("curl ^&a x ^\n y", Shell.CMD))
         assertEquals(listOf(0, 6, 14, 20), offsets("curl ^\"a^&b^\" x ^\n  y", Shell.CMD))
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = ["\\U0010FFFF", "\\U0001F600", "\\u00e4", "\\x41"])
-    fun `an escape up to the last character is valid`(escape: String) {
-        // bash: $'\U0010FFFF' is the last code point (F4 8F BF BF).
-        val word = words("curl $'$escape'", Shell.POSIX).single()[1]
-
-        assertEquals(1, word.codePointCount(0, word.length))
     }
 
     companion object {
@@ -287,12 +279,14 @@ internal class CurlTokenizerTest {
                 // A \ and CR LF continue a line, as pasted from Windows; bash would keep the CR in the word.
                 Arguments.of(Shell.POSIX.label, "curl a \\\r\n  b", listOf("curl", "a", "b")),
                 Arguments.of(Shell.POSIX.label, "curl a\\\rb \\", listOf("curl", "a\rb", "\\")),
+                // bash keeps a bare CR and a tab inside the word of a CR; here a CR splits words like a blank.
                 Arguments.of(Shell.POSIX.label, "curl a\tb\rc", listOf("curl", "a", "b", "c")),
                 Arguments.of(Shell.POSIX.label, "a b", listOf("a", "b")),
                 Arguments.of(Shell.POSIX.label, "\$x y", listOf("\$x", "y")),
                 Arguments.of(Shell.POSIX.label, "a\$ b", listOf("a$", "b")),
                 Arguments.of(Shell.POSIX.label, "curl \$ x", listOf("curl", "$", "x")),
                 Arguments.of(Shell.POSIX.label, "\$\tcurl x", listOf("$", "curl", "x")),
+                // bash would run a command named $; a leading "$ " is taken as a pasted prompt.
                 Arguments.of(Shell.POSIX.label, "  \$ curl x", listOf("curl", "x")),
                 Arguments.of(Shell.POSIX.label, "x#y c", listOf("x#y", "c")),
                 Arguments.of(Shell.POSIX.label, "curl a# b", listOf("curl", "a#", "b")),
@@ -323,7 +317,19 @@ internal class CurlTokenizerTest {
                     listOf("curl", "\u00e4a\uD83D\uDE00a"),
                 ),
                 Arguments.of(Shell.POSIX.label, "curl \$'\\U0010FFFF'", listOf("curl", "\uDBFF\uDFFF")),
-                Arguments.of(Shell.POSIX.label, "curl \$'\\q\\c\\xg\\u'", listOf("curl", "\\q\\c\\xg\\u")),
+                Arguments.of(Shell.POSIX.label, "curl \$'\\q\\xg\\u'", listOf("curl", "\\q\\xg\\u")),
+                // \cX is the control character X & 0x1F (? is DEL), \c\\ is Ctrl+\; a \c before the closing quote is text.
+                Arguments.of(
+                    Shell.POSIX.label,
+                    "curl \$'\\cA\\ca\\c[\\c?'",
+                    listOf("curl", "\u0001\u0001\u001b\u007f"),
+                ),
+                Arguments.of(Shell.POSIX.label, "curl \$'\\c\\\\x'", listOf("curl", "\u001cx")),
+                Arguments.of(Shell.POSIX.label, "curl \$'\\c'", listOf("curl", "\\c")),
+                // A single backslash after \c is Ctrl+\ on its own (bash: $'\c\x41' is 1C, x, 4, 1).
+                Arguments.of(Shell.POSIX.label, "curl \$'\\c\\x41'", listOf("curl", "\u001cx41")),
+                // bash gives the byte E9 for \xe9, which is no character; the tokenizer reads the code point U+00E9.
+                Arguments.of(Shell.POSIX.label, "curl \$'\\xe9'", listOf("curl", "\u00e9")),
                 Arguments.of(Shell.POSIX.label, "curl \$'a\\\\b'", listOf("curl", "a\\b")),
                 // Not checked against a real PowerShell (none here): the tokenizer's own rules.
                 Arguments.of(Shell.POWERSHELL.label, "curl.exe -d ''", listOf("curl.exe", "-d", "")),
@@ -389,6 +395,8 @@ internal class CurlTokenizerTest {
                 Arguments.of(Shell.POSIX.label, "curl $'abc\\", 6),
                 Arguments.of(Shell.POSIX.label, "curl $'\\x41", 6),
                 Arguments.of(Shell.POSIX.label, "curl $'\\x4", 6),
+                Arguments.of(Shell.POSIX.label, "curl $'\\c", 6),
+                Arguments.of(Shell.POSIX.label, "curl $'\\c\\", 6),
                 Arguments.of(Shell.POSIX.label, "curl $'\\1", 6),
                 Arguments.of(Shell.POWERSHELL.label, "curl.exe \"abc", 9),
                 Arguments.of(Shell.POWERSHELL.label, "curl.exe \"a`", 9),

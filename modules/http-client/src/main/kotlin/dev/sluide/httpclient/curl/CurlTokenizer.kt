@@ -273,10 +273,23 @@ internal object CurlTokenizer {
             }
         }
 
+        /**
+         * `\cX` (the `c` at [from]): the control character of X, as bash makes it (`?` is DEL, `\c\\` is Ctrl+\); a
+         * `\c` at the closing quote or the end is text.
+         */
+        private fun controlEscape(from: Int): Pair<String, Int> {
+            val x = text.getOrNull(from + 1)
+            if (x == null || x == '\'') return "\\c" to 1
+            val length = if (x == '\\' && text.getOrNull(from + 2) == '\\') 3 else 2
+            val code = if (x == '?') DEL else x.uppercaseChar().code and CONTROL_MASK
+            return code.toChar().toString() to length
+        }
+
         /** The value of the escape after the backslash at [from] - 1, and how many characters it takes. */
         private fun ansiCEscape(from: Int): Pair<String, Int> {
             val c = text[from]
             ANSI_C_ESCAPES[c]?.let { return it.toString() to 1 }
+            if (c == 'c') return controlEscape(from)
             val (digits, radix, max) =
                 when (c) {
                     'x' -> Triple(HEX, 16, 2)
@@ -455,6 +468,8 @@ internal object CurlTokenizer {
     }
 
     private const val HEX = "0123456789abcdefABCDEF"
+    private const val DEL = 0x7f
+    private const val CONTROL_MASK = 0x1f
 
     /** PowerShell's single quotes: `'` and the typographic ones, U+2018 to U+201B. */
     const val POWERSHELL_SINGLE = "'‘’‚‛"
