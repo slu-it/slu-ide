@@ -158,15 +158,17 @@ internal fun recordedCalls(log: java.nio.file.Path): List<String> =
 
 /**
  * A script in [folder] that stands in for git: [start] and then [body]. The test is skipped when the stand-in cannot
- * run (no `/bin/sh`). The graces are those of [GitCli]: [stopGrace] for a stopped write to end by itself, [pipeGrace]
- * for the output of an ended git to be read (a grandchild that holds the pipe open), [errorGrace] for its standard
- * error. [start] is replaced only by a test of what [FAKE_GIT_START] answers on its own.
+ * run (no `/bin/sh`). The graces are those of [GitCli], in its order: [stopGrace] for a stopped write to end by itself
+ * and [errorGrace] for the standard error of an ended read are its defaults. [pipeGrace] is shorter than its default
+ * of 2 s, so that an output that a grandchild holds open fails the test after 0.3 s instead of 2 s; a test that holds
+ * the output open on purpose passes the longer one. [start] is replaced only by a test of what [FAKE_GIT_START]
+ * answers on its own.
  */
 internal fun fakeGit(
     folder: java.nio.file.Path,
     body: String,
-    pipeGrace: Duration = 300.milliseconds,
     stopGrace: Duration = 2.seconds,
+    pipeGrace: Duration = 300.milliseconds,
     errorGrace: Duration = 100.milliseconds,
     environment: Map<String, String> = testGitEnvironment(),
     start: String = FAKE_GIT_START,

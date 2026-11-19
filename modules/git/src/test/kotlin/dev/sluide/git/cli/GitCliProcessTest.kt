@@ -48,7 +48,16 @@ class GitCliProcessTest {
         pipeGrace: Duration = 2.seconds,
         errorGrace: Duration = 100.milliseconds,
         environment: Map<String, String> = System.getenv(),
-    ): GitCli = fakeGit(folder, body, pipeGrace, stopGrace, errorGrace, environment, start = shell)
+    ): GitCli =
+        fakeGit(
+            folder,
+            body,
+            stopGrace = stopGrace,
+            pipeGrace = pipeGrace,
+            errorGrace = errorGrace,
+            environment = environment,
+            start = shell,
+        )
 
     /** Runs [block], failing the test if it takes longer than [seconds]: a regression must not hang the build. */
     private fun <T> within(

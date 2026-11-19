@@ -250,7 +250,7 @@ class GitCliIgnoreRulesFailuresTest {
                 "*' check-ignore '*) cat > /dev/null; printf '.gitignore\\0001\\000*.log\\000a.log\\000'; " +
                 "${hold("check-ignore")};;\n" +
                 "esac"
-        return fakeGit(folder, body, pipeGrace)
+        return fakeGit(folder, body, pipeGrace = pipeGrace)
     }
 
     @Test
