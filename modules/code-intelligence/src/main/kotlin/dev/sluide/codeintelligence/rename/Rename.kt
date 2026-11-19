@@ -248,7 +248,7 @@ private class CaretTarget(
 }
 
 /** The note for a `prepareRename` that failed with [error]. */
-private fun cannot(error: Throwable): String =
+internal fun cannot(error: Throwable): String =
     when {
         error is LanguageServerNotRunningException -> unavailable("Rename", "server not running")
         error.message.isNullOrBlank() -> "Cannot rename this"
@@ -256,7 +256,7 @@ private fun cannot(error: Throwable): String =
     }
 
 /** The message of a `rename` request that failed with [error]. */
-private fun failed(error: Throwable): String =
+internal fun failed(error: Throwable): String =
     if (error is LanguageServerNotRunningException) {
         unavailable("Rename", "server not running")
     } else {
