@@ -138,6 +138,13 @@ subprojects {
             useJUnitPlatform { excludeTags("ui") }
         }
 
+        // In the fat jar every module is a jar of its own, and a class's package version comes from its jar's
+        // manifest: the language servers get it as the client version (ServerLifecycle's clientInfo).
+        val appVersion = version.toString()
+        tasks.withType<Jar>().configureEach {
+            manifest.attributes("Implementation-Version" to appVersion)
+        }
+
         // With `-q` Gradle would only say that tests failed; this names them with their exception, passed ones stay
         // silent.
         tasks.withType<Test>().configureEach {
