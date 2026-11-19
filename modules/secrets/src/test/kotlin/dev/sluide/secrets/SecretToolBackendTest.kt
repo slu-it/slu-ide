@@ -570,6 +570,9 @@ class SecretToolBackendTest {
               ("${'$'}d/holder.sh" "${'$'}d" "${'$'}1" &)
               i=0
               while [ ! -f "${'$'}d/held" ] && [ ${'$'}i -lt 300000 ]; do i=${'$'}((i+1)); done
+              # the JDK drains and closes the pipe of a process that ends before its reader blocks in read
+              # (docs/testing.md, "Portability"): a held pipe would read as complete
+              sleep 0.3
             }
             case "${'$'}m" in
               sleep) sleep 30 & echo ${'$'}! > "${'$'}d/pid"; wait ;;
