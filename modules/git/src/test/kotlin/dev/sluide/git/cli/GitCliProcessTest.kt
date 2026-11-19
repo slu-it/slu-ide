@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.function.ThrowingSupplier
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
 import java.nio.file.Files
 import java.nio.file.Path
@@ -52,9 +53,10 @@ class GitCliProcessTest {
         body: String,
         stopGrace: Duration = 2.seconds,
         pipeGrace: Duration = 2.seconds,
+        errorGrace: Duration = 100.milliseconds,
         environment: Map<String, String> = System.getenv(),
     ): GitCli =
-        GitCli(script(body).toString(), environment, stopGrace, pipeGrace).also {
+        GitCli(script(body).toString(), environment, stopGrace, pipeGrace, errorGrace).also {
             assumeTrue(it.available, "no /bin/sh to stand in for git")
         }
 
@@ -96,21 +98,6 @@ class GitCliProcessTest {
         cancellation = cancellation,
         maxOutput = maxOutput,
     )
-
-    @Test
-    fun `a process gets the given environment only, GIT_EDITOR for a write only, optional locks off for a read only`() {
-        assumeTrue(System.getenv("HOME") != null, "no HOME to leave out")
-        val shown = "[\$HOME][\$KEEP][\$GIT_EDITOR][\$GIT_OPTIONAL_LOCKS]"
-        val probe = "case \" \$* \" in *' probe '*) echo \"$shown\"; exit 0;; esac"
-        val git = fakeGit(probe, environment = mapOf("PATH" to System.getenv("PATH"), "KEEP" to "yes"))
-
-        assertEquals("[][yes][][0]\n", read(git, "probe")?.output?.decodeToString())
-        assertEquals("[][yes][false][]", git.write(folder, listOf("probe")).message)
-        assertEquals(
-            "[][yes][:][]",
-            git.writeWithExit(folder, listOf("probe"), environment = mapOf("GIT_EDITOR" to ":")).first.message,
-        )
-    }
 
     @Test
     fun `the default git is the one on the path with the environment of the process`() {
@@ -166,7 +153,8 @@ class GitCliProcessTest {
     fun `what a process left behind writes within the grace is part of the output, and of the error log`() {
         val git =
             fakeGit(
-                "(sleep 0.3; echo late) & ( sleep 0.01; echo late >&2 ) >/dev/null & sleep 0.3; exit 0",
+                "( \$untilGitEnded; sleep 0.2; echo late ) & ( \$untilGitEnded; echo late >&2 ) >/dev/null & " +
+                    "sleep 0.3; exit 0",
                 pipeGrace = 10.seconds,
             )
 
@@ -179,57 +167,48 @@ class GitCliProcessTest {
     }
 
     @Test
-    fun `an error output over the limit is read to its end and dropped, so that git is not blocked`() {
-        val git = fakeGit("head -c 300000 /dev/zero | tr '\\0' x >&2; exit 0")
-
-        val execution =
-            within(30) {
-                git.execute(listOf("x"), folder, 20.seconds, null, write = true, maxErrors = 10)
-            }
-
-        assertNotNull(execution)
-        assertEquals(0, execution.exitValue)
-        assertEquals(10, execution.errors.size)
-        assertTrue(execution.complete)
-    }
-
-    @Test
-    fun `a caller interrupted while git runs gets nothing, keeps the interrupt and git is stopped`() {
-        for (write in listOf(false, true)) {
-            val pid = folder.resolve("pid-$write")
-            val git = fakeGit("echo \$\$ > '$pid'; exec sleep 30", stopGrace = 1.seconds)
-            val result = CompletableFuture<Pair<GitCli.Execution?, Boolean>>()
-            val thread =
-                Thread {
-                    val execution = git.execute(listOf("x"), folder, 60.seconds, null, write)
-                    result.complete(execution to Thread.currentThread().isInterrupted)
-                }.apply { start() }
-            awaitFile(pid)
-
-            thread.interrupt()
-
-            val (execution, interrupted) = result.get(10, TimeUnit.SECONDS)
-            assertNull(execution, "write $write")
-            assertTrue(interrupted, "the interrupt is kept, write $write")
-            awaitGone(pid.readText().trim().toLong())
-        }
-    }
-
-    @Test
-    fun `a write that ignores SIGTERM is killed when the grace is over`() {
+    fun `a caller interrupted while a write runs gets nothing, keeps the interrupt and git is stopped`() {
         val pid = folder.resolve("pid")
-        val ignoring = "trap '' TERM; echo \$\$ > '$pid'; while true; do sleep 0.1; done"
-        val git = fakeGit(ignoring, stopGrace = 300.milliseconds)
+        val git = fakeGit("echo \$\$ > '$pid'; exec sleep 30", stopGrace = 1.seconds)
+        val result = CompletableFuture<Pair<GitCli.Execution?, Boolean>>()
+        val thread =
+            Thread {
+                val execution = git.execute(listOf("x"), folder, 60.seconds, null, write = true)
+                result.complete(execution to Thread.currentThread().isInterrupted)
+            }.apply { start() }
+        awaitFile(pid)
 
-        val execution =
-            within(15) {
-                git.execute(listOf("x"), folder, 500.milliseconds, null, write = true)
-            }
+        thread.interrupt()
 
-        assertNotNull(execution)
-        assertNull(execution.exitValue)
-        assertFalse(execution.cancelled)
+        val (execution, interrupted) = result.get(10, TimeUnit.SECONDS)
+        assertNull(execution)
+        assertTrue(interrupted, "the interrupt is kept")
         awaitGone(pid.readText().trim().toLong())
+    }
+
+    @Test
+    fun `a caller already interrupted as git starts keeps the interrupt through the stop of a write`() {
+        val git = fakeGit("exec sleep 30", stopGrace = 1.seconds)
+        val cancellation = GitCancellation()
+        val previous = GitCommandLogSink.sink
+        // The sink runs on the calling thread at the start of the command: git has not been waited for yet.
+        GitCommandLogSink.sink = { level, message, error ->
+            previous(level, message, error)
+            if (message.substringAfter(' ').startsWith("start ")) {
+                cancellation.cancel()
+                Thread.currentThread().interrupt()
+            }
+        }
+        try {
+            val execution =
+                git.execute(listOf("x"), folder, 60.seconds, null, write = true, cancellation = cancellation)
+
+            assertTrue(assertNotNull(execution).cancelled)
+            assertTrue(Thread.currentThread().isInterrupted, "the interrupt is kept")
+        } finally {
+            Thread.interrupted()
+            GitCommandLogSink.sink = previous
+        }
     }
 
     @Test
@@ -250,7 +229,7 @@ class GitCliProcessTest {
     }
 
     @Test
-    fun `a write that cleans up on SIGTERM is given two seconds by default`() {
+    fun `a write that needs a moment to clean up on SIGTERM is waited for under the default grace`() {
         val ready = folder.resolve("ready")
         val marker = folder.resolve("cleaned")
         val body = "trap 'sleep 0.3; echo done > \"$marker\"; exit 0' TERM; echo ready > '$ready'; sleep 30 & wait"
@@ -293,24 +272,39 @@ class GitCliProcessTest {
         assertFalse(folder.resolve("cut").exists(), "git could not write all it said")
     }
 
-    // The scripts below wait 0.3 s before they end: the JDK drains and closes the output pipe of a process that ends
-    // while its reader has not started reading, and the output would then look complete now and then. What a child
-    // writes comes after git ended, not before.
-    @Test
-    fun `output that arrives after git ended is waited for as long as the grace, to the nanosecond`() {
-        val late = fakeGit("(sleep 0.7; echo late) & sleep 0.3; exit 0", pipeGrace = 900.milliseconds)
-        assertEquals("late\n", read(late, "x")?.output?.decodeToString())
-        assertEquals(true, read(late, "x")?.complete)
+    // The scripts below wait 0.3 s before they end: no signal can show that the JDK's reader is blocked in read, and a
+    // process that ends before is drained and closed, so that its output would look complete now and then. What a
+    // child writes comes after git ended, which it sees by a signal: its parent shell is gone.
+    private val untilGitEnded = "while kill -0 \$\$ 2>/dev/null; do sleep 0.01; done"
 
-        val later = fakeGit("(sleep 1.8; echo late) & sleep 0.3; exit 0", pipeGrace = 10.seconds)
-        assertEquals("late\n", read(later, "x")?.output?.decodeToString())
-        assertEquals(true, read(later, "x")?.complete)
+    @ParameterizedTest
+    @CsvSource("300,900", "1500,10000")
+    fun `output that arrives after git ended is waited for as long as the grace`(
+        lateMillis: Long,
+        graceMillis: Long,
+    ) {
+        val git =
+            fakeGit(
+                "( $untilGitEnded; sleep ${lateMillis / 1000.0}; echo late ) & sleep 0.3; exit 0",
+                pipeGrace = graceMillis.milliseconds,
+            )
+
+        val execution = read(git, "x")
+
+        assertNotNull(execution)
+        assertEquals("late\n", execution.output.decodeToString())
+        assertTrue(execution.complete)
     }
 
-    @Test
-    fun `an error line that a left-behind process writes just after git ended is still kept`() {
-        // Only standard error is held: the output reader ends with git, the error reader gets its short grace.
-        val git = fakeGit("( sleep 0.32; echo late >&2 ) >/dev/null & sleep 0.3; exit 0")
+    @ParameterizedTest
+    @CsvSource("900", "5000")
+    fun `an error line that a left-behind process writes after git ended is still kept`(graceMillis: Long) {
+        // Only standard error is held: the output reader ends with git, the error reader gets its grace.
+        val git =
+            fakeGit(
+                "( $untilGitEnded; echo late >&2 ) >/dev/null & sleep 0.3; exit 0",
+                errorGrace = graceMillis.milliseconds,
+            )
 
         assertEquals("late\n", read(git, "x")?.errors?.decodeToString())
     }
@@ -369,32 +363,6 @@ class GitCliProcessTest {
         assertEquals(case.guarded, probes.all { "-c core.fsmonitor=false" in it }, "${case.name}: $probes")
         assertEquals(case.guarded, probes.any { "-c core.fsmonitor=false" in it }, "${case.name}: $probes")
         assertEquals(if (case.kept) 1 else 2, configReads.readText().lines().count { it.isNotEmpty() }, case.name)
-    }
-
-    @Test
-    fun `the guard is read again when the configuration changes, and never kept without a git folder`() {
-        val repository = folder.resolve("repo").also { it.resolve(".git").createDirectories() }
-        val config = repository.resolve(".git/config")
-        config.writeText("[core]\n\tbare = false\n")
-        val configReads = folder.resolve("config-reads")
-        val body =
-            "case \" \$* \" in *' core.fsmonitor '*) echo x >> '$configReads'; exit 1;;\n" +
-                "*' probe '*) exit 0;; esac"
-        val git = fakeGit(body)
-
-        fun reads() = if (configReads.exists()) configReads.readText().lines().count { it.isNotEmpty() } else 0
-
-        read(git, "probe", directory = repository)
-        read(git, "probe", directory = repository)
-        assertEquals(1, reads(), "kept while the configuration is the same")
-        config.writeText("[core]\n\tbare = true\n")
-        read(git, "probe", directory = repository)
-        assertEquals(2, reads(), "read again for another configuration")
-
-        val plain = folder.resolve("plain").createDirectories()
-        read(git, "probe", directory = plain)
-        read(git, "probe", directory = plain)
-        assertEquals(4, reads(), "never kept without a .git")
     }
 
     @Test

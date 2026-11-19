@@ -38,6 +38,8 @@ class GitCli internal constructor(
     internal val stopGrace: Duration = 2.seconds,
     /** How long the output of a git that has ended may take to be read to its end, whatever the timeout. */
     internal val pipeGrace: Duration = 2.seconds,
+    /** How long the standard error of a read that has ended may take to be read, for the log only. */
+    internal val errorGrace: Duration = 100.milliseconds,
 ) {
     constructor(executable: String, environment: Map<String, String>) : this(executable, environment, 2.seconds)
 
@@ -291,7 +293,7 @@ class GitCli internal constructor(
                 )
             }
             // Only for the log: a child that holds just standard error open must not delay the read.
-            errorReader?.join(ERROR_GRACE.toJavaDuration())
+            errorReader?.join(errorGrace.toJavaDuration())
         } catch (_: InterruptedException) {
             // E.g. the window was closed during a run: stop git too, and keep the interrupt for the caller.
             stop(process, write)
@@ -439,9 +441,6 @@ class GitCli internal constructor(
 
         /** The message of a write that was cancelled (ADR 0043). */
         const val CANCELLED = "Cancelled."
-
-        /** How long the standard error of a read that has ended may take to be read, for the log only. */
-        private val ERROR_GRACE = 100.milliseconds
 
         /**
          * The most bytes written to git's standard input. They are written while git runs (its output is read in

@@ -114,7 +114,7 @@ class GitCliRemotesTest {
     @Test
     fun `a config read whose output is still held open after git ended is no answer`() {
         // Same fake as GitCliWriteTest: a child keeps the pipe open past git's exit.
-        val git = fakeGit("(sleep 20 &); printf 'remote.a.url\\nu\\0'; exit 0")
+        val git = fakeGit("(sleep 20 &); printf 'remote.a.url\\nu\\0'; sleep 0.3; exit 0")
 
         assertNull(git.configMatching(folder, "^remote\\."))
         assertEquals(

@@ -222,7 +222,9 @@ CI once.
 - **Output held open by a left-behind process:** a stand-in script that ends at once while a background child holds its
   output pipe (`(sleep 20 &)`) is "complete" about once in a hundred runs: the JDK drains and closes the pipe of a
   process that ends before its reader is blocked in `read`. Let the script wait 0.3 s (`sleep 0.3`) before it ends, so
-  that the reader is reading; the same wait makes output a child writes a moment later arrive reliably.
+  that the reader is reading. It is a fixed wait because no signal can show that the JVM's reader is blocked in `read`.
+  A child that writes after git ended waits for a signal instead (`while kill -0 $$ 2>/dev/null; do sleep 0.01; done`:
+  its parent shell is gone), so the write comes after the end, never before.
 - **Git encodings:** git converts commit messages to `i18n.commitEncoding` differently per OS (iconv). Tests read
   messages with `--encoding=UTF-8`, as the app does.
 - **File watching:** the macOS JDK polls (every 2 s, by path, mtime per entry): late events, no events for a folder

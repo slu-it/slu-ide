@@ -2,9 +2,12 @@ package dev.sluide.git.cli
 
 import dev.sluide.git.FAKE_GIT_START
 import dev.sluide.git.GitResult
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.junit.jupiter.api.function.ThrowingSupplier
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.time.Duration.ofSeconds
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.readText
@@ -29,22 +32,26 @@ class GitCliWriteTest {
         script: String,
         stopGrace: Duration = 2.seconds,
         pipeGrace: Duration = 2.seconds,
+        environment: Map<String, String> = System.getenv(),
     ): GitCli {
         val executable =
             folder.resolve("fake-git-${++fakes}").apply {
                 writeText(FAKE_GIT_START + "$script\n")
                 toFile().setExecutable(true)
             }
-        return GitCli(executable.toString(), System.getenv(), stopGrace, pipeGrace).also {
+        return GitCli(executable.toString(), environment, stopGrace, pipeGrace).also {
             assumeTrue(it.available, "no /bin/sh to stand in for git")
         }
     }
 
     @Test
     fun `a write keeps git's standard error, else its output, and has no optional locks variable`() {
-        val git = fakeGit("echo out; echo \"  err \$GIT_OPTIONAL_LOCKS|\$GIT_TERMINAL_PROMPT  \" >&2; exit 1")
+        // Only the environment it is given: HOME, which the test's has, is not there; KEEP is.
+        val given = mapOf("PATH" to System.getenv("PATH"), "KEEP" to "yes")
+        val shown = "\$GIT_OPTIONAL_LOCKS|\$GIT_TERMINAL_PROMPT|[\$HOME]|\$KEEP"
+        val git = fakeGit("echo out; echo \"  err $shown  \" >&2; exit 1", environment = given)
 
-        assertEquals(GitResult(false, "err |0"), git.write(folder, listOf("x")))
+        assertEquals(GitResult(false, "err |0|[]|yes"), git.write(folder, listOf("x")))
 
         val quiet = fakeGit("echo '  only output  '; exit 0")
         assertEquals(GitResult(true, "only output"), quiet.write(folder, listOf("x")))
@@ -61,9 +68,14 @@ class GitCliWriteTest {
             withInput.write(folder, listOf("x"), "K\u00f6ln\n".toByteArray(Charsets.UTF_8)).message,
         )
         val file = folder.resolve("in.txt")
-        val reader = fakeGit("echo \"\$GIT_OPTIONAL_LOCKS\" > '$file'; echo err >&2; exit 0")
+        val onlyPath = mapOf("PATH" to System.getenv("PATH"))
+        val reader =
+            fakeGit(
+                "echo \"\$GIT_OPTIONAL_LOCKS[\$GIT_EDITOR]\" > '$file'; echo err >&2; exit 0",
+                environment = onlyPath,
+            )
         assertEquals("", reader.userName(folder).orEmpty())
-        assertEquals("0", file.readText().trim())
+        assertEquals("0[]", file.readText().trim(), "optional locks off, and no editor for a read")
     }
 
     @Test
@@ -96,7 +108,12 @@ class GitCliWriteTest {
             fakeGit("echo $$ > '$pid'; trap '' TERM; while true; do sleep 0.1; done", stopGrace = 300.milliseconds)
         val started = System.nanoTime()
 
-        val result = git.write(folder, listOf("x"), timeout = 1.seconds)
+        // A regression waits for ever for a git that ignores SIGTERM.
+        val result =
+            assertTimeoutPreemptively(
+                ofSeconds(30),
+                ThrowingSupplier { git.write(folder, listOf("x"), timeout = 1.seconds) },
+            )
 
         assertEquals(GitResult(false, timedOut(1.seconds, writesFiles = false)), result)
         assertTrue(System.nanoTime() - started < 8_000_000_000, "killed after the grace period")
@@ -122,7 +139,7 @@ class GitCliWriteTest {
         val lines = CopyOnWriteArrayList<Pair<System.Logger.Level, String>>()
         GitCommandLogSink.sink = { level, message, _ -> lines += level to message }
         try {
-            val git = fakeGit("(sleep 20 &); echo name; exit 0", pipeGrace = 300.milliseconds)
+            val git = fakeGit("(sleep 20 &); echo name; sleep 0.3; exit 0", pipeGrace = 300.milliseconds)
             val started = System.nanoTime()
 
             assertNull(git.userName(folder))
