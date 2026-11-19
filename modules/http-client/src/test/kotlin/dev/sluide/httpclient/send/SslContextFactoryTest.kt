@@ -182,6 +182,51 @@ class SslContextFactoryTest {
     }
 
     @Test
+    fun `a certificate without a key file says which file needs one`() {
+        assertEquals(
+            "The client certificate client.pem needs a clientCertificateKey " +
+                "(or use a P12 file with certificate and key)",
+            failure(config(fixture("client.pem"))).message,
+        )
+    }
+
+    @Test
+    fun `block types that only hash like the supported ones are not supported`() {
+        // The same String.hashCode as "RSA PRIVATE KEY" and "ENCRYPTED PRIVATE KEY": the type is compared as text.
+        for ((type, twin) in listOf(
+            "RSA PRIVATE KEY" to "S4A PRIVATE KEY",
+            "ENCRYPTED PRIVATE KEY" to "END3YPTED PRIVATE KEY",
+        )) {
+            assertEquals(type.hashCode(), twin.hashCode())
+            val key = write("twin.key", pem(twin, derOf(fixture("client-pkcs1.key"))))
+            assertEquals(
+                "twin.key: $twin is not supported; $pkcs8Hint",
+                failure(config(fixture("client.pem"), key)).message,
+            )
+        }
+    }
+
+    @Test
+    fun `an encryption the JDK has no algorithm for is named`() {
+        // SEQUENCE { SEQUENCE { OID 1.2.3.4, NULL }, OCTET STRING { 00 } }
+        val unknown =
+            byteArrayOf(0x30, 0x0c, 0x30, 0x07, 0x06, 0x03, 0x2a, 0x03, 0x04, 0x05, 0x00, 0x04, 0x01, 0x00)
+        val key = write("unknown.key", pem("ENCRYPTED PRIVATE KEY", unknown))
+        var asked = false
+
+        val error =
+            assertFailsWith<SslConfigException> {
+                SslContextFactory.create(config(fixture("client.pem"), key), {
+                    asked = true
+                    null
+                }, null)
+            }
+
+        assertEquals("unknown.key uses an unsupported key encryption 1.2.3.4; $encryptionHint", error.message)
+        assertFalse(asked)
+    }
+
+    @Test
     fun `an encrypted PKCS 1 key is refused, one with unrelated headers is read`() {
         val pkcs1 = derOf(fixture("client-pkcs1.key"))
         val encrypted =

@@ -3,7 +3,6 @@ package dev.sluide.httpclient.send
 import dev.sluide.httpclient.env.SslConfig
 import dev.sluide.httpclient.env.SslConfig.CertificateFile
 import dev.sluide.httpclient.send.TlsServer.Companion.fixture
-import dev.sluide.httpclient.send.TlsServer.Companion.trustedCa
 import dev.sluide.secrets.Decrypted
 import dev.sluide.secrets.Encrypted
 import org.junit.jupiter.api.assertTimeoutPreemptively
@@ -362,7 +361,7 @@ class SslContextsMemoryTest {
             executor.submit { contexts.context(p12Config) }.get(5, TimeUnit.SECONDS)
             touch(p12)
 
-            assertTimeoutPreemptively(Duration.ofSeconds(5)) {
+            assertTimeoutPreemptively(Duration.ofSeconds(2)) {
                 executor.submit { contexts.context(p12Config) }.get()
             }
         } finally {
