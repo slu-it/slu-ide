@@ -44,8 +44,10 @@ internal abstract class WorkspaceFoldersHostBase {
     ) : WorkspaceDocument {
         override var resolution: CompletableFuture<Resolution> = CompletableFuture()
         val reopened = CopyOnWriteArrayList<Unit>()
+        var adopted = 0
 
         override fun adopt(resolution: CompletableFuture<Resolution>): Boolean {
+            adopted++
             this.resolution = resolution
             return adoptResult
         }
