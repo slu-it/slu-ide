@@ -313,11 +313,7 @@ internal class RequestExecutor(
             decoded.note?.let(notes::add)
             val truncated = response.body().truncated || decoded.truncated
             if (truncated) notes += "The body is longer than ${bodyLimit / (1024 * 1024)} MB and was truncated"
-            val version =
-                when (response.version()) {
-                    HttpClient.Version.HTTP_2 -> HttpVersion.HTTP_2
-                    else -> HttpVersion.HTTP_1_1
-                }
+            val version = versionOf(response.version())
             return HttpResult(
                 status = response.statusCode(),
                 reason = ReasonPhrases.of(response.statusCode()),
@@ -358,6 +354,13 @@ internal class RequestExecutor(
             name: String?,
             uri: URI,
         ) = "$method ${name?.trim()?.takeIf { it.isNotEmpty() } ?: uri.host.orEmpty()}".trim()
+
+        /** The version of the protocol a response was sent in; HTTP/1.1 for everything the JDK does not call HTTP/2. */
+        internal fun versionOf(version: HttpClient.Version) =
+            when (version) {
+                HttpClient.Version.HTTP_2 -> HttpVersion.HTTP_2
+                else -> HttpVersion.HTTP_1_1
+            }
 
         /** A readable message for [error], from the most telling exception of its cause chain. */
         internal fun message(

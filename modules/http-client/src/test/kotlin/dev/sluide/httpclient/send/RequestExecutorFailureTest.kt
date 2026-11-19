@@ -201,7 +201,7 @@ class RequestExecutorFailureTest {
     }
 
     @Test
-    fun `an interrupt of the closed executor that the preparing swallowed does not interrupt the sending`() {
+    fun `an interrupt of the closed executor that preparing left set does not interrupt the sending`() {
         val preparing = CountDownLatch(1)
         val result = CompletableFuture<ExchangeResult>()
         val own = RequestExecutor(clients, tasks)
@@ -210,7 +210,7 @@ class RequestExecutorFailureTest {
             try {
                 CountDownLatch(1).await()
             } catch (_: InterruptedException) {
-                // swallowed
+                Thread.currentThread().interrupt() // preparing that ends with the flag set
             }
             server.request("/echo")
         }
@@ -340,6 +340,10 @@ class RequestExecutorFailureTest {
             )
 
         assertEquals("No complete response within 300 ms (@timeout)", failure.message)
+        assertEquals(
+            listOf("task started: GET 127.0.0.1", "task failed after: GET 127.0.0.1: TimeoutException"),
+            taskLines.map { it.replace(Regex(" (after|in) \\d+(\\.\\d+)? s"), " $1") },
+        )
         assertTrue(closed.await(10, TimeUnit.SECONDS), "the server saw the connection close")
     }
 
@@ -605,6 +609,58 @@ class RequestExecutorFailureTest {
                 fillers.forEach { it.close() }
             }
         }
+    }
+
+    @Test
+    fun `maps the versions of the JDK client to the two of the file format`() {
+        assertEquals(HttpVersion.HTTP_2, RequestExecutor.versionOf(java.net.http.HttpClient.Version.HTTP_2))
+        assertEquals(HttpVersion.HTTP_1_1, RequestExecutor.versionOf(java.net.http.HttpClient.Version.HTTP_1_1))
+    }
+
+    @Test
+    fun `a failure to register the task is logged with the method and host only`() {
+        val throwing =
+            RequestExecutor(
+                clients,
+                BackgroundTasks.forTests { if ("started" in it) error("secret-token") },
+            )
+        val result = CompletableFuture<ExchangeResult>()
+
+        val lines =
+            logged {
+                throwing.use {
+                    it.run(server.request("/echo?q=secret-token"), RequestTags(), result::complete)
+                    result.get(10, TimeUnit.SECONDS)
+                }
+            }
+
+        assertEquals(listOf("SEVERE GET 127.0.0.1 failed unexpectedly"), lines)
+        val failure = assertIs<HttpFailure>(result.get())
+        assertTrue(failure.message.startsWith("Unexpected error: "), failure.message)
+        assertEquals("/echo", failure.request?.uri?.path)
+    }
+
+    @Test
+    fun `tells a 401 with another challenge from one that has none`() {
+        server.handle("/basic") { server.respond(it, 401, "", "WWW-Authenticate" to "Basic realm=\"r\"") }
+        server.handle("/none") { server.respond(it, 401, "") }
+
+        assertEquals(
+            listOf("The 401 response has no Digest challenge"),
+            assertIs<HttpResult>(executor.await(digestRequest("/basic"))).notes,
+        )
+        assertEquals(
+            listOf("The 401 response has no Digest challenge"),
+            assertIs<HttpResult>(executor.await(digestRequest("/none"))).notes,
+        )
+    }
+
+    @Test
+    fun `names an error without a class name by an empty text`() {
+        val anonymous = object : RuntimeException() {}
+
+        assertEquals("", failing { anonymous }.message)
+        assertEquals("", RequestExecutor.message(anonymous, URI("http://localhost/"), Duration.ofSeconds(1)))
     }
 
     private companion object {
