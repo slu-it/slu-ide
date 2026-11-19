@@ -140,6 +140,10 @@ Decisions: [ADR 0116](../adr/0116-curl-and-http-requests.md).
   the Shell option picks the output) and HTTP requests, keeping `{{variables}}` as written. What has no counterpart is
   listed below the result: `-k` (configure TLS in the environment's `SSLConfiguration`), curl without `-L` (written as
   `# @no-redirect`), `@variables`, scripts and options like `--proxy`.
+- Pasted commands are read as users paste them, not strictly as the shells would: a leading `$ ` is a prompt, a
+  backslash followed by CR LF continues a line, a bare CR splits words, `$'\xNN'` gives a code point (not a byte),
+  `&` is text in PowerShell and `;` is text in cmd. Written `-F` values that curl would read differently (a leading
+  `"`, `@`, `<`, blank, or a `;`) use `--form-string`, and file names with `;`, `,` or `"` are quoted.
 
 ## Not supported
 JavaScript handlers and pre-request scripts (`> {% … %}`, `< {% … %}`; skipped with a note), `>>` saving responses,

@@ -28,6 +28,10 @@ leaking the secrets of the private environment file (ADR 0028).
   escapes and continuations, `curl.exe`. Each line is a command; comment lines before a command name the request;
   what follows a shell operator (`| jq .`) is left out with a note. An unclosed quote, an option without its value and
   a command without URL fail at their offset.
+  The tokenizer deliberately differs from the shells in what pasted text needs: a leading `$ ` is a pasted prompt, a
+  backslash followed by CR LF continues a line (bash would keep the CR), a bare CR splits words like a blank, `$'\xNN'`
+  gives the code point U+00NN (bash a raw byte), `&` is plain text in PowerShell and `;` in cmd (a URL with them stays
+  whole). `$'\cX'` is the control character, as bash.
 - **The cURL mapping**: `-X`, `-H` (`Name;` is an empty header), `-d`/`--data-ascii`/`--data-binary`/`--data-raw`
   (`@file` becomes `< ./file`), `--data-urlencode`, `--json` (POST with JSON content type and accept),
   `-F`/`--form-string` (multipart in the client's layout with the boundary `WebAppBoundary`), `-u` (+ `--digest`) as
@@ -48,7 +52,9 @@ leaking the secrets of the private environment file (ADR 0028).
 - **Writing cURL** quotes minimally (also words starting with `=`, `~` or `#` in POSIX shells, and PowerShell's
   typographic single quotes ‘ ’ ‚ ‛, which end a quote there too), one option per line, `-L` unless `@no-redirect`,
   explicit headers instead of `--json`, `--data-binary @file` for files, `-F` for multipart fields and `--form-string`
-  for values `-F` would read as a file or attributes (`@`, `<`, `;`; a field type is then lost, noted). Windows
+  for values `-F` would read otherwise (`@`, `<`, `"` or `;` at the start or inside, leading blanks; a field type is
+  then lost, noted); file names and `filename=` with `;`, `,` or `"` are written as curl's quoted strings
+  (`@"a;b.txt"`, `\"` and `\\` escaped), and read back the same way, as is `-F 'k="x"'`, which curl sends as `x`. Windows
   PowerShell 5.1 drops double quotes in arguments of native programs; that is noted. The shell of a command is told
   by its line continuations, else by `^"` outside single quotes (cmd) or `curl.exe` (PowerShell), else POSIX.
 - **Variables**: the tool keeps `{{variables}}` as written in both directions. **Copy as cURL** in the `.http`
