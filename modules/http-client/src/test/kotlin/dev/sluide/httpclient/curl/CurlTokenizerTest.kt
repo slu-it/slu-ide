@@ -10,7 +10,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class CurlTokenizerTest {
+internal class CurlTokenizerTest {
     private fun words(
         text: String,
         shell: Shell = CurlTokenizer.shellOf(text),
@@ -102,6 +102,119 @@ class CurlTokenizerTest {
         ).forEach { assertFalse(CurlTokenizer.looksLikeCurl(it), it) }
     }
 
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("shells")
+    fun `tells the shell by its line continuations, then by its quoting`(
+        shell: Shell,
+        text: String,
+    ) {
+        assertEquals(shell, CurlTokenizer.shellOf(text), text)
+    }
+
+    @Test
+    fun `knows the shells by their labels, POSIX for any other`() {
+        Shell.entries.forEach { assertEquals(it, Shell.ofLabel(it.label)) }
+        assertEquals(Shell.POSIX, Shell.ofLabel("fish"))
+        assertEquals(Shell.POSIX, Shell.ofLabel(""))
+    }
+
+    @ParameterizedTest(name = "{0}: {1}")
+    @MethodSource("operators")
+    fun `a shell operator ends the words and what follows is ignored`(
+        shell: Shell,
+        operator: Char,
+        ignored: Boolean,
+    ) {
+        val program = if (shell == Shell.POWERSHELL) "curl.exe" else "curl"
+        val command = CurlTokenizer.tokenize("$program x${operator}y z", shell).single()
+
+        if (ignored) {
+            assertEquals(listOf(program, "x"), command.words.map { it.text })
+            assertEquals("${operator}y z", command.ignored)
+        } else {
+            // PowerShell's & is a call operator that a URL with & does not want to meet: kept as text on purpose.
+            assertEquals(listOf(program, "x${operator}y", "z"), command.words.map { it.text })
+            assertEquals(null, command.ignored)
+        }
+    }
+
+    @Test
+    fun `a command that starts with an operator has no words`() {
+        assertEquals(emptyList(), CurlTokenizer.tokenize("| curl x", Shell.POSIX))
+        assertEquals(emptyList(), CurlTokenizer.tokenize("|curl x", Shell.POSIX))
+        assertEquals(emptyList(), CurlTokenizer.tokenize("| curl x", Shell.CMD))
+        assertEquals(emptyList(), CurlTokenizer.tokenize("| curl.exe x", Shell.POWERSHELL))
+        // No comment of an ignored line goes to the next command.
+        assertEquals(null, CurlTokenizer.tokenize("|# c\ncurl x", Shell.POSIX).single().comment)
+        assertEquals(null, CurlTokenizer.tokenize("|::c\ncurl x", Shell.CMD).single().comment)
+        assertEquals(null, CurlTokenizer.tokenize("|REM c\ncurl x", Shell.CMD).single().comment)
+    }
+
+    @Test
+    fun `a comment is no word after an operator, a REM or a colon pair inside a command is`() {
+        assertEquals(null, CurlTokenizer.tokenize("curl x | REM y ^\n  z", Shell.CMD).single().comment)
+        assertEquals("| REM y z", CurlTokenizer.tokenize("curl x | REM y ^\n  z", Shell.CMD).single().ignored)
+        assertEquals("c", CurlTokenizer.tokenize("::c\ncurl x ^\n  y", Shell.CMD).single().comment)
+        assertEquals("Users", CurlTokenizer.tokenize("rem Users\ncurl x", Shell.CMD).single().comment)
+        assertEquals("", CurlTokenizer.tokenize("REM\ncurl x", Shell.CMD).single().comment)
+        assertEquals(emptyList(), CurlTokenizer.tokenize("REM", Shell.CMD))
+        assertEquals(emptyList(), CurlTokenizer.tokenize("::", Shell.CMD))
+        assertEquals(emptyList(), CurlTokenizer.tokenize("# last line", Shell.POSIX))
+    }
+
+    @Test
+    fun `a dollar at the end of the text is a word in every shell`() {
+        Shell.entries.forEach { assertEquals(listOf(listOf("$")), words("$", it), it.label) }
+        assertEquals(listOf(listOf("curl.exe", "x$")), words("curl.exe x$", Shell.POWERSHELL))
+    }
+
+    @Test
+    fun `an escape that is followed by a character and a line break is no continuation`() {
+        // bash: a\x then a new line starts the next command.
+        assertEquals(listOf(listOf("curl", "ax"), listOf("b")), words("curl a\\x\nb", Shell.POSIX))
+        // The same in cmd: ^b is b and the line break after it ends the command.
+        assertEquals(
+            listOf(listOf("curl", "ab"), listOf("curl", "c", "d")),
+            words("curl a^b\ncurl c ^\n  d", Shell.CMD),
+        )
+    }
+
+    @Test
+    fun `a command with an operator starts where its first word does`() {
+        assertEquals(0, CurlTokenizer.tokenize("curl x | jq", Shell.POSIX).single().offset)
+        assertEquals(0, CurlTokenizer.tokenize("curl x | jq", Shell.CMD).single().offset)
+        assertEquals(2, CurlTokenizer.tokenize("  curl x|jq", Shell.POSIX).single().offset)
+    }
+
+    @Test
+    fun `words start at their first character, also a quote or an escaped one`() {
+        fun offsets(
+            text: String,
+            shell: Shell,
+        ) = CurlTokenizer
+            .tokenize(text, shell)
+            .single()
+            .words
+            .map { it.offset }
+
+        assertEquals(listOf(0, 5, 11, 13, 17), offsets("curl 'a b' c \\x\\ y", Shell.POSIX).let { it + 17 })
+        assertEquals(listOf(0, 5, 11, 16), offsets("curl \"a b\" \$'c' d", Shell.POSIX))
+        assertEquals(listOf(0, 9, 13), offsets("curl.exe 'a' \u2018b\u2019", Shell.POWERSHELL))
+        assertEquals(listOf(0, 9, 13), offsets("curl.exe \"a\" \u201Cb\u201D", Shell.POWERSHELL))
+        // cmd: an escaped character starts a word at itself, a quote at the quote.
+        assertEquals(listOf(0, 6, 9, 14), offsets("curl ^&a x ^\n y", Shell.CMD))
+        assertEquals(listOf(0, 6, 14, 20), offsets("curl ^\"a^&b^\" x ^\n  y", Shell.CMD))
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = ["\\U0010FFFF", "\\U0001F600", "\\u00e4", "\\x41"])
+    fun `an escape up to the last character is valid`(escape: String) {
+        // bash: $'\U0010FFFF' is the last code point (F4 8F BF BF).
+        val word = words("curl $'$escape'", Shell.POSIX).single()[1]
+
+        assertEquals(1, word.codePointCount(0, word.length))
+    }
+
     companion object {
         @JvmStatic
         fun commands() =
@@ -164,6 +277,104 @@ class CurlTokenizerTest {
                     "curl.exe \$x '\$y' a`'b",
                     listOf("curl.exe", "\$x", "\$y", "a'b"),
                 ),
+                // Each POSIX rule below was checked with bash -c "printf '<%s>' ..." (LC_ALL=C.UTF-8).
+                Arguments.of(Shell.POSIX.label, "curl a\\", listOf("curl", "a\\")),
+                // An escaped CR at the end of the text, a $ at the end of the text.
+                Arguments.of(Shell.POSIX.label, "curl a\\\r", listOf("curl", "a\r")),
+                Arguments.of(Shell.POSIX.label, "curl x\$", listOf("curl", "x$")),
+                Arguments.of(Shell.POSIX.label, "\$", listOf("$")),
+                Arguments.of(Shell.POSIX.label, "curl \$'\\0'", listOf("curl", "\u0000")),
+                // A \ and CR LF continue a line, as pasted from Windows; bash would keep the CR in the word.
+                Arguments.of(Shell.POSIX.label, "curl a \\\r\n  b", listOf("curl", "a", "b")),
+                Arguments.of(Shell.POSIX.label, "curl a\\\rb \\", listOf("curl", "a\rb", "\\")),
+                Arguments.of(Shell.POSIX.label, "curl a\tb\rc", listOf("curl", "a", "b", "c")),
+                Arguments.of(Shell.POSIX.label, "a b", listOf("a", "b")),
+                Arguments.of(Shell.POSIX.label, "\$x y", listOf("\$x", "y")),
+                Arguments.of(Shell.POSIX.label, "a\$ b", listOf("a$", "b")),
+                Arguments.of(Shell.POSIX.label, "curl \$ x", listOf("curl", "$", "x")),
+                Arguments.of(Shell.POSIX.label, "\$\tcurl x", listOf("$", "curl", "x")),
+                Arguments.of(Shell.POSIX.label, "  \$ curl x", listOf("curl", "x")),
+                Arguments.of(Shell.POSIX.label, "x#y c", listOf("x#y", "c")),
+                Arguments.of(Shell.POSIX.label, "curl a# b", listOf("curl", "a#", "b")),
+                Arguments.of(Shell.POSIX.label, "curl x #c", listOf("curl", "x")),
+                Arguments.of(Shell.POSIX.label, "curl x'y z'w", listOf("curl", "xy zw")),
+                Arguments.of(Shell.POSIX.label, "curl \$''", listOf("curl", "")),
+                Arguments.of(Shell.POSIX.label, "curl \"\"", listOf("curl", "")),
+                Arguments.of(Shell.POSIX.label, "curl \"a\"\"b\"", listOf("curl", "ab")),
+                Arguments.of(Shell.POSIX.label, "curl \"a\\\nb\"", listOf("curl", "ab")),
+                Arguments.of(
+                    Shell.POSIX.label,
+                    "curl \"\\q \\\\ \\\$ \\` \\\"\"",
+                    listOf("curl", "\\q \\ \$ ` \""),
+                ),
+                // Typographic quotes are plain characters in POSIX shells.
+                Arguments.of(
+                    Shell.POSIX.label,
+                    "curl \u2018a b\u2019 \u201Cc d\u201D",
+                    listOf("curl", "\u2018a", "b\u2019", "\u201Cc", "d\u201D"),
+                ),
+                Arguments.of(Shell.POSIX.label, "curl \$'\\x4g'", listOf("curl", "\u0004g")),
+                Arguments.of(Shell.POSIX.label, "curl \$'\\x414'", listOf("curl", "A4")),
+                Arguments.of(Shell.POSIX.label, "curl \$'\\1234'", listOf("curl", "S4")),
+                Arguments.of(Shell.POSIX.label, "curl \$'\\101\\7\\8'", listOf("curl", "A\u0007\\8")),
+                Arguments.of(
+                    Shell.POSIX.label,
+                    "curl \$'\\u00e4a\\U0001F600a'",
+                    listOf("curl", "\u00e4a\uD83D\uDE00a"),
+                ),
+                Arguments.of(Shell.POSIX.label, "curl \$'\\U0010FFFF'", listOf("curl", "\uDBFF\uDFFF")),
+                Arguments.of(Shell.POSIX.label, "curl \$'\\q\\c\\xg\\u'", listOf("curl", "\\q\\c\\xg\\u")),
+                Arguments.of(Shell.POSIX.label, "curl \$'a\\\\b'", listOf("curl", "a\\b")),
+                // Not checked against a real PowerShell (none here): the tokenizer's own rules.
+                Arguments.of(Shell.POWERSHELL.label, "curl.exe -d ''", listOf("curl.exe", "-d", "")),
+                Arguments.of(Shell.POWERSHELL.label, "curl.exe \"\"", listOf("curl.exe", "")),
+                Arguments.of(Shell.POWERSHELL.label, "curl.exe \$'a b'", listOf("curl.exe", "\$a b")),
+                Arguments.of(Shell.POWERSHELL.label, "curl.exe \"a\\b\"", listOf("curl.exe", "a\\b")),
+                Arguments.of(
+                    Shell.POWERSHELL.label,
+                    "curl.exe \"a`qb\" \"x`\$y`\"z\"",
+                    listOf("curl.exe", "aqb", "x\$y\"z"),
+                ),
+                Arguments.of(
+                    Shell.POWERSHELL.label,
+                    "curl.exe \u201Ca\u201D\u201Db\u201D",
+                    listOf("curl.exe", "a\u201Db"),
+                ),
+                Arguments.of(Shell.POWERSHELL.label, "curl.exe a`", listOf("curl.exe", "a`")),
+                Arguments.of(Shell.CMD.label, "\$ curl ^\n  x", listOf("curl", "x")),
+                Arguments.of(Shell.CMD.label, "\$x y ^\n  z", listOf("\$x", "y", "z")),
+                Arguments.of(Shell.CMD.label, "curl x REM y ^\n  z", listOf("curl", "x", "REM", "y", "z")),
+                Arguments.of(Shell.CMD.label, "curl x ::y ^\n  z", listOf("curl", "x", "::y", "z")),
+                Arguments.of(Shell.CMD.label, "foo x ^\n  y", listOf("foo", "x", "y")),
+                Arguments.of(Shell.CMD.label, "REMark x ^\n  y", listOf("REMark", "x", "y")),
+                Arguments.of(Shell.CMD.label, "curl x ^", listOf("curl", "x")),
+                Arguments.of(Shell.CMD.label, "curl x ^\n", listOf("curl", "x")),
+                Arguments.of(Shell.CMD.label, "curl a^\nb", listOf("curl", "ab")),
+                Arguments.of(Shell.CMD.label, "curl a^\r\nb", listOf("curl", "ab")),
+                Arguments.of(Shell.CMD.label, "curl a^\r", listOf("curl", "a")),
+                Arguments.of(Shell.CMD.label, "curl a^\rb ^\n  x", listOf("curl", "a", "b", "x")),
+                Arguments.of(Shell.CMD.label, "curl a\rb ^\n  x", listOf("curl", "a", "b", "x")),
+                // The first character of the next line is escaped by the continuation, here an operator.
+                Arguments.of(Shell.CMD.label, "curl a^\n|b ^\n  x", listOf("curl", "a|b", "x")),
+                Arguments.of(Shell.CMD.label, "curl \"a^b\" ^\n  x", listOf("curl", "a^b", "x")),
+                Arguments.of(Shell.CMD.label, "curl a^^b ^\n  x", listOf("curl", "a^b", "x")),
+                Arguments.of(Shell.CMD.label, "curl \"\" ^\n  x", listOf("curl", "", "x")),
+                Arguments.of(Shell.CMD.label, "curl a\"\"b ^\n  x", listOf("curl", "ab", "x")),
+                // cmd does not know \", so a ^ after one is literal: these rows put the quotes on the last line.
+                // The C runtime: an odd run of backslashes before a quote leaves half of them and a literal quote.
+                Arguments.of(Shell.CMD.label, "curl x ^\n  \"a\\\\\\\"b\"", listOf("curl", "x", "a\\\"b")),
+                Arguments.of(Shell.CMD.label, "curl \"a\\\\\\\\\" ^\n  x", listOf("curl", "a\\\\", "x")),
+                Arguments.of(Shell.CMD.label, "curl x ^\n  \"a\\\\\\\"\"", listOf("curl", "x", "a\\\"")),
+                Arguments.of(
+                    Shell.CMD.label,
+                    "curl C:\\dir\\\\file b\\ ^\n  y",
+                    listOf("curl", "C:\\dir\\\\file", "b\\", "y"),
+                ),
+                Arguments.of(Shell.CMD.label, "curl a\\\\^", listOf("curl", "a\\\\")),
+                Arguments.of(Shell.CMD.label, "curl \"a\tb\"\tc ^\n  x", listOf("curl", "a\tb", "c", "x")),
+                Arguments.of(Shell.CMD.label, "curl x>out ^\n  z", listOf("curl", "x")),
+                Arguments.of(Shell.CMD.label, "curl a^>b ^\n  x", listOf("curl", "a>b", "x")),
+                Arguments.of(Shell.CMD.label, "curl \"a|b\" ^\n  x", listOf("curl", "a|b", "x")),
             )
 
         @JvmStatic
@@ -174,6 +385,47 @@ class CurlTokenizerTest {
                 Arguments.of(Shell.POSIX.label, "curl $'abc", 6),
                 Arguments.of(Shell.CMD.label, "curl -d \"abc", 8),
                 Arguments.of(Shell.POWERSHELL.label, "curl.exe -d 'abc", 12),
+                Arguments.of(Shell.POSIX.label, "curl \"abc\\", 5),
+                Arguments.of(Shell.POSIX.label, "curl $'abc\\", 6),
+                Arguments.of(Shell.POSIX.label, "curl $'\\x41", 6),
+                Arguments.of(Shell.POSIX.label, "curl $'\\x4", 6),
+                Arguments.of(Shell.POSIX.label, "curl $'\\1", 6),
+                Arguments.of(Shell.POWERSHELL.label, "curl.exe \"abc", 9),
+                Arguments.of(Shell.POWERSHELL.label, "curl.exe \"a`", 9),
             )
+
+        @JvmStatic
+        fun shells() =
+            listOf(
+                Arguments.of(Shell.POSIX, "curl x \\\n  -v"),
+                Arguments.of(Shell.POSIX, "curl x \\  \n  -v"),
+                // The backslash wins over curl.exe, ^" and the other continuations.
+                Arguments.of(Shell.POSIX, "curl.exe x \\\n  -v"),
+                Arguments.of(Shell.POSIX, "curl ^\"x^\" \\\n  -v"),
+                Arguments.of(Shell.POSIX, "curl x ^\n  -v \\\n  -k"),
+                Arguments.of(Shell.POSIX, "curl x `\n  -v \\\n  -k"),
+                Arguments.of(Shell.CMD, "curl x ^\n  -v"),
+                Arguments.of(Shell.CMD, "curl x ^  \n  -v"),
+                Arguments.of(Shell.CMD, "curl.exe x ^\n  -v"),
+                Arguments.of(Shell.CMD, "curl x `\n  -v ^\n  -k"),
+                Arguments.of(Shell.POWERSHELL, "curl x `\n  -v"),
+                Arguments.of(Shell.POWERSHELL, "curl x `  \n  -v"),
+                Arguments.of(Shell.CMD, "curl ^\"x^\""),
+                Arguments.of(Shell.POSIX, "curl 'x^\"'"),
+                Arguments.of(Shell.CMD, "curl 'a' ^\"x^\""),
+                Arguments.of(Shell.POWERSHELL, "curl.exe x"),
+                Arguments.of(Shell.POWERSHELL, "CURL.EXE x"),
+                Arguments.of(Shell.POSIX, "curl x"),
+                Arguments.of(Shell.POSIX, "xcurl.exex"),
+            )
+
+        @JvmStatic
+        fun operators() =
+            Shell.entries.flatMap { shell ->
+                "|;&<>".map {
+                    val ends = !(shell == Shell.POWERSHELL && it == '&') && !(shell == Shell.CMD && it == ';')
+                    Arguments.of(shell, it, ends)
+                }
+            }
     }
 }
