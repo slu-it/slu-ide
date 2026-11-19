@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -29,41 +30,21 @@ class GitMergesGuardsTest {
 
     private val git = GitCli("git", testGitEnvironment())
 
+    private lateinit var repository: TestRepository
+
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        repo.createDirectories()
-        git("init", "-q", "-b", "main")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
+        repository = TestRepository(repo)
     }
 
-    private fun git(vararg arguments: String): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                    environment()["GIT_EDITOR"] = ":"
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
+    private fun git(vararg arguments: String) = repository.git(*arguments)
 
     private fun commit(
         message: String,
         file: String = "file.txt",
         content: String = message,
-    ): String {
-        repo.resolve(file).writeText("$content\n")
-        git("add", file)
-        git("commit", "-q", "-m", message)
-        return git("rev-parse", "HEAD")
-    }
+    ) = repository.commit(message, file, content)
 
     /** main: Base, Main (changes file.txt if [conflict], else adds main.txt); feature: Base, A. feature checked out. */
     private fun diverged(conflict: Boolean = false) {

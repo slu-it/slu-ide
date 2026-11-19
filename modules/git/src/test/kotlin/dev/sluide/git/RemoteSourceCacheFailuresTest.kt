@@ -2,6 +2,7 @@ package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.GitCommandLogSink
+import dev.sluide.git.cli.TestRepository
 import dev.sluide.git.remote.RemoteRefStore
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
@@ -49,35 +50,18 @@ class RemoteSourceCacheFailuresTest {
 
     private lateinit var head: String
 
+    private lateinit var upstreamRepository: TestRepository
+
     @BeforeEach
     fun createUpstream() {
         assumeTrue(git.available, "git is not installed")
-        upstream.createDirectories()
-        git("init", "-q", "-b", "main")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
+        upstreamRepository = TestRepository(upstream)
         git("config", "uploadpack.allowFilter", "true")
         git("config", "uploadpack.allowAnySHA1InWant", "true")
-        upstream.resolve("action.yml").writeText("name: one\n")
-        git("add", "action.yml")
-        git("commit", "-q", "-m", "Commit")
-        head = git("rev-parse", "HEAD")
+        head = upstreamRepository.commit("Commit", "action.yml", "name: one")
     }
 
-    private fun git(vararg arguments: String): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(upstream.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
+    private fun git(vararg arguments: String) = upstreamRepository.git(*arguments)
 
     private fun cacheOf(
         using: GitCli = git,
