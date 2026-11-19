@@ -2,6 +2,7 @@ package dev.sluide.codeintelligence.rename
 
 import dev.sluide.codeintelligence.edits.WorkspaceEditResult
 import dev.sluide.fileviewers.OffsetEdit
+import dev.sluide.languageservers.LanguageServerNotRunningException
 import dev.sluide.languageservers.LspUris
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.PrepareRenameDefaultBehavior
@@ -177,5 +178,19 @@ class RenameModelTest {
         val withoutRange = json.fromJson("""{"placeholder":"run"}""", PrepareRenameResult::class.java)
         assertEquals(PrepareAnswer.Refused, prepareAnswer(Either3.forSecond(withoutRange)), "a result without a range")
         assertEquals(PrepareAnswer.Refused, prepareAnswer(Either3.forFirst(null)), "an answer of no kind")
+    }
+
+    @Test
+    fun `a failed prepareRename names the reason, a failed rename too, a stopped server says so`() {
+        val notRunning = LanguageServerNotRunningException("stopped")
+        assertEquals("Rename is not available (server not running)", cannot(notRunning))
+        assertEquals("Cannot rename this: no index", cannot(IllegalStateException("no index")))
+        assertEquals("Cannot rename this", cannot(IllegalStateException("")))
+        assertEquals("Cannot rename this", cannot(IllegalStateException("  ")))
+        assertEquals("Cannot rename this", cannot(IllegalStateException()))
+
+        assertEquals("Rename is not available (server not running)", failed(notRunning))
+        assertEquals("Rename failed: no index", failed(IllegalStateException("no index")))
+        assertEquals("Rename failed: IllegalStateException", failed(IllegalStateException()))
     }
 }

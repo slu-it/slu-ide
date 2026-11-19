@@ -72,7 +72,11 @@ internal open class FakeCodeEditor(
     /** The edits of each [applyEdits] call: one undo step each. */
     val appliedEdits = mutableListOf<List<OffsetEdit>>()
 
+    /** The offsets [moveCaret] was asked for, in order. */
+    val caretMoves = mutableListOf<Int>()
+
     override fun moveCaret(offset: Int) {
+        caretMoves += offset
         caret = offset.coerceIn(0, currentText.length)
     }
 
