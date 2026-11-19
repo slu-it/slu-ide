@@ -25,6 +25,8 @@ import kotlin.test.assertTrue
  * `-d @f` sends the file's content, `--data-raw @f` the text `@f`, `-H 'X;'` an empty header, `-F 'g=@f;type=t;
  * filename=n'` a file part with that type and name, `--form-string 'f=@x;y'` the text as it is, `-F 'f=<f'` the
  * file's content as a value, `-u 'a b:c d'` a Basic header.
+ * The quoted forms of the `-F` rows were sent to the same server: `-F 'p=@"a,b\"c\\d.txt";type=t/x;filename="x;y"'`,
+ * `--form-string 'l="x"'`, `--form-string 'm= x'`, `-F 'q=<"a;b.txt"'` and `-F 'o=@"a;b.txt"'` all arrived as written.
  */
 internal class CurlWriterTest {
     private fun write(
@@ -163,6 +165,35 @@ internal class CurlWriterTest {
             // The shell is told by the line continuations; Windows quoting is read as cmd.
             assertEquals(listOf(request), read.content, "$shell: $word\n$text")
         }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @EnumSource(Shell::class)
+    fun `a multipart request with hostile names, values, file names and attributes is read back`(shell: Shell) {
+        // What curl does with these (a local server, curl 8.14.1): `-F 'k="x"'` sends x but `--form-string` sends
+        // "x"; `-F 'c=@a;b.txt'` and `-F 'c=@a,b.txt'` fail (exit 26) while `-F 'c=@"a;b.txt"'` uploads a;b.txt;
+        // `-F 'k= x'` sends x; `;filename=x,y` fails and `;filename="x;y"` sends x;y.
+        val fields =
+            HOSTILE + listOf("@x", "<x", "\"x\"", " x", "a;b", "a\"b", "a;b.txt", "a,b", "\"q\"", "a\\\"b")
+        val names = fields.filter { it.isNotEmpty() && '=' !in it }
+        val files = fields.filter { it.isNotEmpty() && it == it.trim() }
+        val parts =
+            names.map { FormPart(it, FormContent.Value(it)) } +
+                fields.map { FormPart("v", FormContent.Value(it)) } +
+                files.flatMap {
+                    listOf(
+                        FormPart("f", FormContent.File(it)),
+                        FormPart("f", FormContent.File(it, it), "t/x"),
+                        FormPart("f", FormContent.FileText(it), "t/x"),
+                    )
+                }
+        val request = CurlRequest("https://x", "POST", body = RequestBody.Multipart(parts))
+
+        val read = CurlReader.read(write(request, shell = shell).text) as ReadResult.Read
+
+        val readParts = (read.content.single().body as RequestBody.Multipart).parts
+        parts.forEachIndexed { index, part -> assertEquals(part, readParts[index], "$shell: part $index") }
+        assertEquals(request, read.content.single())
     }
 
     @Test
@@ -360,6 +391,12 @@ internal class CurlWriterTest {
                                     FormPart("i", FormContent.Value("<x")),
                                     FormPart("j", FormContent.Value("x;y")),
                                     FormPart("k", FormContent.Value("a<b@c")),
+                                    FormPart("l", FormContent.Value("\"x\"")),
+                                    FormPart("m", FormContent.Value(" x")),
+                                    FormPart("n", FormContent.Value("a\"b")),
+                                    FormPart("o", FormContent.File("a;b.txt")),
+                                    FormPart("p", FormContent.File("a,b\"c\\d.txt", "x;y"), "t/x"),
+                                    FormPart("q", FormContent.FileText("a;b.txt")),
                                 ),
                             ),
                     ),
@@ -376,6 +413,12 @@ internal class CurlWriterTest {
                         "--form-string 'i=<x'",
                         "--form-string 'j=x;y'",
                         "-F 'k=a<b@c'",
+                        "--form-string 'l=\"x\"'",
+                        "--form-string 'm= x'",
+                        "-F 'n=a\"b'",
+                        "-F 'o=@\"a;b.txt\"'",
+                        "-F 'p=@\"a,b\\\"c\\\\d.txt\";type=t/x;filename=\"x;y\"'",
+                        "-F 'q=<\"a;b.txt\"'",
                     ),
                 ),
             )

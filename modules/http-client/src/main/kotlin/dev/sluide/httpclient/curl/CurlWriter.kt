@@ -103,8 +103,11 @@ internal object CurlWriter {
         val type = part.type?.let { ";type=$it" }.orEmpty()
         return when (val content = part.content) {
             is FormContent.Value -> {
-                // -F would read these as a file or as attributes.
-                val plain = content.text.startsWith("@") || content.text.startsWith("<") || ';' in content.text
+                // -F would read these as a file, a quoted string, as attributes, or drop their leading blanks.
+                val text = content.text
+                val plain =
+                    text.startsWith("@") || text.startsWith("<") || text.startsWith("\"") ||
+                        text.firstOrNull()?.isWhitespace() == true || ';' in text
                 if (plain) {
                     if (part.type != null) {
                         notes += "The type of field ${part.name} is left out: --form-string cannot carry one"
@@ -116,14 +119,22 @@ internal object CurlWriter {
             }
 
             is FormContent.File -> {
-                listOf("-F", "${part.name}=@${content.path}$type" + content.filename?.let { ";filename=$it" }.orEmpty())
+                listOf(
+                    "-F",
+                    "${part.name}=@${formWord(content.path)}$type" +
+                        content.filename?.let { ";filename=${formWord(it)}" }.orEmpty(),
+                )
             }
 
             is FormContent.FileText -> {
-                listOf("-F", "${part.name}=<${content.path}$type")
+                listOf("-F", "${part.name}=<${formWord(content.path)}$type")
             }
         }
     }
+
+    /** A file name or attribute of -F; curl ends it at `;` and `,`, and reads one that starts with `"` as quoted. */
+    private fun formWord(word: String) =
+        if (word.any { it in ";,\"" }) "\"" + word.replace("\\", "\\\\").replace("\"", "\\\"") + "\"" else word
 
     private fun seconds(duration: Duration): String =
         BigDecimal.valueOf(duration.toMillis(), 3).stripTrailingZeros().toPlainString()
