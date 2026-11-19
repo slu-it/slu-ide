@@ -181,7 +181,7 @@ private fun nested(
     node: MdNode,
     depth: Int,
 ): DocBlock {
-    fun items() = children(node).map { item -> if (item is ListItem) blocksOf(item, depth) else blockOf(item, depth) }
+    fun items() = children(node).map { item -> blocksOf(item, depth) }
     return when (node) {
         is OrderedList -> DocBlock.Items(true, node.markerStartNumber ?: 1, items())
         is BulletList -> DocBlock.Items(false, 1, items())
