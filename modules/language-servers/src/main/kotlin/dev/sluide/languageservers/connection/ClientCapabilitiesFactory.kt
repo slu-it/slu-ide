@@ -155,7 +155,6 @@ private fun completionCapabilities() =
     CompletionCapabilities(
         CompletionItemCapabilities(false).apply {
             documentationFormat = DOC_FORMATS
-            deprecatedSupport = true
             labelDetailsSupport = true
             resolveSupport =
                 CompletionItemResolveSupportCapabilities(listOf("documentation", "detail", "additionalTextEdits"))

@@ -70,7 +70,6 @@
           "markdown",
           "plaintext"
         ],
-        "deprecatedSupport": true,
         "resolveSupport": {
           "properties": [
             "documentation",
