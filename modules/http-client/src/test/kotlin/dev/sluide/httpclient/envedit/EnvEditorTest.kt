@@ -110,6 +110,38 @@ internal class EnvEditorTest {
     }
 
     @Test
+    fun `removes a list below merged objects from the file it comes from only when it is an entry of it`() {
+        val document =
+            EnvDocument("""{"dev": {"db": {"roles": [1, 2], "a": 1}}}""", """{"dev": {"db": {"roles": [3, 4]}}}""")
+        val roles = path("db", "roles")
+
+        assertEquals(
+            edit("""{ "dev": { "db": { "a": 1 } } }""", "{}"),
+            document.remove("dev", roles),
+        )
+        assertEquals(
+            edit(null, """{ "dev": { "db": { "roles": [ 4 ] } } }"""),
+            document.remove("dev", roles.index(0)),
+        )
+    }
+
+    @Test
+    fun `converts a value to a type in the file it is in, also where its row belongs to the other file`() {
+        val secret = path("Security", "Auth", "api", "Client Secret")
+        val inPublic = EnvDocument("""{"dev": {"Security": {"Auth": {"api": {"Client Secret": 5}}}}}""", null)
+        val inPrivate = EnvDocument("""{"dev": {}}""", """{"dev": {"Security": {"Auth": {"api": {"Type": 5}}}}}""")
+
+        assertEquals(
+            edit("""{ "dev": { "Security": { "Auth": { "api": { "Client Secret": "5" } } } } }""", null),
+            inPublic.setType(secret, ValueType.TEXT),
+        )
+        assertEquals(
+            edit(null, """{ "dev": { "Security": { "Auth": { "api": { "Type": "5" } } } } }"""),
+            inPrivate.setType(path("Security", "Auth", "api", "Type"), ValueType.TEXT),
+        )
+    }
+
+    @Test
     fun `moves a value to the other file only when it is not there already`() {
         val document = EnvDocument("""{"dev": {"a": 1, "l": [1]}}""", """{"dev": {"b": 2}}""")
 

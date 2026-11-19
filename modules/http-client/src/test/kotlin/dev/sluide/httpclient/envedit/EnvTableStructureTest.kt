@@ -178,6 +178,42 @@ class EnvTableStructureTest {
     }
 
     @Test
+    fun `only the certificate entries are searched for keys the form does not show`() {
+        val table =
+            table(
+                private =
+                    """
+                    {"dev": {"SSLConfiguration": {"verifyHostCertificate": {"x": 1},
+                                                  "clientCertificateKey": {"path": "k", "format": "PEM", "y": 2}}}}
+                    """.trimIndent(),
+            )
+
+        assertEquals(
+            listOf(
+                "${EnvironmentFiles.PRIVATE}: \"SSLConfiguration.clientCertificateKey.y\" of environment \"dev\" " +
+                    "is not shown here and kept as it is",
+            ),
+            table.problems,
+        )
+    }
+
+    @Test
+    fun `a certificate format that is no text is read-only and offers no choices`() {
+        val rows =
+            assertNotNull(
+                table(
+                    private = """{"dev": {"SSLConfiguration": {"clientCertificate": {"path": "p", "format": 5}}}}""",
+                ).certificate,
+            )
+        val format = rows.row("Certificate format")
+
+        assertEquals(ValueType.NUMBER, format.type)
+        assertTrue(format.readOnly)
+        assertNull(format.choices)
+        assertEquals(EnvSchema.CERTIFICATE_FORMATS.size + 1, rows.row("Key format").choices?.size)
+    }
+
+    @Test
     fun `a certificate row is read-only and offers no choices where the values are of another type`() {
         val table =
             table(

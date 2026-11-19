@@ -8,6 +8,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import tools.jackson.databind.json.JsonMapper
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** [AuthConfig.parse]: one `Security.Auth.<id>` object, value by value, and what it reports for the rest. */
 internal class AuthConfigTest {
@@ -31,6 +32,37 @@ internal class AuthConfigTest {
     ) {
         assertEquals(expected, parse("""{"Client Credentials": "$text"}""").clientCredentials)
         assertEquals(emptyList(), problems)
+    }
+
+    /**
+     * A text with the hash code of [word] that is not [word]: the last two characters shifted so that
+     * `31 * c1 + c2` stays. A `when` on strings finds a branch by the hash code and then compares the text, so only
+     * such a text tells the comparison apart. The shifted characters are C1 controls, which blanks and lower-casing
+     * leave alone.
+     */
+    private fun collidingWith(word: String): String {
+        val colliding = word.dropLast(2) + (word[word.length - 2] - 1) + (word[word.length - 1] + 31)
+        check(colliding.hashCode() == word.hashCode() && colliding != word && colliding.trim().lowercase() == colliding)
+        return colliding
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource("basic", "in body", "none")
+    fun `a client credentials text with the hash code of a known one is not that one`(word: String) {
+        val config = parse("""{"Client Credentials": "${collidingWith(word)}"}""")
+
+        assertEquals(ClientCredentials.BASIC, config.clientCredentials)
+        assertEquals(1, problems.size)
+        assertTrue(problems.single().startsWith("Auth \"a\": unknown Client Credentials"), problems.toString())
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource("everywhere", "in auth request", "in token request")
+    fun `a use text with the hash code of a known one is not that one`(word: String) {
+        val config = parse("""{"Custom Request Parameters": {"p": {"Value": "v", "Use": "${collidingWith(word)}"}}}""")
+
+        assertEquals(listOf(CustomParameter("p", "v", ParameterUse.EVERYWHERE)), config.customRequestParameters)
+        assertEquals(listOf("Auth \"a\": custom parameter \"p\" has an unknown Use; Everywhere is used"), problems)
     }
 
     @Test
