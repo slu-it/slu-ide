@@ -80,6 +80,13 @@ class TextTypeDetectorTest {
     }
 
     @Test
+    fun `a source or rule that fails with an error such as a stack overflow counts as no scores too`() {
+        val failing = TextTypeSource { throw StackOverflowError() }
+        assertEquals(yaml, detector(listOf(failing, source(yaml to 60))).detect("x"))
+        assertEquals(yaml, detector(listOf(source(yaml to 60)), listOf(failing)).detect("x"))
+    }
+
+    @Test
     fun `a score of 100 counts, one above 100 is ignored rather than clamped`() {
         assertEquals(json, detector(listOf(source(yaml to 60, json to 100))).detect("x"))
         assertEquals(yaml, detector(listOf(source(yaml to 60, json to 101))).detect("x"))

@@ -40,7 +40,7 @@ class TextTypeDetector internal constructor(
     }
 
     /**
-     * The scores [source] gives, none if it throws. A score above 100 breaks the contract and is dropped, not clamped;
+     * The scores [source] gives, none if it throws (also an [Error]). A score above 100 breaks the contract and is dropped, not clamped;
      * one below 1 cannot reach [MIN_SCORE] anyway. No extension and types outside [TextTypes.all] are never the answer.
      */
     private fun scoresOf(
@@ -49,7 +49,8 @@ class TextTypeDetector internal constructor(
     ): List<TypeScore> =
         try {
             source.scores(text).filter { it.score <= 100 && it.type in order }
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
+            // Also an Error (a stack overflow on deeply nested text): the paste that asks must not end on its thread.
             emptyList()
         }
 

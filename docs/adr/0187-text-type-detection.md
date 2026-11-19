@@ -21,9 +21,9 @@ for texts that are something else: a Python `def f():` block, a Markdown heading
   `RULES_LIMIT` (64 Ki) chars; the given sources see the whole text, and only when it has at most `SOURCE_LIMIT`
   (1 Mi) chars, else they are not called. The highest score wins; a tie goes to the type earlier in `TextTypes.all`,
   whichever rule or source scored it; a best score below `MIN_SCORE` (50) is Plain Text. A source or rule that throws
-  counts as no scores. A score above 100 breaks the contract and is dropped, not clamped (one below 1 cannot reach 50
-  anyway); No extension and types outside the list are never the answer. Stateless, so thread-safe; it runs off the
-  FX thread.
+  (also an `Error`, such as a parser's stack overflow) counts as no scores. A score above 100 breaks the contract and
+  is dropped, not clamped (one below 1 cannot reach 50 anyway); No extension and types outside the list are never the
+  answer. Stateless, so thread-safe; it runs off the FX thread.
 - **Strong signs** (internal sources in `rules/`, one per group):
   - Shebang, 100: `bash`/`sh`/`zsh`/`dash`/`ksh`/`ash`/`mksh` → Shell Script, `python*` → Python, `node`/`nodejs`/
     `deno`/`bun` → JavaScript, also through `/usr/bin/env` with options and `VAR=value`s.

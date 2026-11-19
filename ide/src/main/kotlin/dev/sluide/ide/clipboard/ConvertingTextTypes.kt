@@ -25,7 +25,7 @@ class ConvertingTextTypes(
             family.detect(text)
         } catch (_: Throwable) {
             // Like Converting itself (ConvertingModel): a family's bug, even a StackOverflowError on deeply nested text,
-            // must not end the paste silently on its background thread.
+            // must not cost the paste its dialog; the other families still score.
             emptyList()
         }
 
