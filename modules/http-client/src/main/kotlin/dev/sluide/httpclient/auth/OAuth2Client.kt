@@ -165,7 +165,7 @@ internal class OAuth2Client(
         return Duration.ofSeconds(seconds.toLong())
     }
 
-    private fun describe(
+    internal fun describe(
         e: IOException,
         config: OAuth2Config,
     ): String {

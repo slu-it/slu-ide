@@ -1,9 +1,14 @@
 package dev.sluide.httpclient.auth
 
 import dev.sluide.httpclient.send.HttpClients
+import java.io.IOException
+import java.net.ConnectException
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.net.URI
 import java.net.http.HttpClient
+import java.net.http.HttpConnectTimeoutException
+import java.net.http.HttpTimeoutException
 import java.time.Duration
 import java.util.Base64
 import kotlin.test.AfterTest
@@ -189,5 +194,98 @@ class OAuth2ClientTest {
             assertNull(duration, value)
             assertTrue(notes.single().startsWith("The token response for 'a' has an unusable expires_in"), value)
         }
+    }
+
+    private val clientCredentials = """"Grant Type": "Client Credentials", "Client ID": "c""""
+
+    @Test
+    fun `sends an empty client secret in the body when there is none`() {
+        client.grant(config("""$clientCredentials, "Client Credentials": "in body""""))
+
+        assertEquals(
+            listOf("grant_type" to "client_credentials", "client_id" to "c", "client_secret" to ""),
+            endpoint.last.form,
+        )
+    }
+
+    @Test
+    fun `reads only a JSON object as a token response`() {
+        val config = config(clientCredentials)
+
+        for (body in listOf("""["access_token"]""", """"access_token"""", """[{"access_token": "x"}]""")) {
+            endpoint.respond = { 200 to body }
+            assertEquals(
+                "Token request for 'a' failed: 200 OK, but the response is no JSON object",
+                assertFailsWith<OAuth2Exception> { client.grant(config) }.message,
+                body,
+            )
+        }
+    }
+
+    @Test
+    fun `accepts every 2xx status and refuses 3xx`() {
+        val config = config(clientCredentials)
+        endpoint.respond = { 299 to """{"access_token": "at"}""" }
+        assertEquals("at", client.grant(config).accessToken)
+
+        // RFC 6749 5.1: a successful response is 200; redirects are not followed for the token endpoint.
+        endpoint.respond = { 300 to """{"access_token": "at"}""" }
+        assertEquals(
+            "Token request for 'a' failed: 300 Multiple Choices",
+            assertFailsWith<OAuth2Exception> { client.grant(config) }.message,
+        )
+    }
+
+    @Test
+    fun `takes token fields that are not strings as their JSON text and null as absent`() {
+        endpoint.respond = {
+            200 to """{"access_token": 12345, "token_type": null, "refresh_token": null, "id_token": 7}"""
+        }
+
+        val token = client.grant(config(clientCredentials))
+
+        assertEquals("12345", token.accessToken)
+        assertNull(token.tokenType)
+        assertNull(token.refreshToken)
+        assertEquals("7", token.idToken)
+    }
+
+    @Test
+    fun `reads an expires_in of zero`() {
+        endpoint.respond = { 200 to """{"access_token": "at", "expires_in": 0}""" }
+
+        assertEquals(Duration.ZERO, client.grant(config(clientCredentials)).expiresIn)
+    }
+
+    @Test
+    fun `an error object wins over the status and a non-text error is shown as JSON`() {
+        endpoint.respond = { 200 to """{"error": 5}""" }
+
+        assertEquals(
+            "Token request for 'a' failed: 200 5",
+            assertFailsWith<OAuth2Exception> { client.grant(config(clientCredentials)) }.message,
+        )
+    }
+
+    @Test
+    fun `describes what went wrong with the connection`() {
+        val withPort = config(clientCredentials).copy(tokenUrl = URI("http://example.invalid:8443/t"))
+
+        fun describe(
+            e: IOException,
+            config: OAuth2Config = withPort,
+        ) = client.describe(e, config)
+
+        assertEquals("cannot connect to example.invalid:8443", describe(ConnectException("refused")))
+        assertEquals("connecting to example.invalid:8443 timed out", describe(HttpConnectTimeoutException("slow")))
+        assertEquals("no response within 5 s", describe(HttpTimeoutException("slow")))
+        val noPort = withPort.copy(tokenUrl = URI("http://example.invalid/t"))
+        assertEquals("cannot connect to example.invalid:default port", describe(ConnectException(), noPort))
+        val portZero = withPort.copy(tokenUrl = URI("http://example.invalid:0/t"))
+        assertEquals("cannot connect to example.invalid:0", describe(ConnectException(), portZero))
+        // Other failures give their message, else the first message of their causes, else their name.
+        assertEquals("closed", describe(IOException("closed")))
+        assertEquals("inner", describe(IOException(null, IOException("inner"))))
+        assertEquals("java.io.IOException", describe(IOException()))
     }
 }
