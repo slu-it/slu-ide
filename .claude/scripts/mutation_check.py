@@ -28,6 +28,7 @@ class Mutant:
     indexes: tuple
     killing_test: str  # "Class.method" or ""
     by_ui: bool = False  # killed in the UI stage
+    reason: str = ""  # of an ACCEPTED one (our status: a mutant left that the accepted file lists)
 
 
 LEFT = frozenset({"SURVIVED", "NO_COVERAGE", "TIMED_OUT", "MEMORY_ERROR", "RUN_ERROR"})
@@ -196,6 +197,89 @@ def effective_unit_only(unit_only, platform):
     return unit_only, None
 
 
+def ui_test_classes(names, texts):
+    """The qualified names of the test classes called `names` that a module's test files (path -> text) declare at
+    the top level (a declaration at column 0: a nested class has another binary name, which pitest would not find)."""
+    found = set()
+    for text in texts.values():
+        package = package_of(text)
+        for name in names:
+            if re.search(rf"(?m)^(?:\w+[ \t]+)*class[ \t]+{re.escape(name)}\b", text):
+                found.add(f"{package}.{name}" if package else name)
+    return sorted(found)
+
+
+def unknown_ui_tests(names, module_texts):
+    """The names that no module of the run (each: its test files, path -> text) declares, sorted."""
+    return sorted(n for n in set(names) if not any(ui_test_classes([n], texts) for texts in module_texts))
+
+
+# --- Accepted mutants ------------------------------------------------------------------------------------------
+
+
+def _cell(text):
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def left_rows(mutants, paths):
+    """What a run left, for a later --accept: `path, line, class, method, mutator, description` (tabs) per mutant."""
+    return "".join(
+        "\t".join([path, str(m.line), m.mutated_class, m.mutated_method, m.mutator, _cell(m.description)]) + "\n"
+        for m, path in zip(mutants, paths) if m.status in LEFT)
+
+
+def _left_on(left_text, path, line):
+    rows = [row.split("\t") for row in left_text.splitlines()]
+    return [c for c in rows if len(c) == 6 and c[0] == path and c[1] == str(line)]
+
+
+def mutators_left(left_text, path, line):
+    return sorted({c[4] for c in _left_on(left_text, path, line)})
+
+
+def accept_target(target):
+    """`path:line` or `path:line:Mutator` as (path, line, mutator or None); None when it is neither."""
+    m = re.fullmatch(r"(.+?):(\d+)(?::(\w+))?", target)
+    return (m.group(1), int(m.group(2)), m.group(3)) if m else None
+
+
+def new_accepted(left_text, path, line, mutator, reason, line_text):
+    """The accepted file's entries for the mutants the last run left on path:line, one per mutant:
+    `path, class, method, mutator, description, the line's text, reason` (tabs). Mutants of several mutators rarely
+    share a reason (an endless loop next to a real gap), so such a line needs the mutator named."""
+    mutators = mutators_left(left_text, path, line)
+    if mutator is None and len(mutators) > 1:
+        raise Stop(f"mutation-check: {path}:{line} has mutants of {', '.join(mutators)}; accept each with its own "
+                   f"reason: --accept {path}:{line}:<Mutator> <reason>", 2)
+    return ["\t".join([path, c[2], c[3], c[4], c[5], _cell(line_text), _cell(reason)])
+            for c in _left_on(left_text, path, line) if mutator in (None, c[4])]
+
+
+def parse_accepted(text):
+    return [tuple(cells) for cells in (row.split("\t") for row in text.splitlines()) if len(cells) == 7]
+
+
+def apply_accepted(mutants, paths, entries, line_text):
+    """A mutant left becomes ACCEPTED, with the entry's reason, when an entry names its path, class, method, mutator
+    and description and its line still has the entry's text: an edited line has to be argued again. An entry accepts
+    one mutant, so a second mutant like it, on the same line or on a line with the same text, stays left.
+    `line_text(path, line)` reads."""
+    open_entries = {}
+    for *key, reason in entries:
+        open_entries.setdefault(tuple(key), []).append(reason)
+    if not open_entries:
+        return mutants
+    result = []
+    for m, path in zip(mutants, paths):
+        if m.status in LEFT:
+            key = (path, m.mutated_class, m.mutated_method, m.mutator, _cell(m.description),
+                   _cell(line_text(path, m.line)))
+            if open_entries.get(key):
+                m = dataclasses.replace(m, status="ACCEPTED", reason=open_entries[key].pop(0))
+        result.append(m)
+    return result
+
+
 # --- Output ----------------------------------------------------------------------------------------------------
 
 
@@ -215,6 +299,8 @@ def format_mutant(m, path, verbose):
     what = f"{path}:{m.line}  {m.mutator}: {m.description}"
     if m.status == "KILLED":
         return f"killed  {what} [{m.killing_test}]" if verbose else None
+    if m.status == "ACCEPTED":
+        return f"accepted  {what}  ({m.reason})"
     return f"{LABELS.get(m.status, 'run error')}  {what}"
 
 
@@ -227,6 +313,8 @@ def summary(mutants, ui_stats, unit_only):
     )
     if errors:
         text += f", {errors} errors"
+    if count("ACCEPTED"):
+        text += f", {count('ACCEPTED')} accepted"
     if unit_only:
         return text + "; unit tests only; preliminary"
     n, files, killed = ui_stats or (0, 0, 0)
@@ -254,8 +342,9 @@ def failure_hint(output, status):
 # --- Run -------------------------------------------------------------------------------------------------------
 
 USAGE = (
-    "Usage: mutation-check.sh [--display N | --displays N,M] [--detach] [--unit-only] [--whole] [--verbose] <base>"
-    " [file...]\n       mutation-check.sh --wait [seconds]"
+    "Usage: mutation-check.sh [--display N | --displays N,M] [--ui-tests A,B] [--detach] [--unit-only] [--whole]"
+    " [--verbose] <base> [file...]\n       mutation-check.sh --wait [seconds]"
+    "\n       mutation-check.sh --accept <path>:<line>[:<Mutator>] <reason>"
 )
 
 
@@ -282,6 +371,8 @@ class Run:
         self.status_file = os.path.join(self.work, "status")
         self.output_file = os.path.join(self.work, "output.txt")
         self.cursor_file = os.path.join(self.work, "wait-offset")
+        self.left_file = os.path.join(self.work, "left.tsv")
+        self.accepted_file = os.path.join(self.work, "accepted.tsv")
         self.child = None
 
     # -- detach and wait (break-check's mechanics) --
@@ -342,6 +433,37 @@ class Run:
             f.write(str(child.pid))  # the same pid after the child's exec into python
         print(f"mutation-check: started in the background (pid {child.pid}); collect it with "
               ".claude/scripts/mutation-check.sh --wait")
+
+    # -- accepted mutants --
+    def line_text(self, rel, line):
+        lines = self.lines_of(rel)
+        return lines[line - 1] if 0 < line <= len(lines) else ""
+
+    def accept(self, target, reason):
+        parsed = accept_target(target)
+        if parsed is None or not reason.strip():
+            raise Stop(USAGE, 2)
+        if self.active_pid() is not None:
+            raise Stop("mutation-check: a run is active in this tree; accept after it has finished", 2)
+        path, line, mutator = parsed
+        path = os.path.relpath(os.path.abspath(path), self.root)
+        entries = new_accepted(read(self.left_file, ""), path, line, mutator, reason, self.line_text(path, line))
+        if not entries:
+            raise Stop(f"mutation-check: the last finished run in this tree left no such mutant on {path}:{line}", 2)
+        with open(self.accepted_file, "a", encoding="utf-8") as f:
+            f.write("".join(e + "\n" for e in entries))
+        for e in entries:
+            cells = e.split("\t")
+            print(f"accepted  {path}:{line}  {cells[3]}: {cells[4]}  ({cells[6]})")
+        return 0
+
+    def test_texts(self, module):
+        texts = {}
+        for folder, _, names in os.walk(self.path(f"{module}/src/test/kotlin")):
+            for name in names:
+                if name.endswith(".kt"):
+                    texts[os.path.join(folder, name)] = read(os.path.join(folder, name), "") or ""
+        return texts
 
     # -- git and files --
     def git(self, *a, check=True):
@@ -410,7 +532,7 @@ class Run:
                 raise Stop(f"mutation-check: inconclusive: display :{d} could not be started:\n{r.stdout}{r.stderr}", 3)
 
     # -- stages --
-    def module_run(self, module, files, lines_by_path, displays, unit_only, roots):
+    def module_run(self, module, files, lines_by_path, displays, unit_only, roots, ui_tests=()):
         """Both stages of one module; returns (mutants with their paths, ui stats)."""
         packages = [package_of(read(self.path(f), "")) for f in files]
         classes = target_classes(packages)
@@ -420,6 +542,7 @@ class Run:
         unit = parse_report(self.pitest(module, "unit", classes, self.write_lines(module, "unit", wanted)))
         print(f"mutation-check: {module}: unit stage done in {time.time() - t0:.0f} s", flush=True)
         located = self.locate(unit, module, roots, wanted)
+        unit = apply_accepted(unit, located, parse_accepted(read(self.accepted_file, "")), self.line_text)
         ui_stats = (0, 0, 0)
         merged = unit
         left = left_lines(unit, located)
@@ -427,10 +550,12 @@ class Run:
             self.ensure_displays(displays)
             t0 = time.time()
             asked = left_mutants(unit)
-            print(f"mutation-check: {module}: UI stage on {len(left)} files, {len(asked)} mutants, "
+            tests = ui_test_classes(ui_tests, self.test_texts(module)) if ui_tests else []
+            which = f"{len(tests)} test classes" if tests else "all the module's tests"
+            print(f"mutation-check: {module}: UI stage on {len(left)} files, {len(asked)} mutants, {which}, "
                   f"displays {','.join(displays)} ...", flush=True)
             ui = parse_report(self.pitest(module, "ui", left_classes(unit), self.write_lines(module, "ui", left),
-                                          None, displays))
+                                          tests or None, displays))
             merged = merge_stages(unit, ui)
             ui_stats = (len(asked), len(left), sum(1 for m in merged if m.by_ui))
             print(f"mutation-check: {module}: UI stage done in {time.time() - t0:.0f} s", flush=True)
@@ -445,7 +570,8 @@ class Run:
 
 
 def parse_args(args):
-    opts = dict(displays=["99"], detach=False, unit_only=False, whole=False, verbose=False, base=None, files=[])
+    opts = dict(displays=["99"], detach=False, unit_only=False, whole=False, verbose=False, base=None, files=[],
+                ui_tests=[])
     i = 0
     while i < len(args):
         a = args[i]
@@ -456,6 +582,13 @@ def parse_args(args):
             if not all(v.isdigit() for v in value):
                 raise Stop(f"{a} needs {'numbers' if a == '--displays' else 'a number'}, not {args[i + 1]}", 2)
             opts["displays"] = value
+            i += 1
+        elif a == "--ui-tests":
+            if i + 1 >= len(args) or args[i + 1].startswith("-"):
+                raise Stop("--ui-tests needs test class names, comma-separated", 2)
+            opts["ui_tests"] = [n.strip() for n in args[i + 1].split(",") if n.strip()]
+            if not opts["ui_tests"]:
+                raise Stop("--ui-tests needs test class names, comma-separated", 2)
             i += 1
         elif a in ("--detach", "--unit-only", "--whole", "--verbose"):
             opts[a[2:].replace("-", "_")] = True
@@ -479,6 +612,10 @@ def execute(run, args):
         if len(args) > 2 or (len(args) == 2 and not args[1].isdigit()):
             raise Stop(USAGE, 2)
         return run.wait(int(args[1]) if len(args) == 2 else 100)
+    if args[:1] == ["--accept"]:
+        if len(args) < 3:
+            raise Stop(USAGE, 2)
+        return run.accept(args[1], " ".join(args[2:]))
     opts = parse_args(args)
     base = opts["base"]
     if subprocess.run(["git", "rev-parse", "--verify", "-q", base + "^{commit}"], capture_output=True,
@@ -522,6 +659,9 @@ def execute(run, args):
     problems = package_problems({f: read(run.path(f), "") for f in lines})
     if problems:
         raise Stop("mutation-check: " + "\n".join(problems), 2)
+    unknown = unknown_ui_tests(opts["ui_tests"], [run.test_texts(m) for m in sorted({module_of(f) for f in lines})])
+    if unknown:
+        raise Stop("--ui-tests: no test class of the mutated modules is called " + ", ".join(unknown), 2)
     if opts["detach"]:
         run.detach(args)
         return 0
@@ -529,6 +669,8 @@ def execute(run, args):
     os.makedirs(run.work, exist_ok=True)
     with open(run.pid_file, "w") as f:
         f.write(str(os.getpid()))
+    if os.path.exists(run.left_file):
+        os.remove(run.left_file)  # --accept must not read the rows of an earlier run after this one failed
     if skipped:
         print("mutation-check: not run in :tools (no pitest there): " + ", ".join(skipped))
     roots = sorted({module_of(p) for p in subprocess.run(
@@ -543,7 +685,7 @@ def execute(run, args):
     results, ui_n, ui_files, ui_killed = [], 0, 0, 0
     for module in sorted(by_module):
         pairs, (n, files, killed) = run.module_run(module, sorted(by_module[module]), lines, opts["displays"],
-                                                   unit_only, roots)
+                                                   unit_only, roots, opts["ui_tests"])
         results += pairs
         ui_n, ui_files, ui_killed = ui_n + n, ui_files + files, ui_killed + killed
     results.sort(key=lambda r: (r[1], r[0].line, r[0].mutator, r[0].description, r[0].indexes))
@@ -552,6 +694,8 @@ def execute(run, args):
         if out:
             print(out)
     mutants = [m for m, _ in results]
+    with open(run.left_file, "w", encoding="utf-8") as f:
+        f.write(left_rows(mutants, [path for _, path in results]))
     print(summary(mutants, None if unit_only else (ui_n, ui_files, ui_killed), unit_only))
     return exit_code(mutants)
 

@@ -21,7 +21,20 @@
 #      remaining mutants (never packages: a relocated copy sits in a class of another package), LINES the remaining
 #      lines. A mutant keeps its unit-stage status unless the UI stage KILLED it; the stages' mutants are matched by
 #      class, method, descriptor, mutator and indexes, not by line. The UI stage's "n mutants" are the ones the unit
-#      stage left. It costs about one run of the module's UI tests plus seconds per mutant.
+#      stage left. It costs about one run of the module's UI tests plus seconds per mutant (a kill by a test that
+#      waits for its deadline costs that wait). --ui-tests A,B limits the call to those test classes (simple names,
+#      found in the module's src/test/kotlin; a module that declares none of them runs all its tests): on ide's 21
+#      mutants 765 s became 413 s on one display and 185 s on four (ADR 0189). A kill by a class that is not named
+#      shows up as a survivor.
+# Accepted mutants (ADR 0189): --accept <path>:<line>[:<Mutator>] <reason> appends the mutants the last finished run
+# in this tree left on that line to build/mutation-check/accepted.tsv, one entry per mutant (path, class, method,
+# mutator, description, the line's text, reason; the run's leftovers are in left.tsv, which a new run deletes first).
+# A line whose leftovers have several mutators needs the mutator named: they rarely share a reason. A later run
+# reports a mutant left that matches an entry, on a line that still has the entry's text, as
+# `accepted  path:line  <Mutator>: <description>  (<reason>)`: it is not left (exit code, UI stage) and the summary
+# counts it as ", A accepted". An entry accepts one mutant; a second one like it stays left. Only an equivalence or
+# an endless-loop timeout, with its reason; the reviewer checks the file. Delete a line of the file to take an
+# acceptance back. Refused (exit 2) while a run is active in the tree.
 # Gradle runs on the shared daemon (--no-daemon in a worktree). Each call's output and a copy of its mutations.xml:
 # build/mutation-check/logs/<module>-<unit|ui>.{log,xml}. Every run starts fresh: pitest's history plugin replayed old
 # results (timeouts, kills, survivors) whenever the mutated class was unchanged, even after the tests changed.
@@ -41,18 +54,23 @@
 # Refuses (exit 2): a file whose package line does not match its folder (LINES would match nothing), a <base> that
 # is not an ancestor of HEAD, uncommitted changes in the files to mutate, another run in
 # this tree, a running Gradle build in this tree (gradle-running.sh).
-# Usage: .claude/scripts/mutation-check.sh [--display N | --displays N,M] [--detach] [--unit-only] [--whole]
-#                                          [--verbose] <base> [file...]
+# Usage: .claude/scripts/mutation-check.sh [--display N | --displays N,M] [--ui-tests A,B] [--detach] [--unit-only]
+#                                          [--whole] [--verbose] <base> [file...]
 #        .claude/scripts/mutation-check.sh --wait [seconds]
+#        .claude/scripts/mutation-check.sh --accept <path>:<line>[:<Mutator>] <reason>
 #   --display N     the display the UI stage uses (default 99); --displays N,M several, one worker each; each is
 #                   started or repaired by setup-display.sh first (Linux)
 #   --detach        start the run in the background and return; collect it with --wait (output.txt, status and run.pid
 #                   in build/mutation-check/)
 #   --wait          print what the detached run printed since the last --wait, waiting up to `seconds` (default 100,
 #                   below the Bash tool's default 2-minute timeout); its exit code once finished, 5 while it runs
-#   --unit-only     skip the UI stage: a quick look while iterating; its survivors include mutants only a UI test kills
+#   --unit-only     skip the UI stage: the run while implementing and in fix rounds (ADR 0189); its survivors include
+#                   mutants only a UI test kills. The UI stage runs once per package, after the review
+#   --ui-tests A,B  the test classes of the UI stage (see above); top-level classes, a name no mutated module
+#                   declares is refused (exit 2); without effect with --unit-only
 #   file...         only these production files (default in change mode: every one the commits since <base> change)
-# Exit: 0 nothing left, 1 survivors, no-coverage mutants, timeouts or errors, 2 usage or refusal, 3 inconclusive (a red
+# Exit: 0 nothing left (accepted mutants are not left), 1 survivors, no-coverage mutants, timeouts or errors, 2 usage
+# or refusal, 3 inconclusive (a red
 # baseline -- Gradle's PitHelpError -- or another Gradle failure; a detached run that died), 4 internal error,
 # 5 (--wait) still running, 128+signal when interrupted.
 set -euo pipefail

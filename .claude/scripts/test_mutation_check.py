@@ -378,6 +378,138 @@ class OutputTest(unittest.TestCase):
             self.assertEqual(1, mc.exit_code([mutant(status="KILLED"), mutant(status=status)]), status)
 
 
+class UiTestsTest(unittest.TestCase):
+    FILES = {
+        "ide/src/test/kotlin/dev/sluide/ide/MainWindowScratchesUiTest.kt":
+            "package dev.sluide.ide\n\n@Tag(\"ui\")\nclass MainWindowScratchesUiTest : Fixture() {\n"
+            "    private class Fake\n}\n",
+        "ide/src/test/kotlin/dev/sluide/ide/scratches/Shots.kt":
+            "package dev.sluide.ide.scratches\n\nclass Shots\n\ninternal class ShotsUiTest {\n}\n",
+        "ide/src/test/kotlin/Bare.kt": "class BareUiTest\n",
+    }
+
+    def test_ui_test_names_become_the_qualified_classes_the_modules_test_files_declare(self):
+        self.assertEqual(
+            ["BareUiTest", "dev.sluide.ide.MainWindowScratchesUiTest", "dev.sluide.ide.scratches.ShotsUiTest"],
+            mc.ui_test_classes(["ShotsUiTest", "MainWindowScratchesUiTest", "BareUiTest", "ShotsUiTest"], self.FILES),
+        )
+
+    def test_a_name_no_test_file_declares_gives_nothing_and_a_longer_class_name_is_no_match(self):
+        self.assertEqual([], mc.ui_test_classes(["MainWindowScratches", "Shot", "ElsewhereUiTest"], self.FILES))
+
+    def test_a_nested_class_is_no_test_class_of_that_name(self):
+        self.assertEqual([], mc.ui_test_classes(["Fake"], self.FILES))
+
+    def test_the_unknown_names_are_those_no_module_of_the_run_declares(self):
+        other = {"m/src/test/kotlin/OtherUiTest.kt": "package o\n\nclass OtherUiTest\n"}
+        self.assertEqual(
+            ["Fake", "NoSuchUiTest"],
+            mc.unknown_ui_tests(["ShotsUiTest", "NoSuchUiTest", "OtherUiTest", "Fake"], [self.FILES, other]),
+        )
+
+
+class AcceptedTest(unittest.TestCase):
+    PATH = "ide/src/main/kotlin/dev/sluide/ide/Guards.kt"
+    CLS = "dev.sluide.ide.Guards"
+    LEFT = (
+        f"{PATH}\t66\t{CLS}\tscan\tMathMutator\tReplaced integer addition with subtraction\n"
+        f"{PATH}\t66\t{CLS}\tscan\tMathMutator\tReplaced integer addition with subtraction\n"
+        f"{PATH}\t66\t{CLS}\tscan\tNonVoidMethodCallMutator\tremoved call to indexOf\n"
+        f"{PATH}\t70\t{CLS}\tscan\tNegateConditionalsMutator\tnegated conditional\n"
+    )
+    MATH = dict(mutated_class=CLS, mutated_method="scan", mutator="MathMutator",
+                description="Replaced integer addition with subtraction")
+    ENTRY = (f"{PATH}\t{CLS}\tscan\tMathMutator\tReplaced integer addition with subtraction"
+             "\tfrom = indexOf(from + 1)\tendless loop\n")
+
+    def test_accepting_a_line_and_mutator_records_each_such_mutant_the_last_run_left_with_the_lines_text(self):
+        entry = (f"{self.PATH}\t{self.CLS}\tscan\tMathMutator\tReplaced integer addition with subtraction"
+                 "\tfrom = indexOf(from + 1)\tendless loop: from never grows")
+        self.assertEqual(
+            [entry, entry],
+            mc.new_accepted(self.LEFT, self.PATH, 66, "MathMutator", "endless loop:\tfrom never grows",
+                            "    from = indexOf(from + 1)  "),
+        )
+
+    def test_accepting_a_line_without_a_mutator_takes_its_mutants_when_they_share_one_mutator(self):
+        self.assertEqual(1, len(mc.new_accepted(self.LEFT, self.PATH, 70, None, "why", "x")))
+
+    def test_a_line_whose_mutants_left_have_several_mutators_needs_the_mutator_named(self):
+        self.assertEqual(["MathMutator", "NonVoidMethodCallMutator"], mc.mutators_left(self.LEFT, self.PATH, 66))
+        with self.assertRaises(mc.Stop) as stop:
+            mc.new_accepted(self.LEFT, self.PATH, 66, None, "why", "x")
+        self.assertEqual(2, stop.exception.code)
+        self.assertIn("MathMutator, NonVoidMethodCallMutator", str(stop.exception))
+
+    def test_accepting_a_line_or_mutator_the_last_run_left_nothing_on_records_nothing(self):
+        self.assertEqual([], mc.new_accepted(self.LEFT, self.PATH, 67, None, "why", "x"))
+        self.assertEqual([], mc.new_accepted(self.LEFT, "other.kt", 70, None, "why", "x"))
+        self.assertEqual([], mc.new_accepted(self.LEFT, self.PATH, 70, "MathMutator", "why", "x"))
+
+    def test_an_accept_target_is_a_path_a_line_and_maybe_a_mutator(self):
+        self.assertEqual(("a/B.kt", 66, None), mc.accept_target("a/B.kt:66"))
+        self.assertEqual(("a/B.kt", 66, "MathMutator"), mc.accept_target("a/B.kt:66:MathMutator"))
+        for bad in ("a/B.kt", "a/B.kt:x", ":66", "a/B.kt:66:"):
+            self.assertIsNone(mc.accept_target(bad), bad)
+
+    def test_the_mutants_left_are_listed_for_a_later_accept_and_killed_ones_are_not(self):
+        mutants = [mutant(status="TIMED_OUT", line=66, mutator="MathMutator", description="a\tb"),
+                   mutant(status="KILLED", line=67)]
+        self.assertEqual(f"{self.PATH}\t66\tdev.sluide.git.GitPush\tpush\tMathMutator\ta b\n",
+                         mc.left_rows(mutants, [self.PATH, self.PATH]))
+
+    def accepted(self, mutants, paths=None, text="from = indexOf(from + 1)", entries=None):
+        return [m.status for m in mc.apply_accepted(mutants, paths or [self.PATH] * len(mutants),
+                                                    mc.parse_accepted(entries or self.ENTRY), lambda p, n: text)]
+
+    def test_a_mutant_left_that_matches_an_entry_and_whose_line_still_has_the_entrys_text_is_accepted(self):
+        got = mc.apply_accepted([mutant(status="TIMED_OUT", line=66, **self.MATH)], [self.PATH],
+                                mc.parse_accepted(self.ENTRY), lambda p, n: "  from = indexOf(from + 1)")
+        self.assertEqual(("ACCEPTED", "endless loop"), (got[0].status, got[0].reason))
+
+    def test_a_killed_mutant_and_one_that_differs_in_any_part_of_the_entry_are_not_accepted(self):
+        self.assertEqual(["KILLED"], self.accepted([mutant(status="KILLED", **self.MATH)]))
+        for part, other in (("mutator", "OtherMutator"), ("description", "another"), ("mutated_class", "x.Other"),
+                            ("mutated_method", "save")):
+            self.assertEqual(["SURVIVED"], self.accepted([mutant(**{**self.MATH, part: other})]), part)
+        self.assertEqual(["SURVIVED"], self.accepted([mutant(**self.MATH)], paths=["other.kt"]))
+        self.assertEqual(["SURVIVED"], self.accepted([mutant(**self.MATH)], text="from = indexOf(from + 2)"))
+
+    def test_an_entry_accepts_one_mutant_only_so_a_second_one_like_it_stays_left(self):
+        twice = [mutant(indexes=(1,), **self.MATH), mutant(indexes=(2,), **self.MATH)]
+        self.assertEqual(["ACCEPTED", "SURVIVED"], self.accepted(twice))
+        self.assertEqual(["ACCEPTED", "ACCEPTED"], self.accepted(twice, entries=self.ENTRY * 2))
+
+    def test_blank_and_malformed_lines_of_the_accepted_file_are_no_entries(self):
+        self.assertEqual(1, len(mc.parse_accepted("\n" + self.ENTRY + "only\ttwo\n")))
+
+    def test_an_accepted_mutant_is_not_left_is_printed_with_its_reason_and_counted_on_its_own(self):
+        accepted = mutant(status="ACCEPTED", reason="endless loop")
+        self.assertEqual(0, mc.exit_code([accepted]))
+        self.assertEqual([], mc.left_mutants([accepted]))
+        self.assertEqual({}, mc.left_lines([accepted], ["a.kt"]))
+        self.assertEqual("accepted  p.kt:10  NegateConditionalsMutator: negated conditional  (endless loop)",
+                         mc.format_mutant(accepted, "p.kt", False))
+        self.assertEqual(
+            "mutation-check: 2 mutants, 1 killed, 0 SURVIVED, 0 no coverage, 0 timeout, 1 accepted; "
+            "unit tests only; preliminary",
+            mc.summary([accepted, mutant(status="KILLED")], None, True),
+        )
+
+
+class ArgsTest(unittest.TestCase):
+    def test_ui_tests_takes_a_comma_list_of_class_names(self):
+        opts = mc.parse_args(["--ui-tests", "AUiTest, BUiTest,", "base"])
+        self.assertEqual(["AUiTest", "BUiTest"], opts["ui_tests"])
+        self.assertEqual([], mc.parse_args(["base"])["ui_tests"])
+
+    def test_ui_tests_without_names_is_a_usage_error(self):
+        for args in (["base", "--ui-tests"], ["--ui-tests", "--detach", "base"], ["--ui-tests", " , ", "base"]):
+            with self.assertRaises(mc.Stop) as stop:
+                mc.parse_args(args)
+            self.assertEqual(2, stop.exception.code, args)
+
+
 class FailureHintTest(unittest.TestCase):
     RED = (
         "10:53:38 AM PIT >> SEVERE : Description [testClass=a.ScratchRedTest] did not pass without mutation.\n"
