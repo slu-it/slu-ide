@@ -475,7 +475,10 @@ internal object CurlReader {
     /** The longest timeout, about 31 years: more is surely a mistake, and would overflow as milliseconds. */
     private val MAX_SECONDS = BigDecimal(1_000_000_000)
 
-    /** URL-encoded as curl does: `%20` for spaces, `-._~` and alphanumerics as they are. */
+    /**
+     * URL-encoded with `%20` for spaces and `-._~` and alphanumerics as they are. curl itself sends `+` for a space;
+     * in a form body both decode to a space.
+     */
     internal fun encode(text: String): String =
         URLEncoder
             .encode(text, Charsets.UTF_8)
