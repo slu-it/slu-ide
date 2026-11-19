@@ -7,7 +7,9 @@ import java.security.MessageDigest
 import java.util.HexFormat
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class DigestAuthTest {
     // RFC 7616, section 3.9.1.
@@ -121,5 +123,101 @@ class DigestAuthTest {
             DigestAuth.challenge(listOf("Basic realm=\"b\", Digest realm=\"a \\\"quoted\\\" realm\", nonce=n, Bearer")),
         )
         assertNull(DigestAuth.challenge(listOf("Basic realm=\"b\"", "Digest realm=\"r\"")))
+    }
+
+    @Test
+    fun `makes a fresh random client nonce of 16 bytes per answer unless one is given`() {
+        // RFC 7616 3.4: the cnonce is chosen by the client; here 128 bits from SecureRandom.
+        val random = DigestAuth()
+        val cnonces =
+            List(2) {
+                val authorization = random.authorization(challenge("MD5"), credentials, "GET", uri).orEmpty()
+                Regex("cnonce=\"(\\w*)\"")
+                    .find(authorization)
+                    ?.groupValues
+                    ?.get(1)
+                    .orEmpty()
+            }
+
+        assertTrue(cnonces.all { Regex("[0-9a-f]{32}").matches(it) }, cnonces.toString())
+        assertNotEquals(cnonces[0], cnonces[1])
+        assertNotEquals("0".repeat(32), cnonces[0])
+    }
+
+    @Test
+    fun `names why an unsupported or insufficient challenge cannot be answered`() {
+        // RFC 7616 3.3: only the MD5 and SHA-256 families are implemented here.
+        assertEquals(
+            "algorithm SHA-512-256 is not supported",
+            Challenge("r", "n", null, "SHA-512-256", listOf("auth")).problem,
+        )
+        // RFC 7616 3.3: qop-options lists what the server accepts; without "auth" nothing can be answered.
+        assertEquals(
+            "only qop auth-int, other is offered, not auth",
+            Challenge("r", "n", null, null, listOf("auth-int", "other")).problem,
+        )
+        assertNull(Challenge("r", "n", null, "sha-256", listOf("auth")).problem)
+    }
+
+    @Test
+    fun `answers an empty or missing path with a slash and keeps the query`() {
+        // RFC 7616 3.4: the digest-uri is the request target, "/" for an empty path (RFC 7230 5.3.1).
+        fun uriOf(target: URI): String? {
+            val authorization = digest.authorization(challenge("MD5"), credentials, "GET", target).orEmpty()
+            return Regex("uri=\"([^\"]*)\"").find(authorization)?.groupValues?.get(1)
+        }
+
+        assertEquals("/?a=1", uriOf(URI("http://x?a=1")))
+        assertEquals("/", uriOf(URI("urn:x:y")))
+        assertEquals("/a%20b", uriOf(URI("http://x/a%20b")))
+    }
+
+    @Test
+    fun `leaves out challenges without a realm or without a nonce`() {
+        // RFC 7616 3.3: realm and nonce are required parameters of a challenge.
+        assertEquals(emptyList(), DigestAuth.challenges(listOf("Digest nonce=\"n\"")))
+        assertEquals(emptyList(), DigestAuth.challenges(listOf("Digest realm=\"r\"")))
+    }
+
+    @Test
+    fun `prefers the first of equally strong challenges`() {
+        fun nonceOf(vararg algorithms: String) =
+            DigestAuth
+                .challenge(algorithms.mapIndexed { i, a -> "Digest realm=\"r\", algorithm=$a, nonce=\"n$i\"" })
+                ?.nonce
+
+        assertEquals("n0", nonceOf("SHA-256", "SHA-256"))
+        assertEquals("n0", nonceOf("MD5", "MD5"))
+        assertEquals("n1", nonceOf("MD5", "SHA-256"))
+        assertEquals("n0", nonceOf("SHA-256", "MD5"))
+    }
+
+    @Test
+    fun `reads hostile challenge parameters without failing`() {
+        // RFC 7230 3.2.6: a quoted-string may hold commas, escaped quotes and backslashes.
+        assertEquals(
+            Challenge("a, b=c \\ d", "n", null, null, emptyList()),
+            DigestAuth.challenge(listOf("Digest realm=\"a, b=c \\\\ d\", nonce=\"n\"")),
+        )
+        // Trailing separators, a missing value, an unterminated quote and a trailing backslash end the text early.
+        assertEquals(
+            Challenge("r", "n", null, null, emptyList()),
+            DigestAuth.challenge(listOf("Digest realm=\"r\", nonce=\"n\", , ")),
+        )
+        assertEquals(mapOf("realm" to ""), DigestAuth.parameters("realm=", 0))
+        assertEquals(mapOf("realm" to "ab"), DigestAuth.parameters("realm=\"ab", 0))
+        assertEquals(mapOf("realm" to "ab\\"), DigestAuth.parameters("realm=\"ab\\", 0))
+        // A header that starts with something else than a scheme, and a last token without parameters.
+        assertEquals(
+            Challenge("r", "n", null, null, emptyList()),
+            DigestAuth.challenge(listOf("=x, Digest realm=\"r\", nonce=\"n\", Bearer")),
+        )
+    }
+
+    @Test
+    fun `stops the parameters at the next scheme`() {
+        val challenges = DigestAuth.challenges(listOf("Digest realm=r, nonce=n, Bearer realm=\"other\", opaque=x"))
+
+        assertEquals(listOf(Challenge("r", "n", null, null, emptyList())), challenges)
     }
 }
