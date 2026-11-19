@@ -191,6 +191,19 @@ class GitCommandLogEntryTest {
     }
 
     @Test
+    fun `without a clock given an entry measures with the system clock`() {
+        val entry = entry()
+        val deadline = System.nanoTime() + 40_000_000
+        // Polls the same clock until 40 ms have passed: a wait on a signal, not a sleep.
+        while (System.nanoTime() < deadline) Thread.onSpinWait()
+
+        entry.exited(0, bytes, bytes, complete = true, overflowed = false)
+
+        val millis = Regex("git#7 exit 0 in (\\d+) ms, 0 bytes").matchEntire(lines.single().second)?.groupValues?.get(1)
+        assertTrue(millis != null && millis.toLong() in 40..60_000, lines.single().second)
+    }
+
+    @Test
     fun `every warning says how long the command ran`() {
         val clock = FakeClock()
         val entry = entry(clock = clock)
