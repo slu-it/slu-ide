@@ -31,7 +31,7 @@ internal fun quickFixesOf(
     val fixes =
         answer.orEmpty().filterNotNull().mapNotNull { entry ->
             if (entry.isLeft) {
-                val command = entry.left ?: return@mapNotNull null
+                val command = entry.left
                 QuickFix(command.title.orEmpty(), null, command, false, null)
             } else {
                 val action = entry.right ?: return@mapNotNull null
