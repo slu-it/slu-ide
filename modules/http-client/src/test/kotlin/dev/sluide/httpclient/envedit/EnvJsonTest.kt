@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 class EnvJsonTest {
     @Test
     fun `parses text with a leading byte order mark`() {
-        assertEquals("1", EnvJson.parse("{\"a\": 1}")?.get("a")?.let(EnvJson::numberText))
+        assertEquals("1", EnvJson.parse("\uFEFF{\"a\": 1}")?.get("a")?.let(EnvJson::numberText))
     }
 
     @Test
