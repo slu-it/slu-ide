@@ -15,6 +15,8 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 
 /** A request the [FeatureServer] got, answered by the test with [answer]. */
@@ -37,6 +39,12 @@ internal class FeatureServer(
     completion: Boolean = true,
     /** `null`: the server sends none (LSP 3.17: `triggerCharacters` is optional). */
     completionTriggers: List<String>? = listOf("."),
+    /** `false`: the server offers no signature help at all. */
+    signatureHelp: Boolean = true,
+    /** `null`: the server sends none (LSP 3.17: `triggerCharacters` is optional). */
+    signatureTriggers: List<String>? = listOf("(", ","),
+    /** `null`: the server sends none (LSP 3.17: `retriggerCharacters` is optional). */
+    signatureRetriggers: List<String>? = listOf(")"),
 ) : FakeServer() {
     val completions = CopyOnWriteArrayList<Asked<CompletionParams, Either<List<CompletionItem>, CompletionList>>>()
     val resolved = CopyOnWriteArrayList<Asked<CompletionItem, CompletionItem>>()
@@ -55,7 +63,15 @@ internal class FeatureServer(
                     } else {
                         null
                     }
-                signatureHelpProvider = SignatureHelpOptions(listOf("(", ","), listOf(")"))
+                signatureHelpProvider =
+                    if (signatureHelp) {
+                        SignatureHelpOptions().also {
+                            it.triggerCharacters = signatureTriggers
+                            it.retriggerCharacters = signatureRetriggers
+                        }
+                    } else {
+                        null
+                    }
                 hoverProvider = Either.forLeft(true)
             }
     }
@@ -113,6 +129,18 @@ internal class BoundEditor(
     ) = fx.onFx {
         keyTyped(character)
         editor.typeAtCaret(character)
+    }
+
+    /**
+     * Waits until the server handled everything the client sent before: one more request, answered in order, and the
+     * FX thread after it. For checks that nothing was sent.
+     */
+    fun serverIdle() {
+        val answered = CountDownLatch(1)
+        // A method lsp4j does not know: the fake answers null for it and logs nothing.
+        fx.onFx { binding.session.requestJson("test/idle", null, { answered.countDown() }, { answered.countDown() }) }
+        check(answered.await(5, TimeUnit.SECONDS)) { "the server did not answer" }
+        fx.onFx {}
     }
 
     override fun close() {

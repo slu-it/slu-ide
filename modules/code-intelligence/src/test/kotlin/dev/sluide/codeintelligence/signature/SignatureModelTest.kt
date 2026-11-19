@@ -1,6 +1,7 @@
 package dev.sluide.codeintelligence.signature
 
 import dev.sluide.codeintelligence.BoundEditor
+import dev.sluide.codeintelligence.FeatureServer
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.fileviewers.TextChange
 import org.eclipse.lsp4j.ParameterInformation
@@ -34,17 +35,22 @@ class SignatureModelTest {
     private class RecordingView : SignatureView {
         val shown = mutableListOf<Pair<Int, SignatureShown>>()
         var showing = false
+        var hides = 0
+
+        /** `false`: the popup cannot show (not on screen, no focus). */
+        var accepts = true
 
         override fun show(
             anchor: Int,
             shown: SignatureShown,
         ): Boolean {
             this.shown += anchor to shown
-            showing = true
-            return true
+            showing = accepts
+            return accepts
         }
 
         override fun hide() {
+            hides++
             showing = false
         }
     }
@@ -54,8 +60,11 @@ class SignatureModelTest {
         if (::bound.isInitialized) bound.close()
     }
 
-    private fun setUp(text: String) {
-        bound = BoundEditor(folder, text)
+    private fun setUp(
+        text: String,
+        newServer: () -> FeatureServer = { FeatureServer() },
+    ) {
+        bound = BoundEditor(folder, text, newServer = newServer)
         model = bound.fx.onFx { SignatureModel(bound.binding, view, 100.milliseconds, bound.timers::schedule) }
         bound.fx.onFx { bound.editor.onTextChange(model::textChanged) }
     }
@@ -142,6 +151,7 @@ class SignatureModelTest {
         "insert before, 5, 2, '', xy, 7",
         "remove before, 5, 1, ab, '', 3",
         "remove across, 5, 3, abcd, '', 3",
+        "replace ending at it, 5, 3, ab, xyz, 6",
     )
     fun `the anchor follows edits before it`(
         what: String,
@@ -165,5 +175,146 @@ class SignatureModelTest {
                 .single()
                 .params.context.triggerKind,
         )
+    }
+
+    /** Opens the popup by typing `(` and answering with [help]. */
+    private fun open() {
+        setUp("f")
+        type("(")
+        asked(1).single().answer(help)
+        awaitTrue("shown") { bound.fx.onFx { view.shown.size } == 1 }
+    }
+
+    @Test
+    fun `a server without signature help is not asked and does not take Shortcut+P`() {
+        setUp("f", newServer = { FeatureServer(signatureHelp = false) })
+        type("(")
+        assertFalse(bound.fx.onFx { model.invoke() })
+        bound.serverIdle()
+        assertEquals(emptyList(), bound.server.signatures)
+    }
+
+    @Test
+    fun `a server without trigger characters is asked only by Shortcut+P, other typing waits for the debounce`() {
+        setUp("f", newServer = { FeatureServer(signatureTriggers = null, signatureRetriggers = null) })
+        type("(")
+        bound.serverIdle()
+        assertEquals(emptyList(), bound.server.signatures, "a typed ( asks nothing without trigger characters")
+
+        assertTrue(bound.fx.onFx { model.invoke() })
+        asked(1).single().answer(help)
+        awaitTrue("shown") { bound.fx.onFx { view.shown.size } == 1 }
+        type(")")
+        bound.serverIdle()
+        assertEquals(1, bound.server.signatures.size, "not at once: no retrigger character")
+        bound.fx.onFx { bound.timers.runDue() }
+        assertEquals(SignatureHelpTriggerKind.ContentChange, asked(2)[1].params.context.triggerKind)
+    }
+
+    @Test
+    fun `while closed, a retrigger character, other changes and caret moves ask nothing and schedule nothing`() {
+        setUp("f")
+        type(")")
+        bound.fx.onFx { bound.editor.edit(0, 0, "x") }
+        bound.fx.onFx { model.caretMoved() }
+        bound.serverIdle()
+        assertEquals(emptyList(), bound.server.signatures)
+        assertEquals(emptyList(), bound.timers.due)
+    }
+
+    @Test
+    fun `a caret move while open asks after the debounce, one to where it was asked does not`() {
+        open()
+        val askedAt =
+            bound.server.signatures
+                .single()
+                .params.position
+        bound.fx.onFx { model.caretMoved() }
+        assertEquals(emptyList(), bound.timers.due, "the caret is where the request was made")
+
+        bound.fx.onFx { bound.editor.caret = 0 }
+        bound.fx.onFx { model.caretMoved() }
+        assertEquals(1, bound.timers.due.size)
+        bound.fx.onFx { bound.timers.runDue() }
+        val second = asked(2)[1]
+        assertEquals(SignatureHelpTriggerKind.ContentChange, second.params.context.triggerKind)
+        assertEquals(0, second.params.position.character)
+        assertEquals(2, askedAt.character)
+    }
+
+    @Test
+    fun `typing again while a request waits replaces it, and a trigger character asks at once and drops it`() {
+        open()
+        type("1")
+        type("2")
+        assertEquals(1, bound.timers.due.size)
+        type(",")
+        assertEquals(emptyList(), bound.timers.due, "the request at once took the waiting one's place")
+        assertEquals(SignatureHelpTriggerKind.TriggerCharacter, asked(2)[1].params.context.triggerKind)
+    }
+
+    @Test
+    fun `hiding the popup ends it and drops what waits, closing hides it, and a popup not open is not hidden`() {
+        open()
+        type("1")
+        bound.fx.onFx { model.viewHidden() }
+        assertFalse(model.isOpen)
+        assertEquals(emptyList(), bound.timers.due, "the waiting request is dropped")
+        assertEquals(0, view.hides, "it hid by itself")
+
+        bound.fx.onFx { model.close() }
+        assertEquals(0, view.hides, "nothing was open")
+
+        type("(")
+        asked(2)
+        bound.fx.onFx { model.viewHidden() }
+        bound.server.signatures[1].answer(help)
+        awaitTrue("shown") { bound.fx.onFx { view.shown.size } == 2 }
+        assertTrue(model.isOpen, "a hide of no popup does not drop the question on its way")
+
+        bound.fx.onFx { model.close() }
+        assertEquals(1, view.hides)
+    }
+
+    @Test
+    fun `an answer after the popup was hidden or closed is dropped`() {
+        open()
+        type("(")
+        val late = asked(2)[1]
+        bound.fx.onFx { model.viewHidden() }
+        late.answer(help)
+        bound.serverIdle()
+        assertEquals(1, view.shown.size)
+
+        type("(")
+        val later = asked(3)[2]
+        bound.fx.onFx { model.close() }
+        later.answer(help)
+        bound.serverIdle()
+        assertEquals(1, view.shown.size)
+    }
+
+    @Test
+    fun `a failed request closes an open popup, a popup that cannot show or a closed binding drops an answer`() {
+        open()
+        type("1")
+        bound.fx.onFx { bound.timers.runDue() }
+        asked(2)[1].future.completeExceptionally(IllegalStateException("boom"))
+        awaitTrue("closed") { bound.fx.onFx { !model.isOpen } }
+        assertEquals(1, view.hides)
+
+        view.accepts = false
+        type("(")
+        asked(3)[2].answer(help)
+        awaitTrue("refused") { bound.fx.onFx { view.shown.size } == 2 }
+        assertFalse(bound.fx.onFx { model.isOpen }, "a popup that cannot show is not open")
+
+        view.accepts = true
+        type("(")
+        val last = asked(4)[3]
+        bound.fx.onFx { bound.binding.close() }
+        last.answer(help)
+        bound.serverIdle()
+        assertEquals(2, view.shown.size)
     }
 }
