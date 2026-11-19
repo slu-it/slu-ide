@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import dev.sluide.git.cli.inProgress
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
@@ -9,7 +10,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Path
-import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.exists
 import kotlin.io.path.readBytes
@@ -32,44 +32,16 @@ class GitMergesTest {
 
     private val git = GitCli("git", testGitEnvironment())
     private val merges = GitMerges(git)
+    private lateinit var repository: TestRepository
 
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        repo.createDirectories()
-        git("init", "-q", "-b", "main")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
+        // A commit that concludes a merge would wait for an editor.
+        repository = TestRepository(repo, environment = testGitEnvironment() + ("GIT_EDITOR" to ":"))
     }
 
-    private fun git(vararg arguments: String): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                    // A commit that concludes a merge would wait for an editor.
-                    environment()["GIT_EDITOR"] = ":"
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
-
-    /** Commits [file] with [content] (a line, or several) and [message]; returns the commit's hash. */
-    private fun commit(
-        message: String,
-        file: String = "file.txt",
-        content: String = message,
-    ): String {
-        repo.resolve(file).writeText("$content\n")
-        git("add", file)
-        git("commit", "-q", "-m", message)
-        return head()
-    }
+    private fun git(vararg arguments: String) = repository.git(*arguments)
 
     private fun head() = git("rev-parse", "HEAD")
 
@@ -87,22 +59,22 @@ class GitMergesTest {
      * other.txt); feature from Other: A (changes file.txt). Leaves feature checked out; returns A's hash.
      */
     private fun diverged(conflict: Boolean = false): String {
-        commit("Base")
-        commit("Other", "other.txt", OTHER)
+        repository.commit("Base")
+        repository.commit("Other", "other.txt", OTHER)
         git("switch", "-q", "-c", "feature")
-        val a = commit("A")
+        val a = repository.commit("A")
         git("switch", "-q", "main")
-        if (conflict) commit("Main") else commit("Main", "other.txt", "main\n2\n3\n4\n5")
+        if (conflict) repository.commit("Main") else repository.commit("Main", "other.txt", "main\n2\n3\n4\n5")
         git("switch", "-q", "feature")
         return a
     }
 
     /** main is ahead of feature by Main (adds main.txt). Leaves feature checked out. */
     private fun behind() {
-        commit("Base")
+        repository.commit("Base")
         git("switch", "-q", "-c", "feature")
         git("switch", "-q", "main")
-        commit("Main", "main.txt")
+        repository.commit("Main", "main.txt")
         git("switch", "-q", "feature")
     }
 
@@ -294,15 +266,15 @@ class GitMergesTest {
 
     @Test
     fun `a merge started in a terminal is read, an octopus one with all its heads`() {
-        commit("Base")
+        repository.commit("Base")
         git("branch", "a")
         git("branch", "b")
         git("switch", "-q", "a")
-        val a = commit("A", "a.txt")
+        val a = repository.commit("A", "a.txt")
         git("switch", "-q", "b")
-        val b = commit("B", "b.txt")
+        val b = repository.commit("B", "b.txt")
         git("switch", "-q", "-c", "feature", "main")
-        commit("Feature", "feature.txt")
+        repository.commit("Feature", "feature.txt")
         git("merge", "-q", "--no-commit", "a", "b")
 
         assertEquals(GitPendingMerge(listOf(a, b), "Merge branches 'a' and 'b' into feature", emptyList()), pending())
@@ -315,7 +287,7 @@ class GitMergesTest {
 
     @Test
     fun `continuing commits files that cannot be checked only once confirmed`() {
-        commit("Base")
+        repository.commit("Base")
         repo.resolve("bin.dat").writeBytes(byteArrayOf(0, 1))
         git("add", "bin.dat")
         git("commit", "-q", "-m", "Binary")
@@ -371,12 +343,12 @@ class GitMergesTest {
         name: String,
         expected: String,
     ) {
-        commit("Base")
+        repository.commit("Base")
         git("branch", "feature")
         git("switch", "-q", "feature")
-        commit("Feature", "feature.txt")
+        repository.commit("Feature", "feature.txt")
         git("switch", "-q", "main")
-        commit("Main", "main.txt")
+        repository.commit("Main", "main.txt")
         git("update-ref", "refs/remotes/origin/main", "main")
         if (into != "main") git("switch", "-q", "-C", into, "main~1")
         val start = head()
@@ -463,10 +435,10 @@ class GitMergesTest {
 
     /** main changes file.txt (a conflict with feature) and the first line of other.txt; feature changes file.txt. */
     private fun divergedWithOther() {
-        commit("Base")
-        commit("Other", "other.txt", OTHER)
+        repository.commit("Base")
+        repository.commit("Other", "other.txt", OTHER)
         git("switch", "-q", "-c", "feature")
-        commit("A")
+        repository.commit("A")
         git("switch", "-q", "main")
         repo.resolve("file.txt").writeText("Main\n")
         repo.resolve("other.txt").writeText("main\n2\n3\n4\n5\n")

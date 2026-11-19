@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import dev.sluide.git.cli.comparisonCounts
 import dev.sluide.git.cli.diffFiles
 import dev.sluide.git.cli.workingTreeChanges
@@ -21,7 +22,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 /** Comparing refs with `HEAD` and commits with the working tree (ADR 0044), with the real git; skipped without it. */
 class GitCompareTest {
@@ -30,65 +30,25 @@ class GitCompareTest {
 
     private val git = GitCli("git", testGitEnvironment())
     private val log = GitLog(git)
+    private lateinit var repository: TestRepository
 
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        git("init", "-q", "-b", "main")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
-    }
-
-    private fun git(
-        vararg arguments: String,
-        input: String = "",
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.use { it.write(input.toByteArray(Charsets.UTF_8)) }
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
-
-    /** Commits [subject] at [time] seconds after the epoch (the date order follows it); its hash. */
-    private fun commit(
-        subject: String,
-        time: Long,
-    ): String {
-        val date = "@$time +0000"
-        val process =
-            ProcessBuilder("git", "commit", "-q", "--allow-empty", "-m", subject)
-                .directory(repo.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(
-                        testGitEnvironment() + mapOf("GIT_AUTHOR_DATE" to date, "GIT_COMMITTER_DATE" to date),
-                    )
-                }.start()
-        process.inputStream.readAllBytes()
-        assertEquals(0, process.waitFor())
-        return git("rev-parse", "HEAD")
+        repository = TestRepository(repo)
     }
 
     private fun subjects(filter: GitLogFilter) = log.commits(repo, filter, 0, 100)?.commits?.map { it.subject }
 
     /** main: Base, Main 1, Main 2 (HEAD); feature from Base: Feature 1, Feature 2. */
     private fun branches() {
-        commit("Base", 1000)
-        git("switch", "-q", "-c", "feature")
-        commit("Feature 1", 2000)
-        commit("Feature 2", 3000)
-        git("switch", "-q", "main")
-        commit("Main 1", 4000)
-        commit("Main 2", 5000)
+        repository.commitEmpty("Base", 1000)
+        repository.git("switch", "-q", "-c", "feature")
+        repository.commitEmpty("Feature 1", 2000)
+        repository.commitEmpty("Feature 2", 3000)
+        repository.git("switch", "-q", "main")
+        repository.commitEmpty("Main 1", 4000)
+        repository.commitEmpty("Main 2", 5000)
     }
 
     @Test
@@ -111,7 +71,7 @@ class GitCompareTest {
         branches()
 
         assertEquals(GitComparisonCounts(2, 2), log.comparisonCounts(repo, "refs/heads/feature"))
-        git("switch", "-q", "--detach", "HEAD~1")
+        repository.git("switch", "-q", "--detach", "HEAD~1")
         assertEquals(GitComparisonCounts(2, 1), log.comparisonCounts(repo, "refs/heads/feature"))
         assertEquals(
             listOf("Main 1"),
@@ -124,12 +84,12 @@ class GitCompareTest {
 
     @Test
     fun `a ref with non-ASCII characters is compared through the standard input`() {
-        commit("Base", 1000)
+        repository.commitEmpty("Base", 1000)
         val green = "refs/heads/grün"
         // Through git's standard input, as UTF-8: arguments of the JVM take its locale, which may be plain ASCII.
-        git("update-ref", "--stdin", input = "create $green ${commit("Green", 2000)}\n")
-        git("reset", "-q", "--hard", "HEAD~1")
-        commit("Main", 3000)
+        repository.git("update-ref", "--stdin", input = "create $green ${repository.commitEmpty("Green", 2000)}\n")
+        repository.git("reset", "-q", "--hard", "HEAD~1")
+        repository.commitEmpty("Main", 3000)
 
         assertEquals(listOf("Green"), subjects(GitLogFilter(revisions = listOf(green), excluded = listOf("HEAD"))))
         assertEquals(listOf("Main"), subjects(GitLogFilter(revisions = listOf("HEAD"), excluded = listOf(green))))
@@ -145,16 +105,16 @@ class GitCompareTest {
         repo.resolve("gone.txt").writeText("a\n")
         repo.resolve("old.txt").writeText(lines)
         repo.resolve("same.txt").writeText("same\n")
-        git("add", "-A")
-        val base = commit("Base", 1000)
-        git("tag", "v1")
+        repository.git("add", "-A")
+        val base = repository.commitEmpty("Base", 1000)
+        repository.git("tag", "v1")
         repo.resolve("keep.txt").writeText("one\nTWO\nthree\n")
         repo.resolve("gone.txt").deleteExisting()
-        git("mv", "old.txt", "new.txt")
+        repository.git("mv", "old.txt", "new.txt")
         repo.resolve("new.txt").writeText(lines.replace("line 3\n", "line three\n"))
         repo.resolve("dir").createDirectories()
         repo.resolve("dir/added.txt").writeText("x\n")
-        git("add", "dir/added.txt")
+        repository.git("add", "dir/added.txt")
         repo.resolve("untracked.txt").writeText("u\n")
 
         val changes = assertIs<GitWorkingTreeChanges.Files>(log.workingTreeChanges(repo, "refs/tags/v1"))
@@ -194,8 +154,8 @@ class GitCompareTest {
     fun `binary and too large files are not compared`() {
         repo.resolve("data.bin").writeBytes(byteArrayOf(1, 2, 3))
         repo.resolve("big.txt").writeText("small\n")
-        git("add", "-A")
-        val base = commit("Base", 1000)
+        repository.git("add", "-A")
+        val base = repository.commitEmpty("Base", 1000)
         repo.resolve("data.bin").writeBytes(byteArrayOf(1, 0, 3))
         repo.resolve("big.txt").writeText("small\nbut growing\n")
 
@@ -210,12 +170,12 @@ class GitCompareTest {
     fun `a path with non-ASCII characters is compared with the working tree`() {
         val path = "grün/ä.txt"
         // Written through git's standard input, as UTF-8: file names of the JVM take its locale, which may be ASCII.
-        val first = git("hash-object", "-w", "--stdin", input = "one\ntwo\n")
-        git("update-index", "--add", "--index-info", input = "100644 $first\t$path\n")
-        val base = commit("Base", 1000)
-        val second = git("hash-object", "-w", "--stdin", input = "one\nzwei\n")
-        git("update-index", "--index-info", input = "100644 $second\t$path\n")
-        git("checkout-index", "-f", "--stdin", input = "$path\n")
+        val first = repository.git("hash-object", "-w", "--stdin", input = "one\ntwo\n")
+        repository.git("update-index", "--add", "--index-info", input = "100644 $first\t$path\n")
+        val base = repository.commitEmpty("Base", 1000)
+        val second = repository.git("hash-object", "-w", "--stdin", input = "one\nzwei\n")
+        repository.git("update-index", "--index-info", input = "100644 $second\t$path\n")
+        repository.git("checkout-index", "-f", "--stdin", input = "$path\n")
 
         val changes = assertIs<GitWorkingTreeChanges.Files>(log.workingTreeChanges(repo, base))
 
@@ -237,14 +197,14 @@ class GitCompareTest {
 
     @Test
     fun `the counts apply the filter's text, users, paths and options, not its revisions`() {
-        commit("Base", 1000)
-        git("switch", "-q", "-c", "feature")
+        repository.commitEmpty("Base", 1000)
+        repository.git("switch", "-q", "-c", "feature")
         repo.resolve("a.txt").writeText("a\n")
-        git("add", "a.txt")
-        commit("Fix a", 2000)
-        commit("Other", 3000)
-        git("switch", "-q", "main")
-        commit("Main fix", 4000)
+        repository.git("add", "a.txt")
+        repository.commitEmpty("Fix a", 2000)
+        repository.commitEmpty("Other", 3000)
+        repository.git("switch", "-q", "main")
+        repository.commitEmpty("Main fix", 4000)
         repo.resolve(".mailmap").writeText("Ann Real <test@example.com>\n")
 
         val feature = "refs/heads/feature"
@@ -281,8 +241,8 @@ class GitCompareTest {
     fun `the commit side is compared in its checkout form, whatever the attributes say about the temporary files`() {
         repo.resolve(".gitattributes").writeText("*.cs text eol=crlf\n")
         repo.resolve("a.cs").writeText("a\nb\nc\n")
-        git("add", "-A")
-        val base = commit("Base", 1000)
+        repository.git("add", "-A")
+        val base = repository.commitEmpty("Base", 1000)
         // As a checkout writes it, with one line changed.
         repo.resolve("a.cs").writeText("a\r\nB\r\nc\r\n")
 
@@ -298,10 +258,10 @@ class GitCompareTest {
     @Test
     fun `attributes and line-ending settings do not change how the two texts compare`() {
         repo.resolve("a.txt").writeText("a\nb\nc\n")
-        git("add", "-A")
-        val base = commit("Base", 1000)
+        repository.git("add", "-A")
+        val base = repository.commitEmpty("Base", 1000)
         repo.resolve(".gitattributes").writeText("* -diff\n* binary\n")
-        git("config", "core.autocrlf", "true")
+        repository.git("config", "core.autocrlf", "true")
         repo.resolve("a.txt").writeText("a\nB\nc\n")
 
         val diff = log.workingTreeFileDiff(repo, base, GitChangedFile(GitChange.MODIFIED, "a.txt"))
@@ -312,8 +272,8 @@ class GitCompareTest {
     @Test
     fun `where the JVM cannot name a file git reads it, unless its staged size is too large already`() {
         repo.resolve("a.txt").writeText("one\ntwo\n")
-        git("add", "-A")
-        val base = commit("Base", 1000)
+        repository.git("add", "-A")
+        val base = repository.commitEmpty("Base", 1000)
         repo.resolve("a.txt").writeText("one\nzwei\n")
         log.canNameFile = { false }
         val file = GitChangedFile(GitChange.MODIFIED, "a.txt")
@@ -322,33 +282,27 @@ class GitCompareTest {
             GitFileDiff.Text("one\ntwo\n", "one\nzwei\n", listOf(GitHunk(1 until 2, 1 until 2))),
             log.workingTreeFileDiff(repo, base, file),
         )
-        val stored = git("hash-object", "--stdin", input = "one\nzwei\n")
-        assertEquals("blob", git("cat-file", "-t", stored), "stored by git")
+        val stored = repository.git("hash-object", "--stdin", input = "one\nzwei\n")
+        assertEquals("blob", repository.git("cat-file", "-t", stored), "stored by git")
 
         // Staged larger than the limit: not stored at all.
         repo.resolve("a.txt").writeText("one\nzwei\ndrei\n")
-        git("add", "a.txt")
+        repository.git("add", "a.txt")
         repo.resolve("a.txt").writeText("one\nzwei\ndrei\nvier\n")
-        val unstored = git("hash-object", "--stdin", input = "one\nzwei\ndrei\nvier\n")
+        val unstored = repository.git("hash-object", "--stdin", input = "one\nzwei\ndrei\nvier\n")
         assertEquals(GitFileDiff.TooLarge, log.workingTreeFileDiff(repo, base, file, maxSize = 12))
-        val missing =
-            ProcessBuilder("git", "cat-file", "-e", unstored)
-                .directory(repo.toFile())
-                .apply { environment().putAll(testGitEnvironment()) }
-                .start()
-                .waitFor()
-        assertTrue(missing != 0, "not stored")
+        repository.gitStops("cat-file", "-e", unstored)
     }
 
     @Test
     fun `a file turned into a symbolic link compares with the link's target path, a pure rename has no hunks`() {
         repo.resolve("a.txt").writeText("x\n")
         repo.resolve("old.txt").writeText("same\n")
-        git("add", "-A")
-        val base = commit("Base", 1000)
+        repository.git("add", "-A")
+        val base = repository.commitEmpty("Base", 1000)
         repo.resolve("a.txt").deleteExisting()
         repo.resolve("a.txt").createSymbolicLinkPointingTo(Path.of("target.txt"))
-        git("mv", "old.txt", "new.txt")
+        repository.git("mv", "old.txt", "new.txt")
 
         val changes = assertIs<GitWorkingTreeChanges.Files>(log.workingTreeChanges(repo, base))
 
@@ -372,8 +326,8 @@ class GitCompareTest {
 
     @Test
     fun `a submodule is not compared`() {
-        val base = commit("Base", 1000)
-        git("update-index", "--add", "--cacheinfo", "160000,${"1".repeat(40)},lib")
+        val base = repository.commitEmpty("Base", 1000)
+        repository.git("update-index", "--add", "--cacheinfo", "160000,${"1".repeat(40)},lib")
         // Not checked out: an empty folder.
         repo.resolve("lib").createDirectories()
 
@@ -388,8 +342,8 @@ class GitCompareTest {
         @TempDir temporary: Path,
     ) {
         repo.resolve("a.txt").writeText("a\n")
-        git("add", "-A")
-        val base = commit("Base", 1000)
+        repository.git("add", "-A")
+        val base = repository.commitEmpty("Base", 1000)
         repo.resolve("a.txt").writeText("b\n")
         log.temporaryFolder = temporary
 
@@ -419,11 +373,15 @@ class GitCompareTest {
         repo.resolve(".gitattributes").writeText("*.big filter=big\n*.huge filter=huge\n")
         repo.resolve("a.big").writeText("small\n")
         repo.resolve("b.huge").writeText("small\n")
-        git("add", "-A")
-        val base = commit("Base", 1000)
+        repository.git("add", "-A")
+        val base = repository.commitEmpty("Base", 1000)
         // As git-lfs does: a small stored blob, a large file once smudged.
-        git("config", "filter.big.smudge", "cat >/dev/null; printf 'line of the large file\\n%.0s' 1 2 3 4 5")
-        git("config", "filter.huge.smudge", "cat >/dev/null; yes | head -c 50000000")
+        repository.git(
+            "config",
+            "filter.big.smudge",
+            "cat >/dev/null; printf 'line of the large file\\n%.0s' 1 2 3 4 5",
+        )
+        repository.git("config", "filter.huge.smudge", "cat >/dev/null; yes | head -c 50000000")
         repo.resolve("a.big").writeText("small\nchanged\n")
         repo.resolve("b.huge").writeText("small\nchanged\n")
 

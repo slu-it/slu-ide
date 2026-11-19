@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import dev.sluide.git.cli.headMessage
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
@@ -31,28 +32,13 @@ class GitCommitChangesTest {
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        repo.createDirectories()
-        git("init", "-q", "-b", "main")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
+        TestRepository(repo)
     }
 
     private fun git(
         vararg arguments: String,
         directory: Path = repo,
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
+    ) = runGit(directory, *arguments)
 
     private fun write(
         name: String,
@@ -94,15 +80,7 @@ class GitCommitChangesTest {
     }
 
     private fun process(vararg arguments: String) {
-        ProcessBuilder(listOf("git") + arguments)
-            .directory(repo.toFile())
-            .redirectErrorStream(true)
-            .apply {
-                environment().clear()
-                environment().putAll(testGitEnvironment())
-            }.start()
-            .also { it.inputStream.readAllBytes() }
-            .waitFor()
+        runGitRaw(repo, *arguments)
     }
 
     /** Runs the shell [script] in the repository, which must succeed. */

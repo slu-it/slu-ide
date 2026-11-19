@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.TestRepository
 import dev.sluide.git.cli.branchTip
 import dev.sluide.git.cli.currentBranch
 import dev.sluide.git.cli.isAncestor
@@ -30,47 +31,18 @@ class GitBranchesTest {
 
     private val git = GitCli("git", testGitEnvironment())
     private val branches = GitBranches(git)
+    private lateinit var repository: TestRepository
 
     @BeforeEach
     fun createRepository() {
         assumeTrue(git.available, "git is not installed")
-        repo.createDirectories()
-        git("init", "-q", "-b", "main")
-        git("config", "user.name", "Test")
-        git("config", "user.email", "test@example.com")
+        repository = TestRepository(repo)
     }
 
     private fun git(
         vararg arguments: String,
         directory: Path = repo,
-        mayFail: Boolean = false,
-    ): String {
-        val process =
-            ProcessBuilder(listOf("git") + arguments)
-                .directory(directory.toFile())
-                .redirectErrorStream(true)
-                .apply {
-                    environment().clear()
-                    environment().putAll(testGitEnvironment())
-                }.start()
-        process.outputStream.close()
-        val output = process.inputStream.readAllBytes().decodeToString()
-        val exit = process.waitFor()
-        if (!mayFail) assertEquals(0, exit, "git ${arguments.joinToString(" ")}: $output")
-        return output.trim()
-    }
-
-    /** Commits [file] with [content]; returns the commit's hash. */
-    private fun commit(
-        subject: String,
-        file: String = "file.txt",
-        content: String = subject,
-    ): String {
-        repo.resolve(file).writeText("$content\n")
-        git("add", file)
-        git("commit", "-q", "-m", subject)
-        return git("rev-parse", "HEAD")
-    }
+    ) = runGit(directory, *arguments)
 
     private fun head() = git("rev-parse", "HEAD")
 
@@ -82,9 +54,9 @@ class GitBranchesTest {
 
     @Test
     fun `switches to a local branch and refuses when local changes would be overwritten`() {
-        commit("First")
+        repository.commit("First")
         git("branch", "other")
-        val second = commit("Second")
+        val second = repository.commit("Second")
 
         val switched = branches.switchBranch(repo, "other")
 
@@ -104,11 +76,11 @@ class GitBranchesTest {
 
     @Test
     fun `a checkout refuses to overwrite an ignored file the other commit tracks`() {
-        commit("First")
+        repository.commit("First")
         git("switch", "-q", "-c", "old")
-        val old = commit("Tracked env", ".env", "tracked secret")
+        val old = repository.commit("Tracked env", ".env", "tracked secret")
         git("switch", "-q", "main")
-        commit("Ignore env", ".gitignore", ".env")
+        repository.commit("Ignore env", ".gitignore", ".env")
         repo.resolve(".env").writeText("LOCAL SECRET\n")
 
         val branch = branches.switchBranch(repo, "old")
@@ -125,9 +97,9 @@ class GitBranchesTest {
 
     @Test
     fun `checks out a commit or tag detached`() {
-        val first = commit("First")
+        val first = repository.commit("First")
         git("tag", "v1", first)
-        commit("Second")
+        repository.commit("Second")
 
         val detached = branches.switchDetached(repo, first)
 
@@ -145,16 +117,16 @@ class GitBranchesTest {
 
     @Test
     fun `counts the commits of a detached HEAD a checkout would leave on no branch or tag`() {
-        val first = commit("First")
+        val first = repository.commit("First")
         git("branch", "other")
-        val second = commit("Second")
+        val second = repository.commit("Second")
         assertEquals(0, branches.leftBehind(repo, "refs/heads/other"), "a branch keeps its commits")
 
         git("switch", "-q", "--detach", first)
         assertEquals(0, branches.leftBehind(repo, "refs/heads/main"), "a detached HEAD on a branch's commit")
 
-        commit("Detached one")
-        val detached = commit("Detached two")
+        repository.commit("Detached one")
+        val detached = repository.commit("Detached two")
         assertEquals(2, branches.leftBehind(repo, "refs/heads/other"))
         assertEquals(2, branches.leftBehind(repo, second))
         assertEquals(0, branches.leftBehind(repo, detached), "the target keeps them")
@@ -172,12 +144,12 @@ class GitBranchesTest {
 
     @Test
     fun `checks out a remote branch as a new local branch tracking it`() {
-        commit("First")
+        repository.commit("First")
         val remote = folder.resolve("remote.git")
         git("init", "-q", "--bare", "-b", "main", remote.toString(), directory = folder)
         git("remote", "add", "origin", remote.toString())
         git("switch", "-q", "-c", "fix")
-        val fix = commit("Fix")
+        val fix = repository.commit("Fix")
         git("push", "-q", "origin", "main", "fix")
         git("switch", "-q", "main")
         git("branch", "-q", "-D", "fix")
@@ -197,8 +169,8 @@ class GitBranchesTest {
 
     @Test
     fun `creates a branch with or without checking it out, and overwrites only when asked`() {
-        val first = commit("First")
-        val second = commit("Second")
+        val first = repository.commit("First")
+        val second = repository.commit("Second")
 
         val created = branches.createBranch(repo, "feature", first, checkout = false, overwrite = false)
 
@@ -235,7 +207,7 @@ class GitBranchesTest {
 
     @Test
     fun `noTrack decides whether a branch from a remote-tracking ref gets an upstream`() {
-        val first = commit("First")
+        val first = repository.commit("First")
         git("update-ref", "refs/remotes/origin/main", first)
         git("config", "remote.origin.url", "https://example.invalid/repo.git")
         git("config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")
@@ -253,13 +225,13 @@ class GitBranchesTest {
     }
 
     /** `git config --get`, empty if the key is unset. */
-    private fun gitConfig(key: String) = git("config", "--get", key, mayFail = true)
+    private fun gitConfig(key: String) = runGitRaw(repo, "config", "--get", key).output.trim()
 
     @Test
     fun `reads the commit of every local branch by short name`() {
-        val first = commit("First")
+        val first = repository.commit("First")
         git("branch", "feature/deep/x")
-        val second = commit("Second")
+        val second = repository.commit("Second")
         git("branch", "topic", first)
         git("update-ref", "refs/remotes/origin/other", second)
 
@@ -280,7 +252,7 @@ class GitBranchesTest {
 
     @Test
     fun `local branch tips are null when git is not available`() {
-        commit("First")
+        repository.commit("First")
         // The wrapper fails only the startup probe `--version`; every other call works.
         val unavailable = wrapped(failing = " --version ")
 
@@ -289,8 +261,8 @@ class GitBranchesTest {
 
     @Test
     fun `refuses to overwrite the current branch without checking out`() {
-        val first = commit("First")
-        commit("Second")
+        val first = repository.commit("First")
+        repository.commit("Second")
 
         val result = branches.createBranch(repo, "main", first, checkout = false, overwrite = true)
 
@@ -309,7 +281,7 @@ class GitBranchesTest {
     /** A commit with another file, only reachable through `refs/remotes/origin/only-remote`: no remote is configured. */
     private fun remoteOnlyCommit(): String {
         git("switch", "-q", "-c", "tmp")
-        val commit = commit("Remote work", file = "remote.txt")
+        val commit = repository.commit("Remote work", file = "remote.txt")
         git("update-ref", "refs/remotes/origin/only-remote", commit)
         git("switch", "-q", "main")
         git("branch", "-q", "-D", "tmp")
@@ -318,7 +290,7 @@ class GitBranchesTest {
 
     @Test
     fun `a remote branch whose tracking cannot be set up leaves the working tree, index and HEAD as they were`() {
-        commit("First")
+        repository.commit("First")
         val main = head()
         remoteOnlyCommit()
 
@@ -334,12 +306,12 @@ class GitBranchesTest {
 
     @Test
     fun `a new tracking branch that cannot be checked out is deleted again`() {
-        commit("First")
+        repository.commit("First")
         val remote = folder.resolve("remote.git")
         git("init", "-q", "--bare", "-b", "main", remote.toString(), directory = folder)
         git("remote", "add", "origin", remote.toString())
         git("switch", "-q", "-c", "fix")
-        commit("Fix", content = "fixed")
+        repository.commit("Fix", content = "fixed")
         git("push", "-q", "origin", "main", "fix")
         git("switch", "-q", "main")
         git("branch", "-q", "-D", "fix")
@@ -357,7 +329,7 @@ class GitBranchesTest {
 
     @Test
     fun `a new branch is checked out in a second step, so a failure leaves nothing half switched`() {
-        commit("First")
+        repository.commit("First")
         val main = head()
         val remote = remoteOnlyCommit()
 
@@ -418,9 +390,9 @@ class GitBranchesTest {
 
     @Test
     fun `nothing is changed when where a branch points cannot be read`() {
-        val first = commit("First")
+        val first = repository.commit("First")
         git("branch", "feature")
-        val second = commit("Second")
+        val second = repository.commit("Second")
         val failing = wrapped(failing = " for-each-ref ")
 
         val result = failing.createBranch(repo, "feature", second, checkout = true, overwrite = true)
@@ -434,10 +406,10 @@ class GitBranchesTest {
 
     @Test
     fun `a failed undo is told after git's message, and an existing branch is moved back, never deleted`() {
-        commit("First")
+        repository.commit("First")
         val main = head()
         git("switch", "-q", "-c", "other")
-        val other = commit("Other", content = "other")
+        val other = repository.commit("Other", content = "other")
         git("switch", "-q", "main")
         git("branch", "existing", main)
         repo.resolve("file.txt").writeText("local change\n")
@@ -471,13 +443,13 @@ class GitBranchesTest {
 
     @Test
     fun `overwriting a branch that is not there passes no -f`() {
-        val first = commit("First")
+        val first = repository.commit("First")
         val log = folder.resolve("calls.log")
         val recorded = recording(log)
 
         assertTrue(recorded.createBranch(repo, "new", first, checkout = false, overwrite = true).success)
         git("branch", "existing", first)
-        val second = commit("Second")
+        val second = repository.commit("Second")
         assertTrue(recorded.createBranch(repo, "existing", second, checkout = false, overwrite = true).success)
 
         val branchCalls = log.readText().lines().filter { it.startsWith("branch") }
@@ -490,7 +462,7 @@ class GitBranchesTest {
 
     @Test
     fun `whether a branch was created is told when it cannot be read after git failed`() {
-        val first = commit("First")
+        val first = repository.commit("First")
         git("branch", "existing", first)
         val counter = folder.resolve("count")
         // The first for-each-ref (before) works, the second (after git failed) fails.
@@ -514,7 +486,7 @@ class GitBranchesTest {
 
     @Test
     fun `a checkout whose post-checkout hook fails is not undone`() {
-        val first = commit("First")
+        val first = repository.commit("First")
         git("branch", "other")
         repo.resolve(".git/hooks/post-checkout").apply {
             writeText("#!/bin/sh\necho 'hook failed' >&2\nexit 3\n")
@@ -553,7 +525,7 @@ class GitBranchesTest {
 
     @Test
     fun `a branch git writes before failing to set up its tracking is deleted again`() {
-        commit("First")
+        repository.commit("First")
         git("update-ref", "refs/remotes/origin/x", head())
         // Two remotes map into refs/remotes/origin/: the tracking information is ambiguous.
         git("config", "remote.origin.url", "/nowhere")
@@ -573,8 +545,8 @@ class GitBranchesTest {
 
     @Test
     fun `tells branch tips and ancestors`() {
-        val first = commit("First")
-        val second = commit("Second")
+        val first = repository.commit("First")
+        val second = repository.commit("Second")
 
         git("branch", "team/fix", first)
 
@@ -591,7 +563,7 @@ class GitBranchesTest {
 
     @Test
     fun `a write never waits for an editor`() {
-        val first = commit("First")
+        val first = repository.commit("First")
         // A signed tag needs a message; git would open an editor for it.
         git("config", "tag.gpgSign", "true")
         val started = System.nanoTime()
@@ -606,7 +578,7 @@ class GitBranchesTest {
 
     @Test
     fun `creates lightweight and annotated tags, the message with non-ASCII characters on the standard input`() {
-        val first = commit("First")
+        val first = repository.commit("First")
 
         val light = branches.createTag(repo, "v1", first, message = "  ")
 
@@ -630,7 +602,7 @@ class GitBranchesTest {
 
     @Test
     fun `renames a branch, also the current one, and refuses an existing name`() {
-        commit("First")
+        repository.commit("First")
         git("branch", "a")
         git("branch", "b")
 
@@ -652,10 +624,10 @@ class GitBranchesTest {
 
     @Test
     fun `deletes merged branches, refuses unmerged ones until forced, and deletes tags`() {
-        commit("First")
+        repository.commit("First")
         git("branch", "merged")
         git("switch", "-q", "-c", "lonely")
-        commit("Lonely", file = "lonely.txt")
+        repository.commit("Lonely", file = "lonely.txt")
         git("switch", "-q", "main")
         git("tag", "t1")
         git("tag", "t2")
@@ -686,7 +658,7 @@ class GitBranchesTest {
 
     @Test
     fun `refuses names starting with a dash without running git`() {
-        val first = commit("First")
+        val first = repository.commit("First")
 
         val branch = branches.createBranch(repo, "-x", first, checkout = false, overwrite = false)
         val tag = branches.createTag(repo, "--force", first, message = null)
