@@ -12,13 +12,19 @@ internal class FakeDirectoryWatcher : DirectoryWatcher {
     /** Every folder watched, in order, also again. */
     val watches = CopyOnWriteArrayList<Path>()
 
+    /** Every folder whose watch was closed, in order, also a watch another one replaced. */
+    val closes = CopyOnWriteArrayList<Path>()
+
     override fun watch(
         directory: Path,
         listener: (List<Path>) -> Unit,
     ): AutoCloseable {
         listeners[directory] = listener
         watches.add(directory)
-        return AutoCloseable { listeners.remove(directory, listener) }
+        return AutoCloseable {
+            closes.add(directory)
+            listeners.remove(directory, listener)
+        }
     }
 
     fun report(
