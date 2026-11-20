@@ -124,6 +124,13 @@ class PreviewFileViewUiTest {
     }
 
     @Test
+    fun `a preview without a limitation shows no banner`(robot: FxRobot) {
+        show(robot, "# \uD83D\uDE80 Headline\n")
+
+        assertFalse(robot.lookup(".preview-banner").queryAll<Node>().any { it.isVisible && it.isManaged })
+    }
+
+    @Test
     fun `an emoji in a heading reaches the page as one code point`(robot: FxRobot) {
         val (_, view) = show(robot, "# 🚀 Headline\n")
 

@@ -87,6 +87,24 @@
     -fx-background-color: -fx-background;
 }
 
+/* Above a preview whose limitation the user is told about (LimitationBanner): code-view.css's .editor-banner look. */
+.preview-banner {
+    -fx-font-family: "System";
+    -fx-font-style: normal;
+    -fx-font-weight: normal;
+    -fx-spacing: 8;
+    -fx-padding: 4 8 4 8;
+    -fx-background-color: #fff4ce;
+    -fx-border-color: transparent transparent #e5d08f transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+    .preview-banner {
+        -fx-background-color: #4a4128;
+        -fx-border-color: transparent transparent #6b5d33 transparent;
+    }
+}
+
 /* Same construction as code-view.css: the dark colour of the failure message. */
 @media (prefers-color-scheme: dark) {
     .preview-copy-message:error {

@@ -3,14 +3,20 @@ package dev.sluide.previews.html
 import com.sun.net.httpserver.HttpServer
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.previews.preview.PreviewFileView
+import dev.sluide.previews.preview.PreviewMode
+import dev.sluide.previews.preview.sourceArea
+import javafx.application.ColorScheme
 import javafx.concurrent.Worker
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Scene
+import javafx.scene.control.Label
 import javafx.scene.control.ToggleButton
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
+import javafx.scene.paint.Color
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -30,6 +36,7 @@ import kotlin.io.path.moveTo
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** The HTML preview with a real WebView. Needs a display, see the `uiTest` Gradle task. */
@@ -55,10 +62,13 @@ class HtmlPreviewUiTest {
         |
         """.trimMargin()
 
-    private fun show(robot: FxRobot): Pair<Path, PreviewFileView> {
+    private fun show(
+        robot: FxRobot,
+        html: String = page,
+    ): Pair<Path, PreviewFileView> {
         dir.resolve("style.css").writeText("h1 { color: rgb(255, 0, 0); }")
         dir.resolve("other.html").writeText("<h1>Other</h1>")
-        val file = dir.resolve("index.html").apply { writeText(page) }
+        val file = dir.resolve("index.html").apply { writeText(html) }
         val view = WaitForAsyncUtils.asyncFx<PreviewFileView> { HtmlFileViewer().open(file) as PreviewFileView }.get()
         robot.interact { container.children.setAll(view.node) }
         awaitPage(view, "Hello")
@@ -508,5 +518,98 @@ class HtmlPreviewUiTest {
         robot.interact { view.reload() }
 
         awaitPage(view, "Changed")
+    }
+
+    private fun banners(robot: FxRobot) = robot.lookup(".preview-banner").queryAll<Node>()
+
+    private fun bannerShown(robot: FxRobot) = fx { banners(robot).any { it.isVisible && it.isManaged } }
+
+    private val emojiPage = page.replace("</body>", "<p>go \uD83D\uDE80</p></body>")
+
+    @Test
+    fun `a file with an emoji shows the limitation banner with its message above the page`(robot: FxRobot) {
+        val (_, view) = show(robot, emojiPage)
+        assertTrue(bannerShown(robot), "emoji file")
+        assertEquals(
+            HtmlPreview.EMOJI_LIMITATION,
+            fx { robot.lookup(".preview-banner .label").queryAs(Label::class.java).text },
+        )
+        assertTrue(fx { robot.lookup(".preview-banner .label").queryAs(Label::class.java).isWrapText }, "wraps")
+        val banner = fx { banners(robot).single() }
+        assertTrue(
+            fx {
+                banner.localToScene(banner.boundsInLocal).maxY <=
+                    view.webView.localToScene(view.webView.boundsInLocal).minY + 1
+            },
+            "above the web view",
+        )
+    }
+
+    @Test
+    fun `a file without an emoji shows no banner and the hidden banner takes no room`(robot: FxRobot) {
+        show(robot)
+        assertFalse(bannerShown(robot))
+        assertFalse(fx { banners(robot).single().isManaged })
+    }
+
+    @Test
+    fun `a new view has its banner hidden before it renders`(robot: FxRobot) {
+        val file = dir.resolve("index.html").apply { writeText(emojiPage) }
+        // The HTML preview renders in a later FX turn (its root is not known yet), so the first turn shows no banner.
+        val shown =
+            fx {
+                val view = HtmlFileViewer().open(file) as PreviewFileView
+                (view.previewPane.top.isVisible)
+            }
+        assertFalse(shown)
+    }
+
+    @Test
+    fun `the banner goes when the last emoji is removed from the source and saved`(robot: FxRobot) {
+        val (_, view) = show(robot, emojiPage)
+        assertTrue(bannerShown(robot))
+
+        robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, page.replace("Hello", "Changed")) }
+        robot.interact { view.save() }
+        awaitPage(view, "Changed")
+
+        assertFalse(bannerShown(robot))
+    }
+
+    @Test
+    fun `the source mode hides the preview side and with it the banner`(robot: FxRobot) {
+        val (_, view) = show(robot, emojiPage)
+
+        robot.interact { view.mode.set(PreviewMode.SOURCE) }
+        assertTrue(fx { banners(robot).none { it.scene != null } }, "Source")
+
+        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
+        assertTrue(bannerShown(robot), "Preview")
+    }
+
+    @Test
+    fun `the banner is painted in the dark banner colour in the dark theme`(robot: FxRobot) {
+        show(robot, emojiPage)
+
+        robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
+
+        val banner = fx { banners(robot).single() as Region }
+        assertEquals(
+            Color.web("#4a4128"),
+            fx {
+                banner.background.fills
+                    .single()
+                    .fill
+            },
+        )
+        robot.interact { container.scene.preferences.colorScheme = ColorScheme.LIGHT }
+        assertEquals(
+            Color.web("#fff4ce"),
+            fx {
+                banner.background.fills
+                    .single()
+                    .fill
+            },
+        )
     }
 }

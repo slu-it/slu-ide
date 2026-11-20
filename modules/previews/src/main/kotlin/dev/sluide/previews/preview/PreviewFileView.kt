@@ -116,8 +116,10 @@ internal class PreviewFileView(
             isVisible = false
         }
 
-    /** The preview side: the web view, with [notice] over it when stopped. */
-    val previewPane = StackPane(webView, noticePane)
+    private val banner = LimitationBanner()
+
+    /** The preview side: the web view, with [notice] over it when stopped, under the [banner]. */
+    val previewPane = BorderPane(StackPane(webView, noticePane)).apply { top = banner }
 
     private val split = SplitPane()
     private val modes = ToggleGroup()
@@ -426,6 +428,7 @@ internal class PreviewFileView(
         val text = source.savedText
         if (stopped || text == renderedText) return
         renderedText = text
+        banner.update(preview.limitation(text))
         tocJump = null
         copyFormatted?.clear()
         rememberScroll()
