@@ -63,10 +63,10 @@ class TextMarksUiTest {
             """
     }
 
-    private fun load() {
+    private fun load(loadHtml: (WebEngine, String) -> Unit = { engine, html -> engine.loadContent(html) }) {
         userScrolls = 0
         script("window.__old = 1")
-        fx { webView.engine.loadContent(page()) }
+        fx { loadHtml(webView.engine, page()) }
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
             fx { webView.engine.loadWorker.state == Worker.State.SUCCEEDED } &&
                 script("typeof window.__old") == "undefined" &&
@@ -99,6 +99,20 @@ class TextMarksUiTest {
         assertEquals("lo brave wo", highlighted("sentence"))
         fx { marks.clear("sentence") }
         assertNull(highlighted("sentence"))
+    }
+
+    @Test
+    fun `a mark after an emoji that the page wraps in its own span still covers exactly its word`() {
+        load { engine, _ ->
+            engine.loadPage(
+                """<html><head><script>${TextMarks.SCRIPT}</script></head><body>
+                <p><span data-o="0">Go ${"\uD83D\uDE80"} now</span></p></body></html>""",
+            )
+        }
+        assertEquals("1", script("String(document.querySelectorAll('span[data-emoji]').length)"))
+        // "Go " is 3 UTF-16 units and the rocket 2, so "now" is [6, 9)
+        fx { marks.mark("word", 6, 9) }
+        assertEquals("now", highlighted("word"))
     }
 
     @Test

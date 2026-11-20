@@ -131,6 +131,9 @@ class PreviewFileViewUiTest {
             "1f680",
             view.script("Array.from(document.querySelector('h1').textContent)[0].codePointAt(0).toString(16)"),
         )
+        // The emoji sits in its own span, which JavaFX's WebKit on macOS needs to lay out the rest of the text.
+        assertEquals("🚀", view.script("document.querySelector('h1 span[data-emoji]').textContent"))
+        assertEquals("🚀 Headline", view.script("document.querySelector('h1').textContent"))
     }
 
     @Test
