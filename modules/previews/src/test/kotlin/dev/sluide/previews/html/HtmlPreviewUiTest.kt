@@ -559,7 +559,9 @@ class HtmlPreviewUiTest {
         val shown =
             fx {
                 val view = HtmlFileViewer().open(file) as PreviewFileView
-                (view.previewPane.top.isVisible)
+                // Disposed in the same turn, so that it never renders while a later test runs.
+                view.previewPane.top.isVisible
+                    .also { view.dispose() }
             }
         assertFalse(shown)
     }
