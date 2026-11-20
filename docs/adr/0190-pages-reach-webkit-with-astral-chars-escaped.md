@@ -60,4 +60,8 @@ decodes UTF-8 (JDK-8304041). The renderers' HTML is correct.
   that starts with an emoji makes the span `body > :first-child`, which `preview.css` styles. The paint is checked
   by a macOS test (`WebPagesUiTest`) that has not yet been seen red or green; its first manual `macos-ui-tests.yml`
   run is the open check.
+- The HTML preview serves the user's file as it is (`PreviewServer`, not `loadPage`), so its emoji stay wrong on
+  macOS. It shows a banner (`Preview.limitation`, `LimitationBanner`) when `containsEmoji`, the cluster rule the
+  spans use, finds one in the text; rewriting the user's HTML is undecided
+  ([docs/ideas/html-preview-emoji.md](../ideas/html-preview-emoji.md)).
 - Related: 0016, 0017, 0069, 0165.

@@ -92,6 +92,12 @@ notebooks, PEM) zooms as a document: the whole page scales and reflows, as in a 
 - **Scripts:** off by default. The **Scripts** toggle in the toolbar runs them for this tab (the page reloads), after
   a warning: its scripts can read those files and send them to the web. Every newly opened tab starts with scripts
   off again.
+- **Emoji:** the served file is shown as it is, and JavaFX's web view mis-draws emoji in it (on macOS the text after
+  one can vanish). When the file's text has an emoji, a banner above the page names this known limitation; it goes
+  when the last emoji is removed and the preview renders again; emoji written as character references
+  (`&#x1F680;`) do not show it, as the text has none
+  ([ADR 0190](../adr/0190-pages-reach-webkit-with-astral-chars-escaped.md),
+  [idea](../ideas/html-preview-emoji.md)).
 - **Navigation:** a page other than the file itself never shows. Within 2 seconds after a mouse press, a key press
   or a drop onto the preview (a link, a submitted form, a dropped file), the target opens elsewhere — web pages in the
   system browser, files in a tab — and the file is shown again; links to other files open them in a tab, also links
