@@ -13,6 +13,9 @@ Every preview shows the highlighted source beside the rendered file in a `WebVie
 saved or changes on disk; links open in the system browser or a Thoreau tab
 and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.md)).
 
+Characters outside the BMP (emoji) display in every preview: pages load through `loadPage`, see
+[ADR 0190](../adr/0190-pages-reach-webkit-with-astral-chars-escaped.md).
+
 JSON, XML and YAML files have a formatted, foldable preview ([JSON](json-preview.md), [XML](xml-preview.md),
 [YAML](yaml-preview.md)).
 
