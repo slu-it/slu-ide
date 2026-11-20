@@ -65,6 +65,12 @@ internal interface Preview {
         projectFolder: Path?,
     ): Path = projectFolder?.takeIf { file.startsWith(it) } ?: file.parent
 
+    /**
+     * A message the view shows above the page for [text], a known limitation of this preview that the user should be
+     * told about, or null for none. Asked on every render, on the FX thread.
+     */
+    fun limitation(text: String): String? = null
+
     /** Whether the page's own scripts may run when the user allows it (a toolbar toggle, off by default). */
     val offersScripts: Boolean get() = false
 

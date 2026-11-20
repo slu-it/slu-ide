@@ -8,6 +8,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class HtmlPreviewTest {
@@ -53,5 +54,12 @@ class HtmlPreviewTest {
             HtmlPreview.linkTarget("https://example.com/a", file),
         )
         assertEquals(LinkTarget.File(dir.resolve("style.css")), HtmlPreview.linkTarget("style.css#x", file))
+    }
+
+    @Test
+    fun `a text with an emoji has the emoji limitation, one without has none`() {
+        assertEquals(HtmlPreview.EMOJI_LIMITATION, HtmlPreview.limitation("<p>go \uD83D\uDE80</p>"))
+        assertEquals(HtmlPreview.EMOJI_LIMITATION, HtmlPreview.limitation("<p>\u2705 done</p>"))
+        assertNull(HtmlPreview.limitation("<p>plain \u00e9 text</p>"))
     }
 }

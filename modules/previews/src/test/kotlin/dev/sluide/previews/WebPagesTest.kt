@@ -237,4 +237,30 @@ class WebPagesTest {
         val (html, expected) = case.split("|")
         assertContains(preparePage(html), expected)
     }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "$ROCKET",
+            "\u2705",
+            "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67",
+            "\uD83C\uDDE9\uD83C\uDDEA",
+            "1\uFE0F\u20E3",
+            "plain text",
+            "\u00e9",
+            "\uD835\uDC65",
+            "\uD83C\uDE00",
+            "1 2 3",
+        ],
+    )
+    fun `containsEmoji agrees with the spans preparePage wraps`(text: String) {
+        val wrapped = emojiSpans("<p>a $text b</p>").isNotEmpty()
+        assertEquals(wrapped, containsEmoji("a $text b"), text)
+    }
+
+    @Test
+    fun `containsEmoji is true for an emoji among thousands of plain chars and false for none`() {
+        assertTrue(containsEmoji("abc ".repeat(10_000) + ROCKET))
+        assertFalse(containsEmoji("abc \u00e9 ".repeat(10_000)))
+    }
 }

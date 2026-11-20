@@ -40,6 +40,9 @@ internal fun preparePage(html: String): String {
     return document.outerHtml()
 }
 
+/** Whether [text] has an emoji cluster: exactly what [preparePage] wraps in a span, so the two cannot disagree. */
+internal fun containsEmoji(text: String): Boolean = mayHoldEmoji(text) && graphemeClusters(text).any(::isEmoji)
+
 /** Whether [text] has a surrogate or a char that can be part of an emoji cluster: a pictograph, FE0F or the keycap. */
 private fun mayHoldEmoji(text: String) =
     text.any {
@@ -51,18 +54,18 @@ private fun isEmoji(cluster: String) =
         Character.isExtendedPictographic(it) || it in 0x1F1E6..0x1F1FF || it == 0xFE0F || it == 0x20E3
     }
 
-private fun graphemeClusters(text: String): List<String> {
-    val breaks = BreakIterator.getCharacterInstance(Locale.ROOT).apply { setText(text) }
-    val clusters = mutableListOf<String>()
-    var start = breaks.first()
-    var end = breaks.next()
-    while (end != BreakIterator.DONE) {
-        clusters += text.substring(start, end)
-        start = end
-        end = breaks.next()
+/** The extended grapheme clusters of [text], one at a time, so that a caller can stop at the first it wants. */
+private fun graphemeClusters(text: String): Sequence<String> =
+    sequence {
+        val breaks = BreakIterator.getCharacterInstance(Locale.ROOT).apply { setText(text) }
+        var start = breaks.first()
+        var end = breaks.next()
+        while (end != BreakIterator.DONE) {
+            yield(text.substring(start, end))
+            start = end
+            end = breaks.next()
+        }
     }
-    return clusters
-}
 
 private val NO_SPAN_INSIDE = setOf("textarea", "title", "option", "svg", "math")
 

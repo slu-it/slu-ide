@@ -1,6 +1,7 @@
 package dev.sluide.previews.html
 
 import dev.sluide.fileviewers.Highlighters
+import dev.sluide.previews.containsEmoji
 import dev.sluide.previews.preview.LinkTarget
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileViewer
@@ -23,6 +24,9 @@ class HtmlFileViewer :
 
 /** The HTML file itself, as the author styled it; links leave it and are opened elsewhere by the view. */
 internal object HtmlPreview : Preview {
+    const val EMOJI_LIMITATION =
+        "Emoji may not display correctly in this HTML preview: a known limitation of JavaFX's web view."
+
     override fun load(
         engine: WebEngine,
         file: Path,
@@ -30,6 +34,8 @@ internal object HtmlPreview : Preview {
         dark: Boolean,
         root: Path,
     ) = engine.load(PreviewServer.url(root, file).toString())
+
+    override fun limitation(text: String) = EMOJI_LIMITATION.takeIf { containsEmoji(text) }
 
     override val usesRoot get() = true
 
