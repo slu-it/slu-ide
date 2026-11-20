@@ -66,6 +66,10 @@ its fixture `RealDatabases` starts one container per kind on a 127.0.0.1 port an
 `SLUIDE_OPUSMT_SMOKE=1` set, and skips a case whose Medium models (de-en, en-de, en-sv, en-zh) are not in
 `~/.sluide/models/opus-mt/`; it checks the placeholder form against every probed pair and prints each translation with
 its time: `SLUIDE_OPUSMT_SMOKE=1 ./gradlew :modules:translation:test --tests 'OpusMtEngineRealTest' -i`.
+`JShellRealTest` (module `jshell`) runs the JShell agent process on real JDKs only with `SLUIDE_TEST_JSHELL` naming
+JDK homes (separated like a class path): a value, a stopped endless loop, `System.exit`'s status, no agent or execution
+JVM left after `close()` or a killed agent, and a runtime without `jdk.jshell`:
+`SLUIDE_TEST_JSHELL=/usr/lib/jvm/java-25-openjdk-arm64:/usr/lib/jvm/java-21-openjdk-arm64 ./gradlew :modules:jshell:test --tests 'JShellRealTest' -q`.
 
 ## Display handling
 - **Linux without `DISPLAY` and without `CI`:** `uiTest` is *skipped* (not failed), so a headless sandbox stays usable.

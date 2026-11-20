@@ -216,6 +216,7 @@ updated when the summary or keywords no longer fit.
 | [0188](adr/0188-paste-clipboard-text-in-the-explorer.md) | Paste in the explorer takes clipboard text too: files > text > image, name and type dialog, writes and opens a file | paste text, clipboard text, `ExplorerTextPaste`, `PasteTextDialog`, Paste Text, `askTextName`, `textTypes`, pasted-, New Scratch from Clipboard | amends 0167, 0092; see 0187 |
 | [0189](adr/0189-mutation-ui-stage-once-after-review.md) | Mutation runs: the UI stage once per package after the review, on four displays; accepted mutants | mutation-check, UI stage, `--unit-only`, `--ui-tests`, `--displays`, `--accept`, accepted.tsv, review rounds, session time, hand break check, timeout | amends 0185 |
 | [0190](adr/0190-pages-reach-webkit-with-astral-chars-escaped.md) | Pages load through `loadPage`: astral characters escaped, each emoji in its own span, via jsoup | emoji, astral, U+FFFD, `loadContent`, `loadPage`, `preparePage`, `data-emoji`, macOS, JDK-8304041, jsoup, `WebPages`, banner | see 0016, 0017, 0069, 0165 |
+| [0191](adr/0191-jshell-engine.md) | JShell engine: a Java 9 Kotlin agent on the chosen JDK, JSON lines over stdin/stdout, watchdog, output coalescing | JShell, REPL, `.jsh`, agent, `JShellSession`, `JShellJdks`, `hasJShell`, watchdog, recordings, `AgentFiles`, jdk.jshell, stop | see 0011, 0060, 0090, 0179 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
