@@ -19,10 +19,12 @@ decodes UTF-8 (JDK-8304041). The renderers' HTML is correct.
   `loadContent("")` stay); the ebook view uses it too, so its `data-o` UTF-16 offsets match the DOM again.
 - `escapeSupplementary` returns a page without a surrogate char unchanged (the same instance), so those pages load
   exactly as before. Otherwise it parses the page with jsoup and writes it with `prettyPrint(false)` and the US-ASCII
-  charset: text and attribute values get numeric references (not identifiers, `String.raw` or data blocks). Content of `<script>` and `<style>` is a `DataNode`
+  charset: text and attribute values get numeric references. Content of `<script>` and `<style>` is a `DataNode`
   that jsoup does not escape, so each astral code point there is rewritten: in a script as the two surrogates
-  `\uD83D\uDE80` (valid in JS strings, template literals, regexp literals and JSON), in a style as the CSS escape
-  `\1F680 ` (the space ends the escape).
+  `\uD83D\uDE80` (valid in JS strings, template literals, regexp literals and JSON; not in identifiers, `String.raw`
+  or data blocks), in a style as the CSS escape `\1F680 ` (the space ends the escape).
+- `<pre>` and `<listing>`: jsoup's parser drops the first newline after the start tag and its writer does not add it
+  back, so `restorePreNewlines` writes it again (`textarea` keeps it without help).
 - Not `load("data:...")`: it changes the document URL and origin that link handling and `#anchor` navigation rely on
   (ADR 0017, 0018). Not a regex over the markup: the rule is to work on the parsed document.
 
@@ -36,8 +38,6 @@ decodes UTF-8 (JDK-8304041). The renderers' HTML is correct.
   emoji in a script (`'\<emoji>'` changes meaning), astral identifiers, `String.raw` and data-block scripts
   (`type="text/plain"`), which see the escape text, and lone surrogates, which stay broken. None of the shipped
   resources has astral characters.
-- Related: 0016, 0017, 0069, 0165. A new page loaded with `loadContent` brings the defect back;
-  `.claude/rules/javafx.md`
-  says pages go through `loadPage`.
-- `<pre>` and `<listing>`: jsoup's parser drops the first newline after the start tag and its writer does not add it
-  back, so `restorePreNewlines` writes it again (`textarea` keeps it without help).
+- A new page loaded with `loadContent` brings the defect back; `.claude/rules/javafx.md` says pages go through
+  `loadPage`.
+- Related: 0016, 0017, 0069, 0165.

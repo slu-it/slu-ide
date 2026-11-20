@@ -53,4 +53,5 @@ So only HTML needs confining, and an HTTP origin confines it to what a server ha
 - The `WebView`s do stop: a preview whose tab closes, or which a diff view replaces, loads a blank page
   (`FileView.dispose`), so the page's scripts, timers and requests end with it rather than when it is collected.
 - WebKit honours `Referrer-Policy` (tested), so remote requests do not reveal a page's URL.
-- Generated previews load through `loadPage` (ADR 0190), a `loadContent` that escapes astral characters; they need no server.
+- Generated previews load through `loadPage` (ADR 0190), a `loadContent` that escapes astral characters; they need
+  no server.
