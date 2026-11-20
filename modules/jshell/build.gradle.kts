@@ -4,7 +4,14 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.javafx)
     `java-library`
+}
+
+javafx {
+    // Maven Central publishes no Gradle metadata for JavaFX, so the plugin picks the platform jars (ADR 0003).
+    version = libs.versions.javafx.get()
+    modules("javafx.controls")
 }
 
 dependencies {
@@ -19,9 +26,13 @@ dependencies {
     // The agent protocol's JSON lines on Thoreau's side; the agent itself has its own small codec (ADR 0191). Version
     // from the Spring Boot BOM.
     implementation(libs.jackson.databind)
+    // The transcript pane (package ui) is a read-only RichTextFX area, like the code views (ADR 0005).
+    implementation(libs.richtextfx)
 
     // Generic test helpers: LogCapture (ADR 0186).
     testImplementation(project(":modules:test-support"))
+    testImplementation(libs.testfx.core)
+    testImplementation(libs.testfx.junit5)
 }
 
 // The agent (package dev.sluide.jshell.agent) runs on the JDK the user picks, JDK 9 or newer (ADR 0191). Its sources

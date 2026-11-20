@@ -1,0 +1,64 @@
+/*
+ * The transcript of the JShell view (TranscriptPane): monospace text, one style class per paragraph kind on the text
+ * segments. The plain kinds use Modena's looked-up colours; the hard-coded ones (errors, values) have dark rules in the
+ * block below with single-class selectors (ADR 0009).
+ */
+
+.transcript-pane {
+    -fx-font-family: monospace;
+}
+
+.transcript-area {
+    -fx-background-color: -fx-control-inner-background;
+}
+
+.transcript-output {
+    -fx-fill: -fx-text-background-color;
+}
+
+/* A prompt: dimmed and bold. */
+.transcript-header {
+    -fx-fill: -fx-text-background-color;
+    -fx-font-weight: bold;
+    -fx-opacity: 0.65;
+}
+
+.transcript-note {
+    -fx-fill: -fx-text-background-color;
+    -fx-font-style: italic;
+    -fx-opacity: 0.7;
+}
+
+.transcript-value {
+    -fx-fill: #1565c0;
+}
+
+.transcript-error-output {
+    -fx-fill: #c62828;
+}
+
+.transcript-diagnostic {
+    -fx-fill: #c62828;
+}
+
+.transcript-thrown {
+    -fx-fill: #c62828;
+}
+
+@media (prefers-color-scheme: dark) {
+    .transcript-value {
+        -fx-fill: #64b5f6;
+    }
+
+    .transcript-error-output {
+        -fx-fill: #ff6f6c;
+    }
+
+    .transcript-diagnostic {
+        -fx-fill: #ff6f6c;
+    }
+
+    .transcript-thrown {
+        -fx-fill: #ff6f6c;
+    }
+}
