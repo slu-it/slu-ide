@@ -1,5 +1,6 @@
 package dev.sluide.previews.markdown
 
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.HtmlPage
 import dev.sluide.previews.preview.Vendor
 import javafx.application.Platform
@@ -133,7 +134,7 @@ internal class WebViewExportRenderer(
             if (result.isDone) return
             val engine = WebEngine().also { engine = it }
             engine.loadWorker.stateProperty().addListener(loaded)
-            engine.loadContent(page)
+            engine.loadPage(page)
         }
 
         private fun run() {

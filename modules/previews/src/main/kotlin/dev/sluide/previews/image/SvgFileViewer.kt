@@ -1,6 +1,7 @@
 package dev.sluide.previews.image
 
 import dev.sluide.fileviewers.Highlighters
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileViewer
 import dev.sluide.previews.preview.PreviewMode
@@ -21,7 +22,7 @@ internal object SvgPreview : Preview {
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(ImagePage.render(text.toByteArray(), "image/svg+xml", dark))
+    ) = engine.loadPage(ImagePage.render(text.toByteArray(), "image/svg+xml", dark))
 
     override val defaultMode get() = PreviewMode.PREVIEW
 

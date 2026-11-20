@@ -2,6 +2,7 @@ package dev.sluide.previews.xml
 
 import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.readTextSample
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.FoldState
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileViewer
@@ -69,7 +70,7 @@ internal object XmlPreview : Preview {
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(XmlRenderer.render(text, dark, FoldState.read(engine)))
+    ) = engine.loadPage(XmlRenderer.render(text, dark, FoldState.read(engine)))
 
     override val syncsScroll get() = true
 

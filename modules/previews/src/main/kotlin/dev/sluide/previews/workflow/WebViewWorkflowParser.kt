@@ -1,6 +1,7 @@
 package dev.sluide.previews.workflow
 
 import dev.sluide.githubactions.WorkflowParser
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.HtmlPage
 import dev.sluide.previews.preview.Vendor
 import javafx.application.Platform
@@ -140,7 +141,7 @@ internal class WebViewWorkflowParser(
         init {
             engine.isJavaScriptEnabled = true
             engine.loadWorker.stateProperty().addListener(listener)
-            engine.loadContent(
+            engine.loadPage(
                 HtmlPage.render(dark = false, styles = emptyList(), scripts = listOf(Vendor.workflowParserJs)) {},
             )
         }

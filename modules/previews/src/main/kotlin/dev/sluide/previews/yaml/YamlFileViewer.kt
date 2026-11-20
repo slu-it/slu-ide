@@ -1,6 +1,7 @@
 package dev.sluide.previews.yaml
 
 import dev.sluide.fileviewers.Highlighters
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.FoldState
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileViewer
@@ -37,7 +38,7 @@ internal object YamlPreview : Preview {
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(YamlRenderer.render(text, dark, FoldState.read(engine)))
+    ) = engine.loadPage(YamlRenderer.render(text, dark, FoldState.read(engine)))
 
     override val syncsScroll get() = true
 

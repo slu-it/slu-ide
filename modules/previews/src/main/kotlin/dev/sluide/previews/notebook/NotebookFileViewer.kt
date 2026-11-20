@@ -1,6 +1,7 @@
 package dev.sluide.previews.notebook
 
 import dev.sluide.fileviewers.Highlighters
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileViewer
 import dev.sluide.previews.preview.PreviewMode
@@ -21,7 +22,7 @@ internal object NotebookPreview : Preview {
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(NotebookRenderer.render(text, file.parent, dark))
+    ) = engine.loadPage(NotebookRenderer.render(text, file.parent, dark))
 
     override val defaultMode get() = PreviewMode.PREVIEW
 }

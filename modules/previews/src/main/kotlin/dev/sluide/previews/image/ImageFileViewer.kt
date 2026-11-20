@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.imagelimits.ImageCheck
 import dev.sluide.imagelimits.ImageLimits
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.PageZoom
 import dev.sluide.previews.preview.ZoomControls
 import dev.sluide.previews.preview.isPageFromString
@@ -170,7 +171,7 @@ internal class ImageFileView(
             refused = false
             pane.center = webView
             zoom.node.isDisable = false
-            engine.loadContent(ImagePage.render(bytes, imageTypes.getValue(file.extension.lowercase()), dark))
+            engine.loadPage(ImagePage.render(bytes, imageTypes.getValue(file.extension.lowercase()), dark))
             return
         }
         val wasShowingPage = !refused

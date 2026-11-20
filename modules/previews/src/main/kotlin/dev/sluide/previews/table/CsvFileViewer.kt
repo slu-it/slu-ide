@@ -1,6 +1,7 @@
 package dev.sluide.previews.table
 
 import dev.sluide.fileviewers.SyntaxHighlighter
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileViewer
 import dev.sluide.textediting.CommentSyntax
@@ -22,7 +23,7 @@ internal object CsvPreview : Preview {
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(
+    ) = engine.loadPage(
         CsvRenderer.render(text, CsvRenderer.delimiter(file.extension, text), dark, state = TableState.read(engine)),
     )
 

@@ -124,6 +124,16 @@ class PreviewFileViewUiTest {
     }
 
     @Test
+    fun `an emoji in a heading reaches the page as one code point`(robot: FxRobot) {
+        val (_, view) = show(robot, "# 🚀 Headline\n")
+
+        assertEquals(
+            "1f680",
+            view.script("Array.from(document.querySelector('h1').textContent)[0].codePointAt(0).toString(16)"),
+        )
+    }
+
+    @Test
     fun `the toolbar shows the source or the preview alone`(robot: FxRobot) {
         val (_, view) = show(robot, "# Title\n")
         val split = robot.lookup(".split-pane").queryAs(SplitPane::class.java)

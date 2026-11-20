@@ -3,6 +3,7 @@ package dev.sluide.previews.json
 import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.NamedFileViewer
 import dev.sluide.fileviewers.isTextFile
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.FoldState
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileViewer
@@ -50,7 +51,7 @@ internal object JsonPreview : Preview {
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(JsonRenderer.render(text, dark, FoldState.read(engine)))
+    ) = engine.loadPage(JsonRenderer.render(text, dark, FoldState.read(engine)))
 
     override val syncsScroll get() = true
 

@@ -216,6 +216,20 @@ class EpubFileViewUiTest {
         }
     }
 
+    @Test
+    fun `an emoji in the book text reaches the page as one code point`() {
+        val view = open(TestEpub(listOf(TestChapter("c0.xhtml", "<h1>Rocket</h1><p>go 🚀 now</p>", title = "R"))))
+        view.loadedPage()
+
+        val points =
+            fx {
+                view.webView.engine.executeScript(
+                    "Array.from(document.body.textContent).map(c => c.codePointAt(0).toString(16)).join(' ')",
+                ) as String
+            }
+        assertTrue("20 1f680 20" in points, points)
+    }
+
     private fun entryCell(
         tree: TreeView<TocItem>,
         title: String,

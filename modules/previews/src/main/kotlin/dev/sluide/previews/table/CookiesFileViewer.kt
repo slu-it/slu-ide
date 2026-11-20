@@ -1,6 +1,7 @@
 package dev.sluide.previews.table
 
 import dev.sluide.fileviewers.Highlighters
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileViewer
 import dev.sluide.textediting.CommentSyntax
@@ -26,7 +27,7 @@ internal object CookiesPreview : Preview {
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(render(text, dark, TableState.read(engine)))
+    ) = engine.loadPage(render(text, dark, TableState.read(engine)))
 
     fun render(
         text: String,

@@ -2,6 +2,7 @@ package dev.sluide.previews.pem
 
 import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.readTextSample
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileViewer
 import dev.sluide.previews.preview.PreviewMode
@@ -35,7 +36,7 @@ internal object PemPreview : Preview {
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(PemRenderer.render(text, dark))
+    ) = engine.loadPage(PemRenderer.render(text, dark))
 
     override val defaultMode get() = PreviewMode.PREVIEW
 }

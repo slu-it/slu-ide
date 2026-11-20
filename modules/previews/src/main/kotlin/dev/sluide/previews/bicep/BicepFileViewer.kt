@@ -2,6 +2,7 @@ package dev.sluide.previews.bicep
 
 import dev.sluide.fileviewers.BicepResourceGraph
 import dev.sluide.fileviewers.Highlighters
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.markdown.MarkdownRenderer
 import dev.sluide.previews.markdown.MermaidPreview
 import dev.sluide.previews.preview.Preview
@@ -31,7 +32,7 @@ internal object BicepPreview : Preview {
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(render(text, dark))
+    ) = engine.loadPage(render(text, dark))
 
     fun render(
         text: String,

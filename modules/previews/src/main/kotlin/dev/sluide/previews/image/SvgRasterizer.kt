@@ -1,5 +1,6 @@
 package dev.sluide.previews.image
 
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.HtmlPage
 import javafx.animation.AnimationTimer
 import javafx.application.Platform
@@ -150,7 +151,7 @@ internal class WebViewSvgRasterizer(
             webView.engine.loadWorker
                 .stateProperty()
                 .addListener(loaded)
-            webView.engine.loadContent(page)
+            webView.engine.loadPage(page)
         }
 
         private fun draw() {

@@ -1,6 +1,7 @@
 package dev.sluide.previews.markdown
 
 import dev.sluide.fileviewers.Highlighters
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileViewer
 import dev.sluide.textediting.CommentSyntax
@@ -26,7 +27,7 @@ internal object MarkdownPreview : Preview {
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(MarkdownRenderer.render(text, file.parent, dark))
+    ) = engine.loadPage(MarkdownRenderer.render(text, file.parent, dark))
 
     override val syncsScroll get() = true
 

@@ -8,6 +8,7 @@ import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.ViewActivity
 import dev.sluide.previews.DocumentZoom
 import dev.sluide.previews.TextMarks
+import dev.sluide.previews.loadPage
 import javafx.animation.Animation
 import javafx.animation.PauseTransition
 import javafx.application.ColorScheme
@@ -289,7 +290,7 @@ internal class EpubFileView(
         pendingReveal = reveal
         pageNotice.hide()
         updateChapterButtons()
-        engine.loadContent(next.html)
+        engine.loadPage(next.html)
     }
 
     private fun onLoaded() {

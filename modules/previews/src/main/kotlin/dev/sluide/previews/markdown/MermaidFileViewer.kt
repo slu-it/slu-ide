@@ -1,6 +1,7 @@
 package dev.sluide.previews.markdown
 
 import dev.sluide.fileviewers.Highlighters
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileViewer
 import dev.sluide.textediting.CommentSyntax
@@ -28,7 +29,7 @@ internal object MermaidPreview : Preview {
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(render(text, dark))
+    ) = engine.loadPage(render(text, dark))
 
     override val zooms get() = true
 

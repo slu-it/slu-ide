@@ -13,6 +13,7 @@ import dev.sluide.githubactions.WorkflowGraph
 import dev.sluide.githubactions.WorkflowGraphs
 import dev.sluide.githubactions.WorkflowParser
 import dev.sluide.githubactions.WorkflowSources
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.markdown.MarkdownRenderer
 import dev.sluide.previews.markdown.MermaidPreview
 import dev.sluide.previews.preview.Preview
@@ -140,7 +141,7 @@ internal class WorkflowPreview(
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(page(file, text, dark))
+    ) = engine.loadPage(page(file, text, dark))
 
     /** The page for [text] of [file]: its graph if parsed already, otherwise a note while it is parsed. */
     fun page(
