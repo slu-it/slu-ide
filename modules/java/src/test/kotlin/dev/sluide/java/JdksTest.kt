@@ -78,6 +78,43 @@ class JdksTest {
         assertNull(Jdks.read(home))
     }
 
+    @ParameterizedTest
+    @CsvSource(
+        delimiter = '|',
+        textBlock = """
+        21.0.1    | 'MODULES="java.base jdk.compiler jdk.jshell jdk.jdi"' | true
+        21.0.1    | 'MODULES="jdk.jshell"'                               | true
+        25        | 'MODULES="java.base java.desktop jdk.zipfs"'         | false
+        25        | 'MODULES="java.base jdk.jshellx xjdk.jshell"'        | false
+        11.0.2    | ''                                                   | true
+        9         | ''                                                   | true
+        1.8.0_392 | ''                                                   | false
+        1.8.0_392 | 'MODULES="jdk.jshell"'                               | false""",
+    )
+    fun `a JDK has JShell from 9 on when its release file lists jdk jshell or no modules at all`(
+        version: String,
+        modules: String,
+        expected: Boolean,
+    ) {
+        val home = root.resolve("jdk")
+        home
+            .resolve("bin")
+            .createDirectories()
+            .resolve("java")
+            .writeText("#!/bin/sh\n")
+        home.resolve("release").writeText("JAVA_VERSION=\"$version\"\n$modules\nOS_ARCH=\"x\"\n")
+        val jdk = Jdks.read(home)
+        assertEquals(expected, jdk?.let(Jdks::hasJShell))
+    }
+
+    @Test
+    fun `a JDK whose release file is gone by now has no JShell`() {
+        val home = jdk(root.resolve("jdk"))
+        val jdk = Jdks.read(home)
+        Files.delete(home.resolve("release"))
+        assertEquals(false, jdk?.let(Jdks::hasJShell))
+    }
+
     @Test
     fun `the macOS layouts are found`() {
         val user = root.resolve("user")

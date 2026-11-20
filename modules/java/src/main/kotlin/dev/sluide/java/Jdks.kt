@@ -13,7 +13,8 @@ data class Jdk(
 )
 
 enum class JdkSource(
-    internal val description: String,
+    /** How the user sees the source, lower case, e.g. "the project's JDK". */
+    val description: String,
 ) {
     PROJECT_SETTING("the project's JDK"),
     LOGIN_SHELL("the login shell's JAVA_HOME"),
@@ -29,6 +30,7 @@ data class ProjectJdk(
 
 private const val MAX_RELEASE_BYTES = 64 * 1024
 private val VERSION_LINE = Regex("""^JAVA_VERSION\s*=\s*"([^"]*)"""", RegexOption.MULTILINE)
+private val MODULES_LINE = Regex("""^MODULES\s*=\s*"([^"]*)"""", RegexOption.MULTILINE)
 private val MAJOR = Regex("""^(\d+)(?:\.(\d+))?""")
 
 /**
@@ -41,16 +43,21 @@ object Jdks {
     /** The JDK at [home]: needs `bin/java` (a regular file) and a `release` file with `JAVA_VERSION="…"`; null otherwise. No process runs. */
     fun read(home: Path): Jdk? {
         if (!Files.isRegularFile(home.resolve("bin").resolve("java"))) return null
-        val release =
-            try {
-                Files.newInputStream(home.resolve("release")).use { it.readNBytes(MAX_RELEASE_BYTES) }
-            } catch (_: IOException) {
-                return null
-            }
-        val version = VERSION_LINE.find(String(release, Charsets.UTF_8))?.groupValues?.get(1) ?: return null
+        val release = release(home) ?: return null
+        val version = VERSION_LINE.find(release)?.let { it.groupValues[1] } ?: return null
         val major = majorOf(version) ?: return null
         return Jdk(home, version, major)
     }
+
+    private fun release(home: Path): String? =
+        try {
+            String(
+                Files.newInputStream(home.resolve("release")).use { it.readNBytes(MAX_RELEASE_BYTES) },
+                Charsets.UTF_8,
+            )
+        } catch (_: IOException) {
+            null
+        }
 
     /** JDKs in well-known folders, newest major first, then by path; duplicates (same real path) once. */
     fun installed(
@@ -96,6 +103,17 @@ object Jdks {
             path.toAbsolutePath().normalize()
         }
 
+    /**
+     * Whether [jdk] can run JShell: major 9 or newer, and its `release` file's `MODULES` line lists `jdk.jshell` (a
+     * jlinked runtime may lack it); a release file without that line counts as a full JDK.
+     */
+    fun hasJShell(jdk: Jdk): Boolean {
+        if (jdk.major < 9) return false
+        val release = release(jdk.home) ?: return false
+        val modules = MODULES_LINE.find(release)?.let { it.groupValues[1] } ?: return true
+        return "jdk.jshell" in modules.split(' ')
+    }
+
     /** `17.0.2` is 17, `1.8.0_392` is 8, `25-ea` is 25; null if unparsable. */
     private fun majorOf(version: String): Int? {
         val match = MAJOR.find(version) ?: return null
@@ -137,8 +155,15 @@ class JavaHomes(
      * which is asked again). */
     fun loginShellJavaHome(): Path? = askLoginShell()
 
-    /** The JDK for a project: [projectSetting] if valid, else the login shell's JAVA_HOME, else this process's JAVA_HOME, else Thoreau's own JDK. */
-    fun resolve(projectSetting: Path?): ProjectJdk? {
+    /**
+     * The JDK for a project: [projectSetting] if valid, else the login shell's JAVA_HOME, else this process's JAVA_HOME,
+     * else Thoreau's own JDK. A JDK that [accept] rejects is skipped like an invalid one; the only caller with a
+     * predicate is JShell's ([Jdks.hasJShell]), so the problem names JShell.
+     */
+    fun resolve(
+        projectSetting: Path?,
+        accept: (Jdk) -> Boolean = { true },
+    ): ProjectJdk? {
         var skipped: String? = null
         val candidates =
             sequenceOf<Pair<JdkSource, () -> Path?>>(
@@ -158,15 +183,20 @@ class JavaHomes(
         for ((source, home) in candidates) {
             val path = home() ?: continue
             val jdk = read(path)
-            if (jdk != null) {
+            if (jdk != null && accept(jdk)) {
                 val problem = skipped?.let { "$it; using ${source.description}." }
                 return ProjectJdk(jdk, source, problem)
             }
             if (skipped == null) {
-                skipped =
-                    "${source.description.replaceFirstChar {
-                        it.uppercase()
-                    }} $path is not a JDK (no bin/java or release file)"
+                val why =
+                    if (jdk ==
+                        null
+                    ) {
+                        "is not a JDK (no bin/java or release file)"
+                    } else {
+                        "has no JShell (JDK ${jdk.major})"
+                    }
+                skipped = "${source.description.replaceFirstChar { it.uppercase() }} $path $why"
             }
         }
         return null

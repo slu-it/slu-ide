@@ -180,6 +180,38 @@ class JavaHomesTest {
     }
 
     @Test
+    fun `a project JDK the predicate rejects is skipped with a problem naming its major`() {
+        val project = jdk("project", "1.8.0_392")
+        val shellJdk = jdk("shell", "21.0.1")
+        val result = homes(shell = { _, _ -> shellJdk.toString() }).resolve(project) { it.major >= 9 }
+        assertEquals(Jdk(shellJdk, "21.0.1", 21), result?.jdk)
+        assertEquals(JdkSource.LOGIN_SHELL, result?.source)
+        assertEquals(
+            "The project's JDK $project has no JShell (JDK 8); using the login shell's JAVA_HOME.",
+            result?.problem,
+        )
+    }
+
+    @Test
+    fun `a rejected JDK after an invalid one keeps the first problem`() {
+        val bad = notJdk("bad")
+        val env = jdk("env", "1.8.0_1")
+        val result =
+            homes(environment = mapOf("JAVA_HOME" to env.toString()), thoreau = jdk("thoreau", "25"))
+                .resolve(bad) { it.major >= 9 }
+        assertEquals(JdkSource.THOREAU, result?.source)
+        assertEquals(
+            "The project's JDK $bad is not a JDK (no bin/java or release file); using Thoreau's own JDK.",
+            result?.problem,
+        )
+    }
+
+    @Test
+    fun `every JDK rejected gives null`() {
+        assertNull(homes(thoreau = jdk("thoreau", "1.8.0_1")).resolve(jdk("project", "8")) { it.major >= 9 })
+    }
+
+    @Test
     fun `an invalid login shell JAVA_HOME is skipped with a problem naming it`() {
         val bad = notJdk("bad")
         val env = jdk("env")
