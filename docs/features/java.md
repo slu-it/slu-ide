@@ -71,7 +71,8 @@ imports, banners and status lines refresh once a second.
 
 ## The JDK
 The project JDK is, in this order: the project's setting (File → Project Settings…), `JAVA_HOME` of the user's login
-shell (read once for the language server and once for the Project Settings page, so the page's "JAVA_HOME: …" entry can differ from the JDK jdtls uses if the shell's value changed in between), `JAVA_HOME` of Thoreau's environment, Thoreau's own JDK. A setting that is no JDK is skipped
+shell (read once for the language server and once for the Project Settings page, so the page's "JAVA_HOME: …" entry can differ from the JDK jdtls uses if the shell's value changed in between), `JAVA_HOME` of Thoreau's environment, Thoreau's own JDK (in the packaged app a partial jlink runtime of about 36 modules: no `java.rmi`,
+`java.smartcardio`, JDK sources or `ct.sym`, so a project that falls back to it can miss those classes and sources; ADR 0011). A setting that is no JDK is skipped
 and the tooltip says so. It runs Gradle imports and is the default runtime builds compile against; a change reaches the
 running server at once. Thoreau does not choose a JDK a Gradle version can run on: that is what the failed banner's
 **Choose JDK…** is for.

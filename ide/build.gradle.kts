@@ -315,8 +315,18 @@ fun registerJpackage(
         buildList {
             addAll(listOf("--type", type, "--name", "Thoreau", "--dest", destination.get().asFile.path))
             addAll(listOf("--input", input.get().path, "--main-jar", mainJar.get()))
-            // Added to what jdeps finds: modules only loaded at runtime (charsets, zip file systems).
-            val extra = listOf("jdk.unsupported", "jdk.charsets", "jdk.zipfs")
+            // Added to what jdeps finds: modules only loaded at runtime (charsets, zip file systems), and the JShell
+            // engine's (the agent runs in a JVM started from this runtime, ADR 0191; jdeps cannot see its classes).
+            val extra =
+                listOf(
+                    "jdk.unsupported",
+                    "jdk.charsets",
+                    "jdk.zipfs",
+                    "jdk.jshell",
+                    "jdk.compiler",
+                    "jdk.jdi",
+                    "jdk.jdwp.agent",
+                )
             val found =
                 modules
                     .get()
@@ -325,8 +335,12 @@ fun registerJpackage(
                     .last(String::isNotBlank)
                     .split(",")
             addAll(listOf("--add-modules", (found + extra).distinct().joinToString(",")))
-            // jpackage's defaults plus compression: about 60 MB instead of 95 MB (linux-aarch64, JDK 25; ADR 0011).
-            val jlinkOptions = "--strip-debug --no-man-pages --no-header-files --strip-native-commands --compress zip-6"
+            // jpackage's defaults without `--strip-native-commands`, plus compression (ADR 0011). Native commands stay,
+            // so the runtime has bin/java for the JShell engine; lib/ct.sym (javac --release) and Debian's
+            // *.debuginfo files are left out.
+            val jlinkOptions =
+                "--strip-debug --no-man-pages --no-header-files --compress zip-6 " +
+                    "--exclude-files **/lib/ct.sym,**.debuginfo"
             addAll(listOf("--jlink-options", jlinkOptions))
             addAll(listOf("--vendor", "Thoreau", "--description", "A lightweight IDE"))
             addAll(listOf("--icon", icon.asFile.path))

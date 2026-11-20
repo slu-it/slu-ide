@@ -88,7 +88,7 @@ each recording's requests with its messages. `JShellRealTest` runs the real agen
 - JShell needs JDK 9 or newer with `jdk.jshell`. Measured on 21 and 25; JDKs 9 to 20 are not measured (the agent
   compiles against JDK 9's API, `System.exit`'s status is null before 21).
 - The execution JVM inherits Thoreau's environment and working directory; its class path is the JDK only.
-- The packaged app's own runtime has no JShell until it gains the JShell modules and `bin/java` (ADR 0011, a later
-  package).
+- The packaged app's own runtime has the JShell modules and `bin/java` (ADR 0011, amendment), so it is the last JDK
+  fallback.
 - A version change of JShell's feedback or completion lists shows in `AgentRecordingsTest` on the build JDK; record again
   then (`docs/testing.md`, "Fakes of external servers").
