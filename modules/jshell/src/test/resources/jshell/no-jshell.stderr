@@ -1,0 +1,9 @@
+Picked up JAVA_TOOL_OPTIONS: -Dhttp.proxyHost=gateway.docker.internal -Dhttp.proxyPort=3128 -Dhttps.proxyHost=gateway.docker.internal -Dhttps.proxyPort=3128 -Dhttp.nonProxyHosts=localhost|127.*|[::1]|gateway.docker.internal
+Exception in thread "main" java.lang.NoClassDefFoundError: jdk/jshell/JShell
+	at dev.sluide.jshell.agent.AgentServer.start(AgentServer.kt:54)
+	at dev.sluide.jshell.agent.Agent.main(Agent.kt:30)
+	at dev.sluide.jshell.agent.Agent.main(Agent.kt)
+Caused by: java.lang.ClassNotFoundException: jdk.jshell.JShell
+	at java.base/jdk.internal.loader.BuiltinClassLoader.loadClass(Unknown Source)
+	at java.base/java.lang.ClassLoader.loadClass(Unknown Source)
+	... 3 more

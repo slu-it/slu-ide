@@ -1,0 +1,11 @@
+{"t": 455, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}", "agentPid": null}}
+{"t": 455, "dir": "in", "msg": {"id": 1, "op": "evaluate", "text": "System.in.read()", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 461, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 0, "end": 16, "line": 0}}
+{"t": 665, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "$1 ==> -1"}}
+{"t": 665, "dir": "out", "msg": {"id": 1, "event": "finished"}}
+{"t": 665, "dir": "in", "msg": {"id": 2, "op": "evaluate", "text": "new java.util.Scanner(System.in).hasNextLine()", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 666, "dir": "out", "msg": {"id": 2, "event": "snippetStarted", "start": 0, "end": 46, "line": 0}}
+{"t": 886, "dir": "out", "msg": {"id": 2, "event": "value", "feedback": "$2 ==> false"}}
+{"t": 886, "dir": "out", "msg": {"id": 2, "event": "finished"}}
+{"t": 886, "dir": "in", "msg": {"op": "close"}}
+{"t": 1248, "dir": "out", "msg": {"event": "ended", "reason": "closed"}}

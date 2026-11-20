@@ -1,0 +1,13 @@
+{"t": 449, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}", "agentPid": null}}
+{"t": 449, "dir": "in", "msg": {"id": 1, "op": "evaluate", "text": "int f(int a) {\n  if (a > 1) throw new IllegalStateException(\"too big: \" + a);\n  return a;\n}\n\nf(5)\n", "rangeStart": 0, "rangeEnd": 98}}
+{"t": 456, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 0, "end": 91, "line": 0}}
+{"t": 565, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "created method f(int)"}}
+{"t": 565, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 93, "end": 97, "line": 5}}
+{"t": 770, "dir": "out", "msg": {"id": 1, "event": "thrown", "text": "java.lang.IllegalStateException: too big: 5\n\tat f (line 2)\n\tat (line 6)", "line": 1}}
+{"t": 770, "dir": "out", "msg": {"id": 1, "event": "finished"}}
+{"t": 770, "dir": "in", "msg": {"id": 2, "op": "evaluate", "text": "throw new RuntimeException(\"boom\", new java.io.IOException(\"cause\"));", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 770, "dir": "out", "msg": {"id": 2, "event": "snippetStarted", "start": 0, "end": 69, "line": 0}}
+{"t": 972, "dir": "out", "msg": {"id": 2, "event": "thrown", "text": "java.lang.RuntimeException: boom\n\tat (line 1)\nCaused by: java.io.IOException: cause\n\tat (line 1)", "line": 0}}
+{"t": 972, "dir": "out", "msg": {"id": 2, "event": "finished"}}
+{"t": 972, "dir": "in", "msg": {"op": "close"}}
+{"t": 1324, "dir": "out", "msg": {"event": "ended", "reason": "closed"}}

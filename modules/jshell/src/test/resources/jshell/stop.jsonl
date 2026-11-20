@@ -1,0 +1,25 @@
+{"t": 457, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}", "agentPid": null}}
+{"t": 457, "dir": "in", "msg": {"id": 1, "op": "evaluate", "text": "int x = 7;", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 463, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 0, "end": 10, "line": 0}}
+{"t": 661, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "x ==> 7"}}
+{"t": 662, "dir": "out", "msg": {"id": 1, "event": "finished"}}
+{"t": 662, "dir": "in", "msg": {"id": 2, "op": "evaluate", "text": "while (true) {}", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 662, "dir": "out", "msg": {"id": 2, "event": "snippetStarted", "start": 0, "end": 15, "line": 0}}
+{"t": 1666, "dir": "in", "msg": {"id": 3, "op": "evaluate", "text": "x", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 1666, "dir": "out", "msg": {"id": 3, "event": "error", "message": "busy"}}
+{"t": 1666, "dir": "in", "msg": {"id": 4, "op": "complete", "text": "\"abc\".", "caret": 6}}
+{"t": 1677, "dir": "out", "msg": {"id": 4, "event": "completions", "anchor": 6, "items": [{"text": "charAt(", "smart": true}, {"text": "chars()", "smart": true}, {"text": "codePointAt(", "smart": true}, {"text": "codePointBefore(", "smart": true}, {"text": "codePointCount(", "smart": true}, {"text": "codePoints()", "smart": true}, {"text": "compareTo(", "smart": true}, {"text": "compareToIgnoreCase(", "smart": true}, {"text": "concat(", "smart": true}, {"text": "contains(", "smart": true}, {"text": "contentEquals(", "smart": true}, {"text": "contentEquals(", "smart": true}, {"text": "describeConstable()", "smart": true}, {"text": "endsWith(", "smart": true}, {"text": "equals(", "smart": true}, {"text": "equalsIgnoreCase(", "smart": true}, {"text": "formatted(", "smart": true}, {"text": "getBytes(", "smart": true}, {"text": "getBytes(", "smart": true}, {"text": "getBytes(", "smart": true}, {"text": "getBytes(", "smart": true}, {"text": "getChars(", "smart": true}, {"text": "getClass()", "smart": true}, {"text": "hashCode()", "smart": true}, {"text": "indent(", "smart": true}, {"text": "indexOf(", "smart": true}, {"text": "indexOf(", "smart": true}, {"text": "indexOf(", "smart": true}, {"text": "indexOf(", "smart": true}, {"text": "indexOf(", "smart": true}, {"text": "indexOf(", "smart": true}, {"text": "intern()", "smart": true}, {"text": "isBlank()", "smart": true}, {"text": "isEmpty()", "smart": true}, {"text": "lastIndexOf(", "smart": true}, {"text": "lastIndexOf(", "smart": true}, {"text": "lastIndexOf(", "smart": true}, {"text": "lastIndexOf(", "smart": true}, {"text": "length()", "smart": true}, {"text": "lines()", "smart": true}, {"text": "matches(", "smart": true}, {"text": "notify()", "smart": true}, {"text": "notifyAll()", "smart": true}, {"text": "offsetByCodePoints(", "smart": true}, {"text": "regionMatches(", "smart": true}, {"text": "regionMatches(", "smart": true}, {"text": "repeat(", "smart": true}, {"text": "replace(", "smart": true}, {"text": "replace(", "smart": true}, {"text": "replaceAll(", "smart": true}, {"text": "replaceFirst(", "smart": true}, {"text": "resolveConstantDesc(", "smart": true}, {"text": "split(", "smart": true}, {"text": "split(", "smart": true}, {"text": "splitWithDelimiters(", "smart": true}, {"text": "startsWith(", "smart": true}, {"text": "startsWith(", "smart": true}, {"text": "strip()", "smart": true}, {"text": "stripIndent()", "smart": true}, {"text": "stripLeading()", "smart": true}, {"text": "stripTrailing()", "smart": true}, {"text": "subSequence(", "smart": true}, {"text": "substring(", "smart": true}, {"text": "substring(", "smart": true}, {"text": "toCharArray()", "smart": true}, {"text": "toLowerCase(", "smart": true}, {"text": "toLowerCase(", "smart": true}, {"text": "toString()", "smart": true}, {"text": "toUpperCase(", "smart": true}, {"text": "toUpperCase(", "smart": true}, {"text": "transform(", "smart": true}, {"text": "translateEscapes()", "smart": true}, {"text": "trim()", "smart": true}, {"text": "wait(", "smart": true}, {"text": "wait(", "smart": true}, {"text": "wait(", "smart": true}]}}
+{"t": 1677, "dir": "in", "msg": {"op": "stop"}}
+{"t": 1736, "dir": "out", "msg": {"id": 2, "event": "stopped"}}
+{"t": 1736, "dir": "out", "msg": {"id": 2, "event": "finished"}}
+{"t": 1736, "dir": "in", "msg": {"id": 5, "op": "evaluate", "text": "x", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 1737, "dir": "out", "msg": {"id": 5, "event": "snippetStarted", "start": 0, "end": 1, "line": 0}}
+{"t": 1884, "dir": "out", "msg": {"id": 5, "event": "value", "feedback": "x ==> 7"}}
+{"t": 1885, "dir": "out", "msg": {"id": 5, "event": "finished"}}
+{"t": 1885, "dir": "in", "msg": {"id": 6, "op": "evaluate", "text": "Thread.sleep(60000)", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 1886, "dir": "out", "msg": {"id": 6, "event": "snippetStarted", "start": 0, "end": 19, "line": 0}}
+{"t": 2887, "dir": "in", "msg": {"op": "stop"}}
+{"t": 2936, "dir": "out", "msg": {"id": 6, "event": "stopped"}}
+{"t": 2936, "dir": "out", "msg": {"id": 6, "event": "finished"}}
+{"t": 2936, "dir": "in", "msg": {"op": "close"}}
+{"t": 3251, "dir": "out", "msg": {"event": "ended", "reason": "closed"}}

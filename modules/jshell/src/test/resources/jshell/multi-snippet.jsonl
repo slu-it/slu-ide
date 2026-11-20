@@ -1,0 +1,24 @@
+{"t": 457, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}", "agentPid": null}}
+{"t": 458, "dir": "in", "msg": {"id": 1, "op": "evaluate", "text": "// leading comment\nint a = 1;\n\n/* block */ int b = a + 1\n\nvoid f() {\n  System.out.println(b);\n}\n   \nf();   // trailing comment\nString s = \"x\"; s.length()\nint q = \"no\";\nclass C {}\nimport java.util.*;\nint broken = (", "rangeStart": 0, "rangeEnd": 213}}
+{"t": 466, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 19, "end": 29, "line": 1}}
+{"t": 685, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "a ==> 1"}}
+{"t": 685, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 43, "end": 56, "line": 3}}
+{"t": 870, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "b ==> 2"}}
+{"t": 870, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 58, "end": 95, "line": 5}}
+{"t": 983, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "created method f()"}}
+{"t": 983, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 100, "end": 126, "line": 9}}
+{"t": 1135, "dir": "out", "msg": {"id": 1, "event": "output", "text": "2\n", "error": false}}
+{"t": 1179, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 127, "end": 142, "line": 10}}
+{"t": 1375, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "s ==> \"x\""}}
+{"t": 1375, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 143, "end": 153, "line": 10}}
+{"t": 1574, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "$1 ==> 1"}}
+{"t": 1574, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 154, "end": 167, "line": 11}}
+{"t": 1583, "dir": "out", "msg": {"id": 1, "event": "diagnostic", "start": 162, "end": 166, "line": 11, "message": "incompatible types: java.lang.String cannot be converted to int", "error": true}}
+{"t": 1583, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 168, "end": 178, "line": 12}}
+{"t": 1681, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "created class C"}}
+{"t": 1681, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 179, "end": 198, "line": 13}}
+{"t": 1695, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 199, "end": 213, "line": 14}}
+{"t": 1696, "dir": "out", "msg": {"id": 1, "event": "diagnostic", "start": 213, "end": 213, "line": 14, "message": "reached end of file while parsing", "error": true}}
+{"t": 1696, "dir": "out", "msg": {"id": 1, "event": "finished"}}
+{"t": 1696, "dir": "in", "msg": {"op": "close"}}
+{"t": 2054, "dir": "out", "msg": {"event": "ended", "reason": "closed"}}

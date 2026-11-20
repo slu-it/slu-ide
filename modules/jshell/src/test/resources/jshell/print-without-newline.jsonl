@@ -1,0 +1,13 @@
+{"t": 457, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}", "agentPid": null}}
+{"t": 457, "dir": "in", "msg": {"id": 1, "op": "evaluate", "text": "System.out.print(\"a\")", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 462, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 0, "end": 21, "line": 0}}
+{"t": 611, "dir": "out", "msg": {"id": 1, "event": "output", "text": "a", "error": false}}
+{"t": 657, "dir": "out", "msg": {"id": 1, "event": "finished"}}
+{"t": 657, "dir": "in", "msg": {"id": 2, "op": "evaluate", "text": "System.err.print(\"e\"); System.out.println(\"b\")", "rangeStart": 0, "rangeEnd": 46}}
+{"t": 659, "dir": "out", "msg": {"id": 2, "event": "snippetStarted", "start": 0, "end": 22, "line": 0}}
+{"t": 813, "dir": "out", "msg": {"id": 2, "event": "output", "text": "e", "error": true}}
+{"t": 864, "dir": "out", "msg": {"id": 2, "event": "snippetStarted", "start": 23, "end": 46, "line": 0}}
+{"t": 1021, "dir": "out", "msg": {"id": 2, "event": "output", "text": "b\n", "error": false}}
+{"t": 1065, "dir": "out", "msg": {"id": 2, "event": "finished"}}
+{"t": 1065, "dir": "in", "msg": {"op": "close"}}
+{"t": 1415, "dir": "out", "msg": {"event": "ended", "reason": "closed"}}

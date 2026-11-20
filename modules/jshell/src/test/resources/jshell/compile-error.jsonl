@@ -1,0 +1,13 @@
+{"t": 468, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}", "agentPid": null}}
+{"t": 468, "dir": "in", "msg": {"id": 1, "op": "evaluate", "text": "// setup\nint y = \"s\";\n", "rangeStart": 9, "rangeEnd": 9}}
+{"t": 473, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 9, "end": 21, "line": 1}}
+{"t": 481, "dir": "out", "msg": {"id": 1, "event": "diagnostic", "start": 17, "end": 20, "line": 1, "message": "incompatible types: java.lang.String cannot be converted to int", "error": true}}
+{"t": 481, "dir": "out", "msg": {"id": 1, "event": "finished"}}
+{"t": 481, "dir": "in", "msg": {"id": 2, "op": "evaluate", "text": "String s = \"x\"\nint z = s.lenth();\n", "rangeStart": 0, "rangeEnd": 34}}
+{"t": 482, "dir": "out", "msg": {"id": 2, "event": "snippetStarted", "start": 0, "end": 14, "line": 0}}
+{"t": 678, "dir": "out", "msg": {"id": 2, "event": "value", "feedback": "s ==> \"x\""}}
+{"t": 678, "dir": "out", "msg": {"id": 2, "event": "snippetStarted", "start": 15, "end": 33, "line": 1}}
+{"t": 685, "dir": "out", "msg": {"id": 2, "event": "diagnostic", "start": 23, "end": 30, "line": 1, "message": "cannot find symbol\n  symbol:   method lenth()\n  location: variable s of type java.lang.String", "error": true}}
+{"t": 685, "dir": "out", "msg": {"id": 2, "event": "finished"}}
+{"t": 685, "dir": "in", "msg": {"op": "close"}}
+{"t": 1040, "dir": "out", "msg": {"event": "ended", "reason": "closed"}}

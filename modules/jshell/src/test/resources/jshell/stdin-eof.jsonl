@@ -1,0 +1,6 @@
+{"t": 464, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}", "agentPid": null}}
+{"t": 464, "dir": "in", "msg": {"id": 1, "op": "evaluate", "text": "int x = 1;", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 469, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 0, "end": 10, "line": 0}}
+{"t": 675, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "x ==> 1"}}
+{"t": 675, "dir": "out", "msg": {"id": 1, "event": "finished"}}
+{"t": 1026, "dir": "out", "msg": {"event": "ended", "reason": "closed"}}

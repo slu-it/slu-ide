@@ -1,0 +1,9 @@
+{"t": 455, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}", "agentPid": null}}
+{"t": 455, "dir": "in", "msg": {"id": 1, "op": "evaluate", "text": "System.out.println(\"ü€😀\"); \"ü\"", "rangeStart": 0, "rangeEnd": 30}}
+{"t": 461, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 0, "end": 27, "line": 0}}
+{"t": 605, "dir": "out", "msg": {"id": 1, "event": "output", "text": "ü€😀\n", "error": false}}
+{"t": 651, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 28, "end": 31, "line": 0}}
+{"t": 869, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "$1 ==> \"ü\""}}
+{"t": 869, "dir": "out", "msg": {"id": 1, "event": "finished"}}
+{"t": 869, "dir": "in", "msg": {"op": "close"}}
+{"t": 1225, "dir": "out", "msg": {"event": "ended", "reason": "closed"}}

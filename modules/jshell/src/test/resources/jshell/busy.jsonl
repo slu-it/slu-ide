@@ -1,0 +1,8 @@
+{"t": 474, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}", "agentPid": null}}
+{"t": 474, "dir": "in", "msg": {"id": 1, "op": "evaluate", "text": "Thread.sleep(1500)", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 480, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 0, "end": 18, "line": 0}}
+{"t": 480, "dir": "in", "msg": {"id": 2, "op": "evaluate", "text": "1", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 480, "dir": "out", "msg": {"id": 2, "event": "error", "message": "busy"}}
+{"t": 2183, "dir": "out", "msg": {"id": 1, "event": "finished"}}
+{"t": 2183, "dir": "in", "msg": {"op": "close"}}
+{"t": 2501, "dir": "out", "msg": {"event": "ended", "reason": "closed"}}

@@ -1,0 +1,11 @@
+{"t": 453, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}", "agentPid": null}}
+{"t": 453, "dir": "in", "msg": {"id": 1, "op": "evaluate", "text": "int x = 7;", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 458, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 0, "end": 10, "line": 0}}
+{"t": 660, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "x ==> 7"}}
+{"t": 660, "dir": "out", "msg": {"id": 1, "event": "finished"}}
+{"t": 660, "dir": "in", "msg": {"id": 2, "op": "evaluate", "text": "System.out.println(\"bye\"); System.exit(3);", "rangeStart": 0, "rangeEnd": 42}}
+{"t": 662, "dir": "out", "msg": {"id": 2, "event": "snippetStarted", "start": 0, "end": 26, "line": 0}}
+{"t": 817, "dir": "out", "msg": {"id": 2, "event": "output", "text": "bye\n", "error": false}}
+{"t": 863, "dir": "out", "msg": {"id": 2, "event": "snippetStarted", "start": 27, "end": 42, "line": 0}}
+{"t": 1325, "dir": "out", "msg": {"id": 2, "event": "finished"}}
+{"t": 1334, "dir": "out", "msg": {"event": "ended", "reason": "exit", "exitStatus": 3}}

@@ -1,0 +1,5 @@
+{"t": 464, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}"}}
+{"t": 464, "dir": "in", "msg": {"id": 1, "op": "evaluate", "text": "Runtime.getRuntime().halt(5);", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 473, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 0, "end": 29, "line": 0}}
+{"t": 946, "dir": "out", "msg": {"id": 1, "event": "finished"}}
+{"t": 946, "dir": "out", "msg": {"event": "ended", "reason": "exit", "exitStatus": null}}

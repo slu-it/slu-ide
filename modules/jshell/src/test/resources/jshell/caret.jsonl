@@ -1,0 +1,29 @@
+{"t": 458, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}", "agentPid": null}}
+{"t": 458, "dir": "in", "msg": {"id": 1, "op": "evaluate", "text": "int a = 1;\n\nint b = a + 1;\n\n\nSystem.out.println(a + b);\n", "rangeStart": 0, "rangeEnd": 56}}
+{"t": 465, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 0, "end": 10, "line": 0}}
+{"t": 670, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "a ==> 1"}}
+{"t": 670, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 12, "end": 26, "line": 2}}
+{"t": 869, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "b ==> 2"}}
+{"t": 869, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 29, "end": 55, "line": 5}}
+{"t": 1023, "dir": "out", "msg": {"id": 1, "event": "output", "text": "3\n", "error": false}}
+{"t": 1071, "dir": "out", "msg": {"id": 1, "event": "finished"}}
+{"t": 1071, "dir": "in", "msg": {"id": 2, "op": "evaluate", "text": "int a = 1;\n\nint b = a + 1;\n\n\nSystem.out.println(a + b);\n", "rangeStart": 22, "rangeEnd": 22}}
+{"t": 1077, "dir": "out", "msg": {"id": 2, "event": "snippetStarted", "start": 12, "end": 26, "line": 2}}
+{"t": 1177, "dir": "out", "msg": {"id": 2, "event": "value", "feedback": "b ==> 2"}}
+{"t": 1177, "dir": "out", "msg": {"id": 2, "event": "finished"}}
+{"t": 1177, "dir": "in", "msg": {"id": 3, "op": "evaluate", "text": "int a = 1;\n\nint b = a + 1;\n\n\nSystem.out.println(a + b);\n", "rangeStart": 28, "rangeEnd": 28}}
+{"t": 1179, "dir": "out", "msg": {"id": 3, "event": "snippetStarted", "start": 12, "end": 26, "line": 2}}
+{"t": 1274, "dir": "out", "msg": {"id": 3, "event": "value", "feedback": "b ==> 2"}}
+{"t": 1274, "dir": "out", "msg": {"id": 3, "event": "finished"}}
+{"t": 1274, "dir": "in", "msg": {"id": 4, "op": "evaluate", "text": "int a = 1;\n\nint b = a + 1;\n\n\nSystem.out.println(a + b);\n", "rangeStart": 56, "rangeEnd": 56}}
+{"t": 1276, "dir": "out", "msg": {"id": 4, "event": "snippetStarted", "start": 29, "end": 55, "line": 5}}
+{"t": 1422, "dir": "out", "msg": {"id": 4, "event": "output", "text": "3\n", "error": false}}
+{"t": 1467, "dir": "out", "msg": {"id": 4, "event": "finished"}}
+{"t": 1467, "dir": "in", "msg": {"id": 5, "op": "evaluate", "text": "int a = 1;\n\nint b = a + 1;\n\n\nSystem.out.println(a + b);\n", "rangeStart": 16, "rangeEnd": 40}}
+{"t": 1472, "dir": "out", "msg": {"id": 5, "event": "snippetStarted", "start": 12, "end": 26, "line": 2}}
+{"t": 1569, "dir": "out", "msg": {"id": 5, "event": "value", "feedback": "b ==> 2"}}
+{"t": 1570, "dir": "out", "msg": {"id": 5, "event": "snippetStarted", "start": 29, "end": 55, "line": 5}}
+{"t": 1714, "dir": "out", "msg": {"id": 5, "event": "output", "text": "3\n", "error": false}}
+{"t": 1760, "dir": "out", "msg": {"id": 5, "event": "finished"}}
+{"t": 1760, "dir": "in", "msg": {"op": "close"}}
+{"t": 2111, "dir": "out", "msg": {"event": "ended", "reason": "closed"}}

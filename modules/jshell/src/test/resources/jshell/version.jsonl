@@ -1,0 +1,7 @@
+{"t": 464, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}", "agentPid": null}}
+{"t": 464, "dir": "in", "msg": {"id": 1, "op": "evaluate", "text": "Runtime.version()", "rangeStart": 0, "rangeEnd": 0}}
+{"t": 470, "dir": "out", "msg": {"id": 1, "event": "snippetStarted", "start": 0, "end": 17, "line": 0}}
+{"t": 667, "dir": "out", "msg": {"id": 1, "event": "value", "feedback": "$1 ==> 25.0.5+8-1-deb13u1-Debian"}}
+{"t": 667, "dir": "out", "msg": {"id": 1, "event": "finished"}}
+{"t": 668, "dir": "in", "msg": {"op": "close"}}
+{"t": 1020, "dir": "out", "msg": {"event": "ended", "reason": "closed"}}
