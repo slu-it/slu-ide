@@ -87,12 +87,16 @@ internal class JShellRuns(
         worker.execute { current.stop() }
     }
 
-    /** Ends the session; the next run starts a new one. Nothing without a session; no note for an unseen one. */
+    /**
+     * Ends the session; the next run starts a new one. Nothing without a session; no note for an unseen one, whose
+     * next run still notes a restart a JDK change owes.
+     */
     fun restart() {
         if (session == null) return
         val seen = startNote == null
+        val owed = noteRestart
         closeSession()
-        if (seen) output.note("Session restarted")
+        if (seen) output.note("Session restarted") else noteRestart = owed
     }
 
     /**

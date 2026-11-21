@@ -194,6 +194,24 @@ class JShellRunsCompletionTest {
     }
 
     @Test
+    fun `a restart owed for a used session is still noted after Restart closed a session only completion used`() {
+        fixture.nextAgent(FakeAgent.of("value"))
+        runs.run("int x = 5;", 0, 0)
+        fixture.pumpUntilIdle()
+        fixture.resolved = JShellJdk(Jdk(Path.of("/jdk-21"), "21.0.1", 21), "the project's JDK", null)
+        runs.jdkChanged()
+        completed()
+        runs.restart()
+        fixture.nextAgent(FakeAgent.of("value"))
+        fixture.log.clear()
+
+        runs.run("int x = 5;", 0, 0)
+        fixture.pumpUntilIdle()
+
+        assertEquals(listOf("note: Session restarted on JDK 21", start), fixture.log.take(2))
+    }
+
+    @Test
     fun `the crash of a session only completion used notes nothing`() {
         // the recording ends after the answer: the agent's output ends without `ended`, a crash
         completed(FakeAgent.of("completion", only = listOf(1, 2, 3)))
