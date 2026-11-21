@@ -101,6 +101,35 @@ class JShellJdksTest {
     }
 
     @Test
+    fun `the project's JDK is what the chain gives, whatever a file chose`() {
+        val projectJdk = jdk("project", "25")
+        val jdks = jdks(projectSetting = projectJdk)
+        jdks.remember(file, project, jdk("chosen", "17.0.2"))
+
+        assertEquals(JShellJdk(Jdk(projectJdk, "25", 25), "the project's JDK", null), jdks.resolveProject())
+    }
+
+    @Test
+    fun `the project's JDK has a problem or none at all`() {
+        val noShell = jdk("project", "17", modules = "java.base")
+        assertEquals(
+            "none",
+            JShellJdks(store, JavaHomes({ _, _ -> null }, emptyMap(), dir.resolve("nowhere")), { null })
+                .resolveProject()
+                .source,
+        )
+        assertEquals(
+            "Thoreau's own JDK",
+            jdks(projectSetting = noShell).resolveProject().source,
+            "a project JDK without JShell is skipped",
+        )
+        assertEquals(
+            "The project's JDK $noShell has no JShell (JDK 17); using Thoreau's own JDK.",
+            jdks(projectSetting = noShell).resolveProject().problem,
+        )
+    }
+
+    @Test
     fun `a chosen JDK that is gone falls back to the project's chain with a problem`() {
         val gone = dir.resolve("jdks/gone")
         val projectJdk = jdk("project", "25")

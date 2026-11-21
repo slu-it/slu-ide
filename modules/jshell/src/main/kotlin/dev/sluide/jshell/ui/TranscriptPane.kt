@@ -27,7 +27,7 @@ import org.fxmisc.richtext.util.UndoUtils
  */
 internal class TranscriptPane(
     private val onJump: (line: Int) -> Unit,
-) {
+) : RunOutput {
     private val model = TranscriptModel()
 
     internal val area =
@@ -86,16 +86,16 @@ internal class TranscriptPane(
         }
     }
 
-    fun startEvaluation(text: String) = model.startEvaluation(text)
+    override fun startEvaluation(text: String) = model.startEvaluation(text)
 
-    fun accept(event: EvalEvent) = applying { model.accept(event) }
+    override fun accept(event: EvalEvent) = applying { model.accept(event) }
 
-    fun lateOutput(
+    override fun lateOutput(
         text: String,
         error: Boolean,
     ) = applying { model.lateOutput(text, error) }
 
-    fun note(text: String) = applying { model.note(text) }
+    override fun note(text: String) = applying { model.note(text) }
 
     /** Empties the transcript; the text that comes next is followed, also after a scroll that is not decided yet. */
     fun clear() {

@@ -81,9 +81,17 @@ class JShellJdks(
         )
     }
 
-    private companion object {
+    /** The JDK the project's chain gives, whatever is chosen for a file: what "Project JDK" in the JDK menu means. */
+    fun resolveProject(): JShellJdk {
+        val chain = javaHomes.resolve(projectSetting(), Jdks::hasJShell) ?: return JShellJdk(null, NONE, NOTHING)
+        return JShellJdk(chain.jdk, chain.source.description, chain.problem)
+    }
+
+    internal companion object {
         const val FIELD = "jshell"
         const val JDK = "jdk"
+
+        /** The [JShellJdk.source] of a file's own choice. */
         const val CHOSEN = "chosen for this file"
         const val NONE = "none"
         const val NOTHING =

@@ -23,6 +23,14 @@ dependencies {
     api(project(":modules:project-data"))
     // Deliberate module dependency: the session's reader and stderr threads are logged NamedThreads (ADR 0060).
     implementation(project(":modules:background-tasks"))
+    // Deliberate module API dependency: JShellFileViewer is a public SourceFileViewer, ExtensionFileViewer showing a
+    // CodeEditor beside the transcript (ADR 0191, as shell-scripts, ADR 0089).
+    api(project(":modules:file-viewers"))
+    // The toolbar's icons: Material Design Icons, like the shell scripts' (ADR 0012).
+    implementation(libs.ikonli.javafx)
+    implementation(libs.ikonli.materialdesign2)
+    // JShellFileViewer is a Spring @Component.
+    implementation(libs.spring.context)
     // The agent protocol's JSON lines on Thoreau's side; the agent itself has its own small codec (ADR 0191). Version
     // from the Spring Boot BOM.
     implementation(libs.jackson.databind)
