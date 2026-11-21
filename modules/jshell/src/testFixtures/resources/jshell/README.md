@@ -9,12 +9,16 @@ Offsets (`rangeStart`, `rangeEnd`, `caret`, `start`, `end`, `anchor`) are Java U
 
 Command (JDK = Debian 25.0.5+8, linux-aarch64, unless named): `python3 -I drive.py ${JDK} <case> <case>.jsonl`, which
 starts `${JDK}/bin/java -cp agent.jar:kotlin-stdlib.jar dev.sluide.jshell.agent.Agent` (Kotlin 2.4.21, `-jvm-target 9
--Xjdk-release=9`). The first 16 files come from the spike P0 (2026-11-20, its agent); the module's agent recorded all
-of them again with the same messages (compared without `t`), and recorded the last six; since then `ready` no longer
-carries `agentPid` (null in the older files), which Thoreau never read. complete-and-run.jsonl and
-complete-and-run-all.jsonl were recorded later (P3, 2026-11-21) with the module's agent jar and `drive.py`'s cases of
-the same names. Unless stated, the session
-ends with `close` → `ended closed` and the agent exits with code 0.
+-Xjdk-release=9`). By origin:
+- the spike P0 (2026-11-20, its agent): value, print-without-newline, compile-error, runtime-exception,
+  multi-snippet, caret, stop, system-exit, completion, version, version-jdk21, stdin, stdin-eof, busy, late-output and
+  unicode; the module's agent recorded all of them again with the same messages (compared without `t`);
+- the module's agent (P1): killed, killed-running, complete-error, thrown-no-line, halt and no-jshell.stderr; since
+  then `ready` no longer carries `agentPid` (null in the older files), which Thoreau never read;
+- the module's agent jar (P3, 2026-11-21): complete-and-run and complete-and-run-all, `drive.py`'s cases of the same
+  names.
+
+Unless stated, the session ends with `close` → `ended closed` and the agent exits with code 0.
 
 Each row: the requests (`in` lines) and the lines that answer them, which is what the fake sends for each request.
 

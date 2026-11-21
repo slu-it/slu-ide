@@ -76,11 +76,12 @@ folders stay: another running Thoreau may use them.
 error): it runs on JDK 9 with nothing but kotlin-stdlib. Thoreau's side reads and writes with Jackson, which the project
 data already uses; sharing the codec as source would put agent code into the Java 25 API surface for no gain.
 
-**Tests.** The recordings of the spike (and six of the module's agent: killed, killed-running, complete-error,
-thrown-no-line, halt, no-jshell.stderr) under `src/testFixtures/resources/jshell/` are the contract: `FakeAgent` replays them
-to the session, and `AgentRecordingsTest` checks that the agent, run in the test JVM with a real execution JVM, answers
-each recording's requests with its messages. `JShellRealTest` runs the real agent process on the JDKs
-`SLUIDE_TEST_JSHELL` names.
+**Tests.** The recordings of the spike (and eight of the module's agent: killed, killed-running, complete-error,
+thrown-no-line, halt, no-jshell.stderr, complete-and-run, complete-and-run-all) under
+`src/testFixtures/resources/jshell/` are the contract. They ship with `FakeAgent` as the module's test fixtures, which
+the session's, the view's and `ide`'s JShell tests use: `FakeAgent` replays them to the session, and
+`AgentRecordingsTest` checks that the agent, run in the test JVM with a real execution JVM, answers each recording's
+requests with its messages. `JShellRealTest` runs the real agent process on the JDKs `SLUIDE_TEST_JSHELL` names.
 
 ## Consequences
 - About 650 ms to the first result (≈460 ms to `ready` with the start snippet, ≈200 ms for the first evaluation); about

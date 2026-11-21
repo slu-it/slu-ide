@@ -96,10 +96,13 @@ once the view knows its JDK. If the scratch cannot be created, the usual error s
 (`JShellWiring.register`); the item is `JShellEditorExtensions.evaluateSelection` in the module.
 
 ## For other code
-`JShellFileView` (`runAll()`, `complete(caret)`) is what code outside the module uses; the window's `JShellWindow`
-(JDKs, the installed JDKs, Choose JDK…, the session start) is registered by `ide` as a window service
-(`JShellWiring`, [ADR 0070](../adr/0070-window-services.md)) and told by `projectJdkChanged()` when the project's JDK
-setting changes.
+What `ide` uses of the module, all from its root package, nothing from `view/` or `ui/`:
+- `JShellWindow` (JDKs, the installed JDKs, Choose JDK…, the session start), registered as a window service
+  (`JShellWiring`, [ADR 0070](../adr/0070-window-services.md)) and told by `projectJdkChanged()` when the project's JDK
+  setting changes; built with `JShellJdks`, and `JShellSession` with `SessionEvent` for the session start;
+- `JShellEditorExtensions` for "Evaluate Selection in JShell" in `.java` editors;
+- `JShellFileView` (`runAll()`, `complete(caret)`) and its `Completions`, for Run All after Evaluate Selection and for
+  the completion of `.jsh` editors (`JShellCompletionSource`).
 
 ## Out of scope
 See [ideas/jshell-later.md](../ideas/jshell-later.md): the project's class path, Enable Preview, results aligned with

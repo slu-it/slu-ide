@@ -15,5 +15,7 @@ What the first version of [JShell](../features/jshell.md) ([ADR 0191](../adr/019
 - **Diagnostics while typing.** JShell's analysis marks errors in the source before a run.
 - **A Restart that keeps the old transcript apart,** e.g. a separator or a collapsed earlier session, instead of notes
   in one stream.
+- **A run could close the completion popup.** Shortcut+Enter runs the snippet while the popup shows, and the popup
+  stays open after it.
 - **macOS trackpad steps.** Sub-pixel scroll steps of the transcript with a trackpad follow the end less smoothly
   than a wheel; to check on a Mac.
