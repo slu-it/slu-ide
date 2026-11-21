@@ -262,7 +262,8 @@ abstract class MainWindowUiFixture {
         translates.forEach(Translate::close)
         dockerSessions.forEach(DockerSession::close)
         Platform.runLater { findInFilesWirings.forEach(FindInFilesWiring::close) }
-        codeIntelligences.forEach(CodeIntelligenceWiring::close)
+        // on the FX thread: closing the editors' code intelligence hides a completion popup still open
+        WaitForAsyncUtils.asyncFx { codeIntelligences.forEach(CodeIntelligenceWiring::close) }.get()
         jshellWirings.forEach(JShellWiring::close)
     }
 
@@ -456,6 +457,7 @@ abstract class MainWindowUiFixture {
                 LibraryCodeSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
                 fileViewers,
                 fontSettings,
+                editorArea,
             ).also(codeIntelligences::add)
         return MainWindow(
             projectService,

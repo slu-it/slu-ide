@@ -11,7 +11,8 @@ Command (JDK = Debian 25.0.5+8, linux-aarch64, unless named): `python3 -I drive.
 starts `${JDK}/bin/java -cp agent.jar:kotlin-stdlib.jar dev.sluide.jshell.agent.Agent` (Kotlin 2.4.21, `-jvm-target 9
 -Xjdk-release=9`). The first 16 files come from the spike P0 (2026-11-20, its agent); the module's agent recorded all
 of them again with the same messages (compared without `t`), and recorded the last six; since then `ready` no longer
-carries `agentPid` (null in the older files), which Thoreau never read. Unless stated, the session
+carries `agentPid` (null in the older files), which Thoreau never read. complete-and-run.jsonl was recorded later
+(P3, 2026-11-21) with the module's agent jar and `drive.py`'s case `complete-and-run`. Unless stated, the session
 ends with `close` → `ended closed` and the agent exits with code 0.
 
 Each row: the requests (`in` lines) and the lines that answer them, which is what the fake sends for each request.
@@ -27,6 +28,7 @@ Each row: the requests (`in` lines) and the lines that answer them, which is wha
 | stop.jsonl | 25.0.5 | `while (true) {}`: `evaluate` while it runs → error busy; `complete` while it runs → answered; `stop` → `stopped`, `finished`; the session survives (`x ==> 7`); stop of `Thread.sleep(60000)`. 1; 2 → 3-5; 6 → 7; 8 → 9; 10 → 11; 12 → 13-14; 15 → 16-18; 19 → 20; 21 → 22-23; 24 → 25 |
 | system-exit.jsonl | 25.0.5 | `System.exit(3)` → `finished`, then `ended exit` with `exitStatus` 3; the agent exits with code 0 by itself (its output ends), no `close` sent. 1; 2 → 3-5; 6 → 7-11 |
 | completion.jsonl | 25.0.5 | `"abc".` (76 items), `"abc".len`, a session variable (`greeting.`, `greeting.to`), `Math.ma` after another snippet (document anchor). 1; 2 → 3; 4 → 5; 6 → 7-9; 10 → 11; 12 → 13; 14 → 15; 16 → 17 |
+| complete-and-run.jsonl | 25.0.5 | completion and a run of the same document `"abc".len`: `complete` at its end → `length()` (anchor 6), then `evaluate` at the caret → `cannot find symbol` (variable `len`). 1; 2 → 3; 4 → 5-7; 8 → 9 |
 | version.jsonl | 25.0.5 | `Runtime.version()` → `$1 ==> 25.0.5+8-1-deb13u1-Debian`. 1; 2 → 3-5; 6 → 7 |
 | version-jdk21.jsonl | 21.0.13.1 (`java-21-openjdk-arm64`) | `Runtime.version()` → `$1 ==> 21.0.13.1+2-1-deb13u1-Debian`. 1; 2 → 3-5; 6 → 7 |
 | stdin.jsonl | 25.0.5 | `System.in.read()` → `-1`; `Scanner.hasNextLine()` → `false` (end of input). 1; 2 → 3-5; 6 → 7-9; 10 → 11 |

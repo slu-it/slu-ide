@@ -18,7 +18,7 @@ class AgentRecordingsTest {
             "value", "print-without-newline", "compile-error", "runtime-exception", "multi-snippet", "caret",
             "completion", "stdin", "unicode", "busy", "stop", "late-output", "system-exit", "stdin-eof",
             "thrown-no-line",
-            "halt",
+            "halt", "complete-and-run",
         ],
     )
     fun `the agent answers a recording's requests as recorded`(name: String) {

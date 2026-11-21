@@ -1,0 +1,9 @@
+{"t": 458, "dir": "out", "msg": {"event": "ready", "javaVersion": "25.0.5", "javaHome": "${JDK}"}}
+{"t": 458, "dir": "in", "msg": {"id": 1, "op": "complete", "text": "\"abc\".len", "caret": 9}}
+{"t": 477, "dir": "out", "msg": {"id": 1, "event": "completions", "anchor": 6, "items": [{"text": "length()", "smart": true}]}}
+{"t": 477, "dir": "in", "msg": {"id": 2, "op": "evaluate", "text": "\"abc\".len", "rangeStart": 9, "rangeEnd": 9}}
+{"t": 479, "dir": "out", "msg": {"id": 2, "event": "snippetStarted", "start": 0, "end": 9, "line": 0}}
+{"t": 485, "dir": "out", "msg": {"id": 2, "event": "diagnostic", "start": 0, "end": 9, "line": 0, "message": "cannot find symbol\n  symbol:   variable len\n  location: class java.lang.String", "error": true}}
+{"t": 485, "dir": "out", "msg": {"id": 2, "event": "finished"}}
+{"t": 485, "dir": "in", "msg": {"op": "close"}}
+{"t": 839, "dir": "out", "msg": {"event": "ended", "reason": "closed"}}

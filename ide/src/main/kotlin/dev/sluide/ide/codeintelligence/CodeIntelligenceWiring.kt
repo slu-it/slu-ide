@@ -2,6 +2,7 @@ package dev.sluide.ide.codeintelligence
 
 import dev.sluide.codeintelligence.CodeIntelligence
 import dev.sluide.codeintelligence.InstallPrompts
+import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileviewers.CodeEditorExtension
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.WindowServices
@@ -23,7 +24,8 @@ import org.springframework.stereotype.Component
  * The language servers and the editors' code intelligence of one window (ADR 0142, ADR 0145): one server per language
  * spec (every `LanguageServerSpec` bean) for the window's project folder, started when a matching editor opens and
  * ended with the window (Spring closes window beans when the window's scope is destroyed, after
- * `MainWindow.dispose` closed the tabs).
+ * `MainWindow.dispose` closed the tabs). `.jsh` editors complete from the JShell of their view in [editorArea]
+ * ([JShellCompletion], ADR 0145 amendment).
  */
 @Component
 @Scope(WINDOW_SCOPE)
@@ -36,6 +38,7 @@ class CodeIntelligenceWiring(
     libraryCode: LibraryCodeSettings,
     fileViewers: FileViewers,
     fontSettings: FontSettings,
+    editorArea: EditorArea,
 ) : AutoCloseable {
     /** The window's servers; servers trust-gate on the window's project trust (ADR 0053). */
     val languageServers =
@@ -56,6 +59,11 @@ class CodeIntelligenceWiring(
             libraryReadOnly = libraryCode::currentReadOnly,
         )
 
+    init {
+        // The completion of `.jsh` editors, from the JShell view of their file; intelligence.close() ends it too.
+        intelligence.addCompletionSource(::isJShellFile, JShellCompletion(editorArea::viewOf))
+    }
+
     /** The extension that binds the window's code editors to the servers. */
     val editorExtension: CodeEditorExtension get() = intelligence
 
@@ -64,6 +72,7 @@ class CodeIntelligenceWiring(
 
     /** Unbinds the editors and ends the servers. */
     override fun close() {
+        // Also ends the completion sources: closing the editors' attachments closes their source completions.
         intelligence.close()
         languageServers.close()
     }
