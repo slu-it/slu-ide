@@ -85,7 +85,11 @@ import dev.sluide.ide.translation.NoLanguageDetector
 import dev.sluide.ide.translation.NoTranslationEngine
 import dev.sluide.ide.translation.noModelInstaller
 import dev.sluide.java.JavaProjectSettings
+import dev.sluide.java.Jdk
 import dev.sluide.java.OutputIgnoreChecks
+import dev.sluide.jshell.JShellFileViewer
+import dev.sluide.jshell.JShellSession
+import dev.sluide.jshell.SessionEvent
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.PlaybackCoordinator
 import dev.sluide.projectdata.ProjectDataStore
@@ -268,6 +272,11 @@ abstract class MainWindowUiFixture {
     /** The project's JDK setting the windows' JShell wirings listen to; it writes into the test's project data. */
     internal val javaProjectSettings by lazy { JavaProjectSettings(projectData) }
 
+    /** Starts the JShell sessions of the windows; it throws unless a test replaces it with fake agents (no JVM starts). */
+    internal var jshellStartSession: (Jdk, (SessionEvent) -> Unit) -> JShellSession = { _, _ ->
+        error("this test starts no JShell")
+    }
+
     /** The JShell wirings of the windows a test created; closed after it. */
     internal val jshellWirings = mutableListOf<JShellWiring>()
 
@@ -421,7 +430,7 @@ abstract class MainWindowUiFixture {
                 override fun getIfUnique() = all
             }
         val encrypted = EncryptedFileViewer(encryptedFiles, settings, provider)
-        all = FileViewers(listOf(fallback, BinaryFileViewer(), encrypted), fallback)
+        all = FileViewers(listOf(fallback, BinaryFileViewer(), encrypted, JShellFileViewer()), fallback)
         all
     }
 
@@ -546,6 +555,7 @@ abstract class MainWindowUiFixture {
                 javaProjectSettings,
                 projectSettingsOpeners,
                 home,
+                { jdk, onEvent -> jshellStartSession(jdk, onEvent) },
             ).also(jshellWirings::add),
             Reviews(reviewSource, fontSettings, projectData, fileViewers).also(reviewWindows::add),
             FolderRegistrations(

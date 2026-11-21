@@ -8,7 +8,7 @@ import java.util.concurrent.LinkedBlockingQueue
  * A stream fed in chunks, like a pipe the agent writes to: a read blocks until a chunk is there, and `available()`
  * counts every byte already fed, so what one [feed] put in is all buffered at once for a reader.
  */
-internal class ChunkedInput : InputStream() {
+class ChunkedInput : InputStream() {
     private val chunks = LinkedBlockingQueue<ByteArray>()
     private var current = ByteArray(0)
     private var position = 0

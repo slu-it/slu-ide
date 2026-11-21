@@ -1,17 +1,24 @@
 package dev.sluide.ide.jshell
 
-import dev.sluide.fileviewers.WindowServices
+import dev.sluide.editorarea.EditorArea
+import dev.sluide.fileviewers.CodeEditorExtensions
 import dev.sluide.ide.ProjectService
 import dev.sluide.ide.WINDOW_SCOPE
 import dev.sluide.ide.isMac
+import dev.sluide.ide.scratches.WindowScratches
 import dev.sluide.java.JavaHomes
 import dev.sluide.java.JavaProjectSettings
 import dev.sluide.java.Jdk
 import dev.sluide.java.Jdks
+import dev.sluide.jshell.JShellEditorExtensions
+import dev.sluide.jshell.JShellFileView
 import dev.sluide.jshell.JShellJdks
+import dev.sluide.jshell.JShellSession
 import dev.sluide.jshell.JShellWindow
+import dev.sluide.jshell.SessionEvent
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.settings.ProjectSettingsOpeners
+import javafx.stage.Stage
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -41,6 +48,7 @@ class JShellWiring internal constructor(
     javaProjectSettings: JavaProjectSettings,
     projectSettingsOpeners: ProjectSettingsOpeners,
     userHome: Path,
+    startSession: ((Jdk, (SessionEvent) -> Unit) -> JShellSession)? = null,
 ) : AutoCloseable {
     @Autowired
     constructor(
@@ -63,6 +71,7 @@ class JShellWiring internal constructor(
             JShellJdks(projectData, javaHomes, { folder()?.let(javaProjectSettings::jdk) }),
             { installedJdksWithJShell(userHome, isMac) },
             { folder()?.let { projectSettingsOpeners.show(it, listOf("Java")) } },
+            startSession ?: JShellWindow.REAL_START_SESSION,
             canChooseProjectJdk = { folder() != null },
         )
 
@@ -71,8 +80,27 @@ class JShellWiring internal constructor(
             if (changed == folder()?.toAbsolutePath()?.normalize()) window.projectJdkChanged()
         }
 
-    /** Registers the window's [JShellWindow] for the views of other modules. */
-    fun register(services: WindowServices) = services.register(JShellWindow::class.java, window)
+    /**
+     * Registers the window's [JShellWindow] for the views of other modules and adds "Evaluate Selection in JShell" to the
+     * window's [CodeEditorExtensions], which must be registered already: it makes a scratch `selection.jsh` of the
+     * selected text through [scratches], opens it and runs it all.
+     */
+    internal fun register(
+        editorArea: EditorArea,
+        stage: Stage,
+        scratches: WindowScratches,
+    ) {
+        val services = editorArea.windowServices
+        services.register(JShellWindow::class.java, window)
+        checkNotNull(
+            services.get(CodeEditorExtensions::class.java),
+        ) { "the code editor extensions are registered first" }.add(
+            JShellEditorExtensions.evaluateSelection { text ->
+                val path = scratches.openText(stage, "selection", "jsh", text) ?: return@evaluateSelection
+                (editorArea.viewOf(path) as? JShellFileView)?.runAll()
+            },
+        )
+    }
 
     override fun close() = projectJdkChanges.close()
 }

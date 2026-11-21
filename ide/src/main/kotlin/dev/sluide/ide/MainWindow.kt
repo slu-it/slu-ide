@@ -478,7 +478,6 @@ class MainWindow(
         // or a whole file in Converting (ADR 0115); they wrap long lines by one switch for all editors of all windows
         // (ADR 0130); Python files get code intelligence from the window's language servers (ADR 0145).
         codeIntelligence.register(editorArea.windowServices)
-        jshell.register(editorArea.windowServices)
         editorArea.windowServices.register(
             CodeEditorExtensions::class.java,
             CodeEditorExtensions().apply {
@@ -494,6 +493,7 @@ class MainWindow(
                 add(jdtlsLog)
             },
         )
+        jshell.register(editorArea, stage, scratches)
         editorArea.windowServices.register(SoftWrap::class.java, softWrap)
         gradleSession.reviewTrust = { trust.review(stage) }
         // It warns about private environment files that git would commit.

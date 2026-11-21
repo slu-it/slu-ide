@@ -77,7 +77,7 @@ error): it runs on JDK 9 with nothing but kotlin-stdlib. Thoreau's side reads an
 data already uses; sharing the codec as source would put agent code into the Java 25 API surface for no gain.
 
 **Tests.** The recordings of the spike (and six of the module's agent: killed, killed-running, complete-error,
-thrown-no-line, halt, no-jshell.stderr) under `src/test/resources/jshell/` are the contract: `FakeAgent` replays them
+thrown-no-line, halt, no-jshell.stderr) under `src/testFixtures/resources/jshell/` are the contract: `FakeAgent` replays them
 to the session, and `AgentRecordingsTest` checks that the agent, run in the test JVM with a real execution JVM, answers
 each recording's requests with its messages. `JShellRealTest` runs the real agent process on the JDKs
 `SLUIDE_TEST_JSHELL` names.

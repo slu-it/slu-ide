@@ -2,15 +2,15 @@ package dev.sluide.jshell
 
 import dev.sluide.jshell.agent.Json
 
-/** One line of a recording under `src/test/resources/jshell/`: a message to the agent (`in`) or from it (`out`). */
-internal data class RecordedLine(
+/** One line of a recording under `src/testFixtures/resources/jshell/`: a message to the agent (`in`) or from it (`out`). */
+data class RecordedLine(
     val number: Int,
     val incoming: Boolean,
     val message: Map<String, Any?>,
 )
 
 /** The agent recordings (their README says what each shows); messages parsed with the agent's own codec. */
-internal object Recordings {
+object Recordings {
     fun load(name: String): List<RecordedLine> {
         val text =
             Recordings::class.java

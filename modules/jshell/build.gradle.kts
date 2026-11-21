@@ -6,6 +6,8 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.javafx)
     `java-library`
+    // FakeAgent and the agent recordings: the `ide` tests run sessions on the same fake agent.
+    `java-test-fixtures`
 }
 
 javafx {
@@ -99,6 +101,15 @@ sourceSets.main {
 
 tasks.jar {
     exclude(agentPackage)
+}
+
+// FakeAgent parses the recordings with the agent's own codec (package agent), which the module jar leaves out. The
+// runtime-only entry is for other modules, whose class path has the module jar without that package; the module's own
+// tests load main's copy first, which is also what pitest mutates.
+dependencies {
+    // The fixtures resolve the module's dependencies (Jackson) from the Spring Boot BOM, like the main code.
+    testFixturesImplementation(platform(libs.spring.boot.dependencies))
+    testFixturesRuntimeOnly(agent.output)
 }
 
 tasks.test {

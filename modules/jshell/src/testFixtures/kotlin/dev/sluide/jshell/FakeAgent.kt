@@ -10,7 +10,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * An agent process that replays a recording (README in `src/test/resources/jshell/`): it sends the recording's `out`
+ * An agent process that replays a recording (README in `src/testFixtures/resources/jshell/`): it sends the recording's `out`
  * lines up to its first `in` at once, and for each request the session sends, which must match the next `in` line
  * (all but its `id`), the `out` lines up to the following `in`, with the session's ids in place of the recorded ones.
  * As the real agent does, it sends `ended closed` only after its input ended, and the end of its input answers like
@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
  * [endsWithInput] false: it ignores the end of its input, so only [kill] ends it.
  * [lateStderr] arrives on standard error 200 ms after the agent ended, as the tail of a pipe can.
  */
-internal class FakeAgent(
+class FakeAgent(
     private val lines: List<RecordedLine>,
     private val stderrText: String = "",
     private val exits: Boolean = true,
@@ -58,6 +58,10 @@ internal class FakeAgent(
 
     @Volatile var killed = false
         private set
+
+    /** Whether every request before the final `close` came and was answered: the next recorded line is `close`. */
+    @Synchronized
+    fun awaitsClose(): Boolean = lines.getOrNull(position)?.let { it.incoming && it.message["op"] == "close" } == true
 
     /** Writes to the agent's input fail from now on, as to a pipe whose reader is gone. */
     @Volatile var inputBroken = false

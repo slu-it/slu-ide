@@ -25,12 +25,17 @@ class JShellWindow(
     /** Opens Project Settings → Java of the window's folder. FX thread. */
     val chooseProjectJdk: () -> Unit,
     /** Starts a session; tests replace it. Blocks: worker thread. */
-    val startSession: (Jdk, (SessionEvent) -> Unit) -> JShellSession = { jdk, onEvent ->
-        JShellSession.start(jdk, onEvent)
-    },
+    val startSession: (Jdk, (SessionEvent) -> Unit) -> JShellSession = REAL_START_SESSION,
     /** Whether [chooseProjectJdk] can do anything (a window without a project folder has no settings to open). */
     val canChooseProjectJdk: () -> Boolean = { true },
 ) {
+    companion object {
+        /** The default of [startSession]: the agent process on the JDK. */
+        val REAL_START_SESSION: (Jdk, (SessionEvent) -> Unit) -> JShellSession = { jdk, onEvent ->
+            JShellSession.start(jdk, onEvent)
+        }
+    }
+
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
 
     /** How many listeners are subscribed (for tests: a view that is closed must be gone from them). */

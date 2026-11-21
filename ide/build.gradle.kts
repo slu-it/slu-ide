@@ -118,6 +118,8 @@ dependencies {
     testImplementation(libs.richtextfx)
     // The Navigate menu's test binds a Python editor to an in-process fake language server.
     testImplementation(testFixtures(project(":modules:language-servers")))
+    // The JShell wiring's test runs sessions on the module's fake agent, replaying its recordings.
+    testImplementation(testFixtures(project(":modules:jshell")))
 }
 
 // The fat jar contains the JavaFX natives of the build platform only (see docs/adr/0003), so every
