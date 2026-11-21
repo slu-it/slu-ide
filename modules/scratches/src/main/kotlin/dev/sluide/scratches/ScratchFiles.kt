@@ -55,6 +55,7 @@ val SCRATCH_TYPES: List<ScratchType> =
         ScratchType("Kotlin", "kt"),
         ScratchType("Kotlin Script", "kts"),
         ScratchType("Java", "java"),
+        ScratchType("JShell", "jsh"),
         ScratchType("Python", "py"),
         ScratchType("Shell Script", "sh"),
         ScratchType("SQL", "sql"),

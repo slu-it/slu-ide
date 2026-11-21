@@ -73,6 +73,14 @@ class ScratchFilesTest {
     }
 
     @Test
+    fun `the JShell type comes right after Java`() {
+        val names = SCRATCH_TYPES.map { it.name }
+
+        assertEquals("JShell", names[names.indexOf("Java") + 1])
+        assertEquals("jsh", SCRATCH_TYPES.single { it.name == "JShell" }.extension)
+    }
+
+    @Test
     fun `the constructor does not touch the disk and create makes the folder`() {
         val files = scratches()
         assertFalse(Files.exists(files.folder))
