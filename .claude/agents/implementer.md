@@ -35,14 +35,20 @@ update, docs to read, the master commit and your displays.
    - After the last commit and after each round of review fixes: `.claude/scripts/mutation-check.sh --unit-only
      --detach <master commit from the brief>`, then `.claude/scripts/mutation-check.sh --wait` (it returns within
      100 s) until its exit code is not 5 (5 means still running). No UI stage here (ADR 0189).
-   - A mutant you kill: a `fixup!` commit (after `verify.sh --changed`), then the same command again. One you accept:
+   - Reruns name the files: after the first complete run, a rerun (survivors you killed, a fix round) appends the
+     production files it concerns, those you changed and those whose mutants you set out to kill. Kill or accept the
+     whole list before you rerun, not one mutant per run.
+   - A mutant you kill: a `fixup!` commit (after `verify.sh --changed`), then the rerun. One you accept:
      `.claude/scripts/mutation-check.sh --accept <path>:<line>[:<Mutator>] <reason>`. Code only a UI test reaches
      (wiring, a control's handler) is neither: name it in your report as left for the UI stage.
    - When the main session asks for the full run (after the review's "Merge: yes"): `.claude/scripts/mutation-check.sh
      --displays <all displays from the brief> --ui-tests <the UI test classes of your verify list, comma-separated>
-     --detach <master commit>`. A mutant you expect a UI test outside the list to kill: add that class and rerun.
-     What the full run leaves is killed with a test (its red: left before, killed in the rerun of this command) or
-     accepted; rerun it only after such a fix.
+     --detach <master commit>`. A mutant you expect a UI test outside the list to kill: add that class to the rerun.
+     Handle everything it leaves in one pass: a test per gap (its red: left before, killed in the rerun) or an
+     acceptance. Then rerun once, with `--ui-tests` naming only the classes meant to kill the leftovers and only the
+     files that had leftovers appended. Do not rerun again: list what that rerun leaves in your report, each with
+     its line and why no test reaches it, and stop. Without UI test classes in your verify list there is no full
+     run; the main session will not ask for it.
    - Existing behavior (gap tests, and moved code, whose diff counts only changed lines; a refactor's added lines
      are mutated in change mode): the `--whole` runs before and after the new test, as the first bullet of the rule
      says.

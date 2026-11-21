@@ -27,7 +27,9 @@ changed files.
      `accepted.tsv`, the reason for each timeout too) or leaves: look for an input that tells the mutant apart (and for
      the hand break checks the report names); name that input in the finding (why first: ADR 0178, "Evaluation"). Before
      the review the run is `--unit-only` (ADR 0189): a mutant "left for the UI stage" is a finding only when a unit test
-     could reach it or no UI test of the package drives that code; the full run follows your "Merge: yes";
+     could reach it or no UI test of the package drives that code; the full run follows your "Merge: yes". Its
+     follow-up may bring a list of mutants left after one bounded rerun (ADR 0189, amendment 2026-11-21): a Should
+     only where you name the test that reaches the line, otherwise it stays a known gap in the round's report;
    - the reported test commands cover the changed code (a related UI test class that was not run is a finding; a
      skipped `uiTest` is not a pass);
    - a duplicate of an existing test (grep the asserted strings and the function); an avoidable UI test;

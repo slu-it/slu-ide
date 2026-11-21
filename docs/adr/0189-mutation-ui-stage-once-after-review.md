@@ -1,6 +1,6 @@
 # 0189. Mutation runs: the UI stage once per package, after the review
 
-- Status: accepted
+- Status: accepted; amended 2026-11-21 (bounded runs after the review, named files in reruns, Opus for new views)
 - Date: 2026-11-19
 
 ## Context
@@ -72,3 +72,44 @@ equivalence stay).
 - Open: the memory errors of UI workers at 768 MB, and a default JUnit timeout that would turn a hung dialog into a
   failure everywhere.
 - Guidance: `.claude/rules/testing.md`, `docs/testing.md`, the agent files and the delegate skill describe the flow.
+
+## Amendment 2026-11-21: bounded runs after the review, named files in reruns, Opus for new views
+
+### Context
+The JShell round (ADR 0191, packages P0-P5) took 20 h 20 min from the request to the report. About 11.7 h of its
+critical path were mutation runs:
+- P1, the engine (about 1,450 mutants, tests that start JShell processes): seven `--unit-only` runs of 37-40 min over
+  every file, and two of 20 min that named only the changed files. Its full run after the review took 38 min, and its
+  UI stage had 0 mutants.
+- P2a (transcript pane) and P2b (`.jsh` view): after the reviewer's "Merge: yes" the full run went 6 and 7 times, 20-29
+  min each, always over every file and every listed UI class, each pass killing part of the no-coverage list (P2a 70 →
+  20 → 2 → 2 → 3 → 1; P2b 162 → 93 → 62 → 62 → 54, then Opus 5 → 1). That was 2 h 45 min and 4 h 13 min after the
+  approval.
+- Sonnet failed review twice on both view packages, P2a and P2b, before Opus took over: about 2.5 h of rework.
+
+### Decision
+- **Reruns name the files.** The complete `--unit-only` run after the last commit stays. Every later rerun (killing
+  its survivors, a fix round) appends the production files it concerns: those the round changed and those whose
+  mutants it set out to kill. The implementer works through the whole list before it reruns, not one mutant per run.
+- **No full run without UI test classes.** A package whose verify list has no UI test class has no UI stage; its fix
+  rounds' `--unit-only` runs are final.
+- **The full run once, then one bounded pass.** The implementer handles everything the full run leaves in one pass (a
+  test per gap, an acceptance per equivalence or endless loop) and reruns once, naming only the files that had
+  leftovers and, in `--ui-tests`, only the classes meant to kill them. What that rerun leaves is not chased in further
+  runs: the report lists each mutant with its line and why no test reaches it, the main session sends the list to the
+  reviewer's follow-up, and the reviewer either names a test that reaches the line (one more fix, one more named
+  rerun) or the mutant goes into the round's final report as a known gap. `accepted.tsv` stays for equivalences and
+  endless-loop timeouts only.
+- **Opus for new views.** A package whose main work is a new JavaFX view, pane or control (layout, scrolling, focus,
+  event timing that its UI tests pin down) starts on Opus. Dialogs, menu entries and wiring into an existing view stay
+  on Sonnet.
+
+### Consequences
+- Estimated for the JShell round: about 6 h less (P1 about 1 h 20 min, P2a about 2 h, P2b about 3 h).
+- A gap left after the bounded pass stays open until someone writes its test. The final report names it, so it is
+  visible rather than accepted.
+- A rerun that names files does not see a test change that would let a mutant in another file survive. The complete
+  run before the review and the full run after it bound that; a package without UI tests relies on the reviewer's
+  reading of its fix diffs.
+- Guidance: `.claude/rules/testing.md`, `docs/testing.md`, the implementer and reviewer agent files, the delegate skill
+  and the header of `mutation-check.sh`.

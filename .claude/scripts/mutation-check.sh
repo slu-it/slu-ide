@@ -19,7 +19,8 @@
 #                   below the Bash tool's 2-minute timeout); its exit code once finished, 5 while it runs
 #   --whole         every line of the given files instead of the change's added lines
 #   --verbose       also list the killed mutants with their test
-#   file...         only these production files (default in change mode: every one the commits since <base> change)
+#   file...         only these production files (default in change mode: every one the commits since <base> change);
+#                   every rerun after the first complete run names its files (ADR 0189, amendment 2026-11-21)
 #   --accept        record the mutants the last finished run left on that line as accepted, with the reason (an
 #                   equivalence or an endless-loop timeout): later runs list them as `accepted` and skip them until
 #                   the line's text changes. The mutator is needed when the line's leftovers have several. The

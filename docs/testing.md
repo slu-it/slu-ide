@@ -117,21 +117,26 @@ A behavior is tested once, at the lowest level that can see it
   thread, and a run the limit ends is a hang, not a red.
 - **The mutation-check script** ([ADR 0185](adr/0185-mutation-testing-with-pitest.md)).
   `.claude/scripts/mutation-check.sh [options] <base> [file...]` (usage and output: its header) runs pitest over the
-  production lines the commits since `<base>` add (`--whole`: every line of the given files). Stage 1 runs the module's
-  unit tests; stage 2, the UI stage (Linux only; elsewhere the summary says "preliminary"), runs the test classes
-  `--ui-tests` names, or all the module's tests, over the files that still have survivors. A run can outlast one Bash
-  call: start it with `--detach` and call `--wait` until the exit code is not 5. It refuses uncommitted changes in the
-  files it mutates, so a survivor's fix is a `fixup!` commit before the next run; the same call again reruns it. When
-  the stages run ([ADR 0189](adr/0189-mutation-ui-stage-once-after-review.md)): `--unit-only` after the last commit and
-  after review fixes (its survivors include what only a UI test kills; the report names those as left for the UI stage),
-  the full run once per package after the review, with `--displays N,M,O,P` (one UI worker per display) and `--ui-tests
-  A,B` (only the package's UI test classes; a kill by another class shows up as a survivor). Every SURVIVED or
-  no-coverage mutant is killed with a sharper input or test, removed as dead code, or reported as equivalent with the
-  input that cannot tell it apart. A timeout is not a kill unless the mutation visibly makes a loop endless or an
-  allocation unbounded; name that per timeout. `--accept <path>:<line>[:<Mutator>] <reason>` records such an equivalence
-  or timeout in `build/mutation-check/accepted.tsv`; later runs list it as `accepted` and skip it until its line
-  changes. Not mutated (accepted gaps): removing an inlined `filter { }` (its predicate always true), `close()`, an
-  inline function of ours used only from another package or module (0 mutants on its lines).
+  production lines the commits since `<base>` add (`--whole`: every line of the given files). Stage 1 runs the
+  module's unit tests; stage 2, the UI stage (Linux only; elsewhere the summary says "preliminary"), runs the test
+  classes `--ui-tests` names, or all the module's tests, over the files that still have survivors. A run can outlast
+  one Bash call: start it with `--detach` and call `--wait` until the exit code is not 5. It refuses uncommitted
+  changes in the files it mutates, so a survivor's fix is a `fixup!` commit before the next run; the same call again
+  (with the files it concerns appended) reruns it. When the stages run ([ADR
+  0189](adr/0189-mutation-ui-stage-once-after-review.md)): `--unit-only` after the last commit and after review fixes
+  (its survivors include what only a UI test kills; the report names those as left for the UI stage), the full run
+  once per package after the review, with `--displays N,M,O,P` (one UI worker per display) and `--ui-tests A,B` (only
+  the package's UI test classes; a kill by another class shows up as a survivor). Reruns after the first complete run
+  append the files they concern; a package without UI test classes skips the full run; what the full run leaves is
+  handled in one pass and rerun once, naming its files and classes, and what that leaves is reported as known gaps
+  instead of rerun (ADR 0189, amendment 2026-11-21: in the JShell round the unbounded loop cost about 7.5 h after the
+  reviews' approvals). Every SURVIVED or no-coverage mutant is killed with a sharper input or test, removed as dead
+  code, or reported as equivalent with the input that cannot tell it apart. A timeout is not a kill unless the
+  mutation visibly makes a loop endless or an allocation unbounded; name that per timeout. `--accept
+  <path>:<line>[:<Mutator>] <reason>` records such an equivalence or timeout in `build/mutation-check/accepted.tsv`;
+  later runs list it as `accepted` and skip it until its line changes. Not mutated (accepted gaps): removing an
+  inlined `filter { }` (its predicate always true), `close()`, an inline function of ours used only from another
+  package or module (0 mutants on its lines).
 - `.claude/scripts/check-tests.sh [files]` reports fixed sleeps without a reason (poll intervals inside a `while`
   loop do not count), synthetic OS input without a `//` reason, `waitForFxEvents()` right after `interact` and test
   classes over 800 lines; a hook runs it on newly written test code. `.claude/scripts/test-times.sh` lists task

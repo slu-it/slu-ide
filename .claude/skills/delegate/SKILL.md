@@ -20,13 +20,16 @@ One file, a few lines: do it yourself, no subagent.
 
 ## Packages and model
 Split first, escalate second. A package is about one module and a handful of files, with the signatures other
-packages rely on frozen in the plan. "A whole feature", "UI work" and "many files" are reasons to split, not to
-escalate.
+packages rely on frozen in the plan. "A whole feature" and "many files" are reasons to split, not to escalate; a new
+view is the one kind of UI work that starts on Opus (below).
 
 Pass `model: "opus"` to an `implementer` only when one of these applies, and put it in the Agent description as
 `[opus: <reason>]` (e.g. `[opus: concurrency] P2 pull backend`):
 - the foundation package of a round: a cross-module API or the core of a new ADR that later packages build on;
 - threading or concurrency, terminal, file-watcher or git process internals;
+- a new JavaFX view, pane or control whose layout, scrolling, focus or event timing its UI tests pin down (not a
+  dialog, a menu entry or wiring into an existing view): Sonnet failed review twice on both view packages of the
+  JShell round (ADR 0189, amendment 2026-11-21);
 - a Sonnet implementer stopped on a design gap that a better brief cannot close;
 - a Sonnet attempt failed review twice.
 
@@ -110,16 +113,22 @@ stayed unchanged may find it removed when it resumes; send a new agent with a ne
 The reviewer labels each finding Blocker, Should or Nit (definitions in `.claude/agents/reviewer.md`).
 - Blockers and Shoulds go back to the same implementer with SendMessage (it keeps its context). The message asks
   for the fix's test red first: failing on the unfixed code for a bug, failing with the guard removed for a vacuous
-  test; then the `mutation-check.sh --unit-only` run again. Never ask for the UI stage in a fix round.
+  test; then the `mutation-check.sh --unit-only` run again, naming the production files the round changed or whose
+  mutants it kills (a complete run of a big package takes 40 min, a named one half that). Never ask for the UI stage
+  in a fix round.
 - A re-review only when a Blocker was fixed; for fixed Shoulds the main session reads the fix diff itself.
 - Nits: the main session fixes the ones worth a line itself, or drops them; the final report names what was dropped.
   Nits never start another implementer round.
 - Squash review fixes non-interactively: `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <base>`.
 - Once no Blocker or Should is left, ask the implementer for the full mutation run (`--displays` with its four displays,
   `--ui-tests` with the UI test classes of its verify list; ADR 0189), one package at a time: two UI stages at once
-  share the cores and make UI tests time out. What it still leaves, the implementer kills with a test (the full command
-  again shows the kill) or accepts; read that fix diff yourself, and send the reviewer a short follow-up only when
-  production code changed or a new mutant is accepted. Then the package is merged.
+  share the cores and make UI tests time out. A package without UI test classes skips it: its fix rounds' unit runs
+  are final. What the full run leaves, the implementer handles in one pass (tests for every gap, acceptances) and
+  reruns once, naming only the files that had leftovers and the UI test classes meant to kill them. No further
+  reruns: what that leaves comes back as a list (line, why no test reaches it). Read the fix diff yourself; send the
+  reviewer a short follow-up when production code changed, a new mutant is accepted or the list is not empty. A
+  leftover the reviewer names a test for is one more fix with one more named rerun; the rest goes into the round's
+  final report as known gaps. Then the package is merged.
 - A requirement that changes while an implementer works goes into the next review message, unless the package
   cannot be reviewed without it: every extra round costs a verify and a mutation run.
 
