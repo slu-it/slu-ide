@@ -40,9 +40,6 @@ interface CodeEditor :
     /** Moves the caret to the start of [line] (0-based) and scrolls it into view. */
     fun moveCaretTo(line: Int)
 
-    /** The caret's offset in [text]. */
-    val caretOffset: Int
-
     /** The selected range [start, end) of [text]; empty at the caret when nothing is selected. */
     val selection: IndexRange
 
@@ -385,8 +382,6 @@ private class CodeViewEditor(
     override val textProperty: ObservableValue<String> get() = view.area.textProperty()
 
     override val caretLine: Int get() = view.area.currentParagraph
-
-    override val caretOffset: Int get() = view.area.caretPosition
 
     override val selection: IndexRange get() = view.area.selection
 

@@ -86,15 +86,13 @@ class CodeEditorUiTest {
     }
 
     @Test
-    fun `gives the caret offset and the selection, and shows added banners until closed`(robot: FxRobot) {
+    fun `gives the selection, and shows added banners until closed`(robot: FxRobot) {
         val editor = open(dir.resolve("a.json").apply { writeText("{\n  \"a\": 1\n}\n") }, robot)
 
         robot.interact { robot.area().selectRange(4, 7) }
         assertEquals(IndexRange(4, 7), onFx { editor.selection })
-        assertEquals(7, onFx { editor.caretOffset })
         robot.interact { robot.area().selectRange(2, 2) }
         assertEquals(IndexRange(2, 2), onFx { editor.selection })
-        assertEquals(2, onFx { editor.caretOffset })
 
         val banner = Label("note")
         val handle = onFx { editor.addBanner(banner) }
