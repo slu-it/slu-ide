@@ -202,32 +202,34 @@ internal class WindowScratches(
     /**
      * Creates the scratch file `<baseName>.<extension>` with [text] (Converting's "Open as Scratch", ADR 0115, and the
      * Databases tab's DDL and exports), shows it in the explorer and opens it in the editor; an error message if that
-     * fails. [baseName] is cleaned by [safeBaseName].
+     * fails. [baseName] is cleaned by [safeBaseName]. Returns the file, null if it could not be created.
      */
     fun openText(
         stage: Stage,
         baseName: String,
         extension: String,
         text: String,
-    ) {
-        createAndOpen(stage) { scratchFiles.create(safeBaseName(baseName), extension, text) }
-    }
+    ): Path? = createAndOpen(stage) { scratchFiles.create(safeBaseName(baseName), extension, text) }
 
-    /** Creates a scratch file by [create], reveals and opens it; an error message if that throws an IOException. */
+    /**
+     * Creates a scratch file by [create], reveals and opens it, and returns it; an error message and null if that
+     * throws an IOException.
+     */
     private fun createAndOpen(
         stage: Stage,
         create: () -> Path,
-    ) {
+    ): Path? {
         val path =
             try {
                 create()
             } catch (e: IOException) {
                 log.log(System.Logger.Level.WARNING, "Cannot create a scratch file in ${scratchFiles.folder}", e)
                 showError(stage, "The scratch file cannot be created. ${reason(e)}")
-                return
+                return null
             }
         fileExplorer.reveal(path)
         editorArea.open(path)
+        return path
     }
 
     /**

@@ -315,6 +315,43 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
     }
 
     @Test
+    fun `openText returns the created file, and null with an error when it cannot be created`(robot: FxRobot) {
+        openProject(robot)
+        val errors = mutableListOf<String>()
+        mainWindow.showError = { _, message -> errors += message }
+
+        val created =
+            WaitForAsyncUtils
+                .asyncFx<Path?> {
+                    mainWindow.scratches.openText(
+                        stage,
+                        "sel",
+                        "txt",
+                        "1+1",
+                    )
+                }.get()
+
+        assertEquals(scratchFiles.folder.resolve("sel.txt"), created)
+
+        Files.delete(created!!)
+        Files.delete(scratchFiles.folder)
+        scratchFiles.folder.createFile()
+        val failed =
+            WaitForAsyncUtils
+                .asyncFx<Path?> {
+                    mainWindow.scratches.openText(
+                        stage,
+                        "sel",
+                        "txt",
+                        "1+1",
+                    )
+                }.get()
+
+        assertNull(failed)
+        assertEquals(1, errors.size)
+    }
+
+    @Test
     fun `closing the tab of an empty scratch file deletes it, one with content is kept`(robot: FxRobot) {
         openProject(robot)
         answering(kotlin)
