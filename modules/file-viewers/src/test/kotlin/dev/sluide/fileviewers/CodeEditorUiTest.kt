@@ -3,6 +3,7 @@ package dev.sluide.fileviewers
 import dev.sluide.projectdata.ProjectDataStore
 import javafx.scene.Node
 import javafx.scene.Scene
+import javafx.scene.control.IndexRange
 import javafx.scene.control.Label
 import javafx.scene.control.TextField
 import javafx.scene.control.ToggleButton
@@ -31,6 +32,8 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** The public [CodeEditor] that other modules embed. Needs a display, see the `uiTest` Gradle task. */
@@ -58,6 +61,8 @@ class CodeEditorUiTest {
         return editor
     }
 
+    private fun <T> onFx(block: () -> T): T = WaitForAsyncUtils.asyncFx<T> { block() }.get()
+
     private fun FxRobot.area() = lookup(".code-area").queryAs(CodeArea::class.java)
 
     @Test
@@ -78,6 +83,24 @@ class CodeEditorUiTest {
         assertTrue(editor.dirty.get())
         robot.interact { editor.save() }
         assertEquals("{\r\n  \"b\": 2,\r\n  \"a\": 1\r\n}\r\n", file.readText())
+    }
+
+    @Test
+    fun `gives the caret offset and the selection, and shows added banners until closed`(robot: FxRobot) {
+        val editor = open(dir.resolve("a.json").apply { writeText("{\n  \"a\": 1\n}\n") }, robot)
+
+        robot.interact { robot.area().selectRange(4, 7) }
+        assertEquals(IndexRange(4, 7), onFx { editor.selection })
+        assertEquals(7, onFx { editor.caretOffset })
+        robot.interact { robot.area().selectRange(2, 2) }
+        assertEquals(IndexRange(2, 2), onFx { editor.selection })
+        assertEquals(2, onFx { editor.caretOffset })
+
+        val banner = Label("note")
+        val handle = onFx { editor.addBanner(banner) }
+        assertNotNull(onFx { banner.scene })
+        robot.interact { handle.close() }
+        assertNull(onFx { banner.scene })
     }
 
     @Test

@@ -40,6 +40,18 @@ interface CodeEditor :
     /** Moves the caret to the start of [line] (0-based) and scrolls it into view. */
     fun moveCaretTo(line: Int)
 
+    /** The caret's offset in [text]. */
+    val caretOffset: Int
+
+    /** The selected range [start, end) of [text]; empty at the caret when nothing is selected. */
+    val selection: IndexRange
+
+    /**
+     * Shows [node] as a banner above the text, below the find bar and the view's own banners, until the handle is
+     * closed, as an extension's [ExtensibleCodeEditor.addBanner] does; for the banners of an embedding view. FX thread.
+     */
+    fun addBanner(node: Node): AutoCloseable
+
     /**
      * The text as last read from or saved to the file, `\n` line breaks, without unsaved changes: what a preview of
      * the file shows.
@@ -373,6 +385,12 @@ private class CodeViewEditor(
     override val textProperty: ObservableValue<String> get() = view.area.textProperty()
 
     override val caretLine: Int get() = view.area.currentParagraph
+
+    override val caretOffset: Int get() = view.area.caretPosition
+
+    override val selection: IndexRange get() = view.area.selection
+
+    override fun addBanner(node: Node): AutoCloseable = view.extensible.addBanner(node)
 
     override val canReplaceText: Boolean get() = view.canReplaceText
 
