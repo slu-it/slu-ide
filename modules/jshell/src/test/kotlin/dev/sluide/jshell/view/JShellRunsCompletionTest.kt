@@ -233,12 +233,24 @@ class JShellRunsCompletionTest {
     }
 
     @Test
-    fun `complete fails when the session cannot start`() {
+    fun `complete fails when the session cannot start, and notes nothing`() {
         fixture.nextStartFails(JShellStartException("no luck", ""))
 
         val answer = runs.complete("x", 1)
         fixture.pumpUntil("the failure") { answer.isDone }
 
         assertIs<JShellStartException>(assertFailsWith<ExecutionException> { answer.get() }.cause)
+        assertEquals(emptyList(), fixture.log, "completion asks again with every key; a run notes the failure")
+    }
+
+    @Test
+    fun `a run waiting on a start completion began notes its failure once`() {
+        fixture.nextStartFails(JShellStartException("no luck", ""))
+        val answer = runs.complete("x", 1)
+
+        runs.run("x", 0, 0)
+        fixture.pumpUntil("the failure") { answer.isDone && !runs.running }
+
+        assertEquals(listOf("note: no luck"), fixture.log)
     }
 }

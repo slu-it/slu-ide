@@ -269,7 +269,8 @@ internal class JShellRuns(
             onChange()
             return
         }
-        if (mine == generation) {
+        // only a run waiting for the start notes its failure: completion asks again with every key
+        if (mine == generation && evaluating) {
             // the session's own messages already say "JShell could not start on JDK ..." or the like
             val (first, stderr) =
                 if (error is JShellStartException) {

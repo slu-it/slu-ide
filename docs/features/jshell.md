@@ -78,7 +78,8 @@ Notes are the session's own words between the entries:
 - `Session restarted` after Restart; `Session restarted on JDK 25` when Run All ended a session, and at the next run
   after a change of JDK ended it.
 - The start failure's own message ("JShell could not start on JDK 25 (<home>): ...") with the last 10 lines of the
-  agent's standard error; there is no session then.
+  agent's standard error, when a run asked for the start; there is no session then. A start only completion asked for
+  fails without a note, as completion asks again with every key.
 - `Session ended (exit 3)` after `System.exit(3)` (`Session ended` where the status is unknown); the next run starts a
   new session. `JShell stopped unexpectedly` with the last 10 lines of the agent's standard error when it died.
 - Output of threads a snippet started shows when it arrives, outside any entry.
