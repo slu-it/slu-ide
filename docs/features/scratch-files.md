@@ -19,6 +19,8 @@ Files for notes and experiments outside the project, shared by all project windo
   …, always the lowest free number; another window creating one at the same moment gets the next.
 - The new file is shown in the explorer (the Scratches node expanded, the file selected) and opened in a tab with the
   focus in it. If it cannot be created (e.g. the folder is not writable), an error says so and nothing opens.
+- **From a selection:** "Evaluate Selection in JShell" in the context menu of `.java` editors creates `selection.jsh`
+  with the selected text and runs it ([jshell.md](jshell.md#from-a-java-editor)).
 - **Generated:** File → New Generated Scratch File… creates a scratch file with values in it, see
   [Generated scratch files](#generated-scratch-files).
 - **Where:** `~/.sluide/scratches`, one folder for all windows, created when a window opens a project.

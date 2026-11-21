@@ -65,6 +65,14 @@ Notes are the session's own words between the entries:
   new session. `JShell stopped unexpectedly` with the last 10 lines of the agent's standard error when it died.
 - Output of threads a snippet started shows when it arrives, outside any entry.
 
+## From a Java editor
+The context menu of editors of `.java` files has **Evaluate Selection in JShell**, the last of the editor extensions' items.
+It is disabled without a selection; editors of other files do not get it, and a `.java` file renamed to another type
+loses it the next time the menu shows. Choosing it creates a scratch `selection.jsh` (`selection_1.jsh` and so on, see
+[scratch-files.md](scratch-files.md)) holding exactly the selected text, opens it in a tab and runs it all (Run All),
+once the view knows its JDK. If the scratch cannot be created, the usual error shows and nothing runs. `ide` wires it
+(`JShellWiring.register`); the item is `JShellEditorExtensions.evaluateSelection` in the module.
+
 ## For other code
 `JShellFileView` (`runAll()`, `complete(caret)`) is what code outside the module uses; the window's `JShellWindow`
 (JDKs, the installed JDKs, Choose JDK…, the session start) is registered by `ide` as a window service
