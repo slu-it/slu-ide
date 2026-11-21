@@ -156,10 +156,12 @@ internal class JdtlsSpecOutputTest : JdtlsSpecFixture() {
         awaitBanner(gradle)
 
         perform(problem, "Don't Ask Again")
-        awaitCondition("the decision") { projectSettings.outputIgnoreDeclined(window) }
+        // The decision is stored on the worker before the offers hear of it: wait for what the user sees.
+        awaitCondition("the offers hidden") {
+            spec.environmentProblem(maven, window) == null && spec.environmentProblem(gradle, window) == null
+        }
 
-        assertNull(spec.environmentProblem(maven, window))
-        assertNull(spec.environmentProblem(gradle, window))
+        assertTrue(projectSettings.outputIgnoreDeclined(window))
         session.imports.onEvent(
             JsonParser.parseString(
                 """{"eventType":300,"data":{"projectUri":"file://$gradleRoot/","highestJavaVersion":"24"}}""",
