@@ -12,11 +12,13 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 
 /**
- * The runs of one JShell view, without JavaFX (ADR 0191): the session and its life (started on the first run, ended by
- * Restart, a JDK change, `System.exit`, a crash or [dispose]), the evaluation in flight, and the notes in the
- * transcript. The methods are called on the FX thread; blocking work (starting and closing a session) goes to [worker]
- * (one thread, so that a session is closed before the next one starts), and what the session reports comes back through
- * [toFx]. [onChange] is called after every change of [canRun], [canStop] or [running].
+ * The runs of one JShell view, without JavaFX (ADR 0191): the session and its life (started on the first run or
+ * completion, ended by Restart, a JDK change, `System.exit`, a crash or [dispose]), the evaluation in flight, and the
+ * notes in the transcript; a session's start, and a restart for a JDK change, are noted by the first run on it. A
+ * session no run has used yet is unseen: Run All runs on it, and its end is not noted. The methods are called on the
+ * FX thread; blocking work (starting and closing a session) goes to [worker] (one thread, so that a session is closed
+ * before the next one starts), and what the session reports comes back through [toFx]. [onChange] is called after
+ * every change of [canRun], [canStop] or [running].
  */
 internal class JShellRuns(
     private val output: RunOutput,
@@ -36,8 +38,11 @@ internal class JShellRuns(
     /** The session's JDK changed while it ran: it closes when the snippet ends, unless the JDK is its again. */
     private var closeAfterRun = false
 
-    /** A JDK change ended the session: the next start says so, as Run All does. */
+    /** A JDK change ended the session: the next run says so, as Run All does. */
     private var noteRestart = false
+
+    /** The note of a session started for completion, written at its first run. */
+    private var startNote: String? = null
 
     /** Identifies the session in use: what an older session reports later is dropped. */
     private var generation = 0
@@ -45,8 +50,8 @@ internal class JShellRuns(
     /** A snippet is being evaluated (also while its session starts): the tab shows activity. */
     val running: Boolean get() = evaluating
 
-    /** Whether Run and Run All do something: a JDK is there and nothing is starting or running. */
-    val canRun: Boolean get() = !disposed && jdk()?.jdk != null && starting == null && !evaluating
+    /** Whether Run and Run All do something: a JDK is there and nothing runs; a run waits for a start in flight. */
+    val canRun: Boolean get() = !disposed && jdk()?.jdk != null && !evaluating
 
     /** Whether Stop does something: a snippet is running in a started session. */
     val canStop: Boolean get() = evaluating && starting == null
@@ -61,11 +66,14 @@ internal class JShellRuns(
         evaluate(text, start, end)
     }
 
-    /** Ends the session if there is one, starts a new one and evaluates the whole [text]. */
+    /**
+     * Ends the session if there is one, starts a new one and evaluates the whole [text]; a session no run has used is
+     * as fresh as a new one and evaluates it.
+     */
     fun runAll(text: String) {
         if (!canRun) return
         val major = jdk()?.jdk?.major
-        if (session != null) {
+        if (session != null && startNote == null) {
             closeSession()
             output.note("Session restarted on JDK $major")
         }
@@ -79,11 +87,12 @@ internal class JShellRuns(
         worker.execute { current.stop() }
     }
 
-    /** Ends the session; the next run starts a new one. Does nothing without a session. */
+    /** Ends the session; the next run starts a new one. Nothing without a session; no note for an unseen one. */
     fun restart() {
         if (session == null) return
+        val seen = startNote == null
         closeSession()
-        output.note("Session restarted")
+        if (seen) output.note("Session restarted")
     }
 
     /**
@@ -105,9 +114,11 @@ internal class JShellRuns(
         onChange()
     }
 
+    /** Closes the session for a JDK change; the next run notes the restart if a run used it, or one before it. */
     private fun closeForJdk() {
+        val restarted = startNote == null || noteRestart
         closeSession()
-        noteRestart = true
+        noteRestart = restarted
     }
 
     /** Completion at [caret] in [text], starting the session if there is none. */
@@ -128,6 +139,10 @@ internal class JShellRuns(
         end: Int,
     ) {
         evaluating = true
+        if (noteRestart) {
+            noteRestart = false
+            output.note("Session restarted on JDK ${jdk()?.jdk?.major}")
+        }
         onChange()
         ensureSession().whenComplete { current, error ->
             if (error != null) {
@@ -146,6 +161,8 @@ internal class JShellRuns(
         end: Int,
     ) {
         val mine = generation
+        startNote?.let(output::note)
+        startNote = null
         output.startEvaluation(text)
         try {
             current.evaluate(text, start, end) { event -> toFx { evalEvent(mine, event) } }
@@ -180,10 +197,6 @@ internal class JShellRuns(
         val target = resolved?.jdk ?: return CompletableFuture.failedFuture(IllegalStateException("No JDK with JShell"))
         val future = CompletableFuture<JShellSession>()
         starting = future
-        if (noteRestart) {
-            noteRestart = false
-            output.note("Session restarted on JDK ${target.major}")
-        }
         launch(future, target, resolved.source)
         onChange()
         return future
@@ -236,7 +249,8 @@ internal class JShellRuns(
         }
         session = started
         sessionHome = target.home
-        output.note("JShell ${started.javaVersion} ($source)")
+        // written by the run that waits for this start, else by the first run on the session
+        startNote = "JShell ${started.javaVersion} ($source)"
         future.complete(started)
         onChange()
     }
@@ -282,7 +296,9 @@ internal class JShellRuns(
         }
     }
 
+    /** The session ended on its own; a crash of one no run used is not noted (an exit comes from a run). */
     private fun ended(event: SessionEvent.Ended) {
+        val seen = startNote == null
         when (event.reason) {
             "exit" -> {
                 forgetSession()
@@ -291,6 +307,7 @@ internal class JShellRuns(
 
             "crash" -> {
                 forgetSession()
+                if (!seen) return
                 val tail =
                     event.detail
                         .orEmpty()
@@ -306,6 +323,7 @@ internal class JShellRuns(
     /** The session is gone on its own: nothing to close. */
     private fun forgetSession() {
         session = null
+        startNote = null
         sessionHome = null
         closeAfterRun = false
         evaluating = false
@@ -315,6 +333,7 @@ internal class JShellRuns(
     private fun closeSession() {
         val old = session
         session = null
+        startNote = null
         sessionHome = null
         evaluating = false
         closeAfterRun = false

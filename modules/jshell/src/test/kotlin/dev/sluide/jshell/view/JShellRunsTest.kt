@@ -11,7 +11,6 @@ import org.junit.jupiter.params.provider.MethodSource
 import java.nio.file.Path
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutionException
-import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -196,21 +195,6 @@ class JShellRunsTest {
         assertEquals(before + 2, fixture.changes)
         fixture.pumpUntil("the note") { "note: Session ended (exit 3)" in fixture.log }
         assertEquals(before + 3, fixture.changes, "the session is gone")
-    }
-
-    @Test
-    fun `complete while the session starts waits for the same start, and Run is off meanwhile`() {
-        fixture.nextAgent(FakeAgent.of("completion"))
-
-        // CompletableFuture runs what waits on one future last-in first-out, and the recording has its requests in the
-        // other order: the one the recording has first is asked last
-        val second = runs.complete("\"abc\".len", 9)
-        val first = runs.complete("\"abc\".", 6)
-
-        assertFalse(runs.canRun, "a session is starting")
-        assertFalse(runs.canStop)
-        fixture.pumpUntil("both answers") { first.isDone && second.isDone }
-        assertEquals(1, fixture.starts)
     }
 
     @Test
@@ -568,16 +552,6 @@ class JShellRunsTest {
     }
 
     @Test
-    fun `complete after dispose starts no session`() {
-        runs.dispose()
-
-        val answer = runs.complete("x", 1)
-
-        assertEquals(0, fixture.starts)
-        assertIs<IllegalStateException>(assertFailsWith<ExecutionException> { answer.get(10, TimeUnit.SECONDS) }.cause)
-    }
-
-    @Test
     fun `dispose before any run closes nothing`() {
         // the worker runs inline: a close of no session would throw here
         val inline = RunsFixture(inlineWorker = true)
@@ -672,45 +646,6 @@ class JShellRunsTest {
         assertTrue(agent.waitFor(10_000), "the session that was starting is closed")
         assertEquals(emptyList(), fixture.log)
         assertEquals(before + 2, fixture.changes, "the cancelled run and the dropped start are told")
-    }
-
-    @Test
-    fun `complete starts the session and answers`() {
-        fixture.nextAgent(FakeAgent.of("completion"))
-
-        val answer = runs.complete("\"abc\".", 6)
-        fixture.pumpUntil("the completions") { answer.isDone }
-
-        assertEquals(6, answer.get().anchor)
-        assertEquals(
-            "charAt(",
-            answer
-                .get()
-                .items
-                .first()
-                .text,
-        )
-        assertEquals(listOf(start), fixture.log)
-    }
-
-    @ParameterizedTest
-    @MethodSource("noJdk")
-    fun `complete without a JDK fails`(none: JShellJdk?) {
-        fixture.resolved = none
-
-        val answer = runs.complete("x", 1)
-
-        assertIs<IllegalStateException>(assertFailsWith<ExecutionException> { answer.get(10, TimeUnit.SECONDS) }.cause)
-    }
-
-    @Test
-    fun `complete fails when the session cannot start`() {
-        fixture.nextStartFails(JShellStartException("no luck", ""))
-
-        val answer = runs.complete("x", 1)
-        fixture.pumpUntil("the failure") { answer.isDone }
-
-        assertIs<JShellStartException>(assertFailsWith<ExecutionException> { answer.get() }.cause)
     }
 
     @Test

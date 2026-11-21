@@ -17,10 +17,10 @@ for later: [ideas/jshell-later.md](../ideas/jshell-later.md).
   the view is narrow.
 - **Run** (`Shortcut+Enter` in the source) evaluates the snippets of the selection, or the snippet at the caret (the
   one the caret is in, else the last one ending before it, else the first). **Run All** (`Shortcut+Shift+Enter`)
-  restarts the session and evaluates the whole text. Run and Run All are disabled while a snippet runs, a session
-  starts, or no JDK with JShell was found. **Stop** is enabled only while a snippet runs; the snippets after it do not
-  run. **Restart** ends the session; the next run starts a new one (nothing happens without a session). **Clear**
-  empties the transcript.
+  restarts the session and evaluates the whole text. Run and Run All are disabled while a snippet runs (also while
+  its session starts) or no JDK with JShell was found; a run while completion starts the session waits for that
+  start. **Stop** is enabled only while a snippet runs; the snippets after it do not run. **Restart** ends the
+  session; the next run starts a new one (nothing happens without a session). **Clear** empties the transcript.
 - A run from **Source** switches to **Split**; Split and Output stay. The tab shows its activity mark while a snippet
   runs; closing the tab then asks ("... is still running a JShell snippet."), closing an idle one does not.
 - The text evaluated is the editor's, saved or not: a run never asks to save.
@@ -39,10 +39,11 @@ for later: [ideas/jshell-later.md](../ideas/jshell-later.md).
   on.
 - The items whose type fits where the caret is come first, then the others, each in JShell's order while nothing more
   is typed.
-- Asking starts the file's session if there is none, on the file's JDK. Without a JDK with JShell, before the JDK is
-  looked up, when the session cannot start, or when no answer comes within 2 seconds, no popup shows ("Searching…"
-  after `Ctrl+Space` closes again). Completion also answers while a snippet runs. `Shortcut+Enter` with the popup open
-  runs the snippet; the popup does not take it.
+- Asking starts the file's session if there is none, on the file's JDK; it writes no note, the first run notes that
+  session's start (and a restart for a JDK change before it). Run and Run All stay enabled meanwhile, and a run then
+  waits for that start. Without a JDK with JShell, before the JDK is looked up, when the session cannot start, or when
+  no answer comes within 2 seconds, no popup shows ("Searching…" after `Ctrl+Space` closes again). Completion also
+  answers while a snippet runs. `Shortcut+Enter` with the popup open runs the snippet; the popup does not take it.
 - The `ide` module gives `.jsh` editors this completion with a `CompletionSource` of the code intelligence
   (`JShellCompletion`, [ADR 0145](../adr/0145-code-intelligence-module.md), amendment); a file renamed away from `.jsh`
   loses it. `.jsh` files get no other code intelligence (no language server, no hover).
@@ -73,14 +74,17 @@ for later: [ideas/jshell-later.md](../ideas/jshell-later.md).
 
 ## Notes in the transcript
 Notes are the session's own words between the entries:
-- `JShell 25.0.5 (the project's JDK)` at each start of a session.
-- `Session restarted` after Restart; `Session restarted on JDK 25` when Run All ended a session, and before the next
-  start after a change of JDK ended it.
+- `JShell 25.0.5 (the project's JDK)` at each start of a session; for a session completion started, at its first run.
+- `Session restarted` after Restart; `Session restarted on JDK 25` when Run All ended a session, and at the next run
+  after a change of JDK ended it.
 - The start failure's own message ("JShell could not start on JDK 25 (<home>): ...") with the last 10 lines of the
   agent's standard error; there is no session then.
 - `Session ended (exit 3)` after `System.exit(3)` (`Session ended` where the status is unknown); the next run starts a
   new session. `JShell stopped unexpectedly` with the last 10 lines of the agent's standard error when it died.
 - Output of threads a snippet started shows when it arrives, outside any entry.
+- A session only completion has used (no run yet) is unseen: Run All runs on it instead of restarting it, and its
+  end by Restart, a change of JDK or a crash writes no note (a restart owed for an earlier session is still noted at
+  the next run).
 
 ## From a Java editor
 The context menu of editors of `.java` files has **Evaluate Selection in JShell**, the last of the editor extensions' items.
