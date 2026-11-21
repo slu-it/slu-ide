@@ -345,16 +345,6 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertEquals(listOf("Java"), opened)
     }
 
-    /** A folder the JDK readers take for a JDK 25, with the module list of its `release` file if given. */
-    private fun fakeJdk(
-        home: Path,
-        modules: String? = null,
-    ): Path {
-        Files.createDirectories(home.resolve("bin")).resolve("java").writeText("")
-        home.resolve("release").writeText("JAVA_VERSION=\"25.0.5\"\n" + (modules?.let { "MODULES=\"$it\"\n" } ?: ""))
-        return home
-    }
-
     @Test
     fun `the JShell service offers the JDKs of the user's home that have JShell`() {
         val service = checkNotNull(editorArea.windowServices.get(JShellWindow::class.java))

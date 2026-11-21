@@ -2,7 +2,6 @@ package dev.sluide.ide.codeintelligence
 
 import dev.sluide.ide.MainWindowUiFixture
 import dev.sluide.jshell.FakeAgent
-import dev.sluide.jshell.JShellSession
 import javafx.event.Event
 import javafx.scene.control.Button
 import javafx.scene.control.ListView
@@ -18,8 +17,6 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
-import java.nio.file.Files
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,26 +34,11 @@ class MainWindowJShellCompletionUiTest : MainWindowUiFixture() {
     // the recording's document: completion at its end, then a run at its end
     private val document = "\"abc\".len"
     private var agent = FakeAgent.of("complete-and-run")
-    private val sessionsStarted = AtomicInteger()
 
     @Start
     fun start(stage: Stage) {
-        jshellStartSession = { jdk, onEvent ->
-            sessionsStarted.incrementAndGet()
-            JShellSession.start(jdk, onEvent, { agent })
-        }
+        startJShellOn { agent }
         startView(stage)
-    }
-
-    /** The project with a JDK folder as its JDK setting, which the JShell view accepts. */
-    private fun openProjectWithJdk(robot: FxRobot) {
-        val jdk = Files.createDirectories(project.resolve("jdk"))
-        Files.createDirectories(jdk.resolve("bin")).resolve("java").writeText("")
-        jdk.resolve("release").writeText("JAVA_VERSION=\"25.0.5\"\n")
-        robot.interact {
-            projectService.open(project)
-            javaProjectSettings.setJdk(project, jdk)
-        }
     }
 
     /** Opens [name] with [document] and puts the focus and the caret at the end of its text. */
@@ -133,7 +115,7 @@ class MainWindowJShellCompletionUiTest : MainWindowUiFixture() {
         assertEquals("\"abc\".length()", WaitForAsyncUtils.asyncFx<String> { area.text }.get())
         assertEquals(emptyList(), completionPopups())
         awaitAnswered()
-        assertEquals(1, sessionsStarted.get())
+        assertEquals(1, jshellSessionsStarted.get())
     }
 
     @Test
@@ -147,7 +129,7 @@ class MainWindowJShellCompletionUiTest : MainWindowUiFixture() {
         // the fake checks the run's request against the recording (the evaluation at the caret) and answers it
         awaitAnswered()
         assertEquals(document, WaitForAsyncUtils.asyncFx<String> { area.text }.get())
-        assertEquals(1, sessionsStarted.get())
+        assertEquals(1, jshellSessionsStarted.get())
     }
 
     @Test
@@ -162,6 +144,6 @@ class MainWindowJShellCompletionUiTest : MainWindowUiFixture() {
 
         assertEquals(1, reached, "no completion took the key")
         assertEquals(emptyList(), completionPopups())
-        assertEquals(0, sessionsStarted.get())
+        assertEquals(0, jshellSessionsStarted.get())
     }
 }

@@ -1,7 +1,6 @@
 package dev.sluide.ide
 
 import dev.sluide.jshell.FakeAgent
-import dev.sluide.jshell.JShellSession
 import dev.sluide.jshell.Recordings
 import javafx.scene.control.MenuItem
 import javafx.stage.Stage
@@ -13,7 +12,6 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Files
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.createFile
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -30,17 +28,13 @@ import kotlin.test.assertTrue
 @ExtendWith(ApplicationExtension::class)
 class MainWindowJShellUiTest : MainWindowUiFixture() {
     private val agent = FakeAgent.of("multi-snippet")
-    private val sessionsStarted = AtomicInteger()
 
     // the document of the recording's Run All request (its second line): rangeStart 0, rangeEnd 213
     private val document = Recordings.load("multi-snippet")[1].message["text"] as String
 
     @Start
     fun start(stage: Stage) {
-        jshellStartSession = { jdk, onEvent ->
-            sessionsStarted.incrementAndGet()
-            JShellSession.start(jdk, onEvent, { agent })
-        }
+        startJShellOn { agent }
         startView(stage)
     }
 
@@ -68,13 +62,7 @@ class MainWindowJShellUiTest : MainWindowUiFixture() {
 
     @Test
     fun `Evaluate Selection in JShell opens selection jsh with the selected text and runs it all`(robot: FxRobot) {
-        val jdk = Files.createDirectories(project.resolve("jdk"))
-        Files.createDirectories(jdk.resolve("bin")).resolve("java").writeText("")
-        jdk.resolve("release").writeText("JAVA_VERSION=\"25.0.5\"\n")
-        robot.interact {
-            projectService.open(project)
-            javaProjectSettings.setJdk(project, jdk)
-        }
+        openProjectWithJdk(robot)
         val item = item(openJava(robot))
         assertFalse(item.isDisable)
 
@@ -106,6 +94,6 @@ class MainWindowJShellUiTest : MainWindowUiFixture() {
 
         assertEquals(listOf("The scratch file cannot be created. ${scratchFiles.folder} is in the way."), errors)
         assertEquals(listOf("A.java"), tabTitles(robot))
-        assertEquals(0, sessionsStarted.get())
+        assertEquals(0, jshellSessionsStarted.get())
     }
 }

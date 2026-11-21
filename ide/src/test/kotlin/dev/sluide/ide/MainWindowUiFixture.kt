@@ -87,6 +87,7 @@ import dev.sluide.ide.translation.noModelInstaller
 import dev.sluide.java.JavaProjectSettings
 import dev.sluide.java.Jdk
 import dev.sluide.java.OutputIgnoreChecks
+import dev.sluide.jshell.AgentProcess
 import dev.sluide.jshell.JShellFileViewer
 import dev.sluide.jshell.JShellSession
 import dev.sluide.jshell.SessionEvent
@@ -141,10 +142,13 @@ import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.support.DefaultListableBeanFactory
 import org.testfx.api.FxRobot
 import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.createDirectories
 import kotlin.io.path.name
+import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -276,6 +280,36 @@ abstract class MainWindowUiFixture {
     /** Starts the JShell sessions of the windows; it throws unless a test replaces it with fake agents (no JVM starts). */
     internal var jshellStartSession: (Jdk, (SessionEvent) -> Unit) -> JShellSession = { _, _ ->
         error("this test starts no JShell")
+    }
+
+    /** How many JShell sessions the windows started through [startJShellOn]. */
+    internal val jshellSessionsStarted = AtomicInteger()
+
+    /** Starts the windows' JShell sessions on the fake [agent] it gives at each start, counting them; no JVM starts. */
+    internal fun startJShellOn(agent: () -> AgentProcess) {
+        jshellStartSession = { jdk, onEvent ->
+            jshellSessionsStarted.incrementAndGet()
+            JShellSession.start(jdk, onEvent, { agent() })
+        }
+    }
+
+    /** A folder the JDK readers take for a JDK 25, with the module list of its `release` file if given. */
+    internal fun fakeJdk(
+        home: Path,
+        modules: String? = null,
+    ): Path {
+        Files.createDirectories(home.resolve("bin")).resolve("java").writeText("")
+        home.resolve("release").writeText("JAVA_VERSION=\"25.0.5\"\n" + (modules?.let { "MODULES=\"$it\"\n" } ?: ""))
+        return home
+    }
+
+    /** Opens the project with a fake JDK 25 in it as its JDK setting, which the JShell views accept. */
+    internal fun openProjectWithJdk(robot: FxRobot) {
+        val jdk = fakeJdk(project.resolve("jdk"))
+        robot.interact {
+            projectService.open(project)
+            javaProjectSettings.setJdk(project, jdk)
+        }
     }
 
     /** The JShell wirings of the windows a test created; closed after it. */
