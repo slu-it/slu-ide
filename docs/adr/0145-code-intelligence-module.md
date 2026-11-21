@@ -118,10 +118,11 @@ server: it speaks its own protocol, and a `.jsh` scratch lies outside every proj
 completion should still look and act like the servers' (popup, keys, matching, the accept rules of
 [ADR 0147](0147-completion-signature-help-and-docs.md)).
 - **API** (root package): `fun interface CompletionSource`, whose
-  `complete(editor, caret): CompletableFuture<SourceCompletions>?` answers, with the plain DTOs `SourceCompletions(anchor, items)` and `SourceCompletion(label, insertText = label, detail)`:
-  whole-document UTF-16 offsets, no lsp4j type, so a module offering completion needs nothing of LSP and
-  `code-intelligence` nothing of it. `null` means "nothing for this editor now". `complete` is called on the FX thread;
-  the future may complete on any thread.
+  `complete(editor, caret): CompletableFuture<SourceCompletions>?` answers, with the plain DTOs
+  `SourceCompletions(anchor, items)` and `SourceCompletion(label, insertText = label, detail)`: whole-document UTF-16
+  offsets, no lsp4j type, so a module offering completion needs nothing of LSP and `code-intelligence` nothing of it.
+  `null` means "nothing for this editor now". `complete` is called on the FX thread; the future may complete on any
+  thread.
 - **Binding:** `CodeIntelligence.addCompletionSource(appliesTo: (Path) -> Boolean, source): AutoCloseable`. The
   `EditorAttachment` of an editor whose file no `LanguageServerSpec` serves gives it the completion of the first
   registered source that applies, following renames as it does for servers (`a.jsh` renamed to `a.txt` loses it, back
@@ -139,8 +140,8 @@ completion should still look and act like the servers' (popup, keys, matching, t
   drops the older one's answer and failure, as `RequestSlot` does for a server; `CompletionBackend` promises this, so
   the model no longer checks it itself.
 - **`ide`:** `JShellCompletionSource` (in `ide/.../codeintelligence`) is registered by `CodeIntelligenceWiring` for
-  `.jsh` files; it asks the `JShellFileView` that `EditorArea.viewOf` gives for the editor's file and puts JShell's smart items
-  first, each group in JShell's order.
+  `.jsh` files; it asks the `JShellFileView` that `EditorArea.viewOf` gives for the editor's file and puts JShell's
+  smart items first, each group in JShell's order.
 
 Rejected: a fake language server for JShell (a protocol translation for one request, and a server spec would also
 bring banners and the restart item); passing lsp4j `CompletionItem`s through the API (every source would depend on
