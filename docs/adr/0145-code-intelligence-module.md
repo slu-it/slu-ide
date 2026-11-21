@@ -5,7 +5,8 @@
   (`CaretPopup` `choosable`, `DocumentBinding.bindingOf`), [0149](0149-rename-file-structure-go-to-symbol.md)
   (`PopupCell.indent`, the search popup that takes the focus, `DocumentBinding.bindings`),
   [0151](0151-workspace-folders-per-project.md) (status line, environment notice),
-  [0184](0184-preview-of-places-in-caret-lists.md) (`CaretPopup` footer and `onSelected`); amends [0142](0142-language-server-foundation.md) (`ServerInstaller.toolName`,
+  [0184](0184-preview-of-places-in-caret-lists.md) (`CaretPopup` footer and `onSelected`), and below (completion
+  sources, 2026-11-21); amends [0142](0142-language-server-foundation.md) (`ServerInstaller.toolName`,
   `ServerAvailability.Failed.canRetry`), [0141](0141-editor-api-for-language-features.md) (`popupOwner`),
   [0108](0108-code-editor-extensions-and-context-menu.md) (`CodeEditorExtensions.extensions` public); see
   [0141](0141-editor-api-for-language-features.md), [0144](0144-python-via-ty.md),
@@ -110,3 +111,37 @@ Rejected:
 - The API names one node, the text area, for popups only; extensions still add everything else through its members.
 - Hover and caret popups do not follow the editor font; they use the UI font.
 - Listed in [../index.md](../index.md).
+
+## Amendment 2026-11-21: completion sources for editors no server serves
+JShell ([ADR 0191](0191-jshell-engine.md)) can complete a `.jsh` file from its own analysis, but it is no language
+server: it speaks its own protocol, and a `.jsh` scratch lies outside every project folder a server would serve. Its
+completion should still look and act like the servers' (popup, keys, matching, the accept rules of
+[ADR 0147](0147-completion-signature-help-and-docs.md)).
+- **API** (root package): `fun interface CompletionSource { fun complete(editor, caret): CompletableFuture<SourceCompletions>? }`
+  with the plain DTOs `SourceCompletions(anchor, items)` and `SourceCompletion(label, insertText = label, detail)`:
+  whole-document UTF-16 offsets, no lsp4j type, so a module offering completion needs nothing of LSP and
+  `code-intelligence` nothing of it. `null` means "nothing for this editor now". `complete` is called on the FX thread;
+  the future may complete on any thread.
+- **Binding:** `CodeIntelligence.addCompletionSource(appliesTo: (Path) -> Boolean, source): AutoCloseable`. The
+  `EditorAttachment` of an editor whose file no `LanguageServerSpec` serves gives it the completion of the first
+  registered source that applies, following renames as it does for servers (`a.jsh` renamed to `a.txt` loses it, back
+  gains it), and the sources added or removed later; a served file never asks a source. Such an editor has no
+  `DocumentBinding`, so no other feature (banners, hover, menu items) attaches. The handle and the attachment close
+  the source's completion; the window's `CodeIntelligence.close` closes the attachments.
+- **One model, two backends:** `CompletionModel` asks an internal `CompletionBackend`; `LspCompletionBackend` is the
+  former code (requests, resolve, `RequestSlot`s), `SourceCompletionBackend` turns an answer into lsp4j
+  `CompletionItem`s inside the module: a `textEdit` from the anchor to the request's caret (positions on the request's
+  text, so the accept rules for text changed since apply unchanged), `sortText` in the source's order. The answer is
+  complete: typing on filters it, without asking again. Trigger character: `.`. No resolve.
+- **Threads and timeout:** the answer hops to the FX thread (`Platform.runLater`) before the model sees it. No answer
+  within 2 s, a failed future and `null` count as a failed request: "Searching…" closes as with a server's error. A
+  newer request (typing while the first answer is awaited asks again after the debounce) or the end of the completion
+  drops the older one's answer and failure, as `RequestSlot` does for a server; `CompletionBackend` promises this, so
+  the model no longer checks it itself.
+- **`ide`:** `JShellCompletion` (in `ide/.../codeintelligence`) is registered by `CodeIntelligenceWiring` for `.jsh`
+  files; it asks the `JShellFileView` that `EditorArea.viewOf` gives for the editor's file and puts JShell's smart items
+  first, each group in JShell's order.
+
+Rejected: a fake language server for JShell (a protocol translation for one request, and a server spec would also
+bring banners and the restart item); passing lsp4j `CompletionItem`s through the API (every source would depend on
+lsp4j); `appliesTo(editor)` instead of a file predicate (a rename could not be followed without asking again).

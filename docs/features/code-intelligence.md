@@ -151,6 +151,11 @@ Decision in [ADR 0147](../adr/0147-completion-signature-help-and-docs.md).
   closes when the caret leaves it (the server knows no call there any more), on **Escape** and on focus loss. With
   the completion list shown too, the first Escape closes the signature, the next the completion; a completion still
   waiting for its first answer ends with the first Escape, so the answer opens no list.
+- **Completion sources:** editors no language server serves can get completion from a `CompletionSource` instead
+  (`CodeIntelligence.addCompletionSource`, [ADR 0145](../adr/0145-code-intelligence-module.md), amendment): the same
+  popup, keys and matching, asked on Ctrl+Space, a typed `.` and while typing a name; its answer is complete, so typing
+  on only filters it, in the source's order among equally good matches. No answer within 2 s, or a failed one, shows
+  nothing. `.jsh` files complete this way from JShell ([jshell.md](jshell.md), "Completion").
 
 ## Diagnostics, quick fixes and semantic highlighting
 Decision in [ADR 0148](../adr/0148-diagnostics-quick-fixes-semantic-highlighting.md).

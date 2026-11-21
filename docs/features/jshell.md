@@ -30,6 +30,23 @@ for later: [ideas/jshell-later.md](../ideas/jshell-later.md).
 - The session belongs to the view: closing the tab, **Restart**, a change of JDK and the end of the program end it.
   Moving or renaming the file keeps it.
 
+## Completion
+- In the source, completion comes from JShell's own analysis, in the popup of the language servers' completion
+  ([code-intelligence.md](code-intelligence.md), "Completion and documentation"):
+  `Ctrl+Space` asks at the caret (a literal Ctrl on macOS too), a typed `.` asks at once, typing in a name asks after
+  a short pause; typing on filters the items without asking again. Enter or Tab takes the selected item, replacing
+  the text from where JShell's answer starts; Escape closes the popup. `"abc".` offers `length()`, `substring(` and so
+  on.
+- The items whose type fits where the caret is come first, then the others, each in JShell's order while nothing more
+  is typed.
+- Asking starts the file's session if there is none, on the file's JDK. Without a JDK with JShell, before the JDK is
+  looked up, when the session cannot start, or when no answer comes within 2 seconds, no popup shows ("Searching…"
+  after `Ctrl+Space` closes again). Completion also answers while a snippet runs. `Shortcut+Enter` with the popup open
+  runs the snippet; the popup does not take it.
+- The `ide` module gives `.jsh` editors this completion with a `CompletionSource` of the code intelligence
+  (`JShellCompletion`, [ADR 0145](../adr/0145-code-intelligence-module.md), amendment); a file renamed away from `.jsh`
+  loses it. `.jsh` files get no other code intelligence (no language server, no hover).
+
 ## The JDK
 - The snippets run on the JDK chosen for the file, else the project's: `JShellJdks` takes the file's choice
   (remembered in the project's data, so it moves with the file), then the chain the Java support uses (the project's

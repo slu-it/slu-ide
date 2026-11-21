@@ -256,6 +256,7 @@ focus ([ADR 0126](../adr/0126-translate-tool.md)). Typing filters the list.
 |---|---|
 | Shortcut+Enter in a `.jsh` file's source | Run the snippet at the caret, or the selection |
 | Shortcut+Shift+Enter in a `.jsh` file's source | Run All: restart the session and run the whole file |
+| Ctrl+Space (Ctrl on macOS too) in a `.jsh` file's source | Complete at the caret, from JShell (also opens by itself after a typed `.` or while typing a name); Enter or Tab insert, Escape closes |
 
 ## File explorer
 [file-explorer.md](file-explorer.md)
