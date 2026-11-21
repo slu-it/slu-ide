@@ -15,7 +15,7 @@ import kotlin.io.path.extension
  * Completion in `.jsh` editors from JShell's own analysis (ADR 0145 amendment, ADR 0191): asks the view that shows the
  * editor's file in the window ([viewOf]); none while no JShell view shows it.
  */
-internal class JShellCompletion(
+internal class JShellCompletionSource(
     private val viewOf: (Path) -> FileView?,
 ) : CompletionSource {
     override fun complete(

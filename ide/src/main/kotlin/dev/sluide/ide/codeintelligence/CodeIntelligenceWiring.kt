@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component
  * spec (every `LanguageServerSpec` bean) for the window's project folder, started when a matching editor opens and
  * ended with the window (Spring closes window beans when the window's scope is destroyed, after
  * `MainWindow.dispose` closed the tabs). `.jsh` editors complete from the JShell of their view in [editorArea]
- * ([JShellCompletion], ADR 0145 amendment).
+ * ([JShellCompletionSource], ADR 0145 amendment).
  */
 @Component
 @Scope(WINDOW_SCOPE)
@@ -61,7 +61,7 @@ class CodeIntelligenceWiring(
 
     init {
         // The completion of `.jsh` editors, from the JShell view of their file; intelligence.close() ends it too.
-        intelligence.addCompletionSource(::isJShellFile, JShellCompletion(editorArea::viewOf))
+        intelligence.addCompletionSource(::isJShellFile, JShellCompletionSource(editorArea::viewOf))
     }
 
     /** The extension that binds the window's code editors to the servers. */

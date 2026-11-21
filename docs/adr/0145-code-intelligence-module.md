@@ -117,8 +117,8 @@ JShell ([ADR 0191](0191-jshell-engine.md)) can complete a `.jsh` file from its o
 server: it speaks its own protocol, and a `.jsh` scratch lies outside every project folder a server would serve. Its
 completion should still look and act like the servers' (popup, keys, matching, the accept rules of
 [ADR 0147](0147-completion-signature-help-and-docs.md)).
-- **API** (root package): `fun interface CompletionSource { fun complete(editor, caret): CompletableFuture<SourceCompletions>? }`
-  with the plain DTOs `SourceCompletions(anchor, items)` and `SourceCompletion(label, insertText = label, detail)`:
+- **API** (root package): `fun interface CompletionSource`, whose
+  `complete(editor, caret): CompletableFuture<SourceCompletions>?` answers, with the plain DTOs `SourceCompletions(anchor, items)` and `SourceCompletion(label, insertText = label, detail)`:
   whole-document UTF-16 offsets, no lsp4j type, so a module offering completion needs nothing of LSP and
   `code-intelligence` nothing of it. `null` means "nothing for this editor now". `complete` is called on the FX thread;
   the future may complete on any thread.
@@ -138,8 +138,8 @@ completion should still look and act like the servers' (popup, keys, matching, t
   newer request (typing while the first answer is awaited asks again after the debounce) or the end of the completion
   drops the older one's answer and failure, as `RequestSlot` does for a server; `CompletionBackend` promises this, so
   the model no longer checks it itself.
-- **`ide`:** `JShellCompletion` (in `ide/.../codeintelligence`) is registered by `CodeIntelligenceWiring` for `.jsh`
-  files; it asks the `JShellFileView` that `EditorArea.viewOf` gives for the editor's file and puts JShell's smart items
+- **`ide`:** `JShellCompletionSource` (in `ide/.../codeintelligence`) is registered by `CodeIntelligenceWiring` for
+  `.jsh` files; it asks the `JShellFileView` that `EditorArea.viewOf` gives for the editor's file and puts JShell's smart items
   first, each group in JShell's order.
 
 Rejected: a fake language server for JShell (a protocol translation for one request, and a server spec would also

@@ -22,7 +22,7 @@ import kotlin.test.assertNull
 import dev.sluide.jshell.JShellCompletion as Completion
 
 /** The completion of `.jsh` editors: which files, which view it asks, and JShell's answer as the popup's items. */
-class JShellCompletionTest {
+class JShellCompletionSourceTest {
     private val file = Path.of("/w/deploy.jsh")
 
     private class Editor(
@@ -74,7 +74,7 @@ class JShellCompletionTest {
     @Test
     fun `the view showing the editor's file answers at the caret, converted for the popup`() {
         val view = View(Completions(4, listOf(Completion("length()", false))))
-        val source = JShellCompletion { if (it == file) view else null }
+        val source = JShellCompletionSource { if (it == file) view else null }
 
         val answer = source.complete(Editor(file), 7)?.get()
 
@@ -84,8 +84,8 @@ class JShellCompletionTest {
 
     @Test
     fun `without a JShell view of the file there is no completion`() {
-        assertNull(JShellCompletion { null }.complete(Editor(file), 0))
-        assertNull(JShellCompletion { OtherView() }.complete(Editor(file), 0))
+        assertNull(JShellCompletionSource { null }.complete(Editor(file), 0))
+        assertNull(JShellCompletionSource { OtherView() }.complete(Editor(file), 0))
     }
 
     @Test

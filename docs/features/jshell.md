@@ -45,8 +45,8 @@ for later: [ideas/jshell-later.md](../ideas/jshell-later.md).
   no answer comes within 2 seconds, no popup shows ("Searching…" after `Ctrl+Space` closes again). Completion also
   answers while a snippet runs. `Shortcut+Enter` with the popup open runs the snippet; the popup does not take it.
 - The `ide` module gives `.jsh` editors this completion with a `CompletionSource` of the code intelligence
-  (`JShellCompletion`, [ADR 0145](../adr/0145-code-intelligence-module.md), amendment); a file renamed away from `.jsh`
-  loses it. `.jsh` files get no other code intelligence (no language server, no hover).
+  (`JShellCompletionSource`, [ADR 0145](../adr/0145-code-intelligence-module.md), amendment); a file renamed away from
+  `.jsh` loses it. `.jsh` files get no other code intelligence (no language server, no hover).
 
 ## The JDK
 - The snippets run on the JDK chosen for the file, else the project's: `JShellJdks` takes the file's choice

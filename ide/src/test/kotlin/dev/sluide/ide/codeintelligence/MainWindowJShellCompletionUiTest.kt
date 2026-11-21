@@ -27,9 +27,9 @@ import kotlin.test.assertTrue
 
 /**
  * The completion of `.jsh` editors in the main window (ADR 0145 amendment): `CodeIntelligenceWiring` registers
- * `JShellCompletion`, which asks the file's JShell view, on the module's fake agent replaying `complete-and-run.jsonl`
- * (no JVM starts). What the popup and the model do is code-intelligence's. Needs a display: key routing, focus and the
- * popup window exist only in a shown scene.
+ * `JShellCompletionSource`, which asks the file's JShell view, on the module's fake agent replaying
+ * `complete-and-run.jsonl` (no JVM starts). What the popup and the model do is code-intelligence's. Needs a
+ * display: key routing, focus and the popup window exist only in a shown scene.
  */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
