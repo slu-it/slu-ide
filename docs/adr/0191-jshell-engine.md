@@ -92,3 +92,11 @@ each recording's requests with its messages. `JShellRealTest` runs the real agen
   fallback.
 - A version change of JShell's feedback or completion lists shows in `AgentRecordingsTest` on the build JDK; record again
   then (`docs/testing.md`, "Fakes of external servers").
+
+## Amendment (2026-11-21): the module is in both families
+`jshell` is in the Java family (it runs on the JDKs the Java support resolves: `JShellJdks` takes `JavaHomes` and
+`Jdks`) and in the editor family: its `.jsh` view is a file view (`JShellFileViewer`, a public `SourceFileViewer`
+around the public code editor, `SourceSplit` and `WrappingToolbar`), the same shape as `shell-scripts`. So it depends
+on `java`, `project-data` and `file-viewers`, and the family rules of `docs/architecture.md` ("Module rules") name it
+in both lists. The alternative, a separate module for the view, would split one capability in two for no gain: the
+view is the only user of the session, and `ide` wires both.

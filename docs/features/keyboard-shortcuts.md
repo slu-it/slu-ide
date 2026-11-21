@@ -249,6 +249,14 @@ focus ([ADR 0126](../adr/0126-translate-tool.md)). Typing filters the list.
 | Enter in the argument history | Put the entry into the arguments |
 | Escape in the argument history | Back to the arguments |
 
+## JShell
+[jshell.md](jshell.md)
+
+| Keys | Action |
+|---|---|
+| Shortcut+Enter in a `.jsh` file's source | Run the snippet at the caret, or the selection |
+| Shortcut+Shift+Enter in a `.jsh` file's source | Run All: restart the session and run the whole file |
+
 ## File explorer
 [file-explorer.md](file-explorer.md)
 

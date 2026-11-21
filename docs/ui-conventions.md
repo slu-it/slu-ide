@@ -6,7 +6,7 @@ Safety of file operations, runs, secrets and network: `safety.md`.
 
 ## File views with a second side
 - **Two families.** Previews (Markdown, JSON, XML, YAML, SVG, ...) use the `previews` module's `PreviewMode`
-  (Source | Split | Preview, ADR 0016, 0017). Run views (shell script, Gradle, Compose, Dockerfile) use the public
+  (Source | Split | Preview, ADR 0016, 0017). Run views (shell script, JShell, Gradle, Compose, Dockerfile) use the public
   `SourceSplit` from `file-viewers` (Source | Split | `<label>`, e.g. Output, Gradle, Compose, Build; ADR 0085).
   A new view with a second side uses `SourceSplit`; moving previews onto it is planned (`features/file-viewers.md`).
 - **Default mode:** Split, unless the second side is useless without the first or the first is rarely needed:
