@@ -171,6 +171,19 @@ internal class CompletionModelTest : CompletionModelFixture() {
     }
 
     @Test
+    fun `a server that does not resolve is not asked for an item's docs`() {
+        setUp("import os\nos")
+        type(".")
+        val path = CompletionItem("path")
+        asked(1).single().answer(Either.forLeft(listOf(path)))
+        awaitTrue("shown") { lastShown() == listOf("path") }
+
+        assertEquals(path, bound.fx.onFx { model.detailOf(path) })
+        bound.serverIdle()
+        assertEquals(emptyList(), bound.server.resolved)
+    }
+
+    @Test
     fun `an item left before its resolve answered is resolved again when selected again`() {
         setUp("import os\nos", resolves = true)
         type(".")
@@ -243,6 +256,18 @@ internal class CompletionModelTest : CompletionModelFixture() {
         assertEquals(emptyList(), bound.timers.due)
         assertEquals(listOf("path", "pathsep"), lastShown())
         assertEquals(1, bound.server.completions.size)
+    }
+
+    @Test
+    fun `a null answer ends the completion`() {
+        setUp("import os\nos.pa")
+        bound.fx.onFx { model.invoke() }
+
+        // A server may answer `null` (LSP: `CompletionItem[] | CompletionList | null`).
+        asked(1).single().future.complete(null)
+
+        awaitTrue("closed") { !isOpen }
+        assertFalse(view.showing)
     }
 
     @Test

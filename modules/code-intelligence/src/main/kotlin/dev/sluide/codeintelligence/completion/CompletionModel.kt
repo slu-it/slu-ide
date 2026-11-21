@@ -3,11 +3,8 @@ package dev.sluide.codeintelligence.completion
 import dev.sluide.codeintelligence.binding.DocumentBinding
 import dev.sluide.codeintelligence.binding.TypedKeys
 import dev.sluide.fileviewers.TextChange
-import dev.sluide.languageservers.RequestSlot
-import org.eclipse.lsp4j.CompletionContext
 import org.eclipse.lsp4j.CompletionItem
 import org.eclipse.lsp4j.CompletionList
-import org.eclipse.lsp4j.CompletionParams
 import org.eclipse.lsp4j.CompletionTriggerKind
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import java.util.IdentityHashMap
@@ -41,10 +38,10 @@ internal interface CompletionView {
 }
 
 /**
- * When the completion asks the server, what it shows and what taking an item does (ADR 0147), without the popup. FX
- * thread.
+ * When the completion asks its [backend] (a language server or a completion source), what it shows and what taking an
+ * item does (ADR 0147), without the popup. FX thread.
  *
- * Opens after a typed server trigger character (at once), after a typed word char at a word's end (after [debounce]),
+ * Opens after a typed trigger character (at once), after a typed word char at a word's end (after [debounce]),
  * and on Ctrl+Space ([invoke], showing "Searching…" until the answer). While open, each change filters and ranks the
  * items of the last answer at once ([rankCompletions]) and asks again (latest wins) if that answer was incomplete;
  * the list only changes when something matches, until a fresh answer has nothing, which closes it. Closes when the
@@ -54,14 +51,20 @@ internal interface CompletionView {
  * @param schedule runs the action after the delay unless the handle is closed first.
  */
 internal class CompletionModel(
-    private val binding: DocumentBinding,
+    private val backend: CompletionBackend,
     private val view: CompletionView,
     private val debounce: Duration,
     private val schedule: (Duration, () -> Unit) -> AutoCloseable,
 ) {
-    private val editor = binding.editor
-    private val slot = RequestSlot()
-    private val resolveSlot = RequestSlot()
+    /** The completion of [binding]'s language server. */
+    constructor(
+        binding: DocumentBinding,
+        view: CompletionView,
+        debounce: Duration,
+        schedule: (Duration, () -> Unit) -> AutoCloseable,
+    ) : this(LspCompletionBackend(binding), view, debounce, schedule)
+
+    private val editor = backend.editor
     private var timer: AutoCloseable? = null
 
     /** What the user typed, fed by the editor's keys. */
@@ -115,11 +118,11 @@ internal class CompletionModel(
                 typed = typedNow,
                 caret = caret,
                 selectionEmpty = editor.selection.length == 0,
-                triggerCharacters = triggerCharacters(),
+                triggerCharacters = backend.triggerCharacters(),
                 lineBeforeCaret = line.substring(0, column),
                 nextCodePoint = if (column < line.length) line.codePointAt(column) else null,
             )
-        if (trigger == AutoTrigger.NONE || !supported()) return
+        if (trigger == AutoTrigger.NONE || !backend.supported()) return
         open(caret, column, line)
         when (trigger) {
             AutoTrigger.TRIGGER_CHARACTER -> request(CompletionTriggerKind.TriggerCharacter, typedNow)
@@ -133,9 +136,12 @@ internal class CompletionModel(
         if (caretInWord()) refilter(fresh = false) else close()
     }
 
-    /** Ctrl+Space: asks at the caret now, showing "Searching…"; `false` (key not taken) without a server or with a selection. */
+    /**
+     * Ctrl+Space: asks at the caret now, showing "Searching…"; `false` (key not taken) when the backend cannot be asked or
+     * with a selection.
+     */
     fun invoke(): Boolean {
-        if (!supported() || editor.selection.length != 0) return false
+        if (!backend.supported() || editor.selection.length != 0) return false
         val caret = editor.caretOffset
         val (line, column) = lineAt(caret)
         open(caret, column, line)
@@ -163,15 +169,14 @@ internal class CompletionModel(
     /** The item whose detail shows: resolved if it was; asks the server for its documentation if missing. */
     fun detailOf(item: CompletionItem): CompletionItem {
         resolved[item]?.let { return it }
-        if (item.documentation == null && item !== resolving && binding.session.features.supports(COMPLETION_RESOLVE)) {
+        if (item.documentation == null && item !== resolving && backend.resolves()) {
             // Sending cancels the resolve of the item selected before, which is asked again when selected again.
             resolving = item
-            resolveSlot.send(
-                binding.session,
-                { server -> server.textDocumentService.resolveCompletionItem(item) },
+            backend.resolve(
+                item,
                 { answer ->
                     if (resolving === item) resolving = null
-                    if (answer != null && !binding.isClosed) {
+                    if (answer != null) {
                         resolved[item] = answer
                         if (isOpen) view.refreshDetail()
                     }
@@ -203,8 +208,8 @@ internal class CompletionModel(
                 wordEnd = lineStart + wordEnd(line, column),
                 firstChange = changes.firstChange,
                 requestCaret = changes.caret,
-                offsetsOf = binding::offsetsOf,
-                positionOf = binding::positionOf,
+                offsetsOf = backend::offsetsOf,
+                positionOf = backend::positionOf,
             )
         val edits = acceptEdits(chosen, replace, place)
         if (edits.droppedAdditional > 0) {
@@ -229,8 +234,8 @@ internal class CompletionModel(
         isOpen = false
         timer?.close()
         timer = null
-        slot.cancel()
-        resolveSlot.cancel()
+        backend.cancel()
+        backend.cancelResolve()
         resolving = null
         pendingChanges = null
         shown = emptyList()
@@ -266,29 +271,28 @@ internal class CompletionModel(
     ) {
         timer?.close()
         timer = null
-        val context = CompletionContext(kind).apply { triggerCharacter = character }
-        val params = CompletionParams(binding.documentId, binding.positionOf(editor.caretOffset), context)
         val changes = ChangeTracker(editor.caretOffset)
         pendingChanges = changes
-        slot.send(
-            binding.session,
-            { server -> server.textDocumentService.completion(params) },
-            { result -> answer(result, changes) },
-            { error ->
-                log.log(System.Logger.Level.INFO, "completion request failed: $error")
+        backend.request(
+            kind,
+            character,
+            { items, incomplete -> answer(items, incomplete, changes) },
+            { reason ->
+                log.log(System.Logger.Level.INFO, "completion request failed: $reason")
                 if (isOpen && answered.isEmpty()) close()
             },
         )
     }
 
     private fun answer(
-        result: Either<List<CompletionItem>, CompletionList>?,
+        items: List<CompletionItem>,
+        incomplete: Boolean,
         changes: ChangeTracker,
     ) {
-        if (!isOpen || binding.isClosed || changes !== pendingChanges) return
+        // The backend drops the answers of an ended completion and of a request a newer one replaced.
         pendingChanges = null
-        answered = itemsOf(result)
-        incomplete = result?.isRight == true && result.right?.isIncomplete == true
+        answered = items
+        this.incomplete = incomplete
         answeredChanges = changes
         resolved.clear()
         resolving = null
@@ -335,14 +339,6 @@ internal class CompletionModel(
         val from = (column - (end - start)).coerceIn(0, column)
         return line.substring(from, column)
     }
-
-    private fun supported() = binding.session.features.supports(COMPLETION)
-
-    private fun triggerCharacters(): List<String> =
-        binding.session.features.capabilities
-            ?.completionProvider
-            ?.triggerCharacters
-            .orEmpty()
 }
 
 /**
