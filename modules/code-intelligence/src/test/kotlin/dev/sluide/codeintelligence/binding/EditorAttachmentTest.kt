@@ -1,5 +1,6 @@
 package dev.sluide.codeintelligence.binding
 
+import dev.sluide.codeintelligence.CompletionSource
 import dev.sluide.codeintelligence.FakeCodeEditor
 import dev.sluide.codeintelligence.FxServers
 import dev.sluide.codeintelligence.PySpec
@@ -17,7 +18,10 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** The attachment of one editor: closed once for good, which closes its binding and the document on the server. */
+/**
+ * The attachment of one editor: closed once for good, which closes its binding and the document on the server; the
+ * completion of a source attached once while the same source applies.
+ */
 class EditorAttachmentTest {
     @TempDir
     lateinit var folder: Path
@@ -28,6 +32,63 @@ class EditorAttachmentTest {
     @AfterEach
     fun close() = fx.close()
 
+    /** The sources whose completion is attached now; a closed handle removes its source. */
+    private val attached = mutableListOf<CompletionSource>()
+
+    /** How often a source's completion was attached. */
+    private var attaches = 0
+
+    private fun attachment(
+        editor: FakeCodeEditor,
+        sourceFor: (Path) -> CompletionSource? = { null },
+        closed: () -> Unit,
+    ) = EditorAttachment(editor, fx.servers, emptyList(), { null }, { emptyList() }, sourceFor, { _, source ->
+        attached += source
+        attaches++
+        AutoCloseable { attached -= source }
+    }, closed)
+
+    @Test
+    fun `a rename or a change of the sources keeps the completion of the same source, another source replaces it`() {
+        fx = FxServers(folder, spec)
+        val jsh = CompletionSource { _, _ -> null }
+        val other = CompletionSource { _, _ -> null }
+        val editor = FakeCodeEditor(folder.resolve("a.jsh"), "x")
+        val attachment =
+            fx.onFx { attachment(editor, { if (it.toString().endsWith(".jsh")) jsh else other }) {} }
+        assertEquals(listOf(jsh), attached)
+
+        fx.onFx {
+            editor.fileProperty.set(folder.resolve("b.jsh"))
+            attachment.sourcesChanged()
+        }
+        assertEquals(listOf(jsh), attached)
+        assertEquals(1, attaches, "attached once")
+
+        fx.onFx { editor.fileProperty.set(folder.resolve("b.txt")) }
+        assertEquals(listOf(other), attached)
+        assertEquals(2, attaches)
+    }
+
+    @Test
+    fun `a closed attachment attaches no source when the sources change`() {
+        fx = FxServers(folder, spec)
+        val jsh = CompletionSource { _, _ -> null }
+        val other = CompletionSource { _, _ -> null }
+        val editor = FakeCodeEditor(folder.resolve("a.jsh"), "x")
+        val attachment =
+            fx.onFx { attachment(editor, { if (it.toString().endsWith(".jsh")) jsh else other }) {} }
+
+        fx.onFx {
+            attachment.close()
+            editor.fileProperty.set(folder.resolve("a.txt"))
+            attachment.sourcesChanged()
+        }
+
+        assertEquals(emptyList(), attached)
+        assertEquals(1, attaches)
+    }
+
     @Test
     fun `closing unbinds the editor, tells the owner once and ignores later renames`() {
         fx = FxServers(folder, spec)
@@ -35,7 +96,7 @@ class EditorAttachmentTest {
         val editor = FakeCodeEditor(folder.resolve("a.py"), "x")
         var closed = 0
         val attachment =
-            fx.onFx { EditorAttachment(editor, fx.servers, emptyList(), { null }, { emptyList() }) { closed++ } }
+            fx.onFx { attachment(editor) { closed++ } }
         val binding = assertNotNull(fx.onFx { attachment.binding })
 
         fx.onFx {
@@ -59,7 +120,7 @@ class EditorAttachmentTest {
         val editor = FakeCodeEditor(folder.resolve("notes.txt"), "x")
         var closed = 0
         val attachment =
-            fx.onFx { EditorAttachment(editor, fx.servers, emptyList(), { null }, { emptyList() }) { closed++ } }
+            fx.onFx { attachment(editor) { closed++ } }
         assertNull(fx.onFx { attachment.binding })
 
         fx.onFx { attachment.close() }
@@ -92,7 +153,7 @@ class EditorAttachmentTest {
             object : FakeCodeEditor(folder.resolve("a.py"), "x") {
                 override val file: ObservableValue<Path> = file
             }
-        val attachment = fx.onFx { EditorAttachment(editor, fx.servers, emptyList(), { null }, { emptyList() }) {} }
+        val attachment = fx.onFx { attachment(editor) {} }
         assertEquals(1, file.listeners, "the attachment follows the file")
 
         fx.onFx { attachment.close() }

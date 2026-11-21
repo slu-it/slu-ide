@@ -1,7 +1,9 @@
 package dev.sluide.codeintelligence.completion
 
 import dev.sluide.codeintelligence.BoundEditor
+import dev.sluide.codeintelligence.CompletionSource
 import dev.sluide.codeintelligence.FeatureServer
+import dev.sluide.codeintelligence.SourceCompletions
 import dev.sluide.codeintelligence.awaitClientHandled
 import dev.sluide.codeintelligence.awaitTrue
 import org.eclipse.lsp4j.CompletionItem
@@ -10,9 +12,15 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.util.Collections
+import java.util.concurrent.CompletableFuture
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
-/** An editor bound over a fake server and a [CompletionModel] on a recording popup, for the model's tests. */
+/**
+ * An editor bound over a fake server and a [CompletionModel] on a recording popup, for the model's tests; or, with
+ * [setUpSource], the model of a fake completion source whose answers the test gives ([sourceCalls]).
+ */
 internal abstract class CompletionModelFixture {
     @TempDir
     lateinit var folder: Path
@@ -33,6 +41,30 @@ internal abstract class CompletionModelFixture {
     ) {
         bound = BoundEditor(folder, text, resolves, newServer ?: { FeatureServer(resolves) })
         model = bound.fx.onFx { CompletionModel(bound.binding, view, 100.milliseconds, bound.timers::schedule) }
+        view.model = model
+        bound.fx.onFx { bound.editor.onTextChange(model::textChanged) }
+    }
+
+    /** The source's requests, by caret, with the future the test completes. */
+    protected val sourceCalls: MutableList<Pair<Int, CompletableFuture<SourceCompletions>>> =
+        Collections.synchronizedList(mutableListOf())
+
+    /** A model of the editor's [text] that asks a source; one that has nothing to ask ([answers] false) gives `null`. */
+    protected fun setUpSource(
+        text: String,
+        answers: Boolean = true,
+    ) {
+        bound = BoundEditor(folder, text)
+        val source =
+            CompletionSource { _, caret ->
+                if (answers) CompletableFuture<SourceCompletions>().also { sourceCalls += caret to it } else null
+            }
+        model =
+            bound.fx.onFx {
+                val backend =
+                    SourceCompletionBackend(bound.editor, source, bound.timers::schedule, bound.fx::dispatch, 2.seconds)
+                CompletionModel(backend, view, 100.milliseconds, bound.timers::schedule)
+            }
         view.model = model
         bound.fx.onFx { bound.editor.onTextChange(model::textChanged) }
     }

@@ -65,6 +65,8 @@ class CodeIntelligence internal constructor(
     private val languageServers: LanguageServers,
     /** The window's Not Now answers of the install banner, by spec id; until the app restarts. */
     internal val notNow: ObservableSet<String>,
+    /** The completion of the editors a [CompletionSource] serves. */
+    private val sourceCompletion: CompletionFeature = CompletionFeature(),
     featuresOf: CodeIntelligence.(ObservableSet<String>) -> List<BindingFeature>,
 ) : CodeEditorExtension,
     AutoCloseable {
@@ -84,6 +86,7 @@ class CodeIntelligence internal constructor(
     ) : this(
         languageServers,
         FXCollections.observableSet(),
+        CompletionFeature(),
         { notNow ->
             builtInFeatures(
                 notNow,
@@ -116,6 +119,14 @@ class CodeIntelligence internal constructor(
     internal val configProblemsNotNow: ObservableMap<Path, List<ConfigProblem>> = FXCollections.observableHashMap()
 
     private val attachments = LinkedHashSet<EditorAttachment>()
+
+    /** A registered completion source; told apart by identity, so one source may be added twice. */
+    private class SourceEntry(
+        val appliesTo: (Path) -> Boolean,
+        val source: CompletionSource,
+    )
+
+    private val sources = mutableListOf<SourceEntry>()
 
     /** The host of the editor extended last, to open files when no bound editor is left (ADR 0146). */
     private var lastHost: FileViewHost? = null
@@ -155,10 +166,38 @@ class CodeIntelligence internal constructor(
         lastHost = editor.host
         lateinit var attachment: EditorAttachment
         attachment =
-            EditorAttachment(editor, languageServers, features, ::bindingFor, ::bindings) { attachments -= attachment }
+            EditorAttachment(
+                editor,
+                languageServers,
+                features,
+                ::bindingFor,
+                ::bindings,
+                ::sourceFor,
+                sourceCompletion::attachSource,
+            ) { attachments -= attachment }
         attachments += attachment
         return attachment
     }
+
+    /**
+     * Gives editors whose file [appliesTo] (and that no language server serves) completion from [source], until the
+     * handle is closed (ADR 0145 amendment); FX thread.
+     */
+    fun addCompletionSource(
+        appliesTo: (Path) -> Boolean,
+        source: CompletionSource,
+    ): AutoCloseable {
+        val entry = SourceEntry(appliesTo, source)
+        sources += entry
+        attachments.toList().forEach { it.sourcesChanged() }
+        return AutoCloseable {
+            sources -= entry
+            attachments.toList().forEach { it.sourcesChanged() }
+        }
+    }
+
+    /** The source of the editors of [file], the first registered that applies to it. */
+    private fun sourceFor(file: Path): CompletionSource? = sources.firstOrNull { it.appliesTo(file) }?.source
 
     /** The bound editor that has the focus, `null` if the focus is elsewhere. */
     val focusedBinding: DocumentBinding? get() = navigation.focused()

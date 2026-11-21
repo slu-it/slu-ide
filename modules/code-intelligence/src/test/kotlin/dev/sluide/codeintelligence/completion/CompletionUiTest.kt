@@ -1,9 +1,12 @@
 package dev.sluide.codeintelligence.completion
 
 import dev.sluide.codeintelligence.CodeIntelligence
+import dev.sluide.codeintelligence.CompletionSource
 import dev.sluide.codeintelligence.EditorUiFixture
 import dev.sluide.codeintelligence.FeatureServer
 import dev.sluide.codeintelligence.PySpec
+import dev.sluide.codeintelligence.SourceCompletion
+import dev.sluide.codeintelligence.SourceCompletions
 import dev.sluide.codeintelligence.awaitTrue
 import dev.sluide.fileviewers.ExtensibleCodeEditor
 import dev.sluide.languageservers.FakeLanguageServers
@@ -32,6 +35,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -41,7 +45,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * The completion popup in a real code view: the editor's typed keys, text changes and caret reach the model, the
  * popup opens on a typed `.` and on Ctrl+Space, filters while typing, Enter takes the item with its auto-import as one
  * undo step, Tab replaces the word, the detail pane shows the docs (also resolved ones), Escape closes it with the
- * focus left in the editor. What it asks and shows is `CompletionModelTest`'s.
+ * focus left in the editor; the same popup for a completion source. What it asks and shows is `CompletionModelTest`'s.
  * Needs a display: key routing, focus and the popup window exist only in a shown scene.
  */
 @Tag("ui")
@@ -69,6 +73,8 @@ internal class CompletionUiTest : EditorUiFixture() {
         text: String,
         caret: Int = text.length,
         resolves: Boolean = false,
+        file: String = "a.py",
+        source: CompletionSource? = null,
     ): ExtensibleCodeEditor {
         val spec = PySpec()
         servers = FakeLanguageServers(listOf(spec), dir, dispatch = Platform::runLater) { FeatureServer(resolves) }
@@ -79,7 +85,8 @@ internal class CompletionUiTest : EditorUiFixture() {
                     listOf(CompletionFeature(debounce = 1.milliseconds))
                 }
             }
-        val editor = open(robot, dir.resolve("a.py"), text, listOf(intelligence))
+        if (source != null) fx { intelligence.addCompletionSource({ true }, source) }
+        val editor = open(robot, dir.resolve(file), text, listOf(intelligence))
         val area = area()
         robot.interact {
             area.requestFocus()
@@ -191,5 +198,24 @@ internal class CompletionUiTest : EditorUiFixture() {
             },
         )
         awaitTrue("docs shown") { fx { (detail.lookup(".markup-strong") as? Text)?.text } == "path" }
+    }
+
+    @Test
+    fun `an editor of a completion source shows its items on Ctrl+Space and Enter takes one`(robot: FxRobot) {
+        // Answers from another thread, as JShell's reader thread does.
+        val source =
+            CompletionSource { _, caret ->
+                CompletableFuture.supplyAsync {
+                    SourceCompletions(caret - 2, listOf(SourceCompletion("length()"), SourceCompletion("lengthy")))
+                }
+            }
+        val editor = setUp(robot, "\"abc\".le", file = "a.jsh", source = source)
+
+        pressControl(robot, KeyCode.SPACE)
+        awaitTrue("shown") { shownLabels() == listOf("length()", "lengthy") }
+        press(robot, KeyCode.ENTER)
+
+        assertEquals("\"abc\".length()", fx { editor.text })
+        assertEquals(emptyList(), popups("caret-popup"))
     }
 }

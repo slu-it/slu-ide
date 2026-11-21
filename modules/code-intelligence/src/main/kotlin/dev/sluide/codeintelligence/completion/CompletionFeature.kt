@@ -1,5 +1,6 @@
 package dev.sluide.codeintelligence.completion
 
+import dev.sluide.codeintelligence.CompletionSource
 import dev.sluide.codeintelligence.binding.BindingFeature
 import dev.sluide.codeintelligence.binding.DocumentBinding
 import dev.sluide.codeintelligence.ui.CaretPopup
@@ -9,6 +10,7 @@ import dev.sluide.codeintelligence.ui.docBlocks
 import dev.sluide.codeintelligence.ui.fxDelay
 import dev.sluide.codeintelligence.ui.scrollingMarkup
 import dev.sluide.fileviewers.ExtensibleCodeEditor
+import javafx.application.Platform
 import javafx.scene.Node
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
@@ -22,19 +24,32 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * Completion in a bound editor (ADR 0147): [CompletionModel] fed by the editor's keys, text changes and caret, shown in
  * a [CaretPopup] with an icon per kind and the selected item's detail and documentation beside the list. Ctrl+Space
- * (a literal Ctrl on every platform) asks at the caret. FX thread.
+ * (a literal Ctrl on every platform) asks at the caret. The same for an editor no server serves, from a
+ * [CompletionSource] ([attachSource], ADR 0145 amendment). FX thread.
  *
  * @param debounce how long typing in a word waits before asking.
+ * @param dispatch runs a task on the FX thread, for the answers of a [CompletionSource].
+ * @param sourceTimeout how long a [CompletionSource] may take to answer.
  */
 internal class CompletionFeature(
     private val debounce: Duration = 100.milliseconds,
     private val schedule: (Duration, () -> Unit) -> AutoCloseable = ::fxDelay,
+    private val dispatch: (Runnable) -> Unit = Platform::runLater,
+    private val sourceTimeout: Duration = SOURCE_TIMEOUT,
 ) : BindingFeature {
-    override fun attach(binding: DocumentBinding): AutoCloseable {
-        val editor = binding.editor
+    override fun attach(binding: DocumentBinding): AutoCloseable = attach(LspCompletionBackend(binding))
+
+    /** Completion in [editor] from [source] until the handle is closed. */
+    fun attachSource(
+        editor: ExtensibleCodeEditor,
+        source: CompletionSource,
+    ): AutoCloseable = attach(SourceCompletionBackend(editor, source, schedule, dispatch, sourceTimeout))
+
+    private fun attach(backend: CompletionBackend): AutoCloseable {
+        val editor = backend.editor
         lateinit var model: CompletionModel
         val view = CompletionPopupView(editor, { model })
-        model = CompletionModel(binding, view, debounce, schedule)
+        model = CompletionModel(backend, view, debounce, schedule)
         val caret = editor.caretOffsetProperty.subscribe { _, _ -> model.caretMoved() }
         val handles =
             listOf(

@@ -15,7 +15,9 @@ import javafx.event.EventType
 import javafx.scene.Node
 import javafx.scene.control.IndexRange
 import javafx.scene.control.MenuItem
+import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCombination
+import javafx.scene.input.KeyEvent
 import javafx.util.Subscription
 import java.net.URI
 import java.nio.file.Path
@@ -179,6 +181,16 @@ internal open class FakeCodeEditor(
 
     /** The items the editor's context menu would show at [target]. */
     fun menuItems(target: EditorMenuTarget = EditorMenuTarget(0, 0)) = menuProviders.flatMap { it(target) }
+
+    /** Types [character] at the caret as a key does: its pressed and typed events reach the filters, then the change. */
+    fun typeKey(character: String) {
+        fire(KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.UNDEFINED, false, false, false, false))
+        fire(KeyEvent(KeyEvent.KEY_TYPED, character, "", KeyCode.UNDEFINED, false, false, false, false))
+        typeAtCaret(character)
+    }
+
+    private fun fire(event: Event) =
+        filters.toList().filter { it.first == event.eventType }.forEach { it.second.handle(event) }
 
     /** Replaces [start, end) by [inserted] and tells the listeners. */
     fun edit(
