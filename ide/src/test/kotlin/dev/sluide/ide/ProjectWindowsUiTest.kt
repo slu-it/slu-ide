@@ -76,10 +76,12 @@ import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
 import dev.sluide.ide.codeintelligence.JdtlsLogExtension
 import dev.sluide.ide.find.FindInFilesWiring
 import dev.sluide.ide.git.GitReviewSource
+import dev.sluide.ide.jshell.JShellWiring
 import dev.sluide.ide.speech.NoSpeechEngine
 import dev.sluide.ide.translation.NoLanguageDetector
 import dev.sluide.ide.translation.NoTranslationEngine
 import dev.sluide.ide.translation.noModelInstaller
+import dev.sluide.java.JavaProjectSettings
 import dev.sluide.java.OutputIgnoreChecks
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.PlaybackCoordinator
@@ -261,6 +263,7 @@ class ProjectWindowsUiTest {
                 register(SavedPassphrases::class.java)
                 register(ProjectSettingsOpeners::class.java)
                 register(OutputIgnoreChecks::class.java)
+                register(JavaProjectSettings::class.java)
                 registerBean(
                     RemoteSourceCache::class.java,
                     Supplier { RemoteSourceCache(getBean(GitCli::class.java), dir.resolve("cache/git")) },
@@ -308,6 +311,7 @@ class ProjectWindowsUiTest {
                     PipePuzzle::class.java,
                     CodeIntelligenceWiring::class.java,
                     FindInFilesWiring::class.java,
+                    JShellWiring::class.java,
                     LibraryCodeSettings::class.java,
                 )
                 refresh()

@@ -93,6 +93,7 @@ import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
 import dev.sluide.ide.codeintelligence.JdtlsLogExtension
 import dev.sluide.ide.find.FindInFilesWiring
 import dev.sluide.ide.git.GitReviewSource
+import dev.sluide.ide.jshell.JShellWiring
 import dev.sluide.java.JavaProjectSettings
 import dev.sluide.java.JdtlsSpec
 import dev.sluide.java.JdtlsUpdates
@@ -306,6 +307,7 @@ class SpringWiringTest {
                         InstallPrompts::class.java,
                         CodeIntelligenceWiring::class.java,
                         FindInFilesWiring::class.java,
+                        JShellWiring::class.java,
                         EditorSettingsPage::class.java,
                         LibraryCodeExtension::class.java,
                         JdtlsLogExtension::class.java,
@@ -389,6 +391,7 @@ class SpringWiringTest {
                         PipePuzzle::class.java,
                         CodeIntelligenceWiring::class.java,
                         FindInFilesWiring::class.java,
+                        JShellWiring::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {

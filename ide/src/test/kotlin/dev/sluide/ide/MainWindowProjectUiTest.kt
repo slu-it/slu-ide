@@ -16,6 +16,8 @@ import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.ide.codeintelligence.JdtlsLogExtension
 import dev.sluide.ide.github.WindowWorkflowSources
+import dev.sluide.java.JdkSource
+import dev.sluide.jshell.JShellWindow
 import dev.sluide.languageservers.LanguageServers
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.settings.FontArea
@@ -42,6 +44,7 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.net.URI
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.Callable
 import java.util.concurrent.CompletableFuture
@@ -56,6 +59,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -277,6 +281,89 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertEquals(listOf(false, true), recent.items.map { it.isDisable })
         robot.interact { recent.items.first().fire() }
         assertEquals(listOf(otherProject), openedElsewhere)
+    }
+
+    @Test
+    fun `the window registers its JShell service, which follows the project's JDK setting and works without a folder`(
+        robot: FxRobot,
+    ) {
+        val service = checkNotNull(editorArea.windowServices.get(JShellWindow::class.java))
+        assertSame(jshellWirings.single().window, service)
+        assertFalse(service.canChooseProjectJdk(), "no folder, no project settings")
+        // without a folder: no project setting, nothing to open, and a change of a setting goes past the window
+        assertNotEquals(
+            JdkSource.PROJECT_SETTING.description,
+            service.jdks.resolve(project.resolve("a.jsh"), null).source,
+        )
+        robot.interact { service.chooseProjectJdk() }
+        val heardByOthers = mutableListOf<Path>()
+        javaProjectSettings.onChange { heardByOthers.add(it) }
+        val unrelated = Files.createDirectories(home.resolve("unrelated"))
+        robot.interact { javaProjectSettings.setJdk(unrelated, null) }
+        robot.interact { }
+        assertEquals(listOf(unrelated.toAbsolutePath().normalize()), heardByOthers)
+        robot.interact { projectService.open(project) }
+        assertTrue(service.canChooseProjectJdk())
+        var hearings = 0
+        service.onProjectJdkChanged { hearings++ }
+        val other = Files.createDirectories(project.resolveSibling("other-project"))
+        val jdk = fakeJdk(project.resolve("jdk"))
+
+        // the listeners are told on the FX thread, in the order of the changes
+        robot.interact {
+            javaProjectSettings.setJdk(other, jdk)
+            javaProjectSettings.setJdk(project, jdk)
+        }
+        robot.interact { }
+
+        assertEquals(1, hearings, "the window's folder was heard, the other one's change was not")
+        // the JDK lookup of the service reads the project's setting
+        assertEquals(
+            jdk,
+            service.jdks
+                .resolve(project.resolve("a.jsh"), project)
+                .jdk
+                ?.home,
+        )
+
+        // closing the wiring ends its subscription: the window's folder changing again is not heard any more
+        jshellWirings.single().close()
+        robot.interact { javaProjectSettings.setJdk(project, other) }
+        robot.interact { }
+        assertEquals(1, hearings, "nothing after the wiring was closed")
+    }
+
+    @Test
+    fun `the JShell service's Choose JDK opens the project settings of the window's folder at Java`(robot: FxRobot) {
+        val service = checkNotNull(editorArea.windowServices.get(JShellWindow::class.java))
+        robot.interact { projectService.open(project) }
+        var opened: List<String>? = null
+        projectSettingsOpeners.register(project) { opened = it }
+
+        robot.interact { service.chooseProjectJdk() }
+
+        assertEquals(listOf("Java"), opened)
+    }
+
+    /** A folder the JDK readers take for a JDK 25, with the module list of its `release` file if given. */
+    private fun fakeJdk(
+        home: Path,
+        modules: String? = null,
+    ): Path {
+        Files.createDirectories(home.resolve("bin")).resolve("java").writeText("")
+        home.resolve("release").writeText("JAVA_VERSION=\"25.0.5\"\n" + (modules?.let { "MODULES=\"$it\"\n" } ?: ""))
+        return home
+    }
+
+    @Test
+    fun `the JShell service offers the JDKs of the user's home that have JShell`() {
+        val service = checkNotNull(editorArea.windowServices.get(JShellWindow::class.java))
+        val full = fakeJdk(home.resolve(".sdkman/candidates/java/full"))
+        fakeJdk(home.resolve(".sdkman/candidates/java/jlinked"), modules = "java.base")
+
+        val offered = service.installedJdks()
+
+        assertEquals(listOf(full), offered.map { it.home }.filter { it.startsWith(home) })
     }
 
     @Test

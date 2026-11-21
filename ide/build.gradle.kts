@@ -93,6 +93,8 @@ dependencies {
     // Java through the language server jdtls: JdtlsSpec, JdtlsInstaller, JdtlsUpdates, JavaProjectSettings, the trust
     // check for Maven builds and Settings → Languages → Java are found by component scan (ADR 0179).
     implementation(project(":modules:java"))
+    // JShellFileViewer is found by component scan; JShellWiring builds the window's JShellWindow (ADR 0191).
+    implementation(project(":modules:jshell"))
     // Every window has its LanguageServers (specs from Spring, its folder, trust and the FileWatcher), registered as a
     // window service and closed with the window (ADR 0142).
     implementation(project(":modules:language-servers"))

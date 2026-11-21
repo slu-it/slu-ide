@@ -159,6 +159,7 @@ class MainWindow(
     private val softWrap: SoftWrap,
     private val codeIntelligence: CodeIntelligenceWiring,
     private val findInFiles: FindInFilesWiring,
+    private val jshell: dev.sluide.ide.jshell.JShellWiring,
     reviews: Reviews,
     private val registrations: FolderRegistrations,
 ) {
@@ -477,6 +478,7 @@ class MainWindow(
         // or a whole file in Converting (ADR 0115); they wrap long lines by one switch for all editors of all windows
         // (ADR 0130); Python files get code intelligence from the window's language servers (ADR 0145).
         codeIntelligence.register(editorArea.windowServices)
+        jshell.register(editorArea.windowServices)
         editorArea.windowServices.register(
             CodeEditorExtensions::class.java,
             CodeEditorExtensions().apply {

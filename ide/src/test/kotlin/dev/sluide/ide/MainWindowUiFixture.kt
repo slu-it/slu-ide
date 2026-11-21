@@ -79,10 +79,12 @@ import dev.sluide.ide.clipboard.ClipboardTextTypes
 import dev.sluide.ide.codeintelligence.CodeIntelligenceWiring
 import dev.sluide.ide.codeintelligence.JdtlsLogExtension
 import dev.sluide.ide.find.FindInFilesWiring
+import dev.sluide.ide.jshell.JShellWiring
 import dev.sluide.ide.speech.NoSpeechEngine
 import dev.sluide.ide.translation.NoLanguageDetector
 import dev.sluide.ide.translation.NoTranslationEngine
 import dev.sluide.ide.translation.noModelInstaller
+import dev.sluide.java.JavaProjectSettings
 import dev.sluide.java.OutputIgnoreChecks
 import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.PlaybackCoordinator
@@ -153,7 +155,7 @@ abstract class MainWindowUiFixture {
     @TempDir
     lateinit var settingsDir: Path
 
-    /** The home folder of the Docker sandboxes; `project` and `otherProject` are not below it. */
+    /** The home folder of the Docker sandboxes and JShell's installed JDKs; `project` and `otherProject` are not in it. */
     @TempDir
     lateinit var home: Path
 
@@ -257,10 +259,17 @@ abstract class MainWindowUiFixture {
         dockerSessions.forEach(DockerSession::close)
         Platform.runLater { findInFilesWirings.forEach(FindInFilesWiring::close) }
         codeIntelligences.forEach(CodeIntelligenceWiring::close)
+        jshellWirings.forEach(JShellWiring::close)
     }
 
     /** The code intelligence of the windows a test created, without language specs; closed after it. */
     internal val codeIntelligences = mutableListOf<CodeIntelligenceWiring>()
+
+    /** The project's JDK setting the windows' JShell wirings listen to; it writes into the test's project data. */
+    internal val javaProjectSettings by lazy { JavaProjectSettings(projectData) }
+
+    /** The JShell wirings of the windows a test created; closed after it. */
+    internal val jshellWirings = mutableListOf<JShellWiring>()
 
     /** The Find in Files of the windows a test created; closed after it. */
     internal val findInFilesWirings = mutableListOf<FindInFilesWiring>()
@@ -531,6 +540,13 @@ abstract class MainWindowUiFixture {
             codeIntelligence,
             FindInFilesWiring(fileExplorer, editorArea, codeIntelligence, fileViewers, fontSettings)
                 .also(findInFilesWirings::add),
+            JShellWiring(
+                projectService,
+                projectData,
+                javaProjectSettings,
+                projectSettingsOpeners,
+                home,
+            ).also(jshellWirings::add),
             Reviews(reviewSource, fontSettings, projectData, fileViewers).also(reviewWindows::add),
             FolderRegistrations(
                 ProjectSettings(projectSettingsPages).also(projectSettingsWindows::add),
