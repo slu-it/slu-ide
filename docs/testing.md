@@ -270,7 +270,9 @@ CI once.
   something (a crashed language server shows `Restarting` before its retry is scheduled and before the old process
   is killed) lets a polling test see the state first; on the macOS runner `runNext()` found no retry due. Wait on
   the side effect itself (`FakeScheduler.runNext` waits for a due task; `awaitTrue { destroyed }`), not on the state
-  alone. Reproduce with a temporary `Thread.sleep` right after the state is set.
+  alone. Reproduce with a temporary `Thread.sleep` right after the state is set. The same holds for a test listener
+  that signals and then throws: the code logs the throw only after the listener returned, so wait for the log record
+  (`JShellSessionLifecycleTest`), not for the signal; reproduce with a `Thread.sleep` before the log call.
 - **Media playback:** JavaFX Media on Linux plays through ALSA, and CI runners and the sandbox have no sound card:
   every `MediaPlayer` then fails with "Could not create player!" ("Could not open audio device" with
   `-Djfxmedia.loglevel=debug`). So the root `build.gradle.kts` points the test tasks of the modules that play sound

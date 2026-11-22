@@ -233,6 +233,9 @@ class JShellSessionLifecycleTest {
             fixture.run(session, text, 0)
             session.close()
             assertEquals(Ended("closed", null, null), fixture.until(ended, Ended("closed", null, null)).last())
+            // the reader logs the throw after the listener returned, so after Ended was put: wait for the record
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+            while (log.thrown.size < 2 && System.nanoTime() < deadline) Thread.sleep(10)
             assertEquals(listOf("session listener broke", "session listener broke"), log.thrown.map { it.message })
         }
     }
