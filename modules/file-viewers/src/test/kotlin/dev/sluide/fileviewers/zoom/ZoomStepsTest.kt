@@ -22,6 +22,13 @@ class ZoomStepsTest {
     }
 
     @Test
+    fun `the tolerance edge itself still counts as the preset`() {
+        // 0.75 / 1.001 * 1.001 is exactly 0.75 in doubles (checked), so the comparison sits on the boundary.
+        assertEquals(1.0, ZoomSteps.zoomIn(0.75 / 1.001))
+        assertEquals(0.67, ZoomSteps.zoomOut(0.75 / 0.999))
+    }
+
+    @Test
     fun `a scale off a preset by float noise counts as that preset`() {
         assertEquals(0.75, ZoomSteps.zoomIn(0.6699999999))
         assertEquals(0.5, ZoomSteps.zoomOut(0.6700000001))
