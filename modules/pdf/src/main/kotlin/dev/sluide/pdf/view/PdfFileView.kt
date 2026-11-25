@@ -13,6 +13,8 @@ import javafx.geometry.Bounds
 import javafx.scene.Cursor
 import javafx.scene.Node
 import javafx.scene.control.ContextMenu
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
 import java.nio.file.Path
@@ -44,12 +46,16 @@ internal class PdfFileView(
     val texts = PageTexts(textWorker)
 
     private val column = PageColumn(renderWorker)
+    private val zoom = PdfZoom(column)
+
+    /** The toolbar, with the slots of the side panel's and the search's toggles. */
+    val toolbar = PdfToolbar(zoom.node)
     private val pageArea = StackPane(column.node).apply { styleClass += "pdf-page-area" }
     private var disposed = false
 
     /** The side panels and the pages between them. */
     val split = PdfSplit(pageArea) { !disposed }
-    private val root = BorderPane(split.node).apply { styleClass += "pdf-view" }
+    private val root = BorderPane(split.node, toolbar.node, null, null, null).apply { styleClass += "pdf-view" }
     private val pendingFocus = FocusWhenShown()
     private val infoWrapper = ReadOnlyObjectWrapper<PdfInfo?>(null)
 
@@ -90,7 +96,26 @@ internal class PdfFileView(
 
     init {
         root.stylesheets += STYLESHEET
+        wire()
         open(null)
+    }
+
+    private fun wire() {
+        zoom.install(root)
+        root.addEventFilter(KeyEvent.KEY_PRESSED) { event ->
+            if (event.isShortcutDown && event.code == KeyCode.G) {
+                toolbar.focusPageField()
+                event.consume()
+            }
+        }
+        toolbar.installPageField(
+            column.currentPage,
+            { info.value?.pageCount ?: 0 },
+            { page -> scrollTo(PageTarget(page)) },
+            ::focusText,
+        )
+        info.subscribe { opened -> toolbar.pageCount.text = "/ ${opened?.pageCount ?: 0}" }
+        toolbar.openExternally.setOnAction { host?.openWebPage(file.toUri()) }
     }
 
     /** Scrolls [target] to the top of the viewport; an app scroll, which does not call [userScrolled]. */
