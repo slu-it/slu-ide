@@ -761,4 +761,49 @@ object TestPdfs {
             second.annotations.add(uriLink(user, PAGE_TWO_LINK_URI))
         }
     }
+
+    // P6, search: five letter pages with a word on some of them.
+
+    /** The word of [search] and [searchMoved]. */
+    const val SEARCH_WORD = "lantern"
+
+    /** [SEARCH_WORD] once on pages 1 and 5, twice on page 3 (on two lines); page 4 has no text. */
+    val search: Path by lazy {
+        build("search.pdf") {
+            searchPages(
+                it,
+                listOf("A lantern on page one"),
+                listOf("Nothing on page two"),
+                listOf("The lantern is lit,", "and a second lantern too"),
+                emptyList(),
+                listOf("Last lantern"),
+            )
+        }
+    }
+
+    /** [search] with [SEARCH_WORD] on pages 2 and 4 only, once each; the same page sizes. */
+    val searchMoved: Path by lazy {
+        build("search-moved.pdf") {
+            searchPages(
+                it,
+                listOf("Nothing on page one"),
+                listOf("A lantern on page two"),
+                listOf("Nothing on page three"),
+                listOf("Another lantern on page four"),
+                listOf("Nothing on page five"),
+            )
+        }
+    }
+
+    private fun searchPages(
+        document: PDDocument,
+        vararg pages: List<String>,
+    ) {
+        val font = liberation(document)
+        for (lines in pages) {
+            PDPageContentStream(document, page(document)).use {
+                if (lines.isNotEmpty()) it.lines(font, TEXT_SIZE, TEXT_X, TEXT_BASELINE, *lines.toTypedArray())
+            }
+        }
+    }
 }
