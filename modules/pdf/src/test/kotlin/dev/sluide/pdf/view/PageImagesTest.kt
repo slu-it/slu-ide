@@ -6,6 +6,7 @@ import dev.sluide.pdf.engine.RenderedPage
 import dev.sluide.pdf.view.WorkPriority.NEAR
 import dev.sluide.pdf.view.WorkPriority.THUMBNAIL
 import dev.sluide.pdf.view.WorkPriority.VISIBLE
+import javafx.scene.image.WritableImage
 import java.io.IOException
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -112,6 +113,42 @@ class PageImagesTest {
         run()
         assertEquals(listOf("thumbnail"), ran)
         assertEquals(listOf(4 to 1.0), rendered)
+    }
+
+    @Test
+    fun `its renders are cancelled without those of another instance on the same worker`() {
+        run()
+        val other =
+            PageImages(
+                worker,
+                render = { _: PdfDocument, page: Int, scale: Double, _: () -> Boolean ->
+                    rendered += page to -scale
+                    RenderedPage(10, 10, IntArray(0), scale)
+                },
+                convert = { it },
+                pixels = { it.width.toLong() * it.height },
+                changed = {},
+            )
+        other.update(listOf(5 to NEAR), 1.0, 5)
+        update(3 to VISIBLE)
+        update(4 to VISIBLE)
+        run()
+        assertEquals(listOf(4 to 1.0, 5 to -1.0), rendered)
+    }
+
+    @Test
+    fun `pixels of an image are its width times its height`() {
+        assertEquals(60_000L, pixelsOf(WritableImage(300, 200)))
+    }
+
+    @Test
+    fun `an image made of a rendered page has its pixels`() {
+        val pixels = intArrayOf(0xFF112233.toInt(), 0xFF445566.toInt(), 0xFF778899.toInt(), 0xFFAABBCC.toInt())
+        val image = toImage(RenderedPage(2, 2, pixels, 1.0))
+        assertEquals(2.0 to 2.0, image.width to image.height)
+        assertEquals(0xFF112233.toInt(), image.pixelReader.getArgb(0, 0))
+        assertEquals(0xFF445566.toInt(), image.pixelReader.getArgb(1, 0))
+        assertEquals(0xFF778899.toInt(), image.pixelReader.getArgb(0, 1))
     }
 
     @Test

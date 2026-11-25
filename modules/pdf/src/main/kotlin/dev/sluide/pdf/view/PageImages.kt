@@ -25,6 +25,7 @@ internal class PageImages<I : Any>(
     private val budget: Long = PIXEL_BUDGET,
 ) {
     private class Request(
+        val owner: PageImages<*>,
         val page: Int,
         val scale: Double,
     ) {
@@ -69,8 +70,9 @@ internal class PageImages<I : Any>(
             if (drop) request.cancelled.set(true)
             drop
         }
-        // Every render of this class still queued was not started, so it was just cancelled.
-        worker.cancelQueued { it.tag is Request }
+        // Every render of this instance still queued was not started, so it was just cancelled. Other instances (the
+        // thumbnails) share the worker.
+        worker.cancelQueued { (it.tag as? Request)?.owner === this }
         for ((page, priority) in order) {
             if (images[page]?.scale != scale && failures[page] != scale && page !in requests) {
                 submit(page, scale, priority)
@@ -91,7 +93,7 @@ internal class PageImages<I : Any>(
         scale: Double,
         priority: WorkPriority,
     ) {
-        val request = Request(page, scale)
+        val request = Request(this, page, scale)
         requests[page] = request
         worker.submit(
             priority,
