@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.pdf.engine.PageRect
 import dev.sluide.pdf.engine.PageTarget
 import dev.sluide.pdf.engine.PdfDocument
+import dev.sluide.pdf.engine.PdfOpenResult
 import javafx.beans.property.ReadOnlyIntegerProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableValue
@@ -18,11 +19,16 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
 import java.nio.file.Path
+import java.util.Locale
 import java.util.concurrent.ExecutorService
+import kotlin.io.path.extension
 
 /**
  * A PDF in a tab (ADR 0192): all pages in one column ([PageColumn]), rendered on the [renderWorker], the texts on the
- * [textWorker]. Opening returns at once. FX thread only.
+ * [textWorker], each with a document of its own. Opening returns at once ("Loading…" until the render document opened);
+ * the text document opens once the render document did, with the same password. A PDF with a user password asks for it
+ * ([askPassword]); the password is kept in memory only, for reloads, and zeroed on [dispose]. A document that cannot be
+ * shown gets a centred notice in place of the pages. FX thread only.
  *
  * The `internal` members are the hooks of the features built on the view (selection and links, the side panel,
  * search); their names and types are fixed. Positions on pages are points of the page as displayed (ADR 0192).
@@ -50,7 +56,8 @@ internal class PdfFileView(
 
     /** The toolbar, with the slots of the side panel's and the search's toggles. */
     val toolbar = PdfToolbar(zoom.node)
-    private val pageArea = StackPane(column.node).apply { styleClass += "pdf-page-area" }
+    private val notice = PdfNotice(column.node)
+    private val pageArea = StackPane(column.node, notice.node).apply { styleClass += "pdf-page-area" }
     private var disposed = false
 
     /** The side panels and the pages between them. */
@@ -92,12 +99,23 @@ internal class PdfFileView(
 
     override var host: FileViewHost? = null
 
+    /** Asks for the password; returns a function that closes the prompt. Tests replace it (ADR 0084). */
+    var askPassword: (PasswordRequest) -> (() -> Unit) = PasswordPrompt::show
+
+    /** The password that opened the document, if it needed one; never stored, zeroed on [dispose]. */
+    private var password: CharArray? = null
+
+    /** Closes the password prompt while it shows. */
+    private var closePrompt: (() -> Unit)? = null
+    private val stamp = FileStamp { file }
+
     override val node: Node get() = root
 
     init {
         root.stylesheets += STYLESHEET
         wire()
-        open(null)
+        showNotice(PdfNotice.LOADING)
+        open(null, reload = false)
     }
 
     private fun wire() {
@@ -142,23 +160,130 @@ internal class PdfFileView(
     /** For tests: the page column. */
     internal val pageColumn: PageColumn get() = column
 
-    private fun open(at: PageTarget?) {
-        renderWorker.reopen(file, null, ::readInfo) { opening ->
-            if (opening is Opening.Opened) opened(opening.value, at)
+    /** For tests: the notice, and the password kept. */
+    internal val pageNotice: PdfNotice get() = notice
+    internal val keptPassword: CharArray? get() = password
+
+    /** Opens the file with the password kept, scrolled to [at] once shown; [reload] says whether it was shown before. */
+    private fun open(
+        at: PageTarget?,
+        reload: Boolean,
+    ) = renderWorker.reopen(file, password?.let(::String), ::readInfo) { opening -> opened(opening, at, reload) }
+
+    private fun opened(
+        opening: Opening<PdfInfo>,
+        at: PageTarget?,
+        reload: Boolean,
+    ) {
+        when (opening) {
+            is Opening.Opened -> {
+                show(opening.value, at, reload)
+            }
+
+            is Opening.Failed -> {
+                val text = noticeText(opening.result)
+                if (text == null) ask(at, reload) else fail(text)
+            }
         }
     }
 
-    private fun opened(
+    private fun show(
         opened: PdfInfo,
         at: PageTarget?,
+        reload: Boolean,
     ) {
         texts.clear()
-        textWorker.reopen(file, null, { }) { }
+        textWorker.reopen(file, password?.let(::String), { }) { opening ->
+            if (reload && opening is Opening.Opened) onReload.toList().forEach { it() }
+        }
         infoWrapper.set(opened)
+        notice.hide()
+        enableControls(true)
         column.show(opened.pageSizes, at)
     }
 
-    override fun reload() {}
+    private fun fail(text: String) {
+        column.clear()
+        infoWrapper.set(null)
+        showNotice(text)
+    }
+
+    private fun showNotice(
+        text: String,
+        actionText: String? = null,
+        onAction: () -> Unit = {},
+    ) {
+        notice.show(text, actionText, onAction)
+        enableControls(false)
+    }
+
+    private fun enableControls(enabled: Boolean) {
+        toolbar.pageField.isDisable = !enabled
+        zoom.node.isDisable = !enabled
+    }
+
+    /** Asks for the password (the one kept, if any, no longer opens the file) behind the password notice. */
+    private fun ask(
+        at: PageTarget?,
+        reload: Boolean,
+    ) {
+        forgetPassword()
+        column.clear()
+        infoWrapper.set(null)
+        showNotice(PdfNotice.PROTECTED, PdfNotice.ENTER_PASSWORD) { ask(at, reload) }
+        closePrompt =
+            askPassword(
+                PasswordRequest(
+                    root.scene?.window,
+                    file.fileName.toString(),
+                    { typed, done -> attempt(typed.copyOf(), at, reload, done) },
+                    { closePrompt = null },
+                ),
+            )
+    }
+
+    /** Opens the file with [candidate]; a wrong one keeps the prompt open, anything else closes it. */
+    private fun attempt(
+        candidate: CharArray,
+        at: PageTarget?,
+        reload: Boolean,
+        done: (Boolean) -> Unit,
+    ) = renderWorker.reopen(file, String(candidate), ::readInfo) { opening ->
+        val wrong = opening is Opening.Failed && opening.result == PdfOpenResult.WrongPassword
+        if (wrong) {
+            candidate.fill(ZERO)
+        } else {
+            closePrompt = null
+            if (opening is Opening.Opened) password = candidate else candidate.fill(ZERO)
+        }
+        done(!wrong)
+        if (!wrong) opened(opening, at, reload)
+    }
+
+    private fun forgetPassword() {
+        password?.fill(ZERO)
+        password = null
+    }
+
+    /**
+     * Opens the file again if it changed, keeping the position; one that shows no pages (a notice) is opened as the
+     * first time, unless the password prompt shows.
+     */
+    override fun reload() {
+        if (disposed || !stamp.update()) return
+        if (info.value != null) {
+            open(column.topTarget(), reload = true)
+        } else if (closePrompt == null) {
+            open(null, reload = false)
+        }
+    }
+
+    /** Follows the file to [to] (the explorer moved it) if it is still a PDF. */
+    override fun moved(to: Path): Boolean {
+        if (disposed || to.extension.lowercase(Locale.ROOT) != "pdf") return false
+        file = to
+        return true
+    }
 
     override fun focusText() = column.node.requestFocus()
 
@@ -173,9 +298,13 @@ internal class PdfFileView(
         textWorker.dispose()
         column.dispose()
         texts.clear()
+        closePrompt?.invoke()
+        forgetPassword()
     }
 
     private companion object {
+        const val ZERO = '\u0000'
+
         val STYLESHEET: String =
             checkNotNull(PdfFileView::class.java.getResource("/dev/sluide/pdf/pdf-view.css")).toExternalForm()
 

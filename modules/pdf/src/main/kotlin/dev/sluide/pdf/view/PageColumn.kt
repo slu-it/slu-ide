@@ -140,6 +140,13 @@ internal class PageColumn(
         scrollToPixels(left, shown.topOf(target))
     }
 
+    /** The point at the top of the viewport (a page and a height on it), to scroll back to after a reload. */
+    fun topTarget(): PageTarget? {
+        val shown = layout ?: return null
+        val page = shown.pageNear(top)
+        return PageTarget(page, ((top - shown.top(page)) / shown.scale).coerceAtLeast(0.0))
+    }
+
     /** Scrolls the least to show [rect] of [page], centring it vertically if it is off-screen (an app scroll). */
     fun scrollIntoView(
         page: Int,

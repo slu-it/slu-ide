@@ -11,6 +11,7 @@ import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -42,10 +43,11 @@ internal abstract class PdfViewUiFixture {
     /** Opens [file] in a view shown in the stage; [configure] runs before the view is shown. */
     protected fun open(
         file: Path,
+        renderExecutor: ExecutorService = NamedThreads.single("test-pdf-render"),
         configure: (PdfFileView) -> Unit = {},
     ): PdfFileView =
         fx {
-            PdfFileView(file, NamedThreads.single("test-pdf-render"), NamedThreads.single("test-pdf-text"))
+            PdfFileView(file, renderExecutor, NamedThreads.single("test-pdf-text"))
                 .also(configure)
                 .also {
                     views += it
