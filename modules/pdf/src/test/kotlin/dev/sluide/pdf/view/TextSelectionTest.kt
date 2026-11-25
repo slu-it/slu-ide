@@ -103,6 +103,77 @@ internal class TextSelectionTest {
         assertEquals(4, TextSelection.charAt(flat, 5.0, 33.0))
     }
 
+    /** Lines of chars at the given boxes, a line end between the lines. */
+    private fun placed(vararg lines: List<PageRect>): PageText {
+        val boxes = mutableListOf<PageRect?>()
+        lines.forEachIndexed { row, line ->
+            if (row > 0) boxes += null
+            boxes += line
+        }
+        return PageText(boxes.joinToString("") { if (it == null) "\n" else "x" }, boxes)
+    }
+
+    private fun box(
+        x: Double,
+        y: Double,
+        size: Double = 10.0,
+    ) = PageRect(x, y, size, size)
+
+    @Test
+    fun `charAt of a line that is alone on its row or column follows the direction of the page`() {
+        assertEquals(4, TextSelection.charAt(vertical("abc", "d"), 22.0, 100.0))
+        assertEquals(4, TextSelection.charAt(horizontal("abc", "d"), 100.0, 22.0))
+    }
+
+    @Test
+    fun `charAt of a page whose lines run both ways counts it as a page of lines along x`() {
+        // One line along x, one down, and a single char: a tie. Along x the single char is level with the point; along
+        // y it would be 10 beside it, and the first line only 5 above.
+        val text =
+            placed(
+                listOf(box(0.0, 47.0), box(10.0, 47.0)),
+                listOf(box(300.0, 100.0), box(300.0, 110.0)),
+                listOf(box(150.0, 60.0)),
+            )
+        assertEquals(6, TextSelection.charAt(text, 170.0, 62.0))
+    }
+
+    @Test
+    fun `charAt takes a line running to the left as along x, and a diagonal one of equal runs as along x`() {
+        val leftwards = placed(listOf(box(110.0, 0.0), box(100.0, 0.0)), listOf(box(0.0, 40.0), box(10.0, 40.0)))
+        // The first line is 5 above the point, the other 25 below; taken as running down, the first would be 50 away.
+        assertEquals(1, TextSelection.charAt(leftwards, 50.0, 15.0))
+        val diagonal =
+            placed(
+                listOf(box(0.0, 0.0, 20.0), box(10.0, 10.0, 20.0)),
+                listOf(box(200.0, 0.0), box(210.0, 0.0)),
+            )
+        assertEquals(1, TextSelection.charAt(diagonal, 100.0, 15.0))
+    }
+
+    @Test
+    fun `charAt takes a line running up as down`() {
+        val text = placed(listOf(box(0.0, 110.0), box(0.0, 100.0)), listOf(box(300.0, 0.0), box(310.0, 0.0)))
+        // Taken as along x, the first line would be 105 away from the point, the second 5.
+        assertEquals(1, TextSelection.charAt(text, 18.0, 105.0))
+    }
+
+    @Test
+    fun `charAt of a two-char line on a turned page keeps the line's direction`() {
+        val text = placed(listOf(box(0.0, 0.0), box(0.0, 10.0)), listOf(box(20.0, 200.0), box(20.0, 210.0)))
+        assertEquals(1, TextSelection.charAt(text, 12.0, 205.0))
+    }
+
+    @Test
+    fun `charAt keeps two lines on one row apart, and picks the nearer of lines that share the point's height`() {
+        val columns = placed(listOf(box(0.0, 0.0), box(10.0, 0.0)), listOf(box(300.0, 0.0), box(310.0, 0.0)))
+        assertEquals(3, TextSelection.charAt(columns, 290.0, 5.0))
+        assertEquals(1, TextSelection.charAt(columns, 40.0, 5.0))
+        // Both rows hold the point's height: 10 away in x against 12, and 8 below the top of the first row.
+        val offset = placed(listOf(box(0.0, 0.0), box(10.0, 0.0)), listOf(box(42.0, 6.0), box(52.0, 6.0)))
+        assertEquals(1, TextSelection.charAt(offset, 30.0, 8.0))
+    }
+
     @Test
     fun `charUnder gives the char whose box contains the point, none in a gap or off the boxes`() {
         assertEquals(3, TextSelection.charUnder(sample, 35.0, 5.0))
@@ -114,6 +185,8 @@ internal class TextSelectionTest {
         assertNull(TextSelection.charUnder(sample, 50.1, 5.0))
         assertNull(TextSelection.charUnder(sample, 35.0, -0.1))
         assertNull(TextSelection.charUnder(sample, 35.0, 10.1))
+        assertNull(TextSelection.charUnder(sample, 5.0, 19.9))
+        assertEquals(6, TextSelection.charUnder(sample, 5.0, 20.0))
     }
 
     private fun plain(text: String) = PageText(text, List(text.length) { null })

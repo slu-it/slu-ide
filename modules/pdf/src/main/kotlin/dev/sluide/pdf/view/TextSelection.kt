@@ -83,7 +83,7 @@ internal data class TextSelection(
                         { distance(it.rect, x, y) },
                     ),
                 )
-            return line.chars.minBy { distance(checkNotNull(text.boxes[it]), x, y) }
+            return line.chars[line.boxes.indices.minBy { distance(line.boxes[it], x, y) }]
         }
 
         /** The char whose box contains the point ([x], [y]); `null` if none does. */
@@ -112,15 +112,25 @@ internal data class TextSelection(
 
         private fun isWordChar(char: Char) = char.isLetterOrDigit() || char == '_' || char == '\''
 
-        /** A line: the indices of its boxed chars, the rect around them, and whether it runs along x (`null`: unknown). */
+        /** A line: the indices of its boxed chars and their boxes. */
         private class Line(
             val chars: List<Int>,
-            val rect: PageRect,
-            val horizontal: Boolean?,
-        )
+            val boxes: List<PageRect>,
+        ) {
+            val rect: PageRect = boxes.reduce(::union)
+
+            /** Whether the line runs along x, from its first to its last box; `null` for a single box. */
+            val horizontal: Boolean? =
+                if (boxes.size < 2) {
+                    null
+                } else {
+                    abs(boxes.last().x - boxes.first().x) >= abs(boxes.last().y - boxes.first().y)
+                }
+        }
 
         private fun lines(text: PageText): List<Line> {
-            val runs = mutableListOf<MutableList<Int>>()
+            val chars = mutableListOf<MutableList<Int>>()
+            val boxes = mutableListOf<MutableList<PageRect>>()
             var previous: PageRect? = null
             for (index in text.text.indices) {
                 if (text.text[index] == '\n') {
@@ -128,29 +138,15 @@ internal data class TextSelection(
                     continue
                 }
                 val box = text.boxes[index] ?: continue
-                if (previous != null && sameLine(previous, box)) runs.last() += index else runs += mutableListOf(index)
+                if (previous == null || !sameLine(previous, box)) {
+                    chars += mutableListOf<Int>()
+                    boxes += mutableListOf<PageRect>()
+                }
+                chars.last() += index
+                boxes.last() += box
                 previous = box
             }
-            return runs.map { run ->
-                val first = checkNotNull(text.boxes[run.first()])
-                val last = checkNotNull(text.boxes[run.last()])
-                val horizontal = if (run.size < 2) null else abs(last.x - first.x) >= abs(last.y - first.y)
-                Line(run, run.map { checkNotNull(text.boxes[it]) }.reduce(::unionOf), horizontal)
-            }
-        }
-
-        private fun unionOf(
-            a: PageRect,
-            b: PageRect,
-        ): PageRect {
-            val left = min(a.x, b.x)
-            val top = min(a.y, b.y)
-            return PageRect(
-                left,
-                top,
-                max(a.x + a.width, b.x + b.width) - left,
-                max(a.y + a.height, b.y + b.height) - top,
-            )
+            return chars.indices.map { Line(chars[it], boxes[it]) }
         }
 
         /** How far the point is from [rect] across its line's direction: above or below a line running along x. */

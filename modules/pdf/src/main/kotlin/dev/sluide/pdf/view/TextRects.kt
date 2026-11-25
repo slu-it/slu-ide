@@ -59,7 +59,7 @@ private fun shares(
     otherSize: Double,
 ): Boolean = min(start + size, otherStart + otherSize) - max(start, otherStart) >= min(size, otherSize) / 2
 
-private fun union(
+internal fun union(
     a: PageRect,
     b: PageRect,
 ): PageRect {
