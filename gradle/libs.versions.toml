@@ -22,6 +22,7 @@ lingua = "1.2.2"
 lsp4j = "1.0.0"
 bouncycastle = "1.86"
 zxing = "3.5.4"
+pdfbox = "3.0.8"
 # The mutation testing tool whose plugin tools/pitest-kotlin is; compileOnly there, pitest brings its own at run time.
 pitest = "1.30.2"
 pitest-junit5 = "1.2.3"
@@ -64,6 +65,8 @@ lsp4j = { module = "org.eclipse.lsp4j:org.eclipse.lsp4j", version.ref = "lsp4j" 
 bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 # Generates and reads the barcodes of the barcodes module (ADR 0174); only core, never javase (AWT).
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+# Renders the pages of the PDF viewer and extracts their text (ADR 0192); brings fontbox and pdfbox-io.
+pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
 # Version from the Spring Boot BOM (Jackson 3).
 jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 # Versions from the Spring Boot BOM (Jackson 3).

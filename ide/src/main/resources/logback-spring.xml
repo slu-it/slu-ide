@@ -26,6 +26,10 @@
     <!-- MariaDB Connector/J logs every server error at WARN, also our own cancels, and the messages can hold data
          values; the Databases tab shows errors itself (ADR 0121, safety rules: no values in logs). -->
     <logger name="org.mariadb.jdbc.message.server.ErrorPacket" level="ERROR"/>
+    <!-- PDFBox warns once per font it replaces with a fallback font and about every repaired flaw of a PDF; the PDF
+         viewer shows what fails itself (ADR 0192). -->
+    <logger name="org.apache.pdfbox" level="ERROR"/>
+    <logger name="org.apache.fontbox" level="ERROR"/>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>

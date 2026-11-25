@@ -79,6 +79,8 @@ dependencies {
     implementation(project(":modules:media"))
     // EPUB files open in a reader tab with a Contents panel (ADR 0165).
     implementation(project(":modules:ebooks"))
+    // PDF files open in a viewer tab with page images rendered by PDFBox (ADR 0192).
+    implementation(project(":modules:pdf"))
     // The Read Aloud tool: a tab opened from the Tools menu, one per window; KokoroEngine and its settings page are found
     // by component scan (ADR 0124).
     implementation(project(":modules:speech"))
