@@ -155,7 +155,10 @@ internal class PdfFileView(
             { page -> scrollTo(PageTarget(page)) },
             ::focusText,
         )
-        info.subscribe { opened -> toolbar.pageCount.text = "/ ${opened?.pageCount ?: 0}" }
+        info.subscribe { opened ->
+            toolbar.pageCount.text = opened?.let { "/ ${it.pageCount}" } ?: ""
+            toolbar.refreshPageField()
+        }
         toolbar.openExternally.setOnAction { host?.openWebPage(file.toUri()) }
     }
 
@@ -258,6 +261,7 @@ internal class PdfFileView(
     private fun enableControls(enabled: Boolean) {
         toolbar.pageField.isDisable = !enabled
         zoom.node.isDisable = !enabled
+        zoom.showLevel(enabled)
     }
 
     /** Asks for the password (the one kept, if any, no longer opens the file) behind the password notice. */

@@ -7,6 +7,7 @@ import dev.sluide.pdf.engine.PageTarget
 import dev.sluide.pdf.engine.PageText
 import javafx.scene.control.Button
 import javafx.scene.control.DialogPane
+import javafx.scene.control.Label
 import javafx.scene.control.PasswordField
 import javafx.stage.Stage
 import javafx.stage.Window
@@ -114,6 +115,17 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
         return file
     }
 
+    /** The page field, the page count and the zoom level. */
+    private fun toolbarTexts(view: PdfFileView) =
+        listOf(
+            view.toolbar.pageField.text,
+            view.toolbar.pageCount.text,
+            (
+                view.toolbar.node.trailing[1]
+                    .lookup(".zoom-level") as Label
+            ).text,
+        )
+
     private fun textOf(view: PdfFileView): PageText {
         var text: PageText? = null
         fx { view.texts.textOf(0) { text = it } }
@@ -128,6 +140,8 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
         val view = open(TestPdfs.text, render)
         assertTrue(fx { view.pageNotice.shown })
         assertEquals(PdfNotice.LOADING, fx { view.pageNotice.text.text })
+        // No page to number while no document shows.
+        assertEquals(listOf("", "", ""), fx { toolbarTexts(view) })
         assertTrue(
             fx {
                 view.toolbar.pageField.isDisable &&
@@ -138,6 +152,8 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
         opening.countDown()
         await { !view.pageNotice.shown }
         assertTrue(fx { view.pages.isVisible })
+        await { toolbarTexts(view).none(String::isEmpty) }
+        assertEquals(listOf("1", "/ 1"), fx { toolbarTexts(view).take(2) })
         assertFalse(
             fx {
                 view.toolbar.pageField.isDisable ||
@@ -193,7 +209,7 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
             )
             assertTrue(fx { view.pageNotice.shown && !view.pageNotice.action.isVisible })
             assertFalse(fx { view.pageNotice.action.isManaged })
-            assertEquals("/ 0", fx { view.toolbar.pageCount.text })
+            assertEquals(listOf("", "", ""), fx { toolbarTexts(view) })
             assertTrue(fx { view.toolbar.pageField.isDisable })
             assertNull(fx { view.info.value })
         }

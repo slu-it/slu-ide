@@ -55,10 +55,14 @@ internal class PdfToolbar(
         node.trailing.setAll(openExternally, zoom)
     }
 
+    /** Shows the current page in the page field again, or nothing while there are no pages. */
+    var refreshPageField: () -> Unit = {}
+        private set
+
     /**
-     * Makes the page field show the [current] page (1-based) while it does not have the focus; Enter jumps to the page
-     * typed ([jump], 0-based, clamped to the [pageCount]), Escape and leaving it restore the number; both hand the
-     * focus back ([done]).
+     * Makes the page field show the [current] page (1-based) while it does not have the focus, and nothing while the
+     * [pageCount] is 0 (no document shown); Enter jumps to the page typed ([jump], 0-based, clamped to the
+     * [pageCount]), Escape and leaving it restore the number; both hand the focus back ([done]).
      */
     fun installPageField(
         current: ObservableIntegerValue,
@@ -67,8 +71,9 @@ internal class PdfToolbar(
         done: () -> Unit,
     ) {
         fun restore() {
-            pageField.text = (current.get() + 1).toString()
+            pageField.text = if (pageCount() > 0) (current.get() + 1).toString() else ""
         }
+        refreshPageField = ::restore
         current.subscribe { _ -> if (!pageField.isFocused) restore() }
         pageField.focusedProperty().subscribe { focused -> if (!focused) restore() }
         pageField.addEventHandler(KeyEvent.KEY_PRESSED) { event ->

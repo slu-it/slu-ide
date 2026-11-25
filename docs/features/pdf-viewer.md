@@ -60,7 +60,8 @@ control takes the focus by Tab; clicks leave the focus where it was, except in t
 
 ## Notices
 Instead of the pages, a centred notice says "Not a valid PDF: <reason>", "This PDF has no pages.", "This PDF is too
-large to open." or "This PDF is password-protected."; the toolbar stays, its page field and zoom are disabled.
+large to open." or "This PDF is password-protected."; the toolbar stays, its page field and zoom are disabled and
+empty (no page number, page count or zoom level), as while "Loading…" shows.
 
 ## Nothing stored
 No position, zoom or panel state is remembered; ideas: [ideas/pdf.md](../ideas/pdf.md).

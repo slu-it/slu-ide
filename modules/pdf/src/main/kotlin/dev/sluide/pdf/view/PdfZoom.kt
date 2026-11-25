@@ -93,6 +93,11 @@ internal class PdfZoom(
         event.consume()
     }
 
+    /** Shows the zoom level, or no level while no document shows. */
+    fun showLevel(shown: Boolean) {
+        if (shown) sync() else level.text = ""
+    }
+
     /** Shows the scale and the fit mode in effect. */
     private fun sync() {
         level.text = ZoomSteps.label(column.zoom.scale)
