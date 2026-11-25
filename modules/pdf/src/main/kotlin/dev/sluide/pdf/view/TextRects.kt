@@ -46,7 +46,7 @@ private class Run(
 )
 
 /** Whether [next] continues the line of [previous]: it shares half the smaller extent on the x or the y axis. */
-private fun sameLine(
+internal fun sameLine(
     previous: PageRect,
     next: PageRect,
 ): Boolean =
