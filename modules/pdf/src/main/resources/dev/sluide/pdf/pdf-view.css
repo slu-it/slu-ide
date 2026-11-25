@@ -17,10 +17,6 @@
     -fx-background-radius: 0;
 }
 
-.pdf-button .ikonli-font-icon {
-    -fx-icon-color: -fx-text-base-color;
-}
-
 .pdf-page-field {
     -fx-pref-column-count: 4;
     -fx-padding: 1 4 1 4;

@@ -100,12 +100,13 @@ internal class PdfToolbar(
 
 /**
  * The page (0-based) that the page field's [text] asks for: the number it holds, kept within 1 and [pageCount]; `null`
- * if it holds no whole number.
+ * if it holds no whole number, or there are no pages.
  */
 internal fun pageFieldTarget(
     text: String,
     pageCount: Int,
 ): Int? {
+    if (pageCount < 1) return null
     val number = text.trim().toBigIntegerOrNull() ?: return null
     return number.coerceIn(BigInteger.ONE, pageCount.toBigInteger()).toInt() - 1
 }

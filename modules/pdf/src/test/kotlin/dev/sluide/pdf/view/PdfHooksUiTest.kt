@@ -11,8 +11,13 @@ import javafx.scene.control.MenuItem
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.io.TempDir
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.nio.file.attribute.FileTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -27,6 +32,9 @@ import kotlin.test.assertTrue
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 internal class PdfHooksUiTest : PdfViewUiFixture() {
+    @TempDir
+    lateinit var dir: Path
+
     @Start
     fun start(stage: Stage) = startStage(stage)
 
@@ -178,6 +186,10 @@ internal class PdfHooksUiTest : PdfViewUiFixture() {
         assertTrue(fx { view.split.leftShown.get() })
         fx { view.split.showRight(true) }
         await { view.split.right.width in 270.0..282.0 }
+        // Dragged to 40 % of the split.
+        fx { view.split.node.setDividerPosition(0, 0.4) }
+        await { view.split.left.width > 300 }
+        val dragged = fx { view.split.left.width }
         fx { view.split.showLeft(false) }
         assertFalse(
             fx {
@@ -187,8 +199,82 @@ internal class PdfHooksUiTest : PdfViewUiFixture() {
         )
         assertFalse(fx { view.split.leftShown.get() })
         fx { view.split.showLeft(true) }
-        await { view.split.left.width in 210.0..222.0 }
+        // The split sizes its panels at once and once more a pulse later, which a snapshot waits for.
+        paint()
+        assertEquals(dragged, fx { view.split.left.width }, 1.0)
         assertTrue(fx { view.split.rightShown.get() })
+    }
+
+    @Test
+    fun `shownPages are the pages in view, none before the document opened`() {
+        val view = open(TestPdfs.manyPages)
+        assertEquals(IntRange.EMPTY, fx { view.shownPages.value })
+        awaitRendered(view, 0)
+        // Fit Page: the first page whole, the top of the second in the margin below it.
+        assertEquals(0..1, fx { view.shownPages.value })
+        fx { view.scrollTo(PageTarget(3)) }
+        assertEquals(3, fx { view.shownPages.value.first })
+        fx {
+            view.pageColumn.zoomOut()
+            view.pageColumn.zoomOut()
+        }
+        val shown = fx { view.shownPages.value }
+        assertTrue(shown.last - shown.first >= 2, shown.toString())
+    }
+
+    @Test
+    fun `shown pages and the current page always lie within the info of the time, on open and on reload`() {
+        val file = dir.resolve("shrinking.pdf")
+        Files.copy(TestPdfs.manyPages, file)
+        val seen = mutableListOf<Triple<IntRange, Int, PdfInfo?>>()
+        var reloads = 0
+        val view =
+            open(file) { opening ->
+                opening.shownPages.subscribe { pages ->
+                    if (!pages.isEmpty()) seen += Triple(pages, opening.currentPage.get(), opening.info.value)
+                }
+                opening.onReload += { reloads++ }
+            }
+        awaitRendered(view, 0)
+        fx { view.scrollTo(PageTarget(300)) }
+        Files.copy(TestPdfs.text, file, StandardCopyOption.REPLACE_EXISTING)
+        Files.setLastModifiedTime(file, FileTime.fromMillis(Files.getLastModifiedTime(file).toMillis() + 10_000))
+        fx { view.reload() }
+        await { reloads == 1 }
+        awaitRendered(view, 0)
+        assertTrue(
+            fx { seen.any { it.first.first == 300 } } && fx { seen.last().first == 0..0 },
+            fx { seen.toString() },
+        )
+        for ((pages, current, info) in fx { seen.toList() }) {
+            val count = checkNotNull(info) { "$pages shown without info" }.pageCount
+            assertTrue(pages.last < count && current < count, "$pages, current $current, of $count pages")
+        }
+    }
+
+    @Test
+    fun `a listener of the current page that scrolls leaves the pages of the new place shown`() {
+        val view = open(TestPdfs.manyPages)
+        awaitRendered(view, 0)
+        fx { view.currentPage.subscribe { page -> if (page.toInt() == 3) view.scrollTo(PageTarget(10)) } }
+        fx { view.scrollTo(PageTarget(3)) }
+        assertEquals(10, fx { view.currentPage.get() })
+        assertEquals(10, fx { view.shownPages.value.first })
+        assertTrue(fx { 10 in view.pageColumn.pageSlots && 3 !in view.pageColumn.pageSlots })
+    }
+
+    @Test
+    fun `shownPages are none while a notice shows`() {
+        val file = dir.resolve("changing.pdf")
+        Files.copy(TestPdfs.text, file)
+        val view = open(file)
+        awaitRendered(view, 0)
+        assertEquals(0..0, fx { view.shownPages.value })
+        Files.copy(TestPdfs.notPdf, file, StandardCopyOption.REPLACE_EXISTING)
+        Files.setLastModifiedTime(file, FileTime.fromMillis(Files.getLastModifiedTime(file).toMillis() + 10_000))
+        fx { view.reload() }
+        await { view.pageNotice.shown }
+        assertEquals(IntRange.EMPTY, fx { view.shownPages.value })
     }
 
     @Test

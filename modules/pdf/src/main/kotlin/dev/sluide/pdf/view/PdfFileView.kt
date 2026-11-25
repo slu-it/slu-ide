@@ -72,6 +72,12 @@ internal class PdfFileView(
     /** The page under the viewport's vertical middle (0-based). */
     val currentPage: ReadOnlyIntegerProperty get() = column.currentPage
 
+    /**
+     * The pages that intersect the viewport; [IntRange.EMPTY] while nothing is open or a notice shows. A non-empty
+     * range, and the [currentPage] reported with it, always lies within `0 until info.value.pageCount`.
+     */
+    val shownPages: ObservableValue<IntRange> get() = column.shownPages
+
     /** Called when the user scrolls the pages (wheel, keys, scroll bar), not on [scrollTo], a zoom or a resize. */
     val userScrolled: MutableList<() -> Unit> get() = column.userScrolled
 
@@ -107,6 +113,23 @@ internal class PdfFileView(
 
     /** Closes the password prompt while it shows. */
     private var closePrompt: (() -> Unit)? = null
+
+    /** Whether a document was shown: every reopen after that is a reload, also one back from a notice. */
+    private var shownOnce = false
+
+    /** The password of an attempt on its way, zeroed if [dispose] drops its answer. */
+    private var attempting: CharArray? = null
+
+    /**
+     * A focus request that came while a notice hid the pages, with the scene's focus owner at that moment: the pages
+     * take the focus once they show, unless it moved elsewhere meanwhile.
+     */
+    private var focusOnShow: FocusRequest? = null
+
+    private class FocusRequest(
+        val owner: Node?,
+    )
+
     private val stamp = FileStamp { file }
 
     override val node: Node get() = root
@@ -163,6 +186,7 @@ internal class PdfFileView(
     /** For tests: the notice, and the password kept. */
     internal val pageNotice: PdfNotice get() = notice
     internal val keptPassword: CharArray? get() = password
+    internal val attemptingPassword: CharArray? get() = attempting
 
     /** Opens the file with the password kept, scrolled to [at] once shown; [reload] says whether it was shown before. */
     private fun open(
@@ -196,16 +220,30 @@ internal class PdfFileView(
         textWorker.reopen(file, password?.let(::String), { }) { opening ->
             if (reload && opening is Opening.Opened) onReload.toList().forEach { it() }
         }
-        infoWrapper.set(opened)
         notice.hide()
         enableControls(true)
+        // No pages of the old document under the new info, and none of the new one without it.
+        column.clear()
+        infoWrapper.set(opened)
         column.show(opened.pageSizes, at)
+        shownOnce = true
+        focusOnShow?.let { request ->
+            focusOnShow = null
+            if (root.scene?.focusOwner === request.owner) column.node.requestFocus()
+        }
     }
 
     private fun fail(text: String) {
+        clearDocument()
+        showNotice(text)
+    }
+
+    /** Shows no document: the pages, the info and the text document go. */
+    private fun clearDocument() {
         column.clear()
         infoWrapper.set(null)
-        showNotice(text)
+        texts.clear()
+        textWorker.close()
     }
 
     private fun showNotice(
@@ -228,8 +266,7 @@ internal class PdfFileView(
         reload: Boolean,
     ) {
         forgetPassword()
-        column.clear()
-        infoWrapper.set(null)
+        clearDocument()
         showNotice(PdfNotice.PROTECTED, PdfNotice.ENTER_PASSWORD) { ask(at, reload) }
         closePrompt =
             askPassword(
@@ -248,7 +285,23 @@ internal class PdfFileView(
         at: PageTarget?,
         reload: Boolean,
         done: (Boolean) -> Unit,
-    ) = renderWorker.reopen(file, String(candidate), ::readInfo) { opening ->
+    ) {
+        attempting = candidate
+        renderWorker.reopen(
+            file,
+            String(candidate),
+            ::readInfo,
+        ) { opening -> attempted(opening, candidate, at, reload, done) }
+    }
+
+    private fun attempted(
+        opening: Opening<PdfInfo>,
+        candidate: CharArray,
+        at: PageTarget?,
+        reload: Boolean,
+        done: (Boolean) -> Unit,
+    ) {
+        attempting = null
         val wrong = opening is Opening.Failed && opening.result == PdfOpenResult.WrongPassword
         if (wrong) {
             candidate.fill(ZERO)
@@ -274,7 +327,7 @@ internal class PdfFileView(
         if (info.value != null) {
             open(column.topTarget(), reload = true)
         } else if (closePrompt == null) {
-            open(null, reload = false)
+            open(null, reload = shownOnce)
         }
     }
 
@@ -285,7 +338,14 @@ internal class PdfFileView(
         return true
     }
 
-    override fun focusText() = column.node.requestFocus()
+    override fun focusText() {
+        // A hidden node does not take the focus: the pages take it once they show.
+        if (notice.shown) {
+            focusOnShow = FocusRequest(root.scene?.focusOwner)
+        } else {
+            column.node.requestFocus()
+        }
+    }
 
     override fun focus() = pendingFocus.request(root) { if (!disposed) focusText() }
 
@@ -294,12 +354,15 @@ internal class PdfFileView(
         onDispose.toList().forEach { it() }
         disposed = true
         pendingFocus.cancel()
+        focusOnShow = null
         renderWorker.dispose()
         textWorker.dispose()
         column.dispose()
         texts.clear()
         closePrompt?.invoke()
         forgetPassword()
+        attempting?.fill(ZERO)
+        attempting = null
     }
 
     private companion object {

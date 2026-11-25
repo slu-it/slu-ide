@@ -165,6 +165,7 @@ class PageLayoutTest {
         "10, 20, true, -30",
         "200, 20, true, 160",
         "80, 20, true, 40",
+        "200, 0, true, 100",
         "50, 300, false, 50",
         "150, 300, false, 150",
     )

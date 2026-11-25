@@ -50,8 +50,9 @@ internal class PdfSplit(
     }
 
     private fun sync() {
-        if (node.items.contains(left) && left.width > 0) leftWidth = left.width
-        if (node.items.contains(right) && right.width > 0) rightWidth = right.width
+        // The dividers' places, not the panels' widths, which are smaller by half a divider each time.
+        if (node.items.contains(left) && left.width > 0) leftWidth = node.dividers.first().position * node.width
+        if (node.items.contains(right) && right.width > 0) rightWidth = (1 - node.dividers.last().position) * node.width
         val items = mutableListOf<Node>()
         if (leftShown.get()) items += left
         items += centre

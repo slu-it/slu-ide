@@ -1,5 +1,6 @@
 package dev.sluide.pdf.view
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.pdf.HostilePdfs
 import dev.sluide.pdf.TestPdfs
 import dev.sluide.pdf.engine.PageRect
@@ -7,12 +8,16 @@ import dev.sluide.pdf.engine.PageTarget
 import dev.sluide.pdf.engine.PageText
 import dev.sluide.pdf.engine.PdfDocument
 import javafx.event.Event
+import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
+import javafx.scene.layout.StackPane
+import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -65,8 +70,8 @@ internal class PdfPagesUiTest : PdfViewUiFixture() {
     }
 
     @Test
-    fun `opens at Fit Page with the first page whole in view and the pages focused`() {
-        val view = open(TestPdfs.manyPages) { it.focus() }
+    fun `opens at Fit Page with the first page whole in view`() {
+        val view = open(TestPdfs.manyPages)
         awaitRendered(view, 0)
         val page = sceneRect(view, 0, PageRect(0.0, 0.0, 595.0, 842.0))
         val pane = fx { view.pages.localToScene(view.pages.layoutBounds) }
@@ -74,7 +79,46 @@ internal class PdfPagesUiTest : PdfViewUiFixture() {
         assertTrue(pane.contains(page), "$page in $pane")
         assertEquals(viewport.height - 2 * PageLayout.MARGIN, page.height, 1.0)
         assertEquals(0.0, fx { view.pageColumn.viewTop })
+    }
+
+    @Test
+    fun `the focus asked for while loading goes to the pages once they show`() {
+        val opening = CountDownLatch(1)
+        val render = NamedThreads.single("test-pdf-render").also { it.execute { opening.await() } }
+        val view = open(TestPdfs.text, render)
+        // Another focusable node, which holds the focus until the pages take it.
+        val field = TextField()
+        fx {
+            (stage.scene.root as StackPane).children.setAll(VBox(field, view.node))
+            field.requestFocus()
+        }
+        // The window may get its focus late and then focus a node of its own choice.
+        await { stage.scene.focusOwner === field }
+        fx { view.focus() }
+        opening.countDown()
+        awaitRendered(view, 0)
         assertSame(view.pages, fx { stage.scene.focusOwner })
+    }
+
+    @Test
+    fun `a focus asked for while loading is dropped when the focus moved elsewhere meanwhile`() {
+        val opening = CountDownLatch(1)
+        val render = NamedThreads.single("test-pdf-render").also { it.execute { opening.await() } }
+        val view = open(TestPdfs.text, render)
+        val field = TextField()
+        val other = TextField()
+        fx {
+            (stage.scene.root as StackPane).children.setAll(VBox(field, other, view.node))
+            field.requestFocus()
+        }
+        await { stage.scene.focusOwner === field }
+        fx {
+            view.focus()
+            other.requestFocus()
+        }
+        opening.countDown()
+        awaitRendered(view, 0)
+        assertSame(other, fx { stage.scene.focusOwner })
     }
 
     @Test
@@ -102,18 +146,16 @@ internal class PdfPagesUiTest : PdfViewUiFixture() {
     }
 
     @Test
-    fun `a rotated page renders landscape`() {
+    fun `a rotated page shows landscape with its text painted inside its glyph boxes`() {
         val view = open(TestPdfs.rotated90)
         awaitRendered(view, 0)
-        val image =
-            checkNotNull(
-                fx {
-                    view.pageColumn.pageSlots
-                        .getValue(0)
-                        .image
-                },
-            )
-        assertTrue(image.width > image.height, "${image.width} x ${image.height}")
+        val slot = fx { view.pageColumn.pageSlots.getValue(0) }
+        assertTrue(fx { slot.width > slot.height }, fx { "${slot.width} x ${slot.height}" })
+        // The text runs down the turned page: its glyph boxes are where the glyphs are painted.
+        val word = sceneRect(view, 0, boxOf(textOf(view, 0), "needle"))
+        assertTrue(word.height > word.width, word.toString())
+        val inside = colours(paint(), word)
+        assertTrue(inside.count { it.isDark() } > inside.size / 10, "${inside.count { it.isDark() }} of ${inside.size}")
     }
 
     @Test

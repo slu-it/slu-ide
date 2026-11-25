@@ -3,6 +3,7 @@ package dev.sluide.pdf.view
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
@@ -20,5 +21,11 @@ class PageFieldTest {
     @ValueSource(strings = ["", " ", "abc", "1.5", "3a", "1 2"])
     fun `anything but a whole number jumps nowhere`(text: String) {
         assertNull(pageFieldTarget(text, 40))
+    }
+
+    @Test
+    fun `nothing to jump to without pages`() {
+        assertNull(pageFieldTarget("1", 0))
+        assertEquals(0, pageFieldTarget("7", 1))
     }
 }

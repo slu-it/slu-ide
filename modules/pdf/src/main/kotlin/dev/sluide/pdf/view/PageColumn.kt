@@ -5,6 +5,8 @@ import dev.sluide.pdf.engine.PageSize
 import dev.sluide.pdf.engine.PageTarget
 import javafx.beans.property.ReadOnlyIntegerProperty
 import javafx.beans.property.ReadOnlyIntegerWrapper
+import javafx.beans.property.ReadOnlyObjectWrapper
+import javafx.beans.value.ObservableValue
 import javafx.geometry.BoundingBox
 import javafx.geometry.Bounds
 import javafx.geometry.Orientation
@@ -47,6 +49,8 @@ internal class PageColumn(
     private var layout: PageLayout? = null
     private val current = ReadOnlyIntegerWrapper(0)
     val currentPage: ReadOnlyIntegerProperty = current.readOnlyProperty
+    private val inView = ReadOnlyObjectWrapper(IntRange.EMPTY)
+    val shownPages: ObservableValue<IntRange> = inView.readOnlyProperty
     val userScrolled = mutableListOf<() -> Unit>()
 
     /** Called after every zoom, with the scale or fit mode changed. */
@@ -58,8 +62,9 @@ internal class PageColumn(
     private var left = 0.0
     private var appScroll = false
 
-    /** The viewport's size when [resized] last handled it. */
-    private var viewportSize = 0.0 to 0.0
+    private var updates = 0 // counted, so that an update a listener started from inside another one wins
+
+    private var viewportSize = 0.0 to 0.0 // when resized() last handled it
 
     /** Where to scroll once the viewport has a size: to a target, or (`null` in it) to the top of the column. */
     private var pending: Pending? = null
@@ -125,6 +130,7 @@ internal class PageColumn(
     /** Shows no pages; cancels the renders and releases the images. */
     fun clear() {
         slots.clear()
+        inView.set(IntRange.EMPTY)
         sizes = emptyList()
         layout = null
         pending = null
@@ -200,10 +206,8 @@ internal class PageColumn(
         contextMenu.hide()
     }
 
-    /** The slots that exist, by page, for tests. */
+    /** For tests: the slots that exist, by page, and the top of the viewport in the column. */
     internal val pageSlots: Map<Int, PageSlot> get() = slots.all
-
-    /** The top of the viewport in the column, for tests. */
     internal val viewTop: Double get() = top
 
     private fun viewportKnown() = node.viewportBounds.width > 0 && node.viewportBounds.height > 0
@@ -371,8 +375,11 @@ internal class PageColumn(
         if (!viewportKnown()) return
         val view = viewport()
         val page = shown.currentPage(view)
-        current.set(page)
+        val run = ++updates
         slots.show(renderOrder(shown, view), shown.scale * outputScale.value, page)
+        // Last, and only while no listener scrolled from inside the change: the newer update told the newer pages.
+        current.set(page)
+        if (run == updates) inView.set(shown.visiblePages(view))
     }
 
     private fun placeSlots() {

@@ -23,7 +23,6 @@ import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -130,7 +129,7 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
         val view = open(TestPdfs.userPassword) { it.askPassword = prompt::ask }
         awaitRendered(view, 0)
         assertEquals(listOf(false, true), prompt.answers)
-        assertEquals("userPassword.pdf".let { TestPdfs.userPassword.fileName.toString() }, prompt.request.fileName)
+        assertEquals(TestPdfs.userPassword.fileName.toString(), prompt.request.fileName)
         assertTrue(textOf(view).text.startsWith("Secret text: needle"))
         assertEquals(TestPdfs.USER_PASSWORD, String(checkNotNull(fx { view.keptPassword })))
         assertFalse(fx { view.pageNotice.shown })
@@ -202,6 +201,8 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
         val file = copy(TestPdfs.text)
         val view = open(file)
         awaitRendered(view, 0)
+        var reloads = 0
+        fx { view.onReload += { reloads++ } }
         replace(file, TestPdfs.notPdf)
         fx { view.reload() }
         await { view.pageNotice.shown }
@@ -211,10 +212,13 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
                     .startsWith("Not a valid PDF: ")
             },
         )
+        // The text document is closed with the notice: texts are empty until the file opens again.
+        assertEquals("", textOf(view).text)
         replace(file, TestPdfs.text)
         fx { view.reload() }
         awaitRendered(view, 0)
         assertFalse(fx { view.pageNotice.shown })
+        await { reloads == 1 }
     }
 
     @Test
@@ -246,6 +250,29 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
     }
 
     @Test
+    fun `dispose zeroes the password of an attempt whose answer it drops`() {
+        val blocked = CountDownLatch(1)
+        val render = NamedThreads.single("test-pdf-render")
+        var attempt: CharArray? = null
+        lateinit var view: PdfFileView
+        val prompt = { request: PasswordRequest ->
+            // The attempt waits behind this task, so its answer comes after dispose.
+            render.execute { blocked.await() }
+            request.attempt(TestPdfs.USER_PASSWORD.toCharArray()) {}
+            attempt = view.attemptingPassword
+            val close = {}
+            close
+        }
+        view = open(TestPdfs.userPassword, render) { it.askPassword = prompt }
+        await { attempt != null }
+        val pending = checkNotNull(attempt)
+        assertEquals(TestPdfs.USER_PASSWORD, String(pending))
+        fx { view.dispose() }
+        blocked.countDown()
+        assertTrue(pending.all { it == '\u0000' })
+    }
+
+    @Test
     fun `follows a move to another PDF only`() {
         val host =
             object : FileViewHost {
@@ -263,6 +290,5 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
         assertTrue(fx { view.moved(moved) })
         fx { view.toolbar.openExternally.fire() }
         assertEquals(listOf(moved.toUri()), host.pages)
-        assertNotNull(view)
     }
 }
