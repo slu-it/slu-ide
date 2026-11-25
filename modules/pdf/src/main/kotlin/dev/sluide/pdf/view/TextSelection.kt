@@ -138,7 +138,7 @@ internal data class TextSelection(
                     continue
                 }
                 val box = text.boxes[index] ?: continue
-                if (previous == null || !sameLine(previous, box)) {
+                if (previous?.let { sameLine(it, box) } != true) {
                     chars += mutableListOf<Int>()
                     boxes += mutableListOf<PageRect>()
                 }
