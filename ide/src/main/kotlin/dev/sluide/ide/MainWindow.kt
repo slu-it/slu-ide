@@ -216,12 +216,10 @@ class MainWindow(
     internal var askToConvertSaved: (Stage?, Path) -> Boolean = { stage, file -> askToConvertSavedDialog(stage, file) }
 
     /** Tells what a conversion could not keep and waits until it is closed; tests replace it, since it blocks. */
-    internal var showConversionNotes: (
-        Stage?,
-        String,
-    ) -> Unit = { stage, message -> showConversionNotesDialog(stage, message) }
+    internal var showConversionNotes: (Stage?, String) -> Unit =
+        { stage, message -> showConversionNotesDialog(stage, message) }
 
-    /** Asks what to do with the unsaved changes of a file the explorer reads aloud or translates; tests replace it. */
+    /** Asks about the unsaved changes of a file the explorer reads aloud, translates or opens; tests replace it. */
     internal var askUnsavedChoice: (Stage?, TextToolLabels, Path) -> UnsavedChoice =
         { stage, labels, file -> askUnsaved(stage, labels, file) }
 
@@ -428,8 +426,9 @@ class MainWindow(
             )
         // Paste Text names the type of the text with Converting's data formats too (ADR 0187, ADR 0188).
         fileExplorer.textTypes = clipboardTextTypes.detector
-        // A file's context menu runs it where its view can (ADR 0089) and reads text and Markdown files aloud (ADR 0124).
-        fileExplorer.fileActions = listOf(scriptRuns.action) + textFileActions.actions
+        // A file's context menu opens it in the default app, runs it where its view can (ADR 0089), reads text aloud.
+        fileExplorer.fileActions =
+            listOf(textFileActions.defaultApp { openWebPage(it) }, scriptRuns.action) + textFileActions.actions
         // A context menu's Open in Terminal opens a terminal tab in the folder (ADR 0093).
         fileExplorer.openInTerminal = { tools.openTerminal(stage, it) }
         // The Converting and Translate tools' sides open their text as a scratch file (ADR 0115, ADR 0126).

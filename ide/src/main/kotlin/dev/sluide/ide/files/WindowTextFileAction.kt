@@ -9,8 +9,10 @@ import javafx.scene.control.ButtonBar
 import javafx.scene.control.ButtonType
 import javafx.stage.Window
 import org.kordamp.ikonli.javafx.FontIcon
+import org.kordamp.ikonli.materialdesign2.MaterialDesignO
 import org.kordamp.ikonli.materialdesign2.MaterialDesignT
 import org.kordamp.ikonli.materialdesign2.MaterialDesignV
+import java.net.URI
 import java.nio.file.Path
 
 /** The answer to the question asked while a file has unsaved changes. */
@@ -37,6 +39,12 @@ internal class TextToolLabels(
                 "Save and Read Aloud",
                 "Read Saved Version",
             ) { FontIcon(MaterialDesignV.VOLUME_HIGH) }
+        val OPEN_IN_DEFAULT_APP =
+            TextToolLabels(
+                "Open in Default App",
+                "Save and Open",
+                "Open Saved Version",
+            ) { FontIcon(MaterialDesignO.OPEN_IN_NEW) }
         val TRANSLATE =
             TextToolLabels(
                 "Translate",
@@ -66,14 +74,25 @@ internal class WindowTextFileAction(
     val action = FileAction(labels.action, icon = labels.icon, appliesTo = ::isTextFile, perform = ::perform)
 
     internal fun perform(file: Path) {
-        if (isDirty(file)) {
-            when (ask(file)) {
-                UnsavedChoice.CANCEL -> return
-                UnsavedChoice.SAVE_AND_USE -> if (!save(file)) return
-                UnsavedChoice.USE_SAVED -> Unit
-            }
-        }
-        readFile(file, showError)
+        if (mayUseSaved(file, isDirty, save, ask)) readFile(file, showError)
+    }
+}
+
+/**
+ * Whether an action may go on with the saved [file]: at once if no tab of it has unsaved changes, otherwise after
+ * [ask] (Save first, use the saved version, or Cancel, which stops) and, for Save, a successful [save] (ADR 0089).
+ */
+internal fun mayUseSaved(
+    file: Path,
+    isDirty: (Path) -> Boolean,
+    save: (Path) -> Boolean,
+    ask: (Path) -> UnsavedChoice,
+): Boolean {
+    if (!isDirty(file)) return true
+    return when (ask(file)) {
+        UnsavedChoice.CANCEL -> false
+        UnsavedChoice.SAVE_AND_USE -> save(file)
+        UnsavedChoice.USE_SAVED -> true
     }
 }
 
@@ -100,7 +119,10 @@ internal fun askUnsaved(
     }
 }
 
-/** The explorer's actions of the tools that take text files: Read Aloud and Translate. */
+/**
+ * The explorer's actions that read a file with unsaved changes in mind: Read Aloud and Translate of text files, and
+ * Open in Default App ([defaultApp]) of any file.
+ */
 internal class WindowTextFileActions(
     readAloud: ReadAloud,
     translate: Translate,
@@ -120,4 +142,8 @@ internal class WindowTextFileActions(
         labels: TextToolLabels,
         readFile: (Path, (String) -> Unit) -> Unit,
     ) = WindowTextFileAction(labels, readFile, isDirty, save, { ask(labels, it) }, showError).action
+
+    /** Open in Default App, asking about unsaved changes like the text tools do (ADR 0089). */
+    fun defaultApp(openUri: (URI) -> Unit) =
+        WindowDefaultAppAction(openUri, isDirty, save) { ask(TextToolLabels.OPEN_IN_DEFAULT_APP, it) }.action
 }

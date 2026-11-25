@@ -10,6 +10,7 @@ import dev.sluide.converting.WriteResult
 import dev.sluide.fileexplorer.ExplorerBar
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.ide.explorer.ExplorerPanel
+import dev.sluide.ide.files.UnsavedChoice
 import dev.sluide.texttypes.TextTypes
 import javafx.event.Event
 import javafx.scene.Node
@@ -22,6 +23,7 @@ import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
+import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
@@ -348,6 +350,30 @@ class MainWindowExplorerUiTest : MainWindowUiFixture() {
 
         assertEquals(listOf(source), asked)
         assertFalse(Files.exists(project.resolve("a.loud")))
+    }
+
+    @Test
+    fun `the explorer's Open in Default App asks about unsaved edits and opens the file after saving them`(
+        robot: FxRobot,
+    ) {
+        val file = project.resolve("notes.md").apply { writeText("saved text") }
+        robot.interact { editorArea.open(file) }
+        eventually(robot) { assertEquals(file, editorArea.selectedPath) }
+        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
+        robot.interact { area.appendText(" edited") }
+        val action = fileExplorer.fileActions.single { it.label == "Open in Default App" }
+        val asked = mutableListOf<String>()
+        mainWindow.askUnsavedChoice = { _, labels, _ ->
+            asked.add(labels.action)
+            UnsavedChoice.SAVE_AND_USE
+        }
+        val readWhenOpened = mutableListOf<String>()
+        mainWindow.openWebPage = { readWhenOpened += Path.of(it).readText() }
+
+        robot.interact { action.perform(file) }
+
+        assertEquals(listOf("Open in Default App"), asked)
+        assertEquals(listOf("saved text edited"), readWhenOpened)
     }
 }
 

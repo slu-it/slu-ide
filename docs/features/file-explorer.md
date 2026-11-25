@@ -131,9 +131,14 @@
     follow Open. They are listed only when the menu is for exactly one regular file they apply to
     (`fileActionsFor`), never disabled, and run on that file. Their icons take the colour of the menu's text,
     in both themes and on the highlighted item (an inline style: the menu does not see the explorer's
-    stylesheets). The window adds **Run** (play icon) for files whose
-    viewer can run them, e.g. shell scripts: it opens the file's tab and runs it there
-    ([shell-scripts.md](shell-scripts.md)).
+    stylesheets). The window adds **Open in Default App** (open-in-new icon; every file without the
+    executable bit, first of the file actions), which opens the file in the system's default app through the
+    window's `openWebPage` (a file with unsaved changes asks first: Save and Open, Open Saved Version, Cancel), and
+    **Run** (play icon) for files whose viewer can run them, e.g. shell scripts: it opens the file's tab and runs it
+    there ([shell-scripts.md](shell-scripts.md)). Open in Default App is not offered for executable files, as macOS
+    runs them in Terminal (gradlew, scripts, `.command`); known limits: on macOS `.jar` and `.terminal` files still
+    run in their default handler, and when no app is registered for the type, or the file is gone, nothing happens
+    and no message is shown (`showDocument` reports no failure).
   - Compare Files follows, only while the window sets `compareFiles`: enabled for exactly two regular files, which it
     passes in tree order (the upper row first, however they were selected); the window shows them side by side
     ([file-comparison.md](file-comparison.md), [ADR 0113](../adr/0113-comparing-two-files.md)). The item shows

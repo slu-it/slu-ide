@@ -247,7 +247,10 @@ interface FileViewHost {
         column: Int,
     ): Boolean = openFile(file, line)
 
-    /** Shows [uri] outside the IDE, e.g. a web page in the system browser. */
+    /**
+     * Shows [uri] outside the IDE, e.g. a web page in the system browser; a local file (`file:` URI) opens in the
+     * system's default app for it (the PDF view's Open in Default App).
+     */
     fun openWebPage(uri: URI)
 
     /** The folder of the project the view belongs to, if any; HTML previews may use its files (ADR 0018). */

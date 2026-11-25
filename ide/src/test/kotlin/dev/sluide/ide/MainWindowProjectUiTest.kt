@@ -79,7 +79,10 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertEquals(appTitle(), stage.title)
         assertEquals(0, robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).count { it.text != null })
         assertEquals(listOf("New HTTP Client Setup"), fileExplorer.folderActions.map { it.label })
-        assertEquals(listOf("Run", "Read Aloud", "Translate"), fileExplorer.fileActions.map { it.label })
+        assertEquals(
+            listOf("Open in Default App", "Run", "Read Aloud", "Translate"),
+            fileExplorer.fileActions.map { it.label },
+        )
 
         assertSame(httpSessions.single(), editorArea.windowServices.get(HttpClientSession::class.java))
         assertSame(gradleSessions.single(), editorArea.windowServices.get(GradleSession::class.java))
@@ -112,6 +115,11 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         mainWindow.openWebPage = { opened += it }
         editorArea.openWebPage(URI("https://example.com/docs"))
         assertEquals(listOf(URI("https://example.com/docs")), opened)
+        // Open in Default App goes through the same callback.
+        opened.clear()
+        val file = Path.of("/work/report.pdf")
+        robot.interact { fileExplorer.fileActions.first().perform(file) }
+        assertEquals(listOf(file.toUri()), opened)
 
         assertNull(editorArea.projectFolder())
         robot.interact { projectService.open(project) }
