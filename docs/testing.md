@@ -329,7 +329,9 @@ DISPLAY=:107 xdotool key ctrl+o                      # drive the UI
 - The sandbox JDK is headless (no `libawt_xawt`), and the app runs with `.headless(false)`: anything that touches
   `BufferedImage`/`ImageIO` (pasted images, SVG → PNG) fails with an `UnsatisfiedLinkError` while `DISPLAY` is set.
   Start the app with `JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -Djava.awt.headless=true" run-app.sh …` for such checks
-  (Spring keeps a value that is already set).
+  (Spring keeps a value that is already set). PDF pages render through `BufferedImage` too, so the PDF viewer needs it
+  as well; its tests set `pdfbox.fontcache` (module `pdf`'s test task) so that PDFBox keeps its font cache in `build/`,
+  not in the home folder ([ADR 0192](adr/0192-pdf-viewer.md)).
 - Never claim the UI was verified unless you actually ran it.
 - **Secrets leaving memory** (features that wipe plaintext or passwords, ADR 0162): tests can only check our own
   fields; check the running app. Type marker strings, do what should wipe them (e.g. Lock), then
