@@ -35,7 +35,7 @@ internal class PageColumn(
     renderWorker: PdfWorker,
 ) {
     val zoom = ZoomModel()
-    private val content = Pane().apply { styleClass += "pdf-column" }
+    private val content = Pane()
     val node: ScrollPane =
         ScrollPane(content).apply {
             styleClass += "pdf-pages"
@@ -202,7 +202,6 @@ internal class PageColumn(
     /** Releases the images and cancels the renders; the column is not used afterwards. */
     fun dispose() {
         slots.release()
-        clear()
         contextMenu.hide()
     }
 
@@ -377,8 +376,8 @@ internal class PageColumn(
         val page = shown.currentPage(view)
         val run = ++updates
         slots.show(renderOrder(shown, view), shown.scale * outputScale.value, page)
-        // Last, and only while no listener scrolled from inside the change: the newer update told the newer pages.
-        current.set(page)
+        // Last, and only while no listener scrolled from inside a change: the newer update told the newer pages.
+        if (run == updates) current.set(page)
         if (run == updates) inView.set(shown.visiblePages(view))
     }
 

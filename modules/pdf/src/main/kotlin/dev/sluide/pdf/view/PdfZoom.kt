@@ -72,8 +72,8 @@ internal class PdfZoom(
         zoomInButton.setOnAction { column.zoomIn() }
         actualSizeButton.setOnAction { column.actualSize() }
         // Clicking a selected toggle would deselect it: they mirror the fit mode instead.
-        fitWidthButton.setOnAction { fit(FitMode.WIDTH) }
-        fitPageButton.setOnAction { fit(FitMode.PAGE) }
+        fitWidthButton.setOnAction { column.fit(FitMode.WIDTH) }
+        fitPageButton.setOnAction { column.fit(FitMode.PAGE) }
         column.zoomed += ::sync
         sync()
     }
@@ -91,11 +91,6 @@ internal class PdfZoom(
             null -> return
         }
         event.consume()
-    }
-
-    private fun fit(mode: FitMode) {
-        column.fit(mode)
-        sync()
     }
 
     /** Shows the scale and the fit mode in effect. */

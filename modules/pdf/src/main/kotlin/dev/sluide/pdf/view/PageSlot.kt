@@ -53,7 +53,6 @@ internal class PageSlot(
         relocate(x, y)
         setMinSize(width, height)
         setPrefSize(width, height)
-        setMaxSize(width, height)
         imageView.fitWidth = width
         imageView.fitHeight = height
     }
@@ -89,7 +88,4 @@ internal class PageSlot(
             (region as Region).resizeRelocate(rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale)
         }
     }
-
-    /** The overlay regions drawn, for tests. */
-    internal val overlays: List<Region> get() = overlay.children.map { it as Region }
 }

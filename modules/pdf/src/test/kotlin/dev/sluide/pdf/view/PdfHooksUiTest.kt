@@ -142,7 +142,8 @@ internal class PdfHooksUiTest : PdfViewUiFixture() {
             }
             val painted = paint()
             assertTrue(colours(painted, sceneRect(view, 0, needle)).none { it.isWhite() }, "zoom $zoom")
-            assertTrue(colours(painted, sceneRect(view, 0, omega)).any { it.isWhite() }, "zoom $zoom")
+            val besides = colours(painted, sceneRect(view, 0, omega))
+            assertTrue(besides.any { it.isWhite() } && besides.none { it.blue - it.red > 0.1 }, "zoom $zoom")
         }
     }
 
@@ -164,6 +165,7 @@ internal class PdfHooksUiTest : PdfViewUiFixture() {
         val view = open(TestPdfs.text)
         awaitRendered(view, 0)
         fx { view.pageCursor = Cursor.TEXT }
+        assertEquals(Cursor.TEXT, fx { view.pageCursor })
         assertEquals(
             Cursor.TEXT,
             fx {
@@ -275,6 +277,44 @@ internal class PdfHooksUiTest : PdfViewUiFixture() {
         fx { view.reload() }
         await { view.pageNotice.shown }
         assertEquals(IntRange.EMPTY, fx { view.shownPages.value })
+    }
+
+    @Test
+    fun `the side panels shown before the view has a width get their first widths, and keep the right one too`() {
+        val view =
+            open(TestPdfs.text) {
+                it.split.left.children += Label("Outline")
+                it.split.right.children += Label("Search")
+                it.split.showLeft(true)
+                it.split.showRight(true)
+            }
+        await { view.split.left.width in 210.0..222.0 && view.split.right.width in 270.0..282.0 }
+        assertTrue(fx { "pdf-left" in view.split.left.styleClass && "pdf-right" in view.split.right.styleClass })
+        fx { view.split.node.setDividerPosition(1, 0.8) }
+        await { view.split.right.width < 200 }
+        val dragged = fx { view.split.right.width }
+        fx { view.split.showRight(false) }
+        fx { view.split.showRight(true) }
+        paint()
+        assertEquals(dragged, fx { view.split.right.width }, 1.0)
+    }
+
+    @Test
+    fun `a listener of the shown pages that scrolls leaves the current page of the new place`() {
+        val view = open(TestPdfs.manyPages)
+        awaitRendered(view, 0)
+        var scrolled = false
+        fx {
+            view.shownPages.subscribe { pages ->
+                if (!scrolled && 3 in pages) {
+                    scrolled = true
+                    view.scrollTo(PageTarget(10))
+                }
+            }
+        }
+        fx { view.scrollTo(PageTarget(3)) }
+        assertEquals(10, fx { view.currentPage.get() })
+        assertEquals(10, fx { view.shownPages.value.first })
     }
 
     @Test

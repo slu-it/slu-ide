@@ -94,10 +94,14 @@ internal class PdfPagesUiTest : PdfViewUiFixture() {
         }
         // The window may get its focus late and then focus a node of its own choice.
         await { stage.scene.focusOwner === field }
+        // The focus owners in turn, to tell why if the pages do not get it.
+        val owners = mutableListOf<String>()
+        fx { stage.scene.focusOwnerProperty().subscribe { owner -> owners += "${owner?.javaClass?.simpleName}" } }
         fx { view.focus() }
         opening.countDown()
         awaitRendered(view, 0)
-        assertSame(view.pages, fx { stage.scene.focusOwner })
+        runCatching { await { stage.scene.focusOwner === view.pages } }
+        assertSame(view.pages, fx { stage.scene.focusOwner }, fx { "focus owners: $owners" })
     }
 
     @Test

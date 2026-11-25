@@ -47,8 +47,8 @@ internal object PasswordPrompt {
             }
         return Dialog<ButtonType>().apply {
             request.owner?.let(::initOwner)
+            // No header: the default.
             title = "Open PDF"
-            headerText = null
             dialogPane.content = VBox(8.0, Label("${request.fileName} is password-protected."), field, wrong)
             dialogPane.buttonTypes.setAll(OPEN, ButtonType.CANCEL)
             var accepted = false
@@ -62,8 +62,8 @@ internal object PasswordPrompt {
                     open.isDisable = false
                     if (done) {
                         accepted = true
+                        // Setting the result closes the dialog.
                         result = OPEN
-                        close()
                     } else {
                         wrong.isVisible = true
                         wrong.isManaged = true

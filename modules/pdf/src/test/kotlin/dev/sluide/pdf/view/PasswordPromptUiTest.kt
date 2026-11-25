@@ -8,6 +8,7 @@ import javafx.scene.control.Label
 import javafx.scene.control.PasswordField
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
+import javafx.stage.Window
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -91,6 +92,7 @@ internal class PasswordPromptUiTest {
             },
         )
         assertTrue(fx { dialog.button(PasswordPrompt.OPEN).isDefaultButton })
+        assertFalse(fx { dialog.wrong().isVisible || dialog.wrong().isManaged })
         assertSame(dialog.field(), fx { dialog.dialogPane.scene.focusOwner })
     }
 
@@ -105,7 +107,9 @@ internal class PasswordPromptUiTest {
         assertTrue(fx { dialog.isShowing })
         assertTrue(arrays.single().all { it == '\u0000' })
         fx { answers.last()(false) }
-        assertTrue(fx { dialog.isShowing && dialog.wrong().isVisible && !open.isDisable })
+        assertTrue(fx { dialog.isShowing && dialog.wrong().isVisible && dialog.wrong().isManaged && !open.isDisable })
+        assertSame(dialog.field(), fx { dialog.dialogPane.scene.focusOwner })
+        assertEquals("wrong", fx { dialog.field().selectedText })
         fx { dialog.field().text = "user" }
         fx { open.fire() }
         fx { answers.last()(true) }
@@ -113,6 +117,19 @@ internal class PasswordPromptUiTest {
         assertFalse(fx { dialog.isShowing })
         assertEquals(0, cancelled)
         assertEquals("", fx { dialog.field().text })
+    }
+
+    @Test
+    fun `show shows the dialog at once, and the function it returns closes it`() {
+        val close =
+            fx {
+                PasswordPrompt.show(PasswordRequest(stage, "secret.pdf", { _, _ -> }, { cancelled++ }))
+            }
+        val shown = fx { Window.getWindows().filterIsInstance<Stage>().single { it.title == "Open PDF" } }
+        assertTrue(fx { shown.isShowing })
+        fx { close() }
+        assertFalse(fx { shown.isShowing })
+        assertEquals(1, cancelled)
     }
 
     @Test

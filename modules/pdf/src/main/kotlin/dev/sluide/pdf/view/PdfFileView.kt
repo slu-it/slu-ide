@@ -61,7 +61,7 @@ internal class PdfFileView(
     private var disposed = false
 
     /** The side panels and the pages between them. */
-    val split = PdfSplit(pageArea) { !disposed }
+    val split = PdfSplit(pageArea)
     private val root = BorderPane(split.node, toolbar.node, null, null, null).apply { styleClass += "pdf-view" }
     private val pendingFocus = FocusWhenShown()
     private val infoWrapper = ReadOnlyObjectWrapper<PdfInfo?>(null)

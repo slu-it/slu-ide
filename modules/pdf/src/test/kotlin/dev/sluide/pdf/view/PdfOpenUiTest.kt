@@ -5,7 +5,11 @@ import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.pdf.TestPdfs
 import dev.sluide.pdf.engine.PageTarget
 import dev.sluide.pdf.engine.PageText
+import javafx.scene.control.Button
+import javafx.scene.control.DialogPane
+import javafx.scene.control.PasswordField
 import javafx.stage.Stage
+import javafx.stage.Window
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy
@@ -24,6 +28,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -49,20 +54,39 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
         var closed = 0
         lateinit var request: PasswordRequest
 
+        /** The view's copy of each password tried, and its info when asked. */
+        val copies = mutableListOf<CharArray>()
+        val infos = mutableListOf<PdfInfo?>()
+        var view: PdfFileView? = null
+
+        /** Runs before each attempt. */
+        var beforeAttempt: () -> Unit = {}
+
         fun ask(request: PasswordRequest): () -> Unit {
             asked++
             this.request = request
+            infos += view?.info?.value
             tryNext(0)
             return { closed++ }
         }
 
         private fun tryNext(index: Int) {
             if (index >= passwords.size) return
+            beforeAttempt()
             request.attempt(passwords[index].toCharArray()) { accepted ->
                 answers += accepted
                 if (!accepted) tryNext(index + 1)
             }
+            view?.attemptingPassword?.let { copies += it }
         }
+    }
+
+    private fun open(
+        file: Path,
+        prompt: FakePrompt,
+    ) = open(file) {
+        it.askPassword = prompt::ask
+        prompt.view = it
     }
 
     private fun copy(
@@ -126,10 +150,12 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
     @Test
     fun `asks for the password, tries again after a wrong one, and opens both documents with the right one`() {
         val prompt = FakePrompt("wrong", TestPdfs.USER_PASSWORD)
-        val view = open(TestPdfs.userPassword) { it.askPassword = prompt::ask }
+        val view = open(TestPdfs.userPassword, prompt)
         awaitRendered(view, 0)
         assertEquals(listOf(false, true), prompt.answers)
         assertEquals(TestPdfs.userPassword.fileName.toString(), prompt.request.fileName)
+        assertSame(stage, prompt.request.owner)
+        assertTrue(fx { prompt.copies.first().all { it == '\u0000' } }, "the wrong password's copy is zeroed")
         assertTrue(textOf(view).text.startsWith("Secret text: needle"))
         assertEquals(TestPdfs.USER_PASSWORD, String(checkNotNull(fx { view.keptPassword })))
         assertFalse(fx { view.pageNotice.shown })
@@ -166,6 +192,8 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
                 "$file: ${fx { view.pageNotice.text.text }}",
             )
             assertTrue(fx { view.pageNotice.shown && !view.pageNotice.action.isVisible })
+            assertFalse(fx { view.pageNotice.action.isManaged })
+            assertEquals("/ 0", fx { view.toolbar.pageCount.text })
             assertTrue(fx { view.toolbar.pageField.isDisable })
             assertNull(fx { view.info.value })
         }
@@ -198,11 +226,12 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
 
     @Test
     fun `reload shows a notice when the file can no longer be opened, and the pages once it can`() {
-        val file = copy(TestPdfs.text)
-        val view = open(file)
-        awaitRendered(view, 0)
+        val file = copy(TestPdfs.manyPages)
         var reloads = 0
-        fx { view.onReload += { reloads++ } }
+        val view = open(file) { it.onReload += { reloads++ } }
+        awaitRendered(view, 0)
+        assertTrue(textOf(view).text.startsWith("Page 1"))
+        fx { view.scrollTo(PageTarget(3)) }
         replace(file, TestPdfs.notPdf)
         fx { view.reload() }
         await { view.pageNotice.shown }
@@ -212,26 +241,89 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
                     .startsWith("Not a valid PDF: ")
             },
         )
+        assertNull(fx { view.info.value })
         // The text document is closed with the notice: texts are empty until the file opens again.
         assertEquals("", textOf(view).text)
-        replace(file, TestPdfs.text)
+        assertEquals(0, reloads)
+        replace(file, TestPdfs.manyPages)
         fx { view.reload() }
         awaitRendered(view, 0)
         assertFalse(fx { view.pageNotice.shown })
         await { reloads == 1 }
+        // Opened as the first time: at the top.
+        assertEquals(0.0, fx { view.pageColumn.viewTop })
     }
 
     @Test
     fun `reload asks again when the password changed`() {
         val file = copy(protectedText("first"))
         val prompt = FakePrompt("first", "second")
-        val view = open(file) { it.askPassword = prompt::ask }
+        val view = open(file, prompt)
         awaitRendered(view, 0)
+        val first = checkNotNull(fx { view.keptPassword })
         replace(file, protectedText("second"))
         fx { view.reload() }
         await { prompt.asked == 2 }
         awaitRendered(view, 0)
         assertEquals("second", String(checkNotNull(fx { view.keptPassword })))
+        assertTrue(first.all { it == '\u0000' }, "the password that no longer opens it is zeroed")
+        assertEquals(listOf<PdfInfo?>(null, null), prompt.infos)
+    }
+
+    @Test
+    fun `a password for a file that turned invalid meanwhile is zeroed and the notice shows`() {
+        val file = copy(TestPdfs.userPassword)
+        val prompt = FakePrompt(TestPdfs.USER_PASSWORD)
+        prompt.beforeAttempt = { Files.copy(TestPdfs.notPdf, file, StandardCopyOption.REPLACE_EXISTING) }
+        val view = open(file, prompt)
+        await {
+            view.pageNotice.text.text
+                .startsWith("Not a valid PDF: ")
+        }
+        assertEquals(listOf(true), prompt.answers)
+        assertTrue(fx { prompt.copies.single().all { it == '\u0000' } })
+        assertNull(fx { view.keptPassword })
+    }
+
+    @Test
+    fun `a file that never opened opens on a reload without telling the reload listeners`() {
+        val file = copy(TestPdfs.notPdf)
+        var reloads = 0
+        val view = open(file) { it.onReload += { reloads++ } }
+        await {
+            view.pageNotice.text.text
+                .startsWith("Not a valid PDF: ")
+        }
+        replace(file, TestPdfs.text)
+        fx { view.reload() }
+        awaitRendered(view, 0)
+        // No signal tells that a listener was not called; the text document opens within this time.
+        Thread.sleep(200)
+        assertEquals(0, reloads)
+    }
+
+    @Test
+    fun `a reload while the password prompt shows asks nothing more`() {
+        val file = copy(protectedText("first"))
+        val prompt = FakePrompt()
+        val view = open(file, prompt)
+        await { prompt.asked == 1 }
+        replace(file, protectedText("second"))
+        fx { view.reload() }
+        // No signal tells that nothing was opened; the render worker answers within this time.
+        Thread.sleep(200)
+        assertEquals(1, prompt.asked)
+    }
+
+    @Test
+    fun `the real password prompt opens the PDF with the password typed`() {
+        val view = open(TestPdfs.userPassword)
+        await { Window.getWindows().any { it is Stage && it.title == "Open PDF" } }
+        val dialog = fx { Window.getWindows().first { it is Stage && it.title == "Open PDF" } }
+        fx { (dialog.scene.root.lookup(".pdf-password") as PasswordField).text = TestPdfs.USER_PASSWORD }
+        fx { (dialog.scene.root as DialogPane).lookupButton(PasswordPrompt.OPEN).let { (it as Button).fire() } }
+        awaitRendered(view, 0)
+        assertFalse(fx { dialog.isShowing })
     }
 
     @Test
@@ -290,5 +382,13 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
         assertTrue(fx { view.moved(moved) })
         fx { view.toolbar.openExternally.fire() }
         assertEquals(listOf(moved.toUri()), host.pages)
+        fx { view.dispose() }
+        assertFalse(fx { view.moved(dir.resolve("later.pdf")) })
+    }
+
+    @Test
+    fun `Open in Default App without a host does nothing`() {
+        val view = open(TestPdfs.text)
+        fx { view.toolbar.openExternally.fire() }
     }
 }

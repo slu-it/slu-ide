@@ -11,11 +11,10 @@ import javafx.scene.layout.StackPane
  * The view's split (a copy of the ebook reader's `ReaderSplit`): the [left] panel while [leftShown], the [centre] and
  * the [right] panel while [rightShown]; both panels are empty and hidden until a feature fills and shows them. The
  * panels open at [LEFT_WIDTH] and [RIGHT_WIDTH] (less in a narrow window) the first time and keep the width they were
- * left at while hidden. FX thread only; [alive] says whether the view still exists (for deferred work).
+ * left at while hidden. FX thread only.
  */
 internal class PdfSplit(
     private val centre: Node,
-    private val alive: () -> Boolean,
 ) {
     val left = StackPane().apply { styleClass += "pdf-left" }
     val right = StackPane().apply { styleClass += "pdf-right" }
@@ -62,7 +61,7 @@ internal class PdfSplit(
         if (items.size > 1) {
             pending = true
             size()
-            Platform.runLater { if (alive()) size() }
+            Platform.runLater { size() }
         }
     }
 
