@@ -41,9 +41,8 @@ internal class PageColumn(
             // The column is as wide as the viewport, or as its pages if they are wider (its min width).
             isFitToWidth = true
         }
-    private val images = PageImages(renderWorker, convert = ::toImage, pixels = ::pixelsOf, changed = ::showImage)
-    val overlays = PageOverlays(::drawOverlays)
-    private val slots = HashMap<Int, PageSlot>()
+    private val slots = PageSlots(content, renderWorker)
+    val overlays: PageOverlays get() = slots.overlays
     private var sizes: List<PageSize> = emptyList()
     private var layout: PageLayout? = null
     private val current = ReadOnlyIntegerWrapper(0)
@@ -125,9 +124,7 @@ internal class PageColumn(
 
     /** Shows no pages; cancels the renders and releases the images. */
     fun clear() {
-        images.clear()
         slots.clear()
-        content.children.clear()
         sizes = emptyList()
         layout = null
         pending = null
@@ -191,13 +188,13 @@ internal class PageColumn(
 
     /** Releases the images and cancels the renders; the column is not used afterwards. */
     fun dispose() {
-        slots.values.forEach { it.show(null, false) }
+        slots.release()
         clear()
         contextMenu.hide()
     }
 
     /** The slots that exist, by page, for tests. */
-    internal val pageSlots: Map<Int, PageSlot> get() = slots
+    internal val pageSlots: Map<Int, PageSlot> get() = slots.all
 
     /** The top of the viewport in the column, for tests. */
     internal val viewTop: Double get() = top
@@ -361,51 +358,18 @@ internal class PageColumn(
         if (dx != 0.0 && maxLeft() > 0) node.hvalue = ((left + dx) / maxLeft()).coerceIn(0.0, 1.0)
     }
 
-    /** Gives the pages around the viewport a slot, drops the other slots, and renders what is missing. */
+    /** Sets the current page, gives the pages around the viewport a slot and renders what is missing. */
     private fun update() {
         val shown = layout ?: return
         if (!viewportKnown()) return
         val view = viewport()
         val page = shown.currentPage(view)
         current.set(page)
-        val order = renderOrder(shown, view)
-        val wanted = order.mapTo(HashSet()) { it.first }
-        slots.keys.filter { it !in wanted }.forEach { content.children.remove(slots.remove(it)) }
-        for (wantedPage in wanted) {
-            if (wantedPage !in slots) {
-                val slot = PageSlot(wantedPage)
-                slots[wantedPage] = slot
-                content.children += slot
-                slot.drawOverlays(overlays.on(wantedPage))
-                placeSlot(wantedPage, slot)
-            }
-        }
-        images.update(order, shown.scale * outputScale.value, page)
+        slots.show(renderOrder(shown, view), shown.scale * outputScale.value, page)
     }
 
-    private fun placeSlots() = slots.forEach(::placeSlot)
-
-    private fun placeSlot(
-        page: Int,
-        slot: PageSlot,
-    ) {
-        val shown = layout ?: return
-        slot.place(
-            shown.left(page, columnWidth()),
-            shown.top(page),
-            shown.pageWidth(page),
-            shown.pageHeight(page),
-            shown.scale,
-        )
-        slot.show(images.image(page), images.failed(page))
-    }
-
-    private fun showImage(page: Int) {
-        slots[page]?.show(images.image(page), images.failed(page))
-    }
-
-    private fun drawOverlays(page: Int) {
-        slots[page]?.drawOverlays(overlays.on(page))
+    private fun placeSlots() {
+        slots.place(layout ?: return, columnWidth())
     }
 
     private companion object {
