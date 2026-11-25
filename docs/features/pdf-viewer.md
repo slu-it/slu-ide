@@ -70,7 +70,20 @@ empty (no page number, page count or zoom level), as while "Loading…" shows.
 No position, zoom or panel state is remembered; ideas: [ideas/pdf.md](../ideas/pdf.md).
 
 ## Selection and links
-(added in a later package)
+- **Select** by dragging over the text with the primary button, from the char under the press to the one under the
+  pointer; it may span pages and be drawn backwards. A drag that starts beside the text starts at the nearest char of
+  that page; a page without text has nothing to select. A double-click selects a word (letters, digits, `_` and `'`;
+  whitespace and punctuation are a word of their own char). **Shortcut+A** (and Select All in the context menu)
+  selects every page's text. **Escape**, or a click without a drag (press and release within 3 px), clears it.
+- The selection is kept in text offsets, so it survives scrolling and zoom; a reload clears it. It is drawn as one
+  rect per line run in the `SELECTION` layer, for the shown pages (a page that scrolls out keeps its rects).
+- **Copy** (Shortcut+C, or Copy in the context menu, disabled without a selection) puts the plain text on the
+  clipboard: pages joined by a blank line, line ends kept, trailing spaces of each line and the line ends a page's
+  text ends with trimmed. The texts of all pages of the range are waited for, then the clipboard is set once.
+- **Links** of the shown pages are read in the background (kept while the document is open, cleared on reload). A
+  click without a drag on a link follows it: a place in the document scrolls there, a web or mail link opens through
+  the host. A press on a link that turns into a drag selects text instead. A tooltip shows the address, or "Page N".
+- The pointer is the text cursor over a char, the hand over a link (links win over text), else the default.
 
 ## Outline and thumbnails
 The **side panel** on the left (package `dev.sluide.pdf.view.side`: `SidePanel`, `OutlinePanel`, `ThumbnailsPanel`,
@@ -109,4 +122,6 @@ the width it was dragged to while hidden.
   Linux sandbox the app needs `-Djava.awt.headless=true` ([testing.md](../testing.md)).
 - Vector-heavy pages take 1 to 3.5 s to render; the old image (or a blank page) shows meanwhile.
 - Pages beyond 16 million pixels are enlarged, not rendered in tiles.
+- Dragging past the viewport does not scroll on its own; the wheel works while dragging. A drag over the gap
+  between pages or beside a page keeps the last char.
 - Keys: [keyboard-shortcuts.md](keyboard-shortcuts.md#pdf-viewer).

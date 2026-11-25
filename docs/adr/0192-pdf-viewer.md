@@ -116,6 +116,10 @@ the view.
   stops a running render at its next drawing step, and `cancelQueued` drops the queued ones. `ThumbnailCache`
   (FX-free) keeps the requests and an LRU of 200 images; the cells shown are read from the list's `VirtualFlow` after
   each of its layouts. The outline's selection follows the current page through `OutlineFollow` (FX-free).
+- Selection is kept in text offsets `(page, char)`, not in pixels, so scroll, zoom and a text-less page need nothing
+  from it; its rects come from `textRects` for the shown pages only and go into the `SELECTION` overlay layer. Copy
+  uses the plain texts of the range's pages. Links of the shown pages are read on the render worker (`NEAR`) and kept
+  per page while the document is open.
 
 ## Consequences
 - The view packages build against an engine that is tested without a toolkit, on PDFs that `TestPdfs` builds with

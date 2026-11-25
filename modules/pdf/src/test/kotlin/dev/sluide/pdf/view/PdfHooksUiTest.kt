@@ -167,6 +167,7 @@ internal class PdfHooksUiTest : PdfViewUiFixture() {
         val view = open(TestPdfs.text)
         awaitRendered(view, 0)
         val page = sceneRect(view, 0, PageRect(100.0, 100.0, 10.0, 10.0))
+        fx { view.pageContextMenu.items.clear() } // the selection's items, added when the view is made
         fx { Event.fireEvent(view.pages, contextMenuRequest(page.centerX, page.centerY)) }
         assertFalse(fx { view.pageContextMenu.isShowing })
         fx { view.pageContextMenu.items += MenuItem("Copy") }

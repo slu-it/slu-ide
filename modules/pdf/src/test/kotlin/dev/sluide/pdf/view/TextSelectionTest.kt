@@ -200,6 +200,13 @@ internal class TextSelectionTest {
     }
 
     @Test
+    fun `copyText drops the line ends a page's text ends with, and a page of nothing else`() {
+        val pages = listOf("one\n", "\n", "two  \n\n")
+        assertEquals("one\n\ntwo", TextSelection.all(2).copyText(pages::get))
+        assertEquals("one\ntwo", TextSelection(0, 0, 0, 100).copyText { "one\ntwo\n" })
+    }
+
+    @Test
     fun `copyText leaves out pages without selected text`() {
         val pages = listOf("a", "", "c")
         assertEquals("a\n\nc", TextSelection.all(2).copyText(pages::get))

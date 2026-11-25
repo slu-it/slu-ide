@@ -185,6 +185,9 @@ Zoom keys and Shortcut+G work anywhere in the view, the scroll keys while the pa
 | Home / End | Go to the start / end |
 | Shortcut+G | Focus the page field, its number selected |
 | Enter / Escape in the page field | Go to the page typed / put the current page back; both return the focus to the pages |
+| Shortcut+A / Shortcut+C (pages) | Select all text / copy the selection as plain text |
+| Escape (pages) | Clear the selection |
+| Double-click | Select the word |
 | Enter in the side panel's Outline or Thumbnails list | Go to the selected item or page; the focus goes to the pages |
 | Arrows in the side panel's Outline or Thumbnails list | Move the selection only (Left / Right collapse / expand an outline item) |
 

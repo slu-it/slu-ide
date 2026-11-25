@@ -154,6 +154,7 @@ internal class PdfFileView(
         }
         toolbar.openExternally.setOnAction { host?.openWebPage(file.toUri()) }
         SidePanel.install(this)
+        PdfSelection.install(this)
     }
 
     /** Scrolls [target] to the top of the viewport; an app scroll, which does not call [userScrolled]. */

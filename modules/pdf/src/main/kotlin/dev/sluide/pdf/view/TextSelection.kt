@@ -36,13 +36,18 @@ internal data class TextSelection(
         return if (first <= last) first..last else null
     }
 
-    /** The selected text, [texts] giving the text of a page: the pages joined by blank lines, line ends trimmed. */
+    /**
+     * The selected text, [texts] giving the text of a page: the pages joined by blank lines, the spaces at the ends of
+     * lines and the line ends at the end of a page trimmed.
+     */
     fun copyText(texts: (Int) -> String): String =
         (startPage..endPage)
             .mapNotNull { page ->
                 val text = texts(page)
                 rangeOn(page, text.length)?.let { text.substring(it.first, it.last + 1) }
-            }.joinToString("\n\n") { part -> part.lines().joinToString("\n") { it.trimEnd(' ') } }
+            }.map { part -> part.lines().joinToString("\n") { it.trimEnd(' ') }.trimEnd('\n') }
+            .filter { it.isNotEmpty() }
+            .joinToString("\n\n")
 
     companion object {
         /** The range from [a] to [b], whichever comes first. */

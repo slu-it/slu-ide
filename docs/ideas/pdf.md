@@ -14,3 +14,7 @@ Explored, not decided or built. The viewer: [features/pdf-viewer.md](../features
 - **Printing**.
 - **Forms** and **annotations** other than links (showing, filling, editing).
 - **PDF export from Markdown** (noted in [ADR 0058](../adr/0058-markdown-html-export.md)).
+
+## Selection and links
+- **Autoscroll while dragging** a selection past the viewport's edge; today only the wheel scrolls during a drag.
+- **Triple-click** to select a line or paragraph.

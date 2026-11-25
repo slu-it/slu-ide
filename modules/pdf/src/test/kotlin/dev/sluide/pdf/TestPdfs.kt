@@ -1,5 +1,6 @@
 package dev.sluide.pdf
 
+import dev.sluide.pdf.engine.PageRect
 import dev.sluide.pdf.engine.PdfSetup
 import org.apache.pdfbox.cos.COSArray
 import org.apache.pdfbox.cos.COSDictionary
@@ -696,5 +697,39 @@ object TestPdfs {
         intro.openNode()
         late.openNode()
         outline.openNode()
+    }
+    // P4: selection and links.
+
+    /** Three pages of "Page N" (Helvetica 24 at [TEXT_X], [TEXT_BASELINE]), for select-all and copy across pages. */
+    val threePages: Path by lazy { build("three-pages.pdf") { numberedPages(it, 3) } }
+
+    const val SELECTION_LINK_URI = "https://example.org/p4"
+
+    /** The rect, as a page rect (points from the top-left corner), of link [index] of [selectionLinks]. */
+    fun selectionLinkRect(index: Int) = PageRect(TEXT_X.toDouble(), 272.0 + index * 60.0, 200.0, 20.0)
+
+    /** [threePages] with a link to [SELECTION_LINK_URI] and below it a link to page 3 on the first page, off the text. */
+    val selectionLinks: Path by lazy {
+        build("selection-links.pdf") { document ->
+            numberedPages(document, 3)
+            val first = document.getPage(0)
+            val rects =
+                listOf(0, 1).map { selectionLinkRect(it) }.map {
+                    PDRectangle(
+                        it.x.toFloat(),
+                        792f - (it.y + it.height).toFloat(),
+                        it.width.toFloat(),
+                        it.height.toFloat(),
+                    )
+                }
+            first.annotations.add(uriLink(rects[0], SELECTION_LINK_URI))
+            first.annotations.add(
+                PDAnnotationLink().also {
+                    it.rectangle = rects[1]
+                    it.action =
+                        goTo(fit(document.getPage(2)))
+                },
+            )
+        }
     }
 }
