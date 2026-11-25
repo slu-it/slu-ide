@@ -26,6 +26,7 @@ import org.apache.pdfbox.pdmodel.interactive.documentnavigation.destination.PDDe
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.destination.PDNamedDestination
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageDestination
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageFitDestination
+import org.apache.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageFitHeightDestination
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageFitWidthDestination
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageXYZDestination
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline
@@ -117,7 +118,7 @@ object TestPdfs {
         size: Float = TEXT_SIZE,
     ): Double = PDDocument().use { document -> liberation(document).getStringWidth(text).toDouble() / 1000 * size }
 
-    private fun build(
+    internal fun build(
         name: String,
         content: (PDDocument) -> Unit,
     ): Path {
@@ -278,11 +279,11 @@ object TestPdfs {
         }
     }
 
-    private fun fit(page: PDPage): PDPageDestination = PDPageFitDestination().also { it.page = page }
+    internal fun fit(page: PDPage): PDPageDestination = PDPageFitDestination().also { it.page = page }
 
     private fun goTo(destination: PDDestination) = PDActionGoTo().also { it.destination = destination }
 
-    private fun item(
+    internal fun item(
         title: String,
         destination: PDDestination? = null,
         action: PDActionGoTo? = null,
@@ -292,7 +293,7 @@ object TestPdfs {
         action?.let { item.action = it }
     }
 
-    private fun numberedPages(
+    internal fun numberedPages(
         document: PDDocument,
         count: Int,
     ) {
@@ -391,12 +392,16 @@ object TestPdfs {
     const val ROTATED_TOP = 500
 
     /**
-     * A page rotated by 90 degrees: an XYZ destination with a left and a top, one that keeps both (`null`), and one
-     * with a name where its top should be.
+     * A page rotated by 90 degrees: an XYZ destination with a left and a top, one that keeps both (`null`), one with a
+     * name where its top should be, and a FitV destination (a left only). Then a page rotated by 270 degrees: a FitH
+     * destination (a top only) and an XYZ destination with a left and a top. Then a page upside down: a FitH
+     * destination.
      */
     private fun rotatedOutlineDocument(document: PDDocument) {
-        numberedPages(document, 1)
+        numberedPages(document, 3)
         document.getPage(0).rotation = 90
+        document.getPage(1).rotation = 270
+        document.getPage(2).rotation = 180
         val outline = PDDocumentOutline()
         document.documentCatalog.documentOutline = outline
         val xyz =
@@ -428,6 +433,43 @@ object TestPdfs {
             },
         )
         outline.addLast(named)
+        outline.addLast(
+            item(
+                "FitV on 90",
+                PDPageFitHeightDestination().also {
+                    it.page = document.getPage(0)
+                    it.left = ROTATED_LEFT
+                },
+            ),
+        )
+        outline.addLast(
+            item(
+                "FitH on 270",
+                PDPageFitWidthDestination().also {
+                    it.page = document.getPage(1)
+                    it.top = ROTATED_TOP
+                },
+            ),
+        )
+        outline.addLast(
+            item(
+                "XYZ on 270",
+                PDPageXYZDestination().also {
+                    it.page = document.getPage(1)
+                    it.left = ROTATED_LEFT
+                    it.top = ROTATED_TOP
+                },
+            ),
+        )
+        outline.addLast(
+            item(
+                "FitH on 180",
+                PDPageFitWidthDestination().also {
+                    it.page = document.getPage(2)
+                    it.top = ROTATED_TOP
+                },
+            ),
+        )
     }
 
     /** Items nested [DEEP_OUTLINE_LEVELS] deep. */
@@ -484,7 +526,7 @@ object TestPdfs {
     /** The rectangle (user space) of link [index] on the first page of [links]. */
     fun linkRect(index: Int) = PDRectangle(68f, 740f - index * 30f, 220f, 20f)
 
-    private fun uriLink(
+    internal fun uriLink(
         rect: PDRectangle,
         uri: String,
     ) = PDAnnotationLink().also { link ->

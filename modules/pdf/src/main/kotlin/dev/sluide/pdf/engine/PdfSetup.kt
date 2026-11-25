@@ -17,16 +17,16 @@ object PdfSetup {
     /** The system property PDFBox reads for the folder of its font cache. */
     const val FONT_CACHE_PROPERTY = "pdfbox.fontcache"
 
-    // JUL keeps loggers weakly: without this reference the level set below could be collected with its logger.
-    private val pdfboxLogger: Logger = Logger.getLogger("org.apache.pdfbox")
+    // JUL keeps loggers weakly: without these references the levels set below could be collected with their loggers.
+    private val loggers: List<Logger> = listOf("org.apache.pdfbox", "org.apache.fontbox").map(Logger::getLogger)
 
     /** `~/.sluide/cache/pdfbox`, beside the other caches of Thoreau. */
     fun defaultCacheFolder(): Path = Path.of(System.getProperty("user.home"), ".sluide", "cache", "pdfbox")
 
     /**
      * Sets [FONT_CACHE_PROPERTY] to [cacheFolder] unless it is set already (tests set it), creates the folder the
-     * property names, and lets PDFBox's loggers through only at ERROR: it warns once per font it replaces with a
-     * fallback font. Under Logback (the app) the level comes from `logback-spring.xml`; this sets it for
+     * property names, and lets the loggers of PDFBox and FontBox through only at ERROR: PDFBox warns once per font it
+     * replaces with a fallback font. Under Logback (the app) the level comes from `logback-spring.xml`; this sets it for
      * `java.util.logging`, which PDFBox's commons-logging uses when no SLF4J is present (tests).
      */
     fun init(cacheFolder: Path) {
@@ -42,6 +42,6 @@ object PdfSetup {
         } catch (_: IOException) {
             // PDFBox then keeps its cache in the home folder or the temp folder, and works as before.
         }
-        pdfboxLogger.level = Level.SEVERE
+        loggers.forEach { it.level = Level.SEVERE }
     }
 }

@@ -62,8 +62,12 @@ internal class PageTextExtraction(
 
     init {
         sortByPosition = true
-        lineSeparator = "\n"
     }
+
+    // Every line and page ends with \n on every OS; PDFBox's default is the system's line separator.
+    override fun getLineSeparator(): String = "\n"
+
+    override fun getPageEnd(): String = "\n"
 
     fun extract(
         document: PDDocument,

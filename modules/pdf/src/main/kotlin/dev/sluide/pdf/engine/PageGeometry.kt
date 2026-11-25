@@ -79,6 +79,24 @@ internal class PageGeometry(
     fun outside(rect: PageRect): Boolean =
         rect.x >= width || rect.x + rect.width <= 0 || rect.y >= height || rect.y + rect.height <= 0
 
+    /**
+     * How far from the top of the displayed page a destination's [userLeft] and [userTop] (PDF user space) put the
+     * view, within the page. An upright or upside-down page takes the top, a page turned by 90 or 270 degrees the
+     * left, which runs from top to bottom there; without that value the destination has no height (`null`).
+     */
+    fun displayedTop(
+        userLeft: Double?,
+        userTop: Double?,
+    ): Double? {
+        val (x, y) =
+            if (rotation % 180 == 0) {
+                unrotated(left, userTop ?: return null)
+            } else {
+                unrotated(userLeft ?: return null, bottom)
+            }
+        return displayed(x, y).second.coerceIn(0.0, displayedSize.height)
+    }
+
     /** The displayed bounds of a rectangle of PDF user space given by two corners. */
     fun displayedUserRect(
         userX1: Double,

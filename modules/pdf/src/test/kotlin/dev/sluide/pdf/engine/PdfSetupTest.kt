@@ -10,7 +10,6 @@ import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class PdfSetupTest {
@@ -64,17 +63,33 @@ class PdfSetupTest {
     }
 
     @Test
-    fun `PDFBox logs only errors`() {
-        Logger.getLogger("org.apache.pdfbox").level = Level.ALL
+    fun `PDFBox and FontBox log only errors`() {
+        val names = listOf("org.apache.pdfbox", "org.apache.fontbox")
+        names.forEach { Logger.getLogger(it).level = Level.ALL }
         PdfSetup.init(temp)
-        assertEquals(Level.SEVERE, Logger.getLogger("org.apache.pdfbox").level)
+        assertEquals(listOf(Level.SEVERE, Level.SEVERE), names.map { Logger.getLogger(it).level })
     }
 
     @Test
-    fun `PDFBox writes its font cache into the configured folder`() {
-        // A standard-14 font is not embedded, so drawing it makes PDFBox look up the system fonts through its cache.
-        (PdfDocument.open(TestPdfs.std14) as PdfOpenResult.Opened).document.use { assertNotNull(it.render(0, 0.5)) }
-        val folder = Path.of(assertNotNull(System.getProperty(PdfSetup.FONT_CACHE_PROPERTY)))
-        assertTrue(folder.resolve(".pdfbox.cache").isRegularFile(), "font cache in $folder")
+    fun `after init PDFBox writes its font cache into the folder, not into the home folder`() {
+        // PDFBox reads the property once per JVM, when it first maps a font: a fresh JVM shows what the app does.
+        val cache = temp.resolve("cache")
+        val home = temp.resolve("home").also { it.toFile().mkdirs() }
+        val java = Path.of(System.getProperty("java.home"), "bin", "java").toString()
+        val process =
+            ProcessBuilder(
+                java,
+                "-Djava.awt.headless=true",
+                "-Duser.home=$home",
+                "-cp",
+                System.getProperty("java.class.path"),
+                FontCacheMain::class.java.name,
+                cache.toString(),
+                TestPdfs.std14.toString(),
+            ).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText()
+        assertEquals(0, process.waitFor(), output)
+        assertTrue(cache.resolve(".pdfbox.cache").isRegularFile(), "font cache in $cache: $output")
+        assertEquals(emptyList(), home.toFile().list()!!.toList())
     }
 }

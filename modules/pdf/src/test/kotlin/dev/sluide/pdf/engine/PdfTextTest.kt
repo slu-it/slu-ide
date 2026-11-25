@@ -1,12 +1,15 @@
 package dev.sluide.pdf.engine
 
+import dev.sluide.pdf.HostilePdfs
 import dev.sluide.pdf.TestPdfs
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
+import java.io.IOException
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -260,6 +263,51 @@ class PdfTextTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun `a page whose content stream is corrupt has only its page end, one without a stream nothing`() {
+        onPage(HostilePdfs.brokenPages) { document ->
+            assertEquals("\n", document.pageText(0).text)
+            assertEquals("", document.pageText(1).text)
+        }
+    }
+
+    @Test
+    fun `a page the document does not have throws an IOException from every page method`() {
+        onPage(TestPdfs.text) { document ->
+            assertFailsWith<IOException> { document.pageText(1) }
+            assertFailsWith<IOException> { document.plainText(1) }
+            assertFailsWith<IOException> { document.links(1) }
+            assertFailsWith<IOException> { document.render(1, 1.0) }
+        }
+    }
+
+    @Test
+    fun `a page tree whose kids loop is read without PDFBox's complaint about it`() {
+        val logger =
+            java.util.logging.Logger
+                .getLogger("org.apache.pdfbox.pdmodel.PDPageTree")
+        val records = java.util.concurrent.CopyOnWriteArrayList<String>()
+        val handler =
+            object : java.util.logging.Handler() {
+                override fun publish(record: java.util.logging.LogRecord) {
+                    records += record.message
+                }
+
+                override fun flush() = Unit
+
+                override fun close() = Unit
+            }
+        logger.addHandler(handler)
+        try {
+            onPage(HostilePdfs.pageTree(HostilePdfs.PageTreeFlaw.KIDS_LOOP)) { document ->
+                (0 until document.pageCount).forEach { document.plainText(it) }
+            }
+        } finally {
+            logger.removeHandler(handler)
+        }
+        assertEquals(emptyList(), records)
     }
 
     @Test

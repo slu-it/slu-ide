@@ -10,35 +10,32 @@ import org.apache.pdfbox.rendering.PageDrawerParameters
 import java.awt.image.DataBufferInt
 import kotlin.math.floor
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
  * Renders pages of one document and stops a render between two content-stream operators once its `cancelled` check
  * says so: a `PageDrawer` that checks before each operator. Interrupting the thread is no way to stop it (it would
- * close the document's file channel).
+ * close the document's file channel). Each render has a `PDFRenderer` of its own (creating one costs well under a
+ * microsecond), so no renderer keeps the last page image alive.
  */
 internal class PageRendering(
-    document: PDDocument,
+    private val document: PDDocument,
 ) {
-    /** The check of the render in progress; set by [render] before PDFBox draws. */
-    private lateinit var cancelled: () -> Boolean
-
-    private val renderer =
-        object : PDFRenderer(document) {
-            override fun createPageDrawer(parameters: PageDrawerParameters): PageDrawer =
-                CancellablePageDrawer(parameters)
-        }
-
-    private inner class CancellablePageDrawer(
-        parameters: PageDrawerParameters,
-    ) : PageDrawer(parameters) {
-        override fun processOperator(
-            operator: Operator,
-            operands: List<COSBase>,
-        ) {
-            if (cancelled()) throw RenderCancelled()
-            super.processOperator(operator, operands)
-        }
+    private class CancellableRenderer(
+        document: PDDocument,
+        private val cancelled: () -> Boolean,
+    ) : PDFRenderer(document) {
+        override fun createPageDrawer(parameters: PageDrawerParameters): PageDrawer =
+            object : PageDrawer(parameters) {
+                override fun processOperator(
+                    operator: Operator,
+                    operands: List<COSBase>,
+                ) {
+                    if (cancelled()) throw RenderCancelled()
+                    super.processOperator(operator, operands)
+                }
+            }
     }
 
     /** Thrown out of PDFBox's drawing loop; it lets runtime exceptions through, so the drawer is simply dropped. */
@@ -51,10 +48,9 @@ internal class PageRendering(
         cancelled: () -> Boolean,
     ): RenderedPage? {
         val used = cappedScale(size, scale)
-        this.cancelled = cancelled
         val image =
             try {
-                renderer.renderImage(page, used.toFloat(), ImageType.RGB)
+                CancellableRenderer(document, cancelled).renderImage(page, used.toFloat(), ImageType.RGB)
             } catch (_: RenderCancelled) {
                 return null
             }
@@ -71,18 +67,18 @@ internal class PageRendering(
 
         /**
          * [scale], or the largest scale at which a page of [size] has at most [PdfDocument.MAX_PIXELS] pixels, counted
-         * as `PDFRenderer` sizes its image (each side rounded down, at least 1).
+         * as `PDFRenderer` sizes its image: each side rounded down, but at least 1 pixel. So the long side alone stays
+         * within the cap too (a thin page), and a side of 0 points is 1 pixel at any scale; a page of 0 by 0 points
+         * is 1 pixel and keeps the asked scale.
          */
         fun cappedScale(
             size: PageSize,
             scale: Double,
         ): Double {
             fun pixels(at: Double) = max(floor(size.width * at), 1.0) * max(floor(size.height * at), 1.0)
-            return if (pixels(scale) <= PdfDocument.MAX_PIXELS) {
-                scale
-            } else {
-                sqrt(PdfDocument.MAX_PIXELS / (size.width * size.height))
-            }
+            if (pixels(scale) <= PdfDocument.MAX_PIXELS) return scale
+            val area = sqrt(PdfDocument.MAX_PIXELS / (size.width * size.height))
+            return min(area, PdfDocument.MAX_PIXELS / max(size.width, size.height))
         }
     }
 }
