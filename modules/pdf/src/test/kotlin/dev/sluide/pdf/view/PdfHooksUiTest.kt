@@ -280,6 +280,20 @@ internal class PdfHooksUiTest : PdfViewUiFixture() {
     }
 
     @Test
+    fun `a side panel gets its first width at once`() {
+        val view = open(TestPdfs.text)
+        awaitRendered(view, 0)
+        val position =
+            fx {
+                view.split.left.children += Label("Outline")
+                view.split.showLeft(true)
+                view.split.node.dividers[0]
+                    .position
+            }
+        assertEquals(PdfSplit.LEFT_WIDTH / 800, position, 0.01)
+    }
+
+    @Test
     fun `the side panels shown before the view has a width get their first widths, and keep the right one too`() {
         val view =
             open(TestPdfs.text) {

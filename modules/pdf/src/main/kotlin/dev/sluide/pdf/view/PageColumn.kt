@@ -202,6 +202,7 @@ internal class PageColumn(
     /** Releases the images and cancels the renders; the column is not used afterwards. */
     fun dispose() {
         slots.release()
+        clear() // so that a late scroll, resize or scale change finds no pages to show again
         contextMenu.hide()
     }
 

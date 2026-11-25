@@ -327,6 +327,16 @@ internal class PdfOpenUiTest : PdfViewUiFixture() {
     }
 
     @Test
+    fun `the real password prompt is owned by the window and closes with the view`() {
+        val view = open(TestPdfs.userPassword)
+        await { Window.getWindows().any { it is Stage && it.title == "Open PDF" && it.isShowing } }
+        val dialog = fx { Window.getWindows().first { it is Stage && it.title == "Open PDF" } as Stage }
+        assertSame(stage, fx { dialog.owner })
+        fx { view.dispose() }
+        await { !dialog.isShowing }
+    }
+
+    @Test
     fun `dispose closes the prompt and zeroes the password`() {
         val opened = FakePrompt(TestPdfs.USER_PASSWORD)
         val view = open(TestPdfs.userPassword) { it.askPassword = opened::ask }

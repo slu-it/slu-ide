@@ -132,8 +132,13 @@ internal class PdfInputUiTest : PdfViewUiFixture() {
     }
 
     @Test
-    fun `scrollIntoView scrolls sideways to a rect beyond the right edge`() {
+    fun `scrollIntoView scrolls sideways to a rect beyond the right edge, not to one in view`() {
         val view = openWide()
+        val page = sceneRect(view, 0, PageRect(0.0, 0.0, 10.0, 10.0)).minX
+        val inView = checkNotNull(fx { view.pagePointAt(pane(view).centerX, pane(view).centerY) })
+        fx { view.scrollIntoView(0, PageRect(inView.x, inView.y, 5.0, 5.0)) }
+        paint()
+        assertEquals(page, sceneRect(view, 0, PageRect(0.0, 0.0, 10.0, 10.0)).minX, 0.5)
         val rect = PageRect(560.0, 100.0, 20.0, 10.0)
         fx { view.scrollIntoView(0, rect) }
         paint()
@@ -226,6 +231,20 @@ internal class PdfInputUiTest : PdfViewUiFixture() {
         val first = fx { view.pageColumn.pageSlots.getValue(0) }
         fx { view.scrollTo(PageTarget(20)) }
         assertNull(fx { first.parent })
+    }
+
+    @Test
+    fun `Fit Width keeps the place in the middle of the view, unlike Fit Page`() {
+        val view = open(TestPdfs.manyPages)
+        awaitRendered(view, 0)
+        fx { view.scrollTo(PageTarget(5, 300.0)) }
+        val pane = pane(view)
+        val middle = checkNotNull(fx { view.pagePointAt(pane.centerX, pane.centerY) })
+        fx { view.pageColumn.fit(FitMode.WIDTH) }
+        paint()
+        val after = checkNotNull(fx { view.pagePointAt(pane.centerX, pane.centerY) })
+        assertEquals(middle.page, after.page)
+        assertEquals(middle.y, after.y, 2.0)
     }
 
     @Test

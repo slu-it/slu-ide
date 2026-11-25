@@ -98,6 +98,8 @@ internal class PdfPagesUiTest : PdfViewUiFixture() {
         val owners = mutableListOf<String>()
         fx { stage.scene.focusOwnerProperty().subscribe { owner -> owners += "${owner?.javaClass?.simpleName}" } }
         fx { view.focus() }
+        // Nothing but the view may move the focus from here on.
+        assertSame(field, fx { stage.scene.focusOwner })
         opening.countDown()
         awaitRendered(view, 0)
         runCatching { await { stage.scene.focusOwner === view.pages } }
@@ -203,6 +205,10 @@ internal class PdfPagesUiTest : PdfViewUiFixture() {
         assertTrue(view.renderWorker.disposed)
         assertTrue(view.textWorker.disposed)
         assertNull(fx { slot.image })
+        // A late scroll shows no pages again.
+        fx { view.scrollTo(PageTarget(0)) }
+        assertTrue(fx { view.pageColumn.pageSlots.isEmpty() })
+        assertEquals(IntRange.EMPTY, fx { view.shownPages.value })
         var ran = false
         fx { view.renderWorker.submit(WorkPriority.VISIBLE, { ran = true }, {}) }
         fx { view.textWorker.submit(WorkPriority.TEXT, { ran = true }, {}) }
