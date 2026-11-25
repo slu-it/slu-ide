@@ -65,8 +65,9 @@ internal class PdfWorker(
 
     /**
      * Queues [work] on the document; its result goes to [onFx], or what it threw (an `OutOfMemoryError` too) to
-     * [onError], both on the FX thread and only while no [reopen] or [dispose] came in between. A job queued while no
-     * document is open, or after [dispose], never runs. [tag] identifies the job for [cancelQueued].
+     * [onError], both on the FX thread and only while no [reopen] or [dispose] came in between. A job that finds no
+     * document open (it did not open, or was closed) does not run and reports that to [onError]; one queued after
+     * [dispose] never runs. [tag] identifies the job for [cancelQueued].
      */
     fun <T> submit(
         priority: WorkPriority,
@@ -79,16 +80,18 @@ internal class PdfWorker(
         val current = generation.get()
         enqueue(priority.ordinal, PdfJob(priority, tag)) {
             val opened = document
-            if (opened != null) {
-                val result =
-                    try {
-                        work(opened)
-                    } catch (e: Throwable) {
-                        deliver(current) { onError(e) }
-                        return@enqueue
-                    }
-                deliver(current) { onFx(result) }
+            if (opened == null) {
+                deliver(current) { onError(IllegalStateException(NO_DOCUMENT)) }
+                return@enqueue
             }
+            val result =
+                try {
+                    work(opened)
+                } catch (e: Throwable) {
+                    deliver(current) { onError(e) }
+                    return@enqueue
+                }
+            deliver(current) { onFx(result) }
         }
     }
 
@@ -100,7 +103,8 @@ internal class PdfWorker(
     /**
      * Closes the document, if any, and opens [file] with [password] in its place; [read] runs on the opened document,
      * and its value (or why the file did not open) goes to [onFx]. Jobs queued before and their late results are
-     * dropped. A [read] that throws closes the document again and counts as an invalid file.
+     * dropped. An open that throws (a stack overflow in a deeply nested file) counts as an invalid file; a [read] that
+     * throws closes the document again and counts as an invalid file, or as one too large when out of memory.
      */
     fun <T> reopen(
         file: Path,
@@ -114,9 +118,13 @@ internal class PdfWorker(
         enqueue(CONTROL, job = null) {
             closeDocument()
             val opening =
-                when (val result = open(file, password)) {
-                    is PdfOpenResult.Opened -> readOpened(result.document, read)
-                    else -> Opening.Failed(result)
+                try {
+                    when (val result = open(file, password)) {
+                        is PdfOpenResult.Opened -> readOpened(result.document, read)
+                        else -> Opening.Failed(result)
+                    }
+                } catch (e: Throwable) {
+                    Opening.Failed(PdfOpenResult.Invalid(reason(e)))
                 }
             deliver(current) { onFx(opening) }
         }
@@ -129,9 +137,20 @@ internal class PdfWorker(
         try {
             Opening.Opened(read(opened)).also { document = opened }
         } catch (e: Throwable) {
-            close(opened)
-            Opening.Failed(PdfOpenResult.Invalid(e.message ?: e.javaClass.simpleName))
+            closeSafely(opened)
+            Opening.Failed(if (e is OutOfMemoryError) PdfOpenResult.TooLarge else PdfOpenResult.Invalid(reason(e)))
         }
+
+    /**
+     * Drops the queued jobs and late results and closes the document on the worker's thread (its file could no longer
+     * be opened); jobs queued later find no document until a [reopen].
+     */
+    fun close() {
+        if (disposed) return
+        generation.incrementAndGet()
+        synchronized(queue) { queue.clear() }
+        enqueue(CONTROL, job = null) { closeDocument() }
+    }
 
     /** Drops the queued jobs and late results, closes the document on the worker's thread and shuts the executor down. */
     fun dispose() {
@@ -144,8 +163,18 @@ internal class PdfWorker(
     }
 
     private fun closeDocument() {
-        document?.let(close)
+        val opened = document ?: return
         document = null
+        closeSafely(opened)
+    }
+
+    /** Closes [opened]; a failure is logged, so that the next open still runs. */
+    private fun closeSafely(opened: PdfDocument) {
+        try {
+            close(opened)
+        } catch (e: Throwable) {
+            log.log(System.Logger.Level.WARNING, "Closing a PDF failed", e)
+        }
     }
 
     private fun enqueue(
@@ -173,5 +202,10 @@ internal class PdfWorker(
     private companion object {
         /** The rank of opening and closing: before every job. */
         const val CONTROL = -1
+
+        /** What a job that finds no document open reports. */
+        const val NO_DOCUMENT = "No PDF document is open"
+
+        fun reason(error: Throwable) = error.message ?: error.javaClass.simpleName
     }
 }

@@ -15,6 +15,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class PdfWorkerTest {
@@ -197,16 +198,125 @@ class PdfWorkerTest {
     }
 
     @Test
-    fun `jobs queued for a document that did not open never run`() {
+    fun `a job for a document that did not open does not run and reports that to onError`() {
         worker.reopen(TestPdfs.notPdf, null, { it.pageCount }) {}
         executor.runAll()
         val ran = mutableListOf<String>()
         val errors = mutableListOf<Throwable>()
-        worker.submit(WorkPriority.VISIBLE, { ran += "job" }, {}, { errors += it })
+        val results = mutableListOf<Unit>()
+        worker.submit(WorkPriority.VISIBLE, { ran += "job" }, { results += it }, { errors += it })
         executor.runAll()
+        assertEquals(emptyList(), errors)
         fx.runAll()
         assertEquals(emptyList(), ran)
-        assertEquals(emptyList(), errors)
+        assertEquals(emptyList(), results)
+        assertEquals("No PDF document is open", assertIs<IllegalStateException>(errors.single()).message)
+    }
+
+    @Test
+    fun `an open that throws anything is reported as an invalid file`() {
+        val throwing = PdfWorker(executor, fx, open = { _, _ -> throw StackOverflowError() })
+        var result: Opening<Int>? = null
+        throwing.reopen(TestPdfs.text, null, { it.pageCount }) { result = it }
+        executor.runAll()
+        fx.runAll()
+        assertEquals(Opening.Failed(PdfOpenResult.Invalid("StackOverflowError")), result)
+    }
+
+    @Test
+    fun `running out of memory while reading the opened document is reported as too large`() {
+        var result: Opening<Int>? = null
+        worker.reopen(TestPdfs.text, null, { throw OutOfMemoryError("Java heap space") }) { result = it }
+        executor.runAll()
+        fx.runAll()
+        assertEquals(Opening.Failed(PdfOpenResult.TooLarge), result)
+        assertEquals(opened, closed)
+    }
+
+    @Test
+    fun `a close that throws still lets the next document open`() {
+        val failing =
+            PdfWorker(
+                executor,
+                fx,
+                open = { file, password ->
+                    PdfDocument.open(file, password).also { if (it is PdfOpenResult.Opened) opened += it.document }
+                },
+                close = { throw IOException("x") },
+            )
+        val results = mutableListOf<Opening<Int>>()
+        failing.reopen(TestPdfs.text, null, { it.pageCount }) { results += it }
+        executor.runAll()
+        fx.runAll()
+        val records =
+            logged {
+                failing.reopen(TestPdfs.text, null, { it.pageCount }) { results += it }
+                failing.submit(WorkPriority.VISIBLE, { it.pageCount }, { results += Opening.Opened(-it) })
+                executor.runAll()
+                fx.runAll()
+            }
+        assertEquals(listOf<Opening<Int>>(Opening.Opened(1), Opening.Opened(1), Opening.Opened(-1)), results)
+        assertEquals(listOf("x"), records.map { it.thrown?.message })
+    }
+
+    @Test
+    fun `close drops the queued jobs and late results and closes the document, jobs after it find none`() {
+        openText()
+        val delivered = mutableListOf<Int>()
+        val ran = mutableListOf<String>()
+        worker.submit(WorkPriority.VISIBLE, { it.pageCount }, { delivered += it })
+        executor.runAll()
+        record(ran, "queued", WorkPriority.VISIBLE)
+        worker.close()
+        val errors = mutableListOf<Throwable>()
+        worker.submit(WorkPriority.VISIBLE, { ran += "after" }, {}, { errors += it })
+        executor.runAll()
+        fx.runAll()
+        assertEquals(emptyList(), delivered)
+        assertEquals(emptyList(), ran)
+        assertEquals(opened, closed)
+        assertIs<IllegalStateException>(errors.single())
+        assertFalse(executor.isShutdown)
+    }
+
+    @Test
+    fun `close drops a reopen still queued, so that nothing opens`() {
+        worker.reopen(TestPdfs.text, null, { it.pageCount }) {}
+        worker.close()
+        executor.runAll()
+        assertEquals(emptyList(), opened)
+    }
+
+    @Test
+    fun `close after dispose does nothing`() {
+        openText()
+        worker.dispose()
+        executor.runAll()
+        worker.close()
+        executor.runAll()
+        assertEquals(opened, closed)
+    }
+
+    /** The records the worker's logger gets while [block] runs. */
+    private fun logged(block: () -> Unit): List<LogRecord> {
+        val records = mutableListOf<LogRecord>()
+        val handler =
+            object : Handler() {
+                override fun publish(record: LogRecord) {
+                    records += record
+                }
+
+                override fun flush() {}
+
+                override fun close() {}
+            }
+        val logger = Logger.getLogger(PdfWorker::class.java.name).also { it.addHandler(handler) }
+        try {
+            block()
+        } finally {
+            logger.removeHandler(handler)
+        }
+        return records
     }
 
     @Test

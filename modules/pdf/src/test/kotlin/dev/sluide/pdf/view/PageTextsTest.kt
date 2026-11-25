@@ -114,6 +114,20 @@ class PageTextsTest {
     }
 
     @Test
+    fun `a text document that did not open answers with empty texts`() {
+        worker.reopen(TestPdfs.notPdf, null, { it.pageCount }) {}
+        run()
+        val texts = PageTexts(worker)
+        var text: PageText? = null
+        var plain: String? = null
+        texts.textOf(0) { text = it }
+        texts.plainTextOf(0) { plain = it }
+        run()
+        assertEquals("", text?.text)
+        assertEquals("", plain)
+    }
+
+    @Test
     fun `a page that cannot be read gives an empty text`() {
         val texts = texts(HostilePdfs.brokenPages)
         val text = texts.text(5)
