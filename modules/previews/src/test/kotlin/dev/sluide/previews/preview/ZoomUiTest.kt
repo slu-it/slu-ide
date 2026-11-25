@@ -1,5 +1,6 @@
 package dev.sluide.previews.preview
 
+import dev.sluide.fileviewers.zoom.ZoomSteps
 import dev.sluide.previews.image.ImageFileView
 import dev.sluide.previews.image.ImageFileViewer
 import dev.sluide.previews.image.SvgFileViewer

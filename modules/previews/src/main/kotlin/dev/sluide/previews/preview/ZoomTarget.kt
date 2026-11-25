@@ -1,5 +1,6 @@
 package dev.sluide.previews.preview
 
+import dev.sluide.fileviewers.zoom.ZoomSteps
 import javafx.scene.web.WebEngine
 import javafx.scene.web.WebView
 

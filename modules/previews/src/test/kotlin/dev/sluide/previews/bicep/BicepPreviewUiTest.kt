@@ -1,8 +1,8 @@
 package dev.sluide.previews.bicep
 
+import dev.sluide.fileviewers.zoom.ZoomSteps
 import dev.sluide.previews.preview.PreviewFileView
 import dev.sluide.previews.preview.PreviewMode
-import dev.sluide.previews.preview.ZoomSteps
 import dev.sluide.previews.preview.sourceArea
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker

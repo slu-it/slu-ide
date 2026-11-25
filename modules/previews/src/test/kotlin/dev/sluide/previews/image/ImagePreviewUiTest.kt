@@ -1,10 +1,10 @@
 package dev.sluide.previews.image
 
+import dev.sluide.fileviewers.zoom.ZoomSteps
 import dev.sluide.imagelimits.TestImages
 import dev.sluide.previews.press
 import dev.sluide.previews.preview.PreviewFileView
 import dev.sluide.previews.preview.PreviewMode
-import dev.sluide.previews.preview.ZoomSteps
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker
 import javafx.event.Event

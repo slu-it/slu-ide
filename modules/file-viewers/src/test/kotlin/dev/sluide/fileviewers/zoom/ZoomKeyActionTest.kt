@@ -1,4 +1,4 @@
-package dev.sluide.previews.preview
+package dev.sluide.fileviewers.zoom
 
 import javafx.scene.input.KeyCode
 import kotlin.test.Test

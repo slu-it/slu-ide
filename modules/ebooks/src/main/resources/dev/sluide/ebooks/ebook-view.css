@@ -6,7 +6,7 @@
     -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
 }
 
-/* Keep in sync with the zoom controls beside them (zoom-controls.css in previews) and preview-view.css. */
+/* Keep in sync with the zoom controls beside them (zoom-controls.css in file-viewers) and preview-view.css. */
 .ebook-button {
     -fx-padding: 2 10 2 10;
     -fx-font-size: 0.9em;

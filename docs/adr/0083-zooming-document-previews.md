@@ -32,4 +32,5 @@ smaller to see more of a long JSON or table at once.
 ## Consequences
 - Every preview zooms; only images and diagrams fit. One control class serves both, so the toolbar looks the same.
 - Amends [ADR 0033](0033-zooming-images-and-diagrams.md), whose Markdown and notebook previews did not zoom.
+- 2026-11-25: the zoom steps, key mapping and the group's stylesheet moved to `file-viewers` (`dev.sluide.fileviewers.zoom`) as a deliberate sub-package API, like `code` and `highlight` (ADR 0055), so non-WebView views (the PDF view, ADR 0192) share them.
 - Added to [../index.md](../index.md).

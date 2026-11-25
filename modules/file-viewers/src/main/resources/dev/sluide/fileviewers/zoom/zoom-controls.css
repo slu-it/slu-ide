@@ -1,0 +1,22 @@
+/*
+ * The zoom controls: zoom out, level, zoom in, 100% and Fit. They live in file-viewers and are used by the previews'
+ * ZoomControls (and, through DocumentZoom, the ebook reader's toolbar) and by non-WebView views, which place them in
+ * their own toolbars, so they carry their look: that of the previews' toolbar buttons. No colours of their own: the
+ * icons take the text colour of the theme. Keep in sync with preview-view.css (previews) and ebook-view.css (ebooks).
+ */
+
+.zoom-button {
+    -fx-padding: 2 10 2 10;
+    -fx-font-size: 0.9em;
+    -fx-background-radius: 0;
+}
+
+.zoom-button .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.zoom-level {
+    -fx-padding: 0 4 0 4;
+    -fx-font-size: 0.9em;
+    -fx-opacity: 0.75;
+}

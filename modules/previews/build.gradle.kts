@@ -13,7 +13,8 @@ javafx {
 
 dependencies {
     // Deliberate module API dependency: the previews are FileViewers whose source side is the public CodeEditors and
-    // whose highlighting comes from Highlighters (ADR 0069).
+    // whose highlighting comes from Highlighters (ADR 0069); the zoom steps, keys and stylesheet are shared
+    // from its zoom package (ADR 0083).
     api(project(":modules:file-viewers"))
     // Deliberate module dependency: exports and image downloads run on logged threads and as window tasks,
     // ADRs 0060, 0061.

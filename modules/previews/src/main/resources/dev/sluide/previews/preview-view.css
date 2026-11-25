@@ -7,7 +7,7 @@
  * for every other preview after them the document zoom controls (ZoomControls with DocumentZoom, no Fit); the
  * overlay of the table of contents floats over the top left of the view. The image view (ImageFileView) has a toolbar
  * with only the zoom controls. The toolbars of the core's views (the diff and .env views) are styled by
- * view-toolbar.css in file-viewers. The zoom controls carry their own look (zoom-controls.css).
+ * view-toolbar.css in file-viewers. The zoom controls carry their own look (zoom-controls.css in file-viewers).
  */
 
 /* Keep in sync with view-toolbar.css in file-viewers, which styles the same toolbar for the .env view. */
@@ -18,7 +18,7 @@
     -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
 }
 
-/* Keep in sync with zoom-controls.css, soft-wrap.css in file-viewers and ebook-view.css in ebooks. */
+/* Keep in sync with zoom-controls.css (file-viewers), soft-wrap.css in file-viewers and ebook-view.css in ebooks. */
 .preview-mode, .toc-button, .preview-export, .fold-button, .preview-action {
     -fx-padding: 2 10 2 10;
     -fx-font-size: 0.9em;

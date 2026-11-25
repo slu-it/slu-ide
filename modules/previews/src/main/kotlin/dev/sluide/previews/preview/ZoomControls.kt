@@ -1,5 +1,13 @@
 package dev.sluide.previews.preview
 
+import dev.sluide.fileviewers.zoom.ACTUAL_SIZE_KEY
+import dev.sluide.fileviewers.zoom.FIT_KEY
+import dev.sluide.fileviewers.zoom.ZOOM_CONTROLS_STYLESHEET
+import dev.sluide.fileviewers.zoom.ZOOM_IN_KEY
+import dev.sluide.fileviewers.zoom.ZOOM_OUT_KEY
+import dev.sluide.fileviewers.zoom.ZoomKeyAction
+import dev.sluide.fileviewers.zoom.ZoomSteps
+import dev.sluide.fileviewers.zoom.zoomKeyAction
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
@@ -7,8 +15,6 @@ import javafx.scene.control.Label
 import javafx.scene.control.OverrunStyle
 import javafx.scene.control.ToggleButton
 import javafx.scene.control.Tooltip
-import javafx.scene.input.KeyCode
-import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.ScrollEvent
@@ -20,57 +26,7 @@ import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignM
 import kotlin.math.ceil
-import kotlin.math.min
 import kotlin.math.pow
-import kotlin.math.roundToInt
-
-/** The zoom levels of images, diagrams (ADR 0033) and documents (ADR 0083), as scales: 1.0 is 100%. */
-internal object ZoomSteps {
-    const val MIN = 0.1
-    const val MAX = 16.0
-
-    /** The levels zooming in and out steps through. */
-    val presets = listOf(0.1, 0.25, 0.33, 0.5, 0.67, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 16.0)
-
-    /** How far apart (relative) a scale and a preset may be and still count as the same. */
-    private const val TOLERANCE = 1e-3
-
-    /**
-     * [scale] as a fixed scale: within [MIN] and [MAX], but not above [current] when that is below [MIN] (a fit of huge
-     * content), so that zooming out never enlarges. As `sluide.zoomBy` in `preview.js` does.
-     */
-    fun clamp(
-        scale: Double,
-        current: Double = MAX,
-    ): Double = scale.coerceIn(min(MIN, current), MAX)
-
-    /** The next preset above [scale], or [MAX]. */
-    fun zoomIn(scale: Double): Double = presets.firstOrNull { it > scale * (1 + TOLERANCE) } ?: MAX
-
-    /**
-     * The next preset below [scale], or [MIN]; [scale] itself when it is below [MIN] already (a fit of huge content).
-     */
-    fun zoomOut(scale: Double): Double = presets.lastOrNull { it < scale * (1 - TOLERANCE) } ?: min(scale, MIN)
-
-    /** [scale] in percent, e.g. `67%`. */
-    fun label(scale: Double): String = "${(scale * 100).roundToInt()}%"
-}
-
-/** What a zoom key (with Shortcut) does. */
-internal enum class ZoomKeyAction { ZOOM_IN, ZOOM_OUT, ACTUAL_SIZE, FIT }
-
-/** The action of Shortcut+[code]; `null` for other keys, and for Fit (Shortcut+9) if the target does not [fits]. */
-internal fun zoomKeyAction(
-    code: KeyCode,
-    fits: Boolean,
-): ZoomKeyAction? =
-    when (code) {
-        KeyCode.PLUS, KeyCode.EQUALS, KeyCode.ADD -> ZoomKeyAction.ZOOM_IN
-        KeyCode.MINUS, KeyCode.SUBTRACT -> ZoomKeyAction.ZOOM_OUT
-        KeyCode.DIGIT0, KeyCode.NUMPAD0 -> ZoomKeyAction.ACTUAL_SIZE
-        KeyCode.DIGIT9, KeyCode.NUMPAD9 -> if (fits) ZoomKeyAction.FIT else null
-        else -> null
-    }
 
 /**
  * The zoom of a [target] (ADR 0033, ADR 0083): a toolbar [node] with zoom out, the [level], zoom in, 100% and, if the
@@ -141,9 +97,7 @@ internal class ZoomControls(
             styleClass += "zoom-controls"
             alignment = Pos.CENTER_LEFT
             // It carries its look into the toolbars of other modules (the ebook reader's, through DocumentZoom).
-            stylesheets +=
-                checkNotNull(ZoomControls::class.java.getResource("/dev/sluide/previews/zoom-controls.css"))
-                    .toExternalForm()
+            stylesheets += ZOOM_CONTROLS_STYLESHEET
         }
 
     init {
@@ -248,12 +202,5 @@ internal class ZoomControls(
         isFocusTraversable = false
         this.tooltip = Tooltip("$tooltip (${key.displayText})")
         setOnAction { action() }
-    }
-
-    private companion object {
-        val ZOOM_IN_KEY = KeyCodeCombination(KeyCode.PLUS, KeyCombination.SHORTCUT_DOWN)
-        val ZOOM_OUT_KEY = KeyCodeCombination(KeyCode.MINUS, KeyCombination.SHORTCUT_DOWN)
-        val ACTUAL_SIZE_KEY = KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN)
-        val FIT_KEY = KeyCodeCombination(KeyCode.DIGIT9, KeyCombination.SHORTCUT_DOWN)
     }
 }

@@ -1,4 +1,4 @@
-package dev.sluide.previews.preview
+package dev.sluide.fileviewers.zoom
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
