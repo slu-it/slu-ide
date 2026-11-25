@@ -170,6 +170,22 @@ Zoom works while the page has the focus, as in the previews; the scrolling keys 
 | Space / Escape | Read Aloud: pause or resume / stop (while reading; Space scrolls the page while idle) |
 | Double-click on the page | Read Aloud: restart at the sentence under it (while reading) |
 
+## PDF viewer
+Zoom keys and Shortcut+G work anywhere in the view, the scroll keys while the pages have the focus
+([pdf-viewer.md](pdf-viewer.md), [ADR 0192](../adr/0192-pdf-viewer.md)).
+
+| Keys | Action |
+|---|---|
+| Shortcut+Plus (or =) / Shortcut+Minus | Zoom in / out |
+| Shortcut+0 | 100 % |
+| Shortcut+9 | Fit Page |
+| Shortcut+mouse wheel, pinch | Zoom around the pointer |
+| Arrows | Scroll by a line (left/right when the pages are wider than the view) |
+| Page Up/Down, Space / Shift+Space | Scroll by most of the view down / up |
+| Home / End | Go to the start / end |
+| Shortcut+G | Focus the page field, its number selected |
+| Enter / Escape in the page field | Go to the page typed / put the current page back; both return the focus to the pages |
+
 ## Media player
 View-local keys of an audio or video tab, while the view has the focus; ignored while the file loads or failed
 ([media-player.md](media-player.md), [ADR 0123](../adr/0123-media-playback.md)).

@@ -90,6 +90,21 @@ the view.
   Open in Default App; a side panel with Outline and Thumbnails; a search panel; selection and copy on the glyph boxes;
   links; a password dialog; centred notices for invalid, empty, too large and protected PDFs; reload on file changes.
   Nothing is stored (position, zoom, panels).
+- **View structure** (package `view`). `PdfFileView` has two `PdfWorker`s, `renderWorker` and `textWorker`, each one
+  `NamedThreads` thread that opens, uses and closes its document. Their queues run jobs by priority (`VISIBLE`, `NEAR`,
+  `THUMBNAIL`, `TEXT`, `SEARCH`; opening and closing first), and a generation count drops jobs queued before a reopen
+  and results delivered after it or after dispose; `cancelQueued` drops queued jobs, `dispose` uses `shutdown()`.
+  `PageTexts` caches the page texts on the text worker (50 with glyph boxes, plain texts all). `PageLayout` (FX-free)
+  stacks the pages at a scale with an 8 px gap and 12 px margins and gives current page, visible pages, fits and the
+  anchor-preserving scroll of a zoom; `ZoomModel` holds the scale and fit mode. `PageColumn` is the only class that
+  knows pixels: a scroll pane with a slot per page around the viewport (`PageSlots`, `PageSlot`), images from
+  `PageImages` within a pixel budget of about 75 million. User scrolls (wheel, keys, scroll bar) are told from the
+  view's own (scroll to a target, zoom, resize) by a flag around the view's own changes of the scroll values; the
+  column is resized at once on a zoom, since the scroll pane keeps the content's pixel offset when its size changes.
+  The view's hooks for selection and links, the side panel and the search are fixed: `info`, `currentPage`, `scrollTo`,
+  `userScrolled`, `pagePointAt`, `pageRectToScene`, `scrollIntoView`, `overlays` (layers `SEARCH_HIT`,
+  `SEARCH_CURRENT`, `SELECTION`, in points), `pages`, `pageCursor`, `pageContextMenu`, `toolbar` (`sidePanelSlot`,
+  `searchSlot`), `split` (`left`, `right`), the workers, `texts`, `onReload` and `onDispose`.
 
 ## Consequences
 - The view packages build against an engine that is tested without a toolkit, on PDFs that `TestPdfs` builds with

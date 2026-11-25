@@ -3,8 +3,8 @@
 Explored, not decided or built. The core of the reader: [ADR 0165](../adr/0165-ebook-reader.md).
 
 ## More formats
-- **PDF, FB2, MOBI/AZW**: other readers behind the same `BookPage`; PDF has no reflowable text, MOBI/AZW need a
-  converter.
+- **FB2, MOBI/AZW**: other readers behind the same `BookPage`; MOBI/AZW need a converter. PDF has its own viewer
+  ([features/pdf-viewer.md](../features/pdf-viewer.md); its ideas: [pdf.md](pdf.md)).
 - **DRM**: protected books are refused; removing DRM is not planned.
 
 ## Reading
