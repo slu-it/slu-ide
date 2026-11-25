@@ -44,9 +44,15 @@ class PdfDocument private constructor(
         cancelled: () -> Boolean = { false },
     ): RenderedPage? = rendering.render(page, pageSizes[page], scale, cancelled)
 
-    fun plainText(page: Int): String = ""
+    /** The text of page [page], as [pageText] gives it, without building its boxes. */
+    fun plainText(page: Int): String =
+        PageTextExtraction(geometries[page], withBoxes = false).extract(document, page).text
 
-    fun pageText(page: Int): PageText = PageText("", emptyList())
+    /**
+     * The text of page [page] in reading order (sorted by position, lines ended by `\n`) with the box of each char on
+     * the page as displayed. Text outside the crop box is left out. A PDF that restricts copying gives its text anyway.
+     */
+    fun pageText(page: Int): PageText = PageTextExtraction(geometries[page], withBoxes = true).extract(document, page)
 
     override fun close() = document.close()
 

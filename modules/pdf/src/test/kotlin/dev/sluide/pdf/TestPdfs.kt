@@ -5,6 +5,7 @@ import org.apache.pdfbox.cos.COSArray
 import org.apache.pdfbox.cos.COSDictionary
 import org.apache.pdfbox.cos.COSInteger
 import org.apache.pdfbox.cos.COSName
+import org.apache.pdfbox.cos.COSNull
 import org.apache.pdfbox.pdmodel.PDDestinationNameTreeNode
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDDocumentNameDictionary
@@ -65,6 +66,8 @@ object TestPdfs {
     val rotated180: Path by lazy { build("rot180.pdf") { textPage(it, rotation = 180) } }
     val rotated270: Path by lazy { build("rot270.pdf") { textPage(it, rotation = 270) } }
     val cropBox: Path by lazy { build("cropbox.pdf", ::cropBoxPage) }
+    val cropEdges: Path by lazy { build("crop-edges.pdf", ::cropEdgesPage) }
+    val rotatedOutline: Path by lazy { build("rotated-outline.pdf", ::rotatedOutlineDocument) }
     val ligature: Path by lazy { build("ligature.pdf", ::ligaturePage) }
     val directions: Path by lazy { build("directions.pdf", ::directionsPage) }
     val outline: Path by lazy { build("outline.pdf", ::outlineDocument) }
@@ -208,12 +211,44 @@ object TestPdfs {
             // Starts inside the crop box and runs past its right edge.
             it.lines(font, 14f, 380f, 300f, "Straddling")
         }
+        page.annotations.add(uriLink(PDRectangle(110f, 475f, 100f, 20f), "https://example.org/crop"))
+    }
+
+    /**
+     * "K" inside the [CROP_BOX], "S" across its left edge, "M" across its top edge, and four letters whose boxes only touch it from outside: "R" starts at its right edge,
+     * "T" (drawn downwards) at its bottom edge, "B" (drawn upwards) ends at its top edge and "L" (drawn leftwards) at
+     * its left edge.
+     */
+    private fun cropEdgesPage(document: PDDocument) {
+        val page = page(document)
+        page.cropBox = CROP_BOX
+        val font = liberation(document)
+        PDPageContentStream(document, page).use {
+            for (
+            (letter, angle, start) in
+            listOf(
+                Triple("K", 0, 200f to 300f),
+                Triple("S", 0, 95f to 300f),
+                Triple("M", 0, 250f to 495f),
+                Triple("R", 0, 400f to 300f),
+                Triple("T", 270, 250f to 150f),
+                Triple("B", 90, 250f to 500f),
+                Triple("L", 180, 100f to 300f),
+            )
+            ) {
+                it.beginText()
+                it.setFont(font, 14f)
+                it.setTextMatrix(Matrix.getRotateInstance(Math.toRadians(angle.toDouble()), start.first, start.second))
+                it.showText(letter)
+                it.endText()
+            }
+        }
     }
 
     private fun ligaturePage(document: PDDocument) {
         val page = page(document)
         val font = liberation(document)
-        PDPageContentStream(document, page).use { it.lines(font, TEXT_SIZE, TEXT_X, TEXT_BASELINE, "ﬁnd it") }
+        PDPageContentStream(document, page).use { it.lines(font, TEXT_SIZE, TEXT_X, TEXT_BASELINE, "\uFB01nd it") }
     }
 
     /** The point each word of [directionsPage] starts at, and the angle of its text, counter-clockwise. */
@@ -309,11 +344,16 @@ object TestPdfs {
                 it.add(COSName.getPDFName("Fit"))
             },
         )
+        val untitled = item("")
+        untitled.cosObject.removeItem(COSName.TITLE)
+        untitled.destination = fit(document.getPage(0))
+        val badDestination = item("10 Bad destination")
+        badDestination.cosObject.setItem(COSName.DEST, COSInteger.get(5))
         val outOfRange = item("8 Page number out of range")
         outOfRange.cosObject.setItem(
             COSName.DEST,
             COSArray().also {
-                it.add(COSInteger.get(99))
+                it.add(COSInteger.get(6))
                 it.add(COSName.getPDFName("Fit"))
             },
         )
@@ -332,9 +372,62 @@ object TestPdfs {
                 },
             ),
             outOfRange,
+            item(
+                "9 XYZ above the page",
+                PDPageXYZDestination().also {
+                    it.page = document.getPage(0)
+                    it.top = 2000
+                },
+            ),
+            badDestination,
+            untitled,
         ).forEach(outline::addLast)
         first.openNode()
         outline.openNode()
+    }
+
+    /** The XYZ destination of the first item of [rotatedOutline], on its page rotated by 90 degrees. */
+    const val ROTATED_LEFT = 100
+    const val ROTATED_TOP = 500
+
+    /**
+     * A page rotated by 90 degrees: an XYZ destination with a left and a top, one that keeps both (`null`), and one
+     * with a name where its top should be.
+     */
+    private fun rotatedOutlineDocument(document: PDDocument) {
+        numberedPages(document, 1)
+        document.getPage(0).rotation = 90
+        val outline = PDDocumentOutline()
+        document.documentCatalog.documentOutline = outline
+        val xyz =
+            PDPageXYZDestination().also {
+                it.page = document.getPage(0)
+                it.left = ROTATED_LEFT
+                it.top = ROTATED_TOP
+            }
+        outline.addLast(item("XYZ", xyz))
+        val keeping = item("XYZ null")
+        keeping.cosObject.setItem(
+            COSName.DEST,
+            COSArray().also { array ->
+                array.add(document.getPage(0).cosObject)
+                array.add(COSName.getPDFName("XYZ"))
+                repeat(3) { array.add(COSNull.NULL) }
+            },
+        )
+        outline.addLast(keeping)
+        val named = item("XYZ with a name as top")
+        named.cosObject.setItem(
+            COSName.DEST,
+            COSArray().also { array ->
+                array.add(document.getPage(0).cosObject)
+                array.add(COSName.getPDFName("XYZ"))
+                array.add(COSNull.NULL)
+                array.add(COSName.getPDFName("Top"))
+                array.add(COSNull.NULL)
+            },
+        )
+        outline.addLast(named)
     }
 
     /** Items nested [DEEP_OUTLINE_LEVELS] deep. */
@@ -384,6 +477,7 @@ object TestPdfs {
             "javascript:alert(1)",
             "file:///etc/passwd",
             "ftp://example.org/file",
+            "relative/page.html",
             "not a uri",
         )
 
@@ -400,7 +494,8 @@ object TestPdfs {
 
     /**
      * Page 1 of 3: the [LINK_URIS], then a GoTo action to page 3, an explicit destination to page 2, a named one to
-     * page 3, a named one that is missing, a Named action (NextPage), and a link without a target.
+     * page 3, a named one that is missing, a Named action (NextPage), a link without a target, one whose destination
+     * is a number (no valid destination), a URI action without a URI and another explicit destination to page 2.
      */
     private fun linksDocument(document: PDDocument) {
         numberedPages(document, 3)
@@ -417,6 +512,9 @@ object TestPdfs {
                 { it.destination = PDNamedDestination("nowhere") },
                 { it.action = PDActionNamed().also { named -> named.n = "NextPage" } },
                 { },
+                { it.cosObject.setItem(COSName.DEST, COSInteger.get(5)) },
+                { it.action = PDActionURI() },
+                { it.destination = fit(document.getPage(1)) },
             )
         others.forEachIndexed { offset, setUp ->
             first.annotations.add(

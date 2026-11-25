@@ -54,6 +54,31 @@ internal class PageGeometry(
         return PageRect(minOf(x1, x2), minOf(y1, y2), abs(x2 - x1), abs(y2 - y1))
     }
 
+    fun displayedRect(rect: PageRect): PageRect = displayedRect(rect.x, rect.y, rect.width, rect.height)
+
+    /**
+     * The bounds in the frame `U` of a glyph box given in the frame of its text direction. PDFBox's `DirAdj` values
+     * are the glyph's position turned by its direction, relative to the crop box: undone here.
+     */
+    fun unrotated(box: GlyphBox): PageRect {
+        fun point(
+            x: Double,
+            y: Double,
+        ) = when (box.dir) {
+            90 -> y to (height - x)
+            180 -> (width - x) to (height - y)
+            270 -> (width - y) to x
+            else -> x to y
+        }
+        val (x1, y1) = point(box.x, box.y)
+        val (x2, y2) = point(box.x + box.width, box.y + box.height)
+        return PageRect(minOf(x1, x2), minOf(y1, y2), abs(x2 - x1), abs(y2 - y1))
+    }
+
+    /** Whether a rectangle of the frame `U` lies outside the crop box: touching its edge from outside is outside. */
+    fun outside(rect: PageRect): Boolean =
+        rect.x >= width || rect.x + rect.width <= 0 || rect.y >= height || rect.y + rect.height <= 0
+
     /** The displayed bounds of a rectangle of PDF user space given by two corners. */
     fun displayedUserRect(
         userX1: Double,
