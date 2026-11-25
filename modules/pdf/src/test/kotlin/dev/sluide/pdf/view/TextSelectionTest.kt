@@ -175,6 +175,26 @@ internal class TextSelectionTest {
     }
 
     @Test
+    fun `charAt measures a line running down by its own direction on a page of lines along x`() {
+        val text =
+            placed(
+                listOf(box(0.0, 0.0), box(10.0, 0.0)),
+                listOf(box(0.0, 20.0), box(10.0, 20.0)),
+                listOf(box(300.0, 100.0), box(300.0, 110.0)),
+                listOf(box(0.0, 406.0), box(10.0, 406.0)),
+            )
+        // 2 across from the column, 6 above the last row: measured along y, the column would be 280 away.
+        assertEquals(7, TextSelection.charAt(text, 312.0, 400.0))
+    }
+
+    @Test
+    fun `charAt never gives a line end, even one that has a box`() {
+        val boxes = listOf<PageRect?>(box(0.0, 0.0), box(10.0, 0.0), box(20.0, 0.0), box(30.0, 0.0), box(40.0, 0.0))
+        assertEquals(1, TextSelection.charAt(PageText("ab\ncd", boxes), 22.0, 5.0))
+        assertEquals(3, TextSelection.charAt(PageText("ab\ncd", boxes), 27.0, 5.0))
+    }
+
+    @Test
     fun `charUnder gives the char whose box contains the point, none in a gap or off the boxes`() {
         assertEquals(3, TextSelection.charUnder(sample, 35.0, 5.0))
         assertEquals(3, TextSelection.charUnder(sample, 30.0, 0.0))
