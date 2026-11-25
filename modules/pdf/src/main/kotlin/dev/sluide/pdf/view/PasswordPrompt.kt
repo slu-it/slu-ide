@@ -67,6 +67,8 @@ internal object PasswordPrompt {
                     } else {
                         wrong.isVisible = true
                         wrong.isManaged = true
+                        // Taller by the line, so that the buttons below it stay whole.
+                        dialogPane.scene.window.sizeToScene()
                         field.selectAll()
                         field.requestFocus()
                     }

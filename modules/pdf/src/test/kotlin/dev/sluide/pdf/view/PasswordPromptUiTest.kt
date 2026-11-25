@@ -110,6 +110,13 @@ internal class PasswordPromptUiTest {
         assertTrue(fx { dialog.isShowing && dialog.wrong().isVisible && dialog.wrong().isManaged && !open.isDisable })
         assertSame(dialog.field(), fx { dialog.dialogPane.scene.focusOwner })
         assertEquals("wrong", fx { dialog.field().selectedText })
+        // The dialog grew with the line: its buttons are still whole.
+        WaitForAsyncUtils.waitForFxEvents()
+        val buttons = fx { open.localToScene(open.layoutBounds) to dialog.dialogPane.scene }
+        assertTrue(
+            fx { buttons.first.maxY <= buttons.second.height && buttons.first.maxX <= buttons.second.width },
+            fx { "${buttons.first} in ${buttons.second.width} x ${buttons.second.height}" },
+        )
         fx { dialog.field().text = "user" }
         fx { open.fire() }
         fx { answers.last()(true) }
