@@ -32,4 +32,7 @@ tasks.withType<Test>().configureEach {
     // PDFBox keeps its font cache here, not in ~/.pdfbox.cache (ADR 0192); relative to the test's working directory,
     // the module folder, so that no absolute path enters the test's cache key. PdfSetup.init creates the folder.
     systemProperty("pdfbox.fontcache", "build/tmp/pdfbox-fontcache")
+    // Rendering uses AWT images. With a display set (`uiTest`) AWT would load its X11 toolkit, which the sandbox's
+    // headless JDK lacks (no libawt_xawt); JavaFX does not need AWT's toolkit, so AWT runs headless in every test task.
+    systemProperty("java.awt.headless", "true")
 }

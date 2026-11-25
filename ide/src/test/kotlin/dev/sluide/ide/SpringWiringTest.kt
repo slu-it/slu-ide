@@ -105,6 +105,7 @@ import dev.sluide.librarycode.LibraryCodeSettings
 import dev.sluide.media.MediaFileViewer
 import dev.sluide.media.MediaPreferences
 import dev.sluide.media.PlaybackCoordinator
+import dev.sluide.pdf.PdfFileViewer
 import dev.sluide.previews.json.JsonFileViewer
 import dev.sluide.previews.markdown.MarkdownFileViewer
 import dev.sluide.previews.yaml.YamlFileViewer
@@ -263,6 +264,7 @@ class SpringWiringTest {
                         PlaybackCoordinator::class.java,
                         MediaFileViewer::class.java,
                         EpubFileViewer::class.java,
+                        PdfFileViewer::class.java,
                         SpeechEngines::class.java,
                         KokoroEngine::class.java,
                         SpeechPreferences::class.java,
@@ -506,6 +508,9 @@ class SpringWiringTest {
                 // An EPUB is a zip: only the ebook reader may take it, not the text viewer.
                 dir.resolve("book.epub").writeBytes(byteArrayOf(80, 75, 3, 4, 0))
                 assertIs<EpubFileViewer>(fileViewers.viewerFor(dir.resolve("book.epub")))
+                // A PDF is binary: only the PDF viewer may take it, not the text viewer.
+                dir.resolve("paper.pdf").writeBytes("%PDF-1.7\n".toByteArray() + byteArrayOf(0, -1, -2))
+                assertIs<PdfFileViewer>(fileViewers.viewerFor(dir.resolve("paper.pdf")))
             }
     }
 }

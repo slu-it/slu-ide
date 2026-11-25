@@ -1,0 +1,115 @@
+/*
+ * PDF view (PdfFileView): toolbar, page column, pages, highlights, notices. The pages are paper, white in both themes
+ * as printed: they and the highlights drawn on them have colours of their own, which the dark block repeats (with a
+ * lighter edge, so that a page stands out on the dark pane). Everything else uses looked-up colours.
+ */
+.pdf-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-hgap: 2;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+/* Keep in sync with the zoom controls beside them (zoom-controls.css in file-viewers). */
+.pdf-button {
+    -fx-padding: 2 10 2 10;
+    -fx-font-size: 0.9em;
+    -fx-background-radius: 0;
+}
+
+.pdf-button .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.pdf-page-field {
+    -fx-pref-column-count: 4;
+    -fx-padding: 1 4 1 4;
+    -fx-font-size: 0.9em;
+    -fx-alignment: center-right;
+}
+
+.pdf-page-count {
+    -fx-padding: 0 8 0 4;
+    -fx-font-size: 0.9em;
+    -fx-opacity: 0.8;
+}
+
+/* UI parts use the system font, not the editor's monospace font. */
+.pdf-toolbar,
+.pdf-notice,
+.pdf-page-failure {
+    -fx-font-family: "System";
+}
+
+.pdf-pages,
+.pdf-pages > .viewport,
+.pdf-page-area {
+    -fx-background-color: derive(-fx-background, -12%);
+}
+
+.pdf-pages {
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.pdf-notice {
+    -fx-padding: 24;
+    -fx-spacing: 12;
+    -fx-alignment: center;
+}
+
+.pdf-notice-text {
+    -fx-opacity: 0.8;
+    -fx-wrap-text: true;
+    -fx-text-alignment: center;
+}
+
+/* Paper: a white page with a one-pixel edge outside it and a soft shadow. */
+.pdf-page {
+    -fx-background-color: rgba(0, 0, 0, 0.25), white;
+    -fx-background-insets: -1, 0;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 6, 0, 0, 1);
+}
+
+.pdf-page-failure {
+    -fx-text-fill: #555555;
+    -fx-padding: 12;
+    -fx-wrap-text: true;
+}
+
+/* Highlights: translucent, so the text under them stays readable on the white page. */
+.pdf-search-hit {
+    -fx-background-color: rgba(255, 200, 0, 0.35);
+}
+
+.pdf-search-current {
+    -fx-background-color: rgba(255, 130, 0, 0.55);
+}
+
+.pdf-selection {
+    -fx-background-color: rgba(40, 120, 255, 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+    .pdf-page {
+        -fx-background-color: rgba(255, 255, 255, 0.35), white;
+        -fx-background-insets: -1, 0;
+        -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.6), 8, 0, 0, 2);
+    }
+
+    .pdf-page-failure {
+        -fx-text-fill: #555555;
+    }
+
+    .pdf-search-hit {
+        -fx-background-color: rgba(255, 200, 0, 0.35);
+    }
+
+    .pdf-search-current {
+        -fx-background-color: rgba(255, 130, 0, 0.55);
+    }
+
+    .pdf-selection {
+        -fx-background-color: rgba(40, 120, 255, 0.35);
+    }
+}

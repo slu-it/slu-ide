@@ -48,6 +48,10 @@ object TestPdfs {
     init {
         // The test task sets the property; a pitest worker JVM does not, and its tests must not write to the home folder.
         PdfSetup.init(Path.of("build", "tmp", "pdfbox-fontcache"))
+        // Likewise java.awt.headless, which the test tasks set: a pitest UI worker has a display, and AWT would load
+        // its X11 toolkit for the first render, which the sandbox's headless JDK lacks. It is read when AWT first
+        // asks, so it holds as long as nothing rendered before.
+        System.getProperties().putIfAbsent("java.awt.headless", "true")
     }
 
     private val folder: Path =
