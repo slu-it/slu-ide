@@ -2,6 +2,7 @@ package dev.sluide.previews.notebook
 
 import dev.sluide.plantuml.Diagram
 import dev.sluide.plantuml.Rendering
+import dev.sluide.previews.markdown.FenceDiagrams
 import dev.sluide.previews.plantuml.PlantUmlHtml
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.io.TempDir
@@ -224,14 +225,25 @@ class NotebookRendererTest {
         val asked = mutableListOf<Pair<String, Int>>()
         val page =
             Jsoup.parse(
-                NotebookRenderer.render(fences, dir, dark = false) { source, firstLine ->
-                    asked += source to firstLine
-                    // As the engine counts: the line of the source's position from firstLine on.
-                    val bad = source.lines().indexOf("bad")
-                    val diagram =
-                        if (bad < 0) Diagram.Drawn("<svg/>", "<svg/>") else Diagram.Failed("Syntax?", firstLine + bad)
-                    Rendering(listOf(diagram), false)
-                },
+                NotebookRenderer.render(
+                    fences,
+                    dir,
+                    dark = false,
+                    FenceDiagrams { source, firstLine ->
+                        asked += source to firstLine
+                        // As the engine counts: the line of the source's position from firstLine on.
+                        val bad = source.lines().indexOf("bad")
+                        val diagram =
+                            if (bad <
+                                0
+                            ) {
+                                Diagram.Drawn("<svg/>", "<svg/>")
+                            } else {
+                                Diagram.Failed("Syntax?", firstLine + bad)
+                            }
+                        Rendering(listOf(diagram), false)
+                    },
+                ),
             )
 
         assertEquals(2, asked.size)
@@ -270,5 +282,25 @@ class NotebookRendererTest {
         detached.detach()
         arrive()
         assertEquals(1, rerenders, "no rerender after detach")
+    }
+
+    @Test
+    fun `an edited fence in a later cell shows its previous drawing, numbered across the page`() {
+        val drawn = "@startuml\nA -> B\n@enduml\n"
+        val diagrams =
+            FenceDiagrams { source, _ ->
+                if (source == drawn) Rendering(listOf(Diagram.Drawn("<svg>old</svg>", "<svg/>")), false) else null
+            }
+
+        fun cells(second: String) =
+            """{"cells":[{"cell_type":"markdown","source":"```plantuml\nC -> D\n```"},""" +
+                """{"cell_type":"code","source":"x","outputs":[]},""" +
+                """{"cell_type":"markdown","source":"```plantuml\n$second\n```"}]}"""
+        NotebookRenderer.render(cells("A -> B"), dir, dark = false, diagrams)
+
+        val page = Jsoup.parse(NotebookRenderer.render(cells("A -> B : edited"), dir, dark = false, diagrams))
+
+        val shown = page.select(".cell.markdown").map { it.select("img.plantuml-light").size }
+        assertEquals(listOf(0, 1), shown)
     }
 }

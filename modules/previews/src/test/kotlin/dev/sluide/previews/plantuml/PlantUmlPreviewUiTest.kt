@@ -326,11 +326,15 @@ class PlantUmlPreviewUiTest {
     }
 
     @Test
-    fun `a long Markdown file shown alone keeps its scroll position when a fence's drawing arrives`(robot: FxRobot) {
+    fun `a long Markdown file shown alone keeps its place when a drawing arrives and while an edited fence is redrawn`(
+        robot: FxRobot,
+    ) {
         val held = CompletableFuture<Rendering>()
-        val markdown = MarkdownFileViewer { _, _ -> held }
+        // The edited text's drawing never comes.
+        val markdown = MarkdownFileViewer { _, _ -> if (renders.incrementAndGet() == 1) held else CompletableFuture() }
         val paragraphs = (1..60).joinToString("") { "Paragraph $it\n\n" }
-        val view = showMarkdown(robot, "$paragraphs```plantuml\nAlice -> Bob : hello\n```\n\n$paragraphs", markdown)
+        val file = "$paragraphs```plantuml\nAlice -> Bob : hello\n```\n\n$paragraphs"
+        val view = showMarkdown(robot, file, markdown)
         robot.interact { view.mode.set(PreviewMode.PREVIEW) }
         val middle = view.number("document.documentElement.scrollHeight") / 2
         view.script("window.scrollTo(0, $middle)")
@@ -343,5 +347,17 @@ class PlantUmlPreviewUiTest {
         view.awaitDiagrams(1)
 
         assertEquals(scrolled, view.number("window.scrollY"), 1.0)
+
+        // The block after the fence's, on line 120.
+        val below = "document.querySelector('[data-line=\"120\"]').nextElementSibling.getBoundingClientRect().top"
+        val top = view.number(below)
+        view.script("window.loadedBefore = true")
+        dir.resolve("notes.md").writeText(file.replace("hello", "bye"))
+        robot.interact { view.reload() }
+        view.awaitTrue("window.loadedBefore !== true")
+
+        assertEquals(2, renders.get(), "the edited text is drawn")
+        assertEquals(scrolled, view.number("window.scrollY"), 1.0)
+        assertEquals(top, view.number(below), 1.0, "the content below the fence stays where it was")
     }
 }

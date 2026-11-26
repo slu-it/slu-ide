@@ -41,11 +41,15 @@ and [ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md) (focus). What is l
   view has its own `DiagramRenders` (`MarkdownPreview`, `NotebookPreview`).
 - A fence without a line starting with `@start` is wrapped in `@startuml`/`@enduml` (as GitLab does); a fence with one
   is drawn as written, every block of it. An empty fence stays an empty code block.
-- Until its drawing is there, a fence says "Drawing the diagram…"; then the page is rendered again, and keeps its
-  place as after a save: side by side it lines up with the source, shown alone it keeps its scroll position. The
-  diagram is a block with the fence's source line, so the scroll sync and the table of contents work around it; it is
-  no text for Read Aloud. A fence is drawn per text: an edit above it, which moves it, draws nothing again, and the
-  same fence twice is drawn once.
+- Until its drawing is there, a fence says "Drawing the diagram…". Each drawing that arrives loads the page again,
+  which keeps its place as after a save: side by side it lines up with the source, shown alone it keeps its scroll
+  position. The diagram is a block with the fence's source line, so the scroll sync and the table of contents work
+  around it; it is no text for Read Aloud. A fence is drawn per text: an edit above it, which moves it, draws nothing
+  again, and the same fence twice is drawn once.
+- An edited fence keeps showing its previous drawing until the new one is there, so the text below it does not move.
+  This holds when the page has as many fences as before and the fence's previous text is nowhere on the page any
+  more; a fence that was added, removed or moved to another place says "Drawing the diagram…" meanwhile. Fences are
+  counted across the whole page, in a notebook across its cells.
 - Error lines are the Markdown file's lines, also for a wrapped fence. In a notebook they are the cell's: "Cell 3,
   line 2: …", the cell counted among all cells from 1.
 - The HTML export ([markdown-export.md](markdown-export.md)) draws every fence before it writes the page (each

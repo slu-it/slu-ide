@@ -51,7 +51,7 @@ internal class MarkdownPreview(
 
     private val renders = DiagramRenders(render, { rerender() }, runLater)
 
-    private val diagrams = FenceDiagrams(get = renders::get)
+    private val diagrams = FenceDiagrams(renders::get)
 
     override fun attach(
         rerender: () -> Unit,

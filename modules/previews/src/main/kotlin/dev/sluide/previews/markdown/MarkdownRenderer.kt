@@ -105,14 +105,19 @@ internal object MarkdownRenderer {
 
     /**
      * The preview page of [markdown], a file in [folder], with source offsets on its texts and text marks; its PlantUML
-     * fences drawn by [diagrams] if given ([body]).
+     * fences drawn by [diagrams] if given ([PlantUmlFences]).
      */
     fun render(
         markdown: String,
         folder: Path,
         dark: Boolean = false,
         diagrams: FenceDiagrams? = null,
-    ): String = page(body(markdown, folder, frontMatter = true, sourceOffsets = true, diagrams), dark, textMarks = true)
+    ): String {
+        val fences = diagrams?.let(::PlantUmlFences)
+        val body = body(markdown, folder, frontMatter = true, sourceOffsets = true, fences)
+        fences?.insert(body)
+        return page(body, dark, textMarks = true)
+    }
 
     /**
      * The syntax tree of [markdown], with source spans on its blocks, and on its inlines with [inlines]; see
@@ -138,27 +143,25 @@ internal object MarkdownRenderer {
 
     /**
      * The rendered, sanitised content of [markdown], a file in [folder], with local images embedded; with
-     * [sourceOffsets], its texts are `<span data-o>` runs ([SourceOffsetRenderer]). With [diagrams], its PlantUML
-     * fences are drawn ([PlantUmlFences]), else they are highlighted code.
+     * [sourceOffsets], its texts are `<span data-o>` runs ([SourceOffsetRenderer]). With [fences], its PlantUML fences
+     * are placeholders, which [PlantUmlFences.insert] replaces after the sanitiser (whose safelist drops `data:`
+     * images); else they are highlighted code.
      */
     fun body(
         markdown: String,
         folder: Path,
         frontMatter: Boolean = false,
         sourceOffsets: Boolean = false,
-        diagrams: FenceDiagrams? = null,
+        fences: PlantUmlFences? = null,
     ): Element {
-        val fences = diagrams?.let(::PlantUmlFences)
         if (!sourceOffsets) {
             val rendering = if (fences == null) renderer else rendererBuilder(fences).build()
-            return sanitized(rendering.render(parse(markdown, frontMatter)), folder).also { fences?.insert(it) }
+            return sanitized(rendering.render(parse(markdown, frontMatter)), folder)
         }
         // A name the file's HTML cannot know, so that only the runs end up with `data-o`.
         val attribute = "data-o-" + UUID.randomUUID().toString().replace("-", "")
         val rendering = rendererBuilder(fences).nodeRendererFactory { SourceOffsetRenderer(it, markdown, attribute) }
-        // The diagrams after the sanitiser, whose safelist drops `data:` images.
         return sanitized(rendering.build().render(parse(markdown, frontMatter, inlines = true)), folder, attribute)
-            .also { fences?.insert(it) }
     }
 
     /**

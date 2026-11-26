@@ -46,7 +46,10 @@ class PlantUmlFencesTest {
     private fun body(
         markdown: String,
         with: FenceDiagrams = diagrams,
-    ): Element = MarkdownRenderer.body(markdown, dir, frontMatter = true, diagrams = with)
+    ): Element {
+        val fences = PlantUmlFences(with)
+        return MarkdownRenderer.body(markdown, dir, frontMatter = true, fences = fences).also(fences::insert)
+    }
 
     private fun rendering(name: String) =
         Rendering(listOf(Diagram.Drawn("<svg>$name</svg>", "<svg>$name dark</svg>")), false)
@@ -207,5 +210,92 @@ class PlantUmlFencesTest {
             listOf(0 to "Before", markdown.indexOf("After") to "After"),
             page.select("span[data-o]").map { it.attr("data-o").toInt() to it.text() },
         )
+    }
+
+    @Test
+    fun `an edited fence shows its previous drawing while its new text is drawn`() {
+        drawn[wrapped] = rendering("old")
+        body("Intro\n\n```plantuml\nA -> B\n```\n\n```puml\nC -> D\n```\n")
+
+        val body = body("Intro\n\n```plantuml\nA -> B : edited\n```\n\n```puml\nC -> D\n```\n")
+
+        assertEquals(listOf("<svg>old</svg>"), body.select("img.plantuml-light").map(::svg))
+        assertEquals(listOf("2", "6"), body.select("div.plantuml, p.diagram-note").map { it.attr("data-line") })
+        assertTrue("@startuml\nA -> B : edited\n@enduml\n" in asked.map { it.first }, "its new text is drawn")
+    }
+
+    @Test
+    fun `an edited fence keeps its previous drawing when its page is built again before the new one is there`() {
+        drawn[wrapped] = rendering("old")
+        body("```plantuml\nA -> B\n```\n")
+        val edited = "```plantuml\nA -> B : edited\n```\n"
+        body(edited)
+
+        val again = body(edited)
+
+        assertEquals(listOf("<svg>old</svg>"), again.select("img.plantuml-light").map(::svg))
+    }
+
+    @Test
+    fun `an edited fence keeps the latest drawing shown in its place, not an older one`() {
+        drawn[wrapped] = rendering("first")
+        body("```plantuml\nA -> B\n```\n")
+        drawn["@startuml\nA -> B : second\n@enduml\n"] = rendering("second")
+        body("```plantuml\nA -> B : second\n```\n")
+
+        val body = body("```plantuml\nA -> B : third\n```\n")
+
+        assertEquals(listOf("<svg>second</svg>"), body.select("img.plantuml-light").map(::svg))
+    }
+
+    @Test
+    fun `of two fences edited at once, the second keeps its previous drawing when the first one's new drawing comes`() {
+        drawn[wrapped] = rendering("old one")
+        drawn["@startuml\nC -> D\n@enduml\n"] = rendering("old two")
+        body("```plantuml\nA -> B\n```\n\n```plantuml\nC -> D\n```\n")
+        val edited = "```plantuml\nA -> B : edited\n```\n\n```plantuml\nC -> D : edited\n```\n"
+        body(edited)
+        drawn["@startuml\nA -> B : edited\n@enduml\n"] = rendering("new one")
+
+        val body = body(edited)
+
+        assertEquals(listOf("<svg>new one</svg>", "<svg>old two</svg>"), body.select("img.plantuml-light").map(::svg))
+    }
+
+    @Test
+    fun `a fence the file's HTML swallowed still counts, so that an edited fence after it keeps its drawing`() {
+        drawn["@startuml\nC -> D\n@enduml\n"] = rendering("old")
+
+        // The first fence's placeholder is in the textarea's text, which ends before the second fence.
+        fun page(second: String) =
+            "Text <textarea>\n\n```plantuml\nA -> B\n```\n\nEnd </textarea>\n\n```plantuml\n$second\n```\n"
+        body(page("C -> D"))
+
+        val body = body(page("C -> D : edited"))
+
+        assertEquals(listOf("<svg>old</svg>"), body.select("img.plantuml-light").map(::svg))
+    }
+
+    @Test
+    fun `an edited fence says it is drawn when fences were added or removed`() {
+        drawn[wrapped] = rendering("old")
+        body("```plantuml\nA -> B\n```\n")
+
+        val body = body("```plantuml\nA -> B : edited\n```\n\n```plantuml\nE -> F\n```\n")
+
+        assertTrue(body.select("img").isEmpty())
+        assertEquals(2, body.select("p.diagram-note").size)
+    }
+
+    @Test
+    fun `a new fence where another was says it is drawn when the other's text is still on the page`() {
+        drawn[wrapped] = rendering("old")
+        body("```plantuml\nA -> B\n```\n\n```plantuml\nX -> Y\n```\n")
+
+        // A new fence above: the old one moved to second place.
+        val body = body("```plantuml\nN -> M\n```\n\n```plantuml\nA -> B\n```\n")
+
+        assertEquals(PlantUmlHtml.DRAWING, body.child(0).text())
+        assertEquals(listOf("<svg>old</svg>"), body.child(1).select("img.plantuml-light").map(::svg))
     }
 }

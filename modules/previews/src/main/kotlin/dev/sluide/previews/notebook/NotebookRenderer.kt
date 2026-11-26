@@ -2,9 +2,9 @@ package dev.sluide.previews.notebook
 
 import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.SyntaxHighlighter
-import dev.sluide.plantuml.Rendering
 import dev.sluide.previews.markdown.FenceDiagrams
 import dev.sluide.previews.markdown.MarkdownRenderer
+import dev.sluide.previews.markdown.PlantUmlFences
 import dev.sluide.previews.preview.writeHighlighted
 import org.jsoup.nodes.Element
 import tools.jackson.core.JacksonException
@@ -32,26 +32,28 @@ internal object NotebookRenderer {
 
     /**
      * The page of the notebook [text], a file in [folder]; the PlantUML fences of its Markdown cells drawn by [diagrams]
-     * if given (`DiagramRenders.get`, in the cell's lines), their errors naming the cell and its line.
+     * if given, numbered across the page, their errors naming the cell and its line.
      */
     fun render(
         text: String,
         folder: Path,
         dark: Boolean,
-        diagrams: ((source: String, firstLine: Int) -> Rendering?)? = null,
+        diagrams: FenceDiagrams? = null,
     ): String = MarkdownRenderer.page(body(text, folder, diagrams), dark)
 
     fun body(
         text: String,
         folder: Path,
-        diagrams: ((source: String, firstLine: Int) -> Rendering?)? = null,
+        diagrams: FenceDiagrams? = null,
     ): Element {
         val body = Element("body").addClass("notebook")
+        val fences = diagrams?.let(::PlantUmlFences)
         val problem =
             try {
                 val notebook = mapper.readTree(text)
                 if (notebook.isObject && notebook.path("cells").isArray) {
-                    cells(body, notebook, folder, diagrams)
+                    cells(body, notebook, folder, fences)
+                    fences?.insert(body)
                     null
                 } else {
                     "no JSON object with a list of cells"
@@ -71,7 +73,7 @@ internal object NotebookRenderer {
         body: Element,
         notebook: JsonNode,
         folder: Path,
-        diagrams: ((source: String, firstLine: Int) -> Rendering?)?,
+        fences: PlantUmlFences?,
     ) {
         val metadata = notebook.path("metadata")
         val language =
@@ -86,7 +88,8 @@ internal object NotebookRenderer {
         for ((index, cell) in notebook.path("cells").values().withIndex()) {
             when (cell.path("cell_type").asString()) {
                 "markdown" -> {
-                    markdownCell(body, cell, folder, diagrams?.let { FenceDiagrams("Cell ${index + 1}, line", it) })
+                    fences?.line = "Cell ${index + 1}, line"
+                    markdownCell(body, cell, folder, fences)
                 }
 
                 "code" -> {
@@ -108,7 +111,7 @@ internal object NotebookRenderer {
         body: Element,
         cell: JsonNode,
         folder: Path,
-        diagrams: FenceDiagrams?,
+        fences: PlantUmlFences?,
     ) {
         val div = body.appendElement("div").addClass("cell markdown")
         // Images attached to the cell (`![x](attachment:name.png)`, `<img src="attachment:…">`): the sanitiser drops
@@ -118,7 +121,7 @@ internal object NotebookRenderer {
                 .source()
                 .replace("](attachment:", "]($ATTACHMENT")
                 .replace("src=\"attachment:", "src=\"$ATTACHMENT")
-        appendAll(div, MarkdownRenderer.body(markdown, folder, diagrams = diagrams))
+        appendAll(div, MarkdownRenderer.body(markdown, folder, fences = fences))
         for (image in div.select("img[src^=$ATTACHMENT]")) {
             val name = URLDecoder.decode(image.attr("src").removePrefix(ATTACHMENT), Charsets.UTF_8)
             val data = cell.path("attachments").path(name)

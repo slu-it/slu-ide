@@ -5,6 +5,7 @@ import dev.sluide.fileviewers.Highlighters
 import dev.sluide.plantuml.PlantUml
 import dev.sluide.plantuml.Rendering
 import dev.sluide.previews.loadPage
+import dev.sluide.previews.markdown.FenceDiagrams
 import dev.sluide.previews.plantuml.DiagramRenders
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileViewer
@@ -50,6 +51,8 @@ internal class NotebookPreview(
 
     private val renders = DiagramRenders(render, { rerender() }, runLater)
 
+    private val diagrams = FenceDiagrams(renders::get)
+
     override fun attach(
         rerender: () -> Unit,
         host: () -> FileViewHost?,
@@ -72,7 +75,7 @@ internal class NotebookPreview(
         text: String,
         folder: Path,
         dark: Boolean,
-    ): String = NotebookRenderer.render(text, folder, dark, renders::get)
+    ): String = NotebookRenderer.render(text, folder, dark, diagrams)
 
     override val defaultMode get() = PreviewMode.PREVIEW
 }
