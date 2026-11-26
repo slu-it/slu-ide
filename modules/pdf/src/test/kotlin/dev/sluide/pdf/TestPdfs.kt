@@ -732,4 +732,33 @@ object TestPdfs {
             )
         }
     }
+
+    const val PAGE_TWO_LINK_URI = "https://example.org/p4-page-two"
+
+    /** The rect, as a page rect, of the link on the second page of [pageTwoLinks]. */
+    val PAGE_TWO_LINK_RECT = PageRect(TEXT_X.toDouble(), 272.0, 200.0, 20.0)
+
+    /** Page 1 has "Short" and no link; page 2 has a longer line of words and a web link below it. */
+    val pageTwoLinks: Path by lazy {
+        build("page-two-links.pdf") { document ->
+            val font = liberation(document)
+            PDPageContentStream(
+                document,
+                page(document),
+            ).use { it.lines(font, TEXT_SIZE, TEXT_X, TEXT_BASELINE, "Short") }
+            val second = page(document)
+            PDPageContentStream(document, second).use {
+                it.lines(font, TEXT_SIZE, TEXT_X, TEXT_BASELINE, "A much longer line of words here")
+            }
+            val rect = PAGE_TWO_LINK_RECT
+            val user =
+                PDRectangle(
+                    rect.x.toFloat(),
+                    792f - (rect.y + rect.height).toFloat(),
+                    rect.width.toFloat(),
+                    rect.height.toFloat(),
+                )
+            second.annotations.add(uriLink(user, PAGE_TWO_LINK_URI))
+        }
+    }
 }

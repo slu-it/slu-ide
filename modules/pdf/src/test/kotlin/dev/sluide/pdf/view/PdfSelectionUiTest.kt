@@ -1,28 +1,21 @@
 package dev.sluide.pdf.view
 
-import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.pdf.TestPdfs
 import dev.sluide.pdf.engine.PageRect
-import dev.sluide.pdf.engine.PageText
-import javafx.event.Event
-import javafx.geometry.Bounds
 import javafx.geometry.Point2D
 import javafx.scene.Cursor
 import javafx.scene.control.Tooltip
 import javafx.scene.input.Clipboard
-import javafx.scene.input.ClipboardContent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
-import org.junit.jupiter.api.io.TempDir
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import java.net.URI
 import java.nio.file.Files
-import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.FileTime
 import java.util.concurrent.CountDownLatch
@@ -38,149 +31,9 @@ import kotlin.test.assertTrue
  */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
-internal class PdfSelectionUiTest : PdfViewUiFixture() {
-    @TempDir
-    lateinit var dir: Path
-
+internal class PdfSelectionUiTest : PdfSelectionUiBase() {
     @Start
     fun start(stage: Stage) = startStage(stage)
-
-    private class FakeHost : FileViewHost {
-        val webPages = mutableListOf<URI>()
-
-        override fun openFile(file: Path) = false
-
-        override fun openWebPage(uri: URI) {
-            webPages += uri
-        }
-    }
-
-    private fun textOf(
-        view: PdfFileView,
-        page: Int = 0,
-    ): PageText {
-        var text: PageText? = null
-        fx { view.texts.textOf(page) { text = it } }
-        await { text != null }
-        return checkNotNull(text)
-    }
-
-    private fun boxOf(
-        text: PageText,
-        word: String,
-    ): PageRect {
-        val start = text.text.indexOf(word)
-        val boxes = (start until start + word.length).mapNotNull { text.boxes[it] }
-        val left = boxes.minOf { it.x }
-        val top = boxes.minOf { it.y }
-        return PageRect(left, top, boxes.maxOf { it.x + it.width } - left, boxes.maxOf { it.y + it.height } - top)
-    }
-
-    /** A view of the text page, its texts loaded, and the scene boxes of the words [words]. */
-    private fun textView(
-        file: Path = TestPdfs.text,
-        configure: (PdfFileView) -> Unit = {},
-    ): PdfFileView {
-        val view = open(file, configure = configure)
-        awaitRendered(view, 0)
-        textOf(view)
-        return view
-    }
-
-    private fun scene(
-        view: PdfFileView,
-        word: String,
-    ): Bounds = sceneRect(view, 0, boxOf(textOf(view), word))
-
-    private fun mouse(
-        type: javafx.event.EventType<MouseEvent>,
-        at: Point2D,
-        clicks: Int = 1,
-        button: MouseButton = MouseButton.PRIMARY,
-    ) = MouseEvent(
-        type,
-        at.x,
-        at.y,
-        at.x,
-        at.y,
-        button,
-        clicks,
-        false,
-        false,
-        false,
-        false,
-        button == MouseButton.PRIMARY,
-        false,
-        button == MouseButton.SECONDARY,
-        false,
-        false,
-        true,
-        null,
-    )
-
-    private fun fire(
-        view: PdfFileView,
-        event: Event,
-    ) = fx { Event.fireEvent(view.pages, event) }
-
-    private fun click(
-        view: PdfFileView,
-        at: Point2D,
-        clicks: Int = 1,
-    ) {
-        fire(view, mouse(MouseEvent.MOUSE_PRESSED, at, clicks))
-        fire(view, mouse(MouseEvent.MOUSE_RELEASED, at, clicks))
-    }
-
-    private fun drag(
-        view: PdfFileView,
-        from: Point2D,
-        to: Point2D,
-    ) {
-        fire(view, mouse(MouseEvent.MOUSE_PRESSED, from))
-        fire(view, mouse(MouseEvent.MOUSE_DRAGGED, to))
-        fire(view, mouse(MouseEvent.MOUSE_RELEASED, to))
-    }
-
-    private fun key(
-        view: PdfFileView,
-        code: KeyCode,
-        shortcut: Boolean = false,
-    ) = fire(view, keyPress(code, shortcut))
-
-    private fun Bounds.left() = Point2D(minX + 1, centerY)
-
-    private fun Bounds.right() = Point2D(maxX - 1, centerY)
-
-    private fun Bounds.centre() = Point2D(centerX, centerY)
-
-    private fun clearClipboard() =
-        fx {
-            Clipboard.getSystemClipboard().setContent(ClipboardContent().also { it.putString(UNTOUCHED) })
-        }
-
-    private fun awaitClipboard(expected: String) = await { Clipboard.getSystemClipboard().string == expected }
-
-    private fun clipboard(): String? = fx { Clipboard.getSystemClipboard().string }
-
-    private fun selected(
-        view: PdfFileView,
-        page: Int = 0,
-    ) = fx { view.overlays.on(page).any { it.first == OverlayLayer.SELECTION } }
-
-    private fun Collection<javafx.scene.paint.Color>.hasSelectionBlue() = any { it.blue - it.red > 0.1 }
-
-    /** Moves the pointer to [at] until the pages show [cursor]: the links load in the background. */
-    private fun awaitCursor(
-        view: PdfFileView,
-        at: Point2D,
-        cursor: Cursor?,
-    ) {
-        await {
-            Event.fireEvent(view.pages, mouse(MouseEvent.MOUSE_MOVED, at))
-            view.pageCursor == cursor
-        }
-    }
 
     @Test
     fun `a drag over a word selects it and paints it, and the word beside it stays unpainted`() {
@@ -431,42 +284,6 @@ internal class PdfSelectionUiTest : PdfViewUiFixture() {
         assertNotNull(fx { view.overlays.on(2).firstOrNull() })
     }
 
-    /** Reloads [view] of [file], changed on disk, and waits for it; its texts and links are gone afterwards. */
-    private fun reload(
-        view: PdfFileView,
-        file: Path,
-        reloads: () -> Int,
-    ) {
-        val before = reloads()
-        Files.setLastModifiedTime(file, FileTime.fromMillis(Files.getLastModifiedTime(file).toMillis() + 10_000))
-        fx { view.reload() }
-        await { reloads() == before + 1 }
-        awaitRendered(view, 0)
-    }
-
-    /**
-     * The text page, reloaded (its texts are gone), with the text worker held while [act] runs on it: whatever [act]
-     * asks of the texts arrives after it returned. [act] gets the scene boxes of "second" and "line".
-     */
-    private fun heldView(act: (PdfFileView, Bounds, Bounds) -> Unit): PdfFileView {
-        val file = dir.resolve("held.pdf")
-        Files.copy(TestPdfs.text, file)
-        var reloads = 0
-        val view = textView(file) { it.onReload += { reloads++ } }
-        val second = scene(view, "second")
-        val line = scene(view, "line")
-        reload(view, file) { reloads }
-        val latch = CountDownLatch(1)
-        fx { view.textWorker.submit(WorkPriority.VISIBLE, { latch.await() }, {}) }
-        try {
-            clearClipboard()
-            act(view, second, line)
-        } finally {
-            latch.countDown()
-        }
-        return view
-    }
-
     @Test
     fun `a drag released before the text of its page arrived still selects, and copies`() {
         val view = heldView { view, second, _ -> drag(view, second.left(), second.right()) }
@@ -531,9 +348,5 @@ internal class PdfSelectionUiTest : PdfViewUiFixture() {
         awaitCursor(view, moved, Cursor.HAND)
         click(view, moved)
         assertEquals(2, fx { view.currentPage.get() })
-    }
-
-    private companion object {
-        const val UNTOUCHED = "untouched"
     }
 }
