@@ -25,6 +25,8 @@ class HighlightersTest {
                 "html" to Highlighters.html,
                 "markdown" to Highlighters.markdown,
                 "mermaid" to Highlighters.mermaid,
+                "plantuml" to Highlighters.plantuml,
+                "puml" to Highlighters.plantuml,
                 "bicep" to Highlighters.bicep,
                 "groovy" to Highlighters.groovy,
                 "kotlin" to Highlighters.kotlin,

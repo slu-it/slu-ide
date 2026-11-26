@@ -145,6 +145,77 @@ internal object MarkupLanguages {
             ),
         )
 
+    /** Statements of PlantUML's diagrams, the first words of a line; those of several words first. */
+    private const val PLANTUML_STATEMENTS =
+        "left to right direction|top to bottom direction|end note|end fork|end box|end ref|participant|actor|" +
+            "boundary|control|entity|database|collections|queue|class|interface|abstract|enum|annotation|package|" +
+            "namespace|component|node|folder|frame|cloud|rectangle|state|usecase|object|artifact|card|agent|" +
+            "storage|file|person|label|note|hnote|rnote|endnote|alt|elseif|else|opt|loop|par|break|critical|" +
+            "group|box|ref|endlegend|endwhile|endif|endfork|endswitch|end|activate|deactivate|return|autonumber|" +
+            "title|header|footer|legend|skinparam|hide|show|start|stop|if|then|while|repeat|fork|split|detach|" +
+            "kill|switch|case|backward|newpage"
+
+    /** A head on the left of an arrow that a single dash may follow: `<`, `<<`, `<|`, and after a blank `\` or `/`. */
+    private const val PLANTUML_LEFT = """(?:<<|<\||<|(?<=\s)(?:\\\\?|//?))"""
+
+    /** A head that needs two dashes or a head on the right: `*`, `+`, `o`, `x`, … (`x-ray` is no arrow). */
+    private const val PLANTUML_LEFT_STRONG = """(?:(?<!\w)[ox]|[*+#^}{])"""
+
+    /** A head on the right of an arrow with a single dash or two dots (`>`, `>>`, `|>`; `\` and `/` end a word). */
+    private const val PLANTUML_RIGHT = """(?:>>?|\|>|(?:\\\\?|//?)(?=\s|$))"""
+
+    /**
+     * An arrow's line: dashes with an optional `[#red]` or direction word in them (`-[#red]-`, `-up-`), or two dots.
+     * No arrow starts inside a run of dashes, and a bracket's text ends at the next bracket (both keep long lines
+     * of dashes or brackets from taking quadratic time).
+     */
+    private const val PLANTUML_BODY =
+        """(?:(?<!-)-(?:\[[^\]\[\n]*+]|(?:up|down|left|right|u|d|l|r)(?=[-.]))?-*+|(?<!\.)\.\.(?!\.))"""
+
+    /** At least two dashes or two dots. */
+    private const val PLANTUML_DOUBLE = """(?:(?<!-)--++|(?<!\.)\.\.(?!\.))"""
+
+    /**
+     * PlantUML diagrams (`.puml`, ` ```plantuml `, ` ```puml `), which no lexer knows: line rules on plain text,
+     * earlier rules winning, and `/' … '/` block comments over lines by [PlantUmlHighlighter].
+     * - `'` comments, only when `'` starts the line (after blanks; later it is text, as in a label), and block
+     *   comments;
+     * - `@startuml`, `@enduml` and every `@start…`/`@end…` marker as keywords, a name after them stays plain;
+     * - preprocessor directives (`!include`, `!define`, `!theme`, …: the word with its `!`) as annotations;
+     * - strings in double quotes; statements ([PLANTUML_STATEMENTS]) as keywords when they start a line and no
+     *   longer word does (`classic` is no `class`);
+     * - arrows as operators: dashes or two dots with an optional `[#red]` or direction word (`-up->`) and a head on
+     *   either side (`<|--`, `*--`, `o--`, `-->`, `->>`, `-\\`, `-/`, `..>`, `<->`), and plain `--`, `..`, `--*`,
+     *   `--o`. A single dash needs a head on the right, or `<`, `\`, `/` on the left; a left `*`, `o`, `x`, … needs
+     *   two dashes or a right head, so that hyphens in names (`x-ray`, `C++-style`) stay plain.
+     *
+     * Known gaps: a statement word used as a name at the start of a line (`end -> B`) is a keyword, and words like
+     * `then` count only first on their line; a `/'` inside a string or a label starts a block comment; arrows
+     * without a head that have a colour or direction (`-[#red]-`, `-up-`), `...>`, a head `x` or `o` on the right
+     * of a single dash (`->x`) are not or only partly marked; `$var` assignments, the arguments of `!` lines,
+     * skinparam settings and the content of JSON, YAML, salt, gantt and mindmap diagrams are plain.
+     */
+    val plantuml: SyntaxHighlighter =
+        PlantUmlHighlighter(
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_NONE,
+                lineRules =
+                    listOf(
+                        Regex("""^\s*+(?<comment>'.*)"""),
+                        Regex("""^\s*+(?<annotation>![a-z_]++)"""),
+                        Regex("""^\s*+(?<keyword>@(?:start|end)\w++)"""),
+                        Regex("""(?<string>"[^"\n]*+")"""),
+                        Regex("""^\s*+(?<keyword>$PLANTUML_STATEMENTS)(?!\w)"""),
+                        Regex(
+                            """(?<operator>$PLANTUML_LEFT$PLANTUML_BODY$PLANTUML_RIGHT?|""" +
+                                """$PLANTUML_LEFT_STRONG$PLANTUML_DOUBLE$PLANTUML_RIGHT?|""" +
+                                """(?:$PLANTUML_LEFT|$PLANTUML_LEFT_STRONG)?$PLANTUML_BODY$PLANTUML_RIGHT)""",
+                        ),
+                        Regex("""(?<operator>$PLANTUML_DOUBLE(?:[*o+#^x}{](?!\w))?)"""),
+                    ),
+            ),
+        )
+
     /** The highlighter for a code fence's [language] (` ```ts `), lower case, or `null` if there is none. */
     fun forLanguage(language: String): SyntaxHighlighter? =
         when (language) {
@@ -212,6 +283,7 @@ internal object MarkupLanguages {
             "ssh-config", "sshconfig", "ssh_config", "sshd_config" -> ConfigLanguages.sshConfig
             "caddyfile", "caddy" -> ConfigLanguages.caddyfile
             "mermaid", "mmd" -> mermaid
+            "plantuml", "puml" -> plantuml
             "bicep", "bicepparam" -> BicepHighlighter
             "hcl", "terraform", "tf", "tfvars" -> HclHighlighter
             "dotenv", "env" -> ConfigLanguages.env

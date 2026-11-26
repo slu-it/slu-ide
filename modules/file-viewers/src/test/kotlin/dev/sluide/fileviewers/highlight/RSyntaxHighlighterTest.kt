@@ -83,6 +83,7 @@ class RSyntaxHighlighterTest {
                 RSyntaxHighlighter.caddyfile to listOf("caddyfile"),
                 RSyntaxHighlighter.env to listOf("dotenv", "env"),
                 RSyntaxHighlighter.mermaid to listOf("mermaid", "mmd"),
+                RSyntaxHighlighter.plantuml to listOf("plantuml", "puml"),
                 KqlHighlighter to listOf("kql", "kusto", "csl"),
                 GraphQlHighlighter to listOf("graphql", "gql"),
                 TomlHighlighter to listOf("toml"),

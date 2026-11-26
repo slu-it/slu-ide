@@ -68,6 +68,13 @@ class HighlightingPerformanceTest {
         assertFast("Mermaid sequence", RSyntaxHighlighter.mermaid, lines("    Alice-xBob: hi ->> there -) x", 25_000))
         assertFast("Mermaid statements", RSyntaxHighlighter.mermaid, lines("    subgraph one %% x"))
         assertFast(
+            "PlantUML",
+            RSyntaxHighlighter.plantuml,
+            "@startuml\n" + lines("A -[#red]-> B : \"x\" /' c '/", 25_000),
+        )
+        assertFast("PlantUML block comments", RSyntaxHighlighter.plantuml, lines("/' c '/ A -> B -> C -> D : \"x\""))
+        assertFast("PlantUML statements", RSyntaxHighlighter.plantuml, lines("    participant A ' x"))
+        assertFast(
             "cookies",
             RSyntaxHighlighter.cookies,
             "# domain\tpath\tname\tvalue\tdate\n" + lines("example.com\t/\tid\t\"abc\"\t-1"),
@@ -388,6 +395,10 @@ class HighlightingPerformanceTest {
         assertFast("Mermaid dots", mermaid, "-." + ".".repeat(80_000) + "\n" + "-.-".repeat(30_000) + "\n")
         assertFast("Mermaid quotes and pipes", mermaid, "\"|".repeat(100_000) + "\n" + "|\"".repeat(100_000) + "x\n")
         assertFast("Mermaid first line", mermaid, "%% c\n".repeat(50_000) + "flowchart$blanks LR\n")
+        val plantuml = RSyntaxHighlighter.plantuml
+        assertFast("PlantUML dashes", plantuml, "a " + "-".repeat(80_000) + "\nb ." + ".".repeat(80_000) + "\n")
+        assertFast("PlantUML brackets", plantuml, "-[".repeat(40_000) + "\n" + "-[#".repeat(40_000) + "\n")
+        assertFast("PlantUML quotes and slashes", plantuml, "\"/'".repeat(50_000) + "\n" + "/'".repeat(50_000) + "\n")
         val env = RSyntaxHighlighter.env
         assertFast("env blanks", env, "a${blanks}b\n$blanks=x${blanks}y$blanks#z\n#$blanks=\n")
         assertFast("env hashes", env, "A=" + "x#".repeat(40_000) + "\nB=" + " #".repeat(40_000) + "\n")

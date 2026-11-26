@@ -378,6 +378,7 @@ internal class RSyntaxHighlighter(
         val markdown = MarkupLanguages.markdown
         val mdx = MarkupLanguages.mdx
         val mermaid = MarkupLanguages.mermaid
+        val plantuml = MarkupLanguages.plantuml
 
         /** The highlighter for a code fence's [language] (` ```ts `), lower case, or `null` if there is none. */
         fun forLanguage(language: String): SyntaxHighlighter? = MarkupLanguages.forLanguage(language)

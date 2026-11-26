@@ -28,6 +28,9 @@ object Highlighters {
     /** Mermaid diagrams. */
     val mermaid: SyntaxHighlighter = RSyntaxHighlighter.mermaid
 
+    /** PlantUML diagrams. */
+    val plantuml: SyntaxHighlighter = RSyntaxHighlighter.plantuml
+
     /** Azure Bicep files. */
     val bicep: SyntaxHighlighter = BicepHighlighter
 

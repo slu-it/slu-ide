@@ -66,7 +66,7 @@ the Bicep graph and `BicepParamFileViewer`.
   takes the shebang from its first line. A code view renders a RichTextFX `CodeArea`, colours the tokens from a `SyntaxHighlighter`
   (`RSyntaxHighlighter` = RSyntaxTextArea lexers, [ADR 0005](../adr/0005-syntax-highlighting.md)) and is styled by
   `syntax.css`; its banners (file changed or deleted on disk, generated file) and find bar by `code-view.css`. Small
-  formats without a lexer (ignore files, `.git-blame-ignore-revs`, SSH config, Caddyfiles, Mermaid, cookie jars, PEM)
+  formats without a lexer (ignore files, `.git-blame-ignore-revs`, SSH config, Caddyfiles, Mermaid, PlantUML, cookie jars, PEM)
   are line rules on the plain lexer, which itself is never run (it styles nothing and takes quadratic time on long
   lines full of backslashes). Larger languages without a lexer (TOML, Bicep, KQL, HCL, GraphQL) have their own
   tokenizers (`TomlHighlighter`, `BicepHighlighter`, `KqlHighlighter`, `HclHighlighter`, `GraphQlHighlighter`;
@@ -352,7 +352,7 @@ the Bicep graph and `BicepParamFileViewer`.
     the window offers Run in the explorer for the files such a viewer opens, which opens the file's tab and calls
     `run()` (`WindowScriptRuns` in `ide`, [ADR 0089](../adr/0089-running-shell-scripts.md)).
   - Highlighters: `Highlighters.forLanguage(name)` for embedded code, the named `Highlighters.json`, `xml`, `yaml`,
-    `html`, `markdown`, `mermaid`, `bicep`, `groovy`, `kotlin`, `shell`, `cookies` and `pem`, and
+    `html`, `markdown`, `mermaid`, `plantuml`, `bicep`, `groovy`, `kotlin`, `shell`, `cookies` and `pem`, and
     `Highlighters.fenceLanguage(info)` for the language of a code fence.
     `SyntaxHighlighter`, `HighlightSpan` and `TokenStyle` are public.
   - `BicepResourceGraph.of(text)` gives a Bicep file's resource graph as Mermaid (`mermaid`, `isEmpty`, `note`).
@@ -383,7 +383,7 @@ the Bicep graph and `BicepParamFileViewer`.
   `markdown` `md`; `mdx`; `sql`; `kql` `kusto` `csl`; `graphql` `gql`; `bash` `sh` `shell` `zsh` `ksh`; `powershell`
   `ps1` `pwsh`; `dockerfile` `docker` `containerfile`; `makefile` `make` `mk`; `ini` `cfg` `conf` `editorconfig`
   `gitconfig`; `properties`; `json5` `jsonl` `ndjson`; `codeowners`; `gitattributes`; `mailmap`; `gitignore`;
-  `ssh-config` `sshconfig` `ssh_config` `sshd_config`; `caddyfile` `caddy`; `mermaid` `mmd`; `bicep` `bicepparam`; `hcl`
+  `ssh-config` `sshconfig` `ssh_config` `sshd_config`; `caddyfile` `caddy`; `mermaid` `mmd`; `plantuml` `puml`; `bicep` `bicepparam`; `hcl`
   `terraform` `tf` `tfvars`; `dotenv` `env`; `toml`.
 - Not yet implemented: encodings other than UTF-8 and Windows-1252, and views of binary files other than images
   and audio or video (`.xlsx`, `.pptx`, SQLite).
