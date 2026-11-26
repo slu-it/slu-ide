@@ -8,7 +8,7 @@ Files for notes and experiments outside the project, shared by all project windo
 - **Create:** File → New Scratch File… (Ctrl+Shift+N, Cmd+Shift+N on macOS; also from a terminal tab) shows the type
   picker near the top of the window: a filter field above the types, each with its file-type icon, name and
   extension (Plain Text, Markdown, JSON, YAML, XML, HTML, CSS, JavaScript, TypeScript, Kotlin, Kotlin Script, Java, JShell,
-  Python, Shell Script, SQL, HTTP Request, TOML, Properties, CSV, Mermaid, KQL, Bicep), then four encrypted ones
+  Python, Shell Script, SQL, HTTP Request, TOML, Properties, CSV, Mermaid, PlantUML, KQL, Bicep), then four encrypted ones
   (Plain Text, Markdown, JSON and YAML "(encrypted)", `.sluenc` files that ask for a password;
   [encrypted-files.md](encrypted-files.md#creating-encrypted-scratch-files)).
   - Typing filters by name or extension, ignoring case; a leading dot is ignored (`.kt` finds Kotlin). Up and Down

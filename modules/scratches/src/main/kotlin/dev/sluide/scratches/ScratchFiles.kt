@@ -64,6 +64,7 @@ val SCRATCH_TYPES: List<ScratchType> =
         ScratchType("Properties", "properties"),
         ScratchType("CSV", "csv"),
         ScratchType("Mermaid", "mmd"),
+        ScratchType("PlantUML", "puml"),
         ScratchType("KQL", "kql"),
         ScratchType("Bicep", "bicep"),
     )

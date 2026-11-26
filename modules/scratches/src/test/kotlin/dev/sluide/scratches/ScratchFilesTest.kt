@@ -81,6 +81,14 @@ class ScratchFilesTest {
     }
 
     @Test
+    fun `the PlantUML type comes right after Mermaid`() {
+        val names = SCRATCH_TYPES.map { it.name }
+
+        assertEquals("PlantUML", names[names.indexOf("Mermaid") + 1])
+        assertEquals("puml", SCRATCH_TYPES.single { it.name == "PlantUML" }.extension)
+    }
+
+    @Test
     fun `the constructor does not touch the disk and create makes the folder`() {
         val files = scratches()
         assertFalse(Files.exists(files.folder))
