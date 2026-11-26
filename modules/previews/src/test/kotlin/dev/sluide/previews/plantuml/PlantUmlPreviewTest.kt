@@ -28,6 +28,9 @@ class PlantUmlPreviewTest {
     private val fxQueue = ArrayDeque<Runnable>()
     private var rerenders = 0
 
+    @TempDir
+    lateinit var dir: Path
+
     private val preview =
         PlantUmlPreview(
             { source, firstLine ->
@@ -187,9 +190,6 @@ class PlantUmlPreviewTest {
 
         assertNull(future.get(10, TimeUnit.SECONDS))
     }
-
-    @TempDir
-    lateinit var dir: Path
 
     @ParameterizedTest
     @CsvSource(

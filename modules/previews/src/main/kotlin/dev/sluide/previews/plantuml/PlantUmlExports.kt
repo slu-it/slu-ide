@@ -132,9 +132,10 @@ internal fun customSizes(
 
 /**
  * The export to run once the file is rendered: every drawn diagram of [rendering] as its SVG in the [dark] or light
- * variant, or, with [png] (the size of the diagram with a 1-based number), as a PNG drawn by [rasterizer]. The files are named after the file:
- * `name.svg` for the first diagram, `name-2.svg` for the second and so on, counted over all diagrams, so that a failed
- * one keeps its number; a PNG's name has the size before the extension (`name-2@2x.png`, `name-2-640x480.png`).
+ * variant, or, with [png] (the size of the diagram with a 1-based number), as a PNG drawn by [rasterizer]. The files
+ * are named after the file: `name.svg` for the first diagram, `name-2.svg` for the second and so on, counted over all
+ * diagrams, so that a failed one keeps its number; a PNG's name has the size before the extension (`name-2@2x.png`,
+ * `name-2-640x480.png`).
  */
 internal class RenderedPlantUmlExport(
     override val label: String,
