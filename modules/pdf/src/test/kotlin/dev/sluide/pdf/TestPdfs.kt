@@ -1,6 +1,5 @@
 package dev.sluide.pdf
 
-import dev.sluide.pdf.engine.PageRect
 import dev.sluide.pdf.engine.PdfSetup
 import org.apache.pdfbox.cos.COSArray
 import org.apache.pdfbox.cos.COSDictionary
@@ -135,7 +134,7 @@ object TestPdfs {
         return file
     }
 
-    private fun liberation(document: PDDocument): PDFont =
+    internal fun liberation(document: PDDocument): PDFont =
         PDDocument::class.java
             .getResourceAsStream(
                 "/org/apache/pdfbox/resources/ttf/LiberationSans-Regular.ttf",
@@ -144,12 +143,12 @@ object TestPdfs {
                 PDType0Font.load(document, it)
             }
 
-    private fun page(
+    internal fun page(
         document: PDDocument,
         box: PDRectangle = PDRectangle.LETTER,
     ): PDPage = PDPage(box).also(document::addPage)
 
-    private fun PDPageContentStream.lines(
+    internal fun PDPageContentStream.lines(
         font: PDFont,
         size: Float,
         x: Float,
@@ -286,7 +285,7 @@ object TestPdfs {
 
     internal fun fit(page: PDPage): PDPageDestination = PDPageFitDestination().also { it.page = page }
 
-    private fun goTo(destination: PDDestination) = PDActionGoTo().also { it.destination = destination }
+    internal fun goTo(destination: PDDestination) = PDActionGoTo().also { it.destination = destination }
 
     internal fun item(
         title: String,
@@ -624,185 +623,6 @@ object TestPdfs {
                     stream.newLine()
                 }
                 stream.endText()
-            }
-        }
-    }
-
-    // P5, side panel: a nested outline over seven pages, and 20 pages without an outline.
-
-    /**
-     * Seven numbered pages (0-based 0..6) and this outline, items open unless said: "1 Intro" (page 0) with "1.1 Start"
-     * (page 0) and "1.2 More" (page 1); "2 Body" (page 2, closed) with "2.1 Hidden" (page 3); "3 No destination";
-     * "4 Late" (page 4) with "4.1 Deep" (page 5); "5 End" (page 6).
-     */
-    val sideOutline: Path by lazy { build("side-outline.pdf") { sideOutlineDocument(it, prefix = "") } }
-
-    /** [sideOutline] with "New " before each title. */
-    val sideOutlineRenamed: Path by lazy { build("side-outline-renamed.pdf") { sideOutlineDocument(it, "New ") } }
-
-    const val SIDE_PAGES = 20
-
-    /** [SIDE_PAGES] numbered pages without an outline. */
-    val sideNoOutline: Path by lazy { build("side-no-outline.pdf") { numberedPages(it, SIDE_PAGES) } }
-
-    /** Two blank pages: 612 by 792 points, then 792 by 612. */
-    val sidePortraitLandscape: Path by lazy {
-        build("side-portrait-landscape.pdf") { document ->
-            page(document, PDRectangle(612f, 792f))
-            page(document, PDRectangle(792f, 612f))
-        }
-    }
-
-    const val SIDE_LONG_PAGES = 60
-
-    /** The title of the last item of [sideLongOutline]: on two lines, and longer than a side panel is wide. */
-    const val SIDE_LONG_TITLE = "Page 60:\nthe last page, whose title is far longer than the side panel is wide"
-
-    /**
-     * [SIDE_LONG_PAGES] numbered pages and an outline item "Page N" for each but the first, more than a side panel shows
-     * at once; the last is titled [SIDE_LONG_TITLE].
-     */
-    val sideLongOutline: Path by lazy {
-        build("side-long-outline.pdf") { document ->
-            numberedPages(document, SIDE_LONG_PAGES)
-            val outline = PDDocumentOutline()
-            document.documentCatalog.documentOutline = outline
-            for (page in 1 until SIDE_LONG_PAGES - 1) {
-                outline.addLast(
-                    item("Page ${page + 1}", fit(document.getPage(page))),
-                )
-            }
-            outline.addLast(item(SIDE_LONG_TITLE, fit(document.getPage(SIDE_LONG_PAGES - 1))))
-            outline.openNode()
-        }
-    }
-
-    private fun sideOutlineDocument(
-        document: PDDocument,
-        prefix: String,
-    ) {
-        numberedPages(document, 7)
-
-        fun to(
-            title: String,
-            page: Int?,
-        ) = item(prefix + title, page?.let { fit(document.getPage(it)) })
-        val outline = PDDocumentOutline()
-        document.documentCatalog.documentOutline = outline
-        val intro = to("1 Intro", 0).also { it.addLast(to("1.1 Start", 0)) }
-        intro.addLast(to("1.2 More", 1))
-        val body = to("2 Body", 2).also { it.addLast(to("2.1 Hidden", 3)) }
-        val late = to("4 Late", 4).also { it.addLast(to("4.1 Deep", 5)) }
-        listOf(intro, body, to("3 No destination", null), late, to("5 End", 6)).forEach(outline::addLast)
-        intro.openNode()
-        late.openNode()
-        outline.openNode()
-    }
-    // P4: selection and links.
-
-    /** Three pages of "Page N" (Helvetica 24 at [TEXT_X], [TEXT_BASELINE]), for select-all and copy across pages. */
-    val threePages: Path by lazy { build("three-pages.pdf") { numberedPages(it, 3) } }
-
-    const val SELECTION_LINK_URI = "https://example.org/p4"
-
-    /** The rect, as a page rect (points from the top-left corner), of link [index] of [selectionLinks]. */
-    fun selectionLinkRect(index: Int) = PageRect(TEXT_X.toDouble(), 272.0 + index * 60.0, 200.0, 20.0)
-
-    /** [threePages] with a link to [SELECTION_LINK_URI] and below it a link to page 3 on the first page, off the text. */
-    val selectionLinks: Path by lazy {
-        build("selection-links.pdf") { document ->
-            numberedPages(document, 3)
-            val first = document.getPage(0)
-            val rects =
-                listOf(0, 1).map { selectionLinkRect(it) }.map {
-                    PDRectangle(
-                        it.x.toFloat(),
-                        792f - (it.y + it.height).toFloat(),
-                        it.width.toFloat(),
-                        it.height.toFloat(),
-                    )
-                }
-            first.annotations.add(uriLink(rects[0], SELECTION_LINK_URI))
-            first.annotations.add(
-                PDAnnotationLink().also {
-                    it.rectangle = rects[1]
-                    it.action =
-                        goTo(fit(document.getPage(2)))
-                },
-            )
-        }
-    }
-
-    const val PAGE_TWO_LINK_URI = "https://example.org/p4-page-two"
-
-    /** The rect, as a page rect, of the link on the second page of [pageTwoLinks]. */
-    val PAGE_TWO_LINK_RECT = PageRect(TEXT_X.toDouble(), 272.0, 200.0, 20.0)
-
-    /** Page 1 has "Short" and no link; page 2 has a longer line of words and a web link below it. */
-    val pageTwoLinks: Path by lazy {
-        build("page-two-links.pdf") { document ->
-            val font = liberation(document)
-            PDPageContentStream(
-                document,
-                page(document),
-            ).use { it.lines(font, TEXT_SIZE, TEXT_X, TEXT_BASELINE, "Short") }
-            val second = page(document)
-            PDPageContentStream(document, second).use {
-                it.lines(font, TEXT_SIZE, TEXT_X, TEXT_BASELINE, "A much longer line of words here")
-            }
-            val rect = PAGE_TWO_LINK_RECT
-            val user =
-                PDRectangle(
-                    rect.x.toFloat(),
-                    792f - (rect.y + rect.height).toFloat(),
-                    rect.width.toFloat(),
-                    rect.height.toFloat(),
-                )
-            second.annotations.add(uriLink(user, PAGE_TWO_LINK_URI))
-        }
-    }
-
-    // P6, search: five letter pages with a word on some of them.
-
-    /** The word of [search] and [searchMoved]. */
-    const val SEARCH_WORD = "lantern"
-
-    /** [SEARCH_WORD] once on pages 1 and 5, twice on page 3 (on two lines); page 4 has no text. */
-    val search: Path by lazy {
-        build("search.pdf") {
-            searchPages(
-                it,
-                listOf("A lantern on page one"),
-                listOf("Nothing on page two"),
-                listOf("The lantern is lit,", "and a second lantern too"),
-                emptyList(),
-                listOf("Last lantern"),
-            )
-        }
-    }
-
-    /** [search] with [SEARCH_WORD] on pages 2 and 4 only, once each; the same page sizes. */
-    val searchMoved: Path by lazy {
-        build("search-moved.pdf") {
-            searchPages(
-                it,
-                listOf("Nothing on page one"),
-                listOf("A lantern on page two"),
-                listOf("Nothing on page three"),
-                listOf("Another lantern on page four"),
-                listOf("Nothing on page five"),
-            )
-        }
-    }
-
-    private fun searchPages(
-        document: PDDocument,
-        vararg pages: List<String>,
-    ) {
-        val font = liberation(document)
-        for (lines in pages) {
-            PDPageContentStream(document, page(document)).use {
-                if (lines.isNotEmpty()) it.lines(font, TEXT_SIZE, TEXT_X, TEXT_BASELINE, *lines.toTypedArray())
             }
         }
     }

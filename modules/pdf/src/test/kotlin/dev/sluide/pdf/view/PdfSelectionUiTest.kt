@@ -1,5 +1,6 @@
 package dev.sluide.pdf.view
 
+import dev.sluide.pdf.PanelPdfs
 import dev.sluide.pdf.TestPdfs
 import dev.sluide.pdf.engine.PageRect
 import javafx.geometry.Point2D
@@ -85,7 +86,7 @@ internal class PdfSelectionUiTest : PdfSelectionUiBase() {
 
     @Test
     fun `Shortcut+A and Shortcut+C over three pages copy them joined by blank lines`() {
-        val view = open(TestPdfs.threePages)
+        val view = open(PanelPdfs.threePages)
         awaitRendered(view, 0)
         clearClipboard()
         key(view, KeyCode.A, shortcut = true)
@@ -205,9 +206,9 @@ internal class PdfSelectionUiTest : PdfSelectionUiBase() {
 
     @Test
     fun `a click on a link to a page scrolls to it`() {
-        val view = open(TestPdfs.selectionLinks)
+        val view = open(PanelPdfs.selectionLinks)
         awaitRendered(view, 0)
-        val link = sceneRect(view, 0, TestPdfs.selectionLinkRect(1)).centre()
+        val link = sceneRect(view, 0, PanelPdfs.selectionLinkRect(1)).centre()
         awaitCursor(view, link, Cursor.HAND)
         assertEquals(0, fx { view.currentPage.get() })
         click(view, link)
@@ -217,15 +218,15 @@ internal class PdfSelectionUiTest : PdfSelectionUiBase() {
     @Test
     fun `a click on a web link opens it through the host, and the tooltip says where it leads`() {
         val host = FakeHost()
-        val view = open(TestPdfs.selectionLinks) { it.host = host }
+        val view = open(PanelPdfs.selectionLinks) { it.host = host }
         awaitRendered(view, 0)
-        val link = sceneRect(view, 0, TestPdfs.selectionLinkRect(0)).centre()
+        val link = sceneRect(view, 0, PanelPdfs.selectionLinkRect(0)).centre()
         awaitCursor(view, link, Cursor.HAND)
         val tooltip = fx { view.pages.properties["javafx.scene.control.Tooltip"] as Tooltip? }
-        assertEquals(TestPdfs.SELECTION_LINK_URI, tooltip?.text)
+        assertEquals(PanelPdfs.SELECTION_LINK_URI, tooltip?.text)
         click(view, link)
-        assertEquals(listOf(URI(TestPdfs.SELECTION_LINK_URI)), host.webPages)
-        val internal = sceneRect(view, 0, TestPdfs.selectionLinkRect(1)).centre()
+        assertEquals(listOf(URI(PanelPdfs.SELECTION_LINK_URI)), host.webPages)
+        val internal = sceneRect(view, 0, PanelPdfs.selectionLinkRect(1)).centre()
         awaitCursor(view, internal, Cursor.HAND)
         assertEquals("Page 3", (fx { view.pages.properties["javafx.scene.control.Tooltip"] as Tooltip? })?.text)
         awaitCursor(view, sceneRect(view, 0, PageRect(400.0, 600.0, 10.0, 10.0)).centre(), null)
@@ -234,9 +235,9 @@ internal class PdfSelectionUiTest : PdfSelectionUiBase() {
 
     @Test
     fun `a click on a link without a host does nothing`() {
-        val view = open(TestPdfs.selectionLinks)
+        val view = open(PanelPdfs.selectionLinks)
         awaitRendered(view, 0)
-        val link = sceneRect(view, 0, TestPdfs.selectionLinkRect(0)).centre()
+        val link = sceneRect(view, 0, PanelPdfs.selectionLinkRect(0)).centre()
         awaitCursor(view, link, Cursor.HAND)
         click(view, link)
         assertEquals(0, fx { view.currentPage.get() })
@@ -257,7 +258,7 @@ internal class PdfSelectionUiTest : PdfSelectionUiBase() {
 
     @Test
     fun `the selection on page 2 keeps its rects across a scroll and a zoom`() {
-        val view = open(TestPdfs.threePages)
+        val view = open(PanelPdfs.threePages)
         awaitRendered(view, 0)
         key(view, KeyCode.A, shortcut = true)
         fx {
@@ -322,9 +323,9 @@ internal class PdfSelectionUiTest : PdfSelectionUiBase() {
 
     @Test
     fun `disposing the view takes the link tooltip away`() {
-        val view = open(TestPdfs.selectionLinks)
+        val view = open(PanelPdfs.selectionLinks)
         awaitRendered(view, 0)
-        awaitCursor(view, sceneRect(view, 0, TestPdfs.selectionLinkRect(0)).centre(), Cursor.HAND)
+        awaitCursor(view, sceneRect(view, 0, PanelPdfs.selectionLinkRect(0)).centre(), Cursor.HAND)
         val selection = fx { PdfSelection.of(view) }
         assertTrue(fx { selection.tooltipInstalled })
         fx { view.dispose() }
@@ -334,17 +335,17 @@ internal class PdfSelectionUiTest : PdfSelectionUiBase() {
     @Test
     fun `the links are read again after a reload`() {
         val file = dir.resolve("links.pdf")
-        Files.copy(TestPdfs.selectionLinks, file)
+        Files.copy(PanelPdfs.selectionLinks, file)
         var reloads = 0
         val view = open(file) { it.onReload += { reloads++ } }
         awaitRendered(view, 0)
-        val link = sceneRect(view, 0, TestPdfs.selectionLinkRect(1)).centre()
+        val link = sceneRect(view, 0, PanelPdfs.selectionLinkRect(1)).centre()
         awaitCursor(view, link, Cursor.HAND)
         reload(view, file) { reloads }
         // The cursor stays a hand over the reload: move off the link first, so that the wait below sees new links.
         awaitCursor(view, sceneRect(view, 0, PageRect(400.0, 600.0, 10.0, 10.0)).centre(), null)
         // The reload keeps the page's top at the viewport's top: the link moved.
-        val moved = sceneRect(view, 0, TestPdfs.selectionLinkRect(1)).centre()
+        val moved = sceneRect(view, 0, PanelPdfs.selectionLinkRect(1)).centre()
         awaitCursor(view, moved, Cursor.HAND)
         click(view, moved)
         assertEquals(2, fx { view.currentPage.get() })

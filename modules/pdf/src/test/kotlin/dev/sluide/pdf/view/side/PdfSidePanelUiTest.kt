@@ -1,6 +1,7 @@
 package dev.sluide.pdf.view.side
 
 import dev.sluide.backgroundtasks.NamedThreads
+import dev.sluide.pdf.PanelPdfs
 import dev.sluide.pdf.TestPdfs
 import dev.sluide.pdf.engine.OutlineItem
 import dev.sluide.pdf.engine.PageTarget
@@ -247,7 +248,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `a PDF with an outline opens the panel on Outline, its items expanded as the PDF marks them`() {
-        val view = open(TestPdfs.sideOutline)
+        val view = open(PanelPdfs.sideOutline)
         awaitRendered(view, 0)
         assertTrue(fx { view.split.leftShown.get() })
         val toggle = toggle(view)
@@ -277,7 +278,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `a click on an item scrolls to its page and gives the focus to the pages`() {
-        val view = open(TestPdfs.sideOutline)
+        val view = open(PanelPdfs.sideOutline)
         awaitRendered(view, 0)
         fx { tree(view).requestFocus() }
         fx { Event.fireEvent(cell(view, "1.2 More"), click()) }
@@ -288,7 +289,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `Enter on the selected item jumps, the arrow keys only move the selection`() {
-        val view = open(TestPdfs.sideOutline)
+        val view = open(PanelPdfs.sideOutline)
         awaitRendered(view, 0)
         assertEquals(5, fx { tree(view).root.children.size })
         fx {
@@ -307,7 +308,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `scrolling the pages moves the selection to the item of the current page, never into a collapsed one`() {
-        val view = open(TestPdfs.sideOutline)
+        val view = open(PanelPdfs.sideOutline)
         awaitRendered(view, 0)
         wheelTo(view, 1)
         assertEquals("1.2 More", selectedTitle(view))
@@ -320,7 +321,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `a jump keeps the picked item selected until the user scrolls or the pages move away from its page`() {
-        val view = open(TestPdfs.sideOutline)
+        val view = open(PanelPdfs.sideOutline)
         awaitRendered(view, 0)
         fx { view.scrollTo(PageTarget(4)) }
         assertEquals("4 Late", selectedTitle(view))
@@ -344,7 +345,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `an item without a destination is dimmed and does nothing on a click or Enter`() {
-        val view = open(TestPdfs.sideOutline)
+        val view = open(PanelPdfs.sideOutline)
         awaitRendered(view, 0)
         fx { view.scrollTo(PageTarget(2)) }
         val dimmed = cell(view, "3 No destination")
@@ -374,7 +375,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `only a single primary click on an item jumps, not another button, a double click, an arrow or empty space`() {
-        val view = open(TestPdfs.sideOutline)
+        val view = open(PanelPdfs.sideOutline)
         awaitRendered(view, 0)
         val more = cell(view, "1.2 More")
         fx { Event.fireEvent(more, click(MouseButton.SECONDARY)) }
@@ -392,7 +393,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `Enter in the lists is consumed, other keys do not jump, and Enter without a selection does nothing`() {
-        val view = open(TestPdfs.sideOutline)
+        val view = open(PanelPdfs.sideOutline)
         awaitRendered(view, 0)
         var enters = 0
         fx { view.node.addEventHandler(KeyEvent.KEY_PRESSED) { if (it.code == KeyCode.ENTER) enters++ } }
@@ -435,7 +436,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `a PDF without an outline opens with the panel closed, Thumbnails selected and a placeholder on Outline`() {
-        val view = open(TestPdfs.sideNoOutline)
+        val view = open(PanelPdfs.sideNoOutline)
         awaitRendered(view, 0)
         assertFalse(fx { view.split.leftShown.get() })
         assertFalse(fx { toggle(view).isSelected })
@@ -448,7 +449,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `thumbnails paint their pages, follow the current page, and a click or Enter jumps`() {
-        val view = open(TestPdfs.sideNoOutline)
+        val view = open(PanelPdfs.sideNoOutline)
         awaitRendered(view, 0)
         fx { toggle(view).isSelected = true }
         assertTrue(fx { view.split.leftShown.get() })
@@ -464,8 +465,8 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
         val second = checkNotNull(imageOf(checkNotNull(thumbnail(view, 1))))
         assertFalse(pixels(first).contentEquals(pixels(second)))
         // A cell reused for page 1 again shows page 1's image, kept in the cache.
-        fx { list(view).scrollTo(TestPdfs.SIDE_PAGES - 1) }
-        await { thumbnail(view, TestPdfs.SIDE_PAGES - 1)?.let(::imageOf) != null }
+        fx { list(view).scrollTo(PanelPdfs.SIDE_PAGES - 1) }
+        await { thumbnail(view, PanelPdfs.SIDE_PAGES - 1)?.let(::imageOf) != null }
         fx { list(view).scrollTo(0) }
         assertSame(first, imageOf(checkNotNull(thumbnail(view, 0))))
         val cell = checkNotNull(thumbnail(view, 0))
@@ -506,13 +507,13 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `a picked thumbnail stays selected until the user scrolls or the pages move away, also below the top`() {
-        val view = open(TestPdfs.sideNoOutline)
+        val view = open(PanelPdfs.sideNoOutline)
         awaitRendered(view, 0)
         // Several pages in the viewport: the last ones cannot scroll to its top, so the current page is an earlier one.
         fx { repeat(4) { view.pageColumn.zoomOut() } }
         fx { toggle(view).isSelected = true }
         paint()
-        val last = TestPdfs.SIDE_PAGES - 1
+        val last = PanelPdfs.SIDE_PAGES - 1
         fx { list(view).scrollTo(last) }
         fx { Event.fireEvent(checkNotNull(thumbnail(view, last)), click()) }
         val current = fx { view.currentPage.get() }
@@ -536,7 +537,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `thumbnails opened after the pages moved show the current page`() {
-        val view = open(TestPdfs.sideNoOutline)
+        val view = open(PanelPdfs.sideNoOutline)
         awaitRendered(view, 0)
         fx { view.scrollTo(PageTarget(15)) }
         fx { toggle(view).isSelected = true }
@@ -583,7 +584,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `a thumbnail has the shape of its own page`() {
-        val view = open(TestPdfs.sidePortraitLandscape)
+        val view = open(PanelPdfs.sidePortraitLandscape)
         awaitRendered(view, 0)
         fx { toggle(view).isSelected = true }
         paint()
@@ -594,7 +595,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
     @Test
     fun `a shorter document after a reload leaves the cells below its pages empty`() {
         val file = dir.resolve("shrinking.pdf")
-        Files.copy(TestPdfs.sideNoOutline, file)
+        Files.copy(PanelPdfs.sideNoOutline, file)
         var reloads = 0
         val view = open(file) { opening -> opening.onReload += { reloads++ } }
         awaitRendered(view, 0)
@@ -611,7 +612,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `the outline scrolls to show the item it follows, also one followed while the panel was hidden`() {
-        val view = open(TestPdfs.sideLongOutline)
+        val view = open(PanelPdfs.sideLongOutline)
         awaitRendered(view, 0)
         // Page 1 comes before the first item's.
         assertNull(selectedTitle(view))
@@ -630,13 +631,13 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `a long title shows on one line, cut off within the panel, with the whole title as tooltip`() {
-        val view = open(TestPdfs.sideLongOutline)
+        val view = open(PanelPdfs.sideLongOutline)
         awaitRendered(view, 0)
-        fx { view.scrollTo(PageTarget(TestPdfs.SIDE_LONG_PAGES - 1)) }
+        fx { view.scrollTo(PageTarget(PanelPdfs.SIDE_LONG_PAGES - 1)) }
         paint()
-        val long = cell(view, TestPdfs.SIDE_LONG_TITLE)
-        assertEquals(TestPdfs.SIDE_LONG_TITLE.replace("\n", " "), fx { long.text })
-        assertEquals(TestPdfs.SIDE_LONG_TITLE, fx { long.tooltip?.text })
+        val long = cell(view, PanelPdfs.SIDE_LONG_TITLE)
+        assertEquals(PanelPdfs.SIDE_LONG_TITLE.replace("\n", " "), fx { long.text })
+        assertEquals(PanelPdfs.SIDE_LONG_TITLE, fx { long.tooltip?.text })
         assertTrue(fx { long.width <= tree(view).width }, fx { "${long.width} in ${tree(view).width}" })
         assertTrue(
             fx { (long.lookup(".text") as Text).text.endsWith("...") },
@@ -646,7 +647,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
 
     @Test
     fun `the toggle hides the panel and shows it again at the width it had, and follows the split`() {
-        val view = open(TestPdfs.sideOutline)
+        val view = open(PanelPdfs.sideOutline)
         awaitRendered(view, 0)
         assertTrue(fx { view.split.leftShown.get() })
         await { view.split.left.width in 210.0..222.0 }
@@ -674,7 +675,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
     @Test
     fun `a reload rebuilds the outline from the new file`() {
         val file = dir.resolve("outline.pdf")
-        Files.copy(TestPdfs.sideOutline, file)
+        Files.copy(PanelPdfs.sideOutline, file)
         var reloads = 0
         val view = open(file) { opening -> opening.onReload += { reloads++ } }
         awaitRendered(view, 0)
@@ -683,7 +684,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
             tabs(view).selectionModel.select(1)
             toggle(view).isSelected = false
         }
-        replace(file, TestPdfs.sideOutlineRenamed)
+        replace(file, PanelPdfs.sideOutlineRenamed)
         fx { view.reload() }
         await { reloads == 1 }
         val roots = fx { tree(view).root.children.toList() }
@@ -701,7 +702,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
     @Test
     fun `a reload drops the thumbnails and renders the shown ones again, keeping the tab and the open panel`() {
         val file = dir.resolve("pages.pdf")
-        Files.copy(TestPdfs.sideNoOutline, file)
+        Files.copy(PanelPdfs.sideNoOutline, file)
         var reloads = 0
         var cell: ListCell<Int>? = null
         // Right after the panel's own reload callback (it registered first), before any layout: the image it showed
@@ -722,7 +723,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
         val before = imageOf(checkNotNull(cell))
         assertNotNull(before)
         // The same document again: its info is equal, only the reload tells the panel.
-        replace(file, TestPdfs.sideNoOutline)
+        replace(file, PanelPdfs.sideNoOutline)
         fx { view.reload() }
         await { reloads == 1 }
         val (image, queued) = checkNotNull(atReload)
@@ -736,7 +737,7 @@ internal class PdfSidePanelUiTest : PdfViewUiFixture() {
     @Test
     fun `thumbnails render only while their tab shows in the panel, and dispose drops the queued ones`() {
         val executor = NamedThreads.single("test-side-render")
-        val view = open(TestPdfs.sideOutline, executor)
+        val view = open(PanelPdfs.sideOutline, executor)
         awaitRendered(view, 0)
         val release = CountDownLatch(1)
         try {

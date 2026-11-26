@@ -1,5 +1,6 @@
 package dev.sluide.pdf.view
 
+import dev.sluide.pdf.PanelPdfs
 import dev.sluide.pdf.TestPdfs
 import dev.sluide.pdf.engine.PageRect
 import dev.sluide.pdf.engine.PageTarget
@@ -218,7 +219,7 @@ internal class PdfSelectionEdgesUiTest : PdfSelectionUiBase() {
 
     @Test
     fun `copy of a range that starts after the first page does not touch the pages before it`() {
-        val view = open(TestPdfs.threePages)
+        val view = open(PanelPdfs.threePages)
         awaitRendered(view, 0)
         fx {
             view.pageColumn.zoomOut()
@@ -246,7 +247,7 @@ internal class PdfSelectionEdgesUiTest : PdfSelectionUiBase() {
 
     @Test
     fun `select all paints the shown pages only`() {
-        val view = open(TestPdfs.threePages)
+        val view = open(PanelPdfs.threePages)
         awaitRendered(view, 0)
         textOf(view, 0)
         fx { view.scrollTo(PageTarget(2)) }
@@ -338,7 +339,7 @@ internal class PdfSelectionEdgesUiTest : PdfSelectionUiBase() {
         act: (PdfFileView, () -> Bounds, () -> Bounds) -> Unit,
     ): PdfFileView {
         val file = dir.resolve("held-pages.pdf")
-        Files.copy(TestPdfs.threePages, file)
+        Files.copy(PanelPdfs.threePages, file)
         var reloads = 0
         val view = open(file) { it.onReload += { reloads++ } }
         awaitRendered(view, 0)
@@ -403,7 +404,7 @@ internal class PdfSelectionEdgesUiTest : PdfSelectionUiBase() {
 
     @Test
     fun `copy waits for all the texts of its range before it sets the clipboard, and throws nothing`() {
-        val view = open(TestPdfs.threePages)
+        val view = open(PanelPdfs.threePages)
         awaitRendered(view, 0)
         catchErrors()
         clearClipboard()
@@ -414,7 +415,7 @@ internal class PdfSelectionEdgesUiTest : PdfSelectionUiBase() {
     }
 
     private fun pageTwo(): PdfFileView {
-        val view = open(TestPdfs.pageTwoLinks)
+        val view = open(PanelPdfs.pageTwoLinks)
         awaitRendered(view, 0)
         fx { view.scrollTo(PageTarget(1)) }
         awaitRendered(view, 1)
@@ -455,15 +456,15 @@ internal class PdfSelectionEdgesUiTest : PdfSelectionUiBase() {
     @Test
     fun `a link on the second page shows the hand and its address, and a click follows it`() {
         val host = FakeHost()
-        val view = open(TestPdfs.pageTwoLinks) { it.host = host }
+        val view = open(PanelPdfs.pageTwoLinks) { it.host = host }
         awaitRendered(view, 0)
         fx { view.scrollTo(PageTarget(1)) }
         awaitRendered(view, 1)
-        val link = sceneRect(view, 1, TestPdfs.PAGE_TWO_LINK_RECT).centre()
+        val link = sceneRect(view, 1, PanelPdfs.PAGE_TWO_LINK_RECT).centre()
         awaitCursor(view, link, Cursor.HAND)
-        assertEquals(TestPdfs.PAGE_TWO_LINK_URI, fx { PdfSelection.of(view).tooltip.text })
+        assertEquals(PanelPdfs.PAGE_TWO_LINK_URI, fx { PdfSelection.of(view).tooltip.text })
         click(view, link)
-        assertEquals(listOf(URI(TestPdfs.PAGE_TWO_LINK_URI)), host.webPages)
+        assertEquals(listOf(URI(PanelPdfs.PAGE_TWO_LINK_URI)), host.webPages)
     }
 
     @Test
@@ -472,14 +473,14 @@ internal class PdfSelectionEdgesUiTest : PdfSelectionUiBase() {
         var reached = false
         var failure: Throwable? = null
         val view =
-            open(TestPdfs.selectionLinks) { opening ->
+            open(PanelPdfs.selectionLinks) { opening ->
                 opening.host = host
                 opening.shownPages.subscribe { pages ->
                     // The same FX task that shows the pages: the links are asked for, but cannot be there yet.
                     if (!pages.isEmpty() && !reached) {
                         reached = true
                         try {
-                            val link = checkNotNull(opening.pageRectToScene(0, TestPdfs.selectionLinkRect(0)))
+                            val link = checkNotNull(opening.pageRectToScene(0, PanelPdfs.selectionLinkRect(0)))
                             val at = Point2D(link.centerX, link.centerY)
                             check(opening.pagePointAt(at.x, at.y) != null)
                             javafx.event.Event.fireEvent(opening.pages, mouse(MouseEvent.MOUSE_MOVED, at))
@@ -511,9 +512,9 @@ internal class PdfSelectionEdgesUiTest : PdfSelectionUiBase() {
 
     @Test
     fun `leaving a link hides its tooltip`() {
-        val view = open(TestPdfs.selectionLinks)
+        val view = open(PanelPdfs.selectionLinks)
         awaitRendered(view, 0)
-        awaitCursor(view, sceneRect(view, 0, TestPdfs.selectionLinkRect(0)).centre(), Cursor.HAND)
+        awaitCursor(view, sceneRect(view, 0, PanelPdfs.selectionLinkRect(0)).centre(), Cursor.HAND)
         val tooltip = fx { PdfSelection.of(view).tooltip }
         fx { tooltip.show(view.pages, 100.0, 100.0) }
         assertTrue(fx { tooltip.isShowing })

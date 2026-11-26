@@ -1,5 +1,6 @@
 package dev.sluide.pdf.view.search
 
+import dev.sluide.pdf.PanelPdfs
 import dev.sluide.pdf.TestPdfs
 import dev.sluide.pdf.engine.PageRect
 import dev.sluide.pdf.engine.PageText
@@ -62,7 +63,7 @@ class SearchFlowTest {
 
     private val status get() = statuses.lastOrNull().orEmpty()
 
-    private fun open(file: Path = TestPdfs.search) {
+    private fun open(file: Path = PanelPdfs.search) {
         texts.clear()
         worker.reopen(file, null, { }) { }
         run()
@@ -86,7 +87,7 @@ class SearchFlowTest {
 
     private fun hits() = rows.filterIsInstance<SearchRow.Hit>().map { it.hit }
 
-    /** The four hits of [TestPdfs.SEARCH_WORD] in [TestPdfs.search] listed now. */
+    /** The four hits of [PanelPdfs.SEARCH_WORD] in [PanelPdfs.search] listed now. */
     private fun wordHits(): List<SearchHit> = hits().also { assertEquals(4, it.size, rows.toString()) }
 
     private fun headings() = rows.filterIsInstance<SearchRow.Heading>().map { it.title }
@@ -105,7 +106,7 @@ class SearchFlowTest {
         layer: OverlayLayer,
     ) = overlays.on(page).filter { it.first == layer }.map { it.second }
 
-    private fun searched(query: String = TestPdfs.SEARCH_WORD) {
+    private fun searched(query: String = PanelPdfs.SEARCH_WORD) {
         flow.search(query)
         run()
     }
@@ -113,7 +114,7 @@ class SearchFlowTest {
     @Test
     fun `collects the page texts in page order, counting them, then matches them on its executor`() {
         open()
-        flow.search(TestPdfs.SEARCH_WORD)
+        flow.search(PanelPdfs.SEARCH_WORD)
         assertEquals(listOf(0, 1, 2, 3, 4), plainRequests)
         assertEquals("Searching… page 0 of 5", status)
         textExecutor.runAll()
@@ -126,7 +127,7 @@ class SearchFlowTest {
         assertEquals("4 matches", status)
         assertEquals(listOf("Page 1", "Page 3", "Page 5"), headings())
         assertEquals(listOf(0, 2, 2, 4), hits().map { it.page })
-        assertEquals(TestPdfs.SEARCH_WORD, hits().first().match)
+        assertEquals(PanelPdfs.SEARCH_WORD, hits().first().match)
     }
 
     @Test
@@ -146,7 +147,7 @@ class SearchFlowTest {
     @Test
     fun `a newer query replaces an older one, whose progress and results are dropped`() {
         open()
-        flow.search(TestPdfs.SEARCH_WORD)
+        flow.search(PanelPdfs.SEARCH_WORD)
         flow.search("page")
         statuses.clear()
         run()
@@ -158,7 +159,7 @@ class SearchFlowTest {
     fun `clearing drops the search on its way and the results shown`() {
         open()
         searched()
-        flow.search(TestPdfs.SEARCH_WORD)
+        flow.search(PanelPdfs.SEARCH_WORD)
         flow.clear()
         run()
         assertEquals("", status)
@@ -204,7 +205,7 @@ class SearchFlowTest {
     fun `a changed document is searched again with the last query, a cleared one is not`() {
         open()
         searched()
-        open(TestPdfs.searchMoved)
+        open(PanelPdfs.searchMoved)
         flow.documentChanged()
         run()
         assertEquals("2 matches", status)
@@ -306,7 +307,7 @@ class SearchFlowTest {
     @Test
     fun `highlights and scrolls arriving after the search changed are dropped`() {
         open()
-        flow.search(TestPdfs.SEARCH_WORD)
+        flow.search(PanelPdfs.SEARCH_WORD)
         textExecutor.runAll()
         fx.runAll()
         matcher.runAll()
@@ -322,7 +323,7 @@ class SearchFlowTest {
     @Test
     fun `the executor is made for the first matching, and dispose drops the matching on its way and shuts it down`() {
         open()
-        flow.search(TestPdfs.SEARCH_WORD)
+        flow.search(PanelPdfs.SEARCH_WORD)
         assertEquals(0, executorsMade)
         textExecutor.runAll()
         fx.runAll()
@@ -340,7 +341,7 @@ class SearchFlowTest {
     fun `shown pages and a choice before any results highlight and scroll nothing`() {
         open()
         flow.shownPagesChanged()
-        flow.choose(SearchHit(0, 2, 9, "", TestPdfs.SEARCH_WORD, ""))
+        flow.choose(SearchHit(0, 2, 9, "", PanelPdfs.SEARCH_WORD, ""))
         run()
         assertTrue(overlays.on(0).isEmpty())
         assertEquals(emptyList(), scrolls)

@@ -1,6 +1,6 @@
 package dev.sluide.pdf.view.search
 
-import dev.sluide.pdf.TestPdfs
+import dev.sluide.pdf.PanelPdfs
 import dev.sluide.pdf.engine.PageTarget
 import dev.sluide.pdf.engine.PageText
 import dev.sluide.pdf.view.OverlayLayer
@@ -88,7 +88,7 @@ internal class PdfSearchUiTest : PdfViewUiFixture() {
     /** Opens the panel with Shortcut+F, searches [query] with Enter and waits for [expected] in the status. */
     private fun searched(
         view: PdfFileView,
-        query: String = TestPdfs.SEARCH_WORD,
+        query: String = PanelPdfs.SEARCH_WORD,
         expected: String = "4 matches",
     ) {
         find(view.node)
@@ -101,7 +101,7 @@ internal class PdfSearchUiTest : PdfViewUiFixture() {
     }
 
     private fun openSearch(): PdfFileView {
-        val view = open(TestPdfs.search)
+        val view = open(PanelPdfs.search)
         awaitRendered(view, 0)
         return view
     }
@@ -275,7 +275,7 @@ internal class PdfSearchUiTest : PdfViewUiFixture() {
         val view = openSearch()
         find(view.pages)
         assertTrue(fx { view.split.rightShown.get() })
-        fx { field(view).text = TestPdfs.SEARCH_WORD }
+        fx { field(view).text = PanelPdfs.SEARCH_WORD }
         await { status(view) == "4 matches" }
         assertEquals(listOf("Page 1", "Page 3", "Page 5"), headings(view))
         assertEquals(7, rows(view).size)
@@ -326,7 +326,7 @@ internal class PdfSearchUiTest : PdfViewUiFixture() {
         assertEquals("Page 1", fx { heading.text })
         val snippet = assertIs<TextFlow>(fx { cellAt(view, 1).graphic })
         val texts = fx { snippet.children.map { it as Text } }
-        assertEquals(listOf("A ", TestPdfs.SEARCH_WORD, " on page one"), fx { texts.map { it.text } })
+        assertEquals(listOf("A ", PanelPdfs.SEARCH_WORD, " on page one"), fx { texts.map { it.text } })
         assertTrue(
             fx { "pdf-search-snippet" in snippet.styleClass && texts.all { "pdf-search-text" in it.styleClass } },
         )
@@ -450,8 +450,8 @@ internal class PdfSearchUiTest : PdfViewUiFixture() {
         assertTrue(fx { view.overlays.on(0).isEmpty() })
         assertEquals("", status(view))
         assertEquals(emptyList(), rows(view))
-        assertEquals(TestPdfs.SEARCH_WORD, fx { field(view).text })
-        val white = brightest(view, SearchHit(0, 2, 2 + TestPdfs.SEARCH_WORD.length, "", "", ""))
+        assertEquals(PanelPdfs.SEARCH_WORD, fx { field(view).text })
+        val white = brightest(view, SearchHit(0, 2, 2 + PanelPdfs.SEARCH_WORD.length, "", "", ""))
         assertTrue(white.isWhite(), white.toString())
         fx { toggle.isSelected = true }
         await { status(view) == "4 matches" }
@@ -460,7 +460,7 @@ internal class PdfSearchUiTest : PdfViewUiFixture() {
         val field = field(view)
         fx {
             field.text = ""
-            field.text = TestPdfs.SEARCH_WORD
+            field.text = PanelPdfs.SEARCH_WORD
             toggle.isSelected = false
         }
         pastDebounce()
@@ -479,10 +479,10 @@ internal class PdfSearchUiTest : PdfViewUiFixture() {
                 ) = gate.await()
             }
         try {
-            val view = open(TestPdfs.search, render)
+            val view = open(PanelPdfs.search, render)
             find(view.node)
             fx {
-                field(view).text = TestPdfs.SEARCH_WORD
+                field(view).text = PanelPdfs.SEARCH_WORD
                 Event.fireEvent(field(view), keyPress(KeyCode.ENTER))
             }
             assertEquals("", status(view))
@@ -496,11 +496,11 @@ internal class PdfSearchUiTest : PdfViewUiFixture() {
     @Test
     fun `a reload with an open query searches the new text`() {
         val file = dir.resolve("search.pdf")
-        Files.copy(TestPdfs.search, file)
+        Files.copy(PanelPdfs.search, file)
         val view = open(file)
         awaitRendered(view, 0)
         searched(view)
-        Files.copy(TestPdfs.searchMoved, file, StandardCopyOption.REPLACE_EXISTING)
+        Files.copy(PanelPdfs.searchMoved, file, StandardCopyOption.REPLACE_EXISTING)
         Files.setLastModifiedTime(file, FileTime.fromMillis(Files.getLastModifiedTime(file).toMillis() + 10_000))
         fx { view.reload() }
         await { status(view) == "2 matches" }
