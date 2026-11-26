@@ -25,9 +25,13 @@ internal object PlantUmlHtml {
     /**
      * The diagrams of [rendering] in a `div.plantuml`: the note about the built-in layout if PlantUML used it, then the
      * stack, `div.plantuml-diagrams`, with one child per diagram in order: a `div.plantuml-diagram` with both variants,
-     * or a `pre.plantuml-error` ("Line N: message" and the class `syntax` if it has a line).
+     * or a `pre.plantuml-error` ("Line N: message" and the class `syntax` if it has a line; [line] names the line
+     * otherwise, "Cell 2, line" in a notebook).
      */
-    fun diagrams(rendering: Rendering): Element {
+    fun diagrams(
+        rendering: Rendering,
+        line: String = "Line",
+    ): Element {
         val element = Element("div").addClass("plantuml")
         if (rendering.builtInLayout) element.appendChild(note(BUILT_IN_LAYOUT))
         val stack = element.appendElement("div").addClass("plantuml-diagrams")
@@ -44,7 +48,7 @@ internal object PlantUmlHtml {
                     if (diagram.line == null) {
                         error.text(diagram.message)
                     } else {
-                        error.addClass("syntax").text("Line ${diagram.line}: ${diagram.message}")
+                        error.addClass("syntax").text("$line ${diagram.line}: ${diagram.message}")
                     }
                 }
             }

@@ -1,11 +1,16 @@
 package dev.sluide.previews.notebook
 
+import dev.sluide.plantuml.Diagram
+import dev.sluide.plantuml.Rendering
+import dev.sluide.previews.plantuml.PlantUmlHtml
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -206,5 +211,64 @@ class NotebookRendererTest {
         val output = assertNotNull(render(json).selectFirst(".output"))
         assertEquals("", output.text())
         assertEquals(0, output.children().size)
+    }
+
+    /** Two cells with PlantUML fences after a code cell: the second fence's third line has an error. */
+    private val fences =
+        """{"cells":[{"cell_type":"code","source":"x","outputs":[]},
+        {"cell_type":"markdown","source":["Intro\n","\n","```plantuml\n","A -> B\n","```"]},
+        {"cell_type":"markdown","source":"```puml\nA -> B\nB -> A\nbad\n```\n"}]}"""
+
+    @Test
+    fun `PlantUML fences in Markdown cells are drawn in the cell's lines, an error names the cell and its line`() {
+        val asked = mutableListOf<Pair<String, Int>>()
+        val page =
+            Jsoup.parse(
+                NotebookRenderer.render(fences, dir, dark = false) { source, firstLine ->
+                    asked += source to firstLine
+                    // As the engine counts: the line of the source's position from firstLine on.
+                    val bad = source.lines().indexOf("bad")
+                    val diagram =
+                        if (bad < 0) Diagram.Drawn("<svg/>", "<svg/>") else Diagram.Failed("Syntax?", firstLine + bad)
+                    Rendering(listOf(diagram), false)
+                },
+            )
+
+        assertEquals(listOf(3, 1), asked.map { it.second })
+        assertEquals(listOf("2", "0"), page.select(".cell.markdown div.plantuml").map { it.attr("data-line") })
+        assertEquals(1, page.select(".cell.markdown img.plantuml-light").size)
+        assertEquals("Cell 3, line 4: Syntax?", page.selectFirst("pre.plantuml-error")?.text())
+    }
+
+    @Test
+    fun `each view's preview draws PlantUML fences and renders again when a drawing arrives, until detached`() {
+        val viewer = NotebookFileViewer()
+        assertNotSame(viewer.newPreview(), viewer.newPreview())
+        val requests = mutableListOf<CompletableFuture<Rendering>>()
+        val fxQueue = ArrayDeque<Runnable>()
+        var rerenders = 0
+
+        fun preview() =
+            NotebookPreview({ _, _ -> CompletableFuture<Rendering>().also { requests += it } }, fxQueue::addLast)
+                .apply { attach({ rerenders++ }) { null } }
+
+        fun arrive() {
+            requests.forEach { it.complete(Rendering(listOf(Diagram.Drawn("<svg/>", "<svg/>")), false)) }
+            while (fxQueue.isNotEmpty()) fxQueue.removeFirst().run()
+        }
+        val preview = preview()
+
+        val drawing = Jsoup.parse(preview.page(fences, dir, dark = false))
+        assertEquals(PlantUmlHtml.DRAWING, drawing.selectFirst(".cell.markdown p.diagram-note")?.text())
+        arrive()
+        assertEquals(1, rerenders)
+        assertEquals(2, Jsoup.parse(preview.page(fences, dir, dark = false)).select("div.plantuml").size)
+        assertEquals(2, requests.size)
+
+        val detached = preview()
+        detached.page(fences, dir, dark = false)
+        detached.detach()
+        arrive()
+        assertEquals(1, rerenders, "no rerender after detach")
     }
 }

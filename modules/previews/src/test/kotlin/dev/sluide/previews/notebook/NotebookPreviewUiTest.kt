@@ -4,6 +4,7 @@ import dev.sluide.previews.preview.PreviewFileView
 import dev.sluide.previews.preview.PreviewMode
 import javafx.concurrent.Worker
 import javafx.scene.Scene
+import javafx.scene.image.WritableImage
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -70,5 +71,43 @@ class NotebookPreviewUiTest {
         }
         assertEquals(40, (view.script("document.querySelector('.output img').naturalWidth") as Number).toInt())
         assertEquals("In [1]:", view.script("document.querySelector('.prompt').textContent"))
+    }
+
+    @Test
+    fun `a notebook's Markdown cell paints its PlantUML fence`(robot: FxRobot) {
+        val json =
+            """{"cells": [{"cell_type": "markdown", "source": "```plantuml\nAlice -> Bob : hello\n```\n"}]}"""
+        val file = dir.resolve("diagram.ipynb").apply { writeText(json) }
+        // The viewer as Spring creates it: the app's engine, results handed to the FX thread by Platform.runLater.
+        val view =
+            WaitForAsyncUtils.asyncFx<PreviewFileView> { NotebookFileViewer().open(file) as PreviewFileView }.get()
+        robot.interact { container.children.setAll(view.node) }
+
+        // The first drawing starts PlantUML, which is slow.
+        WaitForAsyncUtils.waitFor(30, TimeUnit.SECONDS) {
+            WaitForAsyncUtils
+                .asyncFx<Boolean> {
+                    view.webView.engine.loadWorker.state == Worker.State.SUCCEEDED
+                }.get() &&
+                view.script(
+                    "(function () { var img = document.querySelector('.cell.markdown img.plantuml-light');" +
+                        " return img !== null && img.complete && img.naturalWidth > 0; })()",
+                ) == true
+        }
+        val box = "document.querySelector('img.plantuml-light').getBoundingClientRect()"
+
+        /** The dark pixels inside the diagram, in a snapshot. */
+        fun ink(): Int {
+            val (left, top, right, bottom) =
+                listOf("left", "top", "right", "bottom").map { (view.script("$box.$it") as Number).toInt() }
+            val image = WaitForAsyncUtils.asyncFx<WritableImage> { view.webView.snapshot(null, null) }.get()
+            return (left + 1 until minOf(right, image.width.toInt()) step 2).sumOf { x ->
+                (top + 1 until minOf(bottom, image.height.toInt()) step 2).count { y ->
+                    image.pixelReader.getColor(x, y).brightness < 0.4
+                }
+            }
+        }
+        // Loaded and decoded is not yet painted.
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { ink() > 20 }
     }
 }

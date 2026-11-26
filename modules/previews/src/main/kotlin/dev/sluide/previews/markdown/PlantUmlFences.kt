@@ -38,7 +38,7 @@ internal class PlantUmlFences(
         val line: Int,
     )
 
-    private val marker = "plantuml-fence-" + UUID.randomUUID().toString().replace("-", "")
+    private val marker = "plantuml-fence-" + UUID.randomUUID()
 
     private val fences = mutableListOf<Fence>()
 
@@ -65,18 +65,22 @@ internal class PlantUmlFences(
             } else {
                 Fence("@startuml\n" + code.removeSuffix("\n") + "\n@enduml\n", line + 1, line)
             }
-        html.line()
         html.tag("div", mapOf("class" to "$marker-${fences.size - 1}"))
         html.tag("/div")
-        html.line()
     }
 
     /** Replaces the placeholders in [body], the sanitised rendering, by the fences' diagrams. */
     fun insert(body: Element) {
         fences.forEachIndexed { index, fence ->
+            // Gone if the file's HTML swallowed it (an unclosed `<textarea>` takes the rest as text).
             val placeholder = body.selectFirst("div.$marker-$index") ?: return@forEachIndexed
             val rendering = diagrams.get(fence.source, fence.firstLine)
-            val shown = if (rendering == null) PlantUmlHtml.drawing() else PlantUmlHtml.diagrams(rendering)
+            val shown =
+                if (rendering == null) {
+                    PlantUmlHtml.drawing()
+                } else {
+                    PlantUmlHtml.diagrams(rendering, diagrams.line)
+                }
             placeholder.replaceWith(shown.attr("data-line", fence.line.toString()))
         }
     }

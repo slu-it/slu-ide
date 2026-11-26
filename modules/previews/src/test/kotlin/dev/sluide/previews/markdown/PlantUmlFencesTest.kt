@@ -95,6 +95,25 @@ class PlantUmlFencesTest {
     }
 
     @Test
+    fun `the file's HTML cannot pose as a fence's placeholder`() {
+        drawn[wrapped] = rendering("one")
+        // What a placeholder's class would be if it had no random part.
+        val body = body("<div class=\"plantuml-fence-null-0\">forged</div>\n\n```plantuml\nA -> B\n```\n")
+
+        assertEquals(listOf("forged", ""), body.children().map { it.text() })
+        assertEquals(1, body.child(1).select("img.plantuml-light").size)
+    }
+
+    @Test
+    fun `a fence the file's HTML swallows is not drawn`() {
+        // An unclosed `<textarea>` in a paragraph takes the rest of the page as its text, also the fence's placeholder.
+        val body = body("Text <textarea>\n\n```plantuml\nA -> B\n```\n")
+
+        assertTrue(body.select(".plantuml, .diagram-note").isEmpty())
+        assertEquals(emptyList(), asked)
+    }
+
+    @Test
     fun `an empty fence stays an empty code block and is not drawn`() {
         val body = body("```plantuml\n```\n\n```puml\n  \n```\n")
 
