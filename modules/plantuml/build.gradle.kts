@@ -16,4 +16,7 @@ dependencies {
     implementation(libs.plantuml.mit)
     // Deliberate module dependency: Graphviz's dot is looked up through the login shell (loginShellPrints, ADR 0193).
     implementation(project(":modules:terminal"))
+
+    // LogCapture for the log lines of a failed dot lookup and a failed render.
+    testImplementation(project(":modules:test-support"))
 }
