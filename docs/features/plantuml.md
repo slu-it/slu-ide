@@ -113,8 +113,10 @@ exception in [ADR 0193](../adr/0193-plantuml-engine.md): a missing stdlib JSON m
 
 ## Export
 The toolbar's Export menu of a PlantUML file lists SVG, PNG 100%, PNG 200%, PNG 300% and PNG Custom…, written beside
-the file from its saved text (the editor's unsaved changes are not exported). The file is drawn again for the export,
-so the files match what the preview shows for the saved text.
+the file from its saved text (the editor's unsaved changes are not exported). The export takes the drawing the preview
+already holds for the saved text; if there is none, or it failed without a line (a timeout), the file is drawn as a
+background task of the window ("Drawing diagram.puml for the export") that can be cancelled. Nothing is asked or
+written if it is cancelled or the tab is closed meanwhile.
 - **One file per diagram:** a file can hold several diagrams (blocks and `newpage` pages). The first is `name.svg`
   (`name.png`, `name@2x.png`, …), the others `name-2.svg`, `name-3.svg`, … numbered over all diagrams, so that a
   diagram that fails to draw keeps its number. PNG Custom… names each with its own size: `name-2-640x480.png`.
