@@ -79,4 +79,6 @@ internal class PlantUmlPreview(
         showsDiagrams = content?.hasClass("plantuml") == true
         return PlantUmlPage.render(content, dark)
     }
+
+    override val zooms get() = true
 }

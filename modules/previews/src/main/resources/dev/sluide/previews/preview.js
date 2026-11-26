@@ -12,9 +12,14 @@
         return document.body.classList.contains('mermaid-file');
     }
 
-    // Zoom of a zoomable page (body class "zoomable": ImagePage, MermaidPreview). The image or diagram gets an explicit
-    // size in px: its natural size times the scale. zoom is null while it fits the view, else the fixed scale; scale is
-    // the one last applied. Every change is reported to sluideBridge.zoomed, so that the view's toolbar follows.
+    function isPlantUmlFile() {
+        return document.body.classList.contains('plantuml-file');
+    }
+
+    // Zoom of a zoomable page (body class "zoomable": ImagePage, MermaidPreview, PlantUmlPage). The image or diagram
+    // gets an explicit size in px: its natural size times the scale; a PlantUML file's stack of diagrams is zoomed as
+    // one, each of its images so sized. zoom is null while it fits the view, else the fixed scale; scale is the one
+    // last applied. Every change is reported to sluideBridge.zoomed, so that the view's toolbar follows.
     var MIN_SCALE = 0.1;
     var MAX_SCALE = 16;
     var MARGIN = 16;
@@ -25,14 +30,36 @@
         return document.body.classList.contains('zoomable');
     }
 
-    // What the zoom sizes: a Mermaid file's drawing, else the image.
+    // What the zoom sizes: a Mermaid file's drawing, a PlantUML file's stack of diagrams, else the image.
     function zoomTarget() {
         if (!isZoomable()) return null;
+        if (isPlantUmlFile()) return document.querySelector('.plantuml-diagrams');
         return document.querySelector(isMermaidFile() ? 'pre.mermaid svg' : 'img');
+    }
+
+    // The elements the zoom gives a size: a PlantUML stack's images (both variants of each diagram), else the target.
+    function sizedParts(target) {
+        return isPlantUmlFile() ? Array.prototype.slice.call(target.querySelectorAll('img')) : [target];
+    }
+
+    // A PlantUML stack's size at 100%: as wide as its widest shown image, as high as all of them; the variant the
+    // theme hides does not count. Error boxes and gaps keep their size and are not part of it.
+    function stackSize(stack) {
+        var width = 0;
+        var height = 0;
+        sizedParts(stack).forEach(function (image) {
+            if (getComputedStyle(image).display === 'none') return;
+            var size = naturalSize(image);
+            if (!size) return;
+            width = Math.max(width, size.width);
+            height += size.height;
+        });
+        return width && height ? { width: width, height: height } : null;
     }
 
     // The target's size at 100%, remembered in data-width and data-height before the zoom first sizes it.
     function naturalSize(target) {
+        if (target.classList.contains('plantuml-diagrams')) return stackSize(target);
         if (!target.hasAttribute('data-width')) {
             var width;
             var height;
@@ -68,13 +95,16 @@
     function fitScale(target, size) {
         var width;
         var height;
-        if (isMermaidFile()) {
-            // Measured without the drawing: the room the page leaves it, below the note above it.
-            target.style.width = '0px';
-            target.style.height = '0px';
-            var pre = target.parentNode;
-            var style = getComputedStyle(pre);
-            width = pre.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        if (isMermaidFile() || isPlantUmlFile()) {
+            // Measured without the drawing: the room the page leaves it, below the note above it (and, of a PlantUML
+            // stack, beside its error boxes and gaps).
+            sizedParts(target).forEach(function (part) {
+                part.style.width = '0px';
+                part.style.height = '0px';
+            });
+            var box = target.parentNode;
+            var style = getComputedStyle(box);
+            width = box.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
             height = window.innerHeight - document.body.getBoundingClientRect().height;
         } else {
             width = window.innerWidth - 2 * MARGIN;
@@ -94,9 +124,13 @@
         var size = target && naturalSize(target);
         if (!size) return;
         scale = zoom === null ? fitScale(target, size) : zoom;
-        target.style.maxWidth = 'none';
-        target.style.width = size.width * scale + 'px';
-        target.style.height = size.height * scale + 'px';
+        sizedParts(target).forEach(function (part) {
+            var partSize = part === target ? size : naturalSize(part);
+            if (!partSize) return;
+            part.style.maxWidth = 'none';
+            part.style.width = partSize.width * scale + 'px';
+            part.style.height = partSize.height * scale + 'px';
+        });
         document.body.classList.toggle('fitted', zoom === null);
         if (window.sluideBridge && window.sluideBridge.zoomed) window.sluideBridge.zoomed(scale, zoom === null);
     }
@@ -295,8 +329,10 @@
         }
         var link = event.target.closest ? event.target.closest('a[href]') : null;
         if (!link) {
-            // A click on the image or a Mermaid file's diagram: from fitting the view to 100% at the pointer, and back.
-            var onTarget = !isMermaidFile() || (event.target.closest && event.target.closest('pre.mermaid'));
+            // A click on the image, a Mermaid file's diagram or a PlantUML file's diagram (not its error boxes, whose text
+            // can be selected): from fitting the view to 100% at the pointer, and back.
+            var onTarget = !isMermaidFile() && !isPlantUmlFile() ||
+                (event.target.closest && event.target.closest(isMermaidFile() ? 'pre.mermaid' : '.plantuml-diagrams img'));
             if (onTarget && zoomTarget()) {
                 if (zoom === null) setZoom(1, event.clientX, event.clientY); else setZoom(null);
             }

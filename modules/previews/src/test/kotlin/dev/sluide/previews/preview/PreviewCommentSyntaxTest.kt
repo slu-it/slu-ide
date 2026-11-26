@@ -7,6 +7,7 @@ import dev.sluide.previews.json.JsonFileViewer
 import dev.sluide.previews.markdown.MarkdownFileViewer
 import dev.sluide.previews.markdown.MermaidFileViewer
 import dev.sluide.previews.notebook.NotebookFileViewer
+import dev.sluide.previews.plantuml.PlantUmlFileViewer
 import dev.sluide.previews.table.CookiesFileViewer
 import dev.sluide.previews.table.CsvFileViewer
 import dev.sluide.previews.workflow.WorkflowFileViewer
@@ -34,6 +35,7 @@ class PreviewCommentSyntaxTest {
                 CookiesFileViewer() to CommentSyntax.NONE,
                 BicepFileViewer() to CommentSyntax.SLASHES,
                 WorkflowFileViewer() to CommentSyntax.HASH,
+                PlantUmlFileViewer() to CommentSyntax.PLANTUML,
             )
         for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)
     }

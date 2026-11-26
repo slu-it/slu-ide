@@ -9,6 +9,7 @@ import dev.sluide.previews.markdown.MermaidFileViewer
 import dev.sluide.previews.notebook.NotebookFileViewer
 import dev.sluide.previews.pem.PemFileViewer
 import dev.sluide.previews.pem.PemPreview
+import dev.sluide.previews.plantuml.PlantUmlFileViewer
 import dev.sluide.previews.table.CookiesFileViewer
 import dev.sluide.previews.table.CsvFileViewer
 import dev.sluide.previews.workflow.WorkflowFileViewer
@@ -25,6 +26,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotSame
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** Which files the preview and image viewers accept. */
@@ -50,6 +53,23 @@ class PreviewFileViewersTest {
         val names = listOf("flow.mmd", "Chart.MERMAID", "a.md", "flow.mmd.txt", "mermaid")
         assertEquals(listOf("flow.mmd", "Chart.MERMAID"), names.filter { MermaidFileViewer().canOpen(text(it)) })
         assertFalse(MermaidFileViewer().canOpen(binary("broken.mmd")))
+    }
+
+    @Test
+    fun `PlantUML files open in Split with a zooming preview of their own per view`() {
+        val viewer = PlantUmlFileViewer()
+        val names = listOf("seq.puml", "Class.PLANTUML", "a.pu", "lib.iuml", "seq.puml.txt", "a.md", "puml")
+
+        assertEquals(names.take(4), names.filter { viewer.canOpen(text(it)) })
+        assertFalse(viewer.canOpen(binary("broken.puml")))
+        assertSame(Highlighters.plantuml, viewer.highlighter)
+        val preview = viewer.newPreview()
+        assertNotSame(preview, viewer.newPreview(), "a preview per view")
+        assertEquals(PreviewMode.SPLIT, preview.defaultMode)
+        assertTrue(preview.zooms)
+        for (viewers in allViewersInEitherOrder()) {
+            assertEquals("PlantUmlFileViewer", viewerNameFor(viewers, text("seq.puml")))
+        }
     }
 
     @Test
