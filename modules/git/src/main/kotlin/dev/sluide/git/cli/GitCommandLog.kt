@@ -3,6 +3,7 @@ package dev.sluide.git.cli
 import dev.sluide.git.withoutUserinfo
 import dev.sluide.git.withoutUserinfoIn
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.io.InputStream
 import java.nio.file.Path
 import java.util.Locale
@@ -75,7 +76,10 @@ internal object GitCommandLog {
         return entry
     }
 
-    /** Copies the first [STDERR_KEEP] bytes of [stream] into [into] and discards the rest, so the pipe never fills. */
+    /**
+     * Copies the first [STDERR_KEEP] bytes of [stream] into [into] and discards the rest, so the pipe never fills. A
+     * stream closed under it (git stopped or ended while it reads) ends the copy: what came is kept, for the log only.
+     */
     fun keepStart(
         stream: InputStream,
         into: ByteArrayOutputStream,
@@ -83,7 +87,12 @@ internal object GitCommandLog {
         val buffer = ByteArray(8192)
         var kept = 0
         while (true) {
-            val read = stream.read(buffer)
+            val read =
+                try {
+                    stream.read(buffer)
+                } catch (_: IOException) {
+                    return
+                }
             if (read < 0) return
             val take = minOf(read, STDERR_KEEP - kept)
             if (take > 0) {

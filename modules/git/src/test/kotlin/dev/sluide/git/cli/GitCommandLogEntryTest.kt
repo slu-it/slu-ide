@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.function.ThrowingSupplier
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.io.InputStream
 import java.nio.file.Path
 import java.time.Duration.ofSeconds
@@ -133,6 +134,33 @@ class GitCommandLogEntryTest {
         )
 
         assertEquals(ByteArray(STDERR_KEEP) { (it % 251).toByte() }.toList(), into.toByteArray().toList())
+    }
+
+    @Test
+    fun `keepStart keeps what came and ends quietly when the stream is closed under it`() {
+        // A stopped or ended git closes its standard error while the reader still reads (seen as "Stream closed").
+        val stream =
+            object : InputStream() {
+                private var sent = false
+
+                override fun read(): Int = throw UnsupportedOperationException()
+
+                override fun read(
+                    buffer: ByteArray,
+                    offset: Int,
+                    length: Int,
+                ): Int {
+                    if (sent) throw IOException("Stream closed")
+                    sent = true
+                    buffer[offset] = 'e'.code.toByte()
+                    return 1
+                }
+            }
+        val into = ByteArrayOutputStream()
+
+        assertTimeoutPreemptively(ofSeconds(10), ThrowingSupplier { GitCommandLog.keepStart(stream, into) })
+
+        assertEquals("e", into.toString(Charsets.UTF_8))
     }
 
     @Test
