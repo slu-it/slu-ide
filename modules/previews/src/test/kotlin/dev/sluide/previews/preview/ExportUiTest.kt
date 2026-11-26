@@ -4,16 +4,20 @@ import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.WindowServices
 import dev.sluide.fileviewers.WrappingToolbar
+import dev.sluide.plantuml.PlantUml
 import dev.sluide.previews.image.CustomSvgPngExport
 import dev.sluide.previews.image.SvgFileViewer
 import dev.sluide.previews.image.SvgMeasurer
 import dev.sluide.previews.markdown.MarkdownFileViewer
+import dev.sluide.previews.plantuml.PlantUmlFileViewer
 import dev.sluide.previews.table.CsvFileViewer
+import javafx.application.Platform
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.MenuButton
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
+import javafx.stage.Window
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -25,6 +29,8 @@ import org.testfx.util.WaitForAsyncUtils
 import java.io.IOException
 import java.net.URI
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
@@ -57,12 +63,14 @@ class ExportUiTest {
         robot: FxRobot,
         name: String,
         text: String,
+        pumlViewer: PlantUmlFileViewer = PlantUmlFileViewer(),
     ): PreviewFileView {
         val file = dir.resolve(name).apply { writeText(text) }
         val viewer =
             when (name.substringAfterLast('.')) {
                 "md" -> MarkdownFileViewer()
                 "svg" -> SvgFileViewer()
+                "puml" -> pumlViewer
                 else -> CsvFileViewer()
             }
         val view = WaitForAsyncUtils.asyncFx<PreviewFileView> { viewer.open(file) as PreviewFileView }.get()
@@ -354,8 +362,77 @@ class ExportUiTest {
         assertFalse(fx { controls.button.isDisable })
     }
 
+    @Test
+    fun `the Export menu of a PlantUML file lists the SVG and PNG items and SVG writes the diagram beside it`(
+        robot: FxRobot,
+    ) {
+        val view = open(robot, "diagram.puml", "@startuml\nAlice -> Bob : hi\n@enduml\n")
+        assertEquals(
+            listOf("SVG", "PNG 100%", "PNG 200%", "PNG 300%", "PNG Custom…"),
+            fx { checkNotNull(view.export).button.items.map { it.text } },
+        )
+        assertTrue(exported(view, "SVG").isEmpty())
+        assertTrue(dir.resolve("diagram.svg").readText().startsWith("<svg"))
+    }
+
+    @Test
+    fun `PNG Custom of a PlantUML file asks on the FX thread and writes every diagram at its scaled size`(
+        robot: FxRobot,
+    ) {
+        val askedOnFx = CopyOnWriteArrayList<Boolean>()
+        val naturals = CopyOnWriteArrayList<Pair<Int, Int>>()
+        val viewer =
+            PlantUmlFileViewer(
+                ask = { _, natural ->
+                    askedOnFx += Platform.isFxApplicationThread()
+                    naturals += natural
+                    natural.first * 2 to natural.second * 2
+                },
+            ) { source, line -> PlantUml.shared.render(source, line) }
+        val source =
+            "@startuml\nAlice -> Bob : hi\n@enduml\n@startuml\nA -> B : a much longer label than that\n@enduml\n"
+        val view = open(robot, "diagram.puml", source, viewer)
+        assertEquals(emptyList(), exported(view, "PNG Custom…"))
+        assertEquals(listOf(true), askedOnFx)
+        val (width, height) = naturals.single().let { it.first * 2 to it.second * 2 }
+        val first = assertNotNull(ImageIO.read(dir.resolve("diagram-${width}x$height.png").toFile()))
+        assertEquals(width to height, first.width to first.height)
+        val second = dir.listDirectoryEntries("diagram-2-*.png").single()
+        val (secondWidth, secondHeight) =
+            Regex("diagram-2-(\\d+)x(\\d+)\\.png").matchEntire(second.fileName.toString())!!.destructured
+        val image = assertNotNull(ImageIO.read(second.toFile()))
+        assertEquals(secondWidth.toInt() to secondHeight.toInt(), image.width to image.height)
+        // Both diagrams are drawn at twice their natural size: the longer label makes the second the wider.
+        assertTrue(image.width > first.width, "${image.width} x ${first.width}")
+    }
+
+    @Test
+    fun `a PlantUML file without a drawable diagram reports why and writes nothing`(robot: FxRobot) {
+        val view = open(robot, "diagram.puml", "@startuml\nthis is no diagram\n@enduml\n")
+        val reports = exported(view, "SVG")
+        assertEquals(1, reports.size, reports.toString())
+        assertTrue(reports.single().startsWith("Could not export diagram.puml: Line "), reports.toString())
+        assertFalse(dir.resolve("diagram.svg").exists())
+    }
+
+    /** An export of the files `out-1.txt` and `out-2.txt` beside the file, which writes both. */
     private class TwoFilesExport : FileExport {
         override val label = "Two"
+
+        /** What it lacks, as [write] returns it. */
+        var problems = emptyList<String>()
+
+        /** The window and the text [choose] got. */
+        var chosenWith: Pair<Window?, String>? = null
+
+        override fun choose(
+            file: Path,
+            owner: Window?,
+            text: String,
+        ): CompletionStage<FileExport?> {
+            chosenWith = owner to text
+            return CompletableFuture.completedFuture(this)
+        }
 
         override fun target(file: Path): Path = file.resolveSibling("out-1.txt")
 
@@ -367,8 +444,26 @@ class ExportUiTest {
             target: Path,
         ): List<String> {
             targets(file).forEach { it.writeText("new") }
-            return emptyList()
+            return problems
         }
+    }
+
+    @Test
+    fun `an export gets the window and the saved text to choose, and several files are told by their source`() {
+        val export = TwoFilesExport().apply { problems = listOf("lacks X") }
+        val file = dir.resolve("a.txt").apply { writeText("a") }
+        val window = fx { container.scene.window }
+        val reports = CopyOnWriteArrayList<String>()
+        val controls =
+            fx {
+                ExportControls(listOf(export), { file }, { "saved" }, { window }, { null }).apply {
+                    report = { reports += it }
+                }
+            }
+        fx { controls.export(export) }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { reports.isNotEmpty() }
+        assertEquals(window to "saved", export.chosenWith)
+        assertEquals(listOf("Exported the files of a.txt, with problems:\nlacks X"), reports)
     }
 
     @Test

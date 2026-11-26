@@ -27,11 +27,7 @@ internal class SvgPngExport(
 
     override fun target(file: Path): Path =
         file.resolveSibling(
-            file.nameWithoutExtension +
-                when (size) {
-                    is PngSize.Scale -> if (size.factor == 1) "" else "@${size.factor}x"
-                    is PngSize.Pixels -> "-${size.width}x${size.height}"
-                } + ".png",
+            file.nameWithoutExtension + pngSuffix(size) + ".png",
         )
 
     override fun write(
@@ -44,3 +40,10 @@ internal class SvgPngExport(
         return emptyList()
     }
 }
+
+/** What a PNG's name carries of its [size] before the extension: `@2x` for a scale (none at 1), `-32x32` for pixels. */
+internal fun pngSuffix(size: PngSize): String =
+    when (size) {
+        is PngSize.Scale -> if (size.factor == 1) "" else "@${size.factor}x"
+        is PngSize.Pixels -> "-${size.width}x${size.height}"
+    }

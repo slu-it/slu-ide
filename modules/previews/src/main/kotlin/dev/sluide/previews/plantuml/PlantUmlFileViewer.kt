@@ -6,6 +6,7 @@ import dev.sluide.plantuml.Rendering
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileViewer
 import dev.sluide.textediting.CommentSyntax
+import javafx.stage.Window
 import org.springframework.stereotype.Component
 import java.util.concurrent.CompletableFuture
 
@@ -16,15 +17,16 @@ import java.util.concurrent.CompletableFuture
  */
 @Component
 class PlantUmlFileViewer internal constructor(
+    private val ask: (Window?, Pair<Int, Int>) -> Pair<Int, Int>? = ::askPngSize,
     private val render: (source: String, firstLine: Int) -> CompletableFuture<Rendering>,
 ) : PreviewFileViewer(
         setOf("puml", "plantuml", "pu", "iuml"),
         Highlighters.plantuml,
         // Never shown: every view gets its own preview (newPreview).
-        PlantUmlPreview(render),
+        PlantUmlPreview(render, ask = ask),
         CommentSyntax.PLANTUML,
     ) {
-    constructor() : this({ source, firstLine -> PlantUml.shared.render(source, firstLine) })
+    constructor() : this(render = { source, firstLine -> PlantUml.shared.render(source, firstLine) })
 
-    override fun newPreview(): Preview = PlantUmlPreview(render)
+    override fun newPreview(): Preview = PlantUmlPreview(render, ask = ask)
 }

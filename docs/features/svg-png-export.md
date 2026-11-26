@@ -30,3 +30,5 @@ Decision in [ADR 0059](../adr/0059-svg-export-as-png.md).
 - **Errors:** a dialog reports why the export failed, e.g. "Not an SVG image", "Timed out" (30 s) or "The window
   closed" (the IDE window closed during the export). "Too large at 300%: W × H px" (for a custom size "Too large:
   W × H px") means over 8192 px per side or about 33 megapixels in all.
+
+PlantUML previews export PNG the same way, one file per diagram: [plantuml.md](plantuml.md#export).

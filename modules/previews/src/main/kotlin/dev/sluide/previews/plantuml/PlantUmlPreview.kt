@@ -3,10 +3,13 @@ package dev.sluide.previews.plantuml
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.plantuml.Rendering
 import dev.sluide.plantuml.plantUmlBlocks
+import dev.sluide.previews.image.PngSizeDialog
+import dev.sluide.previews.image.WebViewSvgRasterizer
 import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.Preview
 import javafx.application.Platform
 import javafx.scene.web.WebEngine
+import javafx.stage.Window
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 
@@ -19,8 +22,9 @@ import java.util.concurrent.CompletableFuture
  * nothing: the page holds both variants. Calls are on the FX thread, which [runLater] goes back to.
  */
 internal class PlantUmlPreview(
-    render: (source: String, firstLine: Int) -> CompletableFuture<Rendering>,
+    private val render: (source: String, firstLine: Int) -> CompletableFuture<Rendering>,
     runLater: (Runnable) -> Unit = Platform::runLater,
+    private val ask: (Window?, Pair<Int, Int>) -> Pair<Int, Int>? = ::askPngSize,
 ) : Preview {
     private var rerender: () -> Unit = {}
 
@@ -81,4 +85,21 @@ internal class PlantUmlPreview(
     }
 
     override val zooms get() = true
+
+    override val exports by lazy {
+        val webView = WebViewSvgRasterizer()
+        plantUmlExports(
+            render,
+            webView,
+            webView,
+            ask,
+            Platform::runLater,
+        )
+    }
 }
+
+/** Asks for the PNG's size in a dialog prefilled with the [natural] one; null if cancelled. */
+internal fun askPngSize(
+    owner: Window?,
+    natural: Pair<Int, Int>,
+): Pair<Int, Int>? = PngSizeDialog(owner, natural).showAndWait().orElse(null)
