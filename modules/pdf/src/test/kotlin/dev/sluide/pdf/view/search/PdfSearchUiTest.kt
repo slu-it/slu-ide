@@ -494,6 +494,31 @@ internal class PdfSearchUiTest : PdfViewUiFixture() {
     }
 
     @Test
+    fun `the search field opened while the document loads keeps the focus once it is open`() {
+        val gate = CountDownLatch(1)
+        val render =
+            object : ThreadPoolExecutor(1, 1, 0, TimeUnit.MILLISECONDS, LinkedBlockingQueue()) {
+                override fun beforeExecute(
+                    thread: Thread,
+                    task: Runnable,
+                ) = gate.await()
+            }
+        try {
+            val view = open(PanelPdfs.search, render)
+            // The tab asks for the focus while "Loading…" shows; the user opens the search before the pages show.
+            fx { view.focus() }
+            fx { toggle(view).fire() }
+            await { stage.scene.focusOwner === field(view) }
+            gate.countDown()
+            awaitRendered(view, 0)
+            paint()
+            assertSame(field(view), fx { stage.scene.focusOwner })
+        } finally {
+            gate.countDown()
+        }
+    }
+
+    @Test
     fun `a reload with an open query searches the new text`() {
         val file = dir.resolve("search.pdf")
         Files.copy(PanelPdfs.search, file)
