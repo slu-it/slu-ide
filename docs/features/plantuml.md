@@ -32,6 +32,26 @@ and [ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md) (focus). What is l
 - Diagrams are images (`<img>` with the SVG in a `data:` URI): nothing in them runs, and `[[links]]` in a diagram are
   not clickable.
 
+## In Markdown and notebooks
+- ` ```plantuml ` and ` ```puml ` fences (the info string's first word, any case, as for ` ```mermaid `) are drawn in
+  place in the Markdown preview ([markdown-preview.md](markdown-preview.md)) and in a notebook's Markdown cells, by the
+  same engine and with the same look as a PlantUML file: both theme variants, so a theme change draws nothing, an error
+  box in place of a block PlantUML cannot read. Diagrams in a page do not zoom on their own (the page zooms as a
+  document). `PlantUmlFences` (package `markdown`) inserts them after the page is sanitised; each Markdown and notebook
+  view has its own `DiagramRenders` (`MarkdownPreview`, `NotebookPreview`).
+- A fence without a line starting with `@start` is wrapped in `@startuml`/`@enduml` (as GitLab does); a fence with one
+  is drawn as written, every block of it. An empty fence stays an empty code block.
+- Until its drawing is there, a fence says "Drawing the diagram…"; then the page is rendered again, and keeps its
+  place as after a save: side by side it lines up with the source, shown alone it keeps its scroll position. The
+  diagram is a block with the fence's source line, so the scroll sync and the table of contents work around it; it is
+  no text for Read Aloud. A fence is drawn per text and line: an edit that moves a fence draws it again.
+- Error lines are the Markdown file's lines, also for a wrapped fence. In a notebook they are the cell's: "Cell 3,
+  line 2: …", the cell counted among all cells from 1.
+- The HTML export ([markdown-export.md](markdown-export.md)) draws every fence before it writes the page (each
+  drawing within the engine's 20 s), with both variants as images that the page's theme switch shows; an error is
+  exported as its error box. The page stays self-contained. Without a page renderer's opt-in (other pages that use the
+  Markdown renderer) a PlantUML fence stays highlighted code.
+
 ## Errors
 - A block PlantUML cannot read shows an error box in its place, under "Syntax error": "Line N: " and PlantUML's
   message, N being the line in the file (also for the second block of a file). Other blocks of the file draw as usual.

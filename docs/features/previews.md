@@ -163,8 +163,9 @@ as in a browser (see
 ## Jupyter notebooks (`.ipynb`) — `NotebookFileViewer`
 - Opens in **Preview**: the notebook as Jupyter shows it, with its stored outputs; Source shows the JSON. Nothing is
   run. No scroll sync (JSON lines do not match cells).
-- Markdown cells render like Markdown files (math, diagrams, attached images). Code cells are highlighted in the
-  notebook's language (`language_info`, else the kernel's, else Python) with `In [n]:`.
+- Markdown cells render like Markdown files (math, diagrams, attached images); PlantUML fences in them are drawn, their
+  errors naming the cell and its line ([plantuml.md](plantuml.md#in-markdown-and-notebooks)). Code cells are
+  highlighted in the notebook's language (`language_info`, else the kernel's, else Python) with `In [n]:`.
 - Outputs, the richest form first: PNG/JPEG/SVG images, HTML (sanitised like Markdown, e.g. pandas tables), Markdown,
   plain text; streams (stderr tinted), and errors with their traceback (ANSI colours removed).
 - HTML outputs that sanitise to nothing (plotting libraries store mostly scripts) fall back to their plain text.
