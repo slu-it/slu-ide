@@ -4,7 +4,9 @@ import dev.sluide.pdf.engine.LinkTarget
 import dev.sluide.pdf.engine.PageLink
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.scene.Cursor
+import javafx.scene.Node
 import javafx.scene.control.MenuItem
+import javafx.scene.control.ScrollBar
 import javafx.scene.control.Tooltip
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
@@ -55,9 +57,10 @@ internal class PdfSelection private constructor(
 
     private fun wire() {
         val pages = view.pages
-        pages.addEventHandler(MouseEvent.MOUSE_PRESSED, ::pressed)
-        pages.addEventHandler(MouseEvent.MOUSE_DRAGGED, ::dragged)
-        pages.addEventHandler(MouseEvent.MOUSE_RELEASED, ::released)
+        // Filters, not handlers: the scroll pane's skin consumes the drags below the pages, so they never bubble up.
+        pages.addEventFilter(MouseEvent.MOUSE_PRESSED, ::pressed)
+        pages.addEventFilter(MouseEvent.MOUSE_DRAGGED, ::dragged)
+        pages.addEventFilter(MouseEvent.MOUSE_RELEASED, ::released)
         pages.addEventHandler(MouseEvent.MOUSE_MOVED, ::moved)
         pages.addEventHandler(KeyEvent.KEY_PRESSED, ::key)
         copyItem.disableProperty().bind(hasSelection.not())
@@ -72,8 +75,12 @@ internal class PdfSelection private constructor(
         view.onDispose += ::dispose
     }
 
+    /** Whether the event is aimed at one of the pages' scroll bars, which are none of the selection's business. */
+    private fun onScrollBar(event: MouseEvent): Boolean =
+        generateSequence(event.target as? Node) { it.parent }.any { it is ScrollBar }
+
     private fun pressed(event: MouseEvent) {
-        if (event.button != MouseButton.PRIMARY) return
+        if (event.button != MouseButton.PRIMARY || onScrollBar(event)) return
         view.pages.requestFocus()
         val point = view.pagePointAt(event.sceneX, event.sceneY)
         val current = Press(event.sceneX, event.sceneY, point)
@@ -111,7 +118,7 @@ internal class PdfSelection private constructor(
     }
 
     private fun released(event: MouseEvent) {
-        if (event.button != MouseButton.PRIMARY) return
+        if (event.button != MouseButton.PRIMARY || onScrollBar(event)) return
         val current = press ?: return
         press = null
         if (current.dragged || event.clickCount != 1) return

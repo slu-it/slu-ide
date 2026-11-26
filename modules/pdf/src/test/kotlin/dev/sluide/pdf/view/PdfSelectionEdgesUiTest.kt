@@ -81,6 +81,21 @@ internal class PdfSelectionEdgesUiTest : PdfSelectionUiBase() {
     }
 
     @Test
+    fun `a click on a scroll bar of the pages does not clear the selection`() {
+        val view = open(TestPdfs.threePages)
+        awaitRendered(view, 0)
+        key(view, KeyCode.A, shortcut = true)
+        await { view.overlays.on(0).isNotEmpty() }
+        val bar = fx { view.pages.lookupAll(".scroll-bar").first() }
+        val at = fx { bar.localToScene(bar.layoutBounds.centerX, bar.layoutBounds.centerY) }
+        fx {
+            javafx.event.Event.fireEvent(bar, mouse(MouseEvent.MOUSE_PRESSED, at))
+            javafx.event.Event.fireEvent(bar, mouse(MouseEvent.MOUSE_RELEASED, at))
+        }
+        assertTrue(selected(view, 0))
+    }
+
+    @Test
     fun `a press gives the pages the focus`() {
         val view = textView()
         fx { view.toolbar.pageField.requestFocus() }
