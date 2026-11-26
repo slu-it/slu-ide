@@ -158,6 +158,8 @@ class StrongSignRulesTest {
                 "@start\nA\n@end" to "",
                 "@startumlx-y\n@enduml" to "",
                 "@enduml\nA" to "",
+                "" to "",
+                "\n  \n' only a comment\n" to "",
             )
 
         @JvmStatic
