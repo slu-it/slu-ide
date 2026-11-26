@@ -1,10 +1,14 @@
 package dev.sluide.previews.markdown
 
+import dev.sluide.plantuml.Diagram
+import dev.sluide.plantuml.Rendering
 import dev.sluide.previews.preview.Vendor
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.io.TempDir
 import java.net.URI
 import java.nio.file.Path
+import java.util.Base64
+import java.util.concurrent.CompletableFuture
 import kotlin.io.path.Path
 import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
@@ -51,6 +55,26 @@ class MarkdownHtmlExportTest {
             )
         }
 
+    /** What the fake PlantUML engine was asked for: each source with its first line. */
+    private val drawn = mutableListOf<Pair<String, Int>>()
+
+    /**
+     * Draws a PlantUML source on another thread, as the engine does: as SVGs naming the variant, or with an error in
+     * the line after the first if it says `bad`.
+     */
+    private val plantUml = { source: String, firstLine: Int ->
+        drawn += source to firstLine
+        CompletableFuture.supplyAsync {
+            val diagram =
+                if ("bad" in source) {
+                    Diagram.Failed("Syntax <error>", firstLine + 1)
+                } else {
+                    Diagram.Drawn("<svg>light</svg>", "<svg>dark</svg>")
+                }
+            Rendering(listOf(diagram), false)
+        }
+    }
+
     private fun export(images: Map<String, FetchedImage> = emptyMap()) =
         MarkdownHtmlExport(
             {
@@ -58,6 +82,7 @@ class MarkdownHtmlExportTest {
                 images[it.toString()]
             },
             renderer,
+            plantUml,
         )
 
     private fun page(
@@ -230,6 +255,40 @@ class MarkdownHtmlExportTest {
         val doc = Jsoup.parse(page.html)
         assertTrue(doc.select("img").isEmpty())
         assertEquals(2, doc.select("div.diagram svg").size)
+    }
+
+    @Test
+    fun `PlantUML fences are drawn in both variants, which the page's theme switches, and reference nothing`() {
+        val page = page("# Notes\n\n```plantuml\nA -> B\n```\n")
+
+        assertEquals(listOf("@startuml\nA -> B\n@enduml\n" to 3), drawn)
+        val doc = Jsoup.parse(page.html)
+        val images = doc.select("div.plantuml[data-line=2] img")
+        assertEquals(listOf("plantuml-light", "plantuml-dark"), images.map { it.className() })
+        assertEquals(
+            listOf("<svg>light</svg>", "<svg>dark</svg>"),
+            images.map { String(Base64.getDecoder().decode(it.attr("src").substringAfter("base64,"))) },
+        )
+        assertTrue(doc.select("[src]:not([src^=data:]), link, [href^=http]").isEmpty())
+        assertTrue("body.dark .plantuml-diagram img.plantuml-light" in doc.select("style").html())
+        assertEquals(emptyList(), page.problems)
+    }
+
+    @Test
+    fun `the export draws PlantUML fences with the app's engine`() {
+        val page = MarkdownHtmlExport({ null }, renderer).render(dir.resolve("notes.md"), "```plantuml\nA -> B\n```\n")
+
+        val image = Jsoup.parse(page.html).select("img.plantuml-light").single()
+        val svg = String(Base64.getDecoder().decode(image.attr("src").substringAfter("base64,")))
+        assertTrue(svg.startsWith("<svg") && "A" in svg, svg.take(200))
+    }
+
+    @Test
+    fun `a PlantUML fence with an error exports the error box`() {
+        val doc = Jsoup.parse(page("```puml\nbad\n```\n").html)
+
+        assertEquals("Line 2: Syntax <error>", doc.select("pre.plantuml-error.syntax").single().text())
+        assertTrue(doc.select("img").isEmpty())
     }
 
     private companion object {

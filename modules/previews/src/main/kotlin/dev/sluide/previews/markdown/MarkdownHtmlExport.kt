@@ -1,5 +1,7 @@
 package dev.sluide.previews.markdown
 
+import dev.sluide.plantuml.PlantUml
+import dev.sluide.plantuml.Rendering
 import dev.sluide.previews.preview.FileExport
 import dev.sluide.previews.preview.writeReplacing
 import org.jsoup.nodes.DataNode
@@ -9,6 +11,7 @@ import java.net.URISyntaxException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Base64
+import java.util.concurrent.CompletableFuture
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.readText
@@ -24,13 +27,17 @@ internal class ExportedPage(
 
 /**
  * Markdown as a self-contained HTML page `name.html` beside `name.md`: images (local and, via [images], remote) are
- * embedded, math is typeset and diagrams are drawn by [renderer] (each in a light and a dark variant), and a
- * `name.css` beside the file is inlined after the built-in styles. The page follows the reader's colour scheme and
- * has no script but the one that does so.
+ * embedded, math is typeset and diagrams are drawn by [renderer] (each in a light and a dark variant), PlantUML fences
+ * by [plantUml] (both variants as `data:` images, which `preview.css` switches with `body.dark`), and a `name.css`
+ * beside the file is inlined after the built-in styles. The page follows the reader's colour scheme and has no script
+ * but the one that does so.
  */
 internal class MarkdownHtmlExport(
     private val images: ImageFetcher = HttpImageFetcher(),
     private val renderer: ExportRenderer = WebViewExportRenderer(),
+    private val plantUml: (source: String, firstLine: Int) -> CompletableFuture<Rendering> = { source, firstLine ->
+        PlantUml.shared.render(source, firstLine)
+    },
 ) : FileExport {
     override val label get() = "HTML"
 
@@ -54,7 +61,9 @@ internal class MarkdownHtmlExport(
         file: Path,
         text: String,
     ): ExportedPage {
-        val body = MarkdownRenderer.body(text, file.parent, frontMatter = true)
+        // Each drawing is waited for: it never fails, and the engine gives up on one after 20 s.
+        val diagrams = FenceDiagrams { source, firstLine -> plantUml(source, firstLine).join() }
+        val body = MarkdownRenderer.body(text, file.parent, frontMatter = true, diagrams = diagrams)
         // Each address is downloaded once, failures included.
         val downloaded = mutableMapOf<URI, String?>()
         body.select("img[src]").forEach { image ->
