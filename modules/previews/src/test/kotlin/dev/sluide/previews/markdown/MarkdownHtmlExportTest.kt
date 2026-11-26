@@ -2,6 +2,7 @@ package dev.sluide.previews.markdown
 
 import dev.sluide.plantuml.Diagram
 import dev.sluide.plantuml.Rendering
+import dev.sluide.previews.plantuml.PlantUmlHtml
 import dev.sluide.previews.preview.Vendor
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.io.TempDir
@@ -60,11 +61,13 @@ class MarkdownHtmlExportTest {
 
     /**
      * Draws a PlantUML source on another thread, as the engine does: as SVGs naming the variant, or with an error in
-     * the line after the first if it says `bad`, or given up without a line (the engine's watchdog) if it says `slow`.
+     * the line after the first if it says `bad`, or given up without a line (the engine's watchdog) if it says `slow`;
+     * without an `@end…` line no diagram at all, as PlantUML makes no block of an unclosed one.
      */
     private val plantUml = { source: String, firstLine: Int ->
         drawn += source to firstLine
         CompletableFuture.supplyAsync {
+            if (source.lines().none { it.startsWith("@end") }) return@supplyAsync Rendering(emptyList(), false)
             val diagram =
                 if ("bad" in source) {
                     Diagram.Failed("Syntax <error>", firstLine + 1)
@@ -286,17 +289,20 @@ class MarkdownHtmlExportTest {
     }
 
     @Test
-    fun `a PlantUML fence with an error exports the error box and is reported`() {
-        val page = page("# Notes\n\n```puml\nbad\n```\n\n```plantuml\nslow\n```\n")
+    fun `a PlantUML fence with an error or without a block exports what it shows and is reported`() {
+        val unclosed = "```plantuml\n@startuml\nA -> B\n```\n"
+        val page = page("# Notes\n\n```puml\nbad\n```\n\n```plantuml\nslow\n```\n\n$unclosed")
         val doc = Jsoup.parse(page.html)
 
         assertEquals("Line 4: Syntax <error>", doc.select("pre.plantuml-error.syntax").single().text())
         assertEquals("Drawing took longer than 20 s", doc.select("pre.plantuml-error:not(.syntax)").single().text())
         assertTrue(doc.select("img").isEmpty())
+        assertEquals(PlantUmlHtml.NO_BLOCK_IN_FENCE, doc.select("p.diagram-note[data-line=10]").single().text())
         assertEquals(
             listOf(
                 "PlantUML diagram (line 4) could not be drawn: Syntax <error>",
                 "PlantUML diagram (line 7) could not be drawn: Drawing took longer than 20 s",
+                "PlantUML diagram (line 11) could not be drawn: no @start…/@end… block",
             ),
             page.problems,
         )

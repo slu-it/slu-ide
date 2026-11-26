@@ -161,6 +161,20 @@ class PlantUmlFencesTest {
         assertEquals(listOf("Line ${line + 2}: Syntax?"), errors(diagram))
     }
 
+    @Test
+    fun `a fence with a start line but no end line says it has no block`() {
+        // The real engine: PlantUML makes no block without an @end line, so the rendering has no diagram.
+        val engine =
+            FenceDiagrams { source, firstLine -> PlantUml.shared.render(source, firstLine).get(30, TimeUnit.SECONDS) }
+
+        val body = body("# Notes\n\n```plantuml\n@startuml\nAlice -> Bob\n```\n", engine)
+
+        val note = body.select("p.diagram-note").single()
+        assertEquals(PlantUmlHtml.NO_BLOCK_IN_FENCE, note.text())
+        assertEquals("2", note.attr("data-line"))
+        assertTrue(body.select(".plantuml").isEmpty())
+    }
+
     @ParameterizedTest
     @CsvSource(
         delimiter = '|',

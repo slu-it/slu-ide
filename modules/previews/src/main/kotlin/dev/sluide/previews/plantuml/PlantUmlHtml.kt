@@ -22,6 +22,8 @@ internal object PlantUmlHtml {
 
     const val NO_BLOCK = "No @start…/@end… block in this file."
 
+    const val NO_BLOCK_IN_FENCE = "No @start…/@end… block in this fence."
+
     /**
      * The diagrams of [rendering] in a `div.plantuml`: the note about the built-in layout if PlantUML used it, then the
      * stack, `div.plantuml-diagrams`, with one child per diagram in order: a `div.plantuml-diagram` with both variants,
@@ -62,8 +64,11 @@ internal object PlantUmlHtml {
     /** What a page says while its diagram is drawn for the first time. */
     fun drawing(): Element = note(DRAWING)
 
-    /** What a `.puml` file's page says when the file has text but no `@start…` line. */
-    fun noBlock(): Element = note(NO_BLOCK)
+    /**
+     * What a `.puml` file's page says when the file has text but no `@start…` line, or a Markdown page [inFence] whose
+     * fence PlantUML found no block in (a `@start…` line without its `@end…`).
+     */
+    fun noBlock(inFence: Boolean = false): Element = note(if (inFence) NO_BLOCK_IN_FENCE else NO_BLOCK)
 
     private fun note(text: String): Element = Element("p").addClass("diagram-note").text(text)
 

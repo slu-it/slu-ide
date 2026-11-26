@@ -86,7 +86,7 @@ internal class PlantUmlFences(
      * if the previous page had as many fences and the previous one's text is nowhere on this page (else it was moved).
      * Returns a line for the user about each failed diagram shown: "PlantUML diagram (line N) could not be drawn: …",
      * N being the error's line in the text, or the fence's opening line if PlantUML named none (the drawing took too
-     * long, for example).
+     * long, for example), or "…: no @start…/@end… block" for a fence PlantUML found no block in: it shows a note.
      */
     fun insert(page: Element): List<String> {
         val previous = diagrams.shown.takeIf { it.size == fences.size }.orEmpty()
@@ -105,6 +105,12 @@ internal class PlantUmlFences(
             val rendering = drawing ?: kept?.second
             // A kept drawing stays with the text it belongs to, so that it is kept again until the new one is there.
             shown += kept ?: (fence.source to drawing)
+            // A `@start…` line without its `@end…` (the fence is not wrapped then): PlantUML makes no block of it.
+            val noBlock = rendering != null && rendering.diagrams.isEmpty()
+            if (noBlock) {
+                failed +=
+                    "PlantUML diagram (line ${fence.line + 1}) could not be drawn: no @start…/@end… block"
+            }
             for (diagram in rendering?.diagrams.orEmpty().filterIsInstance<Diagram.Failed>()) {
                 val line = diagram.line?.let { it + fence.firstLine - 1 } ?: (fence.line + 1)
                 failed += "PlantUML diagram (line $line) could not be drawn: ${diagram.message}"
@@ -112,6 +118,8 @@ internal class PlantUmlFences(
             val element =
                 if (rendering == null) {
                     PlantUmlHtml.drawing()
+                } else if (noBlock) {
+                    PlantUmlHtml.noBlock(inFence = true)
                 } else {
                     PlantUmlHtml.diagrams(rendering, fence.label, fence.firstLine - 1)
                 }
