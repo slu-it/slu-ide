@@ -76,14 +76,14 @@ internal object MarkdownRenderer {
             .includeSourceSpans(spans)
             .build()
 
-    private val renderer = rendererBuilder().build()
+    private val renderer = rendererBuilder(null).build()
 
-    private fun rendererBuilder() =
+    private fun rendererBuilder(fences: PlantUmlFences?) =
         HtmlRenderer
             .builder()
             .extensions(extensions)
             .attributeProviderFactory { AttributeProvider { node, _, attributes -> sourceLine(node, attributes) } }
-            .nodeRendererFactory(::FencedCodeRenderer)
+            .nodeRendererFactory { FencedCodeRenderer(it, fences) }
 
     private val safelist =
         Safelist
@@ -103,12 +103,16 @@ internal object MarkdownRenderer {
     private val stylesheet = HtmlPage.resource("preview.css")
     private val script = HtmlPage.resource("preview.js")
 
-    /** The preview page of [markdown], a file in [folder], with source offsets on its texts and text marks. */
+    /**
+     * The preview page of [markdown], a file in [folder], with source offsets on its texts and text marks; its PlantUML
+     * fences drawn by [diagrams] if given ([body]).
+     */
     fun render(
         markdown: String,
         folder: Path,
         dark: Boolean = false,
-    ): String = page(body(markdown, folder, frontMatter = true, sourceOffsets = true), dark, textMarks = true)
+        diagrams: FenceDiagrams? = null,
+    ): String = page(body(markdown, folder, frontMatter = true, sourceOffsets = true, diagrams), dark, textMarks = true)
 
     /**
      * The syntax tree of [markdown], with source spans on its blocks, and on its inlines with [inlines]; see
@@ -134,19 +138,27 @@ internal object MarkdownRenderer {
 
     /**
      * The rendered, sanitised content of [markdown], a file in [folder], with local images embedded; with
-     * [sourceOffsets], its texts are `<span data-o>` runs ([SourceOffsetRenderer]).
+     * [sourceOffsets], its texts are `<span data-o>` runs ([SourceOffsetRenderer]). With [diagrams], its PlantUML
+     * fences are drawn ([PlantUmlFences]), else they are highlighted code.
      */
     fun body(
         markdown: String,
         folder: Path,
         frontMatter: Boolean = false,
         sourceOffsets: Boolean = false,
+        diagrams: FenceDiagrams? = null,
     ): Element {
-        if (!sourceOffsets) return sanitized(renderer.render(parse(markdown, frontMatter)), folder)
+        val fences = diagrams?.let(::PlantUmlFences)
+        if (!sourceOffsets) {
+            val rendering = if (fences == null) renderer else rendererBuilder(fences).build()
+            return sanitized(rendering.render(parse(markdown, frontMatter)), folder).also { fences?.insert(it) }
+        }
         // A name the file's HTML cannot know, so that only the runs end up with `data-o`.
         val attribute = "data-o-" + UUID.randomUUID().toString().replace("-", "")
-        val rendering = rendererBuilder().nodeRendererFactory { SourceOffsetRenderer(it, markdown, attribute) }.build()
-        return sanitized(rendering.render(parse(markdown, frontMatter, inlines = true)), folder, attribute)
+        val rendering = rendererBuilder(fences).nodeRendererFactory { SourceOffsetRenderer(it, markdown, attribute) }
+        // The diagrams after the sanitiser, whose safelist drops `data:` images.
+        return sanitized(rendering.build().render(parse(markdown, frontMatter, inlines = true)), folder, attribute)
+            .also { fences?.insert(it) }
     }
 
     /**
@@ -357,9 +369,13 @@ body.dark .theme-toggle {
         node.sourceSpans.firstOrNull()?.let { attributes["data-line"] = it.lineIndex.toString() }
     }
 
-    /** Fenced code and front matter, highlighted like the code views when the language is known. */
+    /**
+     * Fenced code and front matter, highlighted like the code views when the language is known; PlantUML fences are
+     * left to [fences] if given.
+     */
     private class FencedCodeRenderer(
         private val context: HtmlNodeRendererContext,
+        private val fences: PlantUmlFences?,
     ) : NodeRenderer {
         private val html = context.writer
 
@@ -381,6 +397,10 @@ body.dark .theme-toggle {
                 html.text(code)
                 html.tag("/pre")
                 html.line()
+                return
+            }
+            if (fences != null && fences.draws(language, code)) {
+                fences.write(block, html)
                 return
             }
             if (language == "math") {
