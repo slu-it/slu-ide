@@ -192,8 +192,9 @@ internal object MarkupLanguages {
      * Known gaps: a statement word used as a name at the start of a line (`end -> B`) is a keyword, and words like
      * `then` count only first on their line; a `/'` inside a string or a label starts a block comment; arrows
      * without a head that have a colour or direction (`-[#red]-`, `-up-`), `...>`, a head `x` or `o` on the right
-     * of a single dash (`->x`) are not or only partly marked; `$var` assignments, the arguments of `!` lines,
-     * skinparam settings and the content of JSON, YAML, salt, gantt and mindmap diagrams are plain.
+     * of a single dash (`->x`) are not or only partly marked; the one-dash class links `A *- B` and `A o- B` stay
+     * plain; a URL in a label ending in `-/` (`http://x/y-/`) marks that `-/`; `$var` assignments, the arguments of
+     * `!` lines, skinparam settings and the content of JSON, YAML, salt, gantt and mindmap diagrams are plain.
      */
     val plantuml: SyntaxHighlighter =
         PlantUmlHighlighter(
