@@ -110,6 +110,12 @@ the view.
   `searchSlot`), `split` (`left`, `right`), the workers, `texts`, `onReload` (every reopen after a document was shown,
   also one back from a notice) and `onDispose`; and `textRects` (FX-free), which turns a char range of a page text into
   one rect per line run, for selection and search highlights, on turned pages too.
+- **Thumbnails** (package `view.side`) render on the `renderWorker` at `THUMBNAIL` priority, after the pages in view
+  and around it, with the same cancel as the pages: each request is the job's tag and has a `cancelled` flag; the
+  requests of cells no longer shown (or of a hidden panel, a reload, the view's dispose) get their flag set, which
+  stops a running render at its next drawing step, and `cancelQueued` drops the queued ones. `ThumbnailCache`
+  (FX-free) keeps the requests and an LRU of 200 images; the cells shown are read from the list's `VirtualFlow` after
+  each of its layouts. The outline's selection follows the current page through `OutlineFollow` (FX-free).
 
 ## Consequences
 - The view packages build against an engine that is tested without a toolkit, on PDFs that `TestPdfs` builds with

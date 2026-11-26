@@ -1,7 +1,8 @@
 # PDF viewer
 
 **Module:** `modules/pdf` (package `dev.sluide.pdf`: `PdfFileViewer`; package `dev.sluide.pdf.engine`: `PdfDocument`,
-`PdfSetup`; package `dev.sluide.pdf.view`: the view, page column, workers, toolbar, zoom, password prompt); decision in
+`PdfSetup`; package `dev.sluide.pdf.view`: the view, page column, workers, toolbar, zoom, password prompt; package
+`dev.sluide.pdf.view.side`: the side panel); decision in
 [ADR 0192](../adr/0192-pdf-viewer.md)
 
 `.pdf` files open read-only in a tab: all pages stacked in one scrolling column, rendered by Apache PDFBox as images,
@@ -72,7 +73,33 @@ No position, zoom or panel state is remembered; ideas: [ideas/pdf.md](../ideas/p
 (added in a later package)
 
 ## Outline and thumbnails
-(added in a later package)
+The **side panel** on the left (package `dev.sluide.pdf.view.side`: `SidePanel`, `OutlinePanel`, `ThumbnailsPanel`,
+the FX-free `OutlineFollow` and `ThumbnailCache`) has the tabs **Outline** and **Thumbnails**. The toggle **Side
+Panel** at the left of the toolbar shows and hides it; it opens about 220 px wide (less in a narrow window) and keeps
+the width it was dragged to while hidden.
+- **How it starts**: once the PDF opened, on Outline if the PDF has an outline; else it stays closed with Thumbnails
+  selected, and Outline shows "This PDF has no outline.". After that the tab and whether the panel is open are the
+  user's for the tab's life: a reload keeps them, nothing is stored.
+- **Outline**: the PDF's outline as a tree, its items expanded or collapsed as the PDF marks them. Titles show on one
+  line, cut off with an ellipsis, the full title as a tooltip. A click on an item, or Enter on the selected one,
+  scrolls the pages to its target and gives the focus to the pages; the arrow keys only move the selection. An item
+  without a target that can be found is dimmed and does nothing.
+- **Thumbnails**: the pages as small images, 120 px wide (at most 480 px high), each with its number below; a page
+  shows blank until its image arrives, and stays blank if it cannot be rendered. A click on a page, or Enter on the
+  selected one, scrolls the pages to it and gives them the focus.
+- **Following the pages**: both lists select the current page's entry and scroll themselves to show it, without
+  scrolling the pages. In the outline that is the item whose target page is the latest at or before the current page
+  (of several on that page, the last in document order, so a section on its chapter's first page wins); if it is
+  hidden in a collapsed item, that item is selected instead, and following never expands anything. Before the first
+  target nothing is selected. After a pick in either list the picked entry stays selected until the pages move away
+  from the page the jump left them on (a scroll, the page field, a link, a search hit, a zoom) or the user scrolls
+  them, also when the pages could not scroll it to the top.
+- **Rendering**: thumbnails render on the same thread as the pages, after the pages in view and those around them,
+  at 120 px times the screen's output scale. Only the cells shown render, and only while the Thumbnails tab shows in
+  the open panel; renders of cells scrolled away are dropped from the queue, and one already running stops at its next
+  drawing step. At most 200 thumbnail images are kept, the least recently used dropped first.
+- A reload rebuilds the outline from the new file and renders the thumbnails shown anew; closing the tab stops their
+  renders.
 
 ## Search
 (added in a later package)
