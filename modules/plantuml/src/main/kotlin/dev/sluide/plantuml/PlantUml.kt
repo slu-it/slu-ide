@@ -68,8 +68,9 @@ class PlantUml internal constructor(
         })
 
     /**
-     * Draws every block of [source]; [firstLine] is the caller's number of the source's first line (a fence's first
-     * content line), so that errors point into the caller's text. Any thread. Never completes exceptionally: problems
+     * Draws every block of [source]; [firstLine] is the caller's number of the source's first line, so that errors
+     * point into the caller's text. Thoreau's callers all pass 1 and shift error lines themselves (a fence's drawing
+     * then does not depend on where the fence is, ADR 0193). Any thread. Never completes exceptionally: problems
      * are [Diagram.Failed] diagrams.
      */
     fun render(

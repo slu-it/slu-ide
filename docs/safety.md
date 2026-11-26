@@ -78,9 +78,10 @@ The short form that loads with production code is `.claude/rules/safety.md`; kee
 - Content from outside the project's control (archives, documents, HTML, XML, CSS, markup in user files) is parsed
   with limits (entries, sizes, nesting depth; count what is actually read, not what headers claim) and with XML DTDs
   and external entities off (`XmlTree`, `EpubXml`).
-- PlantUML sources (files, fences) are drawn by the bundled library in its SANDBOX profile: no local file is read, no
-  URL fetched, only the stdlib inside the jar is included; a source over 512 KiB is not parsed and a render past 20 s
-  is abandoned (ADR 0193).
+- PlantUML sources (files, fences) are drawn by the bundled library in its SANDBOX profile: no URL is fetched, only
+  the stdlib inside the jar is included, and no local file is read except one known gap (a missing stdlib JSON makes
+  PlantUML look for a fixed-name `stdlib/…/*.spm` file in the working folder); a source over 512 KiB is not parsed
+  and a render past 20 s is abandoned (ADR 0193).
 - Images from outside: JavaFX `Image` with a requested size still allocates the whole picture for PNG, GIF (every
   frame) and BMP, only baseline JPEG decodes scaled; cap the pixel count from the header before decoding, and
   refuse a header that cannot be read (`ImageLimits.check` over `ImageHeaders` in `image-limits`, ADR 0175). Read

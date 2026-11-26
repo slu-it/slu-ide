@@ -1,11 +1,13 @@
 # PlantUML
 
 **Modules:** `previews` (`dev.sluide.previews.plantuml`: `PlantUmlFileViewer`, `PlantUmlPreview`, `PlantUmlPage`,
-`PlantUmlHtml`, `DiagramRenders`) and `plantuml` (the engine: `PlantUml`, `GraphvizLocator`); `file-viewers`
-(`MarkupLanguages.plantuml`, `PlantUmlHighlighter`) and `text-editing` (`CommentSyntax.PLANTUML`). Decisions in
-[ADR 0193](../adr/0193-plantuml-engine.md) (the engine), [ADR 0033](../adr/0033-zooming-images-and-diagrams.md) (zoom)
-and [ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md) (focus). What is left for later:
-[plantuml-later.md](../ideas/plantuml-later.md).
+`PlantUmlHtml`, `DiagramRenders`, `PlantUmlExports`; `dev.sluide.previews.markdown`: `PlantUmlFences`, `FenceDiagrams`)
+and `plantuml` (the engine: `PlantUml`, `GraphvizLocator`); `file-viewers` (`MarkupLanguages.plantuml`,
+`PlantUmlHighlighter`) and `text-editing` (`CommentSyntax.PLANTUML`). Decisions in
+[ADR 0193](../adr/0193-plantuml-engine.md) (the engine), [ADR 0033](../adr/0033-zooming-images-and-diagrams.md) (zoom),
+[ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md) (focus), [ADR 0058](../adr/0058-markdown-html-export.md)
+(HTML export) and [ADR 0059](../adr/0059-svg-export-as-png.md) (several export files, one question). What is left
+for later: [plantuml-later.md](../ideas/plantuml-later.md).
 
 ## Which files
 `.puml`, `.plantuml`, `.pu` and `.iuml` files (any case) that are text.
@@ -55,7 +57,7 @@ and [ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md) (focus). What is l
 - The HTML export ([markdown-export.md](markdown-export.md)) draws every fence before it writes the page (each
   drawing within the engine's 20 s), with both variants as images that the page's theme switch shows; an error is
   exported as its error box and listed after the export ("PlantUML diagram (line N) could not be drawn: …", N being
-  the error's line in the file, or the fence's first line if PlantUML named none, as when a drawing took too long).
+  the error's line in the file, or the line of the opening fence if PlantUML named none, as when a drawing took too long).
   The page stays self-contained. Without a page renderer's opt-in (other pages that use the
   Markdown renderer) a PlantUML fence stays highlighted code.
 
@@ -63,7 +65,11 @@ and [ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md) (focus). What is l
 - A block PlantUML cannot read shows an error box in its place, under "Syntax error": "Line N: " and PlantUML's
   message, N being the line in the file (also for the second block of a file). Other blocks of the file draw as usual.
 - Other failures show only the message, without a line: an error inside a stdlib include (named in the message),
-  "Drawing took longer than 20 s", "Too large to draw: N KiB, at most 512 KiB", "PlantUML failed: …".
+  "Drawing took longer than 20 s", "Too large to draw: N KiB, at most 512 KiB", "PlantUML failed: …", "PlantUML
+  cannot start: …" (PlantUML could not load, e.g. without AWT; every drawing of the run then says so) and "PlantUML is
+  not in its sandbox" (a safety check that should never fire).
+- A view keeps what it drew for a text, failures too: a diagram that took too long is tried again only when its text
+  changes or the tab is opened again.
 - The text is selectable, red on a light red box (light red on dark red in the dark theme), like a Mermaid file's
   error.
 
@@ -78,7 +84,9 @@ and [ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md) (focus). What is l
   engine and get no line.
 
 ## What a source can use
-PlantUML runs in its SANDBOX profile, so a diagram cannot read the user's files or reach the network:
+PlantUML runs in its SANDBOX profile, so a diagram cannot read the user's files or reach the network (one known
+exception in [ADR 0193](../adr/0193-plantuml-engine.md): a missing stdlib JSON makes PlantUML look for a fixed-name
+`stdlib/…/*.spm` file in the app's working folder):
 - **Works:** the stdlib bundled with PlantUML: `!include <C4/C4_Container>`, icon and sprite libraries such as
   `<tupadr3/…>`, `!theme cerulean`, images as `<img:data:…>`.
 - **Refused:** every local file and every URL: `!include`, `!includesub`, `!import`, `!includeurl` and a `!theme`
@@ -109,7 +117,7 @@ so the files match what the preview shows for the saved text.
   diagram that fails to draw keeps its number. PNG Custom… names each with its own size: `name-2-640x480.png`.
 - **SVG:** the light variant of the diagram as UTF-8, with PlantUML's own `<?plantuml-src …?>` instruction, so that
   PlantUML tools can reopen the source.
-- **PNG:** the light SVG drawn as in [svg-png-export.md](svg-png-export.md), on a transparent background. PNG
+- **PNG:** the light SVG drawn as in [svg-png-export.md](svg-png-export.md), on PlantUML's own white background (its SVG sets one). PNG
   Custom… asks for the size of the first drawn diagram (ratio locked); every other diagram is scaled by the same factor.
 - **Existing files:** one question names all that exist ("diagram.svg and diagram-2.svg already exist in this
   folder. Replace them with the export?"); Cancel is the default and writes nothing.

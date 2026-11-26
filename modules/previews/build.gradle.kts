@@ -27,8 +27,8 @@ dependencies {
     // Deliberate module dependency: the image viewer checks an image's size from its header before it renders it, so
     // that a decompression bomb cannot fill the heap (ADR 0175).
     implementation(project(":modules:image-limits"))
-    // Deliberate module dependency: the PlantUML preview draws its diagrams with the engine's PlantUml.render
-    // (ADR 0193); both are in the editor family.
+    // Deliberate module dependency: the PlantUML preview, the Markdown and notebook fences and the exports draw with
+    // the engine's PlantUml.render (ADR 0193); both are in the editor family.
     implementation(project(":modules:plantuml"))
     implementation(libs.spring.context)
     // Markdown preview: commonmark renders HTML, jsoup sanitises it (ADR 0016).
