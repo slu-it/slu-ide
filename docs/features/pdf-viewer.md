@@ -12,7 +12,9 @@ with a toolbar above. Nothing is fetched from the network and nothing is stored.
   arrive late.
 - The view opens the file twice, once per thread: one document renders the pages (and reads the outline), the other
   extracts their text. PDFBox documents are not thread-safe (ADR 0192).
-- The page column gets the focus, so the scroll keys work at once.
+- The page column gets the focus, so the scroll keys work at once. Focus asked for while "Loading…" or a notice shows
+  goes to the pages once they show, unless the user put it elsewhere meanwhile; it waits for the pages to be in the
+  scene, which the split pane does a pulse after the tab's view.
 - A changed file (rewritten by another program) is opened again: the position (page and height on it) and the zoom
   stay, the pages render anew. If it can no longer be opened, its notice replaces the pages, and the pages come back
   once a later change makes it readable. If the explorer moves the file to another `.pdf` name, the tab follows it.

@@ -67,6 +67,9 @@ internal class PdfInputUiTest : PdfViewUiFixture() {
     fun `the keys the view acts on go no further, a zoom key without Shortcut does nothing`() {
         val view = open(TestPdfs.manyPages)
         awaitRendered(view, 0)
+        // The pages hold the focus as a tab's do: nothing else in this scene would give it to them.
+        fx { view.focus() }
+        await { stage.scene.focusOwner === view.pages }
         val keys = reachingScene(KeyEvent.KEY_PRESSED)
         val fitted = fx { view.pageColumn.zoom.scale }
         fx { Event.fireEvent(view.pages, keyPress(KeyCode.PLUS)) }

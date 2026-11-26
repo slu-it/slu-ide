@@ -1,6 +1,5 @@
 package dev.sluide.pdf.view
 
-import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.pdf.HostilePdfs
 import dev.sluide.pdf.TestPdfs
 import dev.sluide.pdf.engine.PageRect
@@ -17,7 +16,8 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
-import java.util.concurrent.CountDownLatch
+import java.util.concurrent.AbstractExecutorService
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -81,49 +81,77 @@ internal class PdfPagesUiTest : PdfViewUiFixture() {
         assertEquals(0.0, fx { view.pageColumn.viewTop })
     }
 
+    /** Holds its tasks until [release], then runs them, and every later one, at once on the calling thread. */
+    private class HeldExecutor : AbstractExecutorService() {
+        private val held = mutableListOf<Runnable>()
+        private var released = false
+
+        override fun execute(command: Runnable) {
+            if (released) command.run() else held += command
+        }
+
+        fun release() {
+            released = true
+            held.toList().also { held.clear() }.forEach(Runnable::run)
+        }
+
+        override fun shutdown() {}
+
+        override fun shutdownNow(): List<Runnable> = emptyList()
+
+        override fun isShutdown() = false
+
+        override fun isTerminated() = false
+
+        override fun awaitTermination(
+            timeout: Long,
+            unit: TimeUnit,
+        ) = false
+    }
+
     @Test
     fun `the focus asked for while loading goes to the pages once they show`() {
-        val opening = CountDownLatch(1)
-        val render = NamedThreads.single("test-pdf-render").also { it.execute { opening.await() } }
-        val view = open(TestPdfs.text, render)
         // Another focusable node, which holds the focus until the pages take it.
         val field = TextField()
+        lateinit var view: PdfFileView
+        // One FX step, no pulse in it: the view joins the scene, the focus is asked for while it loads, and the
+        // document opens and shows before the split pane has put the pages into the scene (it does so in a pulse).
         fx {
+            val render = HeldExecutor()
+            val text = HeldExecutor()
+            view = PdfFileView(TestPdfs.text, render, text, runOnFx = Runnable::run).also { views += it }
             (stage.scene.root as StackPane).children.setAll(VBox(field, view.node))
             field.requestFocus()
+            view.focus()
+            text.release()
+            render.release()
         }
-        // The window may get its focus late and then focus a node of its own choice.
-        await { stage.scene.focusOwner === field }
-        // The focus owners in turn, to tell why if the pages do not get it.
-        val owners = mutableListOf<String>()
-        fx { stage.scene.focusOwnerProperty().subscribe { owner -> owners += "${owner?.javaClass?.simpleName}" } }
-        fx { view.focus() }
-        // Nothing but the view may move the focus from here on.
-        assertSame(field, fx { stage.scene.focusOwner })
-        opening.countDown()
         awaitRendered(view, 0)
+        assertTrue(fx { !view.pageNotice.shown })
         runCatching { await { stage.scene.focusOwner === view.pages } }
-        assertSame(view.pages, fx { stage.scene.focusOwner }, fx { "focus owners: $owners" })
+        assertSame(view.pages, fx { stage.scene.focusOwner })
     }
 
     @Test
     fun `a focus asked for while loading is dropped when the focus moved elsewhere meanwhile`() {
-        val opening = CountDownLatch(1)
-        val render = NamedThreads.single("test-pdf-render").also { it.execute { opening.await() } }
-        val view = open(TestPdfs.text, render)
         val field = TextField()
         val other = TextField()
+        lateinit var view: PdfFileView
+        // As above, in one FX step; the focus moves on before the document shows.
         fx {
+            val render = HeldExecutor()
+            val text = HeldExecutor()
+            view = PdfFileView(TestPdfs.text, render, text, runOnFx = Runnable::run).also { views += it }
             (stage.scene.root as StackPane).children.setAll(VBox(field, other, view.node))
             field.requestFocus()
-        }
-        await { stage.scene.focusOwner === field }
-        fx {
             view.focus()
             other.requestFocus()
+            text.release()
+            render.release()
         }
-        opening.countDown()
         awaitRendered(view, 0)
+        // No signal tells that the focus did not move; the pulse that puts the pages into the scene came before.
+        paint()
         assertSame(other, fx { stage.scene.focusOwner })
     }
 

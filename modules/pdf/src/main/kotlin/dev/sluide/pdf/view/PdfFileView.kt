@@ -7,6 +7,7 @@ import dev.sluide.pdf.engine.PageRect
 import dev.sluide.pdf.engine.PageTarget
 import dev.sluide.pdf.engine.PdfDocument
 import dev.sluide.pdf.engine.PdfOpenResult
+import javafx.application.Platform
 import javafx.beans.property.ReadOnlyIntegerProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableValue
@@ -37,16 +38,18 @@ internal class PdfFileView(
     file: Path,
     renderExecutor: ExecutorService,
     textExecutor: ExecutorService,
+    /** How the workers hand their results to the FX thread; tests that run the workers on it pass `Runnable::run`. */
+    runOnFx: (Runnable) -> Unit = Platform::runLater,
 ) : FileView {
     /** The file shown; follows moves. */
     var file: Path = file
         private set
 
     /** The worker of the pages, thumbnails, outline and links. */
-    val renderWorker = PdfWorker(renderExecutor)
+    val renderWorker = PdfWorker(renderExecutor, runOnFx)
 
     /** The worker of the page texts and search. */
-    val textWorker = PdfWorker(textExecutor)
+    val textWorker = PdfWorker(textExecutor, runOnFx)
 
     /** The page texts, extracted on the [textWorker]. */
     val texts = PageTexts(textWorker)
@@ -232,7 +235,11 @@ internal class PdfFileView(
         shownOnce = true
         focusOnShow?.let { request ->
             focusOnShow = null
-            if (root.scene?.focusOwner === request.owner) column.node.requestFocus()
+            // The split pane puts the pages into the scene only once it is skinned, in a pulse: a request before that
+            // is dropped, so it waits for them.
+            pendingFocus.request(column.node) {
+                if (!disposed && root.scene?.focusOwner === request.owner) column.node.requestFocus()
+            }
         }
     }
 
@@ -342,16 +349,30 @@ internal class PdfFileView(
         return true
     }
 
-    override fun focusText() {
-        // A hidden node does not take the focus: the pages take it once they show.
-        if (notice.shown) {
-            focusOnShow = FocusRequest(root.scene?.focusOwner)
-        } else {
-            column.node.requestFocus()
+    override fun focusText() = focusPages(FocusRequest(root.scene?.focusOwner))
+
+    /**
+     * Waits for the pages, not the view's root: the split pane puts them into the scene a pulse after the root. The
+     * focus owner of the time of asking counts (when the view is in a scene already), not that of the pulse after it.
+     */
+    override fun focus() {
+        val asked = root.scene?.let { FocusRequest(it.focusOwner) }
+        pendingFocus.request(column.node) {
+            if (!disposed) focusPages(asked ?: FocusRequest(root.scene?.focusOwner))
         }
     }
 
-    override fun focus() = pendingFocus.request(root) { if (!disposed) focusText() }
+    /**
+     * Focuses the pages if the focus owner is still [request]'s (it moved elsewhere meanwhile otherwise), or, while a
+     * notice hides them, once they show, under the same condition.
+     */
+    private fun focusPages(request: FocusRequest) {
+        if (notice.shown) {
+            focusOnShow = request
+        } else if (root.scene?.focusOwner === request.owner) {
+            column.node.requestFocus()
+        }
+    }
 
     override fun dispose() {
         if (disposed) return
