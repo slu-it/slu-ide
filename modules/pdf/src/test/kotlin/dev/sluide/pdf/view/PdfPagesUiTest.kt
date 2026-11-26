@@ -152,6 +152,8 @@ internal class PdfPagesUiTest : PdfViewUiFixture() {
         fx { view.focus() }
         paint()
         assertSame(field, fx { stage.scene.focusOwner })
+        // A click inside the view keeps the request.
+        fx { Event.fireEvent(view.toolbar.openExternally, mousePress()) }
         fx {
             text.release()
             render.release()

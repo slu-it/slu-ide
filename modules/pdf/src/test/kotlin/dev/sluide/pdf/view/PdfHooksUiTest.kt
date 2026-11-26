@@ -9,6 +9,7 @@ import javafx.event.Event
 import javafx.scene.Cursor
 import javafx.scene.control.Label
 import javafx.scene.control.MenuItem
+import javafx.scene.control.ScrollPane
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -117,10 +118,22 @@ internal class PdfHooksUiTest : PdfViewUiFixture() {
         var scrolls = 0
         fx { view.userScrolled += { scrolls++ } }
         val rect = PageRect(50.0, 400.0, 100.0, 20.0)
+        // As a search hit is picked: once the view is laid out (the toolbar's height comes a pulse after the first fit).
+        paint()
+        val scroll = view.pages as ScrollPane
+
+        fun state(name: String) =
+            fx {
+                "$name: top=${view.pageColumn.viewTop} v=${scroll.vvalue} viewport=${scroll.viewportBounds} " +
+                    "scale=${view.pageColumn.zoom.scale} user scrolls=$scrolls"
+            }
+        val before = state("before")
         fx { view.scrollIntoView(10, rect) }
+        val after = state("after")
         val shown = sceneRect(view, 10, rect)
         val pane = fx { view.pages.localToScene(view.pages.layoutBounds) }
-        assertEquals(pane.centerY, shown.centerY, 2.0)
+        // The states tell, should it fail, whether the scroll did not happen or was undone.
+        assertEquals(pane.centerY, shown.centerY, 2.0, "$before | $after | ${state("checked")}")
         val top = fx { view.pageColumn.viewTop }
         fx { view.scrollIntoView(10, rect.copy(y = 420.0)) }
         assertEquals(top, fx { view.pageColumn.viewTop })

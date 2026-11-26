@@ -184,6 +184,8 @@ internal class PdfInputUiTest : PdfViewUiFixture() {
     fun `the context menu opens at the pointer, only on a page, and takes the request`() {
         val view = open(TestPdfs.manyPages)
         awaitRendered(view, 0)
+        // The places of the pages, measured once the view is laid out (the toolbar's height comes a pulse later).
+        paint()
         fx { view.pageContextMenu.items += MenuItem("Copy") }
         val requests = reachingScene(ContextMenuEvent.CONTEXT_MENU_REQUESTED)
         val page = sceneRect(view, 0, PageRect(0.0, 0.0, 595.0, 842.0))
