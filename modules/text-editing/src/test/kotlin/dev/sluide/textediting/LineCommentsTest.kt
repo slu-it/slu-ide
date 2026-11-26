@@ -94,12 +94,14 @@ class LineCommentsTest {
     }
 
     @Test
-    fun `comments lines in SQL, PowerShell, INI and Mermaid`() {
+    fun `comments lines in SQL, PowerShell, INI, Mermaid and PlantUML`() {
         assertEquals("-- select 1|", toggle("select 1|", CommentSyntax.SQL))
         assertEquals("# Get-Item|", toggle("Get-Item|", CommentSyntax.POWERSHELL))
         assertEquals("; key = value|", toggle("key = value|", CommentSyntax.SEMICOLON))
         assertEquals("%% A --> B|", toggle("A --> B|", CommentSyntax.MERMAID))
         assertEquals("A --> B|", toggle("%% A --> B|", CommentSyntax.MERMAID))
+        assertEquals("' A -> B|", toggle("A -> B|", CommentSyntax.PLANTUML))
+        assertEquals("A -> B|", toggle("' A -> B|", CommentSyntax.PLANTUML))
     }
 
     @Test

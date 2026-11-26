@@ -33,6 +33,9 @@ data class CommentSyntax(
         /** Mermaid diagrams, which have only line comments starting with `%%`. */
         val MERMAID = CommentSyntax("%%", null)
 
+        /** PlantUML, which has only line comments starting with `'` (blocks `/' … '/` are not toggled). */
+        val PLANTUML = CommentSyntax("'", null)
+
         /** Windows batch files: `REM` comments (`::` labels work too, but not inside parenthesised blocks). */
         val REM = CommentSyntax("REM", null)
 
