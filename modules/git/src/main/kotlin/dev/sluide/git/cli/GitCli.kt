@@ -6,8 +6,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.io.InputStream
-import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
@@ -229,9 +227,7 @@ class GitCli internal constructor(
             listOfNotNull(
                 Thread.ofVirtual().start {
                     process.inputStream.use { stream ->
-                        if (maxOutput == null) {
-                            stream.transferTo(output)
-                        } else if (!copyAtMost(stream, output, maxOutput)) {
+                        readOutput(stream, output, maxOutput) {
                             // More than wanted: no need to wait for the rest, nor for what git started (a filter).
                             overflowed.set(true)
                             stop(process, write = false)
@@ -307,19 +303,6 @@ class GitCli internal constructor(
         val complete = readers.none(Thread::isAlive)
         entry.exited(process.exitValue(), outputBytes, errorBytes, complete, overflowed.get())
         return Execution(process.exitValue(), outputBytes, errorBytes, complete, overflowed = overflowed.get())
-    }
-
-    /** Reads [stream] to its end into [errors], at most [limit] bytes of it if given. */
-    private fun keepErrors(
-        stream: InputStream,
-        errors: ByteArrayOutputStream,
-        limit: Long?,
-    ) {
-        if (limit == null || copyAtMost(stream, errors, limit)) {
-            stream.transferTo(errors)
-        } else {
-            stream.transferTo(OutputStream.nullOutputStream())
-        }
     }
 
     /**

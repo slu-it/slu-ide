@@ -78,7 +78,8 @@ internal object GitCommandLog {
 
     /**
      * Copies the first [STDERR_KEEP] bytes of [stream] into [into] and discards the rest, so the pipe never fills. A
-     * stream closed under it (git stopped or ended while it reads) ends the copy: what came is kept, for the log only.
+     * stream closed under it (only stopping git closes it while it reads) ends the copy: what came is kept, for the log
+     * only.
      */
     fun keepStart(
         stream: InputStream,

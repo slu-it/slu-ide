@@ -1,6 +1,7 @@
 package dev.sluide.git.cli
 
 import dev.sluide.git.GitCancellation
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.TimeUnit
@@ -69,5 +70,50 @@ internal fun copyAtMost(
         }
         output.write(buffer, 0, read)
         copied += read
+    }
+}
+
+/**
+ * Reads git's standard output [stream] into [output], at most [limit] bytes if given; [overflow] when it has more,
+ * which are not read. A stream closed under it ends the read with what came: only stopping git closes it (a cancel,
+ * a timeout, an interrupt, an overflow), and its result is then thrown away.
+ */
+internal fun readOutput(
+    stream: InputStream,
+    output: OutputStream,
+    limit: Long?,
+    overflow: () -> Unit,
+) {
+    val whole =
+        try {
+            if (limit == null) {
+                stream.transferTo(output)
+                true
+            } else {
+                copyAtMost(stream, output, limit)
+            }
+        } catch (_: IOException) {
+            return
+        }
+    if (!whole) overflow()
+}
+
+/**
+ * Reads git's standard error [stream] to its end into [errors], at most [limit] bytes of it if given. A stream closed
+ * under it ends the read with what came, as for [readOutput].
+ */
+internal fun keepErrors(
+    stream: InputStream,
+    errors: OutputStream,
+    limit: Long?,
+) {
+    try {
+        if (limit == null || copyAtMost(stream, errors, limit)) {
+            stream.transferTo(errors)
+        } else {
+            stream.transferTo(OutputStream.nullOutputStream())
+        }
+    } catch (_: IOException) {
+        // Closed by stopping git.
     }
 }

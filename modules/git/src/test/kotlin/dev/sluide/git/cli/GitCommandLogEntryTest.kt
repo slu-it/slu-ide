@@ -138,7 +138,7 @@ class GitCommandLogEntryTest {
 
     @Test
     fun `keepStart keeps what came and ends quietly when the stream is closed under it`() {
-        // A stopped or ended git closes its standard error while the reader still reads (seen as "Stream closed").
+        // Stopping git (destroyForcibly) closes its standard error under the reader; the JDK then says "Stream closed".
         val stream =
             object : InputStream() {
                 private var sent = false

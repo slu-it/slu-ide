@@ -3,8 +3,11 @@ package dev.sluide.git.cli
 import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.function.ThrowingSupplier
+import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.FilterInputStream
+import java.io.InputStream
 import java.time.Duration.ofSeconds
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
@@ -31,6 +34,52 @@ class GitProcessTest {
             }
             assertEquals(false to limit, copy(limit + 1, limit.toLong()), "limit + 1, limit $limit")
             assertEquals(false to limit, copy(limit + 30_000, limit.toLong()), "far above, limit $limit")
+        }
+    }
+
+    /**
+     * A real [BufferedInputStream] of twice [chunk] that is closed after its first read, as stopping git
+     * (`destroyForcibly`) closes its pipes under a reader; its next read then throws "Stream closed", as the JDK's does.
+     */
+    private fun closedAfterFirstRead(chunk: ByteArray): InputStream {
+        val real = BufferedInputStream(ByteArrayInputStream(chunk + chunk), chunk.size)
+        return object : FilterInputStream(real) {
+            private var reads = 0
+
+            override fun read(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ): Int {
+                if (reads++ == 1) real.close()
+                return super.read(buffer, offset, minOf(length, chunk.size))
+            }
+        }
+    }
+
+    private val chunk = ByteArray(100) { 'o'.code.toByte() }
+
+    @Test
+    fun `git's output read with or without a limit ends quietly with what came when git is stopped under it`() {
+        for (limit in listOf(null, 1_000L)) {
+            val output = ByteArrayOutputStream()
+            var overflowed = false
+
+            readOutput(closedAfterFirstRead(chunk), output, limit) { overflowed = true }
+
+            assertEquals(chunk.size, output.size(), "limit $limit")
+            assertFalse(overflowed, "limit $limit")
+        }
+    }
+
+    @Test
+    fun `git's errors read with or without a limit end quietly with what came when git is stopped under it`() {
+        for (limit in listOf(null, 1_000L, 10L)) {
+            val errors = ByteArrayOutputStream()
+
+            keepErrors(closedAfterFirstRead(chunk), errors, limit)
+
+            assertEquals(minOf(chunk.size.toLong(), limit ?: Long.MAX_VALUE).toInt(), errors.size(), "limit $limit")
         }
     }
 
