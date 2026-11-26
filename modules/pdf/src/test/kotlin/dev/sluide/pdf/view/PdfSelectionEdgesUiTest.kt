@@ -133,7 +133,52 @@ internal class PdfSelectionEdgesUiTest : PdfSelectionUiBase() {
         key(view, KeyCode.A, shortcut = true)
         textOf(view)
         assertFalse(selected(view))
+        // Presses and drags on a page of no text (every page of a scan) find no char and select nothing.
+        val centre = sceneRect(view, 0, PageRect(200.0, 300.0, 10.0, 10.0)).centre()
+        click(view, centre)
+        click(view, centre, clicks = 2)
+        drag(view, centre, centre.add(80.0, 60.0))
+        assertFalse(selected(view))
         assertEquals(emptyList(), thrown())
+    }
+
+    @Test
+    fun `copy of a selection on a page without text leaves the clipboard alone`() {
+        val view = open(TestPdfs.blank)
+        awaitRendered(view, 0)
+        clearClipboard()
+        key(view, KeyCode.A, shortcut = true)
+        key(view, KeyCode.C, shortcut = true)
+        textOf(view) // served after the copy's own request for the same text
+        assertEquals(UNTOUCHED, clipboard())
+    }
+
+    @Test
+    fun `copy of a range that starts after the first page does not touch the pages before it`() {
+        val view = open(TestPdfs.threePages)
+        awaitRendered(view, 0)
+        fx {
+            view.pageColumn.zoomOut()
+            view.pageColumn.zoomOut()
+        }
+        textOf(view, 0)
+        val word = sceneRect(view, 1, boxOf(textOf(view, 1), "Page 2"))
+        clearClipboard()
+        drag(view, word.left(), word.right())
+        key(view, KeyCode.C, shortcut = true)
+        awaitClipboard("Page 2")
+    }
+
+    @Test
+    fun `the pointer of a drag that a newer press replaced is not used when its text arrives`() {
+        val view =
+            heldPages(cached = listOf(0)) { view, first, second ->
+                drag(view, first().left(), second().right())
+                click(view, sceneRect(view, 0, PageRect(400.0, 400.0, 10.0, 10.0)).centre())
+            }
+        textOf(view, 1)
+        assertFalse(selected(view, 0))
+        assertFalse(selected(view, 1))
     }
 
     @Test
@@ -178,6 +223,10 @@ internal class PdfSelectionEdgesUiTest : PdfSelectionUiBase() {
         for (other in others) assertTrue(bubbles(view, other), other.toString())
         assertFalse(selected(view))
         assertFalse(bubbles(view, keyPress(KeyCode.A, shortcut = true)))
+        assertTrue(selected(view))
+        // A key that is not Escape, such as the bare Ctrl or Cmd before C, leaves the selection alone.
+        assertTrue(bubbles(view, keyPress(KeyCode.CONTROL, shortcut = true)))
+        assertTrue(bubbles(view, keyPress(KeyCode.SHIFT, shift = true)))
         assertTrue(selected(view))
         assertFalse(bubbles(view, keyPress(KeyCode.C, shortcut = true)))
         assertFalse(bubbles(view, keyPress(KeyCode.ESCAPE)))
