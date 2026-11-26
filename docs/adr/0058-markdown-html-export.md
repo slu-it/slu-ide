@@ -34,7 +34,8 @@ its script, KaTeX (with its fonts as `data:` URIs) and Mermaid, and embeds local
   out. Mermaid prefixes marker and element ids with its render id, so the variants do not collide; sequence-diagram
   actor ids come from a counter that runs on within the one engine of an export. A diagram that cannot be drawn shows
   Mermaid's error and is reported; a formula that cannot be typeset keeps its source and is reported too. Results come
-  back one by one, so a timeout keeps what was drawn. Rejected:
+  back one by one, so a timeout keeps what was drawn. PlantUML fences are drawn in-process instead, by the app's engine
+  ([ADR 0193](0193-plantuml-engine.md), `PlantUmlFences`). Rejected:
   - inlining the libraries, as the preview does: 3.5 MB per page with diagrams;
   - mermaid-cli: Node and Puppeteer the user would have to install;
   - kroki.io or mermaid.ink: the document's diagrams would leave the machine, and the export would need the network;

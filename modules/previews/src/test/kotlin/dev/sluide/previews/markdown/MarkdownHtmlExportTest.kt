@@ -60,7 +60,7 @@ class MarkdownHtmlExportTest {
 
     /**
      * Draws a PlantUML source on another thread, as the engine does: as SVGs naming the variant, or with an error in
-     * the line after the first if it says `bad`.
+     * the line after the first if it says `bad`, or given up without a line (the engine's watchdog) if it says `slow`.
      */
     private val plantUml = { source: String, firstLine: Int ->
         drawn += source to firstLine
@@ -68,6 +68,8 @@ class MarkdownHtmlExportTest {
             val diagram =
                 if ("bad" in source) {
                     Diagram.Failed("Syntax <error>", firstLine + 1)
+                } else if ("slow" in source) {
+                    Diagram.Failed("Drawing took longer than 20 s", null)
                 } else {
                     Diagram.Drawn("<svg>light</svg>", "<svg>dark</svg>")
                 }
@@ -284,11 +286,20 @@ class MarkdownHtmlExportTest {
     }
 
     @Test
-    fun `a PlantUML fence with an error exports the error box`() {
-        val doc = Jsoup.parse(page("```puml\nbad\n```\n").html)
+    fun `a PlantUML fence with an error exports the error box and is reported`() {
+        val page = page("# Notes\n\n```puml\nbad\n```\n\n```plantuml\nslow\n```\n")
+        val doc = Jsoup.parse(page.html)
 
-        assertEquals("Line 2: Syntax <error>", doc.select("pre.plantuml-error.syntax").single().text())
+        assertEquals("Line 4: Syntax <error>", doc.select("pre.plantuml-error.syntax").single().text())
+        assertEquals("Drawing took longer than 20 s", doc.select("pre.plantuml-error:not(.syntax)").single().text())
         assertTrue(doc.select("img").isEmpty())
+        assertEquals(
+            listOf(
+                "PlantUML diagram (line 4) could not be drawn: Syntax <error>",
+                "PlantUML diagram (line 7) could not be drawn: Drawing took longer than 20 s",
+            ),
+            page.problems,
+        )
     }
 
     private companion object {

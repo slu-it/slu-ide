@@ -64,7 +64,7 @@ internal class MarkdownHtmlExport(
         // Each drawing is waited for: it never fails, and the engine gives up on one after 20 s.
         val fences = PlantUmlFences(FenceDiagrams { source, firstLine -> plantUml(source, firstLine).join() })
         val body = MarkdownRenderer.body(text, file.parent, frontMatter = true, fences = fences)
-        fences.insert(body)
+        val notDrawn = fences.insert(body)
         // Each address is downloaded once, failures included.
         val downloaded = mutableMapOf<URI, String?>()
         body.select("img[src]").forEach { image ->
@@ -91,7 +91,7 @@ internal class MarkdownHtmlExport(
                 title = file.fileName.toString(),
                 extraStyles = listOfNotNull(css),
             )
-        return ExportedPage(html, notEmbedded.map { "Image not embedded: $it" } + failed)
+        return ExportedPage(html, notEmbedded.map { "Image not embedded: $it" } + notDrawn + failed)
     }
 
     /**

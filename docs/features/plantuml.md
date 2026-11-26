@@ -54,7 +54,9 @@ and [ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md) (focus). What is l
   line 2: …", the cell counted among all cells from 1.
 - The HTML export ([markdown-export.md](markdown-export.md)) draws every fence before it writes the page (each
   drawing within the engine's 20 s), with both variants as images that the page's theme switch shows; an error is
-  exported as its error box. The page stays self-contained. Without a page renderer's opt-in (other pages that use the
+  exported as its error box and listed after the export ("PlantUML diagram (line N) could not be drawn: …", N being
+  the error's line in the file, or the fence's first line if PlantUML named none, as when a drawing took too long).
+  The page stays self-contained. Without a page renderer's opt-in (other pages that use the
   Markdown renderer) a PlantUML fence stays highlighted code.
 
 ## Errors

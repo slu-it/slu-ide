@@ -1,6 +1,7 @@
 package dev.sluide.previews.markdown
 
 import dev.sluide.fileviewers.Highlighters
+import dev.sluide.plantuml.Diagram
 import dev.sluide.plantuml.Rendering
 import dev.sluide.plantuml.plantUmlBlocks
 import dev.sluide.previews.plantuml.PlantUmlHtml
@@ -83,11 +84,15 @@ internal class PlantUmlFences(
      * Replaces the placeholders in [page], the sanitised page with all of them, by the fences' diagrams. A fence whose
      * drawing is not there yet shows the drawing the previous page showed in its place, if that fence was edited:
      * if the previous page had as many fences and the previous one's text is nowhere on this page (else it was moved).
+     * Returns a line for the user about each failed diagram shown: "PlantUML diagram (line N) could not be drawn: …",
+     * N being the error's line in the text, or the fence's opening line if PlantUML named none (the drawing took too
+     * long, for example).
      */
-    fun insert(page: Element) {
+    fun insert(page: Element): List<String> {
         val previous = diagrams.shown.takeIf { it.size == fences.size }.orEmpty()
         val sources = fences.map { it.source }.toSet()
         val shown = mutableListOf<Pair<String, Rendering?>>()
+        val failed = mutableListOf<String>()
         fences.forEachIndexed { index, fence ->
             // Gone if the file's HTML swallowed it (an unclosed `<textarea>` takes the rest as text); it still counts.
             val placeholder = page.selectFirst("div.$marker-$index")
@@ -100,6 +105,10 @@ internal class PlantUmlFences(
             val rendering = drawing ?: kept?.second
             // A kept drawing stays with the text it belongs to, so that it is kept again until the new one is there.
             shown += kept ?: (fence.source to drawing)
+            for (diagram in rendering?.diagrams.orEmpty().filterIsInstance<Diagram.Failed>()) {
+                val line = diagram.line?.let { it + fence.firstLine - 1 } ?: (fence.line + 1)
+                failed += "PlantUML diagram (line $line) could not be drawn: ${diagram.message}"
+            }
             val element =
                 if (rendering == null) {
                     PlantUmlHtml.drawing()
@@ -109,5 +118,6 @@ internal class PlantUmlFences(
             placeholder.replaceWith(element.attr("data-line", fence.line.toString()))
         }
         diagrams.shown = shown
+        return failed
     }
 }

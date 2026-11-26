@@ -11,7 +11,7 @@ Decision in [ADR 0058](../adr/0058-markdown-html-export.md).
   to disk.
 - If `<name>.html` already exists, a dialog asks whether to replace it. Cancel is the default and writes nothing.
 - The page looks like the preview: the same rendering, sanitising, code highlighting, math (KaTeX) and diagrams
-  (Mermaid).
+  (Mermaid, PlantUML).
 - **Self-contained:** styles and fonts are inlined, and images are embedded as `data:` URIs:
   - local images up to 10 MB;
   - remote `http(s)` images, downloaded at export time (`image/*`, or the file extension if the server sends no type; up
@@ -26,6 +26,10 @@ Decision in [ADR 0058](../adr/0058-markdown-html-export.md).
   the page and is listed in the dialog after the export; math that cannot be typeset keeps its TeX source and is
   reported as well. Labels are measured with the IDE's fonts, so in a browser with other fonts a label may sit a little
   tight.
+- **PlantUML fences** are drawn in-process by the bundled PlantUML, each waited for up to 20 s, and embedded in both
+  colour variants as `data:` images, of which the page's colour scheme shows one. A fence that cannot be drawn shows
+  its error box and is listed in the dialog after the export ("PlantUML diagram (line N) could not be drawn: …"):
+  [plantuml.md](plantuml.md#in-markdown-and-notebooks).
 - **Front matter:** exported as the same highlighted code block as in the preview (`<pre class="front-matter">`); a
   `<name>.css` can hide it with `.front-matter { display: none; }`.
 - **Custom styles:** `<name>.css` next to the Markdown file is inlined after the built-in styles, so it overrides only
