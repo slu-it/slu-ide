@@ -44,7 +44,7 @@ class MarkdownFileViewer internal constructor(
  * FX thread, which [runLater] goes back to.
  */
 internal class MarkdownPreview(
-    render: (source: String, firstLine: Int) -> CompletableFuture<Rendering>,
+    private val render: (source: String, firstLine: Int) -> CompletableFuture<Rendering>,
     runLater: (Runnable) -> Unit = Platform::runLater,
 ) : Preview {
     private var rerender: () -> Unit = {}
@@ -85,5 +85,5 @@ internal class MarkdownPreview(
 
     override fun outline(text: String) = MarkdownOutline.headings(text)
 
-    override val exports by lazy { listOf(MarkdownHtmlExport()) }
+    override val exports by lazy { listOf(MarkdownHtmlExport(plantUml = render)) }
 }

@@ -107,4 +107,19 @@ class MarkdownFileViewerTest {
         assertEquals("Line 5: Syntax?", error("# Title\n\nMore\n```plantuml\nbad\n```\n"))
         assertEquals(1, requests.size, "drawn once")
     }
+
+    @Test
+    fun `the HTML export draws fences with the viewer's engine`() {
+        val asked = mutableListOf<String>()
+        val preview =
+            MarkdownFileViewer { source, _ ->
+                asked += source
+                CompletableFuture.completedFuture(Rendering(listOf(Diagram.Drawn("<svg/>", "<svg/>")), false))
+            }.newPreview()
+        val export = preview.exports.single() as MarkdownHtmlExport
+
+        export.render(dir.resolve("notes.md"), "```plantuml\nA -> B\n```\n")
+
+        assertEquals(listOf("@startuml\nA -> B\n@enduml\n"), asked)
+    }
 }
