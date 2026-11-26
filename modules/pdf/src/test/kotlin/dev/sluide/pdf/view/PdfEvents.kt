@@ -3,6 +3,8 @@ package dev.sluide.pdf.view
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.scene.input.ScrollEvent
 import javafx.scene.input.ZoomEvent
 
@@ -76,6 +78,29 @@ internal fun pinch(
     factor,
     null,
 )
+
+/** A press of the primary mouse button, as a click starts. */
+internal fun mousePress() =
+    MouseEvent(
+        MouseEvent.MOUSE_PRESSED,
+        5.0,
+        5.0,
+        5.0,
+        5.0,
+        MouseButton.PRIMARY,
+        1,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        null,
+    )
 
 /** A secondary click's context menu request at the scene point [sceneX], [sceneY]. */
 internal fun contextMenuRequest(

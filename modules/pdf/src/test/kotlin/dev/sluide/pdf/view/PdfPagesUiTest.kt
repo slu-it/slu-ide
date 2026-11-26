@@ -1,5 +1,6 @@
 package dev.sluide.pdf.view
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.pdf.HostilePdfs
 import dev.sluide.pdf.TestPdfs
 import dev.sluide.pdf.engine.PageRect
@@ -7,6 +8,9 @@ import dev.sluide.pdf.engine.PageTarget
 import dev.sluide.pdf.engine.PageText
 import dev.sluide.pdf.engine.PdfDocument
 import javafx.event.Event
+import javafx.scene.control.Tab
+import javafx.scene.control.TabPane
+import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
 import javafx.scene.layout.StackPane
@@ -128,16 +132,65 @@ internal class PdfPagesUiTest : PdfViewUiFixture() {
         }
         awaitRendered(view, 0)
         assertTrue(fx { !view.pageNotice.shown })
-        runCatching { await { stage.scene.focusOwner === view.pages } }
+        paint()
         assertSame(view.pages, fx { stage.scene.focusOwner })
     }
 
     @Test
-    fun `a focus asked for while loading is dropped when the focus moved elsewhere meanwhile`() {
+    fun `a focus that reached the view while loading goes to the pages once they show`() {
+        val field = TextField()
+        val render = HeldExecutor()
+        val text = HeldExecutor()
+        lateinit var view: PdfFileView
+        fx {
+            view = PdfFileView(TestPdfs.text, render, text, runOnFx = Runnable::run).also { views += it }
+            (stage.scene.root as StackPane).children.setAll(VBox(field, view.node))
+            field.requestFocus()
+        }
+        // The split is skinned: the request reaches the view while "Loading…" hides the pages.
+        paint()
+        fx { view.focus() }
+        paint()
+        assertSame(field, fx { stage.scene.focusOwner })
+        fx {
+            text.release()
+            render.release()
+        }
+        awaitRendered(view, 0)
+        paint()
+        assertSame(view.pages, fx { stage.scene.focusOwner })
+    }
+
+    @Test
+    fun `a PDF tab opened while another tab's editor has the focus takes it`() {
+        val editor = TextArea()
+        val tabs = TabPane(Tab("A", editor))
+        fx { (stage.scene.root as StackPane).children.setAll(tabs) }
+        // The tab pane puts its content into the scene once skinned, in a pulse.
+        paint()
+        fx { editor.requestFocus() }
+        await { stage.scene.focusOwner === editor }
+        lateinit var view: PdfFileView
+        fx {
+            view =
+                PdfFileView(TestPdfs.text, NamedThreads.single("test-pdf-render"), NamedThreads.single("test-pdf-text"))
+                    .also { views += it }
+            val tab = Tab("B", view.node)
+            tabs.tabs += tab
+            tabs.selectionModel.select(tab)
+            view.focus()
+        }
+        awaitRendered(view, 0)
+        paint()
+        assertSame(view.pages, fx { stage.scene.focusOwner })
+    }
+
+    @Test
+    fun `a focus asked for while loading is dropped when the user clicks elsewhere meanwhile`() {
         val field = TextField()
         val other = TextField()
         lateinit var view: PdfFileView
-        // As above, in one FX step; the focus moves on before the document shows.
+        // As above, in one FX step; the user clicks another field before the document shows.
         fx {
             val render = HeldExecutor()
             val text = HeldExecutor()
@@ -145,6 +198,7 @@ internal class PdfPagesUiTest : PdfViewUiFixture() {
             (stage.scene.root as StackPane).children.setAll(VBox(field, other, view.node))
             field.requestFocus()
             view.focus()
+            Event.fireEvent(other, mousePress())
             other.requestFocus()
             text.release()
             render.release()

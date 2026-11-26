@@ -2,7 +2,6 @@ package dev.sluide.pdf.view
 
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
-import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.pdf.engine.PageRect
 import dev.sluide.pdf.engine.PageTarget
 import dev.sluide.pdf.engine.PdfDocument
@@ -66,7 +65,7 @@ internal class PdfFileView(
     /** The side panels and the pages between them. */
     val split = PdfSplit(pageArea)
     private val root = BorderPane(split.node, toolbar.node, null, null, null).apply { styleClass += "pdf-view" }
-    private val pendingFocus = FocusWhenShown()
+    private val pagesFocus = PagesFocus(root, column.node) { notice.shown }
     private val infoWrapper = ReadOnlyObjectWrapper<PdfInfo?>(null)
 
     /** What is known of the open document; `null` while nothing is open. */
@@ -122,16 +121,6 @@ internal class PdfFileView(
 
     /** The password of an attempt on its way, zeroed if [dispose] drops its answer. */
     private var attempting: CharArray? = null
-
-    /**
-     * A focus request that came while a notice hid the pages, with the scene's focus owner at that moment: the pages
-     * take the focus once they show, unless it moved elsewhere meanwhile.
-     */
-    private var focusOnShow: FocusRequest? = null
-
-    private class FocusRequest(
-        val owner: Node?,
-    )
 
     private val stamp = FileStamp { file }
 
@@ -233,14 +222,7 @@ internal class PdfFileView(
         infoWrapper.set(opened)
         column.show(opened.pageSizes, at)
         shownOnce = true
-        focusOnShow?.let { request ->
-            focusOnShow = null
-            // The split pane puts the pages into the scene only once it is skinned, in a pulse: a request before that
-            // is dropped, so it waits for them.
-            pendingFocus.request(column.node) {
-                if (!disposed && root.scene?.focusOwner === request.owner) column.node.requestFocus()
-            }
-        }
+        pagesFocus.shown()
     }
 
     private fun fail(text: String) {
@@ -349,37 +331,15 @@ internal class PdfFileView(
         return true
     }
 
-    override fun focusText() = focusPages(FocusRequest(root.scene?.focusOwner))
+    override fun focusText() = pagesFocus.focusText()
 
-    /**
-     * Waits for the pages, not the view's root: the split pane puts them into the scene a pulse after the root. The
-     * focus owner of the time of asking counts (when the view is in a scene already), not that of the pulse after it.
-     */
-    override fun focus() {
-        val asked = root.scene?.let { FocusRequest(it.focusOwner) }
-        pendingFocus.request(column.node) {
-            if (!disposed) focusPages(asked ?: FocusRequest(root.scene?.focusOwner))
-        }
-    }
-
-    /**
-     * Focuses the pages if the focus owner is still [request]'s (it moved elsewhere meanwhile otherwise), or, while a
-     * notice hides them, once they show, under the same condition.
-     */
-    private fun focusPages(request: FocusRequest) {
-        if (notice.shown) {
-            focusOnShow = request
-        } else if (root.scene?.focusOwner === request.owner) {
-            column.node.requestFocus()
-        }
-    }
+    override fun focus() = pagesFocus.focus()
 
     override fun dispose() {
         if (disposed) return
         onDispose.toList().forEach { it() }
         disposed = true
-        pendingFocus.cancel()
-        focusOnShow = null
+        pagesFocus.drop()
         renderWorker.dispose()
         textWorker.dispose()
         column.dispose()
