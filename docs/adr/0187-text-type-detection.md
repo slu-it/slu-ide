@@ -37,7 +37,8 @@ for texts that are something else: a Python `def f():` block, a Markdown heading
     line that is not blank or a `%%` comment, and one more line.
   - PlantUML, 95 (added 2026-11-26): a `@start<type>` line (optional name after a blank or in parentheses) as the
     first line that is not blank or a `'` comment, and a later line starting with `@end`; above the code heuristics'
-    cap of 90, so a class diagram with Kotlin-like members (`fun`, `val`) stays PlantUML.
+    cap of 90, so a class diagram with Kotlin-like members (`fun`, `val`) stays PlantUML. Known limit: prose whose
+    first line starts with an `@start…` word and a later line with `@end` counts as PlantUML too.
   - SQL: statements at a statement start (the first line, after a line ending in `;`, after a blank line; `--`
     comment lines left out) with a statement's shape (`SELECT … FROM`, `INSERT INTO`, `UPDATE … SET`, `DELETE FROM`,
     `CREATE TABLE|VIEW|INDEX`, `ALTER TABLE`, `WITH … AS (`, any case) and one sign that it is not a sentence (a `;`
