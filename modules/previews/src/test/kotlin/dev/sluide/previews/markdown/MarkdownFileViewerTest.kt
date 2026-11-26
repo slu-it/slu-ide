@@ -3,13 +3,19 @@ package dev.sluide.previews.markdown
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.TokenStyle
+import dev.sluide.plantuml.Diagram
+import dev.sluide.plantuml.Rendering
+import dev.sluide.previews.plantuml.PlantUmlHtml
+import org.jsoup.Jsoup
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 
 class MarkdownFileViewerTest {
@@ -41,5 +47,40 @@ class MarkdownFileViewerTest {
         assertSame(viewer.highlighter, viewer.sourceHighlighter)
         val spans = viewer.sourceHighlighter.highlight("# Title\n")
         assertEquals(TokenStyle.KEYWORD, spans.single { it.start <= 1 && 1 < it.end }.style)
+    }
+
+    @Test
+    fun `each view's preview draws PlantUML fences and renders again when a drawing arrives, until detached`() {
+        assertNotSame(viewer.newPreview(), viewer.newPreview())
+        val requests = mutableListOf<Pair<String, CompletableFuture<Rendering>>>()
+        val fxQueue = ArrayDeque<Runnable>()
+        var rerenders = 0
+
+        fun preview() =
+            MarkdownPreview(
+                { source, _ -> CompletableFuture<Rendering>().also { requests += source to it } },
+                fxQueue::addLast,
+            ).apply { attach({ rerenders++ }) { null } }
+
+        fun arrive() {
+            requests.last().second.complete(Rendering(listOf(Diagram.Drawn("<svg/>", "<svg/>")), false))
+            while (fxQueue.isNotEmpty()) fxQueue.removeFirst().run()
+        }
+        val markdown = "# Title\n\n```plantuml\nA -> B\n```\n"
+        val preview = preview()
+
+        val drawing = Jsoup.parse(preview.page(markdown, dir, dark = false))
+        assertEquals(PlantUmlHtml.DRAWING, drawing.selectFirst("p.diagram-note")?.text())
+        arrive()
+        assertEquals(1, rerenders)
+        val drawn = Jsoup.parse(preview.page(markdown, dir, dark = false))
+        assertEquals(1, drawn.select("img.plantuml-light").size)
+        assertEquals(1, requests.size)
+
+        val detached = preview()
+        detached.page(markdown, dir, dark = false)
+        detached.detach()
+        arrive()
+        assertEquals(1, rerenders, "no rerender after detach")
     }
 }

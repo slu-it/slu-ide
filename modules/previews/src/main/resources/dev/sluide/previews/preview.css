@@ -283,6 +283,11 @@ body.dark .plantuml-diagram img.plantuml-light {
     display: none;
 }
 
+/* A Markdown page's fence (PlantUmlFences) is a block like the others; a PlantUML file's page has its own padding. */
+body:not(.plantuml-file) div.plantuml {
+    margin: 0 0 16px 0;
+}
+
 /* The gap is the margin above each part after the first (below); an error box has none below it. */
 .plantuml-diagrams > pre {
     margin-bottom: 0;

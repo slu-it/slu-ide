@@ -2,6 +2,7 @@ package dev.sluide.previews.plantuml
 
 import dev.sluide.plantuml.PlantUml
 import dev.sluide.plantuml.Rendering
+import dev.sluide.previews.markdown.MarkdownFileViewer
 import dev.sluide.previews.preview.PreviewFileView
 import dev.sluide.previews.preview.PreviewMode
 import javafx.application.ColorScheme
@@ -279,5 +280,68 @@ class PlantUmlPreviewUiTest {
         view.awaitLoaded()
 
         assertSame(view.webView, fx { container.scene.focusOwner })
+    }
+
+    // Markdown files: their PlantUML fences are drawn with the same look and engine (PlantUmlFences); here for the
+    // helpers above.
+
+    /** Opens [markdown] as `notes.md` with [with], shows it and waits for its first page. */
+    private fun showMarkdown(
+        robot: FxRobot,
+        markdown: String,
+        with: MarkdownFileViewer,
+    ): PreviewFileView {
+        val view = fx { with.open(dir.resolve("notes.md").apply { writeText(markdown) }) as PreviewFileView }
+        robot.interact { container.children.setAll(view.node) }
+        view.awaitLoaded()
+        return view
+    }
+
+    @Test
+    fun `a Markdown file paints its PlantUML fence apart from the next block, the dark variant without a reload`(
+        robot: FxRobot,
+    ) {
+        // The viewer as Spring creates it: the app's engine, results handed to the FX thread by Platform.runLater.
+        val view =
+            showMarkdown(
+                robot,
+                "# Notes\n\n```plantuml\nAlice -> Bob : hello\n```\nAfter the diagram\n",
+                MarkdownFileViewer(),
+            )
+
+        view.awaitDiagrams(1)
+        assertTrue(view.inkIn(0) { it < 0.4 } > 20, "dark lines and text on the light variant")
+        val gap =
+            "document.querySelector('div.plantuml + p').getBoundingClientRect().top" +
+                " - document.querySelector('div.plantuml').getBoundingClientRect().bottom"
+        assertEquals(16.0, view.number(gap), 0.5, "the gap between the diagram and the paragraph after it")
+
+        view.script("window.loadedBefore = true")
+        robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
+        view.awaitTrue("document.body.classList.contains('dark')")
+
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.inkIn(0) { it > 0.6 } > 20 }
+        assertEquals("none", view.script("getComputedStyle(document.querySelector('img.plantuml-light')).display"))
+        assertEquals(true, view.script("window.loadedBefore === true"), "the page was not loaded again")
+    }
+
+    @Test
+    fun `a long Markdown file shown alone keeps its scroll position when a fence's drawing arrives`(robot: FxRobot) {
+        val held = CompletableFuture<Rendering>()
+        val markdown = MarkdownFileViewer { _, _ -> held }
+        val paragraphs = (1..60).joinToString("") { "Paragraph $it\n\n" }
+        val view = showMarkdown(robot, "$paragraphs```plantuml\nAlice -> Bob : hello\n```\n\n$paragraphs", markdown)
+        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
+        val middle = view.number("document.documentElement.scrollHeight") / 2
+        view.script("window.scrollTo(0, $middle)")
+        val scrolled = view.number("window.scrollY")
+        assertTrue(scrolled > 1000, "scrolled to the middle: $scrolled")
+        view.script("window.loadedBefore = true")
+
+        held.complete(PlantUml.shared.render("@startuml\nAlice -> Bob : hello\n@enduml\n").get(30, TimeUnit.SECONDS))
+        view.awaitTrue("window.loadedBefore !== true")
+        view.awaitDiagrams(1)
+
+        assertEquals(scrolled, view.number("window.scrollY"), 1.0)
     }
 }
