@@ -144,11 +144,11 @@ class StrongSignRulesTest {
         @JvmStatic
         fun plantUml(): List<Arguments> =
             cases(
-                "@startuml\nA -> B\n@enduml" to "puml 90",
-                "@startuml\n@enduml" to "puml 90",
-                "\n  \n' a comment\n  @startuml\nA -> B\n  @enduml  \n" to "puml 90",
-                "@startmindmap plan\n* root\n@endmindmap" to "puml 90",
-                "@startuml(id=one)\nA -> B\n@enduml" to "puml 90",
+                "@startuml\nA -> B\n@enduml" to "puml 95",
+                "@startuml\n@enduml" to "puml 95",
+                "\n  \n' a comment\n  @startuml\nA -> B\n  @enduml  \n" to "puml 95",
+                "@startmindmap plan\n* root\n@endmindmap" to "puml 95",
+                "@startuml(id=one)\nA -> B\n@enduml" to "puml 95",
                 "@startuml\nA -> B" to "",
                 "@startuml" to "",
                 "@enduml\n@startuml" to "",

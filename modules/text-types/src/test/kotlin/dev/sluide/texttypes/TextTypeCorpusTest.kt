@@ -27,7 +27,8 @@ class TextTypeCorpusTest {
     @Test
     fun `every type the rules detect has at least three samples, and there are negatives`() {
         val counts = samples().groupingBy { it.substringBefore('/') }.eachCount()
-        val detected = listOf("md", "xml", "html", "svg", "css", "js", "ts", "kt", "java", "py", "sh", "sql", "mmd")
+        val detected =
+            listOf("md", "xml", "html", "svg", "css", "js", "ts", "kt", "java", "py", "sh", "sql", "mmd", "puml")
         (detected + listOf("bicep", "diff", "txt")).forEach { folder ->
             assertTrue((counts[folder] ?: 0) >= 3, "$folder has ${counts[folder]} samples")
         }

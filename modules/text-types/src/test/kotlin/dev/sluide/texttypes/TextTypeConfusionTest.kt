@@ -169,6 +169,15 @@ class TextTypeConfusionTest {
     }
 
     @Test
+    fun `a PlantUML class diagram with Kotlin members is PlantUML`() {
+        val diagram =
+            "@startuml\nclass OrderService {\n  private val repository: Repository\n" +
+                "  fun find(id: String): Order\n}\n@enduml\n"
+
+        assertEquals(TextTypes.PLANTUML, rulesOnly.detect(diagram))
+    }
+
+    @Test
     fun `the same function and the same typed value in Kotlin and in TypeScript`() {
         assertEquals(TextTypes.KOTLIN, rulesOnly.detect("fun f(x: String): Int {\n    return x.length\n}"))
         assertEquals(TextTypes.TYPESCRIPT, rulesOnly.detect("function f(x: string): number {\n  return x.length;\n}"))

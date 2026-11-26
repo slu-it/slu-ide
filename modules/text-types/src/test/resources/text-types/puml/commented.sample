@@ -1,0 +1,9 @@
+' Architecture overview, kept next to the code
+' Render with Thoreau or plantuml.jar
+
+@startuml(id=overview)
+!include <C4/C4_Container>
+Person(user, "User")
+System(app, "App")
+Rel(user, app, "uses")
+@enduml

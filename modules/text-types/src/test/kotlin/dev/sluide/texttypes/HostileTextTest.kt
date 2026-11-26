@@ -109,6 +109,8 @@ class HostileTextTest {
                 "<!DOCTYPE",
                 "#!",
                 "graph",
+                "@startuml",
+                "@start",
                 "pie",
                 "f\"",
                 "require(",

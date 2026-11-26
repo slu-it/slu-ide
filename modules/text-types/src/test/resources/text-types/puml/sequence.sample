@@ -1,0 +1,7 @@
+@startuml
+' Checkout as the shop sees it
+actor User
+participant Shop
+User -> Shop : POST /orders
+Shop --> User : 201 Created
+@enduml

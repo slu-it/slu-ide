@@ -1,0 +1,8 @@
+@startuml
+class OrderService {
+  private val repository: Repository
+  fun find(id: String): Order
+}
+class Order
+OrderService --> Order
+@enduml
