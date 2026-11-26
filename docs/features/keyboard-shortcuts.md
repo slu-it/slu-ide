@@ -171,7 +171,7 @@ Zoom works while the page has the focus, as in the previews; the scrolling keys 
 | Double-click on the page | Read Aloud: restart at the sentence under it (while reading) |
 
 ## PDF viewer
-Zoom keys and Shortcut+G work anywhere in the view, the scroll keys while the pages have the focus
+Zoom keys, Shortcut+G and Shortcut+F work anywhere in the view, the scroll keys while the pages have the focus
 ([pdf-viewer.md](pdf-viewer.md), [ADR 0192](../adr/0192-pdf-viewer.md)).
 
 | Keys | Action |

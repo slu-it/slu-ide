@@ -71,7 +71,8 @@ the view.
   writes itself (line ends, word gaps) get `null`. A glyph that becomes several chars (a ligature such as U+FB01, by
   PDFBox's NFKC normalisation of presentation forms) gives each of them an equal share of its box. Glyphs entirely
   outside the crop box are dropped from the text (a glyph partly inside stays). Text extraction for search is about
-  1 ms per page; glyph boxes take about 1 MB per page, so the view keeps them only for shown pages and pages with hits.
+  1 ms per page; glyph boxes take about 1 MB per page, so the view reads them only for the shown pages and the page
+  of a chosen search hit, at most 50 kept (`PageTexts`).
 - **Outline and links.** Destinations resolve from explicit destinations (a page dictionary or a page number), named
   ones (name tree and the older `/Dests` dictionary; a value may hold the destination under `/D`) and GoTo actions.
   PDFBox's own walks are not used on these untrusted structures: `retrievePageNumber` loops forever on a `/Parent`
@@ -118,7 +119,8 @@ the view.
   each of its layouts. The outline's selection follows the current page through `OutlineFollow` (FX-free).
 - Selection is kept in text offsets `(page, char)`, not in pixels, so scroll, zoom and a text-less page need nothing
   from it; its rects come from `textRects` for the shown pages only and go into the `SELECTION` overlay layer. Copy
-  takes the kept texts of the shown pages and the plain texts of the others, so it never waits behind a search. Links
+  takes the kept texts of the shown pages and the plain texts of the others, so text on screen never waits behind a
+  search (an off-screen range shares the search's queued plain texts). Links
   of the shown pages are read on the render worker (`NEAR`) and kept per page while the document is open.
 - **Search** (package `view.search`). The search reads the plain text of every page through `PageTexts.plainTextOf`
   (text worker, `SEARCH` priority, kept for all pages, so a second query skips the extraction) and matches the texts

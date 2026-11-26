@@ -111,7 +111,7 @@
 }
 
 /*
- * P5, side panel (SidePanel): the Outline and Thumbnails tabs. Looked-up colours only, except the thumbnails' paper,
+ * Side panel (SidePanel): the Outline and Thumbnails tabs. Looked-up colours only, except the thumbnails' paper,
  * white in both themes as the pages are (the dark block below repeats it with a lighter edge).
  */
 .pdf-side-panel,
@@ -152,7 +152,7 @@
     }
 }
 
-/* P6, search: the Search panel (as the ebook reader's), looked-up colours only. */
+/* Search: the Search panel (as the ebook reader's), looked-up colours only. */
 .pdf-search {
     -fx-padding: 6;
     -fx-font-family: "System";

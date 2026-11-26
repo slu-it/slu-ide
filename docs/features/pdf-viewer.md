@@ -2,7 +2,7 @@
 
 **Module:** `modules/pdf` (package `dev.sluide.pdf`: `PdfFileViewer`; package `dev.sluide.pdf.engine`: `PdfDocument`,
 `PdfSetup`; package `dev.sluide.pdf.view`: the view, page column, workers, toolbar, zoom, password prompt; package
-`dev.sluide.pdf.view.side`: the side panel); decision in
+`dev.sluide.pdf.view.side`: the side panel; package `dev.sluide.pdf.view.search`: the search); decision in
 [ADR 0192](../adr/0192-pdf-viewer.md)
 
 `.pdf` files open read-only in a tab: all pages stacked in one scrolling column, rendered by Apache PDFBox as images,
@@ -35,9 +35,9 @@ with a toolbar above. Nothing is fetched from the network and nothing is stored.
   out of memory while rendering does the same for that page and drops the images of the pages away from the view.
 
 ## Toolbar
-From left to right: a slot for the side panel's toggle, the **page field** ("12" and "/ 340"), a slot for the search's
-toggle; on the right **Open in Default App** (opens the file in the system's app for PDFs) and the zoom group. No
-control takes the focus by Tab; clicks leave the focus where it was, except in the page field.
+From left to right: the **Side Panel** toggle, the **page field** ("12" and "/ 340"), the **Search** toggle; on the
+right **Open in Default App** (opens the file in the system's app for PDFs) and the zoom group. No control takes the
+focus by Tab; clicks leave the focus where it was, except in the page field.
 - **Page field**: Shortcut+G anywhere in the view focuses it with the number selected. Enter jumps to the page typed
   (kept within 1 and the page count) and gives the focus back to the pages; Escape, or a text that is no whole number,
   puts the current page back and gives the focus back too. While it has the focus, Space, Escape, the arrows and
