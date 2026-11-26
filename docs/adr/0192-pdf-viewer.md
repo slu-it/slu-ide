@@ -118,8 +118,8 @@ the view.
   each of its layouts. The outline's selection follows the current page through `OutlineFollow` (FX-free).
 - Selection is kept in text offsets `(page, char)`, not in pixels, so scroll, zoom and a text-less page need nothing
   from it; its rects come from `textRects` for the shown pages only and go into the `SELECTION` overlay layer. Copy
-  uses the plain texts of the range's pages. Links of the shown pages are read on the render worker (`NEAR`) and kept
-  per page while the document is open.
+  takes the kept texts of the shown pages and the plain texts of the others, so it never waits behind a search. Links
+  of the shown pages are read on the render worker (`NEAR`) and kept per page while the document is open.
 
 ## Consequences
 - The view packages build against an engine that is tested without a toolkit, on PDFs that `TestPdfs` builds with
