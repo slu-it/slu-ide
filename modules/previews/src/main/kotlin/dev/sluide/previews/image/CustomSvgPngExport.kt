@@ -27,6 +27,7 @@ internal class CustomSvgPngExport(
     override fun choose(
         file: Path,
         owner: Window?,
+        text: String,
     ): CompletionStage<FileExport?> {
         val chosen = CompletableFuture<FileExport?>()
         NamedThreads.virtual("sluide-export") {

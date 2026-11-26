@@ -73,6 +73,12 @@ and screens with high pixel density. The Markdown preview already has an Export 
   - An undecorated `Stage` off screen: it takes focus, appears in the taskbar, and window managers keep it on screen.
   - A `Popup` off screen (the first implementation): crashed with displays of different scales on macOS, see above.
 
+## Amendment: several files
+`FileExport.targets(file)` lists every file an export writes (default: its one `target`). An export whose number of
+outputs depends on the content (a PlantUML file's diagrams) names them all once chosen: `choose` now gets the saved
+text and renders it. `ExportControls` asks once before replacing the existing ones ("Replace N files?"), then calls
+`write` with the first target; the export writes the others itself. Single-target exports are unchanged.
+
 ## Consequences
 - Exporting needs a showing IDE window whose root is a `Pane` ("No window to draw in" otherwise); the view cannot be
   seen. An export whose window closes fails ("The window closed") instead of writing a blank PNG.

@@ -58,4 +58,21 @@ class FileExportTest {
         assertTrue(Files.isSymbolicLink(link))
         assertEquals("new", real.readText())
     }
+
+    @Test
+    fun `an export of one file has that file as its only target`() {
+        val export =
+            object : FileExport {
+                override val label = "One"
+
+                override fun target(file: Path): Path = file.resolveSibling("one.txt")
+
+                override fun write(
+                    file: Path,
+                    text: String,
+                    target: Path,
+                ): List<String> = emptyList()
+            }
+        assertEquals(listOf(dir.resolve("one.txt")), export.targets(dir.resolve("a.md")))
+    }
 }

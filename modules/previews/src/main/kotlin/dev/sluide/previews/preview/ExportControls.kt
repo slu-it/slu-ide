@@ -53,8 +53,8 @@ internal class ExportControls(
             items += exports.map { item -> MenuItem(item.label).apply { setOnAction { export(item) } } }
         }
 
-    /** Asks whether to replace the existing [target]; tests replace it, since it blocks. */
-    var confirmOverwrite: (Path) -> Boolean = ::askToOverwrite
+    /** Asks once whether to replace the [existing][planExport] files of an export; tests replace it, since it blocks. */
+    var confirmOverwrite: (List<Path>) -> Boolean = ::askToOverwrite
 
     /** Tells the user [message]; tests replace it, since it blocks. */
     var report: (String) -> Unit = ::showReport
@@ -66,7 +66,7 @@ internal class ExportControls(
      */
     fun export(fileExport: FileExport) {
         val source = file()
-        val choice = fileExport.choose(source, owner())
+        val choice = fileExport.choose(source, owner(), savedText())
         val future = choice.toCompletableFuture()
         if (future.isDone && !future.isCompletedExceptionally) {
             future.getNow(null)?.let { write(it, source) }
@@ -99,8 +99,10 @@ internal class ExportControls(
         fileExport: FileExport,
         source: Path,
     ) {
-        val target = fileExport.target(source)
-        if (target.exists() && !confirmOverwrite(target)) return
+        val targets = fileExport.targets(source)
+        val plan = planExport(targets, { fileExport.target(source) })
+        val target = plan.target
+        if (plan.existing.isNotEmpty() && !confirmOverwrite(plan.existing)) return
         val text = savedText()
         val tasks = tasks()
         button.isDisable = true
@@ -115,7 +117,7 @@ internal class ExportControls(
                         if (problems.isEmpty()) {
                             null
                         } else {
-                            "Exported ${target.fileName}, with problems:\n" + problems.joinToString("\n")
+                            exportedMessage(source, target, targets.size, problems)
                         }
                     } catch (e: Exception) {
                         val reason = e.message ?: e.javaClass.simpleName
@@ -143,19 +145,19 @@ internal class ExportControls(
     private fun level(error: Exception) =
         if (error is IOException) System.Logger.Level.WARNING else System.Logger.Level.ERROR
 
-    private fun askToOverwrite(target: Path): Boolean {
-        val name = target.fileName
+    private fun askToOverwrite(targets: List<Path>): Boolean {
+        val names = targets.map { it.fileName.toString() }
         val replace = ButtonType("Replace", ButtonBar.ButtonData.OK_DONE)
         val alert =
             Alert(
                 Alert.AlertType.WARNING,
-                "$name already exists in this folder. Replace it with the export?",
+                overwriteQuestion(names),
                 replace,
                 ButtonType.CANCEL,
             ).apply {
                 owner()?.let(::initOwner)
                 title = "Export"
-                headerText = "Replace $name?"
+                headerText = overwriteHeader(names)
                 val cancel = dialogPane.lookupButton(ButtonType.CANCEL) as Button
                 (dialogPane.lookupButton(replace) as Button).isDefaultButton = false
                 cancel.isDefaultButton = true
@@ -179,6 +181,43 @@ internal class ExportControls(
         const val GAP = 6.0
     }
 }
+
+/** What an export of [targets] writes: [target] is the file to name, [existing] the ones to ask about replacing. */
+internal data class ExportPlan(
+    val target: Path,
+    val existing: List<Path>,
+)
+
+/** The plan for [targets] (empty: the export's own [fallback] target), [exists] telling which files are there. */
+internal fun planExport(
+    targets: List<Path>,
+    fallback: () -> Path,
+    exists: (Path) -> Boolean = { it.exists() },
+): ExportPlan = ExportPlan(targets.firstOrNull() ?: fallback(), targets.filter(exists))
+
+/** What the user is told after an export of [source] to [count] files, the first [target], with [problems]. */
+internal fun exportedMessage(
+    source: Path,
+    target: Path,
+    count: Int,
+    problems: List<String>,
+): String =
+    // No count of files: some of the several may be among the problems.
+    (if (count > 1) "Exported the files of ${source.fileName}" else "Exported ${target.fileName}") +
+        ", with problems:\n" + problems.joinToString("\n")
+
+/** The question before replacing the files [names], which the export would overwrite. */
+internal fun overwriteQuestion(names: List<String>): String =
+    if (names.size == 1) {
+        "${names.single()} already exists in this folder. Replace it with the export?"
+    } else {
+        names.dropLast(1).joinToString(", ") + " and ${names.last()} already exist in this folder. " +
+            "Replace them with the export?"
+    }
+
+/** The header of the question about [names]. */
+internal fun overwriteHeader(names: List<String>): String =
+    if (names.size == 1) "Replace ${names.single()}?" else "Replace ${names.size} files?"
 
 /**
  * The Export controls of [preview]'s view of [source], or `null` if it cannot be exported or its [content] is

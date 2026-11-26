@@ -10,10 +10,10 @@ The short form that loads with production code is `.claude/rules/safety.md`; kee
   skipped after a question (ADR 0073). A name the user typed that is taken is refused ("already exists"); a name the
   app generates (copies `-copy`, `-copy2`, ... before the first extension, ADR 0092; scratch files) is created with
   `CREATE_NEW` and retried under the next name.
-- Replacing an existing target the app picked (export, Convert to ▸) asks "Replace X?" with Cancel as the default,
-  then writes a temp file and moves it with `ATOMIC_MOVE`, keeping the permissions (`writeReplacing` in
-  `previews/.../FileExport.kt`, `writeAtomically` in `ide/.../conversions/AtomicWrite.kt`; ADR 0058, 0115). Editor
-  Save writes in place by decision (ADR 0020).
+- Replacing an existing target the app picked (export, Convert to ▸) asks "Replace X?" ("Replace N files?" for an export
+  of several) with Cancel as the default, then writes a temp file and moves it with `ATOMIC_MOVE`, keeping the
+  permissions (`writeReplacing` in `previews/.../FileExport.kt`, `writeAtomically` in
+  `ide/.../conversions/AtomicWrite.kt`; ADR 0058, 0115). Editor Save writes in place by decision (ADR 0020).
 - Unsaved editor content: an action that reads the file from disk either asks ("Save and <Verb>",
   "<Verb> Saved Version", Cancel; ADR 0089) or says it uses the saved file. Git operations that change files first
   ask through `EditorArea.saveBeforeGitChange` (Save, "<Action> Anyway", Cancel; ADR 0041, 0042).

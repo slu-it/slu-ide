@@ -20,17 +20,26 @@ internal interface FileExport {
     fun target(file: Path): Path
 
     /**
-     * The export to run for [file], after asking the user for its settings, if any; completes with null if they
-     * cancelled. Called on the FX thread; may complete on any thread.
+     * Every file the export of [file] writes: one, unless the number of outputs depends on the content (a PlantUML
+     * file's diagrams), in which case only a chosen export ([choose]) knows them. The user is asked once before
+     * existing ones are replaced.
+     */
+    fun targets(file: Path): List<Path> = listOf(target(file))
+
+    /**
+     * The export to run for [file] with [text], its saved content, after asking the user for its settings, if any;
+     * completes with null if they cancelled. Called on the FX thread; may complete on any thread.
      */
     fun choose(
         file: Path,
         owner: Window?,
+        text: String,
     ): CompletionStage<FileExport?> = CompletableFuture.completedFuture(this)
 
     /**
      * Writes the export of [text], the saved content of [file], to [target]; blocking, never on the FX thread. Returns
-     * lines for the user about what the export lacks (empty: nothing).
+     * lines for the user about what the export lacks (empty: nothing). An export of several [targets] gets the first
+     * as [target] and writes the others by itself.
      */
     @Throws(IOException::class)
     fun write(

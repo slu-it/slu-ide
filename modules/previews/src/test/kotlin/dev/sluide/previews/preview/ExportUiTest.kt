@@ -154,7 +154,7 @@ class ExportUiTest {
         val export = checkNotNull(view.export)
 
         export.confirmOverwrite = {
-            asked.add(it)
+            asked.addAll(it)
             false
         }
         exported(view)
@@ -162,7 +162,7 @@ class ExportUiTest {
         assertEquals("old", target.readText())
 
         export.confirmOverwrite = {
-            asked.add(it)
+            asked.addAll(it)
             true
         }
         exported(view)
@@ -352,6 +352,55 @@ class ExportUiTest {
         val (reports, controls) = chosen(custom, dir.resolve("logo.svg"))
         assertEquals(listOf("Could not export logo.svg: Not an SVG image"), reports)
         assertFalse(fx { controls.button.isDisable })
+    }
+
+    private class TwoFilesExport : FileExport {
+        override val label = "Two"
+
+        override fun target(file: Path): Path = file.resolveSibling("out-1.txt")
+
+        override fun targets(file: Path): List<Path> = listOf(target(file), file.resolveSibling("out-2.txt"))
+
+        override fun write(
+            file: Path,
+            text: String,
+            target: Path,
+        ): List<String> {
+            targets(file).forEach { it.writeText("new") }
+            return emptyList()
+        }
+    }
+
+    @Test
+    fun `an export of several files asks once, naming the existing ones, and writes nothing on Cancel`() {
+        val export = TwoFilesExport()
+        val file = dir.resolve("a.txt").apply { writeText("a") }
+        val existing = dir.resolve("out-2.txt").apply { writeText("old") }
+        val asked = CopyOnWriteArrayList<List<Path>>()
+        val controls =
+            fx {
+                ExportControls(listOf(export), { file }, { "a" }, { null }, { null }).apply {
+                    confirmOverwrite = {
+                        asked += it
+                        false
+                    }
+                }
+            }
+        fx { controls.export(export) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(listOf(listOf(existing)), asked)
+        assertEquals("old", existing.readText())
+        assertFalse(dir.resolve("out-1.txt").exists())
+
+        controls.confirmOverwrite = {
+            asked += it
+            true
+        }
+        fx { controls.export(export) }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { !fx { controls.button.isDisable } }
+        assertEquals(2, asked.size)
+        assertEquals("new", existing.readText())
+        assertEquals("new", dir.resolve("out-1.txt").readText())
     }
 
     private companion object {

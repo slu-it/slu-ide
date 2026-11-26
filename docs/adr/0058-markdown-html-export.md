@@ -52,7 +52,7 @@ its script, KaTeX (with its fonts as `data:` URIs) and Mermaid, and embeds local
 - **In the background:** rendering, downloading and writing run on a virtual thread; drawing hops to the FX thread
   for the `WebEngine` and is waited for with a timeout of 60 s. The button is disabled meanwhile,
   and problems are reported in a dialog. The overwrite question comes first, on the FX thread, with Cancel as the
-  default.
+  default; an export of several files asks once about all that exist (ADR 0059, amendment).
 - **Generic hook:** `Preview.exports`, a list of `FileExport`s in `preview/` (ADR 0059; formerly `HtmlExport`). PDF and
   other previews join through the same toolbar menu (`ExportControls`). The file is written to a temporary file
   beside the target and then moved over it, so a failed export keeps the old file; an existing target keeps its
