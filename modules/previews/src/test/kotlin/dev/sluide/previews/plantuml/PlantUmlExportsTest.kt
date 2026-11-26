@@ -1,5 +1,6 @@
 package dev.sluide.previews.plantuml
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.plantuml.Diagram
 import dev.sluide.plantuml.PlantUml
 import dev.sluide.plantuml.Rendering
@@ -57,8 +58,11 @@ class PlantUmlExportsTest {
         }
 
     /** Sizes by the SVG's text: `<svg W×H>`. */
+    private val measured = CopyOnWriteArrayList<String>()
+
     private val measurer =
         SvgMeasurer { svg ->
+            measured += svg.decodeToString()
             val (width, height) =
                 svg
                     .decodeToString()
@@ -74,21 +78,29 @@ class PlantUmlExportsTest {
     private var askError: Throwable? = null
     private var fxQueue = ArrayDeque<Runnable>()
 
-    private val exports =
-        plantUmlExports(
-            { source, line ->
-                renderedTexts += source to line
-                pending ?: CompletableFuture.completedFuture(rendering)
-            },
-            rasterizer,
-            measurer,
-            { _, natural ->
-                asked += "asked" to natural
-                askError?.let { throw it }
-                answer
-            },
-            { synchronized(fxQueue) { fxQueue.addLast(it) } },
-        )
+    private fun exportsWith(
+        cached: (String) -> Rendering? = { null },
+        tasks: () -> BackgroundTasks? = { null },
+        disposed: () -> Boolean = { false },
+    ) = plantUmlExports(
+        { source, line ->
+            renderedTexts += source to line
+            pending ?: CompletableFuture.completedFuture(rendering)
+        },
+        rasterizer,
+        measurer,
+        { _, natural ->
+            asked += "asked" to natural
+            askError?.let { throw it }
+            answer
+        },
+        { synchronized(fxQueue) { fxQueue.addLast(it) } },
+        cached,
+        tasks,
+        disposed,
+    )
+
+    private val exports = exportsWith()
 
     private fun item(label: String) = exports.single { it.label == label }
 
@@ -113,6 +125,159 @@ class PlantUmlExportsTest {
         return future.get()
     }
 
+    /** Runs what was handed to the FX thread. */
+    private fun <T> awaited(future: CompletableFuture<T>): T {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+        while (!future.isDone) {
+            check(System.nanoTime() < deadline) { "Not completed" }
+            synchronized(fxQueue) { fxQueue.removeFirstOrNull() }?.run() ?: Thread.sleep(5)
+        }
+        return future.get()
+    }
+
+    private fun drain() {
+        while (true) (synchronized(fxQueue) { fxQueue.removeFirstOrNull() } ?: return).run()
+    }
+
+    /** The task lines of a window's tasks, with the task number left out. */
+    private val lines = CopyOnWriteArrayList<String>()
+    private val tasks = BackgroundTasks.forTests { lines += it.replace(Regex("task#\\d+"), "task") }
+
+    @Test
+    fun `a rendering the view holds is used at once, without a render or a task`() {
+        rendering = Rendering(listOf(drawn("1x1")), false)
+        val held = rendering
+        pending = CompletableFuture() // a render would never arrive
+        val future =
+            exportsWith({ if (it == "text") held else null }, { tasks })
+                .first()
+                .choose(file, null, "text")
+                .toCompletableFuture()
+        assertTrue(future.isDone)
+        assertEquals(listOf(dir.resolve("diagram.svg")), future.get()!!.targets(file))
+        assertEquals(emptyList(), renderedTexts)
+        assertEquals(emptyList(), lines)
+    }
+
+    @Test
+    fun `a cancel before the FX thread decides on the arrived drawing asks nothing`() {
+        rendering = Rendering(listOf(drawn("100x50")), false)
+        pending = CompletableFuture()
+        val custom = exportsWith(tasks = { tasks }).last()
+        val future = custom.choose(file, null, "text").toCompletableFuture()
+        pending!!.complete(rendering)
+        tasks.shown.single().cancel()
+        drain()
+        // Nothing to wait for: a measurement would start on its own thread at once.
+        Thread.sleep(200)
+        assertEquals(emptyList(), measured)
+        assertEquals(emptyList(), asked)
+        assertNull(future.get())
+    }
+
+    @Test
+    fun `a dispose before the FX thread decides on the arrived drawing asks nothing`() {
+        rendering = Rendering(listOf(drawn("100x50")), false)
+        pending = CompletableFuture()
+        var disposed = false
+        val custom = exportsWith(tasks = { tasks }, disposed = { disposed }).last()
+        val future = custom.choose(file, null, "text").toCompletableFuture()
+        pending!!.complete(rendering)
+        disposed = true
+        drain()
+        Thread.sleep(200) // as above: only the measuring thread is left to wait for
+        assertEquals(emptyList(), measured)
+        assertEquals(emptyList(), asked)
+        assertNull(future.get())
+    }
+
+    @Test
+    fun `a held rendering with a failure that has no line is drawn again`() {
+        pending = CompletableFuture()
+        val held = Rendering(listOf(drawn("1x1"), Diagram.Failed("Drawing took longer than 20 s", null)), false)
+        val future =
+            exportsWith({ held }, { tasks }).first().choose(file, null, "text").toCompletableFuture()
+        assertFalse(future.isDone)
+        assertEquals(listOf("text" to 1), renderedTexts)
+    }
+
+    @Test
+    fun `a held rendering whose failures have lines is used`() {
+        val held = Rendering(listOf(drawn("1x1"), Diagram.Failed("Syntax Error?", 3)), false)
+        val future = exportsWith({ held }).first().choose(file, null, "text").toCompletableFuture()
+        assertTrue(future.isDone)
+        assertEquals(emptyList(), renderedTexts)
+    }
+
+    @Test
+    fun `a rendering that is not held is drawn as a task of the window, which ends with it`() {
+        rendering = Rendering(listOf(drawn("1x1")), false)
+        pending = CompletableFuture()
+        val future = exportsWith(tasks = { tasks }).first().choose(file, null, "text").toCompletableFuture()
+        assertEquals(listOf("task started: Drawing diagram.puml for the export"), lines)
+        assertEquals(listOf("Drawing diagram.puml for the export"), tasks.shown.map { it.name.get() })
+        pending!!.complete(rendering)
+        drain()
+        assertEquals(listOf(dir.resolve("diagram.svg")), future.get(10, TimeUnit.SECONDS)!!.targets(file))
+        assertTrue(lines.last().startsWith("task finished in "), lines.toString())
+        assertEquals(emptyList(), tasks.shown.toList())
+    }
+
+    @Test
+    fun `cancelling the task cancels the export, nothing is asked once the drawing arrives`() {
+        rendering = Rendering(listOf(drawn("100x50")), false)
+        pending = CompletableFuture()
+        val custom = exportsWith(tasks = { tasks }).last()
+        val future = custom.choose(file, null, "text").toCompletableFuture()
+        tasks.shown.single().cancel()
+        assertTrue(future.isDone)
+        assertNull(future.get())
+        pending!!.complete(rendering)
+        drain()
+        // Nothing to wait for: a measurement would start on its own thread at once.
+        Thread.sleep(200)
+        assertEquals(emptyList(), measured)
+        assertEquals(emptyList(), asked)
+        assertEquals(emptyList(), dir.listDirectoryEntries())
+        assertTrue(lines.last().startsWith("task cancelled after "), lines.toString())
+        assertEquals(emptyList(), tasks.shown.toList())
+    }
+
+    @Test
+    fun `a view disposed while the drawing is made chooses nothing and asks nothing`() {
+        rendering = Rendering(listOf(drawn("100x50")), false)
+        pending = CompletableFuture()
+        var disposed = false
+        val custom = exportsWith(tasks = { tasks }, disposed = { disposed }).last()
+        val future = custom.choose(file, null, "text").toCompletableFuture()
+        disposed = true
+        pending!!.complete(rendering)
+        drain()
+        assertNull(future.get(10, TimeUnit.SECONDS))
+        assertEquals(emptyList(), measured)
+        assertEquals(emptyList(), asked)
+        assertTrue(lines.last().startsWith("task finished in "), lines.toString())
+    }
+
+    @Test
+    fun `a failing drawing ends the task as failed`() {
+        pending = CompletableFuture()
+        val future = exportsWith(tasks = { tasks }).first().choose(file, null, "text").toCompletableFuture()
+        pending!!.completeExceptionally(IllegalStateException("engine"))
+        drain()
+        assertFailsWith<java.util.concurrent.ExecutionException> { future.get(10, TimeUnit.SECONDS) }
+        assertTrue(lines.last().startsWith("task failed after "), lines.toString())
+    }
+
+    @Test
+    fun `a failing drawing fails the choice also without tasks`() {
+        pending = CompletableFuture()
+        val future = exportsWith().first().choose(file, null, "text").toCompletableFuture()
+        pending!!.completeExceptionally(IllegalStateException("engine"))
+        drain()
+        assertFailsWith<java.util.concurrent.ExecutionException> { future.get(10, TimeUnit.SECONDS) }
+    }
+
     @Test
     fun `the menu lists SVG and the PNG sizes in order`() {
         assertEquals(listOf("SVG", "PNG 100%", "PNG 200%", "PNG 300%", "PNG Custom…"), exports.map { it.label })
@@ -134,7 +299,7 @@ class PlantUmlExportsTest {
         val future = item("SVG").choose(file, null, "text").toCompletableFuture()
         assertFalse(future.isDone)
         Thread { pending!!.complete(rendering) }.start()
-        assertEquals(listOf(dir.resolve("diagram.svg")), future.get(10, TimeUnit.SECONDS)!!.targets(file))
+        assertEquals(listOf(dir.resolve("diagram.svg")), awaited(future)!!.targets(file))
     }
 
     @Test

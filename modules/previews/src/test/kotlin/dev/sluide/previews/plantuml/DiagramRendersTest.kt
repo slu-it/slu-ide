@@ -65,6 +65,23 @@ class DiagramRendersTest {
     private val requested get() = requests.map { it.first }
 
     @Test
+    fun `peeking gives a kept rendering for its first line and requests nothing`() {
+        val renders = renders()
+        assertNull(renders.peek("A", 1))
+        assertEquals(emptyList(), requested)
+
+        assertNull(renders.get("A", 1))
+        val rendering = drawn("A")
+        requests.single().second.complete(rendering)
+        runFx()
+
+        assertSame(rendering, renders.peek("A", 1))
+        assertNull(renders.peek("A", 2))
+        assertNull(renders.peek("B", 1))
+        assertEquals(listOf("A" to 1), requested)
+    }
+
+    @Test
     fun `a missing rendering is requested once while pending, on the FX thread when it arrives, then kept`() {
         val renders = renders()
 

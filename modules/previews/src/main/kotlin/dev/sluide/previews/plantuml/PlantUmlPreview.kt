@@ -1,5 +1,6 @@
 package dev.sluide.previews.plantuml
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.plantuml.Rendering
 import dev.sluide.plantuml.plantUmlBlocks
@@ -23,7 +24,7 @@ import java.util.concurrent.CompletableFuture
  */
 internal class PlantUmlPreview(
     private val render: (source: String, firstLine: Int) -> CompletableFuture<Rendering>,
-    runLater: (Runnable) -> Unit = Platform::runLater,
+    private val runLater: (Runnable) -> Unit = Platform::runLater,
     private val ask: (Window?, Pair<Int, Int>) -> Pair<Int, Int>? = ::askPngSize,
 ) : Preview {
     private var rerender: () -> Unit = {}
@@ -34,14 +35,23 @@ internal class PlantUmlPreview(
     /** Whether the last page loaded shows diagrams, which then stay while a later text is drawn. */
     private var showsDiagrams = false
 
+    private var host: () -> FileViewHost? = { null }
+
+    /** Set when the view is disposed; an export that waited for its drawing reads it on the FX thread. */
+    private var disposed = false
+
     override fun attach(
         rerender: () -> Unit,
         host: () -> FileViewHost?,
     ) {
         this.rerender = rerender
+        this.host = host
     }
 
-    override fun detach() = renders.detach()
+    override fun detach() {
+        disposed = true
+        renders.detach()
+    }
 
     override fun load(
         engine: WebEngine,
@@ -73,7 +83,7 @@ internal class PlantUmlPreview(
                     when {
                         rendering == null -> if (showsDiagrams) return null else PlantUmlHtml.drawing()
 
-                        // Only if the engine broke its contract: a text with a @start line has a diagram.
+                        // A @start line without its @end line makes no block (and so no diagram) for PlantUML.
                         rendering.diagrams.isEmpty() -> PlantUmlHtml.noBlock()
 
                         else -> PlantUmlHtml.diagrams(rendering)
@@ -93,7 +103,13 @@ internal class PlantUmlPreview(
             webView,
             webView,
             ask,
-            Platform::runLater,
+            runLater,
+            { renders.peek(it, 1) },
+            {
+                val window = host()
+                if (window == null) null else window.windowService(BackgroundTasks::class.java)
+            },
+            { disposed },
         )
     }
 }

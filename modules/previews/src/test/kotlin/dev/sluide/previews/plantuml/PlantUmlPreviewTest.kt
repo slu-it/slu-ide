@@ -1,13 +1,21 @@
 package dev.sluide.previews.plantuml
 
+import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.plantuml.Diagram
 import dev.sluide.plantuml.Rendering
 import org.jsoup.Jsoup
+import java.net.URI
+import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
+import kotlin.io.path.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** Which page a PlantUML file's preview loads for a text, and when it keeps the one it shows. */
 class PlantUmlPreviewTest {
@@ -115,5 +123,63 @@ class PlantUmlPreviewTest {
         arrive(first)
 
         assertEquals(0, rerenders)
+    }
+
+    private val file = Path("/x/diagram.puml")
+
+    @Test
+    fun `an export uses the rendering the view holds and draws nothing again`() {
+        preview.page(first, dark = false)
+        arrive(first)
+        val future =
+            preview.exports
+                .first()
+                .choose(file, null, first)
+                .toCompletableFuture()
+
+        assertTrue(future.isDone)
+        assertEquals(listOf(first), requests.map { it.first })
+    }
+
+    @Test
+    fun `an export of a text the view does not hold is drawn also when the view has no host`() {
+        val future =
+            preview.exports
+                .first()
+                .choose(file, null, second)
+                .toCompletableFuture()
+        requests.last { it.first == second }.second.complete(drawn)
+        while (fxQueue.isNotEmpty()) fxQueue.removeFirst().run()
+
+        assertEquals(listOf(file.resolveSibling("diagram.svg")), future.get(10, TimeUnit.SECONDS)!!.targets(file))
+    }
+
+    @Test
+    fun `an export of a text the view does not hold is a task of the window, nothing once the view is disposed`() {
+        val lines = CopyOnWriteArrayList<String>()
+        val tasks = BackgroundTasks.forTests { lines += it }
+        val host =
+            object : FileViewHost {
+                override fun openFile(file: Path) = false
+
+                override fun openWebPage(uri: URI) {}
+
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : Any> windowService(type: Class<T>): T? =
+                    if (type == BackgroundTasks::class.java) tasks as T else null
+            }
+        preview.attach({ rerenders++ }) { host }
+        val future =
+            preview.exports
+                .first()
+                .choose(file, null, second)
+                .toCompletableFuture()
+        assertTrue(lines.single().endsWith("started: Drawing diagram.puml for the export"), lines.toString())
+
+        preview.detach()
+        requests.last { it.first == second }.second.complete(drawn)
+        while (fxQueue.isNotEmpty()) fxQueue.removeFirst().run()
+
+        assertNull(future.get(10, TimeUnit.SECONDS))
     }
 }

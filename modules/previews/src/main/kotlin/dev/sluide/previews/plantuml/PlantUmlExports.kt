@@ -1,5 +1,7 @@
 package dev.sluide.previews.plantuml
 
+import dev.sluide.backgroundtasks.BackgroundTask
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.plantuml.Diagram
 import dev.sluide.plantuml.Rendering
@@ -32,6 +34,9 @@ internal fun plantUmlExports(
     measurer: SvgMeasurer,
     ask: (Window?, Pair<Int, Int>) -> Pair<Int, Int>?,
     onFx: (Runnable) -> Unit,
+    cached: (String) -> Rendering? = { null },
+    tasks: () -> BackgroundTasks? = { null },
+    disposed: () -> Boolean = { false },
 ): List<FileExport> {
     fun done(
         label: String,
@@ -40,14 +45,14 @@ internal fun plantUmlExports(
         { rendering, _ ->
             CompletableFuture.completedFuture(RenderedPlantUmlExport(label, rendering, rasterizer, png))
         }
-    return listOf(PlantUmlExport("SVG", render, done("SVG", null))) +
+    return listOf(PlantUmlExport("SVG", render, done("SVG", null), cached, tasks, disposed, onFx)) +
         listOf(1, 2, 3).map { factor ->
             val label = "PNG ${factor * 100}%"
-            PlantUmlExport(label, render, done(label, { PngSize.Scale(factor) }))
+            PlantUmlExport(label, render, done(label, { PngSize.Scale(factor) }), cached, tasks, disposed, onFx)
         } +
-        PlantUmlExport("PNG Custom…", render) { rendering, owner ->
+        PlantUmlExport("PNG Custom…", render, { rendering, owner ->
             customSize(rendering, owner, rasterizer, measurer, ask, onFx)
-        }
+        }, cached, tasks, disposed, onFx)
 }
 
 /**
@@ -200,6 +205,10 @@ internal class PlantUmlExport(
     override val label: String,
     private val render: PlantUmlRender,
     private val bind: (Rendering, Window?) -> CompletionStage<FileExport?>,
+    private val cached: (String) -> Rendering?,
+    private val tasks: () -> BackgroundTasks?,
+    private val disposed: () -> Boolean,
+    private val onFx: (Runnable) -> Unit,
 ) : FileExport {
     override fun target(file: Path): Path = throw IllegalStateException("Choose first")
 
@@ -209,11 +218,82 @@ internal class PlantUmlExport(
         file: Path,
         owner: Window?,
         text: String,
-    ): CompletionStage<FileExport?> = render(text, 1).thenCompose { bind(it, owner) }
+    ): CompletionStage<FileExport?> {
+        val held = cached(text)
+        // A timeout or a start failure has no line: drawing again may do better, a syntax error would not.
+        if (held != null && held.diagrams.none { it is Diagram.Failed && it.line == null }) return bind(held, owner)
+        val chosen = CompletableFuture<FileExport?>()
+        val row = DrawingRow()
+        row.start(tasks(), "Drawing ${file.fileName} for the export") {
+            // The engine cannot stop a drawing: its result is dropped when it comes.
+            chosen.complete(null)
+        }
+        // The decision is made on the FX thread, where a cancel and the view's disposal happen too.
+        render(text, 1).whenComplete { rendering, error ->
+            onFx {
+                when {
+                    // Cancelled: the row ended with the cancel.
+                    chosen.isDone -> {}
+
+                    error != null -> {
+                        row.failed(error)
+                        chosen.completeExceptionally(error)
+                    }
+
+                    else -> {
+                        row.close()
+                        if (disposed()) chosen.complete(null) else bind(rendering, owner).whenComplete(chosen::finish)
+                    }
+                }
+            }
+        }
+        return chosen
+    }
 
     override fun write(
         file: Path,
         text: String,
         target: Path,
     ): List<String> = throw IllegalStateException("Choose first")
+}
+
+/** Completes this future as a stage that bound an export did: with its export, or its failure. */
+private fun CompletableFuture<FileExport?>.finish(
+    export: FileExport?,
+    error: Throwable?,
+) {
+    if (error != null) completeExceptionally(error) else complete(export)
+}
+
+/** The row of a window's tasks for a drawing, if the window has tasks; a cancel ends it at once as cancelled. */
+private class DrawingRow {
+    @Volatile private var task: BackgroundTask? = null
+
+    fun start(
+        tasks: BackgroundTasks?,
+        name: String,
+        onCancel: () -> Unit,
+    ) {
+        if (tasks == null) return
+        task =
+            tasks.start(name) {
+                onCancel()
+                cancelled()
+            }
+    }
+
+    fun close() {
+        val row = task
+        if (row != null) row.close()
+    }
+
+    fun failed(error: Throwable) {
+        val row = task
+        if (row != null) row.failed(error)
+    }
+
+    private fun cancelled() {
+        val row = task
+        if (row != null) row.failed("Cancelled")
+    }
 }

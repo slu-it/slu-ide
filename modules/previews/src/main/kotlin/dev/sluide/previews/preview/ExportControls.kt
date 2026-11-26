@@ -61,7 +61,7 @@ internal class ExportControls(
 
     /**
      * Writes the export of the saved text that [fileExport] [chooses][FileExport.choose], after asking if the target
-     * exists. If the choice is not made at once (a dialog, a measurement), the button is disabled meanwhile; a
+     * exists. If the choice is not made at once (a dialog, a measurement or a drawing), the button is disabled meanwhile; a
      * cancelled choice does nothing, a failed one is reported.
      */
     fun export(fileExport: FileExport) {

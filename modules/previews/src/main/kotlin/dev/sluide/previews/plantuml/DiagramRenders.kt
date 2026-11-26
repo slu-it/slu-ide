@@ -60,6 +60,12 @@ internal class DiagramRenders(
         return null
     }
 
+    /** FX thread. The kept rendering of [source] with [firstLine], or null; unlike [get] it requests nothing. */
+    fun peek(
+        source: String,
+        firstLine: Int,
+    ): Rendering? = cache[Key(source, firstLine)]
+
     private fun arrived(
         key: Key,
         rendering: Rendering,
