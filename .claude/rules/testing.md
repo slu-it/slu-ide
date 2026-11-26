@@ -40,6 +40,9 @@ Details, examples and the stories behind these rules: `docs/testing.md`, ADR 008
   parameters with the real default.
 - A UI test whose flow can show an error or question dialog replaces that seam: a real `Alert` blocks the FX thread,
   so a broken path hangs instead of failing (`docs/testing.md`, "Writing UI tests").
+- Mouse events in a UI test are fired at the node a real pointer would hit (the cell, the page slot), never at a
+  `ScrollPane`, `ListView` or other skinned control itself: firing at the control skips its skin's nodes, which may
+  consume the press or drags (`docs/testing.md`, "Writing UI tests").
 - No synthetic OS input (`clickOn`, `moveTo`, `type`, `scroll`) unless only real input can test it (`//` reason);
   `interact` already waits for FX events.
 - A test's name claims only what it asserts: "without saving", "zeroes the array", "dismissible" each need their

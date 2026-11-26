@@ -162,7 +162,13 @@ A behavior is tested once, at the lowest level that can see it
   parameters with the real value as default (`CodeView(highlightPause)`, `GitCli(stopGrace)`, `dragExpandDelay`).
 - To test real mouse handling (e.g. a press that must not reach a parent), fire `MouseEvent`s at the node with
   `Event.fireEvent` instead of calling `Button.fire()`, which skips the mouse handlers. Example: `fireMouse` in
-  `EditorAreaUiFixture`.
+  `EditorAreaUiFixture`. Fire at the node a pointer would hit, not at the skinned control around it: the PDF
+  selection's tests fired drags at the page column's `ScrollPane`, so they passed while the scroll pane's viewport
+  consumed every real drag and selecting by dragging did nothing in the app (`PdfSelectionUiBase.fire`).
+- A UI test that fails only in long runs (the whole task, not the class alone) can show a real ordering bug, not
+  load: the PDF view's focus test failed so because the pages were not in the scene yet when the focus was asked for
+  (a `SplitPane` adds its items when it is skinned, a pulse later). Reproduce it with the whole task and log the
+  state before calling it flaky.
 - Assert the state a view starts in, before the test changes anything: a view whose tests all add a second item
   first can hide that the first one never shows (the Databases console's results).
 - Don't call a `ContextMenu`'s `onShowing` by hand in a test: JavaFX never shows an empty context menu, so a menu

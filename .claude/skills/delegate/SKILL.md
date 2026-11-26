@@ -97,7 +97,8 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
 9. The interactions the plan decided (`feature` skill, "Plan file"), repeated in the brief of every package that
    provides or consumes a hook, with the parts that hold only in one mode.
 
-Take the base commit from `git rev-parse master` right before sending the brief: the user squashes and the main
+Take the base commit from `git rev-parse master` right before sending the brief, pasting its output (never a hash
+typed or lengthened by hand): the user squashes and the main
 session amends, and `worktree-check.sh start` refuses a commit that is no longer on master. An agent whose worktree
 stayed unchanged may find it removed when it resumes; send a new agent with a new brief instead.
 
@@ -151,7 +152,10 @@ when master moved and then compiles the touched modules, and fast-forwards maste
   sides of lists and imports, drop exact duplicates), `--continue`, compile there (`./gradlew --no-daemon
   <:module>:testClasses -q`), then run the script again. After resolving conflicts in shared code or fixtures,
   compile every commit of the branch, not only the tip, since each commit must compile on its own: check out each
-  commit of `git rev-list --reverse master..HEAD`, compile, and read `$?` right after Gradle.
+  commit of `git rev-list --reverse master..HEAD`, compile, and read `$?` right after Gradle. Files no compiler checks
+  (CSS, Markdown) get `git diff master` read after the resolution: a conflict region that ends inside a block loses
+  its closing brace when both sides are kept. Then run the module's whole `uiTest` task once, since a merged
+  stylesheet or fixture can break another package's test.
 
 ## Real-app check (done criteria for UI work)
 A round that changes what the user sees is done only after the main session ran the real app, after each merged
