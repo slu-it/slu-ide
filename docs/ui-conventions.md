@@ -30,9 +30,12 @@ Safety of file operations, runs, secrets and network: `safety.md`.
 - Order from left to right: Soft Wrap (`CodeEditor.softWrapButton`, ADR 0130) in a view that embeds a code editor,
   the view's own left controls (Run, TOC, folds, Copy Formatted, Scripts or image zoom), the
   items code editor extensions contribute (`CodeEditor.toolbarItems`, e.g. Read Aloud; previews place them, in every
-  mode; other views that embed a code editor don't yet); then, trailing, the preview's `actions` (e.g. the workflow's
-  Fetch), Export (hidden in Source), document zoom (ADR 0083) and the
-  mode toggles at the far right. Images and diagrams keep their zoom with Fit on the left.
+  mode; other views that embed a code editor don't yet); then, trailing, the preview's own dropdowns (`choices`,
+  e.g. the PlantUML theme) and `actions` (e.g. the workflow's Fetch), Export (hidden in Source), document zoom
+  (ADR 0083) and the mode toggles at the far right. Images and diagrams keep their zoom with Fit on the left.
+  A preview's own dropdown (`PreviewChoice`) is a non-focusable `MenuButton` reading "Name: option" with one radio
+  item per option and a tooltip; choosing leaves the focus where it was, it hides in Source like the actions and has
+  no key binding. It is as high as the buttons (`.preview-choice` in `preview-view.css`).
   The extensions' items are a group of their own: previews set them apart by a 12 px gap (twice the gap within a
   group); without items the gap goes too.
   Controls that only make sense for one side hide while it is hidden; Soft Wrap hides while the source is hidden (the

@@ -1,5 +1,6 @@
 package dev.sluide.previews.plantuml
 
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.plantuml.PlantUml
 import dev.sluide.plantuml.Rendering
 import dev.sluide.previews.markdown.MarkdownFileViewer
@@ -7,7 +8,10 @@ import dev.sluide.previews.preview.PreviewFileView
 import dev.sluide.previews.preview.PreviewMode
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker
+import javafx.scene.Node
 import javafx.scene.Scene
+import javafx.scene.control.MenuButton
+import javafx.scene.control.RadioMenuItem
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -21,6 +25,8 @@ import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.io.path.exists
+import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -105,10 +111,9 @@ class PlantUmlPreviewUiTest {
     /** The number of pixels inside the shown variant of the diagram [index] that [ink] counts, in a snapshot. */
     private fun PreviewFileView.inkIn(
         index: Int,
+        variant: String = if (script("document.body.classList.contains('dark')") == true) "dark" else "light",
         ink: (Double) -> Boolean,
     ): Int {
-        val variant = if (script("document.body.classList.contains('dark')") == true) "dark" else "light"
-
         fun side(name: String) =
             number("document.querySelectorAll('img.plantuml-$variant')[$index].getBoundingClientRect().$name").toInt()
         val (left, top, right, bottom) = listOf(side("left"), side("top"), side("right"), side("bottom"))
@@ -359,5 +364,166 @@ class PlantUmlPreviewUiTest {
         assertEquals(2, renders.get(), "the edited text is drawn")
         assertEquals(scrolled, view.number("window.scrollY"), 1.0)
         assertEquals(top, view.number(below), 1.0, "the content below the fence stays where it was")
+    }
+
+    // The diagram theme dropdown ("Theme: Default | Light | Dark") and what it shows and exports.
+
+    private fun PreviewFileView.themeButton() = fx { node.lookupAll(".preview-choice").single() as MenuButton }
+
+    /**
+     * Chooses the option of the dropdown. [RadioMenuItem.fire] runs the item's action, which is what sets the choice;
+     * it does not select the item (a real click also does), so the item's check mark follows the choice by itself.
+     */
+    private fun PreviewFileView.choose(label: String) {
+        val button = themeButton()
+        fx { button.items.first { it.text == label } as RadioMenuItem }.let { item -> fx { item.fire() } }
+    }
+
+    /** The computed `display` of the light and the dark image of the first diagram, as "light/dark". */
+    private fun PreviewFileView.displays() =
+        script(
+            "['light', 'dark'].map(function (v) {" +
+                " return getComputedStyle(document.querySelector('img.plantuml-' + v)).display; }).join('/')",
+        )
+
+    @Test
+    fun `the Theme dropdown reads Default on open, shows with the preview and not in Source`(robot: FxRobot) {
+        val view = show(robot, sequence)
+        val button = view.themeButton()
+
+        assertEquals("Theme: Default", fx { button.text })
+        assertEquals(listOf(true, false, false), fx { button.items.map { (it as RadioMenuItem).isSelected } })
+        fx {
+            val trailing = (view.node.lookup(".preview-toolbar") as WrappingToolbar).trailing
+            val export = checkNotNull(view.export).button
+            assertEquals(trailing.indexOf(export) - 1, trailing.indexOf(button), "the dropdown is right before Export")
+            val toggle = view.node.lookup(".preview-mode") as Node
+            assertEquals(toggle.boundsInParent.height, button.boundsInParent.height, 0.5, "as high as a mode toggle")
+            assertTrue(export.boundsInParent.minX - button.boundsInParent.maxX >= 6.0, "a gap before Export")
+        }
+        assertEquals("Diagram colours", fx { button.tooltip.text })
+        assertEquals(false, fx { button.isFocusTraversable })
+        assertEquals(listOf("Default", "Light", "Dark"), fx { button.items.map { it.text } })
+        assertTrue(fx { button.isVisible && button.isManaged }, "shown in Split")
+        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
+        assertTrue(fx { button.isVisible }, "shown in Preview")
+        robot.interact { view.mode.set(PreviewMode.SOURCE) }
+        assertEquals(false, fx { button.isVisible || button.isManaged }, "hidden in Source")
+    }
+
+    @Test
+    fun `choosing Dark in the light theme shows the dark variant without a render or a reload, zoom kept`(
+        robot: FxRobot,
+    ) {
+        val view = show(robot, sequence)
+        view.awaitDiagrams(1)
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { fx { view.zoom.fit } }
+        val image = "document.querySelector('img.plantuml-light')"
+        view.script("$image.dispatchEvent(new MouseEvent('click', { bubbles: true }))")
+        val width = view.number("$image.getBoundingClientRect().width")
+        view.script("window.loadedBefore = true")
+        assertEquals("block/none", view.displays())
+
+        view.choose("Dark")
+
+        assertEquals("Theme: Dark", fx { view.themeButton().text })
+        assertEquals(
+            listOf(false, false, true),
+            fx { view.themeButton().items.map { (it as RadioMenuItem).isSelected } },
+        )
+        assertEquals("none/block", view.displays())
+        assertEquals(true, view.script("window.loadedBefore === true"), "the page was not loaded again")
+        assertEquals(1, renders.get(), "nothing drawn again")
+        assertEquals(false, fx { view.zoom.fit })
+        assertEquals(1.0, fx { view.zoom.scale })
+        assertEquals(
+            width,
+            view.number("document.querySelector('img.plantuml-dark').getBoundingClientRect().width"),
+            1.0,
+        )
+        view.awaitDiagrams(1)
+        // The snapshot shows the switch in a later pulse.
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.inkIn(0, "dark") { it < 0.2 } > 100 }
+        assertTrue(view.inkIn(0, "dark") { it > 0.6 } > 20, "with light lines and text")
+    }
+
+    @Test
+    fun `Default follows a change of the app theme, a pinned choice does not`(robot: FxRobot) {
+        val view = show(robot, sequence)
+        view.awaitDiagrams(1)
+
+        robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
+        view.awaitTrue("document.body.classList.contains('dark')")
+        assertEquals("none/block", view.displays(), "Default follows the app theme")
+
+        view.choose("Light")
+        assertEquals("block/none", view.displays())
+        robot.interact { container.scene.preferences.colorScheme = ColorScheme.LIGHT }
+        view.awaitTrue("!document.body.classList.contains('dark')")
+        robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
+        view.awaitTrue("document.body.classList.contains('dark')")
+        assertEquals("block/none", view.displays(), "Light stays light in the dark theme")
+
+        view.choose("Default")
+        assertEquals("none/block", view.displays(), "back to the app theme, dark")
+    }
+
+    @Test
+    fun `a pinned choice still applies after a rerender with a new drawing`(robot: FxRobot) {
+        val view = show(robot, sequence)
+        view.awaitDiagrams(1)
+        view.choose("Dark")
+        view.script("window.loadedBefore = true")
+
+        dir.resolve("diagram.puml").writeText("@startuml\nAlice -> Carol : bye\n@enduml\n")
+        robot.interact { view.reload() }
+        view.awaitTrue("window.loadedBefore !== true && document.querySelector('img.plantuml-dark') !== null")
+        view.awaitDiagrams(1)
+
+        assertEquals(2, renders.get())
+        assertEquals("none/block", view.displays())
+        assertEquals("Theme: Dark", fx { view.themeButton().text })
+    }
+
+    @Test
+    fun `Export SVG after choosing Dark writes the dark variant`(robot: FxRobot) {
+        val view = show(robot, sequence)
+        view.awaitDiagrams(1)
+        view.choose("Dark")
+
+        val export = checkNotNull(view.export)
+        robot.interact {
+            export.button.items
+                .first { it.text == "SVG" }
+                .fire()
+        }
+        val target = dir.resolve("diagram.svg")
+        WaitForAsyncUtils.waitFor(30, TimeUnit.SECONDS) { target.exists() && target.readText().endsWith("</svg>") }
+
+        assertTrue("#1B1B1B" in target.readText(), "PlantUML's dark background")
+    }
+
+    @Test
+    fun `choosing an option with the mouse leaves the focus in the source editor in Split`(robot: FxRobot) {
+        val view = show(robot, sequence)
+        view.awaitDiagrams(1)
+        robot.interact { view.source.focusText() }
+        val before = fx { container.scene.focusOwner }
+        assertNotEquals(view.webView, before)
+
+        // Real clicks: only they open the menu's popup window, which is what could take the focus.
+        robot.clickOn(view.themeButton()) // synthetic OS input: the popup window is the thing under test
+        robot.clickOn("Dark") // synthetic OS input: as above
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { fx { view.themeButton().text == "Theme: Dark" } }
+        // Choosing the selected item again keeps it selected: the items are one group.
+        robot.clickOn(view.themeButton()) // synthetic OS input: as above
+        robot.clickOn("Dark") // synthetic OS input: as above
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(
+            listOf(false, false, true),
+            fx { view.themeButton().items.map { (it as RadioMenuItem).isSelected } },
+        )
+
+        assertSame(before, fx { container.scene.focusOwner })
     }
 }

@@ -3,7 +3,8 @@
  * for images and diagrams with the zoom controls (ZoomControls) on its left, for Markdown with the button of the table
  * of contents (TableOfContents) and the Export menu (ExportControls) there, for pages with foldable sections the
  * Collapse All and Expand All buttons (FoldControls) and, after them, Copy Formatted with its message
- * (CopyFormattedControls); a preview's own buttons (PreviewAction, e.g. Fetch References) sit before the toggles, and
+ * (CopyFormattedControls); a preview's own dropdowns (PreviewChoice, e.g. the PlantUML theme) and buttons
+ * (PreviewAction, e.g. Fetch References) sit before the toggles, and
  * for every other preview after them the document zoom controls (ZoomControls with DocumentZoom, no Fit); the
  * overlay of the table of contents floats over the top left of the view. The image view (ImageFileView) has a toolbar
  * with only the zoom controls. The toolbars of the core's views (the diff and .env views) are styled by
@@ -19,7 +20,7 @@
 }
 
 /* Keep in sync with zoom-controls.css (file-viewers), soft-wrap.css in file-viewers and ebook-view.css in ebooks. */
-.preview-mode, .toc-button, .preview-export, .fold-button, .preview-action {
+.preview-mode, .toc-button, .preview-export, .fold-button, .preview-action, .preview-choice {
     -fx-padding: 2 10 2 10;
     -fx-font-size: 0.9em;
     -fx-background-radius: 0;
@@ -52,6 +53,15 @@
 }
 
 .preview-export > .arrow-button {
+    -fx-padding: 0 0 0 4;
+}
+
+/* A dropdown (PreviewChoice) is as high as the buttons too: its label and arrow have no vertical padding. */
+.preview-choice > .label {
+    -fx-padding: 0;
+}
+
+.preview-choice > .arrow-button {
     -fx-padding: 0 0 0 4;
 }
 

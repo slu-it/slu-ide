@@ -39,7 +39,7 @@ internal fun plantUmlExports(
     cached: (String) -> Rendering? = { null },
     tasks: () -> BackgroundTasks? = { null },
     disposed: () -> Boolean = { false },
-    dark: () -> Boolean = { false },
+    dark: () -> Boolean,
 ): List<FileExport> {
     fun done(
         label: String,
@@ -132,8 +132,7 @@ internal fun customSizes(
 
 /**
  * The export to run once the file is rendered: every drawn diagram of [rendering] as its SVG in the [dark] or light
- * variant, or, with [png]
- * (the size of the diagram with a 1-based number), as a PNG drawn by [rasterizer]. The files are named after the file:
+ * variant, or, with [png] (the size of the diagram with a 1-based number), as a PNG drawn by [rasterizer]. The files are named after the file:
  * `name.svg` for the first diagram, `name-2.svg` for the second and so on, counted over all diagrams, so that a failed
  * one keeps its number; a PNG's name has the size before the extension (`name-2@2x.png`, `name-2-640x480.png`).
  */
@@ -235,13 +234,9 @@ internal class PlantUmlExport(
         text: String,
     ): CompletionStage<FileExport?> {
         val isDark = dark()
-        val held = cached(text)
         // A timeout or a start failure has no line: drawing again may do better, a syntax error would not.
-        if (held != null &&
-            held.diagrams.none { it is Diagram.Failed && it.line == null }
-        ) {
-            return bind(held, owner, isDark)
-        }
+        val held = cached(text)?.takeIf { held -> held.diagrams.none { it is Diagram.Failed && it.line == null } }
+        if (held != null) return bind(held, owner, isDark)
         val chosen = CompletableFuture<FileExport?>()
         val row = DrawingRow()
         row.start(tasks(), "Drawing ${file.fileName} for the export") {
@@ -263,9 +258,7 @@ internal class PlantUmlExport(
                     else -> {
                         row.close()
                         if (disposed()) {
-                            chosen.complete(
-                                null,
-                            )
+                            chosen.complete(null)
                         } else {
                             bind(rendering, owner, isDark).whenComplete(chosen::finish)
                         }

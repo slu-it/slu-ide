@@ -7,6 +7,7 @@ import dev.sluide.fileviewers.ViewActivity
 import dev.sluide.fileviewers.WindowServices
 import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.previews.html.HtmlFileViewer
+import dev.sluide.previews.loadPage
 import dev.sluide.previews.markdown.MarkdownFileViewer
 import javafx.application.ColorScheme
 import javafx.beans.property.SimpleObjectProperty
@@ -33,6 +34,7 @@ import org.testfx.util.WaitForAsyncUtils
 import java.io.IOException
 import java.net.URI
 import java.nio.file.Path
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.createDirectories
@@ -637,6 +639,46 @@ class PreviewFileViewUiTest {
         val owner = WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get()
         assertNotSame(view.webView, owner, "Preview")
         assertNotSame(view.sourceArea, owner, "Preview")
+    }
+
+    /** A preview with a script that loads once and then fails, recording whether [themed] got a loaded page. */
+    private class FailsLater : Preview {
+        val pages = CopyOnWriteArrayList<Boolean>()
+        var fail = false
+
+        override fun load(
+            engine: WebEngine,
+            file: Path,
+            text: String,
+            dark: Boolean,
+            root: Path,
+        ) {
+            if (fail) throw IOException("no server")
+            engine.loadPage("<html><body><script>window.sluide = { setDark: function () {} }</script></body></html>")
+        }
+
+        override fun themed(
+            dark: Boolean,
+            page: WebEngine?,
+        ) {
+            pages += page != null
+        }
+    }
+
+    @Test
+    fun `a preview is told of a loaded page after its load and of none once its view is stopped`(robot: FxRobot) {
+        val preview = FailsLater()
+        val view = viewOf(preview)
+        robot.interact { container.children.setAll(view.node) }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { true in preview.pages }
+        assertEquals(false, preview.pages.first(), "before the first page")
+
+        preview.fail = true
+        dir.resolve("a.txt").writeText("b")
+        robot.interact { view.reload() }
+        assertTrue(view.noticeShown(), "stopped")
+
+        assertEquals(false, preview.pages.last(), "no page once stopped")
     }
 
     /** A preview that keeps what [attach] gave it, like one that computes its page in the background. */

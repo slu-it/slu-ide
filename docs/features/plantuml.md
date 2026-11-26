@@ -31,6 +31,12 @@ for later: [plantuml-later.md](../ideas/plantuml-later.md).
   one of the theme, so a theme change draws nothing and keeps the zoom and scroll position. A `!theme` or `skinparam`
   in the source still wins. Known gap: PlantUML's dark mode turns default text white also on fills the source makes
   light.
+- **Theme dropdown:** "Theme: Default" on the right of the toolbar, before Export, while the preview shows (not in
+  Source). Default follows Thoreau's theme, also when it changes; Light and Dark pin the diagrams to that variant
+  whatever the theme (the page keeps the theme's background, only the images switch). A view opens on Default; the
+  choice belongs to the view (kept across saves, reloads, theme changes and zoom), not stored. Switching shows the
+  other image through a body class (`sluide.setDiagramTheme`, set again after every page load): nothing is drawn or
+  reloaded, zoom and scroll stay. Only the file preview has it; fences in Markdown and notebooks follow the theme.
 - Diagrams are images (`<img>` with the SVG in a `data:` URI): nothing in them runs, and `[[links]]` in a diagram are
   not clickable.
 
@@ -120,9 +126,12 @@ written if it is cancelled or the tab is closed meanwhile.
 - **One file per diagram:** a file can hold several diagrams (blocks and `newpage` pages). The first is `name.svg`
   (`name.png`, `name@2x.png`, …), the others `name-2.svg`, `name-3.svg`, … numbered over all diagrams, so that a
   diagram that fails to draw keeps its number. PNG Custom… names each with its own size: `name-2-640x480.png`.
-- **SVG:** the light variant of the diagram as UTF-8, with PlantUML's own `<?plantuml-src …?>` instruction, so that
+- **Variant:** every item writes the variant the preview shows when the item is chosen: Default the one of the
+  current theme, Light PlantUML's light colours, Dark its dark mode (background `#1B1B1B`). PNG Custom… asks with the
+  chosen variant's size.
+- **SVG:** the diagram's variant as UTF-8, with PlantUML's own `<?plantuml-src …?>` instruction, so that
   PlantUML tools can reopen the source.
-- **PNG:** the light SVG drawn as in [svg-png-export.md](svg-png-export.md), on PlantUML's own white background (its SVG sets one). PNG
+- **PNG:** the SVG drawn as in [svg-png-export.md](svg-png-export.md), on the background PlantUML's SVG sets (white in the light variant). PNG
   Custom… asks for the size of the first drawn diagram (ratio locked); every other diagram is scaled by the same factor.
 - **Existing files:** one question names all that exist ("diagram.svg and diagram-2.svg already exist in this
   folder. Replace them with the export?"); Cancel is the default and writes nothing.

@@ -144,6 +144,23 @@ internal interface Preview {
     val actions: List<PreviewAction> get() = emptyList()
 
     /**
+     * Dropdowns of the preview's own ([PreviewChoice]), on the right of the toolbar before the [actions] and Export,
+     * while the preview shows; asked once, when the view is created.
+     */
+    val choices: List<PreviewChoice<*>> get() = emptyList()
+
+    /**
+     * Called on the FX thread whenever the view applies its colour scheme: when the scheme changes (also once before
+     * the first [load], with the scheme the view starts in, [page] null) and after every page load, with the engine
+     * whose page has just loaded (a page with [own script][hasOwnScript] can then be told what the preview keeps
+     * apart from the page, e.g. the choice of a [PreviewChoice]); [dark] is the app's scheme.
+     */
+    fun themed(
+        dark: Boolean,
+        page: WebEngine?,
+    ) {}
+
+    /**
      * The headings of [text] for the table of contents, or `null` if the preview has none ([hasOutline]).
      */
     fun outline(text: String): List<Heading>? = null

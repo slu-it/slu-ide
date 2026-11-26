@@ -283,6 +283,17 @@ body.dark .plantuml-diagram img.plantuml-light {
     display: none;
 }
 
+/* A PlantUML file's diagram theme (sluide.setDiagramTheme) pins the variant, whatever the scheme. */
+body.plantuml-file.diagram-theme-light .plantuml-diagram img.plantuml-dark,
+body.plantuml-file.diagram-theme-dark .plantuml-diagram img.plantuml-light {
+    display: none;
+}
+
+body.plantuml-file.diagram-theme-light .plantuml-diagram img.plantuml-light,
+body.plantuml-file.diagram-theme-dark .plantuml-diagram img.plantuml-dark {
+    display: block;
+}
+
 /* A Markdown page's fence (PlantUmlFences) is a block like the others; a PlantUML file's page has its own padding. */
 body:not(.plantuml-file) div.plantuml {
     margin: 0 0 16px 0;

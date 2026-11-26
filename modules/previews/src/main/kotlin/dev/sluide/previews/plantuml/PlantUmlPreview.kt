@@ -8,7 +8,9 @@ import dev.sluide.previews.image.PngSizeDialog
 import dev.sluide.previews.image.WebViewSvgRasterizer
 import dev.sluide.previews.loadPage
 import dev.sluide.previews.preview.Preview
+import dev.sluide.previews.preview.PreviewChoice
 import javafx.application.Platform
+import javafx.beans.property.SimpleObjectProperty
 import javafx.scene.web.WebEngine
 import javafx.stage.Window
 import java.nio.file.Path
@@ -37,6 +39,37 @@ internal class PlantUmlPreview(
 
     private var host: () -> FileViewHost? = { null }
 
+    /** The diagram theme the view's dropdown shows: Default on open, kept for the life of the view. */
+    private val theme = SimpleObjectProperty(DiagramTheme.DEFAULT)
+
+    /** The app's scheme, as the view last said ([themed]); what Default follows. */
+    private var appDark = false
+
+    /** The engine while its page is loaded, which [theme] tells at once, null while a page loads. */
+    private var loadedPage: WebEngine? = null
+
+    init {
+        // Only the images switch: no render, no reload, so the zoom and the scroll stay.
+        theme.subscribe { _ -> loadedPage?.let(::showTheme) }
+    }
+
+    override val choices =
+        listOf(PreviewChoice("Theme", DiagramTheme::label, DiagramTheme.entries, theme, "Diagram colours"))
+
+    override fun themed(
+        dark: Boolean,
+        page: WebEngine?,
+    ) {
+        appDark = dark
+        loadedPage = page
+        // After every load of this view's page, a new one only through the load that follows a rerender or a save.
+        page?.let(::showTheme)
+    }
+
+    private fun showTheme(engine: WebEngine) {
+        engine.executeScript("sluide.setDiagramTheme('${theme.value.page}')")
+    }
+
     /** Set when the view is disposed; an export that waited for its drawing reads it on the FX thread. */
     private var disposed = false
 
@@ -60,7 +93,10 @@ internal class PlantUmlPreview(
         dark: Boolean,
         root: Path,
     ) {
-        page(text, dark)?.let(engine::loadPage)
+        page(text, dark)?.let {
+            loadedPage = null
+            engine.loadPage(it)
+        }
     }
 
     /** The page for [text], or null to keep the page shown, whose diagrams stay until those of [text] are there. */
@@ -110,6 +146,7 @@ internal class PlantUmlPreview(
                 if (window == null) null else window.windowService(BackgroundTasks::class.java)
             },
             { disposed },
+            { theme.value.dark(appDark) },
         )
     }
 }

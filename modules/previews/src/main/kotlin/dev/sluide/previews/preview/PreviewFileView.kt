@@ -203,12 +203,6 @@ internal class PreviewFileView(
     /** The last jump of the table of contents in the preview; forgotten when the page is rendered again. */
     private var tocJump: TocJump? = null
 
-    /** The [line] a jump went to, and the [page] right after it: the line holds only while the page looks the same. */
-    private class TocJump(
-        val line: Int,
-        val page: String,
-    )
-
     /** Scroll position of the preview to restore after rendering, when the preview is shown alone. */
     private var previewScrollY = 0.0
 
@@ -474,6 +468,7 @@ internal class PreviewFileView(
     /** Shows a blank preview with a notice saying [why], until [resume]. */
     private fun stop(why: String) {
         stopped = true
+        preview.themed(dark, null)
         notice.text = why
         noticePane.isVisible = true
         Platform.runLater { engine.loadContent("") }
@@ -519,7 +514,9 @@ internal class PreviewFileView(
     }
 
     private fun applyTheme() {
-        if (isLoaded && preview.hasOwnScript) engine.executeScript("sluide.setDark($dark)")
+        val page = engine.takeIf { isLoaded && preview.hasOwnScript }
+        page?.executeScript("sluide.setDark($dark)")
+        preview.themed(dark, page)
     }
 
     /** Opens what [href] leads to (see [resolveLink]) through the [host]. */

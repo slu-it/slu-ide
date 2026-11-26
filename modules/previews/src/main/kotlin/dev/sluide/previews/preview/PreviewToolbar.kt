@@ -10,6 +10,8 @@ import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
+import javafx.scene.control.MenuButton
+import javafx.scene.control.RadioMenuItem
 import javafx.scene.control.ToggleButton
 import javafx.scene.control.ToggleGroup
 import javafx.scene.control.Tooltip
@@ -21,8 +23,9 @@ import javafx.scene.web.WebView
  * on the left what the [preview] has: the scripts toggle, the table of contents' button, the zoom controls of an image
  * or diagram that [zooms][Preview.zooms], the fold controls and the Copy Formatted button. Items the source's editor
  * extensions add ([contributed]) sit right after them, in every mode. On the right, before the mode buttons, come the
- * preview's own [actions][Preview.actions] ([actionButtons]), the Export button and, for every other preview, its
- * [zoom] controls (a document's, ADR 0083). Actions, Export and zoom show like the zoom controls on the left only
+ * preview's own [choices][Preview.choices] ([choiceButtons], dropdowns), [actions][Preview.actions] ([actionButtons]),
+ * the Export button and, for every other preview, its [zoom] controls (a document's, ADR 0083). Choices, actions,
+ * Export and zoom show like the zoom controls on the left only
  * while the preview shows, so not in Source. Everything runs on the FX thread.
  */
 internal class PreviewToolbar(
@@ -47,6 +50,16 @@ internal class PreviewToolbar(
                 styleClass += "preview-mode"
                 // A click leaves the focus where it is, e.g. in the preview, whose zoom keys keep working.
                 isFocusTraversable = false
+            }
+        }
+
+    /** The dropdowns of the preview's own ([Preview.choices]), before the action buttons. */
+    val choiceButtons: List<MenuButton> =
+        preview.choices.map { choice ->
+            choiceButton(choice).apply {
+                visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
+                managedProperty().bind(visibleProperty())
+                WrappingToolbar.setMargin(this, Insets(0.0, 6.0, 0.0, 0.0))
             }
         }
 
@@ -124,13 +137,33 @@ internal class PreviewToolbar(
                 WrappingToolbar.setMargin(zoom.node, Insets(0.0, 6.0, 0.0, 0.0))
                 listOf(zoom.node)
             }
-        val right = actionButtons + listOfNotNull(export?.button) + documentZoom + buttons
+        val right = choiceButtons + actionButtons + listOfNotNull(export?.button) + documentZoom + buttons
         node =
             WrappingToolbar().apply {
                 styleClass += "preview-toolbar"
                 leading.setAll(extras)
                 trailing.setAll(right)
             }
+    }
+
+    private fun <T> choiceButton(choice: PreviewChoice<T>): MenuButton {
+        val group = ToggleGroup()
+        return MenuButton().apply {
+            styleClass += "preview-choice"
+            tooltip = Tooltip(choice.tooltip)
+            // A choice leaves the focus where it is.
+            isFocusTraversable = false
+            textProperty().bind(choice.selected.map { "${choice.name}: ${choice.label(it)}" })
+            for (option in choice.options) {
+                val item =
+                    RadioMenuItem(choice.label(option)).apply {
+                        toggleGroup = group
+                        setOnAction { choice.selected.value = option }
+                    }
+                choice.selected.subscribe { selected -> item.isSelected = selected == option }
+                items += item
+            }
+        }
     }
 
     private companion object {

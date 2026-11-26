@@ -4,13 +4,18 @@ import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.plantuml.Diagram
 import dev.sluide.plantuml.Rendering
+import javafx.beans.property.ObjectProperty
 import org.jsoup.Jsoup
+import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.net.URI
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
+import kotlin.io.path.readText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -181,5 +186,40 @@ class PlantUmlPreviewTest {
         while (fxQueue.isNotEmpty()) fxQueue.removeFirst().run()
 
         assertNull(future.get(10, TimeUnit.SECONDS))
+    }
+
+    @TempDir
+    lateinit var dir: Path
+
+    @ParameterizedTest
+    @CsvSource(
+        "DEFAULT, false, <svg>light",
+        "DEFAULT, true, <svg>dark",
+        "LIGHT, true, <svg>light",
+        "LIGHT, false, <svg>light",
+        "DARK, false, <svg>dark",
+        "DARK, true, <svg>dark",
+    )
+    fun `the SVG export writes the variant of the diagram theme, Default the app's scheme as the view last said`(
+        theme: String,
+        appDark: Boolean,
+        expected: String,
+    ) {
+        preview.page(first, dark = false)
+        arrive(first, Rendering(listOf(Diagram.Drawn("<svg>light", "<svg>dark")), false))
+        preview.themed(appDark, null)
+        @Suppress("UNCHECKED_CAST")
+        (preview.choices.single().selected as ObjectProperty<DiagramTheme>).value = DiagramTheme.valueOf(theme)
+        val target = dir.resolve("diagram.puml")
+
+        val export =
+            preview.exports
+                .first()
+                .choose(target, null, first)
+                .toCompletableFuture()
+                .get()!!
+        export.write(target, first, export.targets(target).first())
+
+        assertEquals(expected, dir.resolve("diagram.svg").readText())
     }
 }

@@ -532,6 +532,7 @@ class PlantUmlExportsTest {
                 measurer,
                 { _, _ -> null },
                 { it.run() },
+                dark = { false },
             ).first { it.label == "SVG" }
         val export = assertNotNull(real.choose(hostile, null, source).toCompletableFuture().get(60, TimeUnit.SECONDS))
         assertEquals(listOf(dir.resolve("a b\"c.svg")), export.targets(hostile))

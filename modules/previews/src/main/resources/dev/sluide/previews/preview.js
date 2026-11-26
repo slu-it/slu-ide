@@ -254,6 +254,12 @@
             document.body.classList.toggle('dark', dark);
             if (changed && window.mermaid) window.sluide.renderDiagrams();
         },
+        // Shows a PlantUML file's diagrams in the 'light' or 'dark' variant whatever the scheme, or ('default') in the
+        // scheme's: a body class that preview.css lets win over body.dark. No redraw, no change of zoom or scroll.
+        setDiagramTheme: function (theme) {
+            document.body.classList.toggle('diagram-theme-light', theme === 'light');
+            document.body.classList.toggle('diagram-theme-dark', theme === 'dark');
+        },
         // Draws the diagrams (```mermaid fences, Mermaid files) with Mermaid, which the page includes when it has
         // diagrams, in the page's colour scheme; again after a change of scheme, from the source in data-source.
         // A diagram marked data-errors that does not parse shows Mermaid's message, as text, instead.

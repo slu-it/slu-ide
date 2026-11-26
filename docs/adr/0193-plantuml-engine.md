@@ -122,3 +122,5 @@ engine, module `plantuml`; the views that show it (the `.puml` preview, fences, 
   back.
 - Related: [0060](0060-logging-conventions.md) (logging), [0124](0124-read-aloud-speech.md) (`EspeakLocator`),
   [0165](0165-ebook-reader.md) (untrusted documents).
+- Amendment: the Export menu of a PlantUML file writes the variant the preview shows (its Theme dropdown: Default the
+  app's scheme, Light, Dark) instead of always the light one; the choice is read when the item is chosen.
