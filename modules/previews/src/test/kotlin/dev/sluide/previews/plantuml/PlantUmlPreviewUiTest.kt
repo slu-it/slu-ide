@@ -211,6 +211,8 @@ class PlantUmlPreviewUiTest {
         dir.resolve("diagram.puml").writeText(later)
         robot.interact { view.reload() }
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { renders.get() == 2 }
+        // A page load started by the reload would swap the document only in a later pulse.
+        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(true, view.script("window.loadedBefore === true"), "the page shown was not loaded again")
         assertEquals(shown, view.script("$image.src"))
