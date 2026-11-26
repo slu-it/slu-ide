@@ -1,5 +1,6 @@
 package dev.sluide.pdf.view
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.pdf.TestPdfs
 import dev.sluide.pdf.engine.PageRect
 import dev.sluide.pdf.engine.PageTarget
@@ -18,6 +19,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.FileTime
+import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -209,8 +211,12 @@ internal class PdfHooksUiTest : PdfViewUiFixture() {
 
     @Test
     fun `shownPages are the pages in view, none before the document opened`() {
-        val view = open(TestPdfs.manyPages)
+        // The open waits behind this task, so that the state before it is what the first assertion sees.
+        val opening = CountDownLatch(1)
+        val render = NamedThreads.single("test-pdf-render").also { it.execute { opening.await() } }
+        val view = open(TestPdfs.manyPages, render)
         assertEquals(IntRange.EMPTY, fx { view.shownPages.value })
+        opening.countDown()
         awaitRendered(view, 0)
         // Fit Page: the first page whole, the top of the second in the margin below it.
         assertEquals(0..1, fx { view.shownPages.value })
