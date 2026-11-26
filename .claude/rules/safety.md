@@ -21,7 +21,10 @@ deviates says why in its ADR.
   project files is not running them.
 - **Commands**: values from the user or the project never become shell code. Background CLI calls get argument
   lists, are never interactive, have a timeout or a cancel, and never run on the FX thread; commands shown in a
-  terminal quote every value.
+  terminal quote every value. Threads reading a process's pipes end quietly on `IOException`: stopping the process
+  (`destroyForcibly`) closes them under a running read ("Stream closed"), and an uncaught one fails UI tests.
+- **Libraries in previews**: a library that loads AWT (PlantUML, PDFBox) is first touched off the FX thread; a failed
+  start becomes a message in the view, not an uncaught error (ADR 0193).
 - **Secrets**: never log secrets, stdin, HTTP bodies, headers or query strings, and never show or log remote URLs
   (they can carry credentials). Show secret values masked by default. A stored secret is opt-in per value and goes
   through `Secrets`; the key is read off the FX thread.

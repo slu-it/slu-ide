@@ -24,6 +24,9 @@ Details, examples and the stories behind these rules: `docs/testing.md`, ADR 008
   the source that shows it); "no test reaches it" is a gap, not an equivalence. A timeout is not a kill unless the
   mutation visibly makes a loop endless or an allocation unbounded; name that per timeout. An equivalence or such a
   timeout is recorded with `mutation-check.sh --accept <path>:<line>[:<Mutator>] <reason>`, so later runs skip it;
+  compiler-generated forwarders to an interface's default members (on the class header line, `ACC_BRIDGE`,
+  `DefaultImpls`) get no coverage even when a test calls them: accept them as "compiler-generated delegation, no
+  source of ours", not as equivalent;
   before the full run, code only a UI test reaches is reported as left for the UI stage, never accepted. A hand break
   check stays only for what pitest cannot mutate: removing an inlined `filter { }` (its predicate always true), a
   `close()` call, an inline function of ours used only from another package or module (it gets no mutants). Its test
