@@ -72,7 +72,7 @@ No position, zoom or panel state is remembered; ideas: [ideas/pdf.md](../ideas/p
 ## Selection and links
 - **Select** by dragging over the text with the primary button, from the char under the press to the one under the
   pointer; it may span pages and be drawn backwards. A drag that starts beside the text starts at the nearest char of
-  that page; a page without text has nothing to select. A double-click selects a word (letters, digits, `_` and `'`;
+  that page; a page without text has nothing to select. A double-click selects a word (letters, digits, `_`, `'` and `’`;
   whitespace and punctuation are a word of their own char). **Shortcut+A** (and Select All in the context menu)
   selects every page's text. **Escape**, or a click without a drag (press and release within 3 px), clears it.
 - The selection is kept in text offsets, so it survives scrolling and zoom; a reload clears it. It is drawn as one

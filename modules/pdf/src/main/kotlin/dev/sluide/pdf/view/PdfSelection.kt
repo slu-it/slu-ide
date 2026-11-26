@@ -28,6 +28,9 @@ internal class PdfSelection private constructor(
     /** Counted on every change of the selection and on reload, so that a late text does not draw a stale one. */
     private var version = 0
     private var press: Press? = null
+
+    /** The newest press, held or released: what a late text resolves for, until a newer press or a reload. */
+    private var latest: Press? = null
     private var hover = 0
     private val links = HashMap<Int, List<PageLink>>()
     private val requested = HashSet<Int>()
@@ -35,8 +38,9 @@ internal class PdfSelection private constructor(
     private val hasSelection = SimpleBooleanProperty(false)
     private val copyItem = MenuItem("Copy")
     private val selectAllItem = MenuItem("Select All")
-    private val tooltip = Tooltip()
-    private var tooltipInstalled = false
+    internal val tooltip = Tooltip()
+    internal var tooltipInstalled = false
+        private set
 
     /** A primary press and what is known of it: where, the char under it, the char under the pointer now. */
     private class Press(
@@ -45,8 +49,8 @@ internal class PdfSelection private constructor(
         val point: PagePoint?,
     ) {
         var dragged = false
-        var anchor: TextPosition? = null
-        var pointer: TextPosition? = null
+        var anchor: CharPosition? = null
+        var pointer: CharPosition? = null
     }
 
     private fun wire() {
@@ -74,9 +78,10 @@ internal class PdfSelection private constructor(
         val point = view.pagePointAt(event.sceneX, event.sceneY)
         val current = Press(event.sceneX, event.sceneY, point)
         press = current
+        latest = current
         if (point == null) return
         resolve(point) { position ->
-            if (press === current) {
+            if (latest === current) {
                 current.anchor = position
                 extend(current)
             }
@@ -84,7 +89,7 @@ internal class PdfSelection private constructor(
         if (event.clickCount == 2) {
             view.texts.textOf(point.page) { text ->
                 val index = TextSelection.charAt(text, point.x, point.y)
-                if (index != null && press === current) {
+                if (index != null && latest === current) {
                     val word = TextSelection.wordAt(text, index)
                     select(TextSelection(point.page, word.first, point.page, word.last))
                 }
@@ -98,7 +103,7 @@ internal class PdfSelection private constructor(
         if (!current.dragged) return
         val point = view.pagePointAt(event.sceneX, event.sceneY) ?: return
         resolve(point) { position ->
-            if (press === current) {
+            if (latest === current) {
                 current.pointer = position
                 extend(current)
             }
@@ -142,19 +147,24 @@ internal class PdfSelection private constructor(
 
     private fun key(event: KeyEvent) {
         when {
-            event.isShortcutDown && event.code == KeyCode.A -> selectAll()
-            event.isShortcutDown && event.code == KeyCode.C -> copy()
+            plainShortcut(event, KeyCode.A) -> selectAll()
+            plainShortcut(event, KeyCode.C) -> copy()
             event.code == KeyCode.ESCAPE && selection != null -> select(null)
             else -> return
         }
         event.consume()
     }
 
+    private fun plainShortcut(
+        event: KeyEvent,
+        code: KeyCode,
+    ) = event.isShortcutDown && !event.isShiftDown && !event.isAltDown && event.code == code
+
     private fun resolve(
         point: PagePoint,
-        onPosition: (TextPosition) -> Unit,
+        onPosition: (CharPosition) -> Unit,
     ) = view.texts.textOf(point.page) { text ->
-        TextSelection.charAt(text, point.x, point.y)?.let { onPosition(TextPosition(point.page, it)) }
+        TextSelection.charAt(text, point.x, point.y)?.let { onPosition(CharPosition(point.page, it)) }
     }
 
     private fun extend(current: Press) {
@@ -193,22 +203,27 @@ internal class PdfSelection private constructor(
         }
     }
 
+    /**
+     * Copies the selected text once the texts of its pages are there. The shown pages' texts are the ones the selection
+     * was drawn from, so they come at the text priority; the rest wait for their plain texts, equal and cheaper.
+     */
     private fun copy() {
         val range = selection ?: return
         val pages = range.startPage..range.endPage
+        val total = range.endPage - range.startPage + 1
+        val shown = view.shownPages.value
         val collected = HashMap<Int, String>()
         for (page in pages) {
-            view.texts.plainTextOf(page) { text ->
+            val arrived = { text: String ->
                 collected[page] = text
-                if (collected.size == pages.count()) {
+                if (collected.size == total) {
                     val copied = range.copyText(collected::getValue)
                     if (copied.isNotEmpty()) {
-                        Clipboard.getSystemClipboard().setContent(
-                            ClipboardContent().also { it.putString(copied) },
-                        )
+                        Clipboard.getSystemClipboard().setContent(ClipboardContent().also { it.putString(copied) })
                     }
                 }
             }
+            if (page in shown) view.texts.textOf(page) { arrived(it.text) } else view.texts.plainTextOf(page, arrived)
         }
     }
 
@@ -242,23 +257,28 @@ internal class PdfSelection private constructor(
     private fun reset() {
         select(null)
         press = null
+        latest = null
         links.clear()
         requested.clear()
         view.renderWorker.cancelQueued { it.tag === tag }
         fetchLinks()
     }
 
-    private fun dispose() {
-        version++
-        press = null
-        view.renderWorker.cancelQueued { it.tag === tag }
-        showTooltip(null)
-    }
+    private fun dispose() = showTooltip(null)
 
     companion object {
         /** How far the pointer may move between press and release and still make a click, in pixels. */
         const val CLICK_SLOP = 3.0
 
-        fun install(view: PdfFileView) = PdfSelection(view).wire()
+        private const val KEY = "dev.sluide.pdf.view.PdfSelection"
+
+        fun install(view: PdfFileView) {
+            val selection = PdfSelection(view)
+            view.pages.properties[KEY] = selection
+            selection.wire()
+        }
+
+        /** For tests: the selection installed on [view]. */
+        internal fun of(view: PdfFileView): PdfSelection = view.pages.properties[KEY] as PdfSelection
     }
 }

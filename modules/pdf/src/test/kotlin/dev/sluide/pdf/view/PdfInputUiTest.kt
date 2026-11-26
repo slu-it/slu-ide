@@ -8,7 +8,6 @@ import javafx.event.Event
 import javafx.event.EventType
 import javafx.geometry.Insets
 import javafx.scene.control.Label
-import javafx.scene.control.MenuItem
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
@@ -186,10 +185,13 @@ internal class PdfInputUiTest : PdfViewUiFixture() {
         awaitRendered(view, 0)
         // The places of the pages, measured once the view is laid out (the toolbar's height comes a pulse later).
         paint()
-        fx { view.pageContextMenu.items += MenuItem("Copy") }
         val requests = reachingScene(ContextMenuEvent.CONTEXT_MENU_REQUESTED)
         val page = sceneRect(view, 0, PageRect(0.0, 0.0, 595.0, 842.0))
-        fx { Event.fireEvent(view.pages, contextMenuRequest(page.minX - 5, page.centerY)) }
+        // The column's left edge, far from the centred page; the rect and the event in one step, so no layout lies between.
+        fx {
+            val edge = view.pages.localToScene(view.pages.layoutBounds)
+            Event.fireEvent(view.pages, contextMenuRequest(edge.minX + 2, page.centerY))
+        }
         assertFalse(fx { view.pageContextMenu.isShowing })
         assertEquals(1, requests())
         fx { Event.fireEvent(view.pages, contextMenuRequest(page.centerX, page.centerY)) }

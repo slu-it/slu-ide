@@ -7,11 +7,11 @@ import kotlin.math.max
 import kotlin.math.min
 
 /** A char of the document: its page and its index in that page's text. */
-internal data class TextPosition(
+internal data class CharPosition(
     val page: Int,
     val index: Int,
-) : Comparable<TextPosition> {
-    override fun compareTo(other: TextPosition): Int = compareValuesBy(this, other, { it.page }, { it.index })
+) : Comparable<CharPosition> {
+    override fun compareTo(other: CharPosition): Int = compareValuesBy(this, other, { it.page }, { it.index })
 }
 
 /**
@@ -52,8 +52,8 @@ internal data class TextSelection(
     companion object {
         /** The range from [a] to [b], whichever comes first. */
         fun between(
-            a: TextPosition,
-            b: TextPosition,
+            a: CharPosition,
+            b: CharPosition,
         ): TextSelection {
             val first = minOf(a, b)
             val last = maxOf(a, b)
@@ -97,7 +97,7 @@ internal data class TextSelection(
                     true
             }
 
-        /** The word around the char [index]: letters, digits, `_` and `'`; any other char is a word of its own. */
+        /** The word around the char [index]: letters, digits, `_`, `'` and ’; any other char is a word of its own. */
         fun wordAt(
             text: PageText,
             index: Int,
@@ -110,7 +110,7 @@ internal data class TextSelection(
             return first..last
         }
 
-        private fun isWordChar(char: Char) = char.isLetterOrDigit() || char == '_' || char == '\''
+        private fun isWordChar(char: Char) = char.isLetterOrDigit() || char == '_' || char == '\'' || char == '\u2019'
 
         /** A line: the indices of its boxed chars and their boxes. */
         private class Line(
@@ -138,7 +138,7 @@ internal data class TextSelection(
                     continue
                 }
                 val box = text.boxes[index] ?: continue
-                if (previous?.let { sameLine(it, box) } != true) {
+                if (previous == null || !sameLine(previous, box)) {
                     chars += mutableListOf<Int>()
                     boxes += mutableListOf<PageRect>()
                 }

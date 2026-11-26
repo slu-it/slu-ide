@@ -195,6 +195,36 @@ internal class TextSelectionTest {
     }
 
     @Test
+    fun `charAt counts single-char lines as neither direction when it decides the page's direction`() {
+        // One line along x and two single chars: the page runs along x, so the point is 5 below the first line.
+        assertEquals(4, TextSelection.charAt(horizontal("abc", "d", "e"), 100.0, 25.0))
+    }
+
+    @Test
+    fun `charAt splits lines where the boxes stop sharing a row, also without a line end`() {
+        val boxes =
+            listOf(
+                0.0 to 0.0,
+                10.0 to 0.0,
+                0.0 to 20.0,
+                10.0 to 20.0,
+                20.0 to 20.0,
+                30.0 to 20.0,
+                40.0 to 20.0,
+                50.0 to 20.0,
+            )
+        val text = PageText("abcdefgh", boxes.map { (x, y) -> box(x, y) })
+        assertEquals(1, TextSelection.charAt(text, 60.0, 11.0))
+    }
+
+    @Test
+    fun `wordAt takes the typographic apostrophe`() {
+        val text = plain("it\u2019s ok")
+        assertEquals(0..3, TextSelection.wordAt(text, 2))
+        assertEquals(0..3, TextSelection.wordAt(text, 3))
+    }
+
+    @Test
     fun `charUnder gives the char whose box contains the point, none in a gap or off the boxes`() {
         assertEquals(3, TextSelection.charUnder(sample, 35.0, 5.0))
         assertEquals(3, TextSelection.charUnder(sample, 30.0, 0.0))
@@ -241,12 +271,12 @@ internal class TextSelectionTest {
     @Test
     fun `between puts the earlier char first, whichever way it was drawn`() {
         val forwards = TextSelection(1, 4, 2, 7)
-        assertEquals(forwards, TextSelection.between(TextPosition(1, 4), TextPosition(2, 7)))
-        assertEquals(forwards, TextSelection.between(TextPosition(2, 7), TextPosition(1, 4)))
-        assertEquals(TextSelection(3, 2, 3, 6), TextSelection.between(TextPosition(3, 6), TextPosition(3, 2)))
-        assertEquals(TextSelection(3, 2, 3, 6), TextSelection.between(TextPosition(3, 2), TextPosition(3, 6)))
-        assertEquals(TextSelection(3, 2, 3, 2), TextSelection.between(TextPosition(3, 2), TextPosition(3, 2)))
-        assertEquals(TextSelection(1, 9, 2, 1), TextSelection.between(TextPosition(2, 1), TextPosition(1, 9)))
+        assertEquals(forwards, TextSelection.between(CharPosition(1, 4), CharPosition(2, 7)))
+        assertEquals(forwards, TextSelection.between(CharPosition(2, 7), CharPosition(1, 4)))
+        assertEquals(TextSelection(3, 2, 3, 6), TextSelection.between(CharPosition(3, 6), CharPosition(3, 2)))
+        assertEquals(TextSelection(3, 2, 3, 6), TextSelection.between(CharPosition(3, 2), CharPosition(3, 6)))
+        assertEquals(TextSelection(3, 2, 3, 2), TextSelection.between(CharPosition(3, 2), CharPosition(3, 2)))
+        assertEquals(TextSelection(1, 9, 2, 1), TextSelection.between(CharPosition(2, 1), CharPosition(1, 9)))
     }
 
     @Test

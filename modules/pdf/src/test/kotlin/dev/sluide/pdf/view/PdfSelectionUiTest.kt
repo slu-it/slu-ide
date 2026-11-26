@@ -25,6 +25,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.FileTime
+import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -372,7 +373,7 @@ internal class PdfSelectionUiTest : PdfViewUiFixture() {
     }
 
     @Test
-    fun `a drag that starts on a link selects the text and does not follow the link`() {
+    fun `a drag that starts on a link selects the text and does not follow it, a plain click on it does`() {
         val host = FakeHost()
         val view = textView { it.host = host }
         val alpha = scene(view, "Alpha")
@@ -411,6 +412,109 @@ internal class PdfSelectionUiTest : PdfViewUiFixture() {
         }
         awaitRendered(view, 2)
         assertNotNull(fx { view.overlays.on(2).firstOrNull() })
+    }
+
+    /** Reloads [view] of [file], changed on disk, and waits for it; its texts and links are gone afterwards. */
+    private fun reload(
+        view: PdfFileView,
+        file: Path,
+        reloads: () -> Int,
+    ) {
+        val before = reloads()
+        Files.setLastModifiedTime(file, FileTime.fromMillis(Files.getLastModifiedTime(file).toMillis() + 10_000))
+        fx { view.reload() }
+        await { reloads() == before + 1 }
+        awaitRendered(view, 0)
+    }
+
+    /**
+     * The text page, reloaded (its texts are gone), with the text worker held while [act] runs on it: whatever [act]
+     * asks of the texts arrives after it returned. [act] gets the scene boxes of "second" and "line".
+     */
+    private fun heldView(act: (PdfFileView, Bounds, Bounds) -> Unit): PdfFileView {
+        val file = dir.resolve("held.pdf")
+        Files.copy(TestPdfs.text, file)
+        var reloads = 0
+        val view = textView(file) { it.onReload += { reloads++ } }
+        val second = scene(view, "second")
+        val line = scene(view, "line")
+        reload(view, file) { reloads }
+        val latch = CountDownLatch(1)
+        fx { view.textWorker.submit(WorkPriority.VISIBLE, { latch.await() }, {}) }
+        try {
+            clearClipboard()
+            act(view, second, line)
+        } finally {
+            latch.countDown()
+        }
+        return view
+    }
+
+    @Test
+    fun `a drag released before the text of its page arrived still selects, and copies`() {
+        val view = heldView { view, second, _ -> drag(view, second.left(), second.right()) }
+        await { view.overlays.on(0).any { it.first == OverlayLayer.SELECTION } }
+        key(view, KeyCode.C, shortcut = true)
+        awaitClipboard("second")
+    }
+
+    @Test
+    fun `a double-click on a page whose text arrives late still selects the word`() {
+        val view =
+            heldView { view, _, line ->
+                click(view, line.centre(), clicks = 1)
+                click(view, line.centre(), clicks = 2)
+            }
+        await { view.overlays.on(0).any { it.first == OverlayLayer.SELECTION } }
+        key(view, KeyCode.C, shortcut = true)
+        awaitClipboard("line")
+    }
+
+    @Test
+    fun `copy of shown pages does not wait for the plain texts queued behind a search`() {
+        val view = textView()
+        val second = scene(view, "second")
+        val latch = CountDownLatch(1)
+        fx { view.textWorker.submit(WorkPriority.SEARCH, { latch.await() }, {}) }
+        try {
+            clearClipboard()
+            drag(view, second.left(), second.right())
+            key(view, KeyCode.C, shortcut = true)
+            awaitClipboard("second")
+        } finally {
+            latch.countDown()
+        }
+    }
+
+    @Test
+    fun `disposing the view takes the link tooltip away`() {
+        val view = open(TestPdfs.selectionLinks)
+        awaitRendered(view, 0)
+        awaitCursor(view, sceneRect(view, 0, TestPdfs.selectionLinkRect(0)).centre(), Cursor.HAND)
+        val selection = fx { PdfSelection.of(view) }
+        assertTrue(fx { selection.tooltipInstalled })
+        fx { view.dispose() }
+        assertFalse(fx { selection.tooltipInstalled })
+        assertFalse(fx { selection.tooltip.isShowing })
+    }
+
+    @Test
+    fun `the links are read again after a reload`() {
+        val file = dir.resolve("links.pdf")
+        Files.copy(TestPdfs.selectionLinks, file)
+        var reloads = 0
+        val view = open(file) { it.onReload += { reloads++ } }
+        awaitRendered(view, 0)
+        val link = sceneRect(view, 0, TestPdfs.selectionLinkRect(1)).centre()
+        awaitCursor(view, link, Cursor.HAND)
+        reload(view, file) { reloads }
+        // The cursor stays a hand over the reload: move off the link first, so that the wait below sees new links.
+        awaitCursor(view, sceneRect(view, 0, PageRect(400.0, 600.0, 10.0, 10.0)).centre(), null)
+        // The reload keeps the page's top at the viewport's top: the link moved.
+        val moved = sceneRect(view, 0, TestPdfs.selectionLinkRect(1)).centre()
+        awaitCursor(view, moved, Cursor.HAND)
+        click(view, moved)
+        assertEquals(2, fx { view.currentPage.get() })
     }
 
     private companion object {
