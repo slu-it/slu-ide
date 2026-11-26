@@ -626,4 +626,75 @@ object TestPdfs {
             }
         }
     }
+
+    // P5, side panel: a nested outline over seven pages, and 20 pages without an outline.
+
+    /**
+     * Seven numbered pages (0-based 0..6) and this outline, items open unless said: "1 Intro" (page 0) with "1.1 Start"
+     * (page 0) and "1.2 More" (page 1); "2 Body" (page 2, closed) with "2.1 Hidden" (page 3); "3 No destination";
+     * "4 Late" (page 4) with "4.1 Deep" (page 5); "5 End" (page 6).
+     */
+    val sideOutline: Path by lazy { build("side-outline.pdf") { sideOutlineDocument(it, prefix = "") } }
+
+    /** [sideOutline] with "New " before each title. */
+    val sideOutlineRenamed: Path by lazy { build("side-outline-renamed.pdf") { sideOutlineDocument(it, "New ") } }
+
+    const val SIDE_PAGES = 20
+
+    /** [SIDE_PAGES] numbered pages without an outline. */
+    val sideNoOutline: Path by lazy { build("side-no-outline.pdf") { numberedPages(it, SIDE_PAGES) } }
+
+    /** Two blank pages: 612 by 792 points, then 792 by 612. */
+    val sidePortraitLandscape: Path by lazy {
+        build("side-portrait-landscape.pdf") { document ->
+            page(document, PDRectangle(612f, 792f))
+            page(document, PDRectangle(792f, 612f))
+        }
+    }
+
+    const val SIDE_LONG_PAGES = 60
+
+    /** The title of the last item of [sideLongOutline]: on two lines, and longer than a side panel is wide. */
+    const val SIDE_LONG_TITLE = "Page 60:\nthe last page, whose title is far longer than the side panel is wide"
+
+    /**
+     * [SIDE_LONG_PAGES] numbered pages and an outline item "Page N" for each but the first, more than a side panel shows
+     * at once; the last is titled [SIDE_LONG_TITLE].
+     */
+    val sideLongOutline: Path by lazy {
+        build("side-long-outline.pdf") { document ->
+            numberedPages(document, SIDE_LONG_PAGES)
+            val outline = PDDocumentOutline()
+            document.documentCatalog.documentOutline = outline
+            for (page in 1 until SIDE_LONG_PAGES - 1) {
+                outline.addLast(
+                    item("Page ${page + 1}", fit(document.getPage(page))),
+                )
+            }
+            outline.addLast(item(SIDE_LONG_TITLE, fit(document.getPage(SIDE_LONG_PAGES - 1))))
+            outline.openNode()
+        }
+    }
+
+    private fun sideOutlineDocument(
+        document: PDDocument,
+        prefix: String,
+    ) {
+        numberedPages(document, 7)
+
+        fun to(
+            title: String,
+            page: Int?,
+        ) = item(prefix + title, page?.let { fit(document.getPage(it)) })
+        val outline = PDDocumentOutline()
+        document.documentCatalog.documentOutline = outline
+        val intro = to("1 Intro", 0).also { it.addLast(to("1.1 Start", 0)) }
+        intro.addLast(to("1.2 More", 1))
+        val body = to("2 Body", 2).also { it.addLast(to("2.1 Hidden", 3)) }
+        val late = to("4 Late", 4).also { it.addLast(to("4.1 Deep", 5)) }
+        listOf(intro, body, to("3 No destination", null), late, to("5 End", 6)).forEach(outline::addLast)
+        intro.openNode()
+        late.openNode()
+        outline.openNode()
+    }
 }

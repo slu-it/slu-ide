@@ -116,4 +116,12 @@ class OutlineFollowTest {
         val second = item("Same", 1)
         assertSame(second, OutlineFollow(listOf(first, second)).itemFor(1) { true })
     }
+
+    @Test
+    fun `a title shows on one line`() {
+        assertEquals("Part one: the start", outlineTitle("Part one:\r\n  the start"))
+        assertEquals("A B C", outlineTitle("A\nB \u2028 C"))
+        assertEquals("Tab\tkept", outlineTitle("Tab\tkept"))
+        assertEquals("One two", outlineTitle("One\r\n \r\ntwo"))
+    }
 }

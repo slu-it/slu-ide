@@ -6,6 +6,7 @@ import dev.sluide.pdf.engine.PageRect
 import dev.sluide.pdf.engine.PageTarget
 import dev.sluide.pdf.engine.PdfDocument
 import dev.sluide.pdf.engine.PdfOpenResult
+import dev.sluide.pdf.view.side.SidePanel
 import javafx.application.Platform
 import javafx.beans.property.ReadOnlyIntegerProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
@@ -152,6 +153,7 @@ internal class PdfFileView(
             toolbar.refreshPageField()
         }
         toolbar.openExternally.setOnAction { host?.openWebPage(file.toUri()) }
+        SidePanel.install(this)
     }
 
     /** Scrolls [target] to the top of the viewport; an app scroll, which does not call [userScrolled]. */

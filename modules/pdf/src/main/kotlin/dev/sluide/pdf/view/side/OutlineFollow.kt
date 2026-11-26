@@ -59,3 +59,9 @@ private fun MutableList<OutlineFollow.Entry>.addOutline(
         addOutline(item.children, entry)
     }
 }
+
+/** [title] on one line: each line break, with the blanks around it, becomes one space. */
+internal fun outlineTitle(title: String): String = title.replace(LINE_BREAKS, " ")
+
+/** Line breaks (also the Unicode ones), each run with the blanks around it. */
+private val LINE_BREAKS = Regex("(?:[ \\t]*[\\r\\n\\u000B\\u000C\\u0085\\u2028\\u2029])+[ \\t]*")

@@ -109,3 +109,45 @@
         -fx-background-color: rgba(40, 120, 255, 0.35);
     }
 }
+
+/*
+ * P5, side panel (SidePanel): the Outline and Thumbnails tabs. Looked-up colours only, except the thumbnails' paper,
+ * white in both themes as the pages are (the dark block below repeats it with a lighter edge).
+ */
+.pdf-side-panel,
+.pdf-side-panel .tree-cell,
+.pdf-side-panel .list-cell {
+    -fx-font-family: "System";
+}
+
+.pdf-outline-dimmed {
+    -fx-opacity: 0.5;
+}
+
+.pdf-outline-placeholder {
+    -fx-padding: 24;
+    -fx-opacity: 0.8;
+    -fx-wrap-text: true;
+    -fx-text-alignment: center;
+}
+
+.pdf-thumbnail {
+    -fx-spacing: 4;
+    -fx-padding: 4 0 4 0;
+}
+
+.pdf-thumbnail-page {
+    -fx-background-color: rgba(0, 0, 0, 0.25), white;
+    -fx-background-insets: -1, 0;
+}
+
+.pdf-thumbnail-number {
+    -fx-font-size: 0.9em;
+}
+
+@media (prefers-color-scheme: dark) {
+    .pdf-thumbnail-page {
+        -fx-background-color: rgba(255, 255, 255, 0.35), white;
+        -fx-background-insets: -1, 0;
+    }
+}
