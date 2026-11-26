@@ -292,12 +292,17 @@ internal class PdfInputUiTest : PdfViewUiFixture() {
                 view.toolbar.node.trailing[1]
                     .lookup(".zoom-level") as Label
             }
-        fx { level.padding = Insets.EMPTY }
-        val small = fx { level.minWidth }
-        fx { level.font = Font(level.font.family, 40.0) }
-        val large = fx { level.minWidth }
+        // In one FX step: a CSS pass would set the stylesheet's padding and font again.
+        val (small, large, padded) =
+            fx {
+                level.padding = Insets.EMPTY
+                val small = level.minWidth
+                level.font = Font(level.font.family, 40.0)
+                val large = level.minWidth
+                level.padding = Insets(0.0, 0.0, 0.0, 50.0)
+                Triple(small, large, level.minWidth)
+            }
         assertTrue(large > small * 2, "$small, $large")
-        fx { level.padding = Insets(0.0, 0.0, 0.0, 50.0) }
-        assertEquals(large + 50, fx { level.minWidth }, 1.0)
+        assertEquals(large + 50, padded, 1.0)
     }
 }
