@@ -26,7 +26,9 @@ internal typealias PlantUmlRender = (source: String, firstLine: Int) -> Completa
 /**
  * The Export menu of a PlantUML file's preview: SVG, PNG at 100, 200 and 300% and PNG Custom…, which [ask]s for the
  * size of the first diagram on the FX thread (through [onFx]) and scales the others alike. The PNGs are drawn by
- * [rasterizer]; [measurer] reads the natural sizes for the custom size.
+ * [rasterizer]; [measurer] reads the natural sizes for the custom size. Every item writes the variant the preview shows
+ * (its diagram theme, [PlantUmlPreview]): [dark] says whether it is the dark one, and is asked on the FX thread when the
+ * item is chosen, so that a later change of the choice leaves a chosen export as it is.
  */
 internal fun plantUmlExports(
     render: PlantUmlRender,
@@ -37,22 +39,23 @@ internal fun plantUmlExports(
     cached: (String) -> Rendering? = { null },
     tasks: () -> BackgroundTasks? = { null },
     disposed: () -> Boolean = { false },
+    dark: () -> Boolean = { false },
 ): List<FileExport> {
     fun done(
         label: String,
         png: ((Int) -> PngSize)?,
-    ): (Rendering, Window?) -> CompletionStage<FileExport?> =
-        { rendering, _ ->
-            CompletableFuture.completedFuture(RenderedPlantUmlExport(label, rendering, rasterizer, png))
+    ): (Rendering, Window?, Boolean) -> CompletionStage<FileExport?> =
+        { rendering, _, isDark ->
+            CompletableFuture.completedFuture(RenderedPlantUmlExport(label, rendering, isDark, rasterizer, png))
         }
-    return listOf(PlantUmlExport("SVG", render, done("SVG", null), cached, tasks, disposed, onFx)) +
+    return listOf(PlantUmlExport("SVG", render, done("SVG", null), cached, tasks, disposed, onFx, dark)) +
         listOf(1, 2, 3).map { factor ->
             val label = "PNG ${factor * 100}%"
-            PlantUmlExport(label, render, done(label, { PngSize.Scale(factor) }), cached, tasks, disposed, onFx)
+            PlantUmlExport(label, render, done(label, { PngSize.Scale(factor) }), cached, tasks, disposed, onFx, dark)
         } +
-        PlantUmlExport("PNG Custom…", render, { rendering, owner ->
-            customSize(rendering, owner, rasterizer, measurer, ask, onFx)
-        }, cached, tasks, disposed, onFx)
+        PlantUmlExport("PNG Custom…", render, { rendering, owner, isDark ->
+            customSize(rendering, isDark, owner, rasterizer, measurer, ask, onFx)
+        }, cached, tasks, disposed, onFx, dark)
 }
 
 /**
@@ -61,6 +64,7 @@ internal fun plantUmlExports(
  */
 private fun customSize(
     rendering: Rendering,
+    dark: Boolean,
     owner: Window?,
     rasterizer: SvgRasterizer,
     measurer: SvgMeasurer,
@@ -71,10 +75,10 @@ private fun customSize(
     NamedThreads.virtual("sluide-export") {
         try {
             val drawn = rendering.diagrams.withIndex().filter { it.value is Diagram.Drawn }
-            val naturals = drawn.map { measurer.measure((it.value as Diagram.Drawn).lightSvg.toByteArray()) }
+            val naturals = drawn.map { measurer.measure((it.value as Diagram.Drawn).svg(dark).toByteArray()) }
             if (naturals.isEmpty()) {
                 // Nothing to ask for: the export fails with the reason of the first failed diagram.
-                chosen.complete(RenderedPlantUmlExport("PNG Custom…", rendering, rasterizer) { PngSize.Scale(1) })
+                chosen.complete(RenderedPlantUmlExport("PNG Custom…", rendering, dark, rasterizer) { PngSize.Scale(1) })
             } else {
                 onFx {
                     try {
@@ -86,7 +90,12 @@ private fun customSize(
                             val pixels = customSizes(naturals, size).map { PngSize.Pixels(it.first, it.second) }
                             val bySlot = numbers.zip(pixels).toMap()
                             chosen.complete(
-                                RenderedPlantUmlExport("PNG Custom…", rendering, rasterizer) { bySlot.getValue(it) },
+                                RenderedPlantUmlExport(
+                                    "PNG Custom…",
+                                    rendering,
+                                    dark,
+                                    rasterizer,
+                                ) { bySlot.getValue(it) },
                             )
                         }
                     } catch (e: Throwable) {
@@ -122,7 +131,8 @@ internal fun customSizes(
 }
 
 /**
- * The export to run once the file is rendered: every drawn diagram of [rendering] as its light SVG, or, with [png]
+ * The export to run once the file is rendered: every drawn diagram of [rendering] as its SVG in the [dark] or light
+ * variant, or, with [png]
  * (the size of the diagram with a 1-based number), as a PNG drawn by [rasterizer]. The files are named after the file:
  * `name.svg` for the first diagram, `name-2.svg` for the second and so on, counted over all diagrams, so that a failed
  * one keeps its number; a PNG's name has the size before the extension (`name-2@2x.png`, `name-2-640x480.png`).
@@ -130,6 +140,7 @@ internal fun customSizes(
 internal class RenderedPlantUmlExport(
     override val label: String,
     private val rendering: Rendering,
+    private val dark: Boolean,
     private val rasterizer: SvgRasterizer,
     private val png: ((index: Int) -> PngSize)?,
 ) : FileExport {
@@ -170,7 +181,7 @@ internal class RenderedPlantUmlExport(
                 continue
             }
             try {
-                writeDiagram((diagram as Diagram.Drawn).lightSvg, number, path(file, number))
+                writeDiagram((diagram as Diagram.Drawn).svg(dark), number, path(file, number))
                 anyWritten = true
             } catch (e: IOException) {
                 // The others are still written: no diagram's failure undoes the replaced files before it.
@@ -200,15 +211,19 @@ internal class RenderedPlantUmlExport(
         if (failed.line == null) failed.message else "Line ${failed.line}: ${failed.message}"
 }
 
-/** An item of the menu, which renders the saved text on [choose] and completes with the export [bind]ed to it. */
+/**
+ * An item of the menu, which renders the saved text on [choose] and completes with the export [bind]ed to it and to the
+ * variant [dark] says the preview shows at that moment.
+ */
 internal class PlantUmlExport(
     override val label: String,
     private val render: PlantUmlRender,
-    private val bind: (Rendering, Window?) -> CompletionStage<FileExport?>,
+    private val bind: (Rendering, Window?, Boolean) -> CompletionStage<FileExport?>,
     private val cached: (String) -> Rendering?,
     private val tasks: () -> BackgroundTasks?,
     private val disposed: () -> Boolean,
     private val onFx: (Runnable) -> Unit,
+    private val dark: () -> Boolean,
 ) : FileExport {
     override fun target(file: Path): Path = throw IllegalStateException("Choose first")
 
@@ -219,9 +234,14 @@ internal class PlantUmlExport(
         owner: Window?,
         text: String,
     ): CompletionStage<FileExport?> {
+        val isDark = dark()
         val held = cached(text)
         // A timeout or a start failure has no line: drawing again may do better, a syntax error would not.
-        if (held != null && held.diagrams.none { it is Diagram.Failed && it.line == null }) return bind(held, owner)
+        if (held != null &&
+            held.diagrams.none { it is Diagram.Failed && it.line == null }
+        ) {
+            return bind(held, owner, isDark)
+        }
         val chosen = CompletableFuture<FileExport?>()
         val row = DrawingRow()
         row.start(tasks(), "Drawing ${file.fileName} for the export") {
@@ -242,7 +262,13 @@ internal class PlantUmlExport(
 
                     else -> {
                         row.close()
-                        if (disposed()) chosen.complete(null) else bind(rendering, owner).whenComplete(chosen::finish)
+                        if (disposed()) {
+                            chosen.complete(
+                                null,
+                            )
+                        } else {
+                            bind(rendering, owner, isDark).whenComplete(chosen::finish)
+                        }
                     }
                 }
             }
@@ -297,3 +323,6 @@ private class DrawingRow {
         if (row != null) row.failed("Cancelled")
     }
 }
+
+/** The SVG of this diagram in the [dark] or the light variant. */
+internal fun Diagram.Drawn.svg(dark: Boolean): String = if (dark) darkSvg else lightSvg

@@ -98,7 +98,11 @@ class PlantUmlExportsTest {
         cached,
         tasks,
         disposed,
+        { previewDark },
     )
+
+    /** The variant the preview shows (its choice, or the app's scheme for Default). */
+    private var previewDark = false
 
     private val exports = exportsWith()
 
@@ -415,6 +419,54 @@ class PlantUmlExportsTest {
         assertEquals("<svg 1x1>light", dir.resolve("diagram.svg").readText())
         assertEquals("<svg 1x1>ü light", dir.resolve("diagram-2.svg").readText())
         assertEquals(listOf("diagram-2.svg", "diagram.svg"), dir.listDirectoryEntries().map { it.name }.sorted())
+    }
+
+    @Test
+    fun `the SVG is the dark variant when the preview shows it when the item is chosen, not when it is written`() {
+        rendering = Rendering(listOf(drawn("1x1"), drawn("1x1", "dark 2")), false)
+        previewDark = true
+        val export = chosen("SVG")!!
+        previewDark = false
+        export.write(file, "text", export.targets(file).first())
+        assertEquals("<svg 1x1>dark", dir.resolve("diagram.svg").readText())
+        assertEquals("<svg 1x1>dark 2", dir.resolve("diagram-2.svg").readText())
+    }
+
+    @Test
+    fun `the variant is read when the item is chosen, also for a rendering the view holds`() {
+        rendering = Rendering(listOf(drawn("1x1")), false)
+        val held = rendering
+        previewDark = true
+        val export =
+            exportsWith({ held })
+                .first()
+                .choose(file, null, "text")
+                .toCompletableFuture()
+                .get()!!
+        previewDark = false
+        export.write(file, "text", export.targets(file).first())
+        assertEquals("<svg 1x1>dark", dir.resolve("diagram.svg").readText())
+    }
+
+    @Test
+    fun `a PNG is drawn from the dark variant when the preview shows it`() {
+        rendering = Rendering(listOf(drawn("1x1")), false)
+        previewDark = true
+        val export = chosen("PNG 300%")!!
+        export.write(file, "text", export.targets(file).first())
+        assertEquals(listOf<Pair<String, PngSize>>("<svg 1x1>dark" to PngSize.Scale(3)), rasterized)
+    }
+
+    @Test
+    fun `a custom size is asked for the size of the dark variant and drawn from it`() {
+        rendering = Rendering(listOf(Diagram.Drawn("<svg 100x50>light", "<svg 80x40>dark")), false)
+        previewDark = true
+        answer = 40 to 20
+        val export = chosen("PNG Custom…")!!
+        assertEquals(listOf("asked" to (80 to 40)), asked)
+        assertEquals(listOf("<svg 80x40>dark"), measured)
+        export.write(file, "text", export.targets(file).first())
+        assertEquals(listOf<Pair<String, PngSize>>("<svg 80x40>dark" to PngSize.Pixels(40, 20)), rasterized)
     }
 
     @Test
