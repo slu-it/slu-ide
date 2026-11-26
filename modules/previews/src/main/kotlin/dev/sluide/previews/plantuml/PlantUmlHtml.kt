@@ -26,11 +26,13 @@ internal object PlantUmlHtml {
      * The diagrams of [rendering] in a `div.plantuml`: the note about the built-in layout if PlantUML used it, then the
      * stack, `div.plantuml-diagrams`, with one child per diagram in order: a `div.plantuml-diagram` with both variants,
      * or a `pre.plantuml-error` ("Line N: message" and the class `syntax` if it has a line; [line] names the line
-     * otherwise, "Cell 2, line" in a notebook).
+     * otherwise, "Cell 2, line" in a notebook). N is the diagram's line plus [offset]: a Markdown fence is drawn from its
+     * first line on, numbered 1, so that its drawing does not depend on where it is.
      */
     fun diagrams(
         rendering: Rendering,
         line: String = "Line",
+        offset: Int = 0,
     ): Element {
         val element = Element("div").addClass("plantuml")
         if (rendering.builtInLayout) element.appendChild(note(BUILT_IN_LAYOUT))
@@ -45,10 +47,11 @@ internal object PlantUmlHtml {
 
                 is Diagram.Failed -> {
                     val error = stack.appendElement("pre").addClass("plantuml-error")
-                    if (diagram.line == null) {
+                    val at = diagram.line
+                    if (at == null) {
                         error.text(diagram.message)
                     } else {
-                        error.addClass("syntax").text("$line ${diagram.line}: ${diagram.message}")
+                        error.addClass("syntax").text("$line ${at + offset}: ${diagram.message}")
                     }
                 }
             }

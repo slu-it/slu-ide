@@ -53,9 +53,10 @@ engine, module `plantuml`; the views that show it (the `.puml` preview, fences, 
   render. The SVGs carry the source, encoded, in a `<?plantuml-src …?>` instruction.
 - **Error lines.** The message is `getFirstError().getError()`. `getLineLocation()` is the innermost location; its
   outermost parent is in the source string, 0-based over the whole source (not the block): `line = firstLine +
-  position`, so a fence passes its first content line. An error located in another file names it: "… (in
-  <C4/C4_Container>, line 72)". Measured: an error inside a stdlib file has a location in that file without a parent,
-  so no line of the source is known and `line` is `null`.
+  position`. A file passes 1; a Markdown fence passes 1 too and the page adds the fence's place in the file to the
+  line (`PlantUmlHtml.diagrams`' offset), so that a fence moved by an edit, or the same fence twice, is one drawing.
+  An error located in another file names it: "… (in <C4/C4_Container>, line 72)". Measured: an error inside a stdlib
+  file has a location in that file without a parent, so no line of the source is known and `line` is `null`.
 - **Graphviz.** `GraphvizLocator` (like `EspeakLocator`, ADR 0124, without a setting and without invalidation) tries the
   login shell's `command -v dot` (`loginShellPrints`; a lookup that throws, pty4j's exceptions or a missing native
   library, is logged and counts as no answer), then `/opt/homebrew/bin`, `/usr/local/bin`, `/opt/local/bin`,

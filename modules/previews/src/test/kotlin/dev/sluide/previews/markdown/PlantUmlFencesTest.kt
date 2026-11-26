@@ -29,11 +29,19 @@ class PlantUmlFencesTest {
     /** The renderings that are there; any other is pending. */
     private val drawn = mutableMapOf<String, Rendering>()
 
+    /**
+     * As `DiagramRenders.get`: the renderings that are [drawn], others pending; a source with a line `bad` fails on
+     * that line, numbered from the first line as the engine numbers it.
+     */
     private val diagrams =
         FenceDiagrams { source, firstLine ->
             asked += source to firstLine
-            drawn[source]
+            val bad = source.lines().indexOf("bad")
+            if (bad < 0) drawn[source] else Rendering(listOf(Diagram.Failed("Syntax?", firstLine + bad)), false)
         }
+
+    /** The texts of the error boxes in [body]. */
+    private fun errors(body: Element) = body.select("pre.plantuml-error").map { it.text() }
 
     private fun body(
         markdown: String,
@@ -77,7 +85,7 @@ class PlantUmlFencesTest {
         val note = body.select("p.diagram-note").single()
         assertEquals(PlantUmlHtml.DRAWING, note.text())
         assertEquals("2", note.attr("data-line"))
-        assertEquals(listOf(wrapped to 3), asked)
+        assertEquals(listOf(wrapped), asked.map { it.first })
     }
 
     @Test
@@ -86,12 +94,12 @@ class PlantUmlFencesTest {
         drawn[wrapped] = rendering("one")
         drawn[own] = rendering("two")
 
-        val body = body("```plantuml\nA -> B\n```\n\n```puml\n$own```\n\n```plantuml\nC -> D\n```\n")
+        val body = body("```plantuml\nA -> B\n```\n\n```puml\n$own```\n\n```plantuml\nC -> D\nbad\n```\n")
 
-        assertEquals(listOf(wrapped to 1, own to 6, "@startuml\nC -> D\n@enduml\n" to 11), asked)
+        assertEquals(listOf(wrapped, own, "@startuml\nC -> D\nbad\n@enduml\n"), asked.map { it.first })
         assertEquals(listOf("0", "4", "10"), body.children().map { it.attr("data-line") })
         assertEquals(listOf("<svg>one</svg>", "<svg>two</svg>"), body.select("img.plantuml-light").map(::svg))
-        assertEquals(PlantUmlHtml.DRAWING, body.selectFirst("p.diagram-note")?.text())
+        assertEquals(listOf("Line 13: Syntax?"), errors(body))
     }
 
     @Test
@@ -134,21 +142,20 @@ class PlantUmlFencesTest {
         delimiter = '|',
         value = [
             // The fence's opening line, 0-based, after a list item, in a block quote, after front matter.
-            "- item\\n\\n  ```plantuml\\n  A -> B\\n  ```\\n|2",
-            "> quote\\n>\\n> ```puml\\n> A -> B\\n> ```\\n|2",
-            "---\\ntitle: x\\n---\\n\\n```plantuml\\nA -> B\\n```\\n|4",
+            "- item\\n\\n  ```plantuml\\n  bad\\n  ```\\n|2",
+            "> quote\\n>\\n> ```puml\\n> bad\\n> ```\\n|2",
+            "---\\ntitle: x\\n---\\n\\n```plantuml\\nbad\\n```\\n|4",
         ],
     )
     fun `a fence in a list, a block quote or after front matter keeps the file's lines`(
         written: String,
         line: Int,
     ) {
-        drawn[wrapped] = rendering("one")
-
         val diagram = body(written.replace("\\n", "\n")).select("div.plantuml").single()
 
         assertEquals(line.toString(), diagram.attr("data-line"))
-        assertEquals(listOf(wrapped to line + 1), asked)
+        // The fence's only content line.
+        assertEquals(listOf("Line ${line + 2}: Syntax?"), errors(diagram))
     }
 
     @ParameterizedTest
@@ -181,7 +188,7 @@ class PlantUmlFencesTest {
 
         val body = body("```plantuml\n$hostile```\n")
 
-        assertEquals(listOf(source to 1), asked)
+        assertEquals(listOf(source), asked.map { it.first })
         assertTrue(body.select("script, [onerror]").isEmpty())
         assertTrue("alert" !in body.outerHtml(), body.outerHtml())
         assertEquals(listOf("<svg>safe</svg>", "<svg>safe dark</svg>"), svgs(body))
@@ -189,13 +196,12 @@ class PlantUmlFencesTest {
 
     @Test
     fun `a diagram has no text runs, the runs around it stay in order`() {
-        drawn[wrapped] = Rendering(listOf(Diagram.Failed("bad", 3)), true)
-        val markdown = "Before\n\n```plantuml\nA -> B\n```\n\nAfter\n"
+        val markdown = "Before\n\n```plantuml\nbad\n```\n\nAfter\n"
 
         val page = Jsoup.parse(MarkdownRenderer.render(markdown, dir, diagrams = diagrams))
 
         val diagram = assertNotNull(page.selectFirst("div.plantuml"))
-        assertEquals("Line 3: bad", diagram.selectFirst("pre.plantuml-error")?.text())
+        assertEquals(listOf("Line 4: Syntax?"), errors(diagram))
         assertTrue(diagram.select("[data-o]").isEmpty())
         assertEquals(
             listOf(0 to "Before", markdown.indexOf("After") to "After"),

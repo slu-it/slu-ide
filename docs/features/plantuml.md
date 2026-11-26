@@ -44,7 +44,8 @@ and [ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md) (focus). What is l
 - Until its drawing is there, a fence says "Drawing the diagram…"; then the page is rendered again, and keeps its
   place as after a save: side by side it lines up with the source, shown alone it keeps its scroll position. The
   diagram is a block with the fence's source line, so the scroll sync and the table of contents work around it; it is
-  no text for Read Aloud. A fence is drawn per text and line: an edit that moves a fence draws it again.
+  no text for Read Aloud. A fence is drawn per text: an edit above it, which moves it, draws nothing again, and the
+  same fence twice is drawn once.
 - Error lines are the Markdown file's lines, also for a wrapped fence. In a notebook they are the cell's: "Cell 3,
   line 2: …", the cell counted among all cells from 1.
 - The HTML export ([markdown-export.md](markdown-export.md)) draws every fence before it writes the page (each

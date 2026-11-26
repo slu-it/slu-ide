@@ -261,7 +261,7 @@ class MarkdownHtmlExportTest {
     fun `PlantUML fences are drawn in both variants, which the page's theme switches, and reference nothing`() {
         val page = page("# Notes\n\n```plantuml\nA -> B\n```\n")
 
-        assertEquals(listOf("@startuml\nA -> B\n@enduml\n" to 3), drawn)
+        assertEquals(listOf("@startuml\nA -> B\n@enduml\n"), drawn.map { it.first })
         val doc = Jsoup.parse(page.html)
         val images = doc.select("div.plantuml[data-line=2] img")
         assertEquals(listOf("plantuml-light", "plantuml-dark"), images.map { it.className() })

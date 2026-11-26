@@ -26,8 +26,9 @@ internal class FenceDiagrams(
  * [insert] replaces the placeholders in the sanitised body by the diagrams ([PlantUmlHtml.diagrams]) or by "Drawing the
  * diagram…", each carrying the fence's `data-line`. So the fence's text never becomes HTML: it reaches the page only as
  * the engine's SVG in a `data:` URI, which the sanitiser would drop. A fence without a `@start…` line is wrapped in
- * `@startuml`/`@enduml`; its first line is then the line before the fence's first content line, so that PlantUML's
- * error lines are the text's.
+ * `@startuml`/`@enduml`. The source is drawn from line 1 on, so that a fence moved by an edit above it, or the same
+ * fence twice, is drawn once; its error lines are shifted to the text's when the page is built: the source's first line
+ * is the fence's first content line, or the line before it for a wrapped fence.
  */
 internal class PlantUmlFences(
     private val diagrams: FenceDiagrams,
@@ -74,12 +75,12 @@ internal class PlantUmlFences(
         fences.forEachIndexed { index, fence ->
             // Gone if the file's HTML swallowed it (an unclosed `<textarea>` takes the rest as text).
             val placeholder = body.selectFirst("div.$marker-$index") ?: return@forEachIndexed
-            val rendering = diagrams.get(fence.source, fence.firstLine)
+            val rendering = diagrams.get(fence.source, 1)
             val shown =
                 if (rendering == null) {
                     PlantUmlHtml.drawing()
                 } else {
-                    PlantUmlHtml.diagrams(rendering, diagrams.line)
+                    PlantUmlHtml.diagrams(rendering, diagrams.line, fence.firstLine - 1)
                 }
             placeholder.replaceWith(shown.attr("data-line", fence.line.toString()))
         }

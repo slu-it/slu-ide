@@ -6,7 +6,8 @@ import java.util.concurrent.CompletableFuture
 
 /**
  * The PlantUML renderings of one view (a `.puml` file's preview, a Markdown page's fences): each (source, first line)
- * is drawn by [render] in the background once, and kept, the [cacheSize] most recently used of them; more while the
+ * is drawn by [render] in the background once (fences always ask with first line 1 and shift the error lines
+ * themselves, so a moved fence is the same key), and kept, the [cacheSize] most recently used of them; more while the
  * page asks for more, since a key the page asks for is never dropped (it would be requested again, endlessly).
  *
  * A page asks [get] for each of its diagrams while it is built. A missing one is requested (once while it is pending),

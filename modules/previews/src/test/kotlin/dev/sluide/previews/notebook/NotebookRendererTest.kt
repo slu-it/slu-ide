@@ -234,7 +234,7 @@ class NotebookRendererTest {
                 },
             )
 
-        assertEquals(listOf(3, 1), asked.map { it.second })
+        assertEquals(2, asked.size)
         assertEquals(listOf("2", "0"), page.select(".cell.markdown div.plantuml").map { it.attr("data-line") })
         assertEquals(1, page.select(".cell.markdown img.plantuml-light").size)
         assertEquals("Cell 3, line 4: Syntax?", page.selectFirst("pre.plantuml-error")?.text())

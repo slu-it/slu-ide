@@ -83,4 +83,28 @@ class MarkdownFileViewerTest {
         arrive()
         assertEquals(1, rerenders, "no rerender after detach")
     }
+
+    @Test
+    fun `a fence moved by an edit above it is not drawn again, its error names its new line`() {
+        val requests = mutableListOf<String>()
+        val fxQueue = ArrayDeque<Runnable>()
+        // Fails on the line `bad`, numbered from the first line as the engine numbers it.
+        val preview =
+            MarkdownPreview({ source, firstLine ->
+                requests += source
+                val failed = Diagram.Failed("Syntax?", firstLine + source.lines().indexOf("bad"))
+                CompletableFuture.completedFuture(Rendering(listOf(failed), false))
+            }, fxQueue::addLast).apply { attach({}) { null } }
+
+        /** The error shown for [markdown] once its drawings are there. */
+        fun error(markdown: String): String? {
+            preview.page(markdown, dir, dark = false)
+            while (fxQueue.isNotEmpty()) fxQueue.removeFirst().run()
+            return Jsoup.parse(preview.page(markdown, dir, dark = false)).selectFirst("pre.plantuml-error")?.text()
+        }
+
+        assertEquals("Line 4: Syntax?", error("# Title\n\n```plantuml\nbad\n```\n"))
+        assertEquals("Line 5: Syntax?", error("# Title\n\nMore\n```plantuml\nbad\n```\n"))
+        assertEquals(1, requests.size, "drawn once")
+    }
 }
