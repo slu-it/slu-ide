@@ -39,9 +39,10 @@ shows instead. What the text contains: [json-preview.md](json-preview.md), [xml-
 [yaml-preview.md](yaml-preview.md).
 
 ## Zooming (`ZoomControls`)
-Every preview zooms. Images, SVG files, Mermaid files, Bicep resource graphs and workflow graphs zoom the image or
-diagram in the page, and can fit it; every other preview (Markdown, HTML, JSON, XML, YAML, CSV/TSV, cookie jars,
-notebooks, PEM) zooms as a document: the whole page scales and reflows, as in a browser (see
+Every preview zooms. Images, SVG files, Mermaid files, PlantUML files (all their diagrams as one), Bicep resource
+graphs and workflow graphs zoom the image or diagram in the page, and can fit it; every other preview (Markdown,
+HTML, JSON, XML, YAML, CSV/TSV, cookie jars, notebooks, PEM) zooms as a document: the whole page scales and reflows,
+as in a browser (see
 [Zooming documents](#zooming-documents)). The rest of this section is about images and diagrams.
 - **Toolbar** (on the left; in previews only while the preview shows, not in Source): zoom out, the scale in percent,
   zoom in, **100%** and **Fit** (selected while fitted). Tooltips name the shortcuts.
@@ -49,8 +50,8 @@ notebooks, PEM) zooms as a document: the whole page scales and reflows, as in a 
   the Source / Split / Preview toggles never take the focus): Shortcut + `+` (also `=` and numpad `+`) zooms in,
   Shortcut + `-` zooms out, Shortcut + `0` shows 100%, Shortcut + `9` fits.
 - **Focus** ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)): when its tab is opened or chosen, an
-  image, a preview shown alone (SVG, notebook, PEM) or a zooming preview in Split (Mermaid, Bicep) focuses its web
-  view, so the keys work at once; typing in the source beside a diagram needs a click there. Other previews in Split
+  image, a preview shown alone (SVG, notebook, PEM) or a zooming preview in Split (Mermaid, PlantUML, Bicep) focuses
+  its web view, so the keys work at once; typing in the source beside a diagram needs a click there. Other previews in Split
   (Markdown, HTML, CSV, JSON, XML, YAML) and previews in Source (Bicep by default) focus their source. Renaming or moving an
   image to a name of the same type keeps its view and the focus; to another type (e.g. png to jpg) the tab gets a new
   view, which
@@ -186,6 +187,11 @@ notebooks, PEM) zooms as a document: the whole page scales and reflows, as in a 
   way (only ` ```mermaid ` is drawn). Shortcut+/ comments out with `%%`.
 - Known gaps: statement words used as node names without a link on their line, and arrows inside node text, are
   styled anyway.
+
+## PlantUML (`.puml`, `.plantuml`, `.pu`, `.iuml`) — `PlantUmlFileViewer`
+- Opens in **Split**: the highlighted source beside the diagrams the bundled PlantUML draws in the background, every
+  block stacked and zoomed as one, both colour variants in the page (a theme change draws nothing), errors with the
+  file's line, a note when Graphviz is missing. Details: [plantuml.md](plantuml.md).
 
 ## Bicep resource graph (`.bicep`) — `BicepFileViewer`
 - Opens in **Source** (highlighted, [file-viewers.md](file-viewers.md)); **Preview** or **Split** draws the saved

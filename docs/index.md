@@ -261,9 +261,10 @@ updated when the summary or keywords no longer fit.
 ### Previews
 | Feature | Summary | Keywords |
 |---|---|---|
-| [previews.md](features/previews.md) | Rendered previews beside the source and how they zoom | HTML, SVG, CSV, notebooks, Mermaid, PEM, Bicep graph, zoom, TextMarks, DocumentZoom |
+| [previews.md](features/previews.md) | Rendered previews beside the source and how they zoom | HTML, SVG, CSV, notebooks, Mermaid, PlantUML, PEM, Bicep graph, zoom, TextMarks, DocumentZoom |
 | [markdown-preview.md](features/markdown-preview.md) | Markdown source beside a sanitised rendered preview | Markdown, KaTeX, Mermaid, Source/Split/Preview, table of contents, scroll sync, Read Aloud, highlight in the preview, source offsets, Export on the right |
 | [markdown-export.md](features/markdown-export.md) | Markdown exported as self-contained HTML | Export → HTML, self-contained, `<name>.css`, light/dark, confidential content |
+| [plantuml.md](features/plantuml.md) | PlantUML files drawn in-process beside their source: stacked and zoomed as one, both themes, errors | PlantUML, `.puml`, `PlantUmlFileViewer`, `DiagramRenders`, Graphviz, Smetana, SANDBOX, stdlib, includes, dark mode, Fit, syntax error |
 | [media-player.md](features/media-player.md) | Audio and video files play in a tab with controls, one at a time, in the background | `MediaFileViewer`, mp3, wav, mp4, volume, mute, `PlaybackCoordinator`, ffmpeg |
 | [pdf-viewer.md](features/pdf-viewer.md) | PDF files open read-only: lazy page column, Fit Page, password, select and copy, links, outline, thumbnails, search | `PdfFileView`, PDF, page field, Fit Page, password, Open in Default App, select, copy, links, outline, thumbnails, search |
 | [ebook-reader.md](features/ebook-reader.md) | EPUB files open in a reader tab: the book as one page, Contents panel, remembered position, start mark | `EpubFileViewer`, `EpubFileView`, EPUB, Contents, Book Style, `ebook` field, start mark, DRM, Read Aloud, Back to reading, search, `BookSearch` |
@@ -354,3 +355,4 @@ Explored but not decided or built; options and trade-offs, no commitment.
 | [games.md](ideas/games.md) | Game ideas left for later: statistics, no-guess boards, resuming after a restart, further games, a WebView variant | statistics, Word Guess, no-guess, daily word, Doubles, Sudoku, Solitaire, Orbit Guard, Block Breaker, Mini Golf, Pipe Puzzle, WebView |
 | [find-in-files-later.md](ideas/find-in-files-later.md) | Find in Files ideas left for later: Replace in Files, result panel, live re-run, parallel reads | Find in Files, Replace in Files, result panel, live re-run, editable preview, parallel reads, query history |
 | [jshell-later.md](ideas/jshell-later.md) | JShell ideas left for later: project class path, Enable Preview, line-aligned results, stdin | JShell, class path, `--enable-preview`, stdin, Tools menu, diagnostics |
+| [plantuml-later.md](ideas/plantuml-later.md) | PlantUML ideas left for later: local includes via an inliner, GPL build, clickable links, Graphviz path | PlantUML, `!include`, inliner, URL includes, ELK, LaTeX, `[[links]]`, click to source, Graphviz path, completion, PDF, `@startdot` |

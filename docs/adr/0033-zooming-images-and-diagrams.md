@@ -42,3 +42,10 @@ theme change.
   would show it at its natural size.
 - Natural sizes come from the image (`naturalWidth`; an SVG without a size of its own as laid out, 300 × 150) or from
   the `max-width` and view box Mermaid sets; a Mermaid version that changes those needs `preview.js` adjusted.
+- Amended 2026-11-26 with the PlantUML file preview ([ADR 0193](0193-plantuml-engine.md) draws it): a PlantUML file's
+  page (body class `plantuml-file`) zooms a stack of images as one target. Its natural size is the widest shown image
+  by the sum of the shown images' heights (the colour variant the theme hides does not count); every image, both
+  variants, is sized at its own natural size times the scale; error boxes and gaps keep their size, and fitting
+  measures the room they leave, as for a Mermaid file. Sizes are remembered in `data-width`/`data-height` before the
+  first sizing, because JavaFX's WebKit reports a sized SVG `<img>`'s current size as its
+  `naturalWidth`/`naturalHeight`.

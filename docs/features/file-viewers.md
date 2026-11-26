@@ -158,13 +158,14 @@ the Bicep graph and `BicepParamFileViewer`.
   ([previews.md](previews.md)). It reads and base64-encodes the whole file on the JavaFX thread.
 - `MediaFileViewer` (module `media`) plays audio (mp3, wav, aif, aiff, m4a) and video (mp4, m4v) files of any size;
   its view keeps playing in the background and shows the activity marker ([media-player.md](media-player.md)).
-- Images and the SVG, Mermaid and Bicep previews zoom: toolbar, Shortcut + `+`/`-`/`0`/`9`, Shortcut+wheel, pinch
+- Images and the SVG, Mermaid, PlantUML and Bicep previews zoom: toolbar, Shortcut + `+`/`-`/`0`/`9`, Shortcut+wheel, pinch
   (`ZoomControls`, [previews.md](previews.md), [ADR 0033](../adr/0033-zooming-images-and-diagrams.md)). Every other
   preview zooms as a document, without Fit ([ADR 0083](../adr/0083-zooming-document-previews.md)).
 - Preview viewers (`PreviewFileViewer`) show highlighted, editable source beside a rendered `WebView`, with a Source /
   Split / Preview toolbar; the preview renders the saved text: Markdown ([markdown-preview.md](markdown-preview.md)) and
   HTML, SVG, CSV/TSV, cookie jars (`CookiesFileViewer`, `.cookies`), notebooks, Mermaid (`MermaidFileViewer`, `.mmd`,
-  `.mermaid`), JSON (`JsonFileViewer`, `.json`, `.jsonc`, `.geojson`, `.tfstate`, `.babelrc`, `.jshintrc`,
+  `.mermaid`), PlantUML (`PlantUmlFileViewer`, `.puml`, `.plantuml`, `.pu`, `.iuml`, [plantuml.md](plantuml.md)),
+  JSON (`JsonFileViewer`, `.json`, `.jsonc`, `.geojson`, `.tfstate`, `.babelrc`, `.jshintrc`,
   `Pipfile.lock`, [json-preview.md](json-preview.md)), XML (`XmlFileViewer`, `.xml`, `.xsd`, `.xsl`, `.xslt`, `.fxml`, `.iml`,
   `.plist`, .NET project files, `.xaml`, `.resx`, `.nuspec`, `.wsdl`, `.config` with XML text,
   [xml-preview.md](xml-preview.md)),
