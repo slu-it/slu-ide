@@ -120,6 +120,17 @@ the view.
   from it; its rects come from `textRects` for the shown pages only and go into the `SELECTION` overlay layer. Copy
   takes the kept texts of the shown pages and the plain texts of the others, so it never waits behind a search. Links
   of the shown pages are read on the render worker (`NEAR`) and kept per page while the document is open.
+- **Search** (package `view.search`). The search reads the plain text of every page through `PageTexts.plainTextOf`
+  (text worker, `SEARCH` priority, kept for all pages, so a second query skips the extraction) and matches the texts
+  on a thread of its own (`sluide-pdf-search`, made for the first search, `shutdown()` on dispose), never on the text
+  worker, whose document the highlights and the selection also need. Matching, snippets and the status are copies of
+  the ebook reader's (`PdfSearch` from `BookSearch`, `SearchRunner`, `SearchPanel`, `SearchRows`), adapted to pages,
+  as `PdfSplit` copies `ReaderSplit`: modules do not depend on each other's internals. Glyph boxes are read only for
+  the pages shown (and the page of a chosen hit), on every change of `shownPages`, since the text cache holds 50
+  pages with boxes; the hits become rects through `textRects`. Nothing is searched while `info` is `null` (the text
+  worker has no document then and would give every page an empty text); the query is searched again when `info`
+  changes and on `onReload`. The logic is FX-free (`SearchFlow` with a `SearchHost` of the view's hooks) and tested on
+  the fixtures' real texts.
 
 ## Consequences
 - The view packages build against an engine that is tested without a toolkit, on PDFs that `TestPdfs` builds with

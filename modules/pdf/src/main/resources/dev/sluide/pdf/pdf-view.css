@@ -151,3 +151,31 @@
         -fx-background-insets: -1, 0;
     }
 }
+
+/* P6, search: the Search panel (as the ebook reader's), looked-up colours only. */
+.pdf-search {
+    -fx-padding: 6;
+    -fx-font-family: "System";
+}
+
+.pdf-search-status {
+    -fx-opacity: 0.8;
+    -fx-font-size: 0.9em;
+}
+
+.pdf-search-heading {
+    -fx-font-weight: bold;
+    -fx-opacity: 0.8;
+}
+
+.pdf-search-snippet .pdf-search-text {
+    -fx-fill: -fx-text-inner-color;
+}
+
+.pdf-search-snippet .pdf-search-match {
+    -fx-font-weight: bold;
+}
+
+.list-cell:filled:selected .pdf-search-snippet .pdf-search-text {
+    -fx-fill: -fx-selection-bar-text;
+}

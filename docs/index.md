@@ -217,7 +217,7 @@ updated when the summary or keywords no longer fit.
 | [0189](adr/0189-mutation-ui-stage-once-after-review.md) | Mutation runs: UI stage once after the review, one bounded rerun naming its files, known gaps; Opus for new views | mutation-check, UI stage, `--unit-only`, `--ui-tests`, `--accept`, accepted.tsv, rerun, known gaps, session time, hand break check, Opus, view package | amends 0185 |
 | [0190](adr/0190-pages-reach-webkit-with-astral-chars-escaped.md) | Pages load through `loadPage`: astral characters escaped, each emoji in its own span, via jsoup | emoji, astral, U+FFFD, `loadContent`, `loadPage`, `preparePage`, `data-emoji`, macOS, JDK-8304041, jsoup, `WebPages`, banner | see 0016, 0017, 0069, 0165 |
 | [0191](adr/0191-jshell-engine.md) | JShell engine: a Java 9 Kotlin agent on the chosen JDK, JSON lines over stdin/stdout, watchdog, output coalescing | JShell, REPL, `.jsh`, agent, `JShellSession`, `JShellJdks`, `hasJShell`, watchdog, recordings, `AgentFiles`, jdk.jshell, stop | amends 0011; see 0060, 0090, 0179 |
-| [0192](adr/0192-pdf-viewer.md) | PDF viewer on PDFBox page images: one document per thread, no interrupts, 16 MP cap, text with glyph boxes | PDF, PDFBox, `PdfDocument`, render, text positions, outline, links, password, font cache, `PdfSetup`, `pdf` | see 0017, 0060, 0165 |
+| [0192](adr/0192-pdf-viewer.md) | PDF viewer on PDFBox page images: one document per thread, no interrupts, 16 MP cap, text with glyph boxes | PDF, PDFBox, `PdfDocument`, render, text positions, outline, links, password, font cache, `PdfSetup`, `pdf`, search | see 0017, 0060, 0165 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -264,7 +264,7 @@ updated when the summary or keywords no longer fit.
 | [markdown-preview.md](features/markdown-preview.md) | Markdown source beside a sanitised rendered preview | Markdown, KaTeX, Mermaid, Source/Split/Preview, table of contents, scroll sync, Read Aloud, highlight in the preview, source offsets, Export on the right |
 | [markdown-export.md](features/markdown-export.md) | Markdown exported as self-contained HTML | Export → HTML, self-contained, `<name>.css`, light/dark, confidential content |
 | [media-player.md](features/media-player.md) | Audio and video files play in a tab with controls, one at a time, in the background | `MediaFileViewer`, mp3, wav, mp4, volume, mute, `PlaybackCoordinator`, ffmpeg |
-| [pdf-viewer.md](features/pdf-viewer.md) | PDF files open read-only: pages rendered lazily in one column, Fit Page, page field, password, notices | `PdfFileViewer`, `PdfFileView`, PDF, PDFBox, page column, Fit Page, Fit Width, page field, password, Open in Default App, reload |
+| [pdf-viewer.md](features/pdf-viewer.md) | PDF files open read-only: pages rendered lazily in one column, Fit Page, page field, password, notices | `PdfFileViewer`, `PdfFileView`, PDF, PDFBox, page column, Fit Page, Fit Width, page field, password, Open in Default App, reload, search |
 | [ebook-reader.md](features/ebook-reader.md) | EPUB files open in a reader tab: the book as one page, Contents panel, remembered position, start mark | `EpubFileViewer`, `EpubFileView`, EPUB, Contents, Book Style, `ebook` field, start mark, DRM, Read Aloud, Back to reading, search, `BookSearch` |
 | [json-preview.md](features/json-preview.md) | Formatted, foldable view of JSON | `.json`, `.jsonc`, folds, Collapse All, Copy Formatted |
 | [xml-preview.md](features/xml-preview.md) | Formatted, foldable view of XML | `.xml`, `.xsd`, `.fxml`, folds, Copy Formatted |

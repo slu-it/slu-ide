@@ -28,6 +28,17 @@ class SearchRowsTest {
     }
 
     @Test
+    fun `a selection moving onto a heading goes on to the hit beside it, or to none`() {
+        // Page 1, hit, Page 3, hit, hit
+        val rows = searchRows(result(0, 2, 2))
+        assertEquals(3, hitBesideHeading(rows, 1, 2))
+        assertEquals(1, hitBesideHeading(rows, 3, 2))
+        assertEquals(1, hitBesideHeading(rows, -1, 0))
+        assertEquals(-1, hitBesideHeading(rows, 1, 0))
+        assertEquals(-1, hitBesideHeading(rows + SearchRow.Heading(4), 4, 5))
+    }
+
+    @Test
     fun `the status names the count, the cap, no matches and a PDF without text`() {
         assertEquals("No matches", searchStatus(result()))
         assertEquals("1 match", searchStatus(result(0)))

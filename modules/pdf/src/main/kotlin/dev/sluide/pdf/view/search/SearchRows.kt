@@ -28,6 +28,19 @@ internal fun searchRows(result: SearchResult): List<SearchRow> {
     return rows
 }
 
+/**
+ * The row to select in place of the heading at [new] that the selection moved to from [old]: the hit beside it in the
+ * direction it moved, or -1 if there is none.
+ */
+internal fun hitBesideHeading(
+    rows: List<SearchRow>,
+    old: Int,
+    new: Int,
+): Int {
+    val next = if (new > old) new + 1 else new - 1
+    return if (rows.getOrNull(next) is SearchRow.Hit) next else -1
+}
+
 /** The status line for [result]. */
 internal fun searchStatus(result: SearchResult): String {
     val count = result.hits.size

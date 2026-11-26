@@ -115,7 +115,28 @@ the width it was dragged to while hidden.
   renders.
 
 ## Search
-(added in a later package)
+Package `dev.sluide.pdf.view.search`, modelled on the ebook reader's search ([ebook-reader.md](ebook-reader.md)).
+- **Opening**: the magnify toggle in the toolbar (tooltip "Search (Shortcut+F)") or Shortcut+F anywhere in the view,
+  the page field included, opens the Search panel on the right (about 320 px wide the first time, then at the width it
+  was left at), with its field focused and its text selected; a query still in the field is searched again.
+- **Query**: case-insensitive, and a run of whitespace in the query matches any run of whitespace in the text, a line
+  end included; leading and trailing whitespace is ignored, and a match does not run from one page onto the next. It
+  needs at least two non-blank characters and is searched 300 ms after typing, or at once on Enter; a newer query
+  replaces an older one, whose results and progress are dropped.
+- **Texts**: the search reads the plain text of every page from the view's text document (kept for all pages while the
+  document is open). While they come, the panel says "Searching… page 120 of 500"; a second query on the same document
+  finds them there. The matching runs on a thread of its own. While the PDF loads or a notice shows, nothing is
+  searched; the query is searched once the document is open.
+- **Results**: "1 match", "41 matches", "1000+ matches" (the list stops at 1000), "No matches", or "This PDF has no
+  text." when no page has any (a scanned PDF). The hits are listed under "Page N" headings, each as a snippet of about
+  40 characters either side with the match in bold.
+- **Highlights**: the hits on the pages in view are highlighted lightly; a page scrolled into view gets its highlights
+  then, and pages scrolled away keep theirs (glyph boxes are read only for the pages shown). A click, or Enter on the
+  selected hit, chooses it: it gets a stronger highlight and is scrolled into view; the focus stays in the list.
+- **Closing**: changing or clearing the query removes the results and the highlights. Escape in the field clears it, and
+  on an empty field closes the panel and gives the focus to the pages. Closing the panel (toggle or Escape) removes
+  the highlights and results; the query stays in the field.
+- A changed file that is opened again is searched again with the open query.
 
 ## Known limits
 - AWT (which PDFBox renders with) and JavaFX in one process are not checked on macOS in the sandbox; in the headless
@@ -124,4 +145,6 @@ the width it was dragged to while hidden.
 - Pages beyond 16 million pixels are enlarged, not rendered in tiles.
 - Dragging past the viewport does not scroll on its own; the wheel works while dragging. A drag over the gap
   between pages or beside a page keeps the last char.
+- Search does not join hyphenated line breaks: "hyphen-" at the end of a line and "ated" on the next are not found as
+  "hyphenated".
 - Keys: [keyboard-shortcuts.md](keyboard-shortcuts.md#pdf-viewer).

@@ -190,6 +190,9 @@ Zoom keys and Shortcut+G work anywhere in the view, the scroll keys while the pa
 | Double-click | Select the word |
 | Enter in the side panel's Outline or Thumbnails list | Go to the selected item or page; the focus goes to the pages |
 | Arrows in the side panel's Outline or Thumbnails list | Move the selection only (Left / Right collapse / expand an outline item) |
+| Shortcut+F | Open the Search panel, its field focused and its text selected (anywhere in the view) |
+| Enter / Escape in the search field | Search at once / clear the field; on an empty field close the panel (focus to the pages) |
+| Enter in the search results | Go to the selected hit and highlight it |
 
 ## Media player
 View-local keys of an audio or video tab, while the view has the focus; ignored while the file loads or failed
