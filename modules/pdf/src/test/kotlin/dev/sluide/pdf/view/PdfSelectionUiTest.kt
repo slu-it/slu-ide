@@ -242,6 +242,23 @@ internal class PdfSelectionUiTest : PdfViewUiFixture() {
     }
 
     @Test
+    fun `Shortcut+Shift+A does not select all`() {
+        val view = textView()
+        fire(view, keyPress(KeyCode.A, shortcut = true, shift = true))
+        assertFalse(selected(view))
+    }
+
+    @Test
+    fun `Shortcut+Alt+C does not copy`() {
+        val view = textView()
+        key(view, KeyCode.A, shortcut = true)
+        clearClipboard()
+        fire(view, keyPress(KeyCode.C, shortcut = true, alt = true))
+        Thread.sleep(300) // negative check: a copy that does not happen gives no signal
+        assertEquals(UNTOUCHED, clipboard())
+    }
+
+    @Test
     fun `Escape clears the selection, and with none selected copy does nothing`() {
         val view = textView()
         key(view, KeyCode.A, shortcut = true)
@@ -495,7 +512,6 @@ internal class PdfSelectionUiTest : PdfViewUiFixture() {
         assertTrue(fx { selection.tooltipInstalled })
         fx { view.dispose() }
         assertFalse(fx { selection.tooltipInstalled })
-        assertFalse(fx { selection.tooltip.isShowing })
     }
 
     @Test

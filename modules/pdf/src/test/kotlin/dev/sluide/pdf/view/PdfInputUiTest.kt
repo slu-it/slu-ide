@@ -185,6 +185,7 @@ internal class PdfInputUiTest : PdfViewUiFixture() {
         awaitRendered(view, 0)
         // The places of the pages, measured once the view is laid out (the toolbar's height comes a pulse later).
         paint()
+        // The menu has items because the view's selection adds Copy and Select All; without items it never shows.
         val requests = reachingScene(ContextMenuEvent.CONTEXT_MENU_REQUESTED)
         val page = sceneRect(view, 0, PageRect(0.0, 0.0, 595.0, 842.0))
         // The column's left edge, far from the centred page; the rect and the event in one step, so no layout lies between.

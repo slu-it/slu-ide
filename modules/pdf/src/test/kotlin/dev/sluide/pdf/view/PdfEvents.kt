@@ -10,12 +10,13 @@ import javafx.scene.input.ZoomEvent
 
 private val SHORTCUT_IS_META = System.getProperty("os.name").startsWith("Mac")
 
-/** A key press of [code], with Shortcut (Ctrl, or Cmd on macOS) and Shift held as asked. */
+/** A key press of [code], with Shortcut (Ctrl, or Cmd on macOS), Shift and Alt held as asked. */
 internal fun keyPress(
     code: KeyCode,
     shortcut: Boolean = false,
     shift: Boolean = false,
     text: String = "",
+    alt: Boolean = false,
 ) = KeyEvent(
     KeyEvent.KEY_PRESSED,
     "",
@@ -23,7 +24,7 @@ internal fun keyPress(
     code,
     shift,
     shortcut && !SHORTCUT_IS_META,
-    false,
+    alt,
     shortcut && SHORTCUT_IS_META,
 )
 
