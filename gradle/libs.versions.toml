@@ -23,6 +23,7 @@ lsp4j = "1.0.0"
 bouncycastle = "1.86"
 zxing = "3.5.4"
 pdfbox = "3.0.8"
+plantuml = "1.2026.10"
 # The mutation testing tool whose plugin tools/pitest-kotlin is; compileOnly there, pitest brings its own at run time.
 pitest = "1.30.2"
 pitest-junit5 = "1.2.3"
@@ -67,6 +68,8 @@ bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycast
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 # Renders the pages of the PDF viewer and extracts their text (ADR 0192); brings fontbox and pdfbox-io.
 pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
+# Draws PlantUML diagrams in-process (ADR 0193): the MIT build, without ELK, LaTeX, JCCKit and QR codes.
+plantuml-mit = { module = "net.sourceforge.plantuml:plantuml-mit", version.ref = "plantuml" }
 # Version from the Spring Boot BOM (Jackson 3).
 jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 # Versions from the Spring Boot BOM (Jackson 3).
