@@ -494,8 +494,9 @@ class SecretToolBackendTest {
         mode("lookup:holdkey")
         val caller = Thread { backend.read() }
         caller.start()
-        // the tool printed the key and ended; an orphan keeps stdout open for five seconds, so its reader still runs
-        waitUntil("the readers") { Files.exists(file("argv.log")) && collectors().isNotEmpty() }
+        // the orphan's marker comes after the key and the error line were printed (argv.log comes before them, too
+        // early on a slow runner); it keeps stdout open for five seconds, so its reader still runs
+        waitUntil("the tool to print the key") { Files.exists(file("held")) && collectors().isNotEmpty() }
 
         caller.interrupt()
         caller.join(10_000)
