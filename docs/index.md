@@ -218,6 +218,7 @@ updated when the summary or keywords no longer fit.
 | [0190](adr/0190-pages-reach-webkit-with-astral-chars-escaped.md) | Pages load through `loadPage`: astral characters escaped, each emoji in its own span, via jsoup | emoji, astral, U+FFFD, `loadContent`, `loadPage`, `preparePage`, `data-emoji`, macOS, JDK-8304041, jsoup, `WebPages`, banner | see 0016, 0017, 0069, 0165 |
 | [0191](adr/0191-jshell-engine.md) | JShell engine: a Java 9 Kotlin agent on the chosen JDK, JSON lines over stdin/stdout, watchdog, output coalescing | JShell, REPL, `.jsh`, agent, `JShellSession`, `JShellJdks`, `hasJShell`, watchdog, recordings, `AgentFiles`, jdk.jshell, stop | amends 0011; see 0060, 0090, 0179 |
 | [0192](adr/0192-pdf-viewer.md) | PDF viewer on PDFBox page images: a document per thread, no interrupts, 16 MP cap; view hooks for panels | PDF, PDFBox, `PdfDocument`, `PdfWorker`, `PageTexts`, `textRects`, `shownPages`, selection, thumbnails, `SearchFlow`, password, `pdf` | see 0017, 0060, 0165 |
+| [0193](adr/0193-plantuml-engine.md) | PlantUML in-process under SANDBOX (no local includes, no URLs), one render thread with a watchdog, Smetana fallback | PlantUML, Graphviz, dot, Smetana, SANDBOX, includes, stdlib, dark mode, watchdog, `PlantUml`, `GraphvizLocator`, `plantuml` | see 0060, 0124, 0165 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features

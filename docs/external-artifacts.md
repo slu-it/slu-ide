@@ -278,6 +278,9 @@ part 2 of the skill. Special cases:
 - pty4j 0.14.0 with the JNA it resolves (5.19.1) and jediterm 3.76: terminal (ADR 0007); keep one JNA copy.
 - lsp4j 1.0.0: language servers (ADR 0142); its Gson (range `[2.9.1,3.0)`) comes from the Spring Boot BOM
   (2.13.2). Check the range when either side moves.
+- PlantUML (`plantuml-mit`) 1.2026.10: the MIT build, without ELK layout, `<latex>`, JCCKit and QR codes; its stdlib
+  (C4, icons, themes) is inside the jar, nothing is downloaded (ADR 0193). After a bump run the `plantuml` module's tests:
+  they pin PlantUML's error texts, the SANDBOX refusals and the stdlib that must keep working.
 - Lingua 1.2.2: `ide/build.gradle.kts` drops the quadri- and fivegram models from the fat jar (ADR 0126).
 - Ikonli 12.4.0, RichTextFX 0.11.7, RSyntaxTextArea 4.0.1, commonmark 0.30.0, jsoup, ec4j, Kotlin, Spring Boot,
   Spotless/ktlint, TestFX: plain version bumps.
