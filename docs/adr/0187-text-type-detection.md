@@ -14,7 +14,7 @@ for texts that are something else: a Python `def f():` block, a Markdown heading
 - A foundation module `modules/text-types` (plain library: no Spring, JavaFX or third-party libraries), package
   `dev.sluide.texttypes`: `TextType(name, extension)`, the list `TextTypes.all` in picker order (Plain Text, Markdown,
   JSON, YAML, XML, HTML, SVG, CSS, JavaScript, TypeScript, Kotlin, Kotlin Script, Java, Python, Shell Script, SQL,
-  HTTP Request, TOML, Properties, CSV, TSV, Mermaid, KQL, Bicep, Diff, No extension) with `byExtension` (with or
+  HTTP Request, TOML, Properties, CSV, TSV, Mermaid, PlantUML, KQL, Bicep, Diff, No extension) with `byExtension` (with or
   without dot, any case, never No extension), `TypeScore(type, score)`, the seam `TextTypeSource` and
   `TextTypeDetector(sources).detect(text)`.
 - **Mechanics.** A leading BOM is dropped; a blank text is Plain Text. The built-in rules see the first
@@ -35,6 +35,8 @@ for texts that are something else: a Python `def f():` block, a Markdown heading
   - Mermaid, 90: the diagram keyword (`graph`/`flowchart` with a direction, `sequenceDiagram`, `classDiagram`,
     `stateDiagram(-v2)`, `erDiagram`, `gantt`, `pie`, `journey`, `gitGraph`, `mindmap`, `timeline`) as the whole first
     line that is not blank or a `%%` comment, and one more line.
+  - PlantUML, 90 (added 2026-11-26, ADR 0193): a `@start<type>` line (optional name after a blank or in parentheses)
+    as the first line that is not blank or a `'` comment, and a later line starting with `@end`.
   - SQL: statements at a statement start (the first line, after a line ending in `;`, after a blank line; `--`
     comment lines left out) with a statement's shape (`SELECT … FROM`, `INSERT INTO`, `UPDATE … SET`, `DELETE FROM`,
     `CREATE TABLE|VIEW|INDEX`, `ALTER TABLE`, `WITH … AS (`, any case) and one sign that it is not a sentence (a `;`

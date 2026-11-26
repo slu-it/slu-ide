@@ -35,6 +35,15 @@ class StrongSignRulesTest {
     }
 
     @ParameterizedTest
+    @MethodSource("plantUml")
+    fun `PlantUML needs a start line first and an end line after it`(
+        text: String,
+        expected: String,
+    ) {
+        assertEquals(expected, PlantUmlRule.scored(text))
+    }
+
+    @ParameterizedTest
     @MethodSource("diffs")
     fun `a diff needs a git header or all three unified lines`(
         text: String,
@@ -130,6 +139,25 @@ class StrongSignRulesTest {
                 "Timeline of the project\nwent well" to "",
                 "pie is tasty\nyes" to "",
                 "graph TD and more\nA-->B" to "",
+            )
+
+        @JvmStatic
+        fun plantUml(): List<Arguments> =
+            cases(
+                "@startuml\nA -> B\n@enduml" to "puml 90",
+                "@startuml\n@enduml" to "puml 90",
+                "\n  \n' a comment\n  @startuml\nA -> B\n  @enduml  \n" to "puml 90",
+                "@startmindmap plan\n* root\n@endmindmap" to "puml 90",
+                "@startuml(id=one)\nA -> B\n@enduml" to "puml 90",
+                "@startuml\nA -> B" to "",
+                "@startuml" to "",
+                "@enduml\n@startuml" to "",
+                "title\n@startuml\nA -> B\n@enduml" to "",
+                "```plantuml\n@startuml\nA -> B\n@enduml\n```" to "",
+                "Write @startuml first\nthen @enduml" to "",
+                "@start\nA\n@end" to "",
+                "@startumlx-y\n@enduml" to "",
+                "@enduml\nA" to "",
             )
 
         @JvmStatic

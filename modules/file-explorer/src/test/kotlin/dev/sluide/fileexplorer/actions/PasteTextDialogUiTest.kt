@@ -126,7 +126,7 @@ class PasteTextDialogUiTest {
             assertNull(it.graphic, "an emptied cell shows no icon")
         }
 
-        assertEquals(26, rows.size)
+        assertEquals(27, rows.size)
         rows.forEach { (type, row) ->
             assertEquals(textTypeLabel(type, json), row.first)
             val icon = row.second as FontIcon

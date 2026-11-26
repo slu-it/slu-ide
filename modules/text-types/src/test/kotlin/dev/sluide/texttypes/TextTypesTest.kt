@@ -33,6 +33,7 @@ class TextTypesTest {
                 "CSV csv",
                 "TSV tsv",
                 "Mermaid mmd",
+                "PlantUML puml",
                 "KQL kql",
                 "Bicep bicep",
                 "Diff diff",

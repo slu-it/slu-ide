@@ -10,6 +10,7 @@ internal object BuiltInRules {
             MarkupRule,
             MarkdownRule,
             MermaidRule,
+            PlantUmlRule,
             DiffRule,
             SqlRule,
             BicepRule,

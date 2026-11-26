@@ -33,6 +33,7 @@ object TextTypes {
     internal val CSV = TextType("CSV", "csv")
     internal val TSV = TextType("TSV", "tsv")
     internal val MERMAID = TextType("Mermaid", "mmd")
+    internal val PLANTUML = TextType("PlantUML", "puml")
     internal val KQL = TextType("KQL", "kql")
     internal val BICEP = TextType("Bicep", "bicep")
     internal val DIFF = TextType("Diff", "diff")
@@ -61,6 +62,7 @@ object TextTypes {
             CSV,
             TSV,
             MERMAID,
+            PLANTUML,
             KQL,
             BICEP,
             DIFF,
