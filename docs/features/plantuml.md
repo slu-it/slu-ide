@@ -21,8 +21,8 @@ for later: [plantuml-later.md](../ideas/plantuml-later.md).
   the diagrams shown stay, with their zoom and scroll position, until the new ones are drawn. Each view keeps the
   drawings of its 4 most recent texts, so saving an earlier text again (after an undo, say) shows it at once. One
   drawing runs at a time in the whole app; the others wait.
-- An empty file shows nothing. A file without a line starting with `@start` says "No @start…/@end… block in this
-  file." and is not drawn.
+- An empty file shows nothing. A file without a line starting with `@start`, or whose `@start…` line has no `@end…`
+  line (PlantUML then finds no block), says "No @start…/@end… block in this file." and is not drawn.
 - **Several diagrams:** every `@start…`/`@end…` block, and every page of a block (`newpage`), is drawn, top to bottom
   with a gap. They zoom as one ([previews.md](previews.md#zooming-zoomcontrols)): **Fit** fits all of them into the
   view together, a click on a diagram goes from fitted to 100% and back. Error boxes keep their size and a click on
@@ -42,7 +42,10 @@ for later: [plantuml-later.md](../ideas/plantuml-later.md).
   document). `PlantUmlFences` (package `markdown`) inserts them after the page is sanitised; each Markdown and notebook
   view has its own `DiagramRenders` (`MarkdownPreview`, `NotebookPreview`).
 - A fence without a line starting with `@start` is wrapped in `@startuml`/`@enduml` (as GitLab does); a fence with one
-  is drawn as written, every block of it. An empty fence stays an empty code block.
+  is drawn as written, every block of it. An empty fence stays an empty code block. A fence with a `@start…` line
+  but no `@end…` line is not wrapped; PlantUML finds no block in it, so it says "No @start…/@end… block in this
+  fence." and the HTML export lists it ("PlantUML diagram (line N) could not be drawn: no @start…/@end… block", N
+  being the line of the opening fence).
 - Until its drawing is there, a fence says "Drawing the diagram…". Each drawing that arrives loads the page again,
   which keeps its place as after a save: side by side it lines up with the source, shown alone it keeps its scroll
   position. The diagram is a block with the fence's source line, so the scroll sync and the table of contents work
