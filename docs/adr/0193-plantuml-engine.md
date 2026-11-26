@@ -88,7 +88,11 @@ engine, module `plantuml`; the views that show it (the `.puml` preview, fences, 
   the abandoned thread for good. No exact way closes it: the process is the same command as a fresh render's `dot`,
   and nothing tells which thread started it. PlantUML's own wait for `dot` (`GlobalConfigKey.TIMEOUT_MS`) is set to
   15 s; it only starts once `dot` closed its output. A throwable of PlantUML becomes `Failed("PlantUML failed: …",
-  null)`, logged. The timers of all engines share one daemon thread; a render's timer is cancelled and removed when
+  null)`, logged. PlantUML is first used on the render thread, never by the engine's constructor (which runs on the
+  caller's thread, the FX thread for `PlantUml.shared`): its class initialisers start AWT and fonts, and on a JDK
+  without AWT's native libraries they throw `UnsatisfiedLinkError` (then `NoClassDefFoundError` on every later use).
+  Such a `LinkageError` gives `Failed("PlantUML cannot start: …", null)` for every render, logged once, and the render
+  thread lives on. The timers of all engines share one daemon thread; a render's timer is cancelled and removed when
   it finishes.
 - **Size cap.** A source over 512 KiB (UTF-8 bytes) is not parsed: one `Failed("Too large to draw: N KiB, at most 512
   KiB", null)`. A 100,000-line sequence diagram took 1 GB of heap and gave a 50 MB SVG (measured).

@@ -8,6 +8,7 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -59,8 +60,12 @@ class PlantUml internal constructor(
     /** For tests: runs on the watchdog's thread between its locked step and its delivery of the timeout. */
     private val beforeTimeoutDelivered: (() -> Unit)? = null,
 ) {
+    // A lambda, not `Drawing::draw`: that reference loads Drawing, and with it PlantUML, on the caller's thread (the FX
+    // thread through `shared`). PlantUML's class initialisers start AWT and can fail; they run on the render thread.
     constructor(locator: GraphvizLocator = GraphvizLocator(), timeout: Duration = 20.seconds) :
-        this(locator, timeout, renderThreads, Drawing::draw)
+        this(locator, timeout, renderThreads, { source, firstLine, dot, givenUp ->
+            Drawing.draw(source, firstLine, dot, givenUp)
+        })
 
     /**
      * Draws every block of [source]; [firstLine] is the caller's number of the source's first line (a fence's first
@@ -87,6 +92,9 @@ class PlantUml internal constructor(
     }
 
     private val lock = Any()
+
+    /** Whether PlantUML's failure to start was logged already. */
+    private val startFailureLogged = AtomicBoolean()
 
     /** Renders not started yet, in call order. Guarded by [lock], as are [worker] and the workers' fields. */
     private val queue = ArrayDeque<Job>()
@@ -128,6 +136,13 @@ class PlantUml internal constructor(
                 val rendering =
                     try {
                         draw(job.source, job.firstLine, dot) { synchronized(lock) { abandoned } }
+                    } catch (failure: LinkageError) {
+                        // PlantUML's classes failed to initialise (AWT on a headless JDK): the first time with the
+                        // cause, then as NoClassDefFoundError on every render. Logged once.
+                        if (!startFailureLogged.getAndSet(true)) {
+                            log.log(System.Logger.Level.WARNING, "PlantUML cannot start", failure)
+                        }
+                        Rendering(listOf(Diagram.Failed("PlantUML cannot start: $failure", null)), false)
                     } catch (failure: Throwable) {
                         log.log(System.Logger.Level.WARNING, "PlantUML failed", failure)
                         Rendering(listOf(Diagram.Failed("PlantUML failed: $failure", null)), false)

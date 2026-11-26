@@ -322,6 +322,30 @@ class PlantUmlTest {
     }
 
     @Test
+    fun `a PlantUML that cannot start gives a failed diagram per render, logged once, and the engine stays usable`() {
+        // Measured in the app on a headless JDK: the first use of PlantUML threw UnsatisfiedLinkError from AWT in a
+        // class initialiser; every later use of that class throws NoClassDefFoundError.
+        val failures = ArrayDeque(listOf(UnsatisfiedLinkError("no libawt_xawt"), NoClassDefFoundError("FileFormat")))
+        val engine = engine { source, _ -> failures.removeFirstOrNull()?.let { throw it } ?: fakeDraw(source) }
+
+        val (results, log) =
+            LogCapture(PlantUml::class.java.name).use { log ->
+                listOf("first", "second").map { engine.render(it).within() } to log.lines.toList()
+            }
+        val later = engine.render("later").within()
+
+        assertEquals(
+            listOf(
+                "PlantUML cannot start: java.lang.UnsatisfiedLinkError: no libawt_xawt",
+                "PlantUML cannot start: java.lang.NoClassDefFoundError: FileFormat",
+            ).map { Rendering(listOf(Diagram.Failed(it, null)), false) },
+            results,
+        )
+        assertEquals(listOf(Level.WARNING to "PlantUML cannot start"), log)
+        assertEquals("later", (later.diagrams.single() as Diagram.Failed).message)
+    }
+
+    @Test
     fun `the draw gets the source, the first line and the located dot`(
         @TempDir temp: Path,
     ) {
