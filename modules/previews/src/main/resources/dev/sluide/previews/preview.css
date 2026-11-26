@@ -230,8 +230,12 @@ pre.mermaid svg .linked:hover .nodeLabel .sluide-inputs {
     text-decoration: none;
 }
 
-/* A Mermaid file that does not parse (MermaidPreview): Mermaid's message. */
-pre.mermaid.error {
+/*
+ * A Mermaid file that does not parse (MermaidPreview): Mermaid's message. A PlantUML diagram that failed (PlantUmlHtml)
+ * looks the same, under "Syntax error" only if PlantUML named a line.
+ */
+pre.mermaid.error,
+pre.plantuml-error {
     text-align: left;
     white-space: pre-wrap;
     color: #cf222e;
@@ -239,7 +243,8 @@ pre.mermaid.error {
     border-left: 4px solid #cf222e;
 }
 
-pre.mermaid.error::before {
+pre.mermaid.error::before,
+pre.plantuml-error.syntax::before {
     content: "Syntax error";
     display: block;
     margin-bottom: 8px;
@@ -247,7 +252,8 @@ pre.mermaid.error::before {
 }
 
 /* Left-aligned as in the light theme, against the centring of body.dark pre.mermaid. */
-body.dark pre.mermaid.error {
+body.dark pre.mermaid.error,
+body.dark pre.plantuml-error {
     text-align: left;
     color: #ff7b72;
     background: #3d2426;
@@ -261,6 +267,50 @@ body.dark pre.mermaid.error {
 
 body.dark .diagram-note {
     color: #9198a1;
+}
+
+/*
+ * PlantUML diagrams (PlantUmlHtml), on a PlantUML file's page and in Markdown: each one twice, of which the theme
+ * shows one, so that a theme change draws nothing; stacked with a gap, error boxes in their place.
+ */
+.plantuml-diagram img {
+    display: block;
+    margin: 0 auto;
+}
+
+body:not(.dark) .plantuml-diagram img.plantuml-dark,
+body.dark .plantuml-diagram img.plantuml-light {
+    display: none;
+}
+
+/* The gap is the margin above each part after the first (below); an error box has none below it. */
+.plantuml-diagrams > pre {
+    margin-bottom: 0;
+}
+
+.plantuml-diagrams > * + * {
+    margin-top: 16px;
+}
+
+/*
+ * A PlantUML file's stack of diagrams (PlantUmlPage), sized by preview.js as one (the zoom: fitted to the view or at a
+ * fixed scale). As wide as its widest part, centred with auto margins, so that the page scrolls to every edge.
+ */
+body.plantuml-file {
+    padding-bottom: 16px;
+}
+
+body.plantuml-file .plantuml-diagrams {
+    display: table;
+    margin: 0 auto;
+}
+
+body.zoomable .plantuml-diagrams img {
+    cursor: zoom-out;
+}
+
+body.zoomable.fitted .plantuml-diagrams img {
+    cursor: zoom-in;
 }
 
 /* CSV and TSV tables (CsvRenderer). */

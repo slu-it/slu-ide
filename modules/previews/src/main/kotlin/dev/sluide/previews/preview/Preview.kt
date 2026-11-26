@@ -9,7 +9,10 @@ import java.nio.file.Path
 internal interface Preview {
     /**
      * Shows [text], the content of [file], in [engine]; the page is to use dark colours if [dark] and may use the files
-     * in [root] (see [root]).
+     * in [root] (see [root]). A preview that computes its page in the background may load nothing and keep the page
+     * shown until it calls [attach]'s rerender (`PlantUmlPreview`). The view then still counts a load as started, so
+     * the page's next load counts as ours: a page that loaded itself again in between would not be stopped, which only
+     * a page with scripts of its own can do.
      */
     @Throws(IOException::class)
     fun load(
