@@ -80,19 +80,67 @@ internal class PdfSelectionEdgesUiTest : PdfSelectionUiBase() {
         assertFalse(selected(view))
     }
 
+    /** Zooms in until both scroll bars of the pages show, and gives the horizontal bar and the corner. */
+    private fun withBothBars(view: PdfFileView): Pair<javafx.scene.Node, javafx.scene.Node> {
+        repeat(6) { fx { view.pageColumn.zoomIn() } }
+        await {
+            view.pages
+                .lookupAll(".scroll-bar")
+                .filterIsInstance<javafx.scene.control.ScrollBar>()
+                .count { it.isVisible } == 2
+        }
+        val bar =
+            fx {
+                view.pages
+                    .lookupAll(".scroll-bar")
+                    .filterIsInstance<javafx.scene.control.ScrollBar>()
+                    .first { it.orientation == javafx.geometry.Orientation.HORIZONTAL }
+            }
+        return bar to fx { view.pages.lookup(".corner") }
+    }
+
+    private fun centreOf(node: javafx.scene.Node): Point2D =
+        fx {
+            val bounds = node.localToScene(node.layoutBounds)
+            Point2D(bounds.centerX, bounds.centerY)
+        }
+
     @Test
-    fun `a click on a scroll bar of the pages does not clear the selection`() {
-        val view = open(TestPdfs.threePages)
-        awaitRendered(view, 0)
-        key(view, KeyCode.A, shortcut = true)
-        await { view.overlays.on(0).isNotEmpty() }
-        val bar = fx { view.pages.lookupAll(".scroll-bar").first() }
-        val at = fx { bar.localToScene(bar.layoutBounds.centerX, bar.layoutBounds.centerY) }
+    fun `a drag along a scroll bar of the pages selects nothing`() {
+        val view = textView()
+        val (bar, _) = withBothBars(view)
+        val at = centreOf(bar)
         fx {
             javafx.event.Event.fireEvent(bar, mouse(MouseEvent.MOUSE_PRESSED, at))
-            javafx.event.Event.fireEvent(bar, mouse(MouseEvent.MOUSE_RELEASED, at))
+            javafx.event.Event.fireEvent(bar, mouse(MouseEvent.MOUSE_DRAGGED, at.add(60.0, 0.0)))
+            javafx.event.Event.fireEvent(bar, mouse(MouseEvent.MOUSE_RELEASED, at.add(60.0, 0.0)))
         }
-        assertTrue(selected(view, 0))
+        assertFalse(selected(view))
+    }
+
+    @Test
+    fun `a click on the corner between the scroll bars keeps the selection`() {
+        val view = textView()
+        val (_, corner) = withBothBars(view)
+        key(view, KeyCode.A, shortcut = true)
+        assertTrue(selected(view))
+        val at = centreOf(corner)
+        fx {
+            javafx.event.Event.fireEvent(corner, mouse(MouseEvent.MOUSE_PRESSED, at))
+            javafx.event.Event.fireEvent(corner, mouse(MouseEvent.MOUSE_RELEASED, at))
+        }
+        assertTrue(selected(view))
+    }
+
+    @Test
+    fun `a press that opens the context menu keeps the selection`() {
+        val view = textView()
+        val second = scene(view, "second")
+        key(view, KeyCode.A, shortcut = true)
+        // Ctrl+click on macOS: a primary press that is a popup trigger.
+        fire(view, mouse(MouseEvent.MOUSE_PRESSED, second.centre(), popupTrigger = true, control = true))
+        fire(view, mouse(MouseEvent.MOUSE_RELEASED, second.centre(), popupTrigger = true, control = true))
+        assertTrue(selected(view))
     }
 
     @Test

@@ -8,6 +8,7 @@ import javafx.event.Event
 import javafx.geometry.Bounds
 import javafx.geometry.Point2D
 import javafx.scene.Cursor
+import javafx.scene.Node
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
 import javafx.scene.input.KeyCode
@@ -77,6 +78,8 @@ internal abstract class PdfSelectionUiBase : PdfViewUiFixture() {
         at: Point2D,
         clicks: Int = 1,
         button: MouseButton = MouseButton.PRIMARY,
+        popupTrigger: Boolean = false,
+        control: Boolean = false,
     ) = MouseEvent(
         type,
         at.x,
@@ -86,22 +89,48 @@ internal abstract class PdfSelectionUiBase : PdfViewUiFixture() {
         button,
         clicks,
         false,
-        false,
+        control,
         false,
         false,
         button == MouseButton.PRIMARY,
         false,
         button == MouseButton.SECONDARY,
         false,
-        false,
+        popupTrigger,
         true,
         null,
     )
 
+    /** The node a press went to: the later drags and the release of that press go to it too, as with a real pointer. */
+    private var pressTarget: Node? = null
+
+    /**
+     * Fires [event]. A mouse event goes to the node a real pointer would hit (the page slot under the point, or the
+     * scroll pane's viewport beside the pages; a drag or release to the node of its press), so that it bubbles through
+     * the scroll pane's skin like a real one. Anything else goes to the pages.
+     */
     protected fun fire(
         view: PdfFileView,
         event: Event,
-    ) = fx { Event.fireEvent(view.pages, event) }
+    ) = fx { Event.fireEvent(targetOf(view, event), event) }
+
+    private fun targetOf(
+        view: PdfFileView,
+        event: Event,
+    ): Node {
+        if (event !is MouseEvent) return view.pages
+        if (event.eventType != MouseEvent.MOUSE_PRESSED) {
+            val target = pressTarget
+            if (target != null) {
+                if (event.eventType == MouseEvent.MOUSE_RELEASED) pressTarget = null
+                return target
+            }
+        }
+        val slot = view.pagePointAt(event.sceneX, event.sceneY)?.let { view.pageColumn.pageSlots[it.page] }
+        val target = slot ?: view.pages.lookup(".viewport") ?: view.pages
+        if (event.eventType == MouseEvent.MOUSE_PRESSED) pressTarget = target
+        return target
+    }
 
     protected fun click(
         view: PdfFileView,

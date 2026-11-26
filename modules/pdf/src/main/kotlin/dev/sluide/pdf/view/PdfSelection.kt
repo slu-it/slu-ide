@@ -6,7 +6,6 @@ import javafx.beans.property.SimpleBooleanProperty
 import javafx.scene.Cursor
 import javafx.scene.Node
 import javafx.scene.control.MenuItem
-import javafx.scene.control.ScrollBar
 import javafx.scene.control.Tooltip
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
@@ -75,12 +74,19 @@ internal class PdfSelection private constructor(
         view.onDispose += ::dispose
     }
 
-    /** Whether the event is aimed at one of the pages' scroll bars, which are none of the selection's business. */
-    private fun onScrollBar(event: MouseEvent): Boolean =
-        generateSequence(event.target as? Node) { it.parent }.any { it is ScrollBar }
+    /**
+     * Whether the event is aimed at the scroll pane's viewport, where the pages are. The scroll bars and the corner
+     * between them scroll rather than select, and their positions map to page points outside the view (a hidden link,
+     * an off-screen char); a press there is none of the selection's business.
+     */
+    private fun onPages(event: MouseEvent): Boolean {
+        val viewport = view.pages.lookup(".viewport")
+        return generateSequence(event.target as? Node) { it.parent }.any { it === viewport }
+    }
 
     private fun pressed(event: MouseEvent) {
-        if (event.button != MouseButton.PRIMARY || onScrollBar(event)) return
+        // A press that opens the context menu (Ctrl+click on macOS) is no click: it keeps the selection for Copy.
+        if (event.button != MouseButton.PRIMARY || event.isPopupTrigger || !onPages(event)) return
         view.pages.requestFocus()
         val point = view.pagePointAt(event.sceneX, event.sceneY)
         val current = Press(event.sceneX, event.sceneY, point)
@@ -118,7 +124,7 @@ internal class PdfSelection private constructor(
     }
 
     private fun released(event: MouseEvent) {
-        if (event.button != MouseButton.PRIMARY || onScrollBar(event)) return
+        if (event.button != MouseButton.PRIMARY) return
         val current = press ?: return
         press = null
         if (current.dragged || event.clickCount != 1) return
