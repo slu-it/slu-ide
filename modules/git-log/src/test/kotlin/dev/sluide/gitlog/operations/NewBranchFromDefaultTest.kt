@@ -4,6 +4,7 @@ import dev.sluide.git.GitFetchChanges
 import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.data.FakeWrites
+import dev.sluide.gitlog.data.PromptCancel
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -103,5 +104,19 @@ class NewBranchFromDefaultTest {
         assertEquals(note, outcome.done)
         assertEquals(operation.failure, outcome.failure)
         assertNull(outcome.newBranch)
+    }
+
+    @Test
+    fun `a fetch that failed after the user cancelled an ssh prompt gives no prompt and no error`() {
+        val prompt = PromptCancel()
+        writes.fetchResult = {
+            prompt.cancel()
+            GitFetchResult(GitResult(false, "Permission denied (publickey)."))
+        }
+
+        val outcome = operation.run(writes, root, prompt.context())
+
+        assertEquals(RefOutcome(GitResult(true, ""), "New branch cancelled.", cancelled = true), outcome)
+        assertTrue(operation.contactsRemote)
     }
 }

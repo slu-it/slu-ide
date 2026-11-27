@@ -45,12 +45,14 @@ internal data class Fetch(
         for (name in remotes) {
             if (context.cancellation.cancelled) break
             context.progress(fetching(name))
-            val result = writes.fetch(root, name, context.cancellation, context.ssh)
+            val fetched = writes.fetch(root, name, context.cancellation, context.ssh)
+            // A prompt the user cancelled may fail git before it sees the cancellation (ADR 0194).
+            val result = if (context.promptCancelled(fetched.result)) fetched.copy(cancelled = true) else fetched
             results[name] = result
             if (result.cancelled) break
         }
         val cancelled =
-            context.cancellation.cancelled && (results.size < remotes.size || results.values.any { it.cancelled })
+            results.values.any { it.cancelled } || (context.cancellation.cancelled && results.size < remotes.size)
         val failed = results.filterValues { !it.result.success && !it.cancelled }
         val done = fetchSummary(results, cancelled)
         if (failed.isEmpty()) return RefOutcome(GitResult(true, ""), done, cancelled = cancelled)

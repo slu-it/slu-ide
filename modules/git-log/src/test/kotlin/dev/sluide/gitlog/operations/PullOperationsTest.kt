@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.operations
 
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitFetchChanges
 import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitMergeMode
@@ -9,6 +10,7 @@ import dev.sluide.git.GitPullSources
 import dev.sluide.git.GitRebaseResult
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.data.FakeWrites
+import dev.sluide.gitlog.data.PromptCancel
 import dev.sluide.gitlog.data.remoteOfBranch
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -337,5 +339,40 @@ class PullOperationsTest {
         assertEquals(dev, updatedMessage("", dev, ""), "nothing chosen before")
         assertEquals(dev, updatedMessage(main, dev, " "), "blank")
         assertEquals("Mine", updatedMessage(main, dev, "Mine"))
+    }
+
+    @Test
+    fun `a fetch that failed after the user cancelled an ssh prompt cancels the pull instead of failing it`() {
+        val prompt = PromptCancel()
+        writes.fetchResult = {
+            prompt.cancel()
+            GitFetchResult(GitResult(false, "Permission denied (publickey)."))
+        }
+
+        val outcome = merge.run(writes, root, prompt.context())
+
+        assertEquals(RefOutcome(GitResult(true, ""), PULL_CANCELLED, cancelled = true), outcome)
+        assertTrue(merge.contactsRemote)
+    }
+
+    @Test
+    fun `a fetch that failed on its own, even after the header's Cancel, still fails the pull`() {
+        val token = GitCancellation()
+        writes.fetchResult = {
+            token.cancel()
+            GitFetchResult(GitResult(false, "fatal: unable to access"))
+        }
+
+        val outcome = merge.run(writes, root, RunContext(token))
+
+        assertEquals(false, outcome.result.success)
+        assertEquals("origin could not be fetched; nothing was pulled.", outcome.failure)
+        assertFalse(outcome.cancelled)
+    }
+
+    @Test
+    fun `only the fetch of a pull contacts the remote`() {
+        assertTrue(merge.contactsRemote)
+        assertFalse(merge.copy(fetched = true).contactsRemote)
     }
 }

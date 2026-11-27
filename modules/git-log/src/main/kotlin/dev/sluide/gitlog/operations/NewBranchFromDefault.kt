@@ -43,7 +43,10 @@ internal data class PrepareNewBranchFromDefault(
         context: RunContext,
     ): RefOutcome {
         val fetch = writes.fetch(root, remote, context.cancellation, context.ssh)
-        if (fetch.cancelled) return RefOutcome(GitResult(true, ""), "New branch cancelled.", cancelled = true)
+        val stopped = context.interrupted(fetch.cancelled, fetch.result)
+        if (stopped) {
+            return RefOutcome(GitResult(true, ""), "New branch cancelled.", cancelled = true)
+        }
         val note = pullFetchNote(remote, fetch)
         if (!fetch.result.success) {
             return RefOutcome(

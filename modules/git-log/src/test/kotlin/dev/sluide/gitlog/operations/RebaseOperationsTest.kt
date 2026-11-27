@@ -8,6 +8,7 @@ import dev.sluide.git.GitRebaseResult
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitUncheckedConflict
 import dev.sluide.gitlog.data.FakeWrites
+import dev.sluide.gitlog.data.PromptCancel
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -393,5 +394,20 @@ class RebaseOperationsTest {
         assertEquals("$note Rebased feature onto origin/develop.", confirmation.confirmed.run(writes, root).done)
         assertEquals("rebase feature $defaultRef", writes.calls.last())
         assertEquals(1, writes.calls.count { it.startsWith("fetch") })
+    }
+
+    @Test
+    fun `a quick rebase whose fetch failed after the user cancelled an ssh prompt is cancelled`() {
+        quickWrites()
+        val prompt = PromptCancel()
+        writes.fetchResult = {
+            prompt.cancel()
+            GitFetchResult(GitResult(false, "Permission denied (publickey)."))
+        }
+
+        val outcome = quick.run(writes, root, prompt.context())
+
+        assertEquals(RefOutcome(GitResult(true, ""), "Rebase cancelled.", cancelled = true), outcome)
+        assertTrue(quick.contactsRemote)
     }
 }

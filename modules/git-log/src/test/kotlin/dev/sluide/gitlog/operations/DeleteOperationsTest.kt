@@ -9,6 +9,7 @@ import dev.sluide.git.GitRemoteDeletionResult
 import dev.sluide.git.GitRemoteRefResult
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.data.BranchNode
+import dev.sluide.gitlog.data.FakeSshSession
 import dev.sluide.gitlog.data.FakeWrites
 import dev.sluide.gitlog.data.branchNodes
 import dev.sluide.gitlog.data.nodeAt
@@ -50,6 +51,7 @@ class DeleteOperationsTest {
         assertEquals("Deleting remote branch origin/fix…", DeleteRemoteBranches(listOf(fix)).progress)
         assertEquals("Deleting 3 remote branches…", DeleteRemoteBranches(listOf(fix, other, up)).progress)
         assertTrue(DeleteRemoteBranches(listOf(fix)).cancellable)
+        assertTrue(DeleteRemoteBranches(listOf(fix)).contactsRemote)
         assertNull(DeleteRemoteBranches(listOf(fix)).fileChange)
         assertFalse(DeleteRemoteBranches(listOf(fix)).holdsStatus)
 
@@ -243,6 +245,8 @@ class DeleteOperationsTest {
         assertTrue(DeleteRefs(emptyList(), listOf("v1"), remotes = listOf("origin")).cancellable)
         assertFalse(DeleteRefs(emptyList(), listOf("v1")).cancellable)
         assertFalse(DeleteRefs(listOf("a"), emptyList(), remotes = listOf("origin")).cancellable)
+        assertTrue(DeleteRefs(emptyList(), listOf("v1"), remotes = listOf("origin")).contactsRemote)
+        assertFalse(DeleteRefs(listOf("a"), emptyList(), remotes = listOf("origin")).contactsRemote)
 
         writes.calls.clear()
         assertEquals(
@@ -463,5 +467,16 @@ class DeleteOperationsTest {
         assertEquals(emptyList(), actions("Remote/old/gone").deleteRemote, "a removed remote")
         assertEquals(emptyList(), actions("Remote/origin").deleteRemote, "a remote")
         assertEquals(emptyList(), actions("Tags/v1").deleteRemote)
+    }
+
+    @Test
+    fun `deleting on remotes passes the run's ssh access on`() {
+        val writes = FakeWrites()
+        val ssh = FakeSshSession()
+
+        DeleteRemoteBranches(listOf(fix)).run(writes, root, RunContext(ssh = ssh))
+        DeleteRefs(emptyList(), listOf("v1"), remotes = listOf("origin")).run(writes, root, RunContext(ssh = ssh))
+
+        assertEquals(listOf<dev.sluide.git.ssh.SshAccess>(ssh, ssh), writes.sshSeen)
     }
 }

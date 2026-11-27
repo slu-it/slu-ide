@@ -100,7 +100,10 @@ internal data class RebaseOntoOriginDefault(
             writes.currentBranch(root)
                 ?: return RefOutcome(GitResult(true, ""), "Rebase needs a current branch.")
         val fetch = writes.fetch(root, remote, context.cancellation, context.ssh)
-        if (fetch.cancelled) return RefOutcome(GitResult(true, ""), "Rebase cancelled.", cancelled = true)
+        val stopped = context.interrupted(fetch.cancelled, fetch.result)
+        if (stopped) {
+            return RefOutcome(GitResult(true, ""), "Rebase cancelled.", cancelled = true)
+        }
         val note = pullFetchNote(remote, fetch)
         if (!fetch.result.success) {
             return RefOutcome(

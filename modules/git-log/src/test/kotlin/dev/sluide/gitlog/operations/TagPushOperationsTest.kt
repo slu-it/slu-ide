@@ -5,6 +5,7 @@ import dev.sluide.git.GitResult
 import dev.sluide.git.GitTagPushOutcome
 import dev.sluide.git.GitTagPushRefResult
 import dev.sluide.git.GitTagPushResult
+import dev.sluide.gitlog.data.FakeSshSession
 import dev.sluide.gitlog.data.FakeWrites
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -38,6 +39,7 @@ class TagPushOperationsTest {
         assertEquals(listOf("push-tags origin refs/tags/v1"), writes.calls)
         assertEquals(listOf("Pushing tag v1 to origin…"), progress)
         assertTrue(operation.cancellable)
+        assertTrue(operation.contactsRemote)
         assertNull(operation.fileChange)
         assertFalse(operation.holdsStatus)
         assertEquals("Push Failed", operation.errorTitle)
@@ -154,5 +156,15 @@ class TagPushOperationsTest {
         assertEquals("Pushed to origin before that: v1. Push cancelled.", between.done)
         assertTrue(between.cancelled)
         assertTrue(between.result.success)
+    }
+
+    @Test
+    fun `a tag push passes the run's ssh access on`() {
+        val writes = FakeWrites()
+        val ssh = FakeSshSession()
+
+        PushTags(listOf("v1"), listOf("origin")).run(writes, root, RunContext(ssh = ssh))
+
+        assertEquals(listOf<dev.sluide.git.ssh.SshAccess>(ssh), writes.sshSeen)
     }
 }

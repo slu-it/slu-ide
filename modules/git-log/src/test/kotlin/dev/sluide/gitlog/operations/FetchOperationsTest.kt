@@ -9,6 +9,7 @@ import dev.sluide.git.GitRefs
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.data.FakeWrites
+import dev.sluide.gitlog.data.PromptCancel
 import dev.sluide.gitlog.data.branchNodes
 import dev.sluide.gitlog.data.nodeAt
 import java.nio.file.Path
@@ -252,5 +253,79 @@ class FetchOperationsTest {
             branchActions(listOf(node("Remote/team/a/fix")), remotes = listOf("team", "team/a")).fetch,
             "the longest match",
         )
+    }
+
+    @Test
+    fun `a fetch failed after the user cancelled an ssh prompt is a cancel and skips the other remotes`() {
+        val writes = FakeWrites()
+        writes.remotes = listOf("origin", "fork", "third")
+        val prompt = PromptCancel()
+        writes.fetchResult = { remote ->
+            if (remote == "fork") {
+                // The helper told ssh "no answer": git exits 128 before it sees the cancellation.
+                prompt.cancel()
+                failed("Permission denied (publickey).")
+            } else {
+                ok(GitFetchChanges(newBranches = 1))
+            }
+        }
+
+        val outcome = Fetch().run(writes, root, prompt.context())
+
+        assertEquals(listOf("fetch origin", "fetch fork"), writes.calls)
+        assertTrue(outcome.result.success, "no error dialog")
+        assertNull(outcome.failure)
+        assertTrue(outcome.cancelled)
+        assertEquals("Fetch cancelled. Fetched so far: 1 new branch.", outcome.done)
+    }
+
+    @Test
+    fun `a failed fetch after the header's Cancel stays an error, one before it does not hide the others`() {
+        val writes = FakeWrites()
+        writes.remotes = listOf("origin", "fork")
+        val token = GitCancellation()
+        writes.fetchResult = { remote ->
+            if (remote == "origin") token.cancel()
+            failed("fatal: no")
+        }
+
+        val outcome = Fetch().run(writes, root, RunContext(token))
+
+        assertEquals(listOf("fetch origin"), writes.calls, "the cancel skips the next remote")
+        assertFalse(outcome.result.success, "the failure is still told")
+        assertEquals("origin could not be fetched.", outcome.failure)
+    }
+
+    @Test
+    fun `a fetch that succeeded is not turned into a cancel by a prompt cancelled after it`() {
+        val writes = FakeWrites()
+        val prompt = PromptCancel()
+        writes.fetchResult = {
+            prompt.cancel()
+            ok(GitFetchChanges(newBranches = 1))
+        }
+
+        val outcome = Fetch("origin").run(writes, root, prompt.context())
+
+        assertFalse(outcome.cancelled)
+        assertEquals("Fetched origin: 1 new branch.", outcome.done)
+    }
+
+    @Test
+    fun `a fetch passes the run's ssh access to the writes`() {
+        val writes = FakeWrites()
+        val ssh =
+            object : dev.sluide.git.ssh.SshAccess.Prompting {
+                override val environment = emptyMap<String, String>()
+
+                override fun ended(success: Boolean) = Unit
+
+                override fun close() = Unit
+            }
+
+        Fetch("origin").run(writes, root, RunContext(ssh = ssh))
+
+        assertEquals(listOf<dev.sluide.git.ssh.SshAccess>(ssh), writes.sshSeen)
+        assertTrue(Fetch("origin").contactsRemote)
     }
 }

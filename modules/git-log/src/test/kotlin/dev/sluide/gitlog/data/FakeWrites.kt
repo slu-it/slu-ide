@@ -705,3 +705,27 @@ internal class FakeWrites(
         const val NEW_HEAD = "5e6f7a8b9c0d"
     }
 }
+
+/** An ssh session that does nothing, to tell by identity that an operation passed its run's [SshAccess] on. */
+internal class FakeSshSession : SshAccess.Prompting {
+    override val environment = emptyMap<String, String>()
+
+    override fun ended(success: Boolean) = Unit
+
+    override fun close() = Unit
+}
+
+/** What `RefWriter` does when the user cancels an ssh prompt: sets the flag and cancels the token (ADR 0194). */
+internal class PromptCancel {
+    val token = dev.sluide.git.GitCancellation()
+    private var flag = false
+
+    fun cancel() {
+        flag = true
+        token.cancel()
+    }
+
+    fun context() =
+        dev.sluide.gitlog.operations
+            .RunContext(token, userCancelled = { flag })
+}

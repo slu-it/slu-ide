@@ -4,6 +4,7 @@ import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitPushRejection
 import dev.sluide.git.GitPushResult
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.data.FakeSshSession
 import dev.sluide.gitlog.data.FakeWrites
 import java.nio.file.Path
 import kotlin.test.Test
@@ -30,6 +31,7 @@ class PushOperationsTest {
         assertEquals("Push Failed", push().errorTitle)
         assertEquals("main could not be pushed to origin/feature.", push(target = "feature").failure)
         assertNull(push().fileChange, "no unsaved-editor question")
+        assertTrue(push().contactsRemote)
         assertTrue(push().cancellable)
     }
 
@@ -90,5 +92,15 @@ class PushOperationsTest {
         assertFalse(isProtectedBranch("feature"))
         assertFalse(isProtectedBranch("main2"))
         assertFalse(isProtectedBranch("team/main"))
+    }
+
+    @Test
+    fun `a push passes the run's ssh access on`() {
+        val writes = FakeWrites()
+        val ssh = FakeSshSession()
+
+        push().run(writes, repo, RunContext(ssh = ssh))
+
+        assertEquals(listOf<dev.sluide.git.ssh.SshAccess>(ssh), writes.sshSeen)
     }
 }

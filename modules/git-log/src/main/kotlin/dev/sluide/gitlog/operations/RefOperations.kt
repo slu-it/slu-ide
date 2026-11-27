@@ -61,14 +61,16 @@ internal class RunContext(
     val userCancelled: () -> Boolean = { false },
 ) {
     /**
-     * Whether a call to a remote that gave [result] was stopped: git was ([cancelled]), or it failed after the user
-     * cancelled an ssh prompt, where git may exit before it sees the cancellation (ADR 0194). A prompt cancelled
-     * never makes a failure.
+     * Whether [result] of a call to a remote failed after the user cancelled an ssh prompt: git may exit before it sees
+     * the cancellation (ADR 0194). A prompt cancelled never makes a failure, but a success stays one.
      */
+    fun promptCancelled(result: GitResult) = !result.success && userCancelled()
+
+    /** Whether a call to a remote that gave [result] was stopped: git was ([cancelled]), or [promptCancelled]. */
     fun interrupted(
         cancelled: Boolean,
         result: GitResult,
-    ) = cancelled || (!result.success && userCancelled())
+    ) = cancelled || promptCancelled(result)
 }
 
 /**

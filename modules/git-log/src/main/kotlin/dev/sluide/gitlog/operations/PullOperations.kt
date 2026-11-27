@@ -164,7 +164,10 @@ internal data class PullBranch(
         var note = fetchNote
         if (!fetched) {
             val fetch = writes.fetch(root, remote, context.cancellation, context.ssh)
-            if (fetch.cancelled) return RefOutcome(GitResult(true, ""), PULL_CANCELLED, cancelled = true)
+            val stopped = context.interrupted(fetch.cancelled, fetch.result)
+            if (stopped) {
+                return RefOutcome(GitResult(true, ""), PULL_CANCELLED, cancelled = true)
+            }
             if (!fetch.result.success) {
                 val failed = "$remote could not be fetched; nothing was pulled."
                 return RefOutcome(
