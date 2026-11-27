@@ -1,6 +1,8 @@
 package dev.sluide.git
 
+import dev.sluide.git.cli.FakePrompting
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.SESSION_LINE
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
@@ -309,6 +311,38 @@ internal class GitPushTest : GitPushFixture() {
             ),
             log.toFile().readLines(),
         )
+    }
+
+    @Test
+    fun `a prompting session's variables replace the batch mode, and the session hears how each push ended`() {
+        val script = folder.resolve("fake-git")
+        val log = folder.resolve("calls.txt")
+        script.writeText(
+            "#!/bin/sh\n[ \"\$1\" = --version ] && exit 0\n" +
+                "case \"\$*\" in *config*) exit 1;; esac\n" +
+                "echo \"\$GIT_SSH_COMMAND|\$SSH_ASKPASS \$SSH_ASKPASS_REQUIRE \$SLUIDE_ASKPASS_SOCKET " +
+                "\$SLUIDE_ASKPASS_TOKEN|\$*\" >> '$log'\n" +
+                "case \"\$*\" in *refs/heads/broken) exit 1;; esac\n",
+        )
+        script.toFile().setExecutable(true)
+        val fake = GitCli(script.toString(), System.getenv().filterKeys { !it.startsWith("GIT_") })
+        assumeTrue(fake.available, "no /bin/sh to stand in for git")
+        val session = FakePrompting()
+
+        val pushed =
+            GitPush(
+                fake,
+            ).push(repo, "origin", "topic", "main", false, null, false, GitCancellation(), ssh = session)
+
+        assertTrue(pushed.result.success)
+        assertEquals(listOf(true), session.outcomes)
+        assertEquals(
+            "$SESSION_LINE|push --porcelain --recurse-submodules=no --end-of-options origin " +
+                "refs/heads/topic:refs/heads/main",
+            log.toFile().readLines().single(),
+        )
+        GitPush(fake).push(repo, "origin", "topic", "broken", false, null, false, GitCancellation(), ssh = session)
+        assertEquals(listOf(true, false), session.outcomes, "also for a push that failed")
     }
 
     @Test

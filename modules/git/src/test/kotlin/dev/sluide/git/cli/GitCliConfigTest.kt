@@ -242,11 +242,19 @@ class GitCliConfigTest {
     }
 
     @Test
-    fun `ssh is configured when git finds core sshCommand or ssh variant, unknown when it cannot say`() {
-        assertEquals(false, git.sshConfigured(repo))
+    fun `ssh is chosen with core sshCommand or ssh variant, the askpass with core askPass, unknown without answer`() {
+        assertEquals(SshSettings(sshChosen = false, askPass = false), git.sshSettings(repo))
+        // Set but empty counts: git then runs no askpass at all.
+        run("config", "core.askPass", "")
+        assertEquals(SshSettings(sshChosen = false, askPass = true), git.sshSettings(repo))
         run("config", "core.sshCommand", "ssh")
-        assertEquals(true, git.sshConfigured(repo))
-        assertNull(failingGit(folder, "--get-regexp").sshConfigured(repo))
+        assertEquals(SshSettings(sshChosen = true, askPass = true), git.sshSettings(repo))
+        run("config", "--unset", "core.askPass")
+        assertEquals(SshSettings(sshChosen = true, askPass = false), git.sshSettings(repo))
+        run("config", "--unset", "core.sshCommand")
+        run("config", "ssh.variant", "simple")
+        assertEquals(SshSettings(sshChosen = true, askPass = false), git.sshSettings(repo))
+        assertNull(failingGit(folder, "--get-regexp").sshSettings(repo))
     }
 
     /** Every read of the configuration, in the repository as it is now, as [GitCli] answers it. */
@@ -260,7 +268,7 @@ class GitCliConfigTest {
             reader.configEntries(repo),
             reader.topLevel(repo),
             reader.gitlinks(repo),
-            reader.sshConfigured(repo),
+            reader.sshSettings(repo),
         )
 
     @Test
@@ -290,7 +298,7 @@ class GitCliConfigTest {
                 { hanging.configValues(repo, "test.values") },
                 { hanging.configFlag(repo, "test.flag") },
                 { hanging.configEntries(repo) },
-                { hanging.sshConfigured(repo) },
+                { hanging.sshSettings(repo) },
             ).map { read -> CompletableFuture.supplyAsync(read) }
 
         // Each read gives up after three seconds; they run at the same time, so the test takes three.

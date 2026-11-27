@@ -4,10 +4,12 @@ import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.git.askpass.AskpassProtocol
 import dev.sluide.git.askpass.AskpassRequest
 import java.io.IOException
+import java.lang.System.Logger.Level
 import java.net.StandardProtocolFamily
 import java.net.UnixDomainSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.Channels
+import java.nio.channels.ClosedChannelException
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
 import java.nio.file.Files
@@ -24,18 +26,28 @@ internal class AskpassServer private constructor(
     val socket: Path,
     private val channel: ServerSocketChannel,
     private val handle: (AskpassRequest) -> ByteArray?,
+    /** Accepts the next connection: [ServerSocketChannel.accept], replaced in tests. */
+    private val accept: (ServerSocketChannel) -> SocketChannel,
+    /** Told when accepting failed and the server stopped. */
+    private val onFailure: () -> Unit,
 ) : AutoCloseable {
     /** The thread accepting connections; it ends when the server is [closed][close]. */
-    internal val acceptor: Thread = NamedThreads.virtual("sluide-git-askpass") { accept() }
+    internal val acceptor: Thread = NamedThreads.virtual("sluide-git-askpass") { acceptAll() }
 
-    private fun accept() {
+    private fun acceptAll() {
         try {
             while (true) {
-                val connection = channel.accept()
+                val connection = accept(channel)
                 NamedThreads.virtual("sluide-git-askpass-prompt") { serve(connection) }
             }
-        } catch (_: IOException) {
-            // Closed: Thoreau quits.
+        } catch (_: ClosedChannelException) {
+            // Closed (also AsynchronousCloseException): Thoreau quits.
+        } catch (e: IOException) {
+            // E.g. out of file descriptors. Closing resets the connections waiting in the backlog: their helpers end
+            // with no answer instead of waiting for an accept that never comes.
+            log.log(Level.WARNING, "The askpass server stops (${e.javaClass.name}); ssh runs in batch mode")
+            close()
+            onFailure()
         }
     }
 
@@ -79,6 +91,8 @@ internal class AskpassServer private constructor(
         fun start(
             temporaryFolder: Path,
             shortFolder: Path,
+            accept: (ServerSocketChannel) -> SocketChannel = ServerSocketChannel::accept,
+            onFailure: () -> Unit = {},
             handle: (AskpassRequest) -> ByteArray?,
         ): AskpassServer {
             // The folder's name ends in a random number of up to 20 digits: its longest socket path decides.
@@ -93,7 +107,7 @@ internal class AskpassServer private constructor(
                     Files.deleteIfExists(folder)
                     throw e
                 }
-            return AskpassServer(socket, channel, handle)
+            return AskpassServer(socket, channel, handle, accept, onFailure)
         }
 
         private fun privateFolder(parent: Path): Path =
@@ -105,5 +119,7 @@ internal class AskpassServer private constructor(
 
         private const val PREFIX = "sluide-askpass-"
         private const val SOCKET = "socket"
+
+        private val log: System.Logger = System.getLogger(AskpassServer::class.java.name)
     }
 }

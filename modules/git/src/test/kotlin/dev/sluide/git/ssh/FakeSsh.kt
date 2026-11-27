@@ -55,11 +55,15 @@ internal class FakeSsh(
             .redirectErrorStream(true)
             .start()
 
-    /** Runs the fake ssh to its end; its exit value. */
+    /**
+     * Runs the fake ssh to its end; its exit value. Waits 20 s at most, then kills it and fails: an askpass that never
+     * gets its reply fails the test (and a mutation run counts that as a kill, not as a timeout).
+     */
     fun run(environment: Map<String, String>): Int {
         val process = start(environment)
-        process.inputStream.readAllBytes()
-        assertTrue(process.waitFor(60, TimeUnit.SECONDS), "the fake ssh ended")
+        val ended = process.waitFor(20, TimeUnit.SECONDS)
+        if (!ended) process.descendants().forEach { it.destroyForcibly() }.also { process.destroyForcibly() }
+        assertTrue(ended, "the fake ssh ended")
         return process.exitValue()
     }
 
@@ -102,4 +106,46 @@ internal open class FakeUi(
     override fun notAddedToAgent(message: String) = Unit
 
     val calls: Int get() = passphraseRequests.size + hostRequests.size
+}
+
+/** A channel with its socket below [folder] (or [SHORT]) and the real helper installed into [folder]. */
+internal fun testChannel(folder: Path) =
+    AskpassChannel(folder, SHORT) { AskpassFiles.install(folder.resolve("helper")) }
+
+/** Records what the sessions asked [SshPassphrases] and told it. */
+internal class SpyPassphrases(
+    channel: AskpassChannel,
+) : SshPassphrases(channel) {
+    val connections = CopyOnWriteArrayList<Long>()
+    val ended = CopyOnWriteArrayList<Ended>()
+    val closed = CopyOnWriteArrayList<SessionId>()
+
+    override fun answer(
+        session: SessionId,
+        connection: Long,
+        keyFile: Path,
+        ui: SshPromptUi,
+    ): CharArray? {
+        connections += connection
+        return super.answer(session, connection, keyFile, ui)
+    }
+
+    override fun ended(
+        session: SessionId,
+        success: Boolean,
+        ui: SshPromptUi,
+    ) {
+        ended += Ended(session, success, ui)
+    }
+
+    /** One call of [ended]. */
+    data class Ended(
+        val session: SessionId,
+        val success: Boolean,
+        val ui: SshPromptUi,
+    )
+
+    override fun closed(session: SessionId) {
+        closed += session
+    }
 }

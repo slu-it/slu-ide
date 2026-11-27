@@ -3,7 +3,14 @@ package dev.sluide.git
 import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.TestRepository
 import dev.sluide.git.cli.refs
-import dev.sluide.git.cli.sshConfigured
+import dev.sluide.git.cli.sshSettings
+import dev.sluide.git.ssh.FakeSsh
+import dev.sluide.git.ssh.FakeUi
+import dev.sluide.git.ssh.SpyPassphrases
+import dev.sluide.git.ssh.SshAccess
+import dev.sluide.git.ssh.SshPrompts
+import dev.sluide.git.ssh.recordedPrompt
+import dev.sluide.git.ssh.testChannel
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -18,6 +25,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -277,6 +285,64 @@ class GitRemotesTest {
     }
 
     @Test
+    fun `with a prompting session ssh asks through the helper, and the session hears how each fetch ended`() {
+        val ssh = FakeSsh(folder)
+        val channel = testChannel(folder)
+        val passphrases = SpyPassphrases(channel)
+        val prompts = SshPrompts(channel, passphrases)
+        try {
+            val environment =
+                testGitEnvironment() + ("PATH" to "${ssh.bin}:${System.getenv("PATH")}") +
+                    ("FAKE_SSH_REPO" to upstream.toString())
+            val withFakeSsh = GitRemotes(GitCli("git", environment))
+            git("remote", "add", "server", "user@example.invalid:repo.git")
+            var connect = true
+            val ui = FakeUi(host = { connect })
+            val session = assertIs<SshAccess.Prompting>(prompts.open(repo, ui) {})
+            ssh.prompt(recordedPrompt("unknown-host.txt"))
+
+            val fetched = withFakeSsh.fetch(repo, "server", GitCancellation(), session)
+
+            assertTrue(fetched.result.success, fetched.result.message)
+            assertEquals(tip("origin/main"), tip("server/main"))
+            assertEquals(1, ui.hostRequests.size)
+            assertEquals(listOf(true), passphrases.ended.map { it.success })
+
+            connect = false
+            val refused = withFakeSsh.fetch(repo, "server", GitCancellation(), session)
+
+            assertFalse(refused.result.success)
+            assertContains(refused.result.message, "Host key verification failed.")
+            assertEquals(listOf(true, false), passphrases.ended.map { it.success }, "also a failed fetch")
+        } finally {
+            prompts.destroy()
+            channel.destroy()
+        }
+    }
+
+    @Test
+    fun `a cancel that comes after git ended keeps the fetch's result`() {
+        upstreamRepository.commit("Second")
+        val cancellation = GitCancellation()
+        // Told of the success after git ended, before the fetch looks at the cancellation.
+        val cancelling =
+            object : SshAccess.Prompting {
+                override val environment = emptyMap<String, String>()
+
+                override fun ended(success: Boolean) = cancellation.cancel()
+
+                override fun close() = Unit
+            }
+
+        val fetched = remotes.fetch(repo, "origin", cancellation, cancelling)
+
+        assertTrue(cancellation.cancelled)
+        assertFalse(fetched.cancelled)
+        assertTrue(fetched.result.success, fetched.result.message)
+        assertEquals(tip("origin/main"), runGit(upstream, "rev-parse", "HEAD"))
+    }
+
+    @Test
     fun `tells the URL of a remote`() {
         assertEquals(upstream.toString(), remotes.url(repo))
         git("remote", "add", "other", "https://example.com/other.git")
@@ -292,12 +358,12 @@ class GitRemotesTest {
 
     @Test
     fun `tells whether ssh is configured`() {
-        assertEquals(false, git.sshConfigured(repo))
+        assertEquals(false, git.sshSettings(repo)?.sshChosen)
         git("config", "ssh.variant", "simple")
-        assertEquals(true, git.sshConfigured(repo))
+        assertEquals(true, git.sshSettings(repo)?.sshChosen)
         git("config", "--unset", "ssh.variant")
         git("config", "core.sshCommand", "ssh")
-        assertEquals(true, git.sshConfigured(repo))
+        assertEquals(true, git.sshSettings(repo)?.sshChosen)
     }
 
     @Test

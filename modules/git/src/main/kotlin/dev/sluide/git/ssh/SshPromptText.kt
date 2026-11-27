@@ -8,7 +8,7 @@ import java.nio.file.Path
  * ADR 0194, `src/test/resources/ssh-askpass/README.md`).
  */
 internal sealed interface SshPrompt {
-    /** `Enter passphrase for key '<path>': `: the key's path as ssh shows it (relative, `..` kept, cut at 100 chars). */
+    /** `Enter passphrase for key '<path>': `: the path as ssh shows it (relative, `..` kept, cut at 100 chars). */
     data class KeyPassphrase(
         val keyFile: String,
     ) : SshPrompt
@@ -37,7 +37,7 @@ internal fun sshPrompt(text: String): SshPrompt {
 }
 
 /**
- * The key file ssh named as [shown] in its prompt: a relative path resolved against [root], the working directory of git
+ * The key file ssh named as [shown] in its prompt: a relative path resolved against [root], the working folder of git
  * and ssh, then normalized (ssh has expanded `~` itself); `null` if [shown] is no path.
  */
 internal fun keyFile(

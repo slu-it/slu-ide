@@ -11,7 +11,7 @@ import java.util.HexFormat
 
 /**
  * The askpass helper on disk (ADR 0194): the module jar carries `askpass.jar` and `kotlin-stdlib.jar` as resources
- * (`git-askpass/`), and ssh runs a program file: the wrapper script `askpass`, which starts them on Thoreau's own `java`.
+ * (`git-askpass/`), and ssh runs a program file: the wrapper script `askpass`, which starts them on Thoreau's `java`.
  */
 internal object AskpassFiles {
     /** The resources, in class-path order. */

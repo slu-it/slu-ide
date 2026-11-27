@@ -1,6 +1,8 @@
 package dev.sluide.git
 
+import dev.sluide.git.cli.FakePrompting
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.SESSION_LINE
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -203,7 +205,41 @@ internal class GitPushTagsTest : GitPushFixture() {
     }
 
     @Test
-    fun `a push stopped by its timeout may have reached the remote and says so`() {
+    fun `the tag push runs ssh in batch mode or with a session's variables, and the session hears how each ended`() {
+        val script = folder.resolve("fake-git")
+        val log = folder.resolve("calls.txt")
+        script.writeText(
+            FAKE_GIT_START +
+                "case \"\$*\" in *config*) exit 1;; esac\n" +
+                "echo \"\$GIT_SSH_COMMAND|\$SSH_ASKPASS \$SSH_ASKPASS_REQUIRE \$SLUIDE_ASKPASS_SOCKET " +
+                "\$SLUIDE_ASKPASS_TOKEN|\$*\" >> '$log'\n" +
+                "case \"\$*\" in *refs/tags/broken) exit 1;; esac\n",
+        )
+        script.toFile().setExecutable(true)
+        val environment = testGitEnvironment().filterKeys { !it.startsWith("SSH_ASKPASS") }
+        val fake = GitPush(GitCli(script.toString(), environment))
+        val session = FakePrompting()
+
+        fake.pushTags(repo, "origin", listOf("v1"), GitCancellation())
+        fake.pushTags(repo, "origin", listOf("v1"), GitCancellation(), ssh = session)
+        fake.pushTags(repo, "origin", listOf("broken"), GitCancellation(), ssh = session)
+
+        assertEquals(
+            listOf(
+                "ssh -o BatchMode=yes|   |push --porcelain --recurse-submodules=no --end-of-options origin " +
+                    "refs/tags/v1:refs/tags/v1",
+                "$SESSION_LINE|push --porcelain --recurse-submodules=no --end-of-options origin " +
+                    "refs/tags/v1:refs/tags/v1",
+                "$SESSION_LINE|push --porcelain --recurse-submodules=no --end-of-options origin " +
+                    "refs/tags/broken:refs/tags/broken",
+            ),
+            log.toFile().readLines(),
+        )
+        assertEquals(listOf(true, false), session.outcomes, "each push, the second exited 1")
+    }
+
+    @Test
+    fun `a push stopped by its timeout may have reached the remote and says so, and the session hears it failed`() {
         val script = folder.resolve("slow-git")
         script.writeText(
             FAKE_GIT_START +
@@ -213,7 +249,9 @@ internal class GitPushTagsTest : GitPushFixture() {
         val fake = GitCli(script.toString(), testGitEnvironment())
         assumeTrue(fake.available, "no /bin/sh to stand in for git")
 
-        val pushed = GitPush(fake).pushTags(repo, "origin", listOf("v1"), GitCancellation(), timeout = 1.seconds)
+        val session = FakePrompting()
+        val pushed =
+            GitPush(fake).pushTags(repo, "origin", listOf("v1"), GitCancellation(), timeout = 1.seconds, ssh = session)
 
         assertFalse(pushed.result.success)
         assertFalse(pushed.cancelled)
@@ -221,5 +259,6 @@ internal class GitPushTagsTest : GitPushFixture() {
             "git did not finish within 1 s.\nIt may have reached origin. Fetch to check.",
             pushed.result.message,
         )
+        assertEquals(listOf(false), session.outcomes)
     }
 }

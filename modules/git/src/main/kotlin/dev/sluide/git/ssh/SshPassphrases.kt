@@ -11,11 +11,13 @@ internal value class SessionId(
 
 /**
  * Answers ssh's passphrase prompts of the sessions of [SshPrompts] (ADR 0194). For now it asks the session's UI every
- * time and keeps nothing; keeping passphrases in memory, saving them and adding keys to the agent come next. Open for
- * the spies of the tests.
+ * time and keeps nothing; keeping passphrases in memory, saving them and adding keys to the agent (through [channel]'s
+ * [one-shot][AskpassChannel.oneShot] tokens for ssh-add) come next. Open for the spies of the tests.
  */
 @Component
-internal open class SshPassphrases {
+internal open class SshPassphrases(
+    internal val channel: AskpassChannel,
+) {
     /**
      * The passphrase of [keyFile] for the ssh process [connection] of [session], asked from [ui]; `null` for Cancel.
      * Runs on an askpass connection thread and blocks while the UI waits.
@@ -30,8 +32,17 @@ internal open class SshPassphrases {
         return ui.askPassphrase(request)?.passphrase
     }
 
-    /** A git process of [session] exited 0: the passphrases it was given are good. */
-    open fun succeeded(session: SessionId) = Unit
+    /**
+     * A git process of [session] ended, with exit 0 if [success]: the passphrases given since the previous end belong
+     * to it and are good only if it succeeded. [ui] is the session's, for [SshPromptUi.notSaved] and
+     * [SshPromptUi.notAddedToAgent]. Known limit: ssh may give up on a key after three wrong answers and log in with
+     * another identity; the process succeeds, and that key's last (wrong) answer counts as good.
+     */
+    open fun ended(
+        session: SessionId,
+        success: Boolean,
+        ui: SshPromptUi,
+    ) = Unit
 
     /** [session] ended. */
     open fun closed(session: SessionId) = Unit

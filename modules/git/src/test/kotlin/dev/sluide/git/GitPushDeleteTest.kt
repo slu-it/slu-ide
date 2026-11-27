@@ -1,6 +1,8 @@
 package dev.sluide.git
 
+import dev.sluide.git.cli.FakePrompting
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.SESSION_LINE
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
@@ -215,14 +217,18 @@ internal class GitPushDeleteTest : GitPushFixture() {
         script.writeText(
             FAKE_GIT_START +
                 "case \"\$*\" in *config*) exit 1;; esac\n" +
-                "echo \"\$GIT_SSH_COMMAND|\$*\" >> '$log'\n" +
+                "echo \"\$GIT_SSH_COMMAND\${SSH_ASKPASS:+|\$SSH_ASKPASS \$SSH_ASKPASS_REQUIRE " +
+                "\$SLUIDE_ASKPASS_SOCKET " +
+                "\$SLUIDE_ASKPASS_TOKEN}|\$*\" >> '$log'\n" +
                 "case \"\$1\" in remote) echo '$pushUrl'; exit 0;; ls-remote) $lsRemote;; esac\n" +
                 "sleep $pushDelay\n" +
                 "printf 'To server\\n!\\t(delete):refs/heads/fix\\t[rejected] (stale info)\\n" +
                 "-\\t:refs/tags/v1\\t[deleted]\\nDone\\n'\nexit 1\n",
         )
         script.toFile().setExecutable(true)
-        return GitCli(script.toString(), System.getenv().filterKeys { !it.startsWith("GIT_") })
+        // Without an SSH_ASKPASS of the user's desktop, which the log would show.
+        val environment = System.getenv().filterKeys { !it.startsWith("GIT_") && !it.startsWith("SSH_ASKPASS") }
+        return GitCli(script.toString(), environment)
     }
 
     @Test
@@ -259,6 +265,35 @@ internal class GitPushDeleteTest : GitPushFixture() {
         )
         assertFalse(deleted.result.success)
         assertFalse(deleted.cancelled)
+    }
+
+    @Test
+    fun `a prompting session reaches the push and ls-remote, and hears how each of them ended`() {
+        val log = folder.resolve("calls.txt")
+        val fake = deletingGit(log, lsRemote = "exit 0")
+        assumeTrue(fake.available, "no /bin/sh to stand in for git")
+        val session = FakePrompting()
+        val expected = "a".repeat(40)
+
+        GitPush(fake).deleteRemoteRefs(
+            repo,
+            "origin",
+            listOf(GitRemoteDeletion("refs/heads/fix", expected)),
+            GitCancellation(),
+            ssh = session,
+        )
+
+        assertEquals(
+            listOf(
+                "$SESSION_LINE|push --porcelain --recurse-submodules=no " +
+                    "--force-with-lease=refs/heads/fix:$expected --end-of-options origin :refs/heads/fix",
+                "|remote get-url --push --end-of-options origin",
+                "$SESSION_LINE|ls-remote --end-of-options ssh://push.example/repo.git " +
+                    "refs/heads/fix",
+            ),
+            log.toFile().readLines(),
+        )
+        assertEquals(listOf(false, true), session.outcomes, "the push exited 1, the ls-remote 0")
     }
 
     @Test

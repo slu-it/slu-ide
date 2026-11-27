@@ -3,16 +3,17 @@ package dev.sluide.git
 import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.comparisonCounts
 import dev.sluide.git.cli.configValues
-import dev.sluide.git.cli.fetchEnvironment
 import dev.sluide.git.cli.headCommit
 import dev.sluide.git.cli.lastOutgoing
 import dev.sluide.git.cli.log
 import dev.sluide.git.cli.mergeBase
 import dev.sluide.git.cli.refTips
 import dev.sluide.git.cli.refusal
+import dev.sluide.git.cli.remoteEnvironment
 import dev.sluide.git.cli.remoteNames
-import dev.sluide.git.cli.sshConfigured
+import dev.sluide.git.cli.sshEnvironment
 import dev.sluide.git.cli.status
+import dev.sluide.git.cli.writeRemote
 import dev.sluide.git.parse.GitLogParser
 import dev.sluide.git.parse.RefspecDestination
 import dev.sluide.git.parse.deletionStatus
@@ -20,6 +21,7 @@ import dev.sluide.git.parse.pushStatus
 import dev.sluide.git.parse.reason
 import dev.sluide.git.parse.refspecDestinations
 import dev.sluide.git.parse.rejection
+import dev.sluide.git.ssh.SshAccess
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 import kotlin.time.Duration
@@ -28,9 +30,10 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Pushes a branch, tells what a push would send (ADR 0049), deletes refs on a remote (ADR 0078) and pushes tags
- * (ADR 0173) with the git command line. A push runs as a fetch does (ADR 0043): git never asks for anything
- * ([fetchEnvironment]), it stops after 10 minutes or on a cancel, and names that cannot be passed to git ([refusal])
- * fail without running it. Runs git on the calling thread.
+ * (ADR 0173) with the git command line. A push runs as a fetch does (ADR 0043): git never asks on a terminal, and ssh
+ * asks only through a [Prompting][SshAccess.Prompting] session given as `ssh` (ADR 0194; [sshEnvironment]), which hears
+ * how each git process ended; it stops after 10 minutes or on a cancel, and names that cannot be passed to git
+ * ([refusal]) fail without running it. Runs git on the calling thread.
  */
 @Component
 class GitPush(
@@ -253,6 +256,7 @@ class GitPush(
         setUpstream: Boolean,
         cancellation: GitCancellation,
         timeout: Duration = GitCli.FETCH_TIMEOUT,
+        ssh: SshAccess = SshAccess.Batch,
     ): GitPushResult {
         val checked = listOfNotNull(remote, branch, target, expected.takeIf { force })
         checked.firstNotNullOfOrNull { refusal(it) }?.let { return GitPushResult(GitResult(false, it)) }
@@ -267,15 +271,7 @@ class GitPush(
                 if (force) add("--force-with-lease=$HEADS$target:${expected.orEmpty()}")
                 addAll(listOf("--end-of-options", remote, "$HEADS$branch:$HEADS$target"))
             }
-        val environment = fetchEnvironment(git.environment, git.sshConfigured(root) == true)
-        val written =
-            git.writeWithOutput(
-                root,
-                arguments,
-                timeout = timeout,
-                environment = environment,
-                cancellation = cancellation,
-            )
+        val written = git.writeRemote(root, arguments, ssh, cancellation, timeout)
         if (written.exitValue == null && cancellation.cancelled) {
             return GitPushResult(GitResult(false, GitCli.CANCELLED), cancelled = true)
         }
@@ -309,14 +305,14 @@ class GitPush(
     /**
      * Deletes the [refs] on [remote] in one push (ADR 0078): `git push --porcelain --recurse-submodules=no
      * [--force-with-lease=<ref>:<expected>…] --end-of-options <remote> :<ref>…`, with the environment and the limits of
-     * [push]: git never asks, it stops after the [timeout] or on a [cancellation], and names that cannot be passed to
-     * git ([refusal]), refs not below `refs/` and an expected value that is no full hash fail without running it. A
-     * branch is deleted only if the remote has it at its [GitRemoteDeletion.expected] commit (the lease); a tag has no
-     * lease, and one the remote does not have counts as deleted, as git reports it. The refs are deleted one by one, so
-     * some may be and others not: the result tells for each ref what became of it, read from git's report. Git reports
-     * a failed lease alike for a branch that moved and one that is gone; only for those `git ls-remote` asks the push
-     * URL of the remote which it is (with the same environment and cancellation, in the time left of the [timeout], which
-     * covers both), and if that fails, it stays open.
+     * [push]: ssh asks only through [ssh], it stops after the [timeout] or on a [cancellation], and names that cannot
+     * be passed to git ([refusal]), refs not below `refs/` and an expected value that is no full hash fail without
+     * running it. A branch is deleted only if the remote has it at its [GitRemoteDeletion.expected] commit (the lease);
+     * a tag has no lease, and one the remote does not have counts as deleted, as git reports it. The refs are deleted
+     * one by one, so some may be and others not: the result tells for each ref what became of it, read from git's
+     * report. Git reports a failed lease alike for a branch that moved and one that is gone; only for those
+     * `git ls-remote` asks the push URL of the remote which it is (with the same environment and cancellation, in the
+     * time left of the [timeout], which covers both), and if that fails, it stays open.
      */
     fun deleteRemoteRefs(
         root: Path,
@@ -324,6 +320,7 @@ class GitPush(
         refs: List<GitRemoteDeletion>,
         cancellation: GitCancellation,
         timeout: Duration = GitCli.FETCH_TIMEOUT,
+        ssh: SshAccess = SshAccess.Batch,
     ): GitRemoteDeletionResult {
         require(refs.isNotEmpty()) { "nothing to delete" }
         val names = listOf(remote) + refs.map { it.ref } + refs.mapNotNull { it.expected }
@@ -343,15 +340,8 @@ class GitPush(
                 addAll(listOf("--end-of-options", remote))
                 refs.forEach { add(":${it.ref}") }
             }
-        val environment = fetchEnvironment(git.environment, git.sshConfigured(root) == true)
-        val written =
-            git.writeWithOutput(
-                root,
-                arguments,
-                timeout = timeout,
-                environment = environment,
-                cancellation = cancellation,
-            )
+        val environment = git.remoteEnvironment(root, ssh)
+        val written = git.writeRemote(root, arguments, ssh, cancellation, timeout, environment)
         if (written.exitValue == null && cancellation.cancelled) {
             return GitRemoteDeletionResult(GitResult(false, GitCli.CANCELLED), cancelled = true)
         }
@@ -377,7 +367,7 @@ class GitPush(
         if (stale.isNotEmpty()) {
             // Within the one timeout of the whole deletion.
             val left = timeout - (System.nanoTime() - started).nanoseconds
-            val existing = remoteRefs(root, remote, stale.toList(), environment, cancellation, left)
+            val existing = remoteRefs(root, remote, stale.toList(), environment, ssh, cancellation, left)
             for (ref in stale) {
                 val outcome =
                     when {
@@ -396,13 +386,12 @@ class GitPush(
     }
 
     /**
-     * Pushes the [tags] (short names) to [remote] in one push (ADR 0173): `git push --porcelain
-     * --recurse-submodules=no --end-of-options <remote> refs/tags/<t>:refs/tags/<t>…`, never forced, with the
-     * environment and the limits of [push]: git never asks, it stops after the [timeout] or on a [cancellation]
-     * (either may have reached the remote all the same: the message says so), and names that cannot be passed to git
-     * ([refusal]) fail without running it. Git pushes each tag on its own, so some may be sent and others refused; the
-     * result tells for each tag what git reported (verified with git 2.47.3, tab separated, the same for a lightweight and
-     * an annotated tag):
+     * Pushes the [tags] (short names) to [remote] in one push (ADR 0173): `git push --porcelain --recurse-submodules=no
+     * --end-of-options <remote> refs/tags/<t>:refs/tags/<t>…`, never forced, with the environment and the limits of
+     * [push]: ssh asks only through [ssh], it stops after the [timeout] or on a [cancellation] (either may have reached
+     * the remote all the same: the message says so), and names that cannot be passed to git ([refusal]) fail without
+     * running it. Git pushes each tag on its own, so some may be sent and others refused; the result tells for each tag
+     * what git reported (verified with git 2.47.3, tab separated, the same for a lightweight and an annotated tag):
      *
      * | case | porcelain line | exit |
      * |---|---|---|
@@ -419,6 +408,7 @@ class GitPush(
         tags: List<String>,
         cancellation: GitCancellation,
         timeout: Duration = GitCli.FETCH_TIMEOUT,
+        ssh: SshAccess = SshAccess.Batch,
     ): GitTagPushResult {
         require(tags.isNotEmpty()) { "no tags to push" }
         val names = listOf(remote) + tags
@@ -433,15 +423,7 @@ class GitPush(
                 addAll(listOf("push", "--porcelain", "--recurse-submodules=no", "--end-of-options", remote))
                 tags.distinct().forEach { add("$TAGS$it:$TAGS$it") }
             }
-        val environment = fetchEnvironment(git.environment, git.sshConfigured(root) == true)
-        val written =
-            git.writeWithOutput(
-                root,
-                arguments,
-                timeout = timeout,
-                environment = environment,
-                cancellation = cancellation,
-            )
+        val written = git.writeRemote(root, arguments, ssh, cancellation, timeout)
         if (written.exitValue == null && cancellation.cancelled) {
             return GitTagPushResult(GitResult(false, GitCli.CANCELLED), cancelled = true)
         }
@@ -485,6 +467,7 @@ class GitPush(
         remote: String,
         refs: List<String>,
         environment: Map<String, String>,
+        ssh: SshAccess,
         cancellation: GitCancellation,
         timeout: Duration,
     ): Set<String>? {
@@ -501,14 +484,8 @@ class GitPush(
                 ?.trim()
                 ?.takeIf { refusal(it) == null }
                 ?: return null
-        val listed =
-            git.writeWithOutput(
-                root,
-                listOf("ls-remote", "--end-of-options", url) + refs,
-                timeout = timeout,
-                environment = environment,
-                cancellation = cancellation,
-            )
+        val arguments = listOf("ls-remote", "--end-of-options", url) + refs
+        val listed = git.writeRemote(root, arguments, ssh, cancellation, timeout, environment)
         if (!listed.result.success) return null
         // Patterns match the end of a name: only the exact names count.
         return listed.output

@@ -15,8 +15,11 @@ sealed interface SshAccess {
         /** Added to git's environment of each call of the session. */
         val environment: Map<String, String>
 
-        /** A git process of this session exited 0: the answers it was given count as good. */
-        fun succeeded()
+        /**
+         * A git process of this session ended, with exit 0 if [success]: the answers given since the previous end
+         * belong to it, and count as good only if it succeeded.
+         */
+        fun ended(success: Boolean)
 
         /** Ends the session; threads waiting on the session's UI are interrupted, their prompts get no answer. */
         override fun close()

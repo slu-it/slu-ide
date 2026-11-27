@@ -3,7 +3,6 @@ package dev.sluide.git
 import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.configMatching
 import dev.sluide.git.cli.configValues
-import dev.sluide.git.cli.fetchEnvironment
 import dev.sluide.git.cli.refTips
 import dev.sluide.git.cli.refspecsFollowRename
 import dev.sluide.git.cli.refusal
@@ -11,10 +10,12 @@ import dev.sluide.git.cli.remoteNames
 import dev.sluide.git.cli.remoteRefNames
 import dev.sluide.git.cli.remotesSkippedByFetchAll
 import dev.sluide.git.cli.removedRefs
-import dev.sluide.git.cli.sshConfigured
+import dev.sluide.git.cli.sshEnvironment
 import dev.sluide.git.cli.unsetPushUrls
+import dev.sluide.git.cli.writeRemote
 import dev.sluide.git.parse.RefspecDestination
 import dev.sluide.git.parse.refspecDestinations
+import dev.sluide.git.ssh.SshAccess
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 
@@ -23,8 +24,8 @@ import java.nio.file.Path
  * `git fetch --prune --recurse-submodules=no --end-of-options <remote>`, or `--no-prune` for a remote whose fetch
  * refspecs write outside `refs/remotes/`. Tags are fetched as git does by default (those pointing into the fetched
  * history); local tags are pruned only with the user's `fetch.pruneTags` or `remote.<name>.pruneTags`. Git never asks
- * for anything: `GIT_TERMINAL_PROMPT=0`, and ssh runs in batch mode unless the user chose how git runs ssh
- * ([fetchEnvironment]).
+ * on a terminal: `GIT_TERMINAL_PROMPT=0`, and ssh runs in batch mode unless the user chose how git runs ssh, or asks
+ * through Thoreau's dialogs with a session of [dev.sluide.git.ssh.SshPrompts] ([sshEnvironment]).
  * Runs git on the calling thread.
  */
 @Component
@@ -211,29 +212,26 @@ class GitRemotes(
      * fetched to itself) or any refspec into `refs/heads/` or `refs/tags/`, the local branches and tags the remote does
      * not have (checked with git 2.53). Such a remote, or one whose refspecs cannot be read, is fetched with
      * `--no-prune`, also against the user's `fetch.prune`; the result says it was not [pruned][GitFetchResult.pruned].
+     *
+     * With a [Prompting][SshAccess.Prompting] session as [ssh], ssh asks its questions through the session (ADR 0194),
+     * which hears how the fetch ended; else it runs in batch mode ([sshEnvironment]).
      */
     fun fetch(
         root: Path,
         remote: String,
         cancellation: GitCancellation,
+        ssh: SshAccess = SshAccess.Batch,
     ): GitFetchResult {
         refusal(remote)?.let { return GitFetchResult(GitResult(false, it)) }
         if (cancellation.cancelled) return GitFetchResult(GitResult(false, GitCli.CANCELLED), cancelled = true)
         val destinations = git.configValues(root, "remote.$remote.fetch")?.let(::refspecDestinations)
         val before = destinations?.let { snapshot(root, remote, it) }
-        val environment = fetchEnvironment(git.environment, git.sshConfigured(root) == true)
         val pruned = destinations != null && destinations.all { it.prefix.startsWith("refs/remotes/") }
         val prune = if (pruned) "--prune" else "--no-prune"
         val arguments = listOf("fetch", prune, "--recurse-submodules=no", "--end-of-options", remote)
-        val (result, exitValue) =
-            git.writeWithExit(
-                root,
-                arguments,
-                timeout = GitCli.FETCH_TIMEOUT,
-                environment = environment,
-                cancellation = cancellation,
-            )
-        val cancelled = exitValue == null && cancellation.cancelled
+        val written = git.writeRemote(root, arguments, ssh, cancellation, GitCli.FETCH_TIMEOUT)
+        val result = written.result
+        val cancelled = written.exitValue == null && cancellation.cancelled
         val after = if (before == null || destinations == null) null else snapshot(root, remote, destinations)
         val changes = if (before != null && after != null) fetchChanges(before, after) else null
         val outcome = if (cancelled) GitResult(false, GitCli.CANCELLED) else result

@@ -23,8 +23,9 @@ interface SshPromptUi {
 }
 
 /**
- * ssh asks for the passphrase of [keyFile] (absolute, normalized). [notice] says why it asks again; [saveUnavailable] and
- * [agentUnavailable] are the reasons why "Save passphrase" or "Add to ssh agent" cannot be checked (`null`: they can).
+ * ssh asks for the passphrase of [keyFile] (absolute, normalized). [notice] says why it asks again. [saveUnavailable]
+ * and [agentUnavailable] are the reasons why "Save passphrase" or "Add to ssh agent" cannot be checked (`null`: they
+ * can).
  */
 data class PassphraseRequest(
     val keyFile: Path,

@@ -161,19 +161,46 @@ internal fun GitCli.gitlinks(root: Path): List<String>? {
 }
 
 /**
- * Whether the user configured how git runs ssh in the repository at [root]: `core.sshCommand` or `ssh.variant`
- * (also given in the environment, `GIT_CONFIG_PARAMETERS`); `null` if git is not available, fails or takes longer
- * than 3 s.
+ * What the user configured in the repository at [root] (also given in the environment, `GIT_CONFIG_PARAMETERS`) about
+ * how git runs ssh and asks for credentials ([SshSettings]), read with one `git config --get-regexp`; `null` if git
+ * is not available, fails or takes longer than 3 s.
  */
-internal fun GitCli.sshConfigured(root: Path): Boolean? {
+internal fun GitCli.sshSettings(root: Path): SshSettings? {
     if (!available) return null
-    val arguments = listOf("--no-optional-locks", "config", "--get-regexp", "^(core\\.sshcommand|ssh\\.variant)$")
-    return when (execute(arguments, root, 3.seconds, null, write = false)?.exitValue) {
-        0 -> true
-        1 -> false
-        else -> null
-    }
+    val pattern = "^(core\\.sshcommand|ssh\\.variant|core\\.askpass)$"
+    val arguments = listOf("--no-optional-locks", "config", "-z", "--name-only", "--get-regexp", pattern)
+    val execution = execute(arguments, root, 3.seconds, null, write = false) ?: return null
+    // Names only (lower case), each ended by NUL; exit 1: none is set.
+    val names =
+        when (execution.exitValue) {
+            0 -> {
+                execution.output
+                    .toString(Charsets.UTF_8)
+                    .split('\u0000')
+                    .toSet()
+            }
+
+            1 -> {
+                emptySet()
+            }
+
+            else -> {
+                return null
+            }
+        }
+    return SshSettings(sshChosen = names.any { it != ASKPASS && it.isNotEmpty() }, askPass = ASKPASS in names)
 }
+
+private const val ASKPASS = "core.askpass"
+
+/**
+ * What [GitCli.sshSettings] read: whether the user chose how git runs ssh ([sshChosen]: `core.sshCommand` or
+ * `ssh.variant`), and whether `core.askPass` is set ([askPass], also when empty, which git then runs no askpass for).
+ */
+internal data class SshSettings(
+    val sshChosen: Boolean,
+    val askPass: Boolean,
+)
 
 /**
  * One entry of git's configuration ([GitCli.configEntries]): its [scope] (`system`, `global`, `local`, `worktree`,

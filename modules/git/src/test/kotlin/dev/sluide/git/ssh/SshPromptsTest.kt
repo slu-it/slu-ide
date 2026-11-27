@@ -1,5 +1,6 @@
 package dev.sluide.git.ssh
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.testsupport.LogCapture
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
@@ -11,6 +12,7 @@ import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -35,44 +37,25 @@ class SshPromptsTest {
 
     private val root by lazy { folder.resolve("repo").createDirectories() }
     private val ssh by lazy { FakeSsh(folder) }
-    private val passphrases = SpyPassphrases()
-    private val prompts by lazy { prompts() }
+    private val channel by lazy { testChannel(folder) }
+    private val passphrases by lazy { SpyPassphrases(channel) }
+    private val prompts by lazy { SshPrompts(channel, passphrases) }
 
-    private fun prompts(temporaryFolder: Path = folder) =
-        SshPrompts(passphrases, temporaryFolder, folder) { AskpassFiles.install(folder.resolve("helper")) }
+    /** What fails on a connection thread is logged there; a prompt must end in a reply, never in such a failure. */
+    private val failures = LogCapture(NamedThreads::class.java.name)
 
     @AfterEach
-    fun stop() = prompts.destroy()
+    fun stop() {
+        prompts.destroy()
+        channel.destroy()
+        failures.close()
+        assertEquals(emptyList(), failures.messages(), "no connection thread failed")
+    }
 
     private fun open(
         ui: SshPromptUi,
         onCancel: () -> Unit = {},
     ) = assertIs<SshAccess.Prompting>(prompts.open(root, ui, onCancel))
-
-    /** Records what the session asked [SshPassphrases] and told it. */
-    private class SpyPassphrases : SshPassphrases() {
-        val connections = CopyOnWriteArrayList<Long>()
-        val succeeded = CopyOnWriteArrayList<SessionId>()
-        val closed = CopyOnWriteArrayList<SessionId>()
-
-        override fun answer(
-            session: SessionId,
-            connection: Long,
-            keyFile: Path,
-            ui: SshPromptUi,
-        ): CharArray? {
-            connections += connection
-            return super.answer(session, connection, keyFile, ui)
-        }
-
-        override fun succeeded(session: SessionId) {
-            succeeded += session
-        }
-
-        override fun closed(session: SessionId) {
-            closed += session
-        }
-    }
 
     @Test
     fun `a passphrase reaches ssh byte for byte, asked for the key in the repository, and the array is zeroed`() {
@@ -189,12 +172,12 @@ class SshPromptsTest {
         val session = open(ui) { cancels.incrementAndGet() }
         ssh.prompt(recordedPrompt("unknown-host.txt"))
         val process = ssh.start(session.environment)
-        assertTrue(entered.await(60, TimeUnit.SECONDS), "the UI was asked")
+        assertTrue(entered.await(20, TimeUnit.SECONDS), "the UI was asked")
 
         session.close()
         session.close()
 
-        assertTrue(process.waitFor(30, TimeUnit.SECONDS))
+        assertTrue(process.waitFor(20, TimeUnit.SECONDS))
         assertTrue(interrupted.get(), "the UI's thread was interrupted")
         assertEquals(1, ssh.askpassExit)
         assertEquals(0, cancels.get(), "no cancel: the operation ended anyway")
@@ -211,7 +194,7 @@ class SshPromptsTest {
         val both = CountDownLatch(2)
         val waiting = {
             both.countDown()
-            both.await(60, TimeUnit.SECONDS)
+            both.await(20, TimeUnit.SECONDS)
         }
         val connecting = FakeUi(host = { waiting().also { assertTrue(it) } })
         val refusing = FakeUi(host = { !waiting() })
@@ -223,10 +206,14 @@ class SshPromptsTest {
         ssh.prompt(recordedPrompt("unknown-host.txt"))
         otherSsh.prompt(recordedPrompt("unknown-host.txt"))
 
-        val running = CompletableFuture.supplyAsync { ssh.run(first.environment) }
+        val running =
+            CompletableFuture.supplyAsync(
+                { ssh.run(first.environment) },
+                Executors.newVirtualThreadPerTaskExecutor(),
+            )
         val otherExit = otherSsh.run(second.environment)
 
-        assertEquals(0, running.get(60, TimeUnit.SECONDS))
+        assertEquals(0, running.get(25, TimeUnit.SECONDS))
         assertEquals(255, otherExit)
         assertContentEquals("yes\n".toByteArray(), ssh.answer)
         assertEquals(1, otherSsh.askpassExit)
@@ -250,66 +237,49 @@ class SshPromptsTest {
         val socket = Path.of(environment.getValue("SLUIDE_ASKPASS_SOCKET"))
         assertTrue(socket.exists())
         assertEquals("rwx------", PosixFilePermissions.toString(Files.getPosixFilePermissions(socket.parent)))
-        assertEquals(folder, socket.parent.parent)
         assertTrue(Regex("[0-9a-f]{64}").matches(environment.getValue("SLUIDE_ASKPASS_TOKEN")))
         assertEquals(socket, Path.of(open(FakeUi()).environment.getValue("SLUIDE_ASKPASS_SOCKET")), "one server")
     }
 
     @Test
-    fun `succeeded and close reach the passphrases with the session`() {
-        val first = open(FakeUi())
+    fun `each end of a git process and the close reach the passphrases with the session and its UI`() {
+        val ui = FakeUi()
+        val first = open(ui)
         val second = open(FakeUi())
 
-        first.succeeded()
+        first.ended(true)
+        first.ended(false)
         second.close()
 
-        assertEquals(1, passphrases.succeeded.size)
-        assertEquals(1, passphrases.closed.size)
-        assertNotEquals(passphrases.succeeded.single(), passphrases.closed.single())
+        assertEquals(listOf(true, false), passphrases.ended.map { it.success })
+        assertEquals(listOf(ui, ui), passphrases.ended.map { it.ui })
+        assertEquals(
+            1,
+            passphrases.ended
+                .map { it.session }
+                .distinct()
+                .size,
+        )
+        assertNotEquals(passphrases.ended.first().session, passphrases.closed.single())
     }
 
     @Test
-    fun `a socket path too long for macOS goes into the short folder`() {
-        val deep = folder.resolve("d".repeat(90)).createDirectories()
-        val long = SshPrompts(passphrases, deep, folder) { AskpassFiles.install(folder.resolve("helper")) }
-        try {
-            val session = assertIs<SshAccess.Prompting>(long.open(root, FakeUi(host = { true })) {})
-            val socket = Path.of(session.environment.getValue("SLUIDE_ASKPASS_SOCKET"))
-
-            assertEquals(folder, socket.parent.parent)
-            assertTrue(socket.toString().toByteArray().size <= 100)
-            assertEquals(emptyList(), Files.list(deep).use { it.toList() }, "nothing left in the long folder")
-            ssh.prompt(recordedPrompt("unknown-host.txt"))
-            assertEquals(0, ssh.run(session.environment))
-        } finally {
-            long.destroy()
-        }
-    }
-
-    @Test
-    fun `a server that cannot start leaves ssh in batch mode, logged once with the exception's class only`() {
+    fun `an unavailable channel leaves ssh in batch mode`() {
         val file = folder.resolve("not-a-folder").also { it.writeText("") }
-        val failing = prompts(temporaryFolder = file)
+        val unavailable = AskpassChannel(file, file) { AskpassFiles.install(folder.resolve("helper")) }
 
-        LogCapture(SshPrompts::class.java.name).use { log ->
-            assertEquals(SshAccess.Batch, failing.open(root, FakeUi()) {})
-            assertEquals(SshAccess.Batch, failing.open(root, FakeUi()) {})
-
-            val line = log.messages().single()
-            assertTrue(Regex("\\(java\\.nio\\.file\\.\\w*Exception\\)").containsMatchIn(line), line)
-            assertFalse(file.toString() in line, line)
-        }
+        assertEquals(SshAccess.Batch, SshPrompts(unavailable, passphrases).open(root, FakeUi()) {})
     }
 
     @Test
-    fun `stopping closes the sessions and removes the socket, later sessions are batch`() {
-        val session = open(FakeUi())
-        val socket = Path.of(session.environment.getValue("SLUIDE_ASKPASS_SOCKET"))
+    fun `stopping closes the sessions and unregisters their tokens`() {
+        open(FakeUi())
+        open(FakeUi())
 
         prompts.destroy()
 
-        assertEquals(1, passphrases.closed.size)
-        assertFalse(socket.parent.exists())
-        assertEquals(SshAccess.Batch, prompts.open(root, FakeUi()) {})
+        assertEquals(2, passphrases.closed.size)
+        assertEquals(0, prompts.openSessions)
+        assertEquals(0, channel.registered)
     }
 }

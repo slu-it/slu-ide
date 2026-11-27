@@ -2,6 +2,7 @@ package dev.sluide.git.ssh
 
 import dev.sluide.git.askpass.Askpass
 import dev.sluide.git.askpass.AskpassRequest
+import dev.sluide.testsupport.LogCapture
 import org.junit.jupiter.api.io.TempDir
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -12,8 +13,10 @@ import java.nio.channels.SocketChannel
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.test.Test
@@ -96,6 +99,51 @@ class AskpassServerTest {
                 assertContentEquals(byteArrayOf(0), reply, "\"none\", not a closed connection")
                 assertEquals(1, handled.size, "only the request")
             }
+    }
+
+    @Test
+    fun `a failing accept stops the server once, logged with its class, and a waiting helper gets no answer`() {
+        val failing = CountDownLatch(1)
+        val failures = AtomicInteger()
+        LogCapture(AskpassServer::class.java.name).use { log ->
+            val server =
+                AskpassServer.start(
+                    folder,
+                    SHORT,
+                    accept = {
+                        failing.await()
+                        throw IOException("Too many open files")
+                    },
+                    onFailure = { failures.incrementAndGet() },
+                ) { "yes".toByteArray() }
+            // A helper has connected into the backlog, which nobody accepts, and waits for its reply.
+            val client = SocketChannel.open(UnixDomainSocketAddress.of(server.socket))
+            val thread = Executors.newVirtualThreadPerTaskExecutor()
+            try {
+                val reading =
+                    thread.submit<Int> {
+                        try {
+                            Channels.newInputStream(client).read()
+                        } catch (_: IOException) {
+                            -1
+                        }
+                    }
+
+                failing.countDown()
+
+                assertEquals(-1, reading.get(10, TimeUnit.SECONDS), "the waiting helper's connection ends, no reply")
+            } finally {
+                thread.shutdownNow()
+                client.close()
+            }
+            server.acceptor.join(5_000)
+            assertEquals(1, failures.get())
+            assertFalse(server.socket.parent.exists(), "the socket is gone")
+            assertEquals(
+                listOf("java.io.IOException"),
+                log.messages().map { it.substringAfter('(').substringBefore(')') },
+            )
+        }
     }
 
     @Test

@@ -1,7 +1,8 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
-import dev.sluide.git.cli.fetchEnvironment
+import dev.sluide.git.cli.SshSettings
+import dev.sluide.git.cli.sshEnvironment
 import dev.sluide.git.remote.CANCELLED
 import dev.sluide.git.remote.RemoteRefStore
 import dev.sluide.git.remote.RepositoryLocks
@@ -13,6 +14,7 @@ import dev.sluide.git.remote.pathRefusal
 import dev.sluide.git.remote.refRefusal
 import dev.sluide.git.remote.remoteFailure
 import dev.sluide.git.remote.repositoryRefusal
+import dev.sluide.git.ssh.SshAccess
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.io.IOException
@@ -394,7 +396,7 @@ class RemoteSourceCache internal constructor(
             } else {
                 val allowed = if (allowFileUrls) "https:ssh:file" else "https:ssh"
                 LOCAL_ENVIRONMENT + NETWORK_ENVIRONMENT + ("GIT_ALLOW_PROTOCOL" to allowed) +
-                    fetchEnvironment(git.environment, sshConfigured = false)
+                    sshEnvironment(git.environment, SshSettings(sshChosen = false, askPass = false), SshAccess.Batch)
             }
         val options = listOf("--git-dir=$directory") + protocols
         val timeout = if (url != null) networkTimeout else localTimeout
