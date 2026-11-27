@@ -180,8 +180,10 @@ class FxSshPromptUiTest {
         later.forEach(Runnable::run)
         assertEquals(
             listOf(
-                "Passphrase Not Saved: needs secret-tool",
-                "Key Not Added to SSH Agent: Could not open a connection to your authentication agent.",
+                "Passphrase Not Saved: The passphrase stays in memory until Thoreau quits, but could not be saved: " +
+                    "needs secret-tool",
+                "Key Not Added to SSH Agent: The key was not added to the ssh agent: " +
+                    "Could not open a connection to your authentication agent.",
             ),
             infos,
         )

@@ -64,9 +64,14 @@ internal class FxSshPromptUi(
     override fun confirmHost(request: HostKeyRequest): Boolean =
         ask { window, line -> hostDialog(request, line, window) } == true
 
-    override fun notSaved(reason: String) = tell("Passphrase Not Saved", reason)
+    override fun notSaved(reason: String) =
+        tell(
+            "Passphrase Not Saved",
+            "The passphrase stays in memory until Thoreau quits, but could not be saved: $reason",
+        )
 
-    override fun notAddedToAgent(message: String) = tell("Key Not Added to SSH Agent", message)
+    override fun notAddedToAgent(message: String) =
+        tell("Key Not Added to SSH Agent", "The key was not added to the ssh agent: $message")
 
     private fun tell(
         title: String,

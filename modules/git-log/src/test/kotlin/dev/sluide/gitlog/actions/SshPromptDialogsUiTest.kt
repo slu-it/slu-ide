@@ -284,7 +284,10 @@ class SshPromptDialogsUiTest {
         ui().notSaved("needs secret-tool")
         val saved = dialogPane(robot)
         assertEquals("Passphrase Not Saved", (saved.scene.window as Stage).title)
-        assertEquals("needs secret-tool", saved.contentText)
+        assertEquals(
+            "The passphrase stays in memory until Thoreau quits, but could not be saved: needs secret-tool",
+            saved.contentText,
+        )
         assertNull(saved.headerText, "no default header such as Message")
         assertSame(stage, (saved.scene.window as Stage).owner)
         robot.interact { button(saved, ButtonType.OK).fire() }
@@ -292,7 +295,10 @@ class SshPromptDialogsUiTest {
         ui().notAddedToAgent("Could not open a connection to your authentication agent.")
         val added = dialogPane(robot)
         assertEquals("Key Not Added to SSH Agent", (added.scene.window as Stage).title)
-        assertEquals("Could not open a connection to your authentication agent.", added.contentText)
+        assertEquals(
+            "The key was not added to the ssh agent: Could not open a connection to your authentication agent.",
+            added.contentText,
+        )
         assertNull(added.headerText, "no default header such as Message")
         robot.interact { button(added, ButtonType.OK).fire() }
     }
