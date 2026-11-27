@@ -7,6 +7,11 @@ import dev.sluide.git.GitMergeMode
 import dev.sluide.git.GitMergeResult
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
+import dev.sluide.git.ssh.HostKeyRequest
+import dev.sluide.git.ssh.PassphraseReply
+import dev.sluide.git.ssh.PassphraseRequest
+import dev.sluide.git.ssh.SshAccess
+import dev.sluide.git.ssh.SshPromptUi
 import dev.sluide.gitlog.data.FakeWrites
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
@@ -14,6 +19,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** The background tasks of a [RefWriter] (ADR 0061) and what it tells about its writes (ADR 0062). */
@@ -26,11 +32,54 @@ class RefWriterTest {
 
     /** What the writer told about its writes' start and end, with what it handled, in order. */
     private val signals = mutableListOf<String>()
+    private val outcomes = mutableListOf<RefOutcome>()
+
+    private val ui =
+        object : SshPromptUi {
+            override fun askPassphrase(request: PassphraseRequest): PassphraseReply? = null
+
+            override fun confirmHost(request: HostKeyRequest) = false
+
+            override fun notSaved(reason: String) = Unit
+
+            override fun notAddedToAgent(message: String) = Unit
+        }
+
+    /** A session of the fake `SshPrompts`; [closed] counts its `close()`. */
+    private inner class FakeSession(
+        val root: Path,
+        val ui: SshPromptUi,
+        val onCancel: () -> Unit,
+    ) : SshAccess.Prompting {
+        var closed = 0
+        override val environment = emptyMap<String, String>()
+
+        override fun ended(success: Boolean) = Unit
+
+        override fun close() {
+            closed++
+        }
+    }
+
+    private val sessions = mutableListOf<FakeSession>()
+
+    private fun openSession(
+        root: Path,
+        ui: SshPromptUi,
+        onCancel: () -> Unit,
+    ): SshAccess = FakeSession(root, ui, onCancel).also(sessions::add)
+
     private val writer =
-        RefWriter(writes, background::add, Runnable::run, tasks, { signals += "started holding $it" }) {
+        RefWriter(
+            writes,
+            background::add,
+            Runnable::run,
+            tasks,
+            SshSessions(ui, ::openSession),
+            { signals += "started holding $it" },
+        ) {
             signals += "finished"
         }
-    private val outcomes = mutableListOf<RefOutcome>()
 
     /** The lines without the task numbers and durations. */
     private fun lines() =
@@ -279,14 +328,153 @@ class RefWriterTest {
     @Test
     fun `a write that cannot start tells its end at once`() {
         val closed =
-            RefWriter(writes, { throw java.util.concurrent.RejectedExecutionException() }, Runnable::run, tasks, {
-                signals += "started holding $it"
-            }) { signals += "finished" }
+            RefWriter(
+                writes,
+                { throw java.util.concurrent.RejectedExecutionException() },
+                Runnable::run,
+                tasks,
+                writeStarted = { signals += "started holding $it" },
+            ) { signals += "finished" }
 
         assertFailsWith<java.util.concurrent.RejectedExecutionException> {
             closed.run(root, CheckoutBranch("main"), outcomes::add)
         }
 
         assertEquals(listOf("started holding true", "finished"), signals)
+    }
+
+    @Test
+    fun `an operation that contacts a remote gets a session of the window's prompts, closed once it ended`() {
+        writes.fetchResult = {
+            assertEquals(0, sessions.single().closed, "open while git runs")
+            GitFetchResult(GitResult(true, ""), changes = GitFetchChanges())
+        }
+
+        writer.run(root, Fetch("origin"), {}, outcomes::add)
+        background.single().run()
+
+        val session = sessions.single()
+        assertEquals(root, session.root)
+        assertSame(ui, session.ui)
+        assertEquals(listOf<SshAccess>(session), writes.sshSeen, "the operation got it in its context")
+        assertEquals(1, session.closed)
+    }
+
+    @Test
+    fun `an operation that does not contact a remote runs without a session`() {
+        writer.run(root, CheckoutBranch("main"), outcomes::add)
+        background.single().run()
+
+        assertEquals(emptyList(), sessions)
+    }
+
+    @Test
+    fun `a session is closed also when its operation throws`() {
+        writes.fetchResult = { throw IllegalStateException("broken") }
+
+        writer.run(root, Fetch("origin"), {}, outcomes::add)
+        background.single().run()
+
+        assertEquals(1, sessions.single().closed)
+        assertEquals(GitResult(false, "broken"), outcomes.single().result)
+    }
+
+    @Test
+    fun `a session is closed also when the operation fails with an error`() {
+        writes.fetchResult = { throw OutOfMemoryError("gone") }
+
+        writer.run(root, Fetch("origin"), {}, outcomes::add)
+        assertFailsWith<OutOfMemoryError> { background.single().run() }
+
+        assertEquals(1, sessions.single().closed)
+    }
+
+    @Test
+    fun `a cancelled prompt cancels the run, which ends as cancelled even if git failed first`() {
+        writes.remotes = listOf("origin", "fork")
+        writes.fetchResult = {
+            sessions.single().onCancel()
+            GitFetchResult(GitResult(false, "Permission denied (publickey)."))
+        }
+
+        writer.run(root, Fetch(), {}, outcomes::add)
+        background.single().run()
+
+        assertEquals(listOf("fetch origin"), writes.calls, "the other remote is skipped")
+        assertEquals("Fetch cancelled.", outcomes.single().done)
+        assertTrue(outcomes.single().result.success, "no error dialog")
+        assertEquals(1, sessions.single().closed)
+    }
+
+    @Test
+    fun `each run opens a session of its own`() {
+        writer.run(root, Fetch("origin"), {}, outcomes::add)
+        background.removeFirst().run()
+        writer.run(root, Fetch("origin"), {}, outcomes::add)
+        background.removeFirst().run()
+
+        assertEquals(2, sessions.size)
+        assertEquals(listOf(1, 1), sessions.map { it.closed })
+        assertFalse(sessions[0] === sessions[1])
+    }
+
+    @Test
+    fun `a cancelled prompt cancels the run's token and sets its flag, which no other run sees`() {
+        writes.fetchResult = {
+            sessions.last().onCancel()
+            GitFetchResult(GitResult(false, "Permission denied (publickey)."))
+        }
+        writer.run(root, Fetch("origin"), {}, outcomes::add)
+        background.removeFirst().run()
+        assertTrue(writes.cancellationsSeen.single().cancelled, "the token git sees")
+        assertEquals("Fetch cancelled.", outcomes.last().done)
+
+        writes.fetchResult = { GitFetchResult(GitResult(false, "Permission denied (publickey).")) }
+        writer.run(root, Fetch("origin"), {}, outcomes::add)
+        background.removeFirst().run()
+        assertFalse(writes.cancellationsSeen.last().cancelled, "a token of its own")
+        assertFalse(outcomes.last().cancelled, "a flag of its own")
+    }
+
+    @Test
+    fun `without sessions a remote operation runs in batch mode`() {
+        val plain = RefWriter(writes, background::add, Runnable::run, tasks)
+
+        plain.run(root, Fetch("origin"), {}, outcomes::add)
+        background.removeFirst().run()
+
+        assertEquals(listOf<SshAccess>(SshAccess.Batch), writes.sshSeen)
+        assertEquals("Fetched origin: nothing new.", outcomes.single().done)
+    }
+
+    @Test
+    fun `a session that cannot be opened with no message fails the operation with the exception's name`() {
+        val broken =
+            RefWriter(
+                writes,
+                background::add,
+                Runnable::run,
+                tasks,
+                SshSessions(ui) { _, _, _ -> throw IllegalStateException() },
+            )
+
+        broken.run(root, Fetch("origin"), {}, outcomes::add)
+        background.removeFirst().run()
+
+        assertEquals(GitResult(false, "java.lang.IllegalStateException"), outcomes.single().result)
+    }
+
+    @Test
+    fun `a session that cannot be opened fails the operation like any other failure`() {
+        val broken =
+            RefWriter(writes, background::add, Runnable::run, tasks, SshSessions(ui) { _, _, _ -> error("no socket") })
+
+        broken.run(root, Fetch("origin"), {}, outcomes::add)
+        background.removeFirst().run()
+
+        assertEquals(emptyList(), writes.calls, "git never ran")
+        assertEquals(GitResult(false, "no socket"), outcomes.single().result)
+        assertEquals(listOf("task started: Fetching origin…", "task failed after: Fetching origin…"), lines())
+        assertFalse(broken.running.get())
     }
 }

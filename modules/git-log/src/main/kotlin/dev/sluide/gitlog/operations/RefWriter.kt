@@ -4,12 +4,24 @@ import dev.sluide.backgroundtasks.BackgroundTask
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitResult
+import dev.sluide.git.ssh.SshAccess
+import dev.sluide.git.ssh.SshPromptUi
 import dev.sluide.gitlog.data.GitLogWrites
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper
 import java.nio.file.Path
 import java.util.concurrent.CancellationException
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+
+/**
+ * How a [RefWriter] opens the sessions of ssh's prompts (ADR 0194): [open] one for the repository at the given root,
+ * with the given prompts and what to do when the user cancels one; [ui] is the window's.
+ */
+internal class SshSessions(
+    val ui: SshPromptUi,
+    val open: (Path, SshPromptUi, () -> Unit) -> SshAccess,
+)
 
 /**
  * Runs the [RefOperation]s of a git log one at a time (ADR 0041): on [background] (the thread `sluide-git-write`), the
@@ -30,6 +42,7 @@ internal class RefWriter(
     private val background: (Runnable) -> Unit,
     private val dispatch: (Runnable) -> Unit,
     private val tasks: BackgroundTasks,
+    private val ssh: SshSessions? = null,
     private val writeStarted: (holdsStatus: Boolean) -> Unit = {},
     private val writeFinished: () -> Unit = {},
 ) {
@@ -111,6 +124,15 @@ internal class RefWriter(
         // Its ✕ cancels this run only; on the FX thread, as cancel().
         val cancel = if (operation.cancellable) ({ if (cancellation === token) cancel() }) else null
         val task = tasks.start(operation.progress, cancel).also { this@RefWriter.task = it }
+        val userCancelled = AtomicBoolean()
+        val access =
+            try {
+                openSession(root, operation, token, userCancelled)
+            } catch (e: RuntimeException) {
+                task.failed(e)
+                this.task = null
+                return RefOutcome(GitResult(false, e.message ?: e.toString()), null)
+            }
         val context =
             RunContext(
                 token,
@@ -123,6 +145,8 @@ internal class RefWriter(
                     task.withdrawCancel()
                     dispatch { if (cancellation === token) endCancellable() }
                 },
+                access,
+                userCancelled::get,
             )
         val outcome =
             try {
@@ -134,6 +158,8 @@ internal class RefWriter(
                 task.failed(t)
                 throw t
             } finally {
+                // Ends the prompts still waiting (ADR 0194).
+                (access as? SshAccess.Prompting)?.close()
                 this@RefWriter.task = null
             }
         // By what the operation says: a Cancel after it was done does not make it cancelled.
@@ -143,6 +169,23 @@ internal class RefWriter(
             else -> task.close()
         }
         return outcome
+    }
+
+    /**
+     * The ssh session of a run of [operation] that contacts a remote, whose cancelled prompt sets [userCancelled] and
+     * cancels [token] (ADR 0194); batch mode without sessions. `SshPrompts` answers batch mode itself when its server is down.
+     */
+    private fun openSession(
+        root: Path,
+        operation: RefOperation,
+        token: GitCancellation,
+        userCancelled: AtomicBoolean,
+    ): SshAccess {
+        if (!operation.contactsRemote || ssh == null) return SshAccess.Batch
+        return ssh.open(root, ssh.ui) {
+            userCancelled.set(true)
+            token.cancel()
+        }
     }
 
     /**

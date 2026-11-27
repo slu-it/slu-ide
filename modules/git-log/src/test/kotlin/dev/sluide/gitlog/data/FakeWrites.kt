@@ -478,6 +478,13 @@ internal class FakeWrites(
     /** The [SshAccess] each remote call (fetch, push, deletion, tag push) got, in order. */
     val sshSeen = CopyOnWriteArrayList<SshAccess>()
 
+    /** The [GitCancellation] each fetch got, in order. */
+    val cancellationsSeen = CopyOnWriteArrayList<GitCancellation>()
+
+    /** Called by a fetch with its [SshAccess], where ssh would ask; a non-`null` result ends the fetch with it. */
+    @Volatile
+    var sshHook: (SshAccess) -> GitFetchResult? = { null }
+
     /** What fetching a remote gives, by its name, unless the fetch was cancelled. */
     @Volatile
     var fetchResult: (String) -> GitFetchResult = { GitFetchResult(GitResult(true, ""), changes = GitFetchChanges()) }
@@ -493,6 +500,7 @@ internal class FakeWrites(
     ): GitFetchResult {
         threads += Thread.currentThread().name
         sshSeen += ssh
+        cancellationsSeen += cancellation
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
         while (gate?.await(10, TimeUnit.MILLISECONDS) == false && !cancellation.cancelled) {
             if (System.nanoTime() > deadline) break

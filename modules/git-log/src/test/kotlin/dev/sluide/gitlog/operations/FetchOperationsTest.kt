@@ -280,7 +280,7 @@ class FetchOperationsTest {
     }
 
     @Test
-    fun `a failed fetch after the header's Cancel stays an error, one before it does not hide the others`() {
+    fun `a failed fetch after the header's Cancel stays an error and skips the next remote`() {
         val writes = FakeWrites()
         writes.remotes = listOf("origin", "fork")
         val token = GitCancellation()

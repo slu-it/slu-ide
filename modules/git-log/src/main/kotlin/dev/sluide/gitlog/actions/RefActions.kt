@@ -124,7 +124,14 @@ internal class RefActions(
 
     /** Runs the operations that change the repository, one at a time (ADR 0041), each as a task of [tasks]. */
     private val writer =
-        RefWriter(writes, writeExecutor::execute, dispatch, tasks, { onWriteStarted(it) }, { onWriteFinished() })
+        RefWriter(
+            writes,
+            writeExecutor::execute,
+            dispatch,
+            tasks,
+            writeStarted = { onWriteStarted(it) },
+            writeFinished = { onWriteFinished() },
+        )
 
     /** The flows that ask before a remote is added, renamed, changed or removed (ADR 0183). */
     internal val remotes = RemoteActions(pages, writes::canPass, window, { writer.running.get() }, { start(it) })
