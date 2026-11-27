@@ -7,6 +7,10 @@ import java.nio.file.Path
  * Called on an askpass connection thread, never on the FX thread nor on the thread running git; [askPassphrase] and
  * [confirmHost] block until the user answers. On an interrupt while waiting (the session was closed: the operation was
  * cancelled or ended), the implementation closes its dialog and throws [InterruptedException].
+ *
+ * [notSaved] and [notAddedToAgent] come from the thread `sluide-git-ssh-passphrase`, after the git process that used
+ * the passphrase succeeded and usually after the operation's session was closed: implementations must not tie them to
+ * an open session or to its dialogs, and must not block.
  */
 interface SshPromptUi {
     /** The passphrase of a key and what to do with it; `null` for Cancel. */

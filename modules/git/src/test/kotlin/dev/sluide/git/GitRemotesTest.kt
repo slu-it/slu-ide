@@ -11,6 +11,7 @@ import dev.sluide.git.ssh.SshAccess
 import dev.sluide.git.ssh.SshPrompts
 import dev.sluide.git.ssh.recordedPrompt
 import dev.sluide.git.ssh.testChannel
+import dev.sluide.git.ssh.testSaved
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
@@ -288,7 +289,7 @@ class GitRemotesTest {
     fun `with a prompting session ssh asks through the helper, and the session hears how each fetch ended`() {
         val ssh = FakeSsh(folder)
         val channel = testChannel(folder)
-        val passphrases = SpyPassphrases(channel)
+        val passphrases = SpyPassphrases(channel, testSaved(folder))
         val prompts = SshPrompts(channel, passphrases)
         try {
             val environment =

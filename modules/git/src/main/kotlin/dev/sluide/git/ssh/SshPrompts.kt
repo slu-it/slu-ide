@@ -68,6 +68,8 @@ class SshPrompts
             /** Takes a token on the channel for this session; `false` if the channel is unavailable. */
             fun register(): Boolean {
                 registration = channel.register(::answer) ?: return false
+                // Before the environment reaches git: the first prompt needs the session known.
+                passphrases.opened(id)
                 return true
             }
 

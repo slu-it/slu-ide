@@ -38,7 +38,7 @@ class SshPromptsTest {
     private val root by lazy { folder.resolve("repo").createDirectories() }
     private val ssh by lazy { FakeSsh(folder) }
     private val channel by lazy { testChannel(folder) }
-    private val passphrases by lazy { SpyPassphrases(channel) }
+    private val passphrases by lazy { SpyPassphrases(channel, testSaved(folder)) }
     private val prompts by lazy { SshPrompts(channel, passphrases) }
 
     /** What fails on a connection thread is logged there; a prompt must end in a reply, never in such a failure. */
@@ -70,11 +70,34 @@ class SshPromptsTest {
         assertEquals(0, ssh.askpassExit)
         assertContentEquals("päss w'o\"rd \$HOME \\ `x` €\n".toByteArray(), ssh.answer)
         assertEquals(
-            listOf(PassphraseRequest(root.resolve("k1"), null, "not available yet", "not available yet")),
+            listOf(PassphraseRequest(root.resolve("k1"), null, "no secret store", "no ssh agent")),
             ui.passphraseRequests,
         )
         assertTrue(passphrase.all { it == '\u0000' }, "zeroed after it was sent")
         assertEquals(listOf(ssh.sshPid), passphrases.connections, "the connection is the ssh process")
+    }
+
+    @Test
+    fun `a passphrase entered once is answered from memory in the next session without the UI`() {
+        val real = SshPassphrases(channel, testSaved(folder), emptyMap(), SshAdd(channel), { it.run() })
+        val realPrompts = SshPrompts(channel, real)
+        ssh.prompt(recordedPrompt("key-passphrase.txt"))
+        val ui = FakeUi(passphrase = { PassphraseReply("once".toCharArray(), save = false, addToAgent = false) })
+        val firstSession = assertIs<SshAccess.Prompting>(realPrompts.open(root, ui, {}))
+        assertEquals(0, ssh.run(firstSession.environment))
+        firstSession.ended(true)
+        firstSession.close()
+
+        val laterUi = FakeUi()
+        val later = assertIs<SshAccess.Prompting>(realPrompts.open(root, laterUi, {}))
+        assertEquals(0, ssh.run(later.environment))
+
+        assertContentEquals("once\n".toByteArray(), ssh.answer)
+        assertEquals(1, ui.calls)
+        assertEquals(0, laterUi.calls)
+        later.close()
+        realPrompts.destroy()
+        real.destroy()
     }
 
     @Test
@@ -239,6 +262,18 @@ class SshPromptsTest {
         assertEquals("rwx------", PosixFilePermissions.toString(Files.getPosixFilePermissions(socket.parent)))
         assertTrue(Regex("[0-9a-f]{64}").matches(environment.getValue("SLUIDE_ASKPASS_TOKEN")))
         assertEquals(socket, Path.of(open(FakeUi()).environment.getValue("SLUIDE_ASKPASS_SOCKET")), "one server")
+    }
+
+    @Test
+    fun `a session is announced to the passphrases once, before its environment is handed out`() {
+        val before = passphrases.opened.size
+
+        val session = open(FakeUi())
+
+        assertEquals(before + 1, passphrases.opened.size)
+        assertNotEquals(emptyMap(), session.environment)
+        session.close()
+        assertEquals(before + 1, passphrases.opened.size, "closing does not announce it again")
     }
 
     @Test

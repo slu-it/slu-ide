@@ -29,7 +29,7 @@ class SshPromptsSessionTest {
 
     private val root by lazy { folder.resolve("repo").createDirectories() }
     private val channel by lazy { testChannel(folder) }
-    private val passphrases by lazy { SpyPassphrases(channel) }
+    private val passphrases by lazy { SpyPassphrases(channel, testSaved(folder)) }
     private val prompts by lazy { SshPrompts(channel, passphrases) }
     private val threads = Executors.newVirtualThreadPerTaskExecutor()
     private val cancels = AtomicInteger()

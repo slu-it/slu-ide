@@ -1,5 +1,8 @@
 package dev.sluide.git.ssh
 
+import dev.sluide.projectdata.ProjectDataStore
+import dev.sluide.secrets.Decrypted
+import dev.sluide.secrets.Encrypted
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
@@ -101,9 +104,16 @@ internal open class FakeUi(
         return host()
     }
 
-    override fun notSaved(reason: String) = Unit
+    val notSaved = CopyOnWriteArrayList<String>()
+    val notAdded = CopyOnWriteArrayList<String>()
 
-    override fun notAddedToAgent(message: String) = Unit
+    override fun notSaved(reason: String) {
+        notSaved += reason
+    }
+
+    override fun notAddedToAgent(message: String) {
+        notAdded += message
+    }
 
     val calls: Int get() = passphraseRequests.size + hostRequests.size
 }
@@ -115,10 +125,18 @@ internal fun testChannel(folder: Path) =
 /** Records what the sessions asked [SshPassphrases] and told it. */
 internal class SpyPassphrases(
     channel: AskpassChannel,
-) : SshPassphrases(channel) {
+    saved: SavedSshPassphrases,
+    environment: Map<String, String> = emptyMap(),
+) : SshPassphrases(channel, saved, environment, SshAdd(channel, environment), { Thread.ofVirtual().start(it) }) {
     val connections = CopyOnWriteArrayList<Long>()
     val ended = CopyOnWriteArrayList<Ended>()
     val closed = CopyOnWriteArrayList<SessionId>()
+    val opened = CopyOnWriteArrayList<SessionId>()
+
+    override fun opened(session: SessionId) {
+        opened += session
+        super.opened(session)
+    }
 
     override fun answer(
         session: SessionId,
@@ -149,3 +167,21 @@ internal class SpyPassphrases(
         closed += session
     }
 }
+
+/** The saved passphrases in a store below [folder], with a fake cipher; saving is unavailable for [unavailable]. */
+internal fun testSaved(
+    folder: Path,
+    unavailable: String? = "no secret store",
+) = SavedSshPassphrases(
+    ProjectDataStore(folder.resolve("projects"), folder.resolve("shared.json"), emptyList()),
+    { plain, context -> Encrypted.Value("v1:${String(plain)}|$context") },
+    { value, context ->
+        if (value.endsWith("|$context")) {
+            Decrypted.Plain(value.removePrefix("v1:").removeSuffix("|$context").toCharArray())
+        } else {
+            Decrypted.Unreadable
+        }
+    },
+    { unavailable },
+    folder.resolve("home"),
+)
