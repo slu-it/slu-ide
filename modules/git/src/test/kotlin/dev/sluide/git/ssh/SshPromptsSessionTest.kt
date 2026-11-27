@@ -149,6 +149,39 @@ class SshPromptsSessionTest {
     }
 
     @Test
+    fun `an answer that comes after its git process ended gives no answer and cancels nothing`() {
+        val session = AtomicReference<SshPrompts.Session>()
+        var reply: PassphraseReply? = PassphraseReply("late".toCharArray(), false, false)
+        var connect = true
+        var endFirst = true
+        val ui =
+            FakeUi(
+                passphrase = {
+                    if (endFirst) session.get().ended(false)
+                    reply
+                },
+                host = {
+                    if (endFirst) session.get().ended(false)
+                    connect
+                },
+            )
+        session.set(open(ui))
+
+        assertNull(answerElsewhere(session.get(), hostPrompt), "Connect")
+        assertNull(answerElsewhere(session.get(), keyPrompt), "a passphrase")
+        connect = false
+        reply = null
+        assertNull(answerElsewhere(session.get(), hostPrompt), "Cancel of the host")
+        assertNull(answerElsewhere(session.get(), keyPrompt), "Cancel of the passphrase")
+        assertEquals(0, cancels.get())
+
+        // The session stays open for the next process.
+        endFirst = false
+        connect = true
+        assertContentEquals("yes".toByteArray(), answerElsewhere(session.get(), hostPrompt))
+    }
+
+    @Test
     fun `the prompt's kind is logged at debug, never its text or the answer`() {
         val session = open(FakeUi(passphrase = { PassphraseReply("s3cr3t".toCharArray(), false, false) }))
 

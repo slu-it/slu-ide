@@ -87,17 +87,17 @@ class SshPrompts
                 return when (prompt) {
                     is SshPrompt.UnknownHost -> {
                         val confirmed = asking { ui.confirmHost(HostKeyRequest(prompt.text)) } ?: return null
-                        if (!confirmed.value) cancel()
-                        if (closed || !confirmed.value) null else "yes".toByteArray()
+                        if (!confirmed.value) cancel(confirmed)
+                        if (closed || confirmed.late || !confirmed.value) null else "yes".toByteArray()
                     }
 
                     is SshPrompt.KeyPassphrase -> {
                         val file = keyFile(root, prompt.keyFile) ?: return null
                         val asked = asking { passphrases.answer(id, request.sshPid, file, ui) } ?: return null
                         val passphrase = asked.value
-                        if (passphrase == null) cancel()
+                        if (passphrase == null) cancel(asked)
                         try {
-                            if (closed || passphrase == null) null else utf8(passphrase)
+                            if (closed || asked.late || passphrase == null) null else utf8(passphrase)
                         } finally {
                             passphrase?.fill('\u0000')
                         }
@@ -109,23 +109,30 @@ class SshPrompts
                 }
             }
 
-            /** The user cancelled the prompt: the operation is cancelled, unless the session has ended anyway. */
-            private fun cancel() {
-                if (!closed) onCancel()
+            /**
+             * The user cancelled the prompt: the operation is cancelled, unless the session has ended anyway or the
+             * git process that asked [answered] has (its prompt was late).
+             */
+            private fun cancel(answered: Answered<*>) {
+                if (!closed && !answered.late) onCancel()
             }
 
             /**
-             * What [ask] returned, while it blocked interruptible by [close]; `null` if the session was closed before,
-             * or while it asked and [ask] gave up on the interrupt. The caller checks [closed] after.
+             * What [ask] returned, while it blocked interruptible by [close] and [ended]; `null` if the session was
+             * closed before, or while it asked and [ask] gave up on the interrupt. [Answered.late]: the git process
+             * that asked ended meanwhile. The caller checks [closed] after.
              */
             private fun <T> asking(ask: () -> T): Answered<T>? {
                 val thread = Thread.currentThread()
-                synchronized(this) {
-                    if (closed) return null
-                    waiting += thread
-                }
+                val process =
+                    synchronized(this) {
+                        if (closed) return null
+                        waiting += thread
+                        processes
+                    }
                 return try {
-                    Answered(ask())
+                    val value = ask()
+                    Answered(value, late = synchronized(this) { processes != process })
                 } catch (_: InterruptedException) {
                     null
                 } finally {
@@ -133,7 +140,21 @@ class SshPrompts
                 }
             }
 
-            override fun ended(success: Boolean) = passphrases.ended(id, success, ui)
+            /** How many git processes of the session have ended; guarded by `this`. */
+            private var processes = 0L
+
+            /**
+             * A git process of the session ended. Prompts come only from the process that runs, so the threads still
+             * waiting on [ui] belong to this one (git, ssh and the helper may have been stopped at a timeout): they are
+             * interrupted as by [close], and answer "none" without a cancel; the session stays open.
+             */
+            override fun ended(success: Boolean) {
+                synchronized(this) {
+                    processes++
+                    waiting.forEach(Thread::interrupt)
+                }
+                passphrases.ended(id, success, ui)
+            }
 
             override fun close() {
                 synchronized(this) {
@@ -149,6 +170,8 @@ class SshPrompts
 
         private class Answered<T>(
             val value: T,
+            /** The git process that asked ended while the UI waited: the answer belongs to no process. */
+            val late: Boolean,
         )
 
         private companion object {

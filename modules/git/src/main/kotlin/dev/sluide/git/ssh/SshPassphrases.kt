@@ -57,6 +57,9 @@ internal open class SshPassphrases internal constructor(
 
         /** How often ssh asked for a key on a connection (ssh's pid). */
         val asked = HashMap<Pair<Long, Path>, Int>()
+
+        /** How many git processes of the session have ended ([ended]). */
+        var processes = 0L
     }
 
     /** What a commit does off the thread of [ended]; the array is its own copy. */
@@ -187,7 +190,7 @@ internal open class SshPassphrases internal constructor(
         ui: SshPromptUi,
     ): CharArray? {
         // The operation may have ended while the saved value was read: nobody is waiting for a dialog.
-        if (synchronized(lock) { session !in sessions }) return null
+        val process = synchronized(lock) { sessions[session]?.processes } ?: return null
         val saveUnavailable = saved.unavailableReason()
         val agentUnavailable = agentUnavailable(keyFile)
         val reply =
@@ -196,7 +199,9 @@ internal open class SshPassphrases internal constructor(
         reply.passphrase.fill('\u0000')
         return synchronized(lock) {
             val state = sessions[session]
-            if (state == null) {
+            // A reply after the asking process ended (stopped at a timeout) belongs to no process: the next one's
+            // success must not commit it.
+            if (state == null || state.processes != process) {
                 zero(chars)
                 return null
             }
@@ -235,6 +240,7 @@ internal open class SshPassphrases internal constructor(
         val commits = ArrayList<Commit>()
         synchronized(lock) {
             val state = sessions[session] ?: return
+            state.processes++
             for ((keyFile, pending) in state.pending) {
                 if (!pending.used) continue
                 pending.used = false

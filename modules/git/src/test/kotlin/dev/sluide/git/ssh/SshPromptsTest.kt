@@ -213,6 +213,44 @@ class SshPromptsTest {
     }
 
     @Test
+    fun `the end of a git process interrupts its waiting prompt, without a cancel, and the session goes on`() {
+        val entered = CountDownLatch(1)
+        val interrupted = AtomicBoolean()
+        val cancels = AtomicInteger()
+        val calls = AtomicInteger()
+        val ui =
+            FakeUi(host = {
+                if (calls.incrementAndGet() > 1) return@FakeUi true
+                entered.countDown()
+                try {
+                    CountDownLatch(1).await()
+                } catch (e: InterruptedException) {
+                    interrupted.set(true)
+                    throw e
+                }
+                true
+            })
+        val session = open(ui) { cancels.incrementAndGet() }
+        ssh.prompt(recordedPrompt("unknown-host.txt"))
+        val process = ssh.start(session.environment)
+        assertTrue(entered.await(20, TimeUnit.SECONDS), "the UI was asked")
+
+        // As after FETCH_TIMEOUT: git, ssh and the helper are gone, the operation goes on with the next process.
+        session.ended(false)
+
+        assertTrue(process.waitFor(20, TimeUnit.SECONDS))
+        assertTrue(interrupted.get(), "the UI's thread was interrupted")
+        assertEquals(1, ssh.askpassExit)
+        assertEquals(0, cancels.get(), "no cancel: the process ended anyway")
+        assertEquals(listOf(false), passphrases.ended.map { it.success })
+        // The session is still open: the next process's prompt is asked and answered.
+        ssh.prompt(recordedPrompt("unknown-host.txt"))
+        assertEquals(0, ssh.run(session.environment))
+        assertContentEquals("yes\n".toByteArray(), ssh.answer)
+        assertEquals(2, ui.calls)
+    }
+
+    @Test
     fun `two sessions at once each get their own prompts`() {
         val both = CountDownLatch(2)
         val waiting = {

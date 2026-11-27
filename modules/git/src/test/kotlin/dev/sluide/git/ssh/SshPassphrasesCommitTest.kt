@@ -241,6 +241,34 @@ internal class SshPassphrasesCommitTest : SshPassphrasesFixture() {
     }
 
     @Test
+    fun `an answer that comes after its process ended is dropped, not committed by the next process`() {
+        // The process was stopped (FETCH_TIMEOUT) while the dialog was open, and the user answered all the same.
+        lateinit var ui: FakeUi
+        ui =
+            FakeUi(passphrase = {
+                passphrases.ended(first, false, ui)
+                PassphraseReply("late".toCharArray(), save = true, addToAgent = false)
+            })
+
+        // An earlier process of the session ended first, so that the late one is not the session's first.
+        openedFor(first)
+        ended(ui, success = false)
+
+        assertNull(answer(ui))
+        ended(ui, success = true)
+
+        assertNull(stored(), "not saved")
+        assertTrue(zeroed.any { it.size == 4 && it.all { c -> c == '\u0000' } }, "the late answer is zeroed")
+        // The process after it asks again and gets its answer, which its success commits.
+        val again = FakeUi(reply("again", save = true))
+        assertEquals("again", answer(again, connection = 11))
+        ended(again, success = true)
+        assertEquals(1, stored()?.get("sshPassphrases")?.size())
+        passphrases.closed(first)
+        assertEquals("again", answer(FakeUi(reply("entered")), session = second), "only the good one is remembered")
+    }
+
+    @Test
     fun `saving does not run ssh-add, and adding to the agent does not save`() {
         sshAdd = fakeSshAdd("exit 0")
         val saveOnly = FakeUi(reply(save = true))
