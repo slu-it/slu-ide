@@ -323,4 +323,23 @@ class RemoteOperationsTest {
             removalDetails("o", GitRemoteRemoval(0, listOf("a", "b", "c"), false)),
         )
     }
+
+    @Test
+    fun `adding a remote contacts it only when it fetches, passing the run's ssh access on`() {
+        assertTrue(AddRemote("upstream", secret, fetch = true).contactsRemote)
+        assertFalse(AddRemote("upstream", secret, fetch = false).contactsRemote)
+        val writes = FakeWrites()
+        val ssh =
+            object : dev.sluide.git.ssh.SshAccess.Prompting {
+                override val environment = emptyMap<String, String>()
+
+                override fun ended(success: Boolean) = Unit
+
+                override fun close() = Unit
+            }
+
+        AddRemote("upstream", secret, fetch = true).run(writes, root, RunContext(ssh = ssh))
+
+        assertEquals(listOf<dev.sluide.git.ssh.SshAccess>(ssh), writes.sshSeen)
+    }
 }
