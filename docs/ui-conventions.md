@@ -128,7 +128,9 @@ Safety of file operations, runs, secrets and network: `safety.md`.
 ## Dialogs and questions
 - Plain JavaFX `Alert`/`Dialog` owned by the view's window (`initOwner`), a title naming the action,
   `headerText = null` or the question, verb buttons (`ButtonType("Delete", ButtonData.OK_DONE)`), and a dismissed
-  dialog counts as Cancel. There is no shared helper.
+  dialog counts as Cancel. There is no shared helper. `Alert(INFORMATION)` brings its own "Message" header, so set
+  `headerText = null` there too; a `Dialog` is application-modal by default and blocks every window of Thoreau while
+  it shows (ADR 0194's prompts rely on its own Cancel).
 - Unsaved file before a run: "X has unsaved changes." with "Save and <Verb>", "<Verb> Saved Version", Cancel
   (ADR 0089). Closing an editor: Save, Don't Save, Cancel. Destructive or replacing questions name the consequence
   and make Cancel the default button.

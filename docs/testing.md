@@ -131,8 +131,10 @@ A behavior is tested once, at the lowest level that can see it
   handled in one pass and rerun once, naming its files and classes, and what that leaves is reported as known gaps
   instead of rerun (ADR 0189, amendment 2026-11-21: in the JShell round the unbounded loop cost about 7.5 h after the
   reviews' approvals). Every SURVIVED or no-coverage mutant is killed with a sharper input or test, removed as dead
-  code, or reported as equivalent with the input that cannot tell it apart. A timeout is not a kill unless the
-  mutation visibly makes a loop endless or an allocation unbounded; name that per timeout. `--accept
+  code, or reported as equivalent with the input that cannot tell it apart. A mutant the UI stage covered but did not
+  kill keeps its unit-stage label in the summary ("no coverage" or SURVIVED): read its UI status in
+  `logs/<module>-ui.xml` before calling it a pitest limit (ssh prompts round, 2026-11-27). A timeout is not a kill
+  unless the mutation visibly makes a loop endless or an allocation unbounded; name that per timeout. `--accept
   <path>:<line>[:<Mutator>] <reason>` records such an equivalence or timeout in `build/mutation-check/accepted.tsv`;
   later runs list it as `accepted` and skip it until its line changes. Not mutated (accepted gaps): removing an
   inlined `filter { }` (its predicate always true), `close()`, an inline function of ours used only from another
