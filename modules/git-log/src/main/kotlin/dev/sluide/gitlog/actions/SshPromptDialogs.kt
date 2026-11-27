@@ -19,8 +19,11 @@ import javafx.scene.control.PasswordField
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import javafx.stage.Window
+import java.lang.System.Logger.Level
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
+
+private val log = System.getLogger(FxSshPromptUi::class.java.name)
 
 /** A dialog that [FxSshPromptUi] shows and closes; a seam so that the thread handling can be tested without JavaFX. */
 internal interface PromptDialog<T> {
@@ -101,8 +104,10 @@ internal class FxSshPromptUi(
             runLater { shown?.close() }
             throw e
         } catch (e: ExecutionException) {
-            // The dialog could not be made or shown: as Cancel; the message could hold the prompt's text.
-            return null
+            // The dialog could not be made or shown: not the user's Cancel, which would end the operation as cancelled.
+            // Only the class is logged: the message could hold the prompt's text.
+            log.log(Level.WARNING, "A prompt dialog could not be shown: ${e.cause?.javaClass?.name}")
+            throw IllegalStateException("A prompt dialog could not be shown", e.cause)
         }
     }
 }

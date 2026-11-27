@@ -24,6 +24,8 @@ dependencies {
     // The details' texts with links (hashes in messages, Show all): RichTextFX styles spans and hit-tests (ADR 0045).
     implementation(libs.richtextfx)
 
+    // Generic test helpers: LogCapture (ADR 0186).
+    testImplementation(project(":modules:test-support"))
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }

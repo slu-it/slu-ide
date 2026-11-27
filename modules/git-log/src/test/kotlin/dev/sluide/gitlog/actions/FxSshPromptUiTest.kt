@@ -3,15 +3,18 @@ package dev.sluide.gitlog.actions
 import dev.sluide.git.ssh.HostKeyRequest
 import dev.sluide.git.ssh.PassphraseReply
 import dev.sluide.git.ssh.PassphraseRequest
+import dev.sluide.testsupport.LogCapture
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.logging.Level
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** How [FxSshPromptUi] hands its dialogs to the FX thread and waits on them, with fake dialogs and no toolkit. */
@@ -102,16 +105,34 @@ class FxSshPromptUiTest {
     }
 
     @Test
-    fun `a dialog that cannot be made counts as Cancel`() {
+    fun `a dialog that cannot be made is an error, not the user's Cancel, and is logged without its text`() {
+        val cause = IllegalStateException("secret prompt text")
         val broken =
             FxSshPromptUi(
                 owner = { null },
                 operation = { "" },
-                passphraseDialog = { _, _, _ -> throw IllegalStateException("no toolkit") },
+                passphraseDialog = { _, _, _ -> throw cause },
+                hostDialog = { _, _, _ -> throw cause },
                 runLater = { Thread(it).start() },
             )
 
-        assertNull(answerOf { broken.askPassphrase(request) })
+        LogCapture(FxSshPromptUi::class.java.name).use { log ->
+            val failures =
+                listOf(
+                    answerOf { runCatching { broken.askPassphrase(request) }.exceptionOrNull() },
+                    answerOf { runCatching { broken.confirmHost(HostKeyRequest("text")) }.exceptionOrNull() },
+                )
+
+            failures.forEach {
+                assertTrue(it is RuntimeException, "an error instead of an answer: $it")
+                assertSame(cause, (it as Throwable).cause)
+            }
+            assertEquals(listOf(Level.WARNING, Level.WARNING), log.lines.map { it.first })
+            assertEquals(
+                List(2) { "A prompt dialog could not be shown: java.lang.IllegalStateException" },
+                log.messages(),
+            )
+        }
     }
 
     @Test
