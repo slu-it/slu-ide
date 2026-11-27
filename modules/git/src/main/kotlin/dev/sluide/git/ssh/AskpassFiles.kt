@@ -95,10 +95,11 @@ internal object AskpassFiles {
         linux: Boolean,
     ): String {
         val path = quoted(classPath.joinToString(":"))
+        val command = quoted(java.toString())
         val locale = if (linux) "LC_ALL=C.UTF-8 " else ""
-        return "#!/bin/sh\nunset JAVA_TOOL_OPTIONS _JAVA_OPTIONS JDK_JAVA_OPTIONS\n${locale}exec ${quoted(
-            java.toString(),
-        )} -cp $path dev.sluide.git.askpass.Askpass \"\$@\"\n"
+        return "#!/bin/sh\n" +
+            "unset JAVA_TOOL_OPTIONS _JAVA_OPTIONS JDK_JAVA_OPTIONS\n" +
+            "${locale}exec $command -cp $path dev.sluide.git.askpass.Askpass \"\$@\"\n"
     }
 
     /** [value] in single quotes for `/bin/sh`, each `'` in it as `'\''`. */
