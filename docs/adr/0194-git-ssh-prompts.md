@@ -46,7 +46,7 @@ and the full list are in `modules/git/src/test/resources/ssh-askpass/`):
   `git config -z --name-only --get-regexp` for `core.sshCommand`, `ssh.variant` and `core.askPass` (unreadable: ssh
   counts as not chosen, `core.askPass` as set). After each git process of a session, `ended(success)` is called
   (success for exit 0): the answers given since the previous end belong to that process, and count as good only if it
-  succeeded (`SshPassphrases` keeps a passphrase only then).
+  succeeded (`SshPassphrases` remembers, saves and adds to the agent only then).
 - **Helper:** a small Kotlin `main` (`dev.sluide.git.askpass.Askpass`), compiled as a source set of its own into
   `askpass.jar` and carried with `kotlin-stdlib.jar` as resources of the `git` module, like the JShell agent (ADR
   0191). `AskpassFiles.install` copies them to `~/.sluide/git/askpass/<first 16 hex digits of the SHA-256 of the jars
@@ -71,12 +71,44 @@ and the full list are in `modules/git/src/test/resources/ssh-askpass/`):
   git-write thread).
 - **Routing by the prompt's text** (`sshPrompt`): `KeyPassphrase` (fixed prefix `Enter passphrase for key '` and
   suffix `': `, the path between them, resolved against the repository and normalized) goes to `SshPassphrases`, which
-  asks the session's `SshPromptUi` (this ADR ships it as a stub that always asks and keeps nothing); `UnknownHost`
+  answers it (next bullet); `UnknownHost`
   (starts with `The authenticity of host `, last line starts with `Are you sure you want to continue connecting`) goes
   to `SshPromptUi.confirmHost` with the text without its last line, and Connect answers exactly `yes`. A Cancel in
   either calls `onCancel` first, then answers "none". Everything else (PINs, the host re-prompt, ssh-add's texts
   outside a one-shot, a password prompt of the user's own ssh command) gets "none" without a dialog and without a
   cancel. Only the prompt's kind is logged, at debug.
+- **Passphrases** (`SshPassphrases`, called by the session with its id, ssh's pid as the connection, and the key file):
+  - *State:* a memory cache per key file, app-wide until Thoreau quits (`CharArray`s, zeroed on `destroy()`); per
+    session the pending answers per key (source MEMORY, SAVED or ENTERED, the reply's Save and Add-to-agent flags,
+    whether the current git process used it) and per (session, connection, key) how often ssh asked.
+  - *Asked again = wrong:* if ssh asks for a key a second time on the same connection, the answer it got was wrong.
+    The pending answer is dropped and, if memory still holds the same value, memory loses it too. The notice is
+    SAVED_REJECTED for a saved answer, whose entry is also removed, and WRONG for the others; then the UI is asked.
+  - *Order otherwise:* the session's pending answer (an earlier process of the same session: Fetch All after a failed
+    remote, the delete's `ls-remote` before its push, or the same fetch on another remote's connection), then memory,
+    then the saved value (`Secrets.decrypt`: unreadable is removed and counts as nothing; no key keeps the value and
+    asks), then the UI with no notice. The request names why saving is unavailable (`Secrets.saveUnavailableReason()`)
+    and why the agent is (`SSH_AUTH_SOCK` missing or empty in git's environment: "no ssh agent"; the key file is not a
+    regular file, e.g. cut at 100 characters: "key file not found"). A box the request calls unavailable counts as
+    unchecked whatever the reply says.
+  - *Commit on `ended(true)`:* every answer the process used goes into memory at once (a copy). Then, on a virtual
+    thread `sluide-git-ssh-passphrase`, because `ended` runs on the thread that ran git: an ENTERED answer with Save
+    checked is encrypted (`git/ssh-passphrase/<absolute normalized path>`) and written to `~/.sluide/shared.json`
+    (`git.sshPassphrases`; failure: `notSaved(reason)`), and with Add to agent checked `ssh-add -- <key>` runs. Each
+    acts once. `ended(false)` commits nothing and keeps the pending answers for the session, so that the asked-again
+    rule still catches a wrong one. A session is `opened` on `SshPassphrases` when it is registered, before its environment
+    reaches git, and only an opened session gets answers: a call after `closed` (which zeroes and forgets the
+    session's answers) or after `destroy` gets none and no dialog, so no state comes back and nothing grows with the
+    number of operations. A commit in flight has its own copy. `notSaved` and `notAddedToAgent` therefore arrive on
+    the thread `sluide-git-ssh-passphrase`, usually after the session closed; the UI shows them without tying them
+    to a session and without blocking. When ssh's second ask drops a saved answer, only that value is removed, not a
+    newer one saved meanwhile.
+  - *ssh-add* (`SshAdd`): a one-shot token of the channel answers its first `Enter passphrase for ` prompt, with git's
+    environment plus the token's; stdin is `/dev/null`, stdout discarded, stderr read up to 8 KiB, 30 s, then stopped.
+    A non-zero exit, a timeout or a missing ssh-add becomes `notAddedToAgent(message)`; the JVM's `Picked up …` notes
+    that the helper's JVM may add to stderr are dropped from the message.
+  - *Known limit:* ssh may give up on key A after three wrong answers and log in with another identity; the process
+    succeeds, and A's last answer counts as good.
 - **The outcome of a Cancel is the caller's:** `onCancel` cancels the operation's `GitCancellation`, which only sets a
   flag that the git runner polls; ssh fails at once on "none", so git may exit 128 before the poll stops it, and the
   result then says failed, not cancelled. Callers set their own "the user cancelled" flag in `onCancel` and decide the

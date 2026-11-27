@@ -11,6 +11,10 @@ Some secrets can be saved so they are not asked for again after a restart. Savin
   [databases.md](databases.md).
 - HTTP client certificate passphrases: "Save passphrase" in the passphrase prompt, see
   [http-client.md](http-client.md).
+- Git SSH key passphrases: "Save passphrase" in the git log's passphrase prompt for a key that ssh asks for during
+  fetch and push, see [git-log.md](git-log.md) and [ADR 0194](../adr/0194-git-ssh-prompts.md). Kept in
+  `~/.sluide/shared.json` (`git.sshPassphrases`), one entry per key file, listed in Settings → Secrets as "Git SSH
+  key passphrases" with Remove (the passphrase stays in memory until Thoreau quits).
 - Other secrets (OAuth client secrets and tokens) are not saved by Thoreau; each needs its own decision.
 
 ## How they are stored
