@@ -22,6 +22,55 @@ dependencies {
     // Deliberate module dependency: diffs decode file contents as the editor does, UTF-8 or Windows-1252 (ADR 0098).
     implementation(project(":modules:text-editing"))
     implementation(libs.spring.context)
+
+    // Generic test helpers: LogCapture (ADR 0186).
+    testImplementation(project(":modules:test-support"))
+}
+
+// The askpass helper (package dev.sluide.git.askpass) runs as a small JVM of its own on Thoreau's runtime when ssh asks
+// a covered git call for a passphrase or a host key (ADR 0194). Its sources stay in src/main/kotlin, so that the unit
+// tests and the mutation runs see them, and the module jar keeps them too: the server speaks the same protocol. A second
+// compilation of only that package goes into askpass.jar, which the module jar carries with kotlin-stdlib as resources
+// (as the JShell agent, ADR 0191).
+val askpassPackage = "dev/sluide/git/askpass/**"
+
+val askpass: SourceSet = sourceSets.create("askpass")
+kotlin.sourceSets.named("askpass") {
+    kotlin.srcDir("src/main/kotlin")
+    kotlin.include(askpassPackage)
+}
+
+val askpassJar =
+    tasks.register<Jar>("askpassJar") {
+        from(askpass.output)
+        archiveFileName.set("askpass.jar")
+        destinationDirectory.set(layout.buildDirectory.dir("askpass"))
+        // The same classes give the same bytes, so the installed folder (named by the content hash) stays the same.
+        isPreserveFileTimestamps = false
+        isReproducibleFileOrder = true
+    }
+
+val askpassStdlib: Configuration =
+    configurations.create("askpassStdlib") {
+        isTransitive = false
+        isCanBeConsumed = false
+    }
+
+dependencies {
+    askpassStdlib("org.jetbrains.kotlin:kotlin-stdlib:${libs.versions.kotlin.get()}")
+}
+
+val askpassResources =
+    tasks.register<Sync>("askpassResources") {
+        into(layout.buildDirectory.dir("generated/askpass-resources"))
+        into("git-askpass") {
+            from(askpassJar)
+            from(askpassStdlib) { rename { "kotlin-stdlib.jar" } }
+        }
+    }
+
+sourceSets.main {
+    resources.srcDir(askpassResources)
 }
 
 tasks.named<Test>("test") {
