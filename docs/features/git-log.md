@@ -587,8 +587,9 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     itself when the operation ends otherwise: header Cancel, the 10-minute limit, closing the window or opening another
     folder.
   - **Limits:** the server closes the connection after its `LoginGraceTime` (about 2 minutes by default) while a dialog
-    waits, and the operation then fails with ssh's "Connection closed" message; ssh shows a key path cut at 100
-    characters, so for such a key "Add to ssh agent" is disabled; password login is not offered (ADR 0194).
+    waits; the dialog stays open, and once it is answered the operation fails with ssh's "Connection closed" message.
+    ssh shows a key path cut at 100 characters, so for such a key "Add to ssh agent" is disabled; password login is not
+    offered (ADR 0194). While a prompt is open it is modal: its own Cancel stops the operation.
 - **Pull** ([ADR 0106](../adr/0106-git-log-pull.md)): Pull in the header (between Push and Fetch, also while the log is
   collapsed; disabled while an operation runs and once the log found no remotes), **Git → Pull…** (no shortcut), the
   branches pane and branch submenus (above) and Pull… in the Push dialog ([commit-and-push.md](commit-and-push.md))
