@@ -25,6 +25,7 @@ import dev.sluide.git.GitRewordCheck
 import dev.sluide.git.GitRewordResult
 import dev.sluide.git.GitTagPushResult
 import dev.sluide.git.GitUncheckedConflict
+import dev.sluide.git.ssh.SshAccess
 import java.nio.file.Path
 
 /**
@@ -302,11 +303,15 @@ internal interface GitLogWrites : StashWrites {
     /** The remotes fetching all fetches (not those with `skipFetchAll`); `null` if they cannot be read. */
     fun remotes(root: Path): List<String>?
 
-    /** Fetches [remote], pruning its deleted branches; [cancellation] stops git. */
+    /**
+     * Fetches [remote], pruning its deleted branches; [cancellation] stops git; [ssh] says how ssh may ask the user
+     * (ADR 0194).
+     */
     fun fetch(
         root: Path,
         remote: String,
         cancellation: GitCancellation,
+        ssh: SshAccess,
     ): GitFetchResult
 
     /**
@@ -325,7 +330,7 @@ internal interface GitLogWrites : StashWrites {
     /**
      * Pushes the local [branch] to the [target] branch of [remote] (ADR 0049); with [force] only if the remote branch
      * is at [expected] (a full hash, `null`: it must not exist); [setUpstream] makes the target the branch's upstream;
-     * [cancellation] stops git.
+     * [cancellation] stops git; [ssh] says how ssh may ask the user (ADR 0194).
      */
     fun push(
         root: Path,
@@ -336,6 +341,7 @@ internal interface GitLogWrites : StashWrites {
         expected: String?,
         setUpstream: Boolean,
         cancellation: GitCancellation,
+        ssh: SshAccess,
     ): GitPushResult
 
     /**
@@ -348,23 +354,28 @@ internal interface GitLogWrites : StashWrites {
         trackingRef: String,
     ): String?
 
-    /** Deletes the [refs] on [remote] in one push, branches with their lease (ADR 0078); [cancellation] stops git. */
+    /**
+     * Deletes the [refs] on [remote] in one push, branches with their lease (ADR 0078); [cancellation] stops git; [ssh]
+     * says how ssh may ask the user (ADR 0194).
+     */
     fun deleteRemoteRefs(
         root: Path,
         remote: String,
         refs: List<GitRemoteDeletion>,
         cancellation: GitCancellation,
+        ssh: SshAccess,
     ): GitRemoteDeletionResult
 
     /**
      * Pushes the tags (short names) to [remote] in one push, never overwriting a tag the remote has (ADR 0173);
-     * [cancellation] stops git.
+     * [cancellation] stops git; [ssh] says how ssh may ask the user (ADR 0194).
      */
     fun pushTags(
         root: Path,
         remote: String,
         tags: List<String>,
         cancellation: GitCancellation,
+        ssh: SshAccess,
     ): GitTagPushResult
 
     /** Adds the remote [name] with [url]; git's message never holds the URL's credentials. */

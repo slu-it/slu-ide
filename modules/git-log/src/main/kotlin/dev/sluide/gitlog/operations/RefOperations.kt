@@ -5,6 +5,7 @@ import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefNames
 import dev.sluide.git.GitResult
+import dev.sluide.git.ssh.SshAccess
 import dev.sluide.gitlog.data.GitLogWrites
 import dev.sluide.gitlog.data.SHORT_HASH
 import javafx.scene.control.ButtonType
@@ -49,12 +50,26 @@ internal data class RefOutcome(
  * What an operation gets while it runs besides git: the [cancellation] of a [RefOperation.cancellable] one, where
  * to tell what it does now ([progress], e.g. which remote it fetches; from the thread it runs on), and where to tell
  * that what it does from now on can no longer be cancelled ([uncancellable]: a pull once it has fetched, ADR 0106).
+ * An operation that [contacts a remote][RefOperation.contactsRemote] also gets how ssh may ask the user ([ssh], ADR
+ * 0194) and whether the user cancelled one of its prompts ([userCancelled]).
  */
 internal class RunContext(
     val cancellation: GitCancellation = GitCancellation(),
     val progress: (String) -> Unit = {},
     val uncancellable: () -> Unit = {},
-)
+    val ssh: SshAccess = SshAccess.Batch,
+    val userCancelled: () -> Boolean = { false },
+) {
+    /**
+     * Whether a call to a remote that gave [result] was stopped: git was ([cancelled]), or it failed after the user
+     * cancelled an ssh prompt, where git may exit before it sees the cancellation (ADR 0194). A prompt cancelled
+     * never makes a failure.
+     */
+    fun interrupted(
+        cancelled: Boolean,
+        result: GitResult,
+    ) = cancelled || (!result.success && userCancelled())
+}
 
 /**
  * A question before an operation may run (ADRs 0041, 0042): a dialog titled [title] asks [question], with [details]
@@ -92,6 +107,12 @@ internal sealed interface RefOperation {
      * moves the branch last (ADR 0048). A checkout stopped halfway would leave a half-switched working tree (ADR 0041).
      */
     val cancellable: Boolean get() = false
+
+    /**
+     * Whether it contacts a remote, so that ssh may ask the user for a passphrase or whether to trust a host (ADR
+     * 0194): a fetch, push or deletion on a remote. A run of it gets a session with the window's prompts.
+     */
+    val contactsRemote: Boolean get() = false
 
     /**
      * Whether the window's git status waits for its end (ADR 0062): it changes files or takes them as they are

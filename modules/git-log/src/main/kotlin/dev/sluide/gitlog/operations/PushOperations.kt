@@ -27,6 +27,7 @@ internal data class PushOperation(
     override val failure get() = "$branch could not be pushed to $remote/$target."
     override val fileChange get() = null
     override val cancellable get() = true
+    override val contactsRemote get() = true
 
     override fun run(
         writes: GitLogWrites,
@@ -39,7 +40,7 @@ internal data class PushOperation(
         context: RunContext,
     ): RefOutcome {
         val pushed =
-            writes.push(root, remote, branch, target, force, expected, setUpstream, context.cancellation)
+            writes.push(root, remote, branch, target, force, expected, setUpstream, context.cancellation, context.ssh)
         if (pushed.cancelled || (!pushed.result.success && context.cancellation.cancelled)) {
             return RefOutcome(GitResult(true, "", changed = false), pushCancelled(remote), cancelled = true)
         }

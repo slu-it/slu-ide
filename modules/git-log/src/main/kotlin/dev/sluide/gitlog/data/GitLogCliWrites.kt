@@ -16,6 +16,7 @@ import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitRewords
 import dev.sluide.git.GitStashes
 import dev.sluide.git.GitUncheckedConflict
+import dev.sluide.git.ssh.SshAccess
 import java.nio.file.Path
 
 /** Changes the repository with the git command line. */
@@ -242,7 +243,8 @@ internal class GitLogCliWrites(
         root: Path,
         remote: String,
         cancellation: GitCancellation,
-    ) = gitRemotes.fetch(root, remote, cancellation)
+        ssh: SshAccess,
+    ) = gitRemotes.fetch(root, remote, cancellation, ssh)
 
     override fun commit(
         root: Path,
@@ -262,7 +264,8 @@ internal class GitLogCliWrites(
         expected: String?,
         setUpstream: Boolean,
         cancellation: GitCancellation,
-    ) = gitPush.push(root, remote, branch, target, force, expected, setUpstream, cancellation)
+        ssh: SshAccess,
+    ) = gitPush.push(root, remote, branch, target, force, expected, setUpstream, cancellation, ssh = ssh)
 
     override fun remoteBranch(
         root: Path,
@@ -275,14 +278,16 @@ internal class GitLogCliWrites(
         remote: String,
         refs: List<GitRemoteDeletion>,
         cancellation: GitCancellation,
-    ) = gitPush.deleteRemoteRefs(root, remote, refs, cancellation)
+        ssh: SshAccess,
+    ) = gitPush.deleteRemoteRefs(root, remote, refs, cancellation, ssh = ssh)
 
     override fun pushTags(
         root: Path,
         remote: String,
         tags: List<String>,
         cancellation: GitCancellation,
-    ) = gitPush.pushTags(root, remote, tags, cancellation)
+        ssh: SshAccess,
+    ) = gitPush.pushTags(root, remote, tags, cancellation, ssh = ssh)
 
     override fun addRemote(
         root: Path,

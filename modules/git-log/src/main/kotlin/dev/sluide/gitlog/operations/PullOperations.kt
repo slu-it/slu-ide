@@ -147,6 +147,7 @@ internal data class PullBranch(
 
     // Only the fetch; the merge or rebase after it is not.
     override val cancellable get() = !fetched
+    override val contactsRemote get() = !fetched
 
     private fun integrating() = if (mode == null) "Rebasing $branch onto $label…" else "Merging $label into $branch…"
 
@@ -162,7 +163,7 @@ internal data class PullBranch(
     ): RefOutcome {
         var note = fetchNote
         if (!fetched) {
-            val fetch = writes.fetch(root, remote, context.cancellation)
+            val fetch = writes.fetch(root, remote, context.cancellation, context.ssh)
             if (fetch.cancelled) return RefOutcome(GitResult(true, ""), PULL_CANCELLED, cancelled = true)
             if (!fetch.result.success) {
                 val failed = "$remote could not be fetched; nothing was pulled."

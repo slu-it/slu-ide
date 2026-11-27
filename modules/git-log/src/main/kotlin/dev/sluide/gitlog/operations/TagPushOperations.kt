@@ -24,6 +24,7 @@ internal data class PushTags(
     override val failure get() = "Not every tag could be pushed."
     override val fileChange get() = null
     override val cancellable get() = true
+    override val contactsRemote get() = true
 
     override fun run(
         writes: GitLogWrites,
@@ -40,7 +41,7 @@ internal data class PushTags(
         for (remote in remotes) {
             if (context.cancellation.cancelled) return cancelled(sentTo, null)
             context.progress("Pushing $what to $remote…")
-            val pushed = writes.pushTags(root, remote, tags, context.cancellation)
+            val pushed = writes.pushTags(root, remote, tags, context.cancellation, context.ssh)
             if (pushInterrupted(pushed.cancelled, pushed.result, pushed.outcomes.isNotEmpty(), context)) {
                 return cancelled(sentTo, remote)
             }

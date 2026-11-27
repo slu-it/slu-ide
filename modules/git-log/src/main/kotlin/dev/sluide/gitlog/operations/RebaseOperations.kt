@@ -84,6 +84,7 @@ internal data class RebaseOntoOriginDefault(
 
     // Only the fetch; the rebase after it is not.
     override val cancellable get() = true
+    override val contactsRemote get() = true
 
     override fun run(
         writes: GitLogWrites,
@@ -98,7 +99,7 @@ internal data class RebaseOntoOriginDefault(
         val branch =
             writes.currentBranch(root)
                 ?: return RefOutcome(GitResult(true, ""), "Rebase needs a current branch.")
-        val fetch = writes.fetch(root, remote, context.cancellation)
+        val fetch = writes.fetch(root, remote, context.cancellation, context.ssh)
         if (fetch.cancelled) return RefOutcome(GitResult(true, ""), "Rebase cancelled.", cancelled = true)
         val note = pullFetchNote(remote, fetch)
         if (!fetch.result.success) {

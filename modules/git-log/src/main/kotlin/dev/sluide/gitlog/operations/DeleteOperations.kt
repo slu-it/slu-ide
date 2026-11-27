@@ -31,6 +31,7 @@ internal data class DeleteRefs(
     override val failure get() = "Not everything could be deleted."
     override val fileChange get() = null
     override val cancellable get() = tags.isNotEmpty() && remotes.isNotEmpty()
+    override val contactsRemote get() = cancellable
 
     override fun run(
         writes: GitLogWrites,
@@ -51,7 +52,7 @@ internal data class DeleteRefs(
                 "Deleting ${tags.singleOrNull()?.let { "tag $it" } ?: plural(tags.size, "tag")} on $remote…",
             )
             val deletions = tags.map { GitRemoteDeletion("$TAG_REFS$it") }
-            val deleted = writes.deleteRemoteRefs(root, remote, deletions, context.cancellation)
+            val deleted = writes.deleteRemoteRefs(root, remote, deletions, context.cancellation, context.ssh)
             if (interrupted(deleted, context)) return remoteTagsCancelled(deletedOn, remote)
             if (!deleted.result.success) {
                 val partly =
@@ -177,6 +178,7 @@ internal data class DeleteRemoteBranches(
                 ?: "Not every remote branch could be deleted."
     override val fileChange get() = null
     override val cancellable get() = true
+    override val contactsRemote get() = true
 
     override fun run(
         writes: GitLogWrites,
@@ -220,7 +222,7 @@ internal data class DeleteRemoteBranches(
             }
             if (byRemote.size > 1) context.progress("Deleting remote branches on $remote…")
             val deletions = targets.map { (branch, target) -> GitRemoteDeletion(target, branch.ref.commit) }
-            val result = writes.deleteRemoteRefs(root, remote, deletions, context.cancellation)
+            val result = writes.deleteRemoteRefs(root, remote, deletions, context.cancellation, context.ssh)
             if (interrupted(result, context)) {
                 cancelled = true
                 interruptedOn = remote

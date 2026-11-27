@@ -31,6 +31,7 @@ internal data class AddRemote(
     override val failure get() = "Remote $name could not be added."
     override val fileChange get() = null
     override val cancellable get() = fetch
+    override val contactsRemote get() = fetch
 
     /** Without the URL, which may hold credentials. */
     override fun toString() = "AddRemote(name=$name, url=${maskedUrl(url)}, fetch=$fetch)"

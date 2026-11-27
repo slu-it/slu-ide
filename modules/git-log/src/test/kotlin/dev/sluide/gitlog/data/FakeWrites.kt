@@ -30,6 +30,7 @@ import dev.sluide.git.GitTagPushOutcome
 import dev.sluide.git.GitTagPushRefResult
 import dev.sluide.git.GitTagPushResult
 import dev.sluide.git.GitUncheckedConflict
+import dev.sluide.git.ssh.SshAccess
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -474,6 +475,9 @@ internal class FakeWrites(
     @Volatile
     var remotes: List<String>? = listOf("origin")
 
+    /** The [SshAccess] each remote call (fetch, push, deletion, tag push) got, in order. */
+    val sshSeen = CopyOnWriteArrayList<SshAccess>()
+
     /** What fetching a remote gives, by its name, unless the fetch was cancelled. */
     @Volatile
     var fetchResult: (String) -> GitFetchResult = { GitFetchResult(GitResult(true, ""), changes = GitFetchChanges()) }
@@ -485,8 +489,10 @@ internal class FakeWrites(
         root: Path,
         remote: String,
         cancellation: GitCancellation,
+        ssh: SshAccess,
     ): GitFetchResult {
         threads += Thread.currentThread().name
+        sshSeen += ssh
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
         while (gate?.await(10, TimeUnit.MILLISECONDS) == false && !cancellation.cancelled) {
             if (System.nanoTime() > deadline) break
@@ -535,8 +541,10 @@ internal class FakeWrites(
         expected: String?,
         setUpstream: Boolean,
         cancellation: GitCancellation,
+        ssh: SshAccess,
     ): GitPushResult {
         threads += Thread.currentThread().name
+        sshSeen += ssh
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
         while (gate?.await(10, TimeUnit.MILLISECONDS) == false && !cancellation.cancelled) {
             if (System.nanoTime() > deadline) break
@@ -585,8 +593,10 @@ internal class FakeWrites(
         remote: String,
         refs: List<GitRemoteDeletion>,
         cancellation: GitCancellation,
+        ssh: SshAccess,
     ): GitRemoteDeletionResult {
         threads += Thread.currentThread().name
+        sshSeen += ssh
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
         while (gate?.await(10, TimeUnit.MILLISECONDS) == false && !cancellation.cancelled) {
             if (System.nanoTime() > deadline) break
@@ -614,8 +624,10 @@ internal class FakeWrites(
         remote: String,
         tags: List<String>,
         cancellation: GitCancellation,
+        ssh: SshAccess,
     ): GitTagPushResult {
         threads += Thread.currentThread().name
+        sshSeen += ssh
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
         while (gate?.await(10, TimeUnit.MILLISECONDS) == false && !cancellation.cancelled) {
             if (System.nanoTime() > deadline) break

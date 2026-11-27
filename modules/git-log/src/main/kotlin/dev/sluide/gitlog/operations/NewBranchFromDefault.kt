@@ -30,6 +30,7 @@ internal data class PrepareNewBranchFromDefault(
     // It changes no files; the CreateBranch after the dialog asks about unsaved editors.
     override val fileChange: String? get() = null
     override val cancellable get() = true
+    override val contactsRemote get() = true
 
     override fun run(
         writes: GitLogWrites,
@@ -41,7 +42,7 @@ internal data class PrepareNewBranchFromDefault(
         root: Path,
         context: RunContext,
     ): RefOutcome {
-        val fetch = writes.fetch(root, remote, context.cancellation)
+        val fetch = writes.fetch(root, remote, context.cancellation, context.ssh)
         if (fetch.cancelled) return RefOutcome(GitResult(true, ""), "New branch cancelled.", cancelled = true)
         val note = pullFetchNote(remote, fetch)
         if (!fetch.result.success) {

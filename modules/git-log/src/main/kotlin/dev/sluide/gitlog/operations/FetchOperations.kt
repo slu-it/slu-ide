@@ -20,6 +20,7 @@ internal data class Fetch(
     override val failure get() = remote?.let { "$it could not be fetched." } ?: "Not every remote could be fetched."
     override val fileChange get() = null
     override val cancellable get() = true
+    override val contactsRemote get() = true
 
     override fun run(
         writes: GitLogWrites,
@@ -44,7 +45,7 @@ internal data class Fetch(
         for (name in remotes) {
             if (context.cancellation.cancelled) break
             context.progress(fetching(name))
-            val result = writes.fetch(root, name, context.cancellation)
+            val result = writes.fetch(root, name, context.cancellation, context.ssh)
             results[name] = result
             if (result.cancelled) break
         }
