@@ -12,6 +12,9 @@ import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitRewords
 import dev.sluide.git.GitStashes
 import dev.sluide.git.cli.GitCli
+import dev.sluide.gitlog.data.GitLogCliSource
+import dev.sluide.gitlog.data.GitLogCliWrites
+import javafx.application.Platform
 import javafx.scene.Scene
 import javafx.stage.Stage
 import org.junit.jupiter.api.io.TempDir
@@ -41,18 +44,26 @@ abstract class GitLogRealGitUiFixture : GitLogWritesUiFixture() {
     internal fun startRealGit(stage: Stage) {
         val git = GitCli("git", environment)
         val rebases = GitRebases(git)
+        val remotes = GitRemotes(git)
+        val commits = GitCommits(git)
+        val push = GitPush(git)
+        val stashes = GitStashes(git)
+        // The internal constructor: the Spring one needs the application's `SshPrompts`.
         view =
             GitLogView(
-                GitLog(git),
-                GitBranches(git),
-                GitCommits(git),
-                rebases,
-                GitMerges(git),
-                GitPulls(git, rebases),
-                GitRewords(git),
-                GitRemotes(git),
-                GitPush(git),
-                GitStashes(git),
+                GitLogCliSource(GitLog(git), remotes, commits, push, stashes),
+                Platform::runLater,
+                GitLogCliWrites(
+                    GitBranches(git),
+                    commits,
+                    rebases,
+                    GitMerges(git),
+                    GitPulls(git, rebases),
+                    GitRewords(git),
+                    remotes,
+                    push,
+                    stashes,
+                ),
                 BackgroundTasks.forTests(),
             )
         stage.scene = Scene(view, 900.0, 500.0)

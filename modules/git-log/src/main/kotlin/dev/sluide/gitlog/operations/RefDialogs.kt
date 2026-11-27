@@ -360,14 +360,18 @@ internal fun forceDeleteConfirmation(
         dialogPane.content = messagePane(message)
     }
 
-/** [alert], titled Delete, with Cancel as the default button, focused once shown. */
-private fun cancelFirst(
-    alert: Alert,
+/**
+ * [dialog], titled [heading] (Delete unless told), with Cancel as the default button, focused once shown, so that Enter
+ * never confirms (`docs/safety.md`); its buttons are set already.
+ */
+internal fun <T : Dialog<*>> cancelFirst(
+    dialog: T,
     owner: Window?,
-): Alert =
-    alert.apply {
+    heading: String = "Delete",
+): T =
+    dialog.apply {
         owner?.let(::initOwner)
-        title = "Delete"
+        title = heading
         val cancel = dialogPane.lookupButton(ButtonType.CANCEL) as Button
         dialogPane.buttonTypes
             .filter { it != ButtonType.CANCEL }

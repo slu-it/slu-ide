@@ -8,6 +8,8 @@ import dev.sluide.git.GitPick
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.defaultMergeMessage
+import dev.sluide.git.ssh.SshAccess
+import dev.sluide.git.ssh.SshPromptUi
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogWrites
@@ -51,6 +53,7 @@ import dev.sluide.gitlog.operations.ResetBranch
 import dev.sluide.gitlog.operations.ResetDialog
 import dev.sluide.gitlog.operations.RewordCommit
 import dev.sluide.gitlog.operations.RewordDialog
+import dev.sluide.gitlog.operations.SshSessions
 import dev.sluide.gitlog.operations.StashDialog
 import dev.sluide.gitlog.operations.abortButton
 import dev.sluide.gitlog.operations.deleteQuestion
@@ -103,6 +106,7 @@ internal class RefActions(
     private val clearStatus: () -> Unit,
     private val tellOperation: (String) -> Unit,
     tasks: BackgroundTasks,
+    sshOpen: (Path, SshPromptUi, () -> Unit) -> SshAccess = { _, _, _ -> SshAccess.Batch },
 ) {
     /** Asked before an operation changes files on disk, with its action; `false` cancels it. Set by the view. */
     var beforeFileChange: (action: String) -> Boolean = { true }
@@ -122,6 +126,12 @@ internal class RefActions(
     private val writeExecutor =
         NamedThreads.single("sluide-git-write")
 
+    /** What the operation going on says it does, for the ssh prompts' dialogs ("Fetching origin…"). */
+    @Volatile private var operationLine = ""
+
+    /** The operation started last, whose window the ssh prompts' dialogs belong to. */
+    @Volatile private var runningOperation: RefOperation? = null
+
     /** Runs the operations that change the repository, one at a time (ADR 0041), each as a task of [tasks]. */
     private val writer =
         RefWriter(
@@ -129,6 +139,7 @@ internal class RefActions(
             writeExecutor::execute,
             dispatch,
             tasks,
+            SshSessions(FxSshPromptUi({ ownerOf(checkNotNull(runningOperation)) }, { operationLine }), sshOpen),
             writeStarted = { onWriteStarted(it) },
             writeFinished = { onWriteFinished() },
         )
@@ -288,8 +299,13 @@ internal class RefActions(
         val action = operation.fileChange
         if (askFirst && action != null && !beforeFileChange(action)) return
         clearStatus()
-        if (writer.run(root, operation, tellOperation) { outcome -> finished(operation, outcome) }) {
-            tellOperation(operation.progress)
+        runningOperation = operation
+        val tell = { text: String ->
+            operationLine = text
+            tellOperation(text)
+        }
+        if (writer.run(root, operation, tell) { outcome -> finished(operation, outcome) }) {
+            tell(operation.progress)
         }
     }
 

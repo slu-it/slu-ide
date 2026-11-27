@@ -12,6 +12,9 @@ import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitRewords
 import dev.sluide.git.GitStashes
+import dev.sluide.git.ssh.SshAccess
+import dev.sluide.git.ssh.SshPromptUi
+import dev.sluide.git.ssh.SshPrompts
 import dev.sluide.gitlog.actions.RefActions
 import dev.sluide.gitlog.area.AreaTabs
 import dev.sluide.gitlog.area.CommitDiffs
@@ -105,36 +108,29 @@ class GitLogView internal constructor(
     private val dispatch: (Runnable) -> Unit,
     private val writes: GitLogWrites,
     private val tasks: BackgroundTasks,
+    private val sshOpen: (Path, SshPromptUi, () -> Unit) -> SshAccess = { _, _, _ -> SshAccess.Batch },
 ) : BorderPane(),
     AutoCloseable {
     @Autowired
     constructor(
-        gitLog: GitLog,
-        gitBranches: GitBranches,
-        gitCommits: GitCommits,
-        gitRebases: GitRebases,
-        gitMerges: GitMerges,
-        gitPulls: GitPulls,
-        gitRewords: GitRewords,
-        gitRemotes: GitRemotes,
-        gitPush: GitPush,
-        gitStashes: GitStashes,
+        log: GitLog,
+        branches: GitBranches,
+        commits: GitCommits,
+        rebases: GitRebases,
+        merges: GitMerges,
+        pulls: GitPulls,
+        rewords: GitRewords,
+        remotes: GitRemotes,
+        push: GitPush,
+        stashes: GitStashes,
         tasks: BackgroundTasks,
+        sshPrompts: SshPrompts? = null,
     ) : this(
-        GitLogCliSource(gitLog, gitRemotes, gitCommits, gitPush, gitStashes),
+        GitLogCliSource(log, remotes, commits, push, stashes),
         Platform::runLater,
-        GitLogCliWrites(
-            gitBranches,
-            gitCommits,
-            gitRebases,
-            gitMerges,
-            gitPulls,
-            gitRewords,
-            gitRemotes,
-            gitPush,
-            gitStashes,
-        ),
+        GitLogCliWrites(branches, commits, rebases, merges, pulls, rewords, remotes, push, stashes),
         tasks,
+        { root, ui, onCancel -> sshPrompts?.open(root, ui, onCancel) ?: SshAccess.Batch },
     )
 
     /** Reads the log, the details and the branches in the background. */
@@ -231,6 +227,7 @@ class GitLogView internal constructor(
             status::clear,
             status::operation,
             tasks,
+            sshOpen,
         ).apply {
             beforeFileChange = { action -> this@GitLogView.beforeFileChange(action) }
             onWriteStarted = { holdsStatus -> this@GitLogView.onWriteStarted(holdsStatus) }
