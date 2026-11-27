@@ -78,7 +78,9 @@ and the full list are in `modules/git/src/test/resources/ssh-askpass/`):
   to `SshPromptUi.confirmHost` with the text without its last line, and Connect answers exactly `yes`. A Cancel in
   either calls `onCancel` first, then answers "none". Everything else (PINs, the host re-prompt, ssh-add's texts
   outside a one-shot, a password prompt of the user's own ssh command) gets "none" without a dialog and without a
-  cancel. Only the prompt's kind is logged, at debug.
+  cancel. Only the prompt's kind is logged, at debug. A UI that fails (throws a RuntimeException: its dialog cannot be
+  made or shown) is no Cancel: logged at warning with the exception's class, "none" without `onCancel`, so the
+  operation fails with ssh's message; `null`/`false` from the UI mean the user's Cancel only.
 - **Passphrases** (`SshPassphrases`, called by the session with its id, ssh's pid as the connection, and the key file):
   - *State:* a memory cache per key file, app-wide until Thoreau quits (`CharArray`s, zeroed on `destroy()`); per
     session the pending answers per key (source MEMORY, SAVED or ENTERED, the reply's Save and Add-to-agent flags,
@@ -116,6 +118,11 @@ and the full list are in `modules/git/src/test/resources/ssh-askpass/`):
   outcome by it ("Fetch cancelled.", no error dialog), never by the git result's `cancelled`.
 - **Closing a session** (the operation ended or was cancelled) unregisters its token and interrupts every connection
   thread waiting on the session's UI; the UI closes its dialog on the interrupt and the prompt gets "none".
+- **The end of a git process** (`ended`) does the same for the prompts still open, but keeps the session: a session runs
+  one git process at a time and prompts come only from it, so an open prompt belongs to a process that is gone (e.g.
+  git, ssh and the helper stopped at `FETCH_TIMEOUT` while the operation goes on); it gets "none" without `onCancel`,
+  and an answer that arrives after the end is dropped (not pending for the next process, so its success cannot commit
+  it).
 - **Server down:** if the helper cannot be installed or the socket not bound, `open` returns `Batch`: logged once at
   warning, with the exception's class only (its message names the user's folders), and not tried again. If accepting
   fails later (other than by closing, e.g. out of file descriptors), the server logs the class once, closes its
