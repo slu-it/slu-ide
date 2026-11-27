@@ -506,6 +506,7 @@ internal class FakeWrites(
             if (System.nanoTime() > deadline) break
         }
         calls += "fetch $remote"
+        sshHook(ssh)?.let { return it }
         if (cancellation.cancelled) return GitFetchResult(GitResult(false, "Cancelled."), cancelled = true)
         return fetchResult(remote)
     }

@@ -17,6 +17,8 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitStash
 import dev.sluide.git.GitTreePath
+import dev.sluide.git.ssh.SshAccess
+import dev.sluide.git.ssh.SshPromptUi
 import dev.sluide.gitlog.branches.BranchMenuEntry
 import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.data.FakeWrites
@@ -56,6 +58,10 @@ import kotlin.test.assertTrue
  */
 abstract class GitLogWritesUiFixture {
     internal val repo = Path.of("/repo")
+
+    /** Opens the ssh prompt session of an operation that contacts a remote; batch mode unless a test replaces it. */
+    @Volatile
+    internal var sshOpen: (Path, SshPromptUi, () -> Unit) -> SshAccess = { _, _, _ -> SshAccess.Batch }
 
     /** A line of ten commits; h6 also merges h9. */
     internal val commits =
@@ -306,7 +312,10 @@ abstract class GitLogWritesUiFixture {
                     return headMessage
                 }
             }
-        view = GitLogView(source, Platform::runLater, writes, BackgroundTasks.forTests())
+        view =
+            GitLogView(source, Platform::runLater, writes, BackgroundTasks.forTests()) { root, ui, onCancel ->
+                sshOpen(root, ui, onCancel)
+            }
         view.beforeFileChange = { action ->
             fileChanges += action
             beforeFileChange.removeFirstOrNull() ?: true
@@ -514,4 +523,16 @@ abstract class GitLogWritesUiFixture {
 
     /** Whether the header's Cancel button shows. */
     internal fun cancelShown() = WaitForAsyncUtils.asyncFx<Boolean> { view.cancelButton.isVisible }.get()
+}
+
+/** An ssh prompt session of a fake `SshPrompts`: gives the test the window's prompts and the cancel callback. */
+internal class PromptingSession(
+    val ui: SshPromptUi,
+    val onCancel: () -> Unit,
+) : SshAccess.Prompting {
+    override val environment = emptyMap<String, String>()
+
+    override fun ended(success: Boolean) = Unit
+
+    override fun close() = Unit
 }

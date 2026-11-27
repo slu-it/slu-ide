@@ -83,6 +83,7 @@ class FxSshPromptUiTest {
         val ui = ui(passphrase = FakeDialog(reply))
 
         assertEquals(reply, answerOf { ui.askPassphrase(request) })
+        assertEquals("secret", String(reply.passphrase), "handed over intact")
         assertEquals(listOf("Fetching origin…"), shownWith)
     }
 

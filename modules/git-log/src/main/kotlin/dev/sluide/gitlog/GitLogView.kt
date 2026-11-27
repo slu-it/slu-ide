@@ -108,7 +108,7 @@ class GitLogView internal constructor(
     private val dispatch: (Runnable) -> Unit,
     private val writes: GitLogWrites,
     private val tasks: BackgroundTasks,
-    private val sshOpen: (Path, SshPromptUi, () -> Unit) -> SshAccess = { _, _, _ -> SshAccess.Batch },
+    private val sshOpen: (Path, SshPromptUi, () -> Unit) -> SshAccess,
 ) : BorderPane(),
     AutoCloseable {
     @Autowired

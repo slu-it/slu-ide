@@ -106,7 +106,7 @@ internal class RefActions(
     private val clearStatus: () -> Unit,
     private val tellOperation: (String) -> Unit,
     tasks: BackgroundTasks,
-    sshOpen: (Path, SshPromptUi, () -> Unit) -> SshAccess = { _, _, _ -> SshAccess.Batch },
+    sshOpen: (Path, SshPromptUi, () -> Unit) -> SshAccess,
 ) {
     /** Asked before an operation changes files on disk, with its action; `false` cancels it. Set by the view. */
     var beforeFileChange: (action: String) -> Boolean = { true }

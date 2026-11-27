@@ -18,6 +18,7 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRevisionResolution
 import dev.sluide.git.GitTreePath
+import dev.sluide.git.ssh.SshAccess
 import dev.sluide.gitlog.data.FakeWrites
 import dev.sluide.gitlog.data.GitLogSource
 import javafx.application.Platform
@@ -302,7 +303,7 @@ abstract class GitLogViewUiFixture {
 
                 override fun headMessage(root: Path): String? = null
             }
-        view = GitLogView(source, Platform::runLater, writes, BackgroundTasks.forTests())
+        view = GitLogView(source, Platform::runLater, writes, BackgroundTasks.forTests()) { _, _, _ -> SshAccess.Batch }
         stage.scene = Scene(view, 800.0, 400.0)
         stage.show()
     }

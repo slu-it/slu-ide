@@ -390,6 +390,52 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
     }
 
     @Test
+    fun `a passphrase asked while a pull started in the Push dialog fetches shows over the Push dialog`(
+        robot: FxRobot,
+    ) {
+        writes.pullSources =
+            GitPullSources(
+                "main",
+                true,
+                listOf("refs/remotes/origin/main"),
+                listOf("origin"),
+                "refs/remotes/origin/main",
+                null,
+            )
+        writes.ancestry = { _, _ -> false }
+        sshOpen = { _, ui, onCancel -> PromptingSession(ui, onCancel) }
+        writes.sshHook = { access ->
+            val session = access as PromptingSession
+            val request =
+                dev.sluide.git.ssh
+                    .PassphraseRequest(
+                        java.nio.file.Path
+                            .of("/k"),
+                        null,
+                        null,
+                        null,
+                    )
+            if (session.ui.askPassphrase(request) == null) {
+                session.onCancel()
+                GitFetchResult(GitResult(false, "Permission denied (publickey)."))
+            } else {
+                null
+            }
+        }
+        openPush(robot) { _, _ -> twoCommits.copy(behind = 2) }
+        robot.interact { Platform.runLater { dialog().pullButton.fire() } }
+        press(robot, awaitDialog(robot), PULL_BUTTON)
+
+        val prompt = awaitDialog(robot)
+        assertEquals("SSH Key Passphrase", (prompt.scene.window as Stage).title)
+        assertSame(dialog().stage, (prompt.scene.window as Stage).owner, "over the Push dialog, not behind it")
+        press(robot, prompt, ButtonType.CANCEL)
+
+        eventually { assertEquals("Pull cancelled.", status(robot)) }
+        assertNoDialog()
+    }
+
+    @Test
     fun `the dialog shows the reason and the buttons of what the reader found, up to date to no remote`(
         robot: FxRobot,
     ) {

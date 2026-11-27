@@ -49,4 +49,12 @@ class SshPromptTextTest {
         assertFalse(unlockDisabled(" "))
         assertFalse(unlockDisabled("secret"))
     }
+
+    @Test
+    fun `the home folder is the user home property unless it is missing or blank`() {
+        assertEquals(Path.of("/home/me"), homeFolder("/home/me"))
+        assertEquals(null, homeFolder(null))
+        assertEquals(null, homeFolder(""))
+        assertEquals(null, homeFolder("  "))
+    }
 }

@@ -35,4 +35,7 @@ internal fun abbreviateHome(
 /** Unlock needs a passphrase: an empty field would only make ssh stop asking for the key. */
 internal fun unlockDisabled(passphrase: String): Boolean = passphrase.isEmpty()
 
-private fun userHome(): Path? = System.getProperty("user.home")?.takeIf { it.isNotBlank() }?.let(Path::of)
+private fun userHome(): Path? = homeFolder(System.getProperty("user.home"))
+
+/** The home folder named by the `user.home` [property]; `null` if it is not set or blank. */
+internal fun homeFolder(property: String?): Path? = property?.takeIf { it.isNotBlank() }?.let(Path::of)

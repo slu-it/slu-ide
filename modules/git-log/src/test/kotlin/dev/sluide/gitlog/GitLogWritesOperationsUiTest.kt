@@ -3,10 +3,13 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitFetchChanges
 import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitResult
+import dev.sluide.git.ssh.PassphraseRequest
 import dev.sluide.gitlog.branches.BranchMenuEntry
 import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.table.CommitMenuEntry
+import javafx.scene.control.Button
 import javafx.scene.control.ButtonType
+import javafx.scene.control.Label
 import javafx.scene.control.TextArea
 import javafx.scene.input.KeyCode
 import javafx.stage.Stage
@@ -16,11 +19,14 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Path
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -228,6 +234,57 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         assertFalse(view.fetchButton.isDisable)
         eventually { assertTrue(loads.size > loadsBefore, "refreshed") }
         assertNoDialog()
+    }
+
+    @Test
+    fun `a passphrase prompt of a fetch shows a dialog, and its Cancel ends the fetch as cancelled without an error`(
+        robot: FxRobot,
+    ) {
+        currentRemotes = listOf("origin", "fork")
+        writes.remotes = listOf("origin", "fork")
+        val cancels = AtomicInteger()
+        sshOpen = { _, ui, onCancel -> PromptingSession(ui, onCancel) }
+        // What the askpass connection thread does for ssh: ask the window's prompts from a thread of its own.
+        writes.sshHook = { access ->
+            val session = access as PromptingSession
+            val request = PassphraseRequest(Path.of("/home/me/.ssh/id_ed25519"), null, "needs secret-tool", null)
+            if (session.ui.askPassphrase(request) == null) {
+                cancels.incrementAndGet()
+                session.onCancel()
+                GitFetchResult(GitResult(false, "Permission denied (publickey)."))
+            } else {
+                null
+            }
+        }
+        openAndExpand(robot)
+
+        robot.interact { view.fetchButton.fire() }
+        val pane = awaitDialog(robot)
+        val title = WaitForAsyncUtils.asyncFx<String> { (pane.scene.window as Stage).title }.get()
+        assertEquals("SSH Key Passphrase", title)
+        val (owner, window) =
+            WaitForAsyncUtils
+                .asyncFx<Pair<Any?, Any?>> { (pane.scene.window as Stage).owner to view.scene.window }
+                .get()
+        assertSame(window, owner, "owned by the window of the operation")
+        val lines =
+            WaitForAsyncUtils
+                .asyncFx<List<String>> {
+                    robot
+                        .from(
+                            pane,
+                        ).lookup(".label")
+                        .queryAllAs(Label::class.java)
+                        .map { it.text }
+                }.get()
+        assertTrue("Fetching origin…" in lines, "says what runs: $lines")
+        robot.interact { (pane.lookupButton(ButtonType.CANCEL) as Button).fire() }
+
+        eventually { assertEquals("Fetch cancelled.", status(robot)) }
+        assertEquals(1, cancels.get())
+        assertEquals(listOf("fetch origin"), writes.calls, "the other remote is skipped")
+        assertNoDialog()
+        assertFalse(view.fetchButton.isDisable)
     }
 
     @Test
