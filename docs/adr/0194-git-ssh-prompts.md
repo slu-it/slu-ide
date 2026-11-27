@@ -51,7 +51,9 @@ and the full list are in `modules/git/src/test/resources/ssh-askpass/`):
   `askpass.jar` and carried with `kotlin-stdlib.jar` as resources of the `git` module, like the JShell agent (ADR
   0191). `AskpassFiles.install` copies them to `~/.sluide/git/askpass/<first 16 hex digits of the SHA-256 of the jars
   and the java path>/`, each through a temporary file and `ATOMIC_MOVE`, with the wrapper script `askpass` (0700):
-  `#!/bin/sh` and `exec '<java.home>/bin/java' -cp '<askpass.jar>:<kotlin-stdlib.jar>' dev.sluide.git.askpass.Askpass
+  `#!/bin/sh`, `unset JAVA_TOOL_OPTIONS _JAVA_OPTIONS JDK_JAVA_OPTIONS` (meant for the user's own JVMs; the JVM would
+  print "Picked up …" for each into ssh's and so git's error output, found in the real-app check) and
+  `exec '<java.home>/bin/java' -cp '<askpass.jar>:<kotlin-stdlib.jar>' dev.sluide.git.askpass.Askpass
   "$@"`, every path in single quotes (`'` as `'\''`); on Linux prefixed with `LC_ALL=C.UTF-8`, so that the helper's
   JVM decodes the prompt (a key path) as UTF-8 whatever the user's locale (macOS's JVM always does). `exec`, so that
   no shell lingers on ssh's pipe and the helper's parent is ssh. Thoreau's bundled runtime keeps `bin/java` (ADR
@@ -96,17 +98,16 @@ and the full list are in `modules/git/src/test/resources/ssh-askpass/`):
     checked is encrypted (`git/ssh-passphrase/<absolute normalized path>`) and written to `~/.sluide/shared.json`
     (`git.sshPassphrases`; failure: `notSaved(reason)`), and with Add to agent checked `ssh-add -- <key>` runs. Each
     acts once. `ended(false)` commits nothing and keeps the pending answers for the session, so that the asked-again
-    rule still catches a wrong one. A session is `opened` on `SshPassphrases` when it is registered, before its environment
-    reaches git, and only an opened session gets answers: a call after `closed` (which zeroes and forgets the
-    session's answers) or after `destroy` gets none and no dialog, so no state comes back and nothing grows with the
-    number of operations. A commit in flight has its own copy. `notSaved` and `notAddedToAgent` therefore arrive on
-    the thread `sluide-git-ssh-passphrase`, usually after the session closed; the UI shows them without tying them
-    to a session and without blocking. When ssh's second ask drops a saved answer, only that value is removed, not a
-    newer one saved meanwhile.
+    rule still catches a wrong one. A session is `opened` on `SshPassphrases` when it is registered, before its
+    environment reaches git, and only an opened session gets answers: a call after `closed` (which zeroes and forgets
+    the session's answers) or after `destroy` gets none and no dialog, so no state comes back and nothing grows with the
+    number of operations. A commit in flight has its own copy. `notSaved` and `notAddedToAgent` therefore arrive on the
+    thread `sluide-git-ssh-passphrase`, usually after the session closed; the UI shows them without tying them to a
+    session and without blocking. When ssh's second ask drops a saved answer, only that value is removed, not a newer
+    one saved meanwhile.
   - *ssh-add* (`SshAdd`): a one-shot token of the channel answers its first `Enter passphrase for ` prompt, with git's
     environment plus the token's; stdin is `/dev/null`, stdout discarded, stderr read up to 8 KiB, 30 s, then stopped.
-    A non-zero exit, a timeout or a missing ssh-add becomes `notAddedToAgent(message)`; the JVM's `Picked up …` notes
-    that the helper's JVM may add to stderr are dropped from the message.
+    A non-zero exit, a timeout or a missing ssh-add becomes `notAddedToAgent(message)`.
   - *Known limit:* ssh may give up on key A after three wrong answers and log in with another identity; the process
     succeeds, and A's last answer counts as good.
 - **The outcome of a Cancel is the caller's:** `onCancel` cancels the operation's `GitCancellation`, which only sets a
@@ -134,8 +135,9 @@ and the full list are in `modules/git/src/test/resources/ssh-askpass/`):
 - Accepted limits:
   - A key path longer than 100 characters reaches Thoreau cut as ssh shows it: memory and saving still work by that
     name, adding it to the agent does not (the file is not found).
-  - The server's `LoginGraceTime` (120 s by default) closes the connection while a dialog waits; the operation then
-    fails with ssh's "Connection closed by …".
+  - The server's `LoginGraceTime` (120 s by default) closes the connection while a dialog waits. ssh notices only
+    once the dialog is answered (measured in the real-app check: the dialog stays open), so the operation then fails
+    with ssh's "Connection closed by …"; an unanswered dialog closes with the 10-minute timeout.
   - plink and other non-OpenSSH commands ignore the variables; they behave as they did with the user's settings.
   - With the user's own ssh command (`core.sshCommand`, `ssh.variant`, `GIT_SSH*`) Thoreau does not turn password
     logins off: that ssh may try one and send the empty password of a "no answer" (up to three times; the server logs

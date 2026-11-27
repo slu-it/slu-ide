@@ -142,20 +142,6 @@ class SshAddTest {
     }
 
     @Test
-    fun `only the JVM's own notes about its environment variables are dropped from the message`() {
-        val message =
-            add(
-                rawScript(
-                    "echo 'Picked up JAVA_TOOL_OPTIONS: -Xmx1g' >&2; echo 'Picked up _JAVA_OPTIONS: -Xms1m' >&2; " +
-                        "echo 'Picked up JDK_JAVA_OPTIONS: -Xss1m' >&2; echo 'Picked up the pieces' >&2; " +
-                        "echo 'Could not connect' >&2; exit 1",
-                ),
-            )
-
-        assertEquals("Picked up the pieces\nCould not connect", message)
-    }
-
-    @Test
     fun `an ssh-add that is not there is reported`() {
         assertEquals("ssh-add was not found.", add(folder.resolve("no-such-ssh-add").toString()))
     }

@@ -50,6 +50,7 @@ class AskpassFilesTest {
 
         assertEquals(
             "#!/bin/sh\n" +
+                "unset JAVA_TOOL_OPTIONS _JAVA_OPTIONS JDK_JAVA_OPTIONS\n" +
                 "${locale}exec '/Apps/It'\\''s Thoreau/bin/java' -cp " +
                 "'/h/o'\\''k/askpass.jar:/h/o'\\''k/kotlin-stdlib.jar' dev.sluide.git.askpass.Askpass \"\$@\"\n",
             script,
@@ -57,15 +58,26 @@ class AskpassFilesTest {
     }
 
     @Test
-    fun `the installed wrapper runs in place of its shell, hands each argument over whole and sets the locale`() {
+    fun `the installed wrapper execs java with whole arguments, the UTF-8 locale and without JVM options`() {
         // A stand-in java at a path with a quote, a space and a dollar sign: prints its pid, locale and arguments.
         val bin = folder.resolve("it's \$HOME bin").createDirectories()
         val java = bin.resolve("java")
-        java.writeText("#!/bin/sh\necho \$\$\necho \"\$LC_ALL\"\nfor a in \"\$@\"; do printf '[%s]\\n' \"\$a\"; done\n")
+        java.writeText(
+            "#!/bin/sh\necho \$\$\necho \"\$LC_ALL\"\n" +
+                // The JVM would print "Picked up …" for each of these into ssh's, and so git's, error output.
+                "echo \"\${JAVA_TOOL_OPTIONS-none}|\${_JAVA_OPTIONS-none}|\${JDK_JAVA_OPTIONS-none}\"\n" +
+                "for a in \"\$@\"; do printf '[%s]\\n' \"\$a\"; done\n",
+        )
         java.toFile().setExecutable(true)
         val script = install(java)
 
-        val process = ProcessBuilder(script.toString(), "Enter passphrase for key 'my key': ").start()
+        val process =
+            ProcessBuilder(script.toString(), "Enter passphrase for key 'my key': ")
+                .apply {
+                    environment()["JAVA_TOOL_OPTIONS"] = "-Dhttp.proxyHost=proxy"
+                    environment()["_JAVA_OPTIONS"] = "-Xmx1m"
+                    environment()["JDK_JAVA_OPTIONS"] = "-Dx=y"
+                }.start()
         val lines = process.inputStream.bufferedReader().readLines()
         process.waitFor(10, TimeUnit.SECONDS)
 
@@ -74,6 +86,7 @@ class AskpassFilesTest {
         assertEquals(
             listOf(
                 "C.UTF-8",
+                "none|none|none",
                 "[-cp]",
                 "[${folderOfJars.resolve("askpass.jar")}:${folderOfJars.resolve("kotlin-stdlib.jar")}]",
                 "[dev.sluide.git.askpass.Askpass]",

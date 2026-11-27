@@ -85,7 +85,9 @@ internal object AskpassFiles {
      * The wrapper script: `exec`s [java] with the [classPath] and the helper's main class, passing ssh's arguments on.
      * `exec`, so that no shell stays behind holding ssh's pipe and the helper's parent is ssh. Each value is quoted. On
      * [linux] java runs with `LC_ALL=C.UTF-8`, so that it decodes ssh's prompt (a key path) as UTF-8 also where the
-     * user's locale is not; macOS's JVM always does.
+     * user's locale is not; macOS's JVM always does. `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS` and `JDK_JAVA_OPTIONS` are
+     * unset: they are meant for the user's own JVMs, and the JVM would print "Picked up …" for each into ssh's and so
+     * git's error output, which the git log shows.
      */
     internal fun wrapperScript(
         java: Path,
@@ -94,7 +96,9 @@ internal object AskpassFiles {
     ): String {
         val path = quoted(classPath.joinToString(":"))
         val locale = if (linux) "LC_ALL=C.UTF-8 " else ""
-        return "#!/bin/sh\n${locale}exec ${quoted(java.toString())} -cp $path dev.sluide.git.askpass.Askpass \"\$@\"\n"
+        return "#!/bin/sh\nunset JAVA_TOOL_OPTIONS _JAVA_OPTIONS JDK_JAVA_OPTIONS\n${locale}exec ${quoted(
+            java.toString(),
+        )} -cp $path dev.sluide.git.askpass.Askpass \"\$@\"\n"
     }
 
     /** [value] in single quotes for `/bin/sh`, each `'` in it as `'\''`. */

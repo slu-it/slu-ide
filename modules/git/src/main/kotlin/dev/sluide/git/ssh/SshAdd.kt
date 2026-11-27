@@ -77,24 +77,10 @@ internal class SshAdd(
         }
     }
 
-    /**
-     * What ssh-add wrote to its standard error, trimmed, without the JVM's notes about its environment variables
-     * (`Picked up JAVA_TOOL_OPTIONS: …`): the helper JVM that ssh-add starts shares its standard error.
-     */
-    private fun message(errors: ByteArray): String =
-        String(errors, Charsets.UTF_8)
-            .lines()
-            .filterNot { line -> JVM_NOTES.any(line::startsWith) }
-            .joinToString("\n")
-            .trim()
+    /** What ssh-add wrote to its standard error, trimmed (the helper's wrapper keeps the JVM's own notes out of it). */
+    private fun message(errors: ByteArray): String = String(errors, Charsets.UTF_8).trim()
 
     private companion object {
-        val JVM_NOTES =
-            listOf(
-                "Picked up JAVA_TOOL_OPTIONS: ",
-                "Picked up _JAVA_OPTIONS: ",
-                "Picked up JDK_JAVA_OPTIONS: ",
-            )
         val log: System.Logger = System.getLogger(SshAdd::class.java.name)
         const val MAX_ERRORS = 8 * 1024
         const val GRACE_SECONDS = 2L
