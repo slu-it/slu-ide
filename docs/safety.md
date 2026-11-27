@@ -42,7 +42,8 @@ The short form that loads with production code is `.claude/rules/safety.md`; kee
   on the FX thread.
 - The one exception to "never interactive": the git log's fetch and push calls let ssh ask for a key's passphrase or
   about an unknown host through Thoreau's own dialogs, over its askpass helper (`SshPrompts`, ADR 0194), never on a
-  terminal; password logins are turned off there, and every other prompt gets no answer.
+  terminal; password logins are turned off there (unless the user set their own ssh command), and every other prompt
+  gets no answer.
 
 ## Secrets
 - Never log secrets, stdin, HTTP bodies, headers or query strings; name tasks without paths that could hold tokens

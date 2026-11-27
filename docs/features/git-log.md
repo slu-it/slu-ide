@@ -547,9 +547,9 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     refused a tag but moved branches). Remotes that failed before a cancel get the dialog too. The log is refreshed
     afterwards.
   - **Asks through dialogs:** git gets no terminal prompt; credential helpers work. When ssh needs a key's passphrase
-    or does not know the host, it asks in a dialog of the window ([SSH prompts](#ssh-prompts)), also while the
-    header's Cancel is available; Cancel in such a dialog cancels the fetch like the header's Cancel. Not for ssh
-    password login, security keys' PINs or https credentials: those fail with ssh's own message.
+    or does not know the host, it asks in a dialog of the window ([SSH prompts](#ssh-prompts)); Cancel in such a
+    dialog cancels the fetch like the header's Cancel. Not for ssh password login, security keys' PINs or https
+    credentials: those fail with ssh's or git's own message.
   - **Disabled** while another operation runs, and once the log found no remotes (they are read with every refresh
     of the expanded log); before the log was first expanded it is enabled and says "No remotes to fetch." if there
     are none.
@@ -565,8 +565,8 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
 - <a id="ssh-prompts"></a>**SSH prompts** ([ADR 0194](../adr/0194-git-ssh-prompts.md)): every operation that contacts a
   remote (Fetch, the fetch of Pull and of Rebase onto origin's default branch, New Branch from origin's default, Push,
   Delete of remote branches and tags, Push Tags, Add Remote with its fetch) lets ssh ask through Thoreau's dialogs,
-  modal and owned by the operation's window (the Push dialog when it is showing). Thoreau does not ask for the references
-  fetched by Fetch References (ADR 0076), which never ask.
+  modal and owned by the operation's window (the Push dialog for a pull started there). Thoreau does not ask for the
+  references fetched by Fetch References (ADR 0076), which never ask.
   - **SSH Key Passphrase:** "Enter the passphrase for ~/.ssh/id_ed25519." with the operation ("Fetching origin…"), a
     notice on a retry ("Wrong passphrase, try again." or "The saved passphrase was not accepted and was removed."), the
     password field, "Save passphrase" and "Add to ssh agent" (both off; disabled with the reason in parentheses, e.g.
@@ -583,13 +583,13 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     focus**, since trusting a host is a security decision. A changed host key is not asked about: ssh refuses it and
     the error dialog shows its message.
   - **Cancel** in either dialog cancels the operation, as the header's Cancel does: git is stopped, the remaining
-    remotes are skipped, "Fetch cancelled." with what was fetched so far, and no error dialog. The dialog closes by
-    itself when the operation ends otherwise: header Cancel, the 10-minute limit, closing the window or opening another
-    folder.
+    remotes are skipped, "Fetch cancelled." with what was fetched so far, and no error dialog. While a dialog is open
+    it blocks Thoreau's windows, so the header's Cancel and closing the window wait for it; it closes by itself when
+    the git process that asked ends otherwise, e.g. at the 10-minute limit.
   - **Limits:** the server closes the connection after its `LoginGraceTime` (about 2 minutes by default) while a dialog
     waits; the dialog stays open, and once it is answered the operation fails with ssh's "Connection closed" message.
     ssh shows a key path cut at 100 characters, so for such a key "Add to ssh agent" is disabled; password login is not
-    offered (ADR 0194). While a prompt is open it is modal: its own Cancel stops the operation.
+    offered (ADR 0194).
 - **Pull** ([ADR 0106](../adr/0106-git-log-pull.md)): Pull in the header (between Push and Fetch, also while the log is
   collapsed; disabled while an operation runs and once the log found no remotes), **Git → Pull…** (no shortcut), the
   branches pane and branch submenus (above) and Pull… in the Push dialog ([commit-and-push.md](commit-and-push.md))

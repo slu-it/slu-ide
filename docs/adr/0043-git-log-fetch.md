@@ -54,9 +54,10 @@ Git 2.53 behaves as follows (checked in tests):
   would override the user's command, and a variant such as `plink` would not take `-o BatchMode=yes`. If that
   configuration cannot be read, batch mode is used: never waiting on a terminal matters more. A pure function
   (`fetchEnvironment`, now `sshEnvironment`, ADR 0194) decides it.
-- **Batch mode also disables `SSH_ASKPASS`:** a key needs an ssh agent (or no passphrase), a host needs to be in
-  `known_hosts` already; otherwise the fetch fails with ssh's message ("Permission denied (publickey)", "Host key
-  verification failed"), which says what to do in a terminal. Https remotes are unaffected (credential helpers).
+- **Batch mode also disables `SSH_ASKPASS`** (the git log's remote calls ask through ADR 0194 now): a key needs an ssh
+  agent (or no passphrase), a host needs to be in `known_hosts` already; otherwise the fetch fails with ssh's message
+  ("Permission denied (publickey)", "Host key verification failed"), which says what to do in a terminal. Https remotes
+  are unaffected (credential helpers).
 - **Timeout:** 10 minutes per remote (`GitCli.FETCH_TIMEOUT`); then git and what it started are stopped as for every
   write (SIGTERM, killed after 2 s) and the remote fails with "git did not finish within 10 min."
 - **Stopping gives git's children the grace period too** (for every write, on a timeout or a cancel): git ends on
