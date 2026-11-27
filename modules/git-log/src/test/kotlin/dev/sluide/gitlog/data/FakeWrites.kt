@@ -31,6 +31,7 @@ import dev.sluide.git.GitTagPushRefResult
 import dev.sluide.git.GitTagPushResult
 import dev.sluide.git.GitUncheckedConflict
 import dev.sluide.git.ssh.SshAccess
+import dev.sluide.gitlog.operations.RunContext
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -726,7 +727,7 @@ internal class FakeSshSession : SshAccess.Prompting {
 
 /** What `RefWriter` does when the user cancels an ssh prompt: sets the flag and cancels the token (ADR 0194). */
 internal class PromptCancel {
-    val token = dev.sluide.git.GitCancellation()
+    val token = GitCancellation()
     private var flag = false
 
     fun cancel() {
@@ -734,7 +735,5 @@ internal class PromptCancel {
         token.cancel()
     }
 
-    fun context() =
-        dev.sluide.gitlog.operations
-            .RunContext(token, userCancelled = { flag })
+    fun context() = RunContext(token, userCancelled = { flag })
 }
