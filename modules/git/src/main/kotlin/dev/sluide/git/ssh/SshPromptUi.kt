@@ -6,7 +6,10 @@ import java.nio.file.Path
  * Asks the user what ssh wants to know for a covered git call (ADR 0194); implemented by the git log, free of JavaFX.
  * Called on an askpass connection thread, never on the FX thread nor on the thread running git; [askPassphrase] and
  * [confirmHost] block until the user answers. On an interrupt while waiting (the session was closed: the operation was
- * cancelled or ended), the implementation closes its dialog and throws [InterruptedException].
+ * cancelled or ended; or the git process that asked ended, e.g. stopped at its timeout), the implementation closes its
+ * dialog and throws [InterruptedException]. `null` and `false` mean the user's Cancel only, which cancels the operation:
+ * when the dialog cannot be made or shown, throw a RuntimeException instead; ssh then gets no answer and the operation
+ * fails with ssh's message.
  *
  * [notSaved] and [notAddedToAgent] come from the thread `sluide-git-ssh-passphrase`, after the git process that used
  * the passphrase succeeded and usually after the operation's session was closed: implementations must not tie them to

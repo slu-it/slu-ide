@@ -119,8 +119,9 @@ class SshPrompts
 
             /**
              * What [ask] returned, while it blocked interruptible by [close] and [ended]; `null` if the session was
-             * closed before, or while it asked and [ask] gave up on the interrupt. [Answered.late]: the git process
-             * that asked ended meanwhile. The caller checks [closed] after.
+             * closed before, or while it asked and [ask] gave up on the interrupt, or if [ask] failed (a
+             * RuntimeException of the UI, logged by its class: "none" without a cancel). [Answered.late]: the git
+             * process that asked ended meanwhile. The caller checks [closed] after.
              */
             private fun <T> asking(ask: () -> T): Answered<T>? {
                 val thread = Thread.currentThread()
@@ -134,6 +135,10 @@ class SshPrompts
                     val value = ask()
                     Answered(value, late = synchronized(this) { processes != process })
                 } catch (_: InterruptedException) {
+                    null
+                } catch (e: RuntimeException) {
+                    // The UI could not ask (its dialog failed): no Cancel, so the operation fails with ssh's message.
+                    log.log(Level.WARNING, "An ssh prompt could not be shown (${e.javaClass.name}); ssh gets no answer")
                     null
                 } finally {
                     synchronized(this) { waiting -= thread }

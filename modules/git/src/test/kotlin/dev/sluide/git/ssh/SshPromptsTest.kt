@@ -16,10 +16,12 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.logging.Level
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.writeText
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -248,6 +250,27 @@ class SshPromptsTest {
         assertEquals(0, ssh.run(session.environment))
         assertContentEquals("yes\n".toByteArray(), ssh.answer)
         assertEquals(2, ui.calls)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["unknown-host.txt", "key-passphrase.txt"])
+    fun `a UI that fails gives ssh no answer without a cancel, logged with the exception's class`(prompt: String) {
+        val cancels = AtomicInteger()
+        val failing = { throw IllegalStateException("no window for the dialog") }
+        val ui = FakeUi(passphrase = failing, host = failing)
+        val session = open(ui) { cancels.incrementAndGet() }
+        ssh.prompt(recordedPrompt(prompt))
+
+        LogCapture(SshPrompts::class.java.name).use { log ->
+            ssh.run(session.environment)
+
+            assertEquals(1, ssh.askpassExit)
+            assertEquals(0, cancels.get(), "a failure is no Cancel: the operation fails with ssh's message")
+            val warnings = log.lines.filter { it.first == Level.WARNING }.map { it.second }
+            assertEquals(1, warnings.size, warnings.toString())
+            assertContains(warnings.single(), "java.lang.IllegalStateException")
+            assertFalse("no window" in warnings.single(), "the class only")
+        }
     }
 
     @Test
