@@ -38,8 +38,11 @@ The short form that loads with production code is `.claude/rules/safety.md`; kee
   use `--end-of-options` (ADR 0041). Commands shown in a terminal (`$SHELL -l -i -c`, ADR 0087) quote every value
   (`ShellWords.quote` in `command-runs`; docker's `shellQuoted`); typed arguments are tokenized, never expanded.
 - Background CLI calls are never interactive (`GIT_TERMINAL_PROMPT=0`, `GIT_EDITOR=false`, ssh `BatchMode`; ADR 0043)
-  and have a timeout or a cancel; runs in a terminal are interactive by design (ADR 0087) and have Stop. Neither runs
+  and have a timeout or a cancel. Runs in a terminal are interactive by design (ADR 0087) and have Stop. Neither runs
   on the FX thread.
+- The one exception to "never interactive": the git log's fetch and push calls let ssh ask for a key's passphrase or
+  about an unknown host through Thoreau's own dialogs, over its askpass helper (`SshPrompts`, ADR 0194), never on a
+  terminal; password logins are turned off there, and every other prompt gets no answer.
 
 ## Secrets
 - Never log secrets, stdin, HTTP bodies, headers or query strings; name tasks without paths that could hold tokens

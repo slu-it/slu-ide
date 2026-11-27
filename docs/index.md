@@ -68,13 +68,13 @@ updated when the summary or keywords no longer fit.
 | [0040](adr/0040-git-log-branches-pane.md) | Branches pane: tree of refs left of the commits | branches pane, local branches, remote branches, tags, Branch filter | amended by 0171, 0183 |
 | [0041](adr/0041-git-write-operations.md) | Checkout, new branch/tag, rename and delete from the git log | `GitBranches`, checkout, new branch, tag, delete, `sluide-git-write` | amended by 0062, 0171, 0172; see 0078 |
 | [0042](adr/0042-git-log-commit-operations.md) | Cherry-pick, revert and reset with a conflict bar | `GitCommits`, cherry-pick, revert, reset, conflicts, Continue/Abort | amended by 0063, 0105, 0107, 0172 |
-| [0043](adr/0043-git-log-fetch.md) | Fetch per remote, never interactive, cancellable | `GitRemotes`, fetch, `--prune`, `GIT_TERMINAL_PROMPT`, ssh BatchMode | amended by 0171, 0183 |
+| [0043](adr/0043-git-log-fetch.md) | Fetch per remote, never interactive, cancellable | `GitRemotes`, fetch, `--prune`, `GIT_TERMINAL_PROMPT`, ssh BatchMode | amended by 0171, 0183, 0194 |
 | [0044](adr/0044-git-log-compare.md) | Compare with Current as a log mode; diff with the working tree | compare, `GitLogFilter.excluded`, `--left-right`, Compare with Local, working tree | amended by 0113 |
 | [0045](adr/0045-git-log-navigation.md) | One revision resolver for hash links and Go to Hash/Branch/Tag | revision resolver, `cat-file --batch-check`, hash links, `LinkText`, Shortcut+G, `loadUntil` | amended by 0172 |
 | [0046](adr/0046-git-log-file-history.md) | File history as `History:` tabs in the git log area | file history, `--follow`, renames, Show History | |
 | [0047](adr/0047-module-dependencies-and-shared-modules.md) | Acyclic module dependencies; shared pieces in small modules | module dependencies, foundation modules, `ide` callbacks, `file-icons` | amended by 0069, 0071, 0109, 0112, 0174; see 0055 |
 | [0048](adr/0048-commit-tab.md) | Commit tab in the git log area | Commit tab, Shortcut+K, `git commit --only`, Amend, unversioned files | |
-| [0049](adr/0049-push.md) | Non-modal Push dialog, force only with lease | Push dialog, Shortcut+Shift+K, `--force-with-lease`, push target, main/master | see 0078; amended by 0173 |
+| [0049](adr/0049-push.md) | Non-modal Push dialog, force only with lease | Push dialog, Shortcut+Shift+K, `--force-with-lease`, push target, main/master | see 0078; amended by 0173, 0194 |
 | [0050](adr/0050-focus-when-a-file-tab-is-shown.md) | One focus rule for shown file tabs | focus, `FileView.focus()`, `focusText()`, tab selection | amends 0033 |
 | [0051](adr/0051-log-file.md) | Rolling log file in `~/.sluide/logs` via Logback | `sluide.log`, `logback-spring.xml`, uncaught exceptions, `sluide.log.dir` | see 0060 |
 | [0052](adr/0052-hardening-how-git-is-started.md) | `GitCli` drops repository-redirecting variables and fsmonitor hooks | `GitCli`, git environment variables, `core.fsmonitor`, hardening | |
@@ -219,6 +219,7 @@ updated when the summary or keywords no longer fit.
 | [0191](adr/0191-jshell-engine.md) | JShell engine: a Java 9 Kotlin agent on the chosen JDK, JSON lines over stdin/stdout, watchdog, output coalescing | JShell, REPL, `.jsh`, agent, `JShellSession`, `JShellJdks`, `hasJShell`, watchdog, recordings, `AgentFiles`, jdk.jshell, stop | amends 0011; see 0060, 0090, 0179 |
 | [0192](adr/0192-pdf-viewer.md) | PDF viewer on PDFBox page images: a document per thread, no interrupts, 16 MP cap; view hooks for panels | PDF, PDFBox, `PdfDocument`, `PdfWorker`, `PageTexts`, `textRects`, `shownPages`, selection, thumbnails, `SearchFlow`, password, `pdf` | see 0017, 0060, 0165 |
 | [0193](adr/0193-plantuml-engine.md) | PlantUML in-process under SANDBOX (no local includes, no URLs), one render thread with a watchdog, Smetana fallback | PlantUML, Graphviz, dot, Smetana, SANDBOX, includes, stdlib, dark mode, watchdog, `PlantUml`, `GraphvizLocator`, `plantuml` | see 0033, 0058, 0059, 0060, 0124, 0165 |
+| [0194](adr/0194-git-ssh-prompts.md) | ssh's passphrase and host prompts of fetch/push reach dialogs: Kotlin askpass helper, Unix socket | ssh, askpass, `SSH_ASKPASS`, passphrase, known_hosts, `SshPrompts`, `SshAccess`, `AskpassFiles`, Unix domain socket, BatchMode | amends 0043, 0049; see 0076, 0191 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features

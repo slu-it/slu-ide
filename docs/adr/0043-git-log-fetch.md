@@ -1,7 +1,9 @@
 # 0043. Git log fetches each remote with the git CLI, non-interactive and cancellable
 
 - Status: accepted; amended by [0171](0171-context-sensitive-branch-menus.md) (Fetch only on a remote or its folder) and
-  [0183](0183-remotes-from-the-branches-pane.md) (Fetch All Remotes on the Remote node)
+  [0183](0183-remotes-from-the-branches-pane.md) (Fetch All Remotes on the Remote node) and
+  [0194](0194-git-ssh-prompts.md) (with a prompting session ssh asks through Thoreau's askpass helper instead of batch
+  mode)
 - Date: 2026-10-17
 
 ## Context
@@ -51,7 +53,7 @@ Git 2.53 behaves as follows (checked in tests):
   `git config --get-regexp` before each fetch, which also sees `-c` options in `GIT_CONFIG_PARAMETERS`): the variable
   would override the user's command, and a variant such as `plink` would not take `-o BatchMode=yes`. If that
   configuration cannot be read, batch mode is used: never waiting on a terminal matters more. A pure function
-  (`fetchEnvironment`) decides it.
+  (`fetchEnvironment`, now `sshEnvironment`, ADR 0194) decides it.
 - **Batch mode also disables `SSH_ASKPASS`:** a key needs an ssh agent (or no passphrase), a host needs to be in
   `known_hosts` already; otherwise the fetch fails with ssh's message ("Permission denied (publickey)", "Host key
   verification failed"), which says what to do in a terminal. Https remotes are unaffected (credential helpers).
