@@ -546,10 +546,10 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     what the others fetched ("Fetched 1 of 2 remotes: …"; "Fetched origin with errors: 1 branch updated." when git
     refused a tag but moved branches). Remotes that failed before a cancel get the dialog too. The log is refreshed
     afterwards.
-  - **Never asks:** git gets no terminal prompt; credential helpers work. Ssh runs in batch mode (unless
-    `GIT_SSH_COMMAND`, `GIT_SSH`, `GIT_SSH_VARIANT`, `core.sshCommand` or `ssh.variant` is set): a key with a
-    passphrase needs an ssh agent, an unknown host a first connection from a terminal; otherwise the fetch fails with
-    ssh's message.
+  - **Asks through dialogs:** git gets no terminal prompt; credential helpers work. When ssh needs a key's passphrase
+    or does not know the host, it asks in a dialog of the window ([SSH prompts](#ssh-prompts)), also while the
+    header's Cancel is available; Cancel in such a dialog cancels the fetch like the header's Cancel. Not for ssh
+    password login, security keys' PINs or https credentials: those fail with ssh's own message.
   - **Disabled** while another operation runs, and once the log found no remotes (they are read with every refresh
     of the expanded log); before the log was first expanded it is enabled and says "No remotes to fetch." if there
     are none.
@@ -558,6 +558,37 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
   disabled once the log found no remotes, but not while an operation runs (the dialog's Push waits for it). The push
   runs like a fetch: "Pushing main to origin/main…" with Cancel, then what was pushed, "Push Failed" with git's
   message for a rejection.
+  Push, Delete on a remote and Push Tags ask for ssh passphrases and unknown hosts like Fetch does, and Cancel in a
+  dialog ends the operation as the header's Cancel does ("Push cancelled; it may have reached origin. Fetch to check.",
+  "Delete cancelled; it may have reached origin. Fetch to check."). A pull started in the Push dialog shows its dialogs
+  over it.
+- <a id="ssh-prompts"></a>**SSH prompts** ([ADR 0194](../adr/0194-git-ssh-prompts.md)): every operation that contacts a
+  remote (Fetch, the fetch of Pull and of Rebase onto origin's default branch, New Branch from origin's default, Push,
+  Delete of remote branches and tags, Push Tags, Add Remote with its fetch) lets ssh ask through Thoreau's dialogs,
+  modal and owned by the operation's window (the Push dialog when it is showing). Thoreau does not ask for the references
+  fetched by Fetch References (ADR 0076), which never ask.
+  - **SSH Key Passphrase:** "Enter the passphrase for ~/.ssh/id_ed25519." with the operation ("Fetching origin…"), a
+    notice on a retry ("Wrong passphrase, try again." or "The saved passphrase was not accepted and was removed."), the
+    password field, "Save passphrase" and "Add to ssh agent" (both off; disabled with the reason in parentheses, e.g.
+    "(needs secret-tool)", "(no ssh agent)") and the note "Kept in memory until Thoreau quits; saved encrypted when
+    checked." Buttons **Unlock** (the default, disabled while the field is empty) and Cancel.
+    - Memory: a passphrase that worked stays in memory until Thoreau quits, shared by all windows, so a fetch of three
+      remotes with one key asks once; one that failed is kept nowhere.
+    - Saved: opt-in per key, encrypted in `shared.json`, listed and removed in Settings → Secrets
+      ([secrets.md](secrets.md)); if saving fails, an info alert "Passphrase Not Saved" says why.
+    - Agent: "Add to ssh agent" runs `ssh-add` after the operation succeeded; if it fails, an info alert "Key Not Added
+      to SSH Agent" shows ssh-add's message.
+  - **Unknown SSH Host:** ssh's own text (host, key type, fingerprint) in a read-only text area, "Connect adds the host
+    to your known_hosts file." and the operation. Buttons Connect and Cancel; **Cancel is the default and has the
+    focus**, since trusting a host is a security decision. A changed host key is not asked about: ssh refuses it and
+    the error dialog shows its message.
+  - **Cancel** in either dialog cancels the operation, as the header's Cancel does: git is stopped, the remaining
+    remotes are skipped, "Fetch cancelled." with what was fetched so far, and no error dialog. The dialog closes by
+    itself when the operation ends otherwise: header Cancel, the 10-minute limit, closing the window or opening another
+    folder.
+  - **Limits:** the server closes the connection after its `LoginGraceTime` (about 2 minutes by default) while a dialog
+    waits, and the operation then fails with ssh's "Connection closed" message; ssh shows a key path cut at 100
+    characters, so for such a key "Add to ssh agent" is disabled; password login is not offered (ADR 0194).
 - **Pull** ([ADR 0106](../adr/0106-git-log-pull.md)): Pull in the header (between Push and Fetch, also while the log is
   collapsed; disabled while an operation runs and once the log found no remotes), **Git → Pull…** (no shortcut), the
   branches pane and branch submenus (above) and Pull… in the Push dialog ([commit-and-push.md](commit-and-push.md))

@@ -129,7 +129,8 @@ and the full list are in `modules/git/src/test/resources/ssh-askpass/`):
 
 ## Consequences
 - Fetch, pull, push, remote deletion and tag push work with a key that is not in an agent and with an unknown host,
-  asked in Thoreau's dialogs (git log, a later step of this round), still never on a terminal.
+  asked in Thoreau's dialogs, still never on a terminal. The git log opens one session per run of an operation that
+  contacts a remote (Add Remote's fetch included) and closes it when the run ends, however it ends.
 - Accepted limits:
   - A key path longer than 100 characters reaches Thoreau cut as ssh shows it: memory and saving still work by that
     name, adding it to the agent does not (the file is not found).
