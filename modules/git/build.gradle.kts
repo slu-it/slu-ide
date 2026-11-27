@@ -21,6 +21,11 @@ dependencies {
     api(project(":modules:project-trust"))
     // Deliberate module dependency: diffs decode file contents as the editor does, UTF-8 or Windows-1252 (ADR 0098).
     implementation(project(":modules:text-editing"))
+    // Deliberate module dependency: a key's passphrase can be saved encrypted with Secrets and is listed in Settings ->
+    // Secrets as a SavedSecretSource (ADR 0122, 0194); the beans' constructors are internal.
+    implementation(project(":modules:secrets"))
+    // Deliberate module dependency: the saved passphrases are kept in the shared data file (ADR 0101, 0194).
+    implementation(project(":modules:project-data"))
     implementation(libs.spring.context)
 
     // Generic test helpers: LogCapture (ADR 0186).
