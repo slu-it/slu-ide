@@ -148,7 +148,7 @@ bring banners and the restart item); passing lsp4j `CompletionItem`s through the
 lsp4j); `appliesTo(editor)` instead of a file predicate (a rename could not be followed without asking again).
 
 ## Amendment 2026-11-28: trigger characters per source, filtering after a fixed part
-An `.http` source (ADR 0195, written with it) completes `{{` variables, `$uuid`-style dynamic
+An `.http` source ([ADR 0195](0195-http-file-completion.md)) completes `{{` variables, `$uuid`-style dynamic
 variables, header names and values: it needs other trigger characters than `.`, and it anchors its items before the
 word the popup filters by (`$` and `-` and `/` are no word chars), so `$uu` matched against `$uuid` would only be a
 subsequence match.
