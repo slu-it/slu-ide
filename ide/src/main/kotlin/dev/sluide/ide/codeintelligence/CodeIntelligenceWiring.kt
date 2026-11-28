@@ -7,6 +7,7 @@ import dev.sluide.fileviewers.CodeEditorExtension
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.WindowServices
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.httpclient.isHttpFile
 import dev.sluide.ide.ProjectService
 import dev.sluide.ide.WINDOW_SCOPE
 import dev.sluide.languageservers.LanguageServerSpec
@@ -25,7 +26,8 @@ import org.springframework.stereotype.Component
  * spec (every `LanguageServerSpec` bean) for the window's project folder, started when a matching editor opens and
  * ended with the window (Spring closes window beans when the window's scope is destroyed, after
  * `MainWindow.dispose` closed the tabs). `.jsh` editors complete from the JShell of their view in [editorArea]
- * ([JShellCompletionSource], ADR 0145 amendment).
+ * ([JShellCompletionSource], ADR 0145 amendment); `.http` and `.rest` editors complete from http-client's engine
+ * ([HttpCompletionSource], ADR 0195).
  */
 @Component
 @Scope(WINDOW_SCOPE)
@@ -62,6 +64,8 @@ class CodeIntelligenceWiring(
     init {
         // The completion of `.jsh` editors, from the JShell view of their file; intelligence.close() ends it too.
         intelligence.addCompletionSource(::isJShellFile, JShellCompletionSource(editorArea::viewOf))
+        // The completion of `.http` and `.rest` editors, from http-client's engine and the project's environment files.
+        intelligence.addCompletionSource(::isHttpFile, HttpCompletionSource { projectService.projectFolder.get() })
     }
 
     /** The extension that binds the window's code editors to the servers. */
