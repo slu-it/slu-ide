@@ -162,4 +162,47 @@ class DynamicVariablesTest {
         assertEquals(10_000, text("\$random.alphanumeric", "10000").length)
         assertFailsWith<IllegalArgumentException> { value("\$random.hexadecimal", "10001") }
     }
+
+    @Test
+    fun `resolves every listed name`() {
+        // The arguments the names that need one are called with; the others take none.
+        val arguments =
+            mapOf(
+                "\$random.alphabetic" to "5",
+                "\$random.alphanumeric" to "5",
+                "\$random.hexadecimal" to "5",
+            )
+
+        for (entry in DYNAMIC_VARIABLE_NAMES) {
+            val args = listOfNotNull(arguments[entry.name])
+            assertNotNull(variables.value(entry.name, args), "${entry.name} does not resolve")
+        }
+    }
+
+    @Test
+    fun `lists each name once with a hint for those taking arguments`() {
+        val names = DYNAMIC_VARIABLE_NAMES.associate { it.name to it.hint }
+
+        assertEquals(DYNAMIC_VARIABLE_NAMES.size, names.size)
+        assertEquals(
+            setOf(
+                "\$uuid",
+                "\$random.uuid",
+                "\$timestamp",
+                "\$isoTimestamp",
+                "\$randomInt",
+                "\$random.integer",
+                "\$random.float",
+                "\$random.alphabetic",
+                "\$random.alphanumeric",
+                "\$random.hexadecimal",
+                "\$random.email",
+            ),
+            names.keys,
+        )
+        assertEquals("(from, to)", names["\$random.integer"])
+        assertEquals("(from, to)", names["\$random.float"])
+        assertEquals("(length)", names["\$random.alphabetic"])
+        assertNull(names["\$uuid"])
+    }
 }

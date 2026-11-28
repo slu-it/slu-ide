@@ -137,3 +137,29 @@ internal class DynamicVariables(
         const val DIGITS = "0123456789"
     }
 }
+
+/** A `$` variable that [DynamicVariables] computes, for completion: its [name] and the arguments it takes, if any. */
+internal data class DynamicVariableName(
+    val name: String,
+    /** The arguments as written after the name, e.g. `(from, to)`; null if it takes none. */
+    val hint: String? = null,
+)
+
+/**
+ * The names [DynamicVariables.value] resolves, except `$env.NAME` (any operating system variable); keep it in step
+ * with the `when` there (`DynamicVariablesTest` resolves every entry).
+ */
+internal val DYNAMIC_VARIABLE_NAMES: List<DynamicVariableName> =
+    listOf(
+        DynamicVariableName("\$uuid"),
+        DynamicVariableName("\$random.uuid"),
+        DynamicVariableName("\$timestamp"),
+        DynamicVariableName("\$isoTimestamp"),
+        DynamicVariableName("\$randomInt"),
+        DynamicVariableName("\$random.integer", "(from, to)"),
+        DynamicVariableName("\$random.float", "(from, to)"),
+        DynamicVariableName("\$random.alphabetic", "(length)"),
+        DynamicVariableName("\$random.alphanumeric", "(length)"),
+        DynamicVariableName("\$random.hexadecimal", "(length)"),
+        DynamicVariableName("\$random.email"),
+    )
