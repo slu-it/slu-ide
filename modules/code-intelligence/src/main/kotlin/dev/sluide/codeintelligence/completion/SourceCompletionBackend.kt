@@ -19,9 +19,10 @@ internal val SOURCE_TIMEOUT = 2.seconds
 /**
  * The items of a [CompletionSource] (ADR 0145 amendment) for an editor no language server serves: asked on Ctrl+Space,
  * a typed trigger character of the source and after the debounce in a word, as a server is; its answers are complete
- * (typing on filters them) and arrive on any thread. An answer that does not come within [timeout], a failed one and none at all (`null`) fail the
- * request; a newer request drops the one before. Each item replaces from the source's anchor to the caret of the
- * request, as a server's `textEdit` does, and keeps the source's order while it matches as well as the others.
+ * (typing on filters them) and arrive on any thread. An answer that does not come within [timeout], a failed one and
+ * none at all (`null`) fail the request; a newer request drops the one before. Each item replaces from the source's
+ * anchor to the caret of the request, as a server's `textEdit` does, and keeps the source's order while it matches as
+ * well as the others.
  *
  * @param dispatch runs a task on the FX thread, for the source's answers.
  * @param timeout how long an answer may take before the request counts as failed.
