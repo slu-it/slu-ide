@@ -94,16 +94,25 @@ internal class SourceCompletionBackend(
 
 /**
  * The items of a source's [completions] asked at [caret] of [text]: each replaces from the anchor (kept within the
- * caret's text) to [caret], sorted in the source's order.
+ * caret's text) to [caret], sorted in the source's order. When the anchor lies before the word at the caret (the word
+ * chars [rankCompletions] filters by), an item whose label starts with the fixed part between them (ignoring case;
+ * from the caret's line start at most) filters by the rest of its label.
  */
 internal fun sourceItems(
     completions: SourceCompletions,
     text: String,
     caret: Int,
 ): List<CompletionItem> {
-    val range = Range(positionIn(text, completions.anchor.coerceIn(0, caret)), positionIn(text, caret))
+    val anchor = completions.anchor.coerceIn(0, caret)
+    val end = positionIn(text, caret)
+    val range = Range(positionIn(text, anchor), end)
+    val fixedStart = maxOf(anchor, caret - end.character)
+    val word = wordStart(text, caret)
+    val fixed = if (fixedStart < word) text.substring(fixedStart, word) else null
     return completions.items.mapIndexed { index, item ->
         CompletionItem(item.label).apply {
+            filterText =
+                fixed?.takeIf { item.label.startsWith(it, ignoreCase = true) }?.let { item.label.substring(it.length) }
             detail = item.detail
             sortText = "%08d".format(index)
             textEdit = Either.forLeft(TextEdit(range, item.insertText))

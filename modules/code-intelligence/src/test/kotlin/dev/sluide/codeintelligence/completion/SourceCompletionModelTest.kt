@@ -101,6 +101,19 @@ internal class SourceCompletionModelTest : CompletionModelFixture() {
     }
 
     @Test
+    fun `items anchored before the word at the caret rank by how the word matches the rest of their label`() {
+        // Anchored at the line's start, the word at the caret is "E": a prefix of "Encoding", a part start of
+        // "Transfer-Encoding"; matched against the whole labels, both would be part-start matches in the source's
+        // order.
+        setUpSource("Content-E")
+        bound.fx.onFx { model.invoke() }
+        answer(0, 0, SourceCompletion("Content-Transfer-Encoding"), SourceCompletion("Content-Encoding"))
+        awaitTrue("shown") { lastShown().orEmpty().isNotEmpty() }
+
+        assertEquals(listOf("Content-Encoding", "Content-Transfer-Encoding"), lastShown())
+    }
+
+    @Test
     fun `a typed dot asks a source naming no trigger characters at once, typing on filters without asking again`() {
         setUpSource("\"abc\"")
         type(".")
