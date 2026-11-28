@@ -8,6 +8,9 @@ import java.util.concurrent.CompletableFuture
  * servers' completion (ADR 0147). Registered with [CodeIntelligence.addCompletionSource].
  */
 fun interface CompletionSource {
+    /** Typed alone, each asks this source at once, as a server's trigger characters do: a member access by default. */
+    val triggerCharacters: List<String> get() = listOf(".")
+
     /**
      * The completions at [caret] (whole-document offset) of [editor]'s current text, `null` when this source has none
      * for the editor now. Called on the FX thread; the future may complete on any thread; a failed future, or none

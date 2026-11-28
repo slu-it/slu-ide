@@ -101,7 +101,7 @@ internal class SourceCompletionModelTest : CompletionModelFixture() {
     }
 
     @Test
-    fun `a typed dot asks at once, and typing on filters the answer without asking again`() {
+    fun `a typed dot asks a source naming no trigger characters at once, typing on filters without asking again`() {
         setUpSource("\"abc\"")
         type(".")
         assertEquals(listOf(6), sourceCalls.map { it.first }, "asked without the debounce")
@@ -112,6 +112,19 @@ internal class SourceCompletionModelTest : CompletionModelFixture() {
         assertEquals(listOf("substring("), lastShown())
         assertEquals(emptyList(), bound.fx.onFx { bound.timers.due.toList() }, "a complete answer is not asked again")
         assertEquals(1, sourceCalls.size)
+    }
+
+    @Test
+    fun `a typed trigger character of the source asks at once, and a dot it does not name asks nothing`() {
+        setUpSource("x = ", triggers = listOf("{"))
+        type("{")
+        assertEquals(listOf(5), sourceCalls.map { it.first }, "asked without the debounce")
+        assertTrue(isOpen)
+
+        bound.fx.onFx { model.close() }
+        type(".")
+        assertEquals(1, sourceCalls.size, "a dot asks nothing")
+        assertFalse(isOpen)
     }
 
     @Test

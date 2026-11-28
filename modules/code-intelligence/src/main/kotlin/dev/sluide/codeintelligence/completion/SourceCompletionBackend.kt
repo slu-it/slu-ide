@@ -16,13 +16,10 @@ import kotlin.time.Duration.Companion.seconds
 /** How long a [CompletionSource] may take to answer. */
 internal val SOURCE_TIMEOUT = 2.seconds
 
-/** The characters that ask a [CompletionSource] at once: a member access. */
-private val SOURCE_TRIGGER_CHARACTERS = listOf(".")
-
 /**
  * The items of a [CompletionSource] (ADR 0145 amendment) for an editor no language server serves: asked on Ctrl+Space,
- * a typed `.` and after the debounce in a word, as a server is; its answers are complete (typing on filters them) and
- * arrive on any thread. An answer that does not come within [timeout], a failed one and none at all (`null`) fail the
+ * a typed trigger character of the source and after the debounce in a word, as a server is; its answers are complete
+ * (typing on filters them) and arrive on any thread. An answer that does not come within [timeout], a failed one and none at all (`null`) fail the
  * request; a newer request drops the one before. Each item replaces from the source's anchor to the caret of the
  * request, as a server's `textEdit` does, and keeps the source's order while it matches as well as the others.
  *
@@ -42,7 +39,7 @@ internal class SourceCompletionBackend(
 
     override fun supported() = true
 
-    override fun triggerCharacters(): List<String> = SOURCE_TRIGGER_CHARACTERS
+    override fun triggerCharacters(): List<String> = source.triggerCharacters
 
     override fun request(
         kind: CompletionTriggerKind,

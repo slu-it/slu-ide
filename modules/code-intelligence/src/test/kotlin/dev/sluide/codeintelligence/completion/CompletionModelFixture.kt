@@ -49,15 +49,27 @@ internal abstract class CompletionModelFixture {
     protected val sourceCalls: MutableList<Pair<Int, CompletableFuture<SourceCompletions>>> =
         Collections.synchronizedList(mutableListOf())
 
-    /** A model of the editor's [text] that asks a source; one that has nothing to ask ([answers] false) gives `null`. */
+    /**
+     * A model of the editor's [text] that asks a source; one that has nothing to ask ([answers] false) gives `null`.
+     * The source names [triggers] as its trigger characters, or none (the default's) when `null`.
+     */
     protected fun setUpSource(
         text: String,
         answers: Boolean = true,
+        triggers: List<String>? = null,
     ) {
         bound = BoundEditor(folder, text)
-        val source =
+        val complete =
             CompletionSource { _, caret ->
                 if (answers) CompletableFuture<SourceCompletions>().also { sourceCalls += caret to it } else null
+            }
+        val source =
+            if (triggers == null) {
+                complete
+            } else {
+                object : CompletionSource by complete {
+                    override val triggerCharacters: List<String> = triggers
+                }
             }
         model =
             bound.fx.onFx {
