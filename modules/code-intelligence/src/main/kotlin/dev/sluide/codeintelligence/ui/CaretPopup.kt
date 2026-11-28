@@ -32,9 +32,10 @@ internal data class PopupCell(
  * it when it does not fit the screen. The focus stays in the editor: while it shows, Up/Down (wrapping), PageUp/PageDown,
  * Home/End choose the item, Enter (and Tab if [acceptTab]) takes it, Escape closes, all through the editor's key
  * bindings, which come before the editor's own keys. A click selects, a double-click takes. [items][setItems] may change
- * while it shows (the selected item stays selected if it is still there); without items it shows [placeholder]
- * ("Searching…", "No results"). It hides on Escape, a click outside, when the editor loses the focus or scrolls, and
- * when its window moves or is minimized ([EditorPopupWindow]). FX thread.
+ * while it shows (an item the user chose, by a key or a click, stays selected if it is still there; otherwise the
+ * first is selected, the best match); without items it shows [placeholder] ("Searching…", "No results"). It hides on
+ * Escape, a click outside, when the editor loses the focus or scrolls, and when its window moves or is minimized
+ * ([EditorPopupWindow]). FX thread.
  *
  * @param cell how an item shows.
  * @param onChoose gets the item taken, after the popup hid.
@@ -117,8 +118,9 @@ internal class CaretPopup<T>(
     }
 
     /**
-     * Replaces the items, keeping the selected one if it is still there, else selecting the first; with [keepIndex]
-     * the selected position stays (the same places in the same order, only changed in their texts).
+     * Replaces the items, keeping the selected one if the user chose it (a key, a click) and it is still there, else
+     * selecting the first; a hide forgets the choice. With [keepIndex] the selected position stays (the same places in the
+     * same order, only changed in their texts).
      */
     fun setItems(
         items: List<T>,
@@ -154,6 +156,7 @@ internal class CaretPopup<T>(
 
     private fun hidden() {
         forgetTold()
+        model.forgetChoice()
         keyBindings.forEach { it.close() }
         keyBindings = emptyList()
         onHidden()

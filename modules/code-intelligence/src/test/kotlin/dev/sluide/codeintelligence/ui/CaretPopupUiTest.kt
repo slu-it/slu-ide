@@ -191,7 +191,7 @@ internal class CaretPopupUiTest : EditorUiFixture() {
     }
 
     @Test
-    fun `items change while it shows, keeping the selected one, and an empty list shows the placeholder`(
+    fun `items change while it shows, keeping the one a key chose, and an empty list shows the placeholder`(
         robot: FxRobot,
     ) {
         setUp(robot)
@@ -203,9 +203,10 @@ internal class CaretPopupUiTest : EditorUiFixture() {
         robot.interact { editor.applyEdits(listOf(OffsetEdit(13, 13, "g"))) }
         assertTrue(fx { popup.isShowing }, "typing keeps it")
         press(robot, KeyCode.END)
-        robot.interact { popup.setItems(listOf("getcwd", "getenv")) }
-        assertEquals("getcwd", fx { popup.selected })
-        assertEquals(listOf("getcwd", "getenv"), fx { list().items.toList() })
+        robot.interact { popup.setItems(listOf("getenv", "getcwd")) }
+        assertEquals("getcwd", fx { popup.selected }, "the key's choice stays, though it is not the first now")
+        assertEquals(1, fx { list().selectionModel.selectedIndex })
+        assertEquals(listOf("getenv", "getcwd"), fx { list().items.toList() })
 
         robot.interact {
             popup.placeholder = "Searching…"
@@ -288,13 +289,19 @@ internal class CaretPopupUiTest : EditorUiFixture() {
         }
         robot.interact { popup.setItems(listOf("path", "sep"), keepIndex = true) }
         assertEquals(listOf<String?>("path"), told)
+        press(robot, KeyCode.DOWN)
+        assertEquals("sep", fx { popup.selected })
 
         robot.interact { popup.hide() }
-        robot.interact { popup.show(13) }
-        assertEquals(listOf<String?>("path", "path"), told, "told again by item")
+        robot.interact {
+            popup.setItems(listOf("path", "sep"))
+            popup.show(13)
+        }
+        assertEquals("path", fx { popup.selected }, "the key's choice does not outlive the showing")
+        assertEquals(listOf<String?>("path", "sep", "path"), told, "told again by item")
         robot.interact { popup.hide() }
         robot.interact { popup.show(13) }
-        assertEquals(3, told.size)
+        assertEquals(4, told.size)
     }
 
     @Test

@@ -49,7 +49,9 @@ internal interface SearchView<T> : AutoCloseable {
     /** Shows the popup with an empty field that has the focus, or keeps it shown; `false` if there is no place. */
     fun open(): Boolean
 
-    /** Replaces the items and selects [selected] if it is among them, else keeps the selection or takes the first. */
+    /**
+     * Replaces the items and selects [selected] if it is among them, else keeps what the user chose or takes the first.
+     */
     fun setItems(
         items: List<T>,
         selected: T? = null,
@@ -185,7 +187,8 @@ internal class SearchPopup<T>(
         selected: T?,
     ) {
         model.setItems(items)
-        if (selected != null) items.indexOf(selected).takeIf { it >= 0 }?.let(model::select)
+        val index = if (selected == null) -1 else items.indexOf(selected)
+        if (index >= 0) model.selectForApp(index)
         sync()
         if (isShowing) popup.sizeToScene()
     }
@@ -231,6 +234,7 @@ internal class SearchPopup<T>(
     private fun hidden() {
         watches.forEach { it.unsubscribe() }
         watches = emptyList()
+        model.forgetChoice()
         val focus = returnFocus
         returnFocus = null
         focus?.requestFocus()

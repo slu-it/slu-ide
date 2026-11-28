@@ -91,6 +91,40 @@ internal class SearchPopupUiTest {
     }
 
     @Test
+    fun `new items keep a key's choice, not the item the app preselected, and a hide forgets the choice`(
+        robot: FxRobot,
+    ) {
+        setUp(robot)
+        robot.interact { popup.setItems(listOf("item1", "item2", "item3"), selected = "item2") }
+        assertEquals("item2", fx { popup.selected })
+        robot.interact { popup.setItems(listOf("item3", "item2", "item1")) }
+        assertEquals("item3", fx { popup.selected }, "the app's preselection is not a choice")
+
+        key(robot, KeyCode.DOWN)
+        robot.interact { popup.setItems(listOf("item1", "item2", "item3")) }
+        assertEquals("item2", fx { popup.selected }, "the key's choice stays")
+
+        robot.interact { popup.hide() }
+        robot.interact {
+            assertTrue(popup.open())
+            popup.setItems(listOf("item1", "item2", "item3"))
+        }
+        assertEquals("item1", fx { popup.selected }, "a new showing starts at the first item")
+    }
+
+    @Test
+    fun `the app selecting the item the user chose at the first place makes it the app's choice`(robot: FxRobot) {
+        setUp(robot)
+        robot.interact { popup.setItems(listOf("a", "b", "c"), selected = "a") }
+        key(robot, KeyCode.DOWN)
+        assertEquals("b", fx { popup.selected })
+        robot.interact { popup.setItems(listOf("b", "a"), selected = "b") }
+        assertEquals("b", fx { popup.selected })
+        robot.interact { popup.setItems(listOf("a", "b"), selected = null) }
+        assertEquals("a", fx { popup.selected }, "the user's choice was cleared by the app's selection")
+    }
+
+    @Test
     fun `the field takes the focus, typing tells the query, and the keys move and take the selection`(robot: FxRobot) {
         setUp(robot)
         assertTrue(fx { popup.queryField.scene.focusOwner === popup.queryField })

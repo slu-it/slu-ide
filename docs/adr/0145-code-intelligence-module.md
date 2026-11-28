@@ -71,8 +71,8 @@ attachment point must let each add its feature without editing the others' code.
 - **Popups** (`ui`, internal to the module): `CaretPopup<T>` is a list in a `javafx.stage.Popup` at an anchor range,
   below it and above when it does not fit the screen (`popupPosition`), with a cell (label, secondary text, icon),
   an optional detail pane beside the list, a placeholder ("Searching…", "No results") and items that may change while
-  it shows (the selected item stays selected if still there, else the first; `PopupListModel`). The focus stays in the
-  editor: Up/Down (wrapping), PageUp/PageDown, Home/End, Enter, Tab (optional) and Escape are editor key bindings
+  it shows (an item the user chose with a moving key or a click stays selected if still there, else the first is; a
+  hide forgets the choice; `PopupListModel`, amendment 2026-11-28 (2)). The focus stays in the editor: Up/Down (wrapping), PageUp/PageDown, Home/End, Enter, Tab (optional) and Escape are editor key bindings
   taken while it shows, a click selects and a double-click takes. `HoverPopup` stacks the sections of the binding's
   `HoverProvider`s (`fun hover(offset, done: (List<Node>?) -> Unit): AutoCloseable`, asynchronous, shown as they
   arrive in the providers' order) after the mouse rests on a character for 500 ms (`HoverModel`), and at the caret on
@@ -166,3 +166,17 @@ subsequence match.
 
 Rejected: a `filterText` field in `SourceCompletion` that the source fills (the backend knows the word rule the popup
 filters by; a source should not have to repeat it).
+
+## Amendment 2026-11-28 (2): a selection the user did not make does not stay
+The `.http` trigger characters (`-`, `/`, `$`) close the completion at the typed character and reopen it at once with
+an empty filter, whose first item is selected. Typing on re-ranks the list, and the old rule (the selected item stays
+if it is still there) kept that first item selected though a better match moved to the top: after `Cont` and `ent-T`,
+Enter inserted `Content-Disposition`. Language servers showed the same after `foo.` and typed letters.
+- **Rule:** across `PopupListModel.setItems` (without `keepIndex`) only an item the user chose stays selected: by Up,
+  Down, Page Up/Down, Home, End or a click (`move`, `page`, `first`, `last`, `select`). Otherwise the first item is
+  selected, the best match, as the lists come ranked. A choice whose item is gone is forgotten, and so is every choice
+  when the popup hides (`CaretPopup`, `SearchPopup`: `forgetChoice`), so a reopened list never inherits one.
+- **App selections:** `SearchPopup.setItems(items, selected)` (the symbol at the caret in the file structure) uses
+  `selectForApp`, the app's choice: it does not stay across the next `setItems`; the view passes it again.
+- `keepIndex` (`TargetPopup` updates) is unchanged. `CompletionFeature.refreshDetail` sets the same items again
+  without it: the user's choice stays, else the first, which is what was selected.

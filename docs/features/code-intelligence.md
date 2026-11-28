@@ -140,7 +140,8 @@ Decision in [ADR 0147](../adr/0147-completion-signature-help-and-docs.md).
   most 200. The server is asked again as you type, so the list fills in.
 - Each row shows an icon for the kind (function, class, variable, module…; ty's attributes count as attributes), the
   name and, at the right, its type or signature, shortened. Beside the list: the selected item's signature and
-  documentation.
+  documentation. While you type, the best match is selected; only an item you moved to with the arrow, Page or
+  Home/End keys or clicked stays selected as the list changes.
 - **Enter** inserts the selected name, **Tab** replaces the whole word under the caret with it. An import the server
   adds with it (ty's auto-import) comes in the same step: one **Shortcut+Z** undoes both. If you typed on after the
   list was asked for, the import is still added when it lies above the place you typed (it usually does).
