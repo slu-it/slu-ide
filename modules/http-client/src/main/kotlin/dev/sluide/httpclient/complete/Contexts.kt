@@ -108,9 +108,12 @@ internal object ContextDetector {
         if (open < 0) return null
         var column = open + 2
         while (column < prefix.length && (prefix[column] == ' ' || prefix[column] == '\t')) column++
-        val rest = text.substring(line.start + prefix.length, line.end).trimStart(' ', '\t')
-        return Context.Variable(line.start + column, rest.startsWith("}}"), line.index)
+        val rest = text.substring(line.start + prefix.length, line.end)
+        return Context.Variable(line.start + column, CLOSED.containsMatchIn(rest), line.index)
     }
+
+    /** What closes the name at the caret: the rest of the name as `Template` reads it, spaces or tabs, then `}}`. */
+    private val CLOSED = Regex("""^[^\s(){}]*[ \t]*}}""")
 
     /** Where the `{{` left open at the end of [prefix] is, pairing from the left as `Template.parse` does; -1 if none. */
     private fun unclosedOpening(prefix: String): Int {

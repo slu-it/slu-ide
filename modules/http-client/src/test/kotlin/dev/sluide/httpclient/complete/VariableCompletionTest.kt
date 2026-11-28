@@ -207,6 +207,14 @@ class VariableCompletionTest {
     }
 
     @Test
+    fun `counts braces behind the rest of the name as closing`() {
+        assertEquals("host", answer("GET {{ho|st}}", envs()).item("host").insertText)
+        assertEquals("host", answer("GET {{ho|st \t}}", envs()).item("host").insertText)
+        assertEquals("host}}", answer("GET {{ho|st x}}", envs()).item("host").insertText)
+        assertEquals("host}}", answer("GET {{ho|st(}}", envs()).item("host").insertText)
+    }
+
+    @Test
     fun `inserts an opening parenthesis instead of the braces for names that need an argument`() {
         val answer = answer("GET {{\$random.|", envs())
 
