@@ -93,7 +93,7 @@ keys of a popup are taken only while it shows, before the editor's own; otherwis
 | Holding Shortcut with the mouse over a name | Underline it with the hand cursor, a link to its definition |
 | Shortcut+B | Go to the definition of the name at the caret (Navigate → Go to Definition shows it; the editor's binding takes the key first, so it acts once) |
 | Alt+F7 (Option+F7 on macOS) | Find usages of the name at the caret (Navigate → Find Usages shows it) |
-| Ctrl+Space (Ctrl on macOS too) | Completion at the caret (also opens by itself after a typed `.` or while typing a name) |
+| Ctrl+Space (Ctrl on macOS too) | Completion at the caret (also opens by itself after a typed `.` or while typing a name; in `.http` files also after `{{`, `$`, `-`, `/`) |
 | Shortcut+P | Signature help at the caret (also opens by itself after a typed `(` or `,` in a call) |
 | Alt+Enter (Option+Enter on macOS) | Show the quick fixes at the caret or selection (also Show Quick Fixes in the context menu) |
 | Shift+F6 | Rename the name at the caret: a field at the name takes the focus (also Rename… in the context menu) |

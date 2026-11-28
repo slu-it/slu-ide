@@ -7,7 +7,8 @@
   [0151](0151-workspace-folders-per-project.md) (status line, environment notice),
   [0184](0184-preview-of-places-in-caret-lists.md) (`CaretPopup` footer and `onSelected`), and below (completion
   sources, 2026-11-21; trigger characters per source and filtering after a fixed part, 2026-11-28); amends
-  [0142](0142-language-server-foundation.md) (`ServerInstaller.toolName`, `ServerAvailability.Failed.canRetry`), [0141](0141-editor-api-for-language-features.md) (`popupOwner`),
+  [0142](0142-language-server-foundation.md) (`ServerInstaller.toolName`, `ServerAvailability.Failed.canRetry`),
+  [0141](0141-editor-api-for-language-features.md) (`popupOwner`),
   [0108](0108-code-editor-extensions-and-context-menu.md) (`CodeEditorExtensions.extensions` public); see
   [0141](0141-editor-api-for-language-features.md), [0144](0144-python-via-ty.md),
   [0108](0108-code-editor-extensions-and-context-menu.md), [0070](0070-window-services.md),

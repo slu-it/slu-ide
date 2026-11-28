@@ -157,7 +157,8 @@ Decision in [ADR 0147](../adr/0147-completion-signature-help-and-docs.md).
   and while typing a name; its answer is complete, so typing on only filters it, in the source's order among equally
   good matches. Items the source anchors before the word at the caret (`$uuid` at the `$`) are matched by the rest of
   their label (`uuid`). No answer within 2 s, or a failed one, shows nothing. `.jsh` files complete this way from
-  JShell ([jshell.md](jshell.md), "Completion").
+  JShell ([jshell.md](jshell.md), "Completion"), `.http` and `.rest` files from http-client
+  ([http-client.md](http-client.md), "Completion").
 
 ## Diagnostics, quick fixes and semantic highlighting
 Decision in [ADR 0148](../adr/0148-diagnostics-quick-fixes-semantic-highlighting.md).

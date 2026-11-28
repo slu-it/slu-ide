@@ -63,6 +63,9 @@ Content-Type: image/png
   - header names in the header block (common ones and those used in the file) and values of well-known headers
     (`Content-Type`, `Accept`, `Authorization`, `Accept-Encoding`, `Cache-Control`, `Connection`);
   - tags after `# @`.
+
+  Ideas left for later (underlined unresolved variables, a hover, going to a definition):
+  [http-client-editing-later.md](../ideas/http-client-editing-later.md).
 - Highlighting: methods and versions as keywords, URLs as strings, header names as properties, `{{variables}}`, tags and
   `@variables` as annotations, bodies by their `Content-Type` (JSON, XML, HTML), scripts as JavaScript.
 
