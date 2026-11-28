@@ -6,8 +6,8 @@
   (`PopupCell.indent`, the search popup that takes the focus, `DocumentBinding.bindings`),
   [0151](0151-workspace-folders-per-project.md) (status line, environment notice),
   [0184](0184-preview-of-places-in-caret-lists.md) (`CaretPopup` footer and `onSelected`), and below (completion
-  sources, 2026-11-21); amends [0142](0142-language-server-foundation.md) (`ServerInstaller.toolName`,
-  `ServerAvailability.Failed.canRetry`), [0141](0141-editor-api-for-language-features.md) (`popupOwner`),
+  sources, 2026-11-21; trigger characters per source and filtering after a fixed part, 2026-11-28); amends
+  [0142](0142-language-server-foundation.md) (`ServerInstaller.toolName`, `ServerAvailability.Failed.canRetry`), [0141](0141-editor-api-for-language-features.md) (`popupOwner`),
   [0108](0108-code-editor-extensions-and-context-menu.md) (`CodeEditorExtensions.extensions` public); see
   [0141](0141-editor-api-for-language-features.md), [0144](0144-python-via-ty.md),
   [0108](0108-code-editor-extensions-and-context-menu.md), [0070](0070-window-services.md),
@@ -146,3 +146,22 @@ completion should still look and act like the servers' (popup, keys, matching, t
 Rejected: a fake language server for JShell (a protocol translation for one request, and a server spec would also
 bring banners and the restart item); passing lsp4j `CompletionItem`s through the API (every source would depend on
 lsp4j); `appliesTo(editor)` instead of a file predicate (a rename could not be followed without asking again).
+
+## Amendment 2026-11-28: trigger characters per source, filtering after a fixed part
+An `.http` source (ADR 0195, written with it) completes `{{` variables, `$uuid`-style dynamic
+variables, header names and values: it needs other trigger characters than `.`, and it anchors its items before the
+word the popup filters by (`$` and `-` and `/` are no word chars), so `$uu` matched against `$uuid` would only be a
+subsequence match.
+- **Trigger characters:** `CompletionSource.triggerCharacters` (default `listOf(".")`, so the interface stays a
+  `fun interface` and JShell's source keeps `.`); `SourceCompletionBackend.triggerCharacters()` returns it. Typed alone,
+  each asks the source at once, as a server's trigger characters do; only the source's list counts.
+- **Fixed part:** when a source's anchor lies before the word at the caret (`wordStart`, ADR 0147's word chars),
+  `sourceItems` sets an item's `filterText` to its label without the fixed part, the text from the anchor to the word
+  start, if the label starts with it ignoring case (`$uu` and `$uuid`: `uuid`; `Content-T` and `Content-Type`: `Type`;
+  `application/j` and `application/json`: `json`); otherwise, and without a fixed part, `filterText` stays unset. A
+  source returns only items whose label starts with the fixed part (KDoc of `SourceCompletions.anchor`). An anchor on an
+  earlier line counts from the caret line's start. The `textEdit` still replaces from the anchor; `sortText` keeps the
+  source's order.
+
+Rejected: a `filterText` field in `SourceCompletion` that the source fills (the backend knows the word rule the popup
+filters by; a source should not have to repeat it).
