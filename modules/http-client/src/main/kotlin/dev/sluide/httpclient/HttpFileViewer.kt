@@ -17,14 +17,14 @@ import kotlin.io.path.extension
 class HttpFileViewer : SourceFileViewer {
     override val sourceHighlighter: SyntaxHighlighter = HttpSyntaxHighlighter()
 
-    override fun canOpen(file: Path): Boolean =
-        file.extension.lowercase() in EXTENSIONS && Files.isReadable(file) && isTextFile(file)
+    override fun canOpen(file: Path): Boolean = isHttpFile(file) && Files.isReadable(file) && isTextFile(file)
 
     // `#` comments, as IntelliJ comments out lines of .http files; `//` comments are read too.
     override fun open(file: Path): FileView =
         HttpFileView(file, CodeEditors.open(file, sourceHighlighter, lineComment = "#"))
-
-    private companion object {
-        val EXTENSIONS = setOf("http", "rest")
-    }
 }
+
+private val HTTP_EXTENSIONS = setOf("http", "rest")
+
+/** Whether [file] is a `.http` or `.rest` file by its name, ignoring case: what the HTTP client shows and completes. */
+fun isHttpFile(file: Path): Boolean = file.extension.lowercase() in HTTP_EXTENSIONS
