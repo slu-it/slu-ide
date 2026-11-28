@@ -52,6 +52,17 @@ Content-Type: image/png
 - `Authorization: Basic user password` (or `user:password`) is encoded for you; `Authorization: Digest user password`
   answers the server's Digest challenge.
 - Shortcut+/ (or Shortcut+Shift+7) comments lines out with `#` (and back in).
+- Completion (Ctrl+Space, Ctrl on macOS too; it opens by itself while typing and after `{{`, `$`, `.`, `-`, `/`):
+  - after `{{`: the file's `@variables`, the variable names of all environments (detail: the environments defining
+    them), the `$` variables with their arguments, `$env.` followed by the operating system's variable names, and
+    `$auth.token("id")` / `$auth.idToken("id")` for the auth ids of every environment; values are never shown. A name
+    that both the file and an environment define is one item, listing the environments and then `@ variable`. Taking
+    a name adds `}}`, unless `}}` follows; a `$` variable that needs an argument (`$random.alphabetic`) adds `(`
+    instead, to type the argument;
+  - methods at the start of a request line and `HTTP/1.1`, `HTTP/2` after the URL;
+  - header names in the header block (common ones and those used in the file) and values of well-known headers
+    (`Content-Type`, `Accept`, `Authorization`, `Accept-Encoding`, `Cache-Control`, `Connection`);
+  - tags after `# @`.
 - Highlighting: methods and versions as keywords, URLs as strings, header names as properties, `{{variables}}`, tags and
   `@variables` as annotations, bodies by their `Content-Type` (JSON, XML, HTML), scripts as JavaScript.
 

@@ -416,7 +416,7 @@ internal object HttpFileParser {
     }
 
     /** The request tags that have an effect, `# @name` and the others. */
-    private val TAGS = setOf("name", "no-redirect", "no-cookie-jar", "timeout", "connection-timeout")
+    internal val TAGS = setOf("name", "no-redirect", "no-cookie-jar", "timeout", "connection-timeout")
     private val TAG = Regex("""@([\w-]+)\s*(?:=\s*)?(.*)""")
     private val DURATION = Regex("""(\d+)\s*(ms|s|m)?""")
     internal val VARIABLE = Regex("""@([A-Za-z_][\w.-]*)\s*=(.*)""")

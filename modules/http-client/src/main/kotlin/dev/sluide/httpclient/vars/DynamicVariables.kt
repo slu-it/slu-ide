@@ -163,3 +163,9 @@ internal val DYNAMIC_VARIABLE_NAMES: List<DynamicVariableName> =
         DynamicVariableName("\$random.hexadecimal", "(length)"),
         DynamicVariableName("\$random.email"),
     )
+
+/**
+ * Whether [name], one of [DYNAMIC_VARIABLE_NAMES], needs arguments, i.e. gives no value when called without any; not
+ * for `$env.` names, which it would read from the operating system.
+ */
+internal fun DynamicVariables.needsArguments(name: String): Boolean = value(name) == null

@@ -220,6 +220,7 @@ updated when the summary or keywords no longer fit.
 | [0192](adr/0192-pdf-viewer.md) | PDF viewer on PDFBox page images: a document per thread, no interrupts, 16 MP cap; view hooks for panels | PDF, PDFBox, `PdfDocument`, `PdfWorker`, `PageTexts`, `textRects`, `shownPages`, selection, thumbnails, `SearchFlow`, password, `pdf` | see 0017, 0060, 0165 |
 | [0193](adr/0193-plantuml-engine.md) | PlantUML in-process under SANDBOX (no local includes, no URLs), one render thread with a watchdog, Smetana fallback | PlantUML, Graphviz, dot, Smetana, SANDBOX, includes, stdlib, dark mode, watchdog, `PlantUml`, `GraphvizLocator`, `plantuml` | see 0033, 0058, 0059, 0060, 0124, 0165 |
 | [0194](adr/0194-git-ssh-prompts.md) | ssh's passphrase and host prompts of fetch/push reach dialogs: Kotlin askpass helper, Unix socket | ssh passphrase, askpass, `SSH_ASKPASS`, known_hosts, `SshPrompts`, `SshAccess`, `SshPassphrases`, ssh-add, saved passphrase, Unix domain socket, BatchMode | amends 0043, 0049; see 0076, 0191 |
+| [0195](adr/0195-http-file-completion.md) | Completion in `.http` files from our own engine in http-client; `ide` maps its DTOs | completion, `.http`, `HttpCompletion`, variables, headers, media types, tags, fixed part | builds on 0025, 0145 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -292,7 +293,7 @@ updated when the summary or keywords no longer fit.
 |---|---|---|
 | [terminal.md](features/terminal.md) | Shell terminals as editor tabs; one-command terminals in other views | New Terminal, Ctrl+Shift+T, shell, scrollback, embedded terminal |
 | [docker-sandbox.md](features/docker-sandbox.md) | Claude Code or an environment in a Docker sandbox terminal | `sbx`, Claude Code, `sbxenv.yaml`, Docker Sandbox menu, Management Console, SBX |
-| [http-client.md](features/http-client.md) | `.http` request files run from the editor; Copy as cURL, Paste cURL as Request | `.http`, `.rest`, variables, environments, OAuth2, response pane, New HTTP Client Setup, cURL |
+| [http-client.md](features/http-client.md) | `.http` request files run from the editor; Copy as cURL, Paste cURL as Request | `.http`, `.rest`, variables, environments, OAuth2, response pane, New HTTP Client Setup, cURL, completion |
 | [http-client-env-editor.md](features/http-client-env-editor.md) | Visual editor for the HTTP client environment files | `http-client.env.json`, private env file, tree table, locks |
 | [gradle.md](features/gradle.md) | Gradle view: task tree and task runs in an embedded terminal | `build.gradle.kts`, wrapper, task tree, run tasks, argument history, trust |
 | [secrets.md](features/secrets.md) | Saved database passwords, HTTP client and git SSH passphrases, encrypted with one OS-stored key; Settings → Secrets | saved secrets, Save password, Save passphrase, ssh passphrase, Keychain, Secret Service, `secret-tool`, Settings → Secrets, Forget All Saved Secrets |

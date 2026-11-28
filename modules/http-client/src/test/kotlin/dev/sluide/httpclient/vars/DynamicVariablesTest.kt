@@ -180,6 +180,13 @@ class DynamicVariablesTest {
     }
 
     @Test
+    fun `tells the names that need arguments from the others`() {
+        val needing = DYNAMIC_VARIABLE_NAMES.map { it.name }.filter { variables.needsArguments(it) }
+
+        assertEquals(listOf("\$random.alphabetic", "\$random.alphanumeric", "\$random.hexadecimal"), needing)
+    }
+
+    @Test
     fun `lists each name once with a hint for those taking arguments`() {
         val names = DYNAMIC_VARIABLE_NAMES.associate { it.name to it.hint }
 
